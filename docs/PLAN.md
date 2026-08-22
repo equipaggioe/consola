@@ -79,38 +79,68 @@ INFO:     172.19.0.4:51224 - "GET /api/routes" 200
 
 ## 1. Qué reemplaza
 
-46 archivos en `navetta/scripts/`, agrupados en 8 carpetas temáticas, se convierten en un catálogo
-que **ya no se cuenta en acciones fijas**, sino en **capacidades** (§2). Una capacidad es una
-función; el número de botones que produce depende de sus ejes y del proyecto abierto — por eso no
-hay un número único como el "36 acciones" de la versión anterior de este plan. Lo que sí es estable
-es el número de capacidades: alrededor de 20, agrupadas en dos tipos:
+**Re-auditado el 2026-08-21 contra `scripts/` de este repo** (el usuario reemplazó los scripts
+desde la auditoría anterior — ver historial de §11, punto 1). 44 archivos `.py` de comportamiento
+(sin contar `__pycache__`), agrupados en 9 carpetas temáticas, más un `scripts/common.py` nuevo de
+917 líneas que ya es, en el código real, el nivel 0 de §2.1. Se convierten en un catálogo que **no
+se cuenta en acciones fijas**, sino en **capacidades** (§2): el número de botones que produce cada
+una depende de sus ejes y del proyecto abierto. El número de capacidades subió respecto a la
+versión anterior de este documento — no porque haya más botones por los mismos scripts, sino porque
+**aparecieron scripts nuevos** desde la última auditoría: son ahora más de 35 (detalle completo en
+§5), agrupadas en tres tipos:
 
 - **Atómicas** — hacen una sola cosa. `bump_version`, `upload_to_vps`, `systemd_action`,
-  `git_sync_remote`. Producen uno o varios botones según sus ejes (§2).
+  `run_seeders`. Producen uno o varios botones según sus ejes (§2.4).
 - **Compuestas (recetas)** — encadenan capacidades atómicas en el mismo orden que hoy encadena el
   script original, sin duplicar su lógica. Producen un botón propio *además* de los botones de cada
   paso — no en su lugar. Ver §7, caso 7.
+- **Compuestas de compuestas** — novedad de esta relectura: `vps_setup/bootstrap_vps.py` no
+  encadena solo atómicas, encadena *otras compuestas* (`update_remote`, `bootstrap_db`,
+  `rebuild_db`) más algunas atómicas (`refresh_known_host`, `setup_ssh_key`, …) — es la receta de
+  recetas "VPS desde cero" que el plan original imaginaba en abstracto (§0) y que ahora existe como
+  código real. Ver §7, caso 7.
 
-Confirmado contra el código fuente de cada script (no solo su docstring), tres simplificaciones
-se sostienen igual que antes:
+Confirmado contra el código fuente de cada script (no solo su docstring), estas simplificaciones se
+sostienen o se corrigen respecto a la versión anterior:
 
 - `run_emulator_1/2/3.py` llaman los tres a la misma función `run()` de `android_emulator.py` con
   tres constantes distintas (`pixel_4`, `pixel_8`, `resizable`) → una capacidad `start_emulator` con
-  eje `preset`, `expand="buttons"`.
-- `run_panel.py`, `run_backoffice.py` (raíz de `scripts/`) y `launchers/run_landing.py` resultan ser,
-  leyendo el código, el mismo flujo que `launchers/run_vite.py` — `run_landing.py` incluso lo llama
-  directamente (`run_vite.main()` con `sys.argv=["landing"]`); `run_panel.py`/`run_backoffice.py` son
-  una copia literal con el prefijo de variable de entorno cambiado (`PANEL_*` / `BACKOFFICE_*` en vez
-  de leer el prefijo por parámetro). Los tres, más cualquier SPA nueva que aparezca en el repo, caen
-  en **una** capacidad `serve_vite_app` con eje `target` **descubierto** (§2) — no hay que confirmar
-  nada a mano, esto resuelve el punto 2 del pendiente original (antes §11.2).
-- `view_logs.py` es un wrapper de una línea sobre `run_systemd_action.py logs` → se absorbe como
-  valor del eje `action` de `systemd_action`, no como capacidad propia.
+  eje `preset`, `expand="buttons"`. Sigue igual.
+- Los duplicados de raíz (`run_server.py`, `run_terminal.py`, `run_panel.py`, `run_backoffice.py`)
+  **ya no existen** — el usuario los borró al reemplazar los scripts, confirmando en los hechos la
+  simplificación que este documento ya proponía. `run_panel`/`run_backoffice` sobreviven solo como
+  el eje `target` **descubierto** de `serve_vite_app` (junto con `run_landing.py`, que sigue siendo
+  un wrapper de una línea sobre `run_vite.py`) — resuelto el punto 2 del pendiente original.
+- ~~`view_logs.py` se absorbe como valor del eje `action` de `systemd_action`~~ — **corregido**: en
+  el código actual es al revés. `run_systemd_action.py` sacó `logs` de su lista de acciones
+  (`"Para ver los logs en vivo, usa view_logs.py"`, dice su propio docstring) y `view_logs.py` ganó
+  filtros propios (`LOG_LINES`, `LOG_FOLLOW`, `LOG_SINCE`, `LOG_LEVEL`, `LOG_GREP` — todo vía
+  `journalctl`). Son dos capacidades hermanas, no una absorbida en la otra (detalle en §5).
 - `sync_projects.py` + `verify_projects.py` se funden en una sola capacidad (`--check` como valor de
-  un eje `mode`, no como script aparte).
+  un eje `mode`, no como script aparte). Sigue igual.
+- **Novedad — `build_apk.py`** ya no es solo Flutter: detecta automáticamente Flutter o Flet
+  (`pubspec.yaml` vs. `pyproject.toml` con dependencia `flet`, vía `common.detect_app_project_type`)
+  y usa el binario correspondiente. `launchers/` ganó un `run_flet.py` hermano de `run_flutter.py`
+  con el mismo patrón de detección de emulador activo. El eje `target` de la app móvil ahora es
+  "tipo de framework detectado", no una constante fija.
+- **Novedad — grupo "Base de datos (operaciones)" completo**, antes disperso o inexistente:
+  `vps_ops/backup_database.py` y `vps_ops/ssh_tunnel_postgres.py` se mudaron a `database/`, y se
+  sumaron `bootstrap_db.py`, `teardown_db.py`, `migrate_db.py`, `rebuild_db.py` (compuesta:
+  reconstruye esquema + corre `run_seeders.py`/`run_mock_seeders.py`, que también son capacidades
+  propias) e `inspect_db.py`. Todo el grupo comparte el patrón `RUN_REMOTE` de `common.py`
+  (`maybe_dispatch_remote`): un mismo script corre local o se reenvía solo al VPS por SSH según ese
+  flag — es el caso real que ya anticipaba el eje `scope` de §2.4, ahora confirmado en código.
+- **Novedad — `vps_ops/clean_vps.py`**: compuesta destructiva nueva, "dejar el VPS como recién
+  formateado" — reversa de `bootstrap_vps.py`, con seis pasos que cada uno detecta antes de actuar.
+- **Novedad — `vps_setup/install_coturn.py`**: capacidad nueva sin relación con el catálogo
+  anterior, aprovisiona un servidor TURN en el VPS para llamadas detrás de NAT simétrico.
+- **`builders/build_executable.py` parece código muerto**: `build_binary.py` es, línea por línea,
+  su reemplazo (mismo flujo, usa `common.py`, suma el flag `BUILD_BINARY`) — `build_executable.py`
+  no importa `common` y no aparece referenciado desde ningún otro script. Se trata como superado por
+  `build_binary.py` en el catálogo (§5); confirmar con el usuario antes de borrarlo del repo (§11).
 
-Dos scripts quedan fuera del catálogo por completo (ver abajo), sin cambios respecto a la versión
-anterior de este plan.
+Dos scripts quedan fuera del catálogo por completo (ver abajo); `get_route_data.py` ya fue borrado
+por el usuario junto con el resto de la limpieza, confirmando esa exclusión en los hechos.
 
 ### Scripts descartados (no se portan a Consola)
 
@@ -177,17 +207,24 @@ puramente interna.
 
 ### 2.1 Nivel 0 — Funciones comunes
 
-Esto es, literalmente, el `common.py` que los scripts actuales nunca llegaron a tener. Hoy cada una
-de estas rutinas está copiada y pegada, casi idéntica, en varios archivos distintos:
+Esto dejó de ser hipotético: **ya existe `scripts/common.py`** (917 líneas), creado por el usuario
+al reemplazar los scripts, y es exactamente el nivel 0 que este documento venía proponiendo — lo
+confirma en vez de contradecirlo. Consola no inventa esta capa desde cero, la traslada a
+`core/envfile.py` / `core/ssh.py` / `core/vps.py` / `core/android.py` (§3) analizando su
+comportamiento, tal como se analiza cualquier otro script. Agrupadas por lo que resuelven:
 
-| Función común | Reemplaza la copia duplicada en… |
-|---|---|
-| `load_env_file(path)` / `require(name)` | 12+ scripts: `run_server.py`, `run_terminal.py`, `run_vite.py`, `run_panel.py`, `run_backoffice.py`, todos los `vps_ops/*.py`, `vps_server/*.py`, `vps_setup/*.py` — cada uno trae su propio `_load_env_file` / `_require_env` casi carácter por carácter |
-| `resolve_ssh_target(vps_ip, vps_user, vps_key_name)` → identity file + `user@ip` | `ssh_login.py`, `run_command.py`, `run_scripts.py`, `ssh_tunnel_postgres.py`, `revoke_ssh_key.py`, `install_base_software.py`, `refresh_known_host.py`, `setup_ssh_key.py`, `update_remote.py`, `install_systemd_service.py`, `run_systemd_action.py` |
-| `repo_name_from_git_url(url)` | `run_systemd_action.py`, `build_vite.py`, `install_systemd_service.py`, `update_remote.py` |
-| `bump_semver(text, field, mode)` | el núcleo regex que comparten `build_apk.py` (`pubspec.yaml`), `build_vite.py` (`package.json`) y `build_executable.py` (`pyproject.toml`) — cada uno reimplementa el mismo incremento X.Y.Z con su propia regex |
-| `upload_dir_via_scp(local, remote, ssh_target)` | `build_apk.py`, `build_vite.py`, `build_executable.py` |
-| `find_project_root()` (busca `.git` subiendo directorios) | `build_vite.py`, `build_executable.py` y variantes menores en el resto |
+| Grupo | Funciones reales en `common.py` | Antes duplicado en |
+|---|---|---|
+| `.env` | `load_env_file`, `peek_env_value`, `require_env`, `require_port_env`, `require_bool_env`, `optional_env`, `upsert_env_var`, `force_env_vars` | prácticamente todos los scripts — cada uno traía su propio `_load_env_file`/`_require_env` |
+| SSH / VPS | `require_identity_file`, `load_vps_ip_user`, `load_vps_config`, `ssh_argv`, `run_ssh`, `run_ssh_checked`, `scp_transfer`, `copy_to_vps`, `repo_name_from_git_url` | `ssh_login.py`, `run_command.py`, `run_scripts.py`, `revoke_ssh_key.py`, `install_base_software.py`, `refresh_known_host.py`, `setup_ssh_key.py`, `update_remote.py`, `install_systemd_service.py`, `run_systemd_action.py`, `database/*.py` |
+| Versionado y builds | `bump_semver`, `reversible_write`, `resolve_flutter_cmd`, `resolve_flet_cmd`, `detect_app_project_type`, `run_flutter_devices_machine`, `pick_android_emulator_id` | `build_apk.py`, `build_vite.py`, `build_binary.py`, `run_flutter.py`, `run_flet.py` |
+| Red / GitHub | `github_api_request`, `is_port_free`, `pick_port` | `setup_github_ssh.py`, `revoke_github_ssh.py`, `run_vite.py`, `run_server.py` |
+| Base de datos remota/local | `windows_postgres_port`, `remote_postgres_port`, `start_ssh_tunnel`, `resolve_database_url`, `maybe_dispatch_remote` | `run_server.py`, todo `database/*.py` — es el mecanismo detrás del eje `scope` (§2.4) |
+| SO / SDKs | `detect_os`, `print_header`, `run_logged`, `sdk_root_from_env`, `resolve_android_tool`, `venv_python`, `find_project_root` | `install_android_sdk.py`, `install_flutter_sdk.py`, `emulators/*.py`, `install_base_software.py` |
+
+`maybe_dispatch_remote()` merece nota aparte: no es solo "cargar algo", es el mecanismo que hace que
+un mismo script corra local o se reenvíe por SSH al VPS según `RUN_REMOTE`, con streaming en vivo de
+la salida remota — es, en código real, el eje `scope` de §2.4 antes de que existiera ese nombre.
 
 Ninguna de estas seis tiene botón propio. Un botón que "solo" ejecuta `resolve_ssh_target` no tiene
 sentido para nadie — es la que usan por dentro `ssh_login`, `run_command`, `backup_database` y una
@@ -309,7 +346,7 @@ consola/
 │   ├── context.py           TaskContext, TaskError, Cancelled
 │   ├── runner.py            pool de workers, cancelación, árbol de PIDs
 │   ├── registry.py          @capability + axis() → catálogo de secciones/botones (§2)
-│   ├── recipes.py           receta = lista de (capacidad, valores de eje) → botón compuesto (§7.7)
+│   ├── recipes.py           receta = lista de (capacidad, valores de eje) → botón compuesto (§7, casos 7-8)
 │   ├── targets.py           descubre subproyectos por marcador de archivo (§2.4)
 │   ├── params.py            dataclass tipado → especificación de widgets
 │   ├── projects.py          los proyectos gestionados, detección, validación
@@ -321,6 +358,7 @@ consola/
 │   └── tasks/
 │       ├── launchers.py     builders.py     emulators.py
 │       ├── vps_ops.py       vps_server.py   vps_setup.py
+│       ├── database.py      grupo Base de datos (operaciones), §5
 │       └── utils.py
 ├── ui/
 │   ├── main_window.py       rail de acciones | pestañas | barra de estado
@@ -332,14 +370,12 @@ consola/
 └── main.py
 ```
 
-`core/` deduplica dos patrones que hoy están copiados literalmente en múltiples scripts:
-
-- **Carga de `.env`** (`_load_env_file`, `_require_env`, `_require_int_env`, `_require_bool_env`):
-  presente en `launchers/run_server.py`, `launchers/run_terminal.py`, `vps_ops/run_scripts.py`,
-  `vps_ops/ssh_login.py`, `vps_ops/ssh_tunnel_postgres.py` y otros → `core/envfile.py`, una vez.
-- **Resolución de sesión SSH** (llave en `~/.ssh/<VPS_KEY_NAME>`, target `user@ip`): presente en
-  `vps_ops/ssh_login.py`, `vps_ops/run_scripts.py`, `vps_ops/ssh_tunnel_postgres.py`,
-  `vps_server/*.py` → `core/ssh.py`, una vez.
+`core/` traslada, analizando su comportamiento, lo que `scripts/common.py` ya centralizó en el
+código real (§2.1) — no parte de cero deduplicando 12 copias sueltas, parte de una sola fuente ya
+unificada por el usuario. Mapeo directo: las funciones de `.env` de `common.py` → `core/envfile.py`;
+las de SSH/VPS → `core/ssh.py`; las de versionado/build → parte de `core/tasks/builders.py`; las de
+base de datos remota/local (`resolve_database_url`, `maybe_dispatch_remote`) → el mecanismo detrás
+del eje `scope` en `core/registry.py`, usado por `core/tasks/database.py`.
 
 ---
 
@@ -384,31 +420,42 @@ en §7, caso 7). "🧩" marca una capacidad compuesta.
 
 | Grupo | Capacidad | Ejes → botones que produce | Tipo |
 |---|---|---|---|
-| Launchers | Backend (`run_server.py`) | — (una instancia por proyecto) | en vivo |
-| Launchers | Servir SPA Vite (`run_vite`+`run_panel`+`run_backoffice`+`run_landing`) | `target` **descubierto** (`panel`, `backoffice`, `landing`, …) → 1 botón por SPA encontrada | en vivo |
-| Launchers | Flutter (`run_flutter.py`) | — | en vivo |
+| Launchers | Backend (`run_server.py`) | `scope` local/remoto (resuelve `DATABASE_URL` vía `RUN_REMOTE`, abre túnel solo si hace falta) | en vivo |
+| Launchers | Servir SPA Vite (`run_vite`+`run_landing`) | `target` **descubierto** (`panel`, `backoffice`, `landing`, …) → 1 botón por SPA encontrada | en vivo |
+| Launchers | Correr app móvil en emulador (`run_flutter.py` + `run_flet.py`, nuevo) | `framework` **descubierto** (Flutter si hay `pubspec.yaml`, Flet si `pyproject.toml` declara `flet`) — normalmente 1 botón, salvo repo con ambos | en vivo |
 | Launchers | Terminal (`run_terminal.py`) | — (vigilante + hijo, caso 6) | en vivo |
-| Builders 🧩 | **Build APK** (`build_apk.py`) — compuesta de: `bump_version(pubspec)`, `flutter pub get`, `flutter build apk`, `upload_to_vps` | `bump_mode` campo; `copy_to_vps` scope local/con-subida | una vez |
-| Builders 🧩 | **Build Vite** (`build_vite.py`) — compuesta de: `bump_version(package.json)`, `npm ci`, `npm run build`, `upload_to_vps` | `target` descubierto (igual que el launcher) × `copy_to_vps` scope | una vez |
-| Builders 🧩 | **Build ejecutable** (`build_executable.py`) — compuesta de: `bump_version(pyproject)`, `pyinstaller`, `upload_to_vps` opcional | `entrypoint` campo | una vez |
-| Builders | Promote app (`promote_app.py`) | — (un solo paso: copia `app_web_ultima` → `app_web_estable`, no hay nada que descomponer) | una vez / destructivo |
+| Builders 🧩 | **Build APK** (`build_apk.py`) — compuesta de: `bump_version`, build (Flutter *o* Flet, mismo `framework` descubierto que el launcher), `upload_to_vps` | `bump_mode` campo; `copy_to_vps` scope local/con-subida | una vez |
+| Builders 🧩 | **Build Vite** (`build_vite.py`) — compuesta de: `npm install`, `bump_version(package.json)`, `npm run build`, `upload_to_vps` | `target` descubierto (igual que el launcher) × `copy_to_vps` scope | una vez |
+| Builders 🧩 | **Build binario** (`build_binary.py`, reemplaza a `build_executable.py` — ver §1) — compuesta de: `bump_version(pyproject)`, `pyinstaller`, `upload_to_vps` opcional | `entrypoint` campo | una vez |
+| Builders | Promote app (`promote_app.py`) | — (un solo paso: copia `app_web_ultima` → `app_web_estable`) | una vez / destructivo |
 | Emulators | Arrancar emulador (`android_emulator.py` + `run_emulator_1/2/3.py`) | `preset` → botones `pixel_4` \| `pixel_8` \| `resizable` | en vivo |
 | Emulators | Gestor de AVD (`emulator_manager.py`) | — (vista propia, no consola) | vista |
 | Emulators | Purgar AVD / Purgar imágenes de sistema | — | destructivo |
 | VPS · ops | Sesión SSH (`ssh_login.py`) | — | interactivo |
-| VPS · ops | Túnel Postgres (`ssh_tunnel_postgres.py`) | — | servicio de fondo |
-| VPS · ops | Backup DB / Health check / Comando remoto | — | una vez |
-| VPS · ops 🧩 | **Correr setup remoto** (`run_scripts.py`) — compuesta de: `run_remote_script(script)` por cada entrada de `SETUP_SCRIPTS` | `script` → 1 botón por entrada de la lista (config, no hardcode) + botón compuesto "Correr todos, en orden" | una vez |
-| VPS · ops | Revocar llave SSH (`revoke_ssh_key.py`) | — (ya es un solo paso: VPS + archivos locales) | destructivo |
+| VPS · ops | Health check / Comando remoto (`check_health.py`, `run_command.py`) | — | una vez |
+| VPS · ops 🧩 | **Correr setup remoto** (`run_scripts.py`) — compuesta de: `run_remote_script(script)` por cada entrada de `SETUP_SCRIPTS` (hoy apunta a `database/rebuild_db.py`, etc.) | `script` → 1 botón por entrada de la lista (config, no hardcode) + botón compuesto "Correr todos, en orden" | una vez |
+| VPS · ops | Revocar llave SSH (`revoke_ssh_key.py`) | — (VPS + archivos locales) | destructivo |
 | VPS · ops 🧩 | **Revocar GitHub SSH** (`revoke_github_ssh.py`) — compuesta de: `remove_remote_ssh_key_files`, `revoke_github_key_by_title` | — | destructivo |
-| VPS · server | Acción systemd (`run_systemd_action.py` + `view_logs.py`) | `action` → botones `start`\|`stop`\|`restart`\|`status`\|`logs`, menú `enable`\|`disable`\|`reload`\|`is-active`\|`is-enabled` | en vivo (`logs`) / una vez |
+| VPS · ops 🧩 | **Limpiar VPS** (`clean_vps.py`, nuevo) — compuesta de seis pasos que se auto-detectan antes de actuar: `remove_systemd_service`, `drop_database`, `remove_deployed_repo`, `revoke_github_key` (reusa la atómica de arriba), `uninstall_packages`, `remove_vps_user` | los seis pasos son casillas del formulario (`STEPS` ya es así en el script), no botones sueltos — "dejar como recién formateado" casi siempre se pide entero, no por partes (regla del caso 7, §7) | destructivo |
+| VPS · server | Acción systemd (`run_systemd_action.py`) | `action` → botones `start`\|`stop`\|`restart`\|`status`, menú `enable`\|`disable`\|`reload`\|`is-active`\|`is-enabled` — **ya no incluye `logs`** (ver §1) | una vez |
+| VPS · server | Ver logs (`view_logs.py`) — capacidad hermana de la anterior, no absorbida en ella | `since`/`level`/`grep`/`lines` campos de filtro, `follow` bool | en vivo |
 | VPS · server 🧩 | **Instalar servicio systemd** (`install_systemd_service.py`) — compuesta de: `write_systemd_unit` + reusa `systemd_action(reload)`, `systemd_action(enable)`, `systemd_action(start)` | — | una vez |
-| VPS · server 🧩 | **Actualizar remoto** (`update_remote.py`) — compuesta de: `git_sync_remote`, `ensure_remote_venv`, `install_remote_deps`, `copy_env_to_remote`, `copy_certs_to_remote`, `copy_firebase_credentials` | cada paso también es botón suelto (ej.: "solo copiar certificados" sin rehacer el resto) | en vivo |
-| VPS · setup 🧩 | **Software base** (`install_base_software.py`) — compuesta de: `apt_update`, `apt_upgrade`, `apt_install(grupo)` | `grupo` (`python`\|`git`\|`node`\|…) → botones, ya es selección hoy (`PACKAGES`) | una vez |
+| VPS · server 🧩 | **Actualizar remoto** (`update_remote.py`) — compuesta de: `git_sync_remote` (con `ctx.confirm` si hay cambios sin commitear en el VPS: descartar o stash), `ensure_remote_venv` + `install_remote_deps` (condicionales a que el repo se haya actualizado), `upload_files` (`.env` + certs + `firebase-service-account.json`, un solo flag), `generate_migration` (nuevo: corre `database/migrate_db.py` **local**, contra el VPS por túnel, forzando `RUN_REMOTE=true` solo para ese subproceso), `restart_service` (se salta con aviso si el servicio todavía no existe) | `pull_repository`, `upload_files`, `generate_migration` scopes/flags — cada paso también es botón suelto | en vivo |
+| VPS · setup | Software base (`install_base_software.py`) | `grupo` (`python`\|`git`\|`node`\|…) → botones de paquetes (ya es selección hoy, `PACKAGES`) | una vez |
 | VPS · setup | Refrescar known_host | — | una vez |
-| VPS · setup 🧩 | **Configurar llave SSH** (`setup_ssh_key.py`) — compuesta de: `ensure_remote_user`, `configure_sudo_nopasswd`, `ensure_local_ssh_keypair`, `install_pubkey_remote`, `test_ssh_login` | — | una vez |
+| VPS · setup 🧩 | **Configurar llave SSH** (`setup_ssh_key.py`) — compuesta de: `ensure_remote_user`, `configure_sudo_nopasswd` (`SUDO_NOPASSWD_MODE` campo), `ensure_local_ssh_keypair`, `install_pubkey_remote`, `test_ssh_login` | `root_password` campo opcional (usa `sshpass` si está) | una vez |
 | VPS · setup 🧩 | **Configurar GitHub SSH** (`setup_github_ssh.py`) — compuesta de: `generate_remote_keypair`, `register_github_key`, `test_github_ssh` | — | una vez |
-| Utils | Limpiar artefactos (`clean_artifacts.py` absorbe `clean_pycache.py` como subconjunto de patrones) | `dry_run` scope simulacro/borrado | destructivo |
+| VPS · setup | **Instalar coturn** (`install_coturn.py`, nuevo) | — (aprovisiona TURN server para llamadas tras NAT simétrico; genera `TURN_SECRET`, escribe `/etc/turnserver.conf`, abre puertos en `ufw` si está activo) | una vez |
+| VPS · setup 🧩🧩 | **Bootstrap VPS** (`bootstrap_vps.py`, nuevo) — compuesta de compuestas: encadena `refresh_known_host` → `setup_ssh_key` → `install_base_software` → `setup_github_ssh` → **`update_remote`** → **`bootstrap_db`** → **`rebuild_db`** → `install_systemd_service`, forzando `RUN_REMOTE=true` para los dos pasos de base de datos | — (es el botón "VPS desde cero" que el mockup original de §0 imaginaba en abstracto) | una vez |
+| Base de datos (operaciones) | Bootstrap DB (`database/bootstrap_db.py`) | `scope` local/remoto vía `RUN_REMOTE` (Windows local o VPS por SSH) | una vez |
+| Base de datos (operaciones) | Teardown DB (`database/teardown_db.py`) | `scope` local/remoto | destructivo |
+| Base de datos (operaciones) | Migrar (`database/migrate_db.py`) | `mensaje` campo opcional; `scope` local/remoto | una vez |
+| Base de datos (operaciones) 🧩 | **Reconstruir DB** (`database/rebuild_db.py`) — compuesta de: borrar esquema, reset de Alembic, `run_seeders` (atómica propia), `run_mock_seeders` (atómica propia), `run_partitions` | `run_seeders`/`run_mock_seeders`/`run_partitions` flags — cada uno también botón suelto | una vez / destructivo |
+| Base de datos (operaciones) | Seeders base / Seeders mock (`run_seeders.py`, `run_mock_seeders.py`) | — | una vez |
+| Base de datos (operaciones) | Backup DB (`database/backup_database.py`, antes en `vps_ops/`) | `keep` campo | una vez |
+| Base de datos (operaciones) | Túnel Postgres (`database/ssh_tunnel_postgres.py`, antes en `vps_ops/`) | — | servicio de fondo |
+| Base de datos (operaciones) | Inspeccionar (`database/inspect_db.py`) | — (diagnóstico de solo lectura; relacionado con el Explorer de §6 pero sin UI propia) | una vez |
+| Utils | Limpiar artefactos (`clean_artifacts.py`, ya absorbe `clean_pycache.py`, que se borró del repo) | `dry_run` scope simulacro/borrado | destructivo |
 | Utils | Instalar SDK Android / Instalar SDK Flutter | — | una vez |
 | Utils | Actualizar Cloudflare | `ip_mode` campo (`detect`\|`vps`\|`static`) | una vez |
 | Utils | **Sync · archivos comunes** (`sync_projects.py` + `verify_projects.py`, sin la parte de `scripts/`) | `mode` scope simulacro (`--check`) / aplicar | destructivo |
@@ -420,6 +467,9 @@ en §7, caso 7). "🧩" marca una capacidad compuesta.
 - **destructivo** — pide confirmación escrita del nombre del objetivo antes de habilitar el botón.
 - **interactivo** — no se embebe en la app; abre una terminal externa con la sesión ya armada.
 - **vista** — no corre en una pestaña de consola; abre su propia vista (como Base de datos, §6).
+
+"🧩" marca una compuesta de atómicas. "🧩🧩" marca una compuesta de compuestas (caso nuevo, §7,
+caso 7) — encadena botones que a su vez tienen su propio botón compuesto, no solo atómicas sueltas.
 
 Regla para saber si un paso interno se vuelve botón atómico o queda escondido dentro de la
 compuesta: ver §7, caso 7.
@@ -479,9 +529,9 @@ de alcance, igual que en Exploratore: migraciones, administración de roles, mul
 
 ---
 
-## 7. Siete casos que definen la arquitectura
+## 7. Ocho casos que definen la arquitectura
 
-El resto de las capacidades es rutina de reimplementación directa. Estos siete obligan a decisiones
+El resto de las capacidades es rutina de reimplementación directa. Estos ocho obligan a decisiones
 de diseño explícitas:
 
 1. **Sesión SSH interactiva** (`ssh_login.py`). Necesita TTY real: prompts, contraseña, señales.
@@ -518,28 +568,49 @@ de diseño explícitas:
 
 7. **Scripts que hoy son un solo archivo con varios pasos internos, no una llamada a otro script**
    (`update_remote.py`, `setup_ssh_key.py`, `setup_github_ssh.py`, `install_systemd_service.py`,
-   `run_scripts.py`, los tres builders). A diferencia de una acción de bootstrap clásica (§0, la que
-   ya orquesta funciones básicas ya separadas), estos scripts nunca expusieron sus pasos como algo
-   invocable por separado — están en secuencia dentro de la misma función `main()`. Reimplementarlos
-   como una sola capacidad monolítica repetiría el problema original: si solo necesitás recopiar los
-   certificados al VPS, tenés que rehacer el `git pull`, el `venv` y el `pip install` completos de
-   nuevo, porque no hay manera de pedir un paso solo.
+   `run_scripts.py`, `clean_vps.py`, `database/rebuild_db.py`, los tres builders). A diferencia de
+   una acción de bootstrap clásica (§0, la que ya orquesta funciones básicas ya separadas), estos
+   scripts nunca expusieron sus pasos como algo invocable por separado — están en secuencia dentro
+   de la misma función `main()`. Reimplementarlos como una sola capacidad monolítica repetiría el
+   problema original: si solo hace falta recopiar los certificados al VPS, hay que rehacer el
+   `git pull`, el `venv` y el `pip install` completos de nuevo, porque no hay manera de pedir un
+   paso solo.
 
    La solución es partir cada uno en **capacidades atómicas** (una por paso con sentido fuera de la
    secuencia) más **una capacidad compuesta** que las encadena en el mismo orden del script original
-   — y que reusa esas mismas funciones atómicas, no una copia de su lógica. `update_remote.py` da
-   seis capacidades atómicas (`git_sync_remote`, `ensure_remote_venv`, `install_remote_deps`,
-   `copy_env_to_remote`, `copy_certs_to_remote`, `copy_firebase_credentials`) más el botón compuesto
-   **Actualizar remoto** que las corre todas. `install_systemd_service.py` da una capacidad nueva
-   (`write_systemd_unit`) que se combina con la capacidad `systemd_action` que *ya* existe (caso de
-   arriba en la tabla de §5) — la compuesta no reimplementa `enable`/`start`, los reusa.
+   — y que reusa esas mismas funciones atómicas, no una copia de su lógica. Confirmado contra el
+   código real (§1): `update_remote.py` da cinco capacidades atómicas (`git_sync_remote` — con
+   `ctx.confirm` si hay cambios sin commitear en el VPS —, `ensure_remote_venv` +
+   `install_remote_deps` condicionales, `upload_files`, `generate_migration` — este último corre
+   `database/migrate_db.py` **local**, contra el VPS por túnel) más el botón compuesto **Actualizar
+   remoto** que las corre todas, saltando `restart_service` con aviso si el servicio todavía no
+   existe. `install_systemd_service.py` da una capacidad nueva (`write_systemd_unit`) que se combina
+   con la capacidad `systemd_action` que *ya* existe (tabla de §5) — la compuesta no reimplementa
+   `enable`/`start`, los reusa. `database/rebuild_db.py` reusa, de la misma forma, las capacidades
+   `run_seeders` y `run_mock_seeders`, que también tienen su propio botón en el grupo Base de datos.
 
    **Regla para decidir qué paso se vuelve botón propio:** un paso se separa si tiene sentido
    re-ejecutarlo solo, sin repetir el resto — "solo copiar certificados", "solo probar el login SSH",
-   "solo correr `rebuild_db.py`" son operaciones que se piden sueltas en la vida real. Un paso *no* se
-   separa si no tiene sentido aislado del resto — revertir `pubspec.yaml` en `build_apk.py` no es un
-   botón, es un detalle interno de la capacidad `build_apk`; nadie pide "revertime el pubspec" fuera
-   del contexto de un build que falló. Esta misma regla decide la fila 🧩 de cada capacidad en §5.
+   "solo correr los seeders mock" son operaciones que se piden sueltas en la vida real. Un paso *no*
+   se separa si no tiene sentido aislado del resto — revertir `pubspec.yaml` en `build_apk.py` no es
+   un botón, es un detalle interno de la capacidad `build_apk`; los seis pasos de `clean_vps.py`
+   tampoco se separan (aunque cada uno ya se auto-detecta antes de actuar) porque "dejar el VPS como
+   recién formateado" casi siempre se pide entero. Esta misma regla decide la fila 🧩 de cada
+   capacidad en §5.
+
+8. **Compuestas que encadenan otras compuestas, no solo atómicas** (`bootstrap_vps.py`, marcado 🧩🧩
+   en §5). No es un caso hipotético: es código real que corre, en orden, `refresh_known_host` →
+   `setup_ssh_key` → `install_base_software` → `setup_github_ssh` → **`update_remote`** (una
+   compuesta del caso 7) → **`bootstrap_db`** → **`rebuild_db`** (otra compuesta del caso 7) →
+   `install_systemd_service` (otra más). `core/recipes.py` (§3) tiene que aceptar como paso tanto una
+   capacidad atómica como una compuesta — no hace falta un mecanismo nuevo, un paso de una receta es
+   "una capacidad con sus parámetros ya fijados", y una compuesta ya es una capacidad. Dos
+   consecuencias concretas para el runner: (a) el log de la pestaña queda plano — no hay una
+   sub-pestaña por paso interno, todo corre en la misma consola con su propio `[INFO]` de arranque
+   por paso, igual que hoy `bootstrap_vps.py` imprime un encabezado por script — y (b) si un paso
+   falla (ej.: `update_remote` no puede conectar), la receta completa se detiene ahí — cada compuesta
+   interna ya maneja su propio rollback (§7, caso 5), así que la receta externa no necesita uno
+   propio además del que ya tiene cada paso.
 
 ---
 
@@ -571,7 +642,7 @@ gestionados, y exportación a markdown.
 
 **Regla de una sola pregunta para decidir dónde vive cada valor:** ¿este dato le hace falta a
 Consola para *alcanzar* un sistema real fuera de la app — un VPS, una base, GitHub, Cloudflare, un
-certificado en disco — y no tiene un valor razonable sin que vos lo hayas puesto ahí? Si sí, es
+certificado en disco — y no tiene un valor razonable sin que el usuario lo haya puesto ahí? Si sí, es
 **secreto/config de proyecto**, va al `.env` del repo. Si no — si es una preferencia de cómo correr
 algo, con un default sensato que la mayoría de las veces sirve tal cual (buscar puerto libre o no,
 modo de bump, `dry_run`, qué paquetes de `apt` instalar) — **no es config de archivo, es un
@@ -771,42 +842,52 @@ no uno grande" es barato antes de escribir la función real; es caro después.
 
 ## 11. Pendiente antes de empezar a codear
 
-1. ~~Scripts desactualizados~~ — **en curso**: reemplazados el 2026-08-21 (`scripts/` en este repo,
-   no `navetta/scripts/`). Cambios grandes respecto a la auditoría de este documento, a re-auditar
-   antes de tocar §5: apareció `scripts/common.py` (917 líneas) que **ya es**, en el código real, el
-   nivel 0 de §2.1 — confirma el diseño en vez de contradecirlo, y trae de regalo el patrón
-   `RUN_REMOTE` + `maybe_dispatch_remote()` que valida el eje `scope` de §2.4. Se sumaron
-   `database/` (`bootstrap_db.py`, `teardown_db.py`, `rebuild_db.py`, `migrate_db.py`,
-   `inspect_db.py`, `run_seeders.py`, `run_mock_seeders.py`, `ssh_tunnel_postgres.py` — antes suelto
-   en `vps_ops/`), `launchers/run_flet.py`, `builders/build_binary.py`, `vps_setup/bootstrap_vps.py`,
-   `vps_setup/install_coturn.py`, `vps_ops/clean_vps.py`; se borraron los duplicados de raíz
-   (`run_server.py`, `run_terminal.py`, `run_panel.py`, `run_backoffice.py` — tal como predecía §1),
-   `clean_pycache.py`, `get_route_data.py` y `vps_ops/backup_database.py` (movido a `database/`).
-   **Pendiente real:** repetir la lectura de código de §1/§5/§7 contra este `scripts/` actualizado —
-   la tabla de capacidades sigue describiendo el inventario viejo en varios puntos.
-2. ~~`run_panel.py` y `run_backoffice.py` sin confirmar~~ — **resuelto**: leyendo el código (no solo
-   el docstring), ambos son el mismo flujo que `launchers/run_vite.py` con el prefijo de variable de
-   entorno cambiado; `run_landing.py` incluso lo llama directo. Los tres caen en la capacidad
-   `serve_vite_app` con eje `target` descubierto (§1, §2.4).
+1. ~~Scripts desactualizados~~ — **resuelto, re-auditado el 2026-08-21**: `scripts/` completo
+   (reemplazado por el usuario, no `navetta/scripts/`) releído y volcado a §1/§5/§7. Apareció
+   `scripts/common.py` (917 líneas), que **ya es**, en el código real, el nivel 0 de §2.1 — confirma
+   el diseño en vez de contradecirlo, y trae el patrón `RUN_REMOTE` + `maybe_dispatch_remote()` que
+   valida el eje `scope` de §2.4. Se sumó el grupo **Base de datos (operaciones)** completo (§5),
+   `launchers/run_flet.py`, `builders/build_binary.py`, `vps_setup/bootstrap_vps.py` (compuesta de
+   compuestas, caso 8 de §7), `vps_setup/install_coturn.py`, `vps_ops/clean_vps.py`; se borraron los
+   duplicados de raíz (tal como predecía §1) y `get_route_data.py`.
+2. ~~`run_panel.py` y `run_backoffice.py` sin confirmar~~ — **resuelto**: ambos ya no existen (se
+   borraron en el reemplazo del punto 1), confirmando en los hechos que eran el mismo flujo que
+   `launchers/run_vite.py`. Los tres (más `run_landing.py`) caen en la capacidad `serve_vite_app` con
+   eje `target` descubierto (§1, §2.4).
 3. **Prioridad real de uso** — de las capacidades del catálogo (§5), cuáles se usan a diario vs. rara
    vez, para reordenar las etapas. Sigue pendiente — importa además para decidir qué pasos de una
    compuesta (caso 7, §7) merecen botón atómico propio: la regla de "se pide suelto en la vida real"
    depende de uso real, no solo de lectura de código.
-4. ~~Alcance multi-proyecto sin resolver~~ — **resuelto**: con el eje `target` descubierto por
-   `core/targets.py` (§2.4) no hace falta enumerar a mano qué subproyecto tiene cada uno de los 8
-   repos gestionados — se detecta al abrir el proyecto. Sigue quedando por confirmar únicamente qué
-   *tipos* de target hacen falta más allá de `spa-vite`/`flutter-app`/`fastapi-server` (¿hay algún
-   repo con una forma de subproyecto distinta a las que ya cubre `find_project_root()` en los scripts
-   auditados?).
-5. **Descomposición de compuestas (caso 7, §7) por confirmar contra uso real.** La lista de qué paso
-   se separa se armó leyendo el código (`update_remote.py` → 6 pasos, `setup_ssh_key.py` → 5,
-   `install_systemd_service.py` → 1 + reuso de `systemd_action`, `run_scripts.py` → N según
-   `SETUP_SCRIPTS`). Falta confirmar con el usuario cuáles de esos pasos sueltos realmente se piden
-   solos hoy (por ejemplo: ¿alguna vez recopiás certificados sin hacer `git pull`?) — si ninguno se
-   usa suelto, ese script se queda como capacidad única y el botón atómico sobra.
-6. **`exploratore/` como repo.** Confirmar qué pasa con el repo original una vez fusionado: si se
+4. ~~Alcance multi-proyecto sin resolver~~ — **resuelto**: con el eje `target`/`framework` descubierto
+   por `core/targets.py` (§2.4) no hace falta enumerar a mano qué subproyecto tiene cada uno de los 8
+   repos gestionados — se detecta al abrir el proyecto, y ahora incluye distinguir Flutter de Flet
+   (`build_apk.py`, `run_flet.py`) además de las SPA Vite. Sigue quedando por confirmar si algún repo
+   de los 8 tiene una forma de subproyecto que `find_project_root()`/`detect_app_project_type()` no
+   cubran todavía.
+5. **Descomposición de compuestas (caso 7 y 8, §7) por confirmar contra uso real.** La lista de qué
+   paso se separa se armó leyendo el código actualizado (`update_remote.py` → 5 atómicas,
+   `setup_ssh_key.py` → 5, `install_systemd_service.py` → 1 + reuso de `systemd_action`,
+   `rebuild_db.py` → reuso de `run_seeders`/`run_mock_seeders`, `clean_vps.py` → 6 pasos que
+   deliberadamente **no** se separan). Falta confirmar con el usuario cuáles de esos pasos sueltos
+   realmente se piden solos hoy (por ejemplo: ¿alguna vez se recopian certificados sin hacer
+   `git pull`?) — si ninguno se usa suelto, ese script se queda como capacidad única y el botón
+   atómico sobra.
+6. **`build_executable.py` parece código muerto** (§1) — `build_binary.py` lo reemplaza línea por
+   línea y ya usa `common.py`; `build_executable.py` no lo importa y nada más lo referencia. Antes de
+   borrarlo del repo, confirmar con el usuario que no queda ningún caller o atajo que dependa de él.
+7. **Relación entre "Base de datos (operaciones)" (§5) y el Explorador (§6).** Ambos grupos comparten
+   el servicio de fondo Túnel Postgres y el eje `scope`, pero son cosas distintas: uno opera el ciclo
+   de vida del esquema (`bootstrap_db`, `rebuild_db`, migraciones), el otro navega datos ya existentes
+   (`list_tables`, `run_select`). `database/inspect_db.py` queda en el medio — es diagnóstico de solo
+   lectura, parecido al Explorer pero sin su UI. Confirmar si conviene que "Inspeccionar" abra la
+   pestaña del Explorer directamente en vez de imprimir a consola, para no duplicar la vista.
+8. **`install_coturn.py` es una capacidad sin relación con el resto del catálogo** (infraestructura
+   para llamadas/videollamadas, no para el ciclo de vida de `navetta`/`vettore` en sí). Confirmar si
+   entra en la etapa 4 (VPS completo) junto al resto de `vps_setup`, o si merece su propio grupo
+   "Comunicaciones" — hoy solo hay una capacidad, no amerita grupo propio todavía.
+9. **`exploratore/` como repo.** Confirmar qué pasa con el repo original una vez fusionado: si se
    archiva, se borra, o queda como referencia histórica sin desarrollo activo (igual que se hizo con
    `navetta/scripts/`, ver §1).
-7. **Otros motores además de Postgres.** Exploratore ya declaraba MySQL/SQL Server/SQLite como
-   posibles a futuro. Confirmar si algún repo de los 8 gestionados los usa antes de diseñar el punto
-   de extensión en `core/db.py`, o si por ahora alcanza con Postgres únicamente.
+10. **Otros motores además de Postgres.** Exploratore ya declaraba MySQL/SQL Server/SQLite como
+    posibles a futuro. Confirmar si algún repo de los 8 gestionados los usa antes de diseñar el punto
+    de extensión en `core/db.py`, o si por ahora alcanza con Postgres únicamente.
