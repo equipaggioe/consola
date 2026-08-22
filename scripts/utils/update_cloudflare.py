@@ -3,11 +3,13 @@ from __future__ import annotations
 import asyncio
 import ipaddress
 import json
-import os
 import sys
 from pathlib import Path
 import urllib.parse
 import urllib.request
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_env_file, optional_env, require_env
 
 """
 Actualiza un registro DNS A en Cloudflare con la IP pública actual.
@@ -20,37 +22,13 @@ Flujo:
 5) Si cambió, actualiza el registro.
 """
 
+CUSTOM_IP = ""  # Si está vacía y DETECT_IP=False, se usa VPS_IP como fallback.
 
-IP_MODE = "detect" # "detect" | "vps" | "static"
-
-FIXED_IP = ""
+DETECT_IP = False  # True: detecta la IP pública automáticamente, ignorando CUSTOM_IP/VPS_IP.
 IP_DETECTION_URL = "https://api.ipify.org"
 
 DNS_TTL = 1
 DNS_PROXIED = True
-
-
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _get_token_from_env() -> str:
-    return (os.getenv("CF_API_TOKEN") or "").strip()
 
 
 def _public_ip_from_cloudflare_trace(text: str) -> str | None:
@@ -168,51 +146,41 @@ def _cloudflare_update_record(
 
 
 async def run() -> None:
-    env_path = Path(__file__).resolve().parent.parent / ".env"
-    _load_env_file(env_path)
+    env_path = find_project_root(Path(__file__).resolve().parent) / "scripts" / ".env"
+    load_env_file(env_path)
 
-    token = _get_token_from_env()
-    domain_name = (os.getenv("CF_DOMAIN_NAME") or "").strip()
-    record_name = (os.getenv("CF_RECORD_NAME") or "").strip()
+    token = require_env("CF_API_TOKEN")
+    domain_name = optional_env("CF_DOMAIN_NAME")
+    record_name = optional_env("CF_RECORD_NAME")
 
     ip_url = IP_DETECTION_URL.strip()
     ttl = DNS_TTL
     proxied = DNS_PROXIED
 
-    if not token:
-        print("[ERROR] DDNS Cloudflare: falta CF_API_TOKEN.")
-        raise SystemExit(1)
     if not (domain_name and record_name):
         print("[WARN] DDNS Cloudflare: faltan CF_DOMAIN_NAME/CF_RECORD_NAME")
         return
 
     try:
-        mode = (IP_MODE or "").strip().lower()
-        if mode not in {"detect", "vps", "fixed"}:
-            print("[ERROR] IP_MODE inválida. Usa: detect | vps | fixed")
-            raise SystemExit(1)
-
-        if mode == "fixed":
-            ip = (FIXED_IP or "").strip()
-            if not ip:
-                print("[ERROR] IP_MODE=fixed requiere FIXED_IP.")
-                raise SystemExit(1)
-            ipaddress.ip_address(ip)
-            print(f"[INFO] IP configurada manualmente: {ip}")
-        elif mode == "vps":
-            ip = (os.getenv("VPS_IP") or "").strip()
-            if not ip:
-                print("[ERROR] IP_MODE=vps requiere VPS_IP en scripts/.env.")
-                raise SystemExit(1)
-            ipaddress.ip_address(ip)
-            print(f"[INFO] IP tomada de VPS_IP: {ip}")
-        else:
+        if DETECT_IP:
             if not ip_url:
-                print("[ERROR] IP_MODE=detect requiere IP_DETECTION_URL.")
+                print("[ERROR] DETECT_IP=True requiere IP_DETECTION_URL.")
                 raise SystemExit(1)
             ip_urls = [ip_url, "https://cloudflare.com/cdn-cgi/trace"]
             ip = await asyncio.to_thread(_fetch_public_ip_with_fallback, ip_urls)
             print(f"[INFO] IP pública detectada: {ip}")
+        else:
+            ip = (CUSTOM_IP or "").strip()
+            if ip:
+                ipaddress.ip_address(ip)
+                print(f"[INFO] IP configurada manualmente (CUSTOM_IP): {ip}")
+            else:
+                ip = optional_env("VPS_IP")
+                if not ip:
+                    print("[ERROR] Faltan CUSTOM_IP y VPS_IP en scripts/.env.")
+                    raise SystemExit(1)
+                ipaddress.ip_address(ip)
+                print(f"[INFO] CUSTOM_IP vacía, usando VPS_IP: {ip}")
 
         zone_id = await asyncio.to_thread(_cloudflare_find_zone_id, token=token, domain_name=domain_name)
         print(f"[INFO] ID de la zona: {zone_id}")

@@ -1,5 +1,8 @@
-import os
+from __future__ import annotations
+
 import subprocess
+import sys
+import threading
 from pathlib import Path
 
 """
@@ -10,119 +13,92 @@ Flujo:
 2) Carga scripts/.env a variables de entorno.
 3) Lee y valida VPS_IP, VPS_USER, VPS_KEY_NAME y GIT_REPO_URL.
 4) Verifica que existan los archivos locales necesarios.
-5) Clona o actualiza el repositorio en el VPS (opcionalmente puede saltar el pull con SKIP_GIT_PULL).
-6) Crea/verifica el entorno virtual Python en el VPS.
-7) Instala las dependencias desde requirements.txt.
-8) Copia archivos .env y certificados SSL al VPS.
-9) Copia server/firebase-service-account.json al VPS.
+5) Clona o actualiza el repositorio en el VPS (controlado por PULL_REPOSITORY).
+6) Si se actualizó el repo: crea/verifica venv Python e instala dependencias.
+7) Si UPLOAD_FILES=True: copia .env y archivos de server/ (cert.pem, key.pem, firebase-service-account.json).
+8) Si se actualizó el repo y GENERATE_MIGRATION=True: corre scripts/database/migrate_db.py
+   LOCALMENTE (no por SSH; se conecta al VPS por túnel). Este script fuerza RUN_REMOTE=true
+   en el entorno del proceso antes de lanzarlo (common.force_env_vars(), no toca scripts/.env)
+   para garantizar que la migración se aplique siempre al VPS, sin importar el valor de
+   RUN_REMOTE guardado en el .env local. Se saltea, avisando en vez de fallar, si todavía no
+   existe ninguna migración inicial en el repo local (falta scripts/database/rebuild_db.py).
+9) Reinicia el servicio, salvo que todavía no exista (VPS nuevo): en ese caso avisa y no
+   hace nada, en vez de fallar.
+
+Manejo de errores:
+- Si hay cambios sin commitear en el VPS: pregunta descartar o guardar con stash antes de pull.
 """
 
 # =========================================================
 # SCRIPT SETTINGS
 # =========================================================
 
-SKIP_GIT_PULL = True
+PULL_REPOSITORY = True  # True para actualizar el repo en el VPS (pull). False para saltearlo.
+GENERATE_MIGRATION = True  # True: genera y aplica una migración de Alembic en el VPS. False: no hace nada de esto.
+UPLOAD_FILES = True  # True para copiar .env y archivos remotos al VPS. False para saltear.
 
-VPS_REMOTE_DIR = "/srv"
-SERVER_DIR = "server"
-CERT_FILE_NAME = "cert.pem"
-KEY_FILE_NAME = "key.pem"
+FILES_TO_UPLOAD = [
+    "cert.pem",
+    "key.pem",
+    "firebase-service-account.json",
+]
 
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import (
+    copy_to_vps,
+    find_project_root,
+    force_env_vars,
+    load_vps_config,
+    multiplex_ssh_args,
+    repo_name_from_git_url,
+    require_env,
+    restart_systemd_service,
+)
 
 # =========================================================
-# ENV LOADER
+# CONFIG (asignado en main() al arrancar; ver _load_config())
 # =========================================================
 
-def _find_env_file() -> Path:
-
-    start = Path(__file__).resolve().parent
-
-    for path in [start, *start.parents]:
-
-        candidate = path / ".env"
-
-        if candidate.is_file():
-            return candidate
-
-    raise RuntimeError(
-        "No se encontró .env."
-    )
-
-
-def _load_env(path: Path) -> None:
-
-    for raw in path.read_text(
-        encoding="utf-8"
-    ).splitlines():
-
-        line = raw.strip()
-
-        if (
-            not line
-            or line.startswith("#")
-            or "=" not in line
-        ):
-            continue
-
-        key, value = line.split("=", 1)
-
-        key = key.strip()
-        value = value.strip()
-
-        if key and key not in os.environ:
-            os.environ[key] = value
-
-
-_load_env(_find_env_file())
+VPS_IP = ""
+VPS_USER = ""
+GIT_REPO_URL = ""
+PROJECT_ROOT = Path()
+LOCAL_IDENTITY_FILE = Path()
+VPS_DEPLOY_DIR = ""
+SERVER_DIR = ""
+REPO_NAME = ""
+REMOTE_REPO_PATH = ""
+REMOTE_SERVER_PATH = ""
+REMOTE_VENV_PATH = ""
+REMOTE_REQUIREMENTS_PATH = ""
 
 # =========================================================
 # HELPERS
 # =========================================================
 
-def _require(name: str) -> str:
 
-    value = os.getenv(name)
+def run_remote(command: str, quiet: bool = False, timeout: float | None = None):
 
-    if not value:
-
-        raise RuntimeError(
-            f"Falta variable requerida: {name}"
-        )
-
-    return value
-
-
-def find_project_root() -> Path:
-
-    start = Path(__file__).resolve().parent
-
-    for path in [start, *start.parents]:
-
-        if (path / ".git").exists():
-
-            return path
-
-    raise RuntimeError(
-        "No se encontró .git."
-    )
-
-
-def run_remote(command: str):
+    mux = multiplex_ssh_args(identity_file=LOCAL_IDENTITY_FILE, user=VPS_USER, host=VPS_IP)
 
     return _run_streaming(
         [
             "ssh",
+            *mux,
             "-i",
             str(LOCAL_IDENTITY_FILE),
             f"{VPS_USER}@{VPS_IP}",
             command,
-        ]
+        ],
+        quiet=quiet,
+        timeout=timeout,
     )
 
 
-def run_remote_checked(command: str):
+def run_remote_checked(command: str, quiet: bool = False, timeout: float | None = None):
 
-    result = run_remote(command)
+    result = run_remote(command, quiet=quiet, timeout=timeout)
 
     if result.returncode != 0:
 
@@ -134,7 +110,11 @@ def run_remote_checked(command: str):
     return result
 
 
-def _run_streaming(cmd: list[str]) -> subprocess.CompletedProcess[str]:
+def _run_streaming(
+    cmd: list[str],
+    timeout: float | None = None,
+    quiet: bool = False,
+) -> subprocess.CompletedProcess[str]:
 
     proc = subprocess.Popen(
         cmd,
@@ -147,120 +127,53 @@ def _run_streaming(cmd: list[str]) -> subprocess.CompletedProcess[str]:
 
     out_lines: list[str] = []
     assert proc.stdout is not None
-    for line in proc.stdout:
-        print(line, end="", flush=True)
-        out_lines.append(line)
 
-    return_code = proc.wait()
+    def _read_output():
+        for line in proc.stdout:
+            if not quiet:
+                print(line, end="", flush=True)
+            out_lines.append(line)
+
+    reader = threading.Thread(target=_read_output, daemon=True)
+    reader.start()
+
+    try:
+        return_code = proc.wait(timeout=timeout)
+
+    except subprocess.TimeoutExpired:
+
+        proc.kill()
+        proc.wait()
+        raise TimeoutError(
+            f"Comando sin respuesta tras {timeout}s: {' '.join(cmd)}"
+        )
+
+    reader.join()
     return subprocess.CompletedProcess(cmd, return_code, "".join(out_lines), None)
 
 
-def upload_file(
-    local_path: Path,
-    remote_path: str
-):
-
-    result = _run_streaming(
-        [
-            "scp",
-            "-i",
-            str(LOCAL_IDENTITY_FILE),
-            str(local_path),
-            f"{VPS_USER}@{VPS_IP}:{remote_path}",
-        ]
-    )
-
-    if result.returncode != 0:
-
-        raise RuntimeError(
-            f"\nSCP FALLÓ\n\n"
-            f"{result.stdout}"
-        )
-
-
 def upload_preserving_structure(
-    local_path: Path
+    local_path: Path,
+    *,
+    ensure_remote_dir: bool = True,
+    chmod_after: str | None = "600",
 ):
 
     relative_path = local_path.relative_to(
         PROJECT_ROOT
     )
 
-    remote_path = (
-        f"{REMOTE_REPO_PATH}/"
-        f"{relative_path.as_posix()}"
-    )
-
-    remote_dir = (
-        Path(remote_path)
-        .parent
-        .as_posix()
-    )
-
-    run_remote_checked(
-        f'mkdir -p "{remote_dir}"'
-    )
-
-    upload_file(
+    return copy_to_vps(
         local_path,
-        remote_path
+        remote_rel_path=relative_path.as_posix(),
+        remote_dir_base=VPS_DEPLOY_DIR,
+        git_repo_url=GIT_REPO_URL,
+        vps_ip=VPS_IP,
+        vps_user=VPS_USER,
+        identity_file=LOCAL_IDENTITY_FILE,
+        chmod_after=chmod_after,
+        ensure_remote_dir=ensure_remote_dir,
     )
-
-# =========================================================
-# CONFIG
-# =========================================================
-
-VPS_IP = _require(
-    "VPS_IP"
-)
-
-VPS_USER = _require(
-    "VPS_USER"
-)
-
-VPS_KEY_NAME = _require(
-    "VPS_KEY_NAME"
-)
-
-GIT_REPO_URL = _require(
-    "GIT_REPO_URL"
-)
-
-# =========================================================
-# DERIVED
-# =========================================================
-
-PROJECT_ROOT = (
-    find_project_root()
-)
-
-LOCAL_IDENTITY_FILE = (
-    Path.home()
-    / ".ssh"
-    / VPS_KEY_NAME
-)
-
-REPO_NAME = (
-    GIT_REPO_URL
-    .split("/")[-1]
-    .replace(".git", "")
-)
-
-REMOTE_REPO_PATH = (
-    f"{VPS_REMOTE_DIR}/{REPO_NAME}"
-)
-
-REMOTE_SERVER_PATH = (
-    f"{REMOTE_REPO_PATH}/{SERVER_DIR}"
-)
-
-REMOTE_VENV_PATH = (
-    f"{REMOTE_SERVER_PATH}/.venv"
-)
-
-REMOTE_REQUIREMENTS_PATH = (
-    f"{REMOTE_SERVER_PATH}/requirements.txt"
-)
 
 # =========================================================
 # DISCOVERY
@@ -273,23 +186,6 @@ def find_env_files():
     )
 
 
-def find_certificate_files():
-
-    files = []
-
-    files.extend(
-        PROJECT_ROOT.rglob(
-            CERT_FILE_NAME
-        )
-    )
-
-    files.extend(
-        PROJECT_ROOT.rglob(
-            KEY_FILE_NAME
-        )
-    )
-
-    return files
 
 # =========================================================
 # VALIDATION
@@ -319,17 +215,6 @@ def validate_local_files():
             f"No existe: {requirements}"
         )
 
-    firebase_service_account = (
-        server_dir
-        / "firebase-service-account.json"
-    )
-
-    if not firebase_service_account.is_file():
-
-        raise RuntimeError(
-            f"No existe: {firebase_service_account}"
-        )
-
 # =========================================================
 # GIT
 # =========================================================
@@ -354,7 +239,7 @@ def clone_repository():
 
     run_remote_checked(
         f'''
-sudo -n mkdir -p "{VPS_REMOTE_DIR}" &&
+sudo -n mkdir -p "{VPS_DEPLOY_DIR}" &&
 sudo -n mkdir -p "{REMOTE_REPO_PATH}" &&
 sudo -n chown -R "{VPS_USER}:{VPS_USER}" "{REMOTE_REPO_PATH}" &&
 git clone "{GIT_REPO_URL}" "{REMOTE_REPO_PATH}"
@@ -362,18 +247,21 @@ git clone "{GIT_REPO_URL}" "{REMOTE_REPO_PATH}"
     )
 
 
-def has_remote_changes() -> bool:
+def get_remote_status() -> list[str]:
 
     result = run_remote_checked(
         f'''
 cd "{REMOTE_REPO_PATH}" &&
-git status --porcelain
-'''
+git status --porcelain --untracked-files=all
+''',
+        quiet=True,
     )
 
-    return bool(
-        result.stdout.strip()
-    )
+    return [
+        line
+        for line in result.stdout.splitlines()
+        if line.strip()
+    ]
 
 
 def hard_reset_repository():
@@ -406,6 +294,43 @@ git pull
     )
 
 
+def stash_pull_repository():
+
+    print(
+        "Guardando cambios locales (git stash)..."
+    )
+
+    run_remote_checked(
+        f'''
+cd "{REMOTE_REPO_PATH}" &&
+git stash push -u -m "auto-stash pre-deploy"
+'''
+    )
+
+    pull_repository()
+
+    print(
+        "Restaurando cambios locales guardados..."
+    )
+
+    result = run_remote(
+        f'''
+cd "{REMOTE_REPO_PATH}" &&
+git stash pop
+'''
+    )
+
+    if result.returncode != 0:
+
+        raise RuntimeError(
+            "\nEl pull se aplicó, pero no se pudo restaurar el stash automáticamente "
+            "(probablemente hay conflictos con los archivos actualizados).\n"
+            "Tus cambios locales siguen guardados en el stash del VPS.\n"
+            "Conéctate por SSH y resuelve manualmente con 'git stash list' / 'git stash pop'.\n\n"
+            f"{result.stdout}"
+        )
+
+
 def deploy_repository() -> bool:
 
     if not repository_exists():
@@ -414,31 +339,50 @@ def deploy_repository() -> bool:
 
         return True
 
-    if SKIP_GIT_PULL:
+    if not PULL_REPOSITORY:
 
         print(
-            "\nSKIP_GIT_PULL=True: continuando sin actualizar el repositorio (sin pull)."
+            "\nPULL_REPOSITORY=False: continuando sin actualizar el repositorio (sin pull)."
         )
         return False
 
-    if has_remote_changes():
+    changes = get_remote_status()
 
-        answer = input(
-            "\nHay cambios locales en el VPS.\n"
-            "¿Descartarlos y continuar?\n"
-            "[y/N]: "
-        ).strip().lower()
+    if changes:
 
-        if answer == "y":
+        print(
+            "\nHay cambios locales sin commitear en el VPS:"
+        )
+
+        for line in changes:
+            print(f"  {line}")
+
+        while True:
+
+            answer = input(
+                "\n¿Qué hacer con estos cambios?\n"
+                "[d] Descartar cambios locales y continuar\n"
+                "[G] Guardar cambios (stash), actualizar y restaurarlos (default)\n"
+                "Elige [d/G]: "
+            ).strip().lower()
+
+            if answer in ("d", "g", ""):
+                if answer == "":
+                    answer = "g"
+                break
+
+            print("Respuesta inválida, ingresa 'd' o 'G'.")
+
+        if answer == "d":
 
             hard_reset_repository()
+            pull_repository()
 
         else:
 
-            print(
-                "\nContinuando sin actualizar el repositorio (sin pull) para conservar cambios locales."
-            )
-            return False
+            stash_pull_repository()
+
+        return True
 
     pull_repository()
     return True
@@ -475,66 +419,117 @@ def install_requirements():
 '''
     )
 
+
+def has_initial_migration() -> bool:
+
+    versions_dir = PROJECT_ROOT / SERVER_DIR / "alembic" / "versions"
+
+    return (
+        versions_dir.is_dir()
+        and any(versions_dir.glob("*.py"))
+    )
+
+
+def run_migrations():
+
+    if not GENERATE_MIGRATION:
+        return
+
+    if not has_initial_migration():
+
+        print(
+            "[WARN] Todavía no hay ninguna migración inicial en alembic/versions/ "
+            "(falta correr scripts/database/rebuild_db.py); no se generan migraciones."
+        )
+        return
+
+    print(
+        "Generando y aplicando migración (scripts/database/migrate_db.py, local con túnel SSH)..."
+    )
+
+    force_env_vars({"RUN_REMOTE": "true"})
+
+    migrate_script = PROJECT_ROOT / "scripts" / "database" / "migrate_db.py"
+    result = subprocess.run([sys.executable, str(migrate_script)])
+
+    if result.returncode != 0:
+        raise RuntimeError(
+            f"\nFalló scripts/database/migrate_db.py (exit {result.returncode})."
+        )
+
 # =========================================================
 # FILES
 # =========================================================
 
+def _remote_paths_for(files: list[Path]) -> list[tuple[Path, str, str]]:
+
+    entries = []
+
+    for file in files:
+        remote_rel_posix = file.relative_to(PROJECT_ROOT).as_posix()
+        remote_full_path = f"{REMOTE_REPO_PATH}/{remote_rel_posix}"
+        remote_parent = f"{REMOTE_REPO_PATH}/{Path(remote_rel_posix).parent.as_posix()}"
+        entries.append((file, remote_full_path, remote_parent))
+
+    return entries
+
+
+def upload_files_batched(files: list[Path], *, label: str):
+    """Sube varios archivos abriendo una sola conexión ssh para crear todos los
+    directorios remotos y otra para aplicar chmod a todos, en vez de dos conexiones
+    ssh extra por archivo (además del scp). Reduce ráfagas de conexiones que pueden
+    disparar rate-limiting/fail2ban en el VPS."""
+
+    if not files:
+        return
+
+    print(f"Copiando {len(files)} {label}...")
+
+    entries = _remote_paths_for(files)
+
+    remote_parents = sorted({parent for _, _, parent in entries})
+    mkdir_cmd = " && ".join(f'mkdir -p "{parent}"' for parent in remote_parents)
+    run_remote_checked(mkdir_cmd, quiet=True)
+
+    for i, (file, _remote_full_path, _parent) in enumerate(entries, start=1):
+
+        rel = file.relative_to(PROJECT_ROOT).as_posix()
+        print(f"[{i}/{len(entries)}] Subiendo {rel}...", flush=True)
+        upload_preserving_structure(file, ensure_remote_dir=False, chmod_after=None)
+
+    chmod_cmd = " && ".join(f'chmod 600 "{remote_full_path}"' for _, remote_full_path, _ in entries)
+    run_remote_checked(chmod_cmd, quiet=True)
+
+
 def upload_env_files():
 
-    env_files = (
-        find_env_files()
-    )
-
-    print(
-        f"Copiando {len(env_files)} .env..."
-    )
-
-    for i, file in enumerate(env_files, start=1):
-
-        rel = file.relative_to(PROJECT_ROOT).as_posix()
-        print(f"[{i}/{len(env_files)}] Subiendo {rel}...", flush=True)
-        upload_preserving_structure(
-            file
-        )
+    upload_files_batched(find_env_files(), label=".env")
 
 
-def upload_certificates():
+def upload_remote_files():
 
-    cert_files = (
-        find_certificate_files()
-    )
-
-    print(
-        f"Copiando {len(cert_files)} certificados..."
-    )
-
-    for i, file in enumerate(cert_files, start=1):
-
-        rel = file.relative_to(PROJECT_ROOT).as_posix()
-        print(f"[{i}/{len(cert_files)}] Subiendo {rel}...", flush=True)
-        upload_preserving_structure(
-            file
-        )
-
-def upload_firebase_service_account():
-
-    file = (
+    server_dir = (
         PROJECT_ROOT
         / SERVER_DIR
-        / "firebase-service-account.json"
     )
 
-    print(
-        "Copiando firebase-service-account.json..."
-    )
+    files_to_upload = []
 
-    upload_preserving_structure(
-        file
-    )
+    for file_pattern in FILES_TO_UPLOAD:
 
-    run_remote_checked(
-        f'chmod 600 "{REMOTE_SERVER_PATH}/firebase-service-account.json"'
-    )
+        matches = list(
+            server_dir.rglob(file_pattern)
+        )
+
+        if not matches:
+
+            print(
+                f"No se encontró: {file_pattern}"
+            )
+
+        files_to_upload.extend(matches)
+
+    upload_files_batched(files_to_upload, label="archivos remotos")
 
 # =========================================================
 # SERVICE
@@ -542,19 +537,33 @@ def upload_firebase_service_account():
 
 def restart_service():
 
-    print(
-        "Reiniciando servicio..."
-    )
-
-    run_remote_checked(
-        f"sudo systemctl restart {REPO_NAME}"
-    )
+    restart_systemd_service(REPO_NAME, lambda cmd: run_remote(cmd, quiet=True))
 
 # =========================================================
 # MAIN
 # =========================================================
 
+def _load_config() -> None:
+    global VPS_IP, VPS_USER, GIT_REPO_URL, PROJECT_ROOT, LOCAL_IDENTITY_FILE
+    global REPO_NAME, REMOTE_REPO_PATH, REMOTE_SERVER_PATH, REMOTE_VENV_PATH, REMOTE_REQUIREMENTS_PATH
+    global VPS_DEPLOY_DIR, SERVER_DIR
+
+    PROJECT_ROOT = find_project_root(Path(__file__).resolve().parent)
+    VPS_IP, VPS_USER, LOCAL_IDENTITY_FILE = load_vps_config(PROJECT_ROOT)
+    GIT_REPO_URL = require_env("GIT_REPO_URL")
+
+    VPS_DEPLOY_DIR = require_env("VPS_DEPLOY_DIR")
+    SERVER_DIR = require_env("SERVER_DIR")
+
+    REPO_NAME = repo_name_from_git_url(GIT_REPO_URL)
+    REMOTE_REPO_PATH = f"{VPS_DEPLOY_DIR}/{REPO_NAME}"
+    REMOTE_SERVER_PATH = f"{REMOTE_REPO_PATH}/{SERVER_DIR}"
+    REMOTE_VENV_PATH = f"{REMOTE_SERVER_PATH}/.venv"
+    REMOTE_REQUIREMENTS_PATH = f"{REMOTE_SERVER_PATH}/requirements.txt"
+
+
 def main():
+    _load_config()
 
     validate_local_files()
 
@@ -571,11 +580,20 @@ def main():
             "Saltando venv/dependencias porque no se actualizó el repositorio."
         )
 
-    upload_env_files()
+    if UPLOAD_FILES:
 
-    upload_certificates()
+        upload_env_files()
 
-    upload_firebase_service_account()
+        upload_remote_files()
+    else:
+
+        print(
+            "Saltando subida de archivos (UPLOAD_FILES=False)."
+        )
+
+    if repo_actualizado:
+
+        run_migrations()
 
     restart_service()
 

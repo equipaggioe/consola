@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import subprocess
+import sys
 from pathlib import Path
 
 """
@@ -9,47 +9,19 @@ Abre una sesión SSH al VPS.
 
 Flujo:
 1) Calcula la raíz del repo (carpeta padre de scripts/).
-2) Carga scripts/.env a variables de entorno.
-3) Lee y valida VPS_IP, VPS_USER y VPS_KEY_NAME.
+2) Carga scripts/.env, VPS_IP y VPS_USER (default: nombre del repo si no está definida).
+3) Lee y valida VPS_KEY_NAME.
 4) Si existe ~/.ssh/<VPS_KEY_NAME>, conecta con -i; si no, conecta sin llave (pedirá contraseña).
 """
 
-
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        print(f"[ERROR] Falta variable de entorno: {name}")
-        raise SystemExit(1)
-    return value.strip()
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_vps_ip_user, require_env
 
 
 def main() -> None:
-    repo_root = Path(__file__).resolve().parents[2]
-    env_path = repo_root / "scripts" / ".env"
-    _load_env_file(env_path)
-
-    vps_ip = _require_env("VPS_IP")
-    vps_user = _require_env("VPS_USER")
-    vps_key_name = _require_env("VPS_KEY_NAME")
+    repo_root = find_project_root(Path(__file__).resolve().parent)
+    vps_ip, vps_user = load_vps_ip_user(repo_root)
+    vps_key_name = require_env("VPS_KEY_NAME")
 
     identity_file = Path.home() / ".ssh" / vps_key_name
 

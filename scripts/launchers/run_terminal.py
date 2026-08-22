@@ -6,6 +6,9 @@ import sys
 import time
 from pathlib import Path
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_env_file, require_port_env, venv_python
+
 """
 Flujo:
 1) Localiza el ejecutable de Python en el .venv de terminal.
@@ -16,54 +19,6 @@ Flujo:
 6) Si se detectan cambios, termina el proceso actual y lo reinicia.
 7) Maneja la interrupción manual para detener el proceso.
 """
-
-
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        print(f"[ERROR] Falta variable de entorno: {name}")
-        raise SystemExit(1)
-    return value.strip()
-
-
-def _require_int_env(name: str) -> int:
-    raw = _require_env(name)
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        print(f"[ERROR] {name} no es numérico: {raw}")
-        raise SystemExit(1) from exc
-    if value < 1 or value > 65535:
-        print(f"[ERROR] {name} fuera de rango: {value}")
-        raise SystemExit(1)
-    return value
-
-
-def _find_terminal_python(repo_root: Path) -> Path:
-    python_exe = repo_root / "terminal" / ".venv" / "Scripts" / "python.exe"
-    if not python_exe.exists():
-        print(f"[ERROR] No existe el Python del venv de terminal: {python_exe}")
-        raise SystemExit(1)
-    return python_exe
 
 
 def _iter_watch_files(base: Path) -> list[Path]:
@@ -103,7 +58,7 @@ def _terminate_process_tree(pid: int) -> None:
 
 
 def run_watcher() -> int:
-    repo_root = Path(__file__).resolve().parent.parent.parent
+    repo_root = find_project_root(Path(__file__).resolve().parent)
     terminal_src_dir = repo_root / "terminal" / "src"
     main_file = terminal_src_dir / "main.py"
     if not main_file.exists():
@@ -111,10 +66,10 @@ def run_watcher() -> int:
         return 1
 
     env_path = repo_root / "scripts" / ".env"
-    _load_env_file(env_path)
-    server_port = _require_int_env("SERVER_PORT")
+    load_env_file(env_path)
+    server_port = require_port_env("SERVER_PORT")
 
-    python_exe = _find_terminal_python(repo_root)
+    python_exe = venv_python(repo_root / "terminal" / ".venv", label="venv de terminal")
     cmd = [str(python_exe), "main.py"]
     watch_paths = [terminal_src_dir]
 

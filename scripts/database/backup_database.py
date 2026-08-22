@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import argparse
-import os
 import subprocess
+import sys
 from datetime import datetime
 from pathlib import Path
 
@@ -23,84 +23,14 @@ python scripts/vps_ops/backup_database.py --keep 14
 python scripts/vps_ops/backup_database.py --backup-dir /ruta/custom --keep 10
 """
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_env_file, load_vps_config, require_env, run_ssh, run_ssh_checked, scp_transfer
 
 DEFAULT_BACKUP_DIR = ".backups"
 DEFAULT_KEEP_BACKUPS = 7
 DEFAULT_REMOTE_TEMP_DIR = "/tmp"
 DEFAULT_PG_DUMP_HOST = "localhost"
 DEFAULT_SSH_TIMEOUT = 30
-
-
-def _find_env_file(start: Path) -> Path:
-    for path in [start, *start.parents]:
-        candidate = path / ".env"
-        if candidate.is_file():
-            return candidate
-    raise RuntimeError(f"No se encontró .env a partir de: {start}")
-
-
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        print(f"[ERROR] Falta variable de entorno: {name}")
-        raise SystemExit(1)
-    return value.strip()
-
-
-def run_remote(
-    cmd: str,
-    *,
-    identity_file: Path,
-    vps_user: str,
-    vps_ip: str,
-    timeout: int = DEFAULT_SSH_TIMEOUT,
-) -> subprocess.CompletedProcess[str]:
-    try:
-        return subprocess.run(
-            ["ssh", "-i", str(identity_file), f"{vps_user}@{vps_ip}", cmd],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(f"Comando SSH excedió timeout ({timeout}s): {cmd}")
-
-
-def run_remote_checked(
-    cmd: str,
-    *,
-    identity_file: Path,
-    vps_user: str,
-    vps_ip: str,
-    timeout: int = DEFAULT_SSH_TIMEOUT,
-) -> str:
-    result = run_remote(
-        cmd, identity_file=identity_file, vps_user=vps_user, vps_ip=vps_ip, timeout=timeout
-    )
-    if result.returncode != 0:
-        raise RuntimeError(f"Comando remoto falló: {result.stderr.strip()}")
-    return result.stdout.strip()
 
 
 def rotate_backups(backup_dir: Path, keep: int, db_name: str) -> None:
@@ -127,26 +57,15 @@ def main() -> None:
         print("[ERROR] --keep debe ser >= 1.")
         raise SystemExit(2)
 
-    repo_root = Path(__file__).resolve().parents[2]
-
-    scripts_env_path = repo_root / "scripts" / ".env"
-    _load_env_file(scripts_env_path)
-
-    vps_ip = _require_env("VPS_IP")
-    vps_user = _require_env("VPS_USER")
-    vps_key_name = _require_env("VPS_KEY_NAME")
-
-    identity_file = Path.home() / ".ssh" / vps_key_name
-    if not identity_file.is_file():
-        print(f"[ERROR] No existe la llave privada local: {identity_file}")
-        raise SystemExit(1)
+    repo_root = find_project_root(Path(__file__).resolve().parent)
+    vps_ip, vps_user, identity_file = load_vps_config(repo_root)
 
     server_env_path = repo_root / "server" / ".env"
-    _load_env_file(server_env_path)
+    load_env_file(server_env_path)
 
-    pg_db = _require_env("POSTGRES_DB")
-    pg_user = _require_env("POSTGRES_USER")
-    pg_password = _require_env("POSTGRES_PASSWORD")
+    pg_db = require_env("POSTGRES_DB")
+    pg_user = require_env("POSTGRES_USER")
+    pg_password = require_env("POSTGRES_PASSWORD")
 
     backup_dir = Path(args.backup_dir)
     if not backup_dir.is_absolute():
@@ -164,11 +83,11 @@ def main() -> None:
     print(f"[INFO] Carpeta local de backups: {backup_dir}")
 
     print("[INFO] Verificando que pg_dump exista en el VPS...")
-    check_result = run_remote(
+    check_result = run_ssh(
         "command -v pg_dump",
         identity_file=identity_file,
-        vps_user=vps_user,
-        vps_ip=vps_ip,
+        user=vps_user,
+        host=vps_ip,
     )
     if check_result.returncode != 0:
         print("[ERROR] pg_dump no está disponible en el VPS.")
@@ -180,11 +99,11 @@ def main() -> None:
         f"-d {pg_db} -Fc -f {remote_dump_path}"
     )
     try:
-        run_remote_checked(
+        run_ssh_checked(
             dump_cmd,
             identity_file=identity_file,
-            vps_user=vps_user,
-            vps_ip=vps_ip,
+            user=vps_user,
+            host=vps_ip,
             timeout=120,
         )
     except RuntimeError as exc:
@@ -192,31 +111,32 @@ def main() -> None:
         raise SystemExit(1)
 
     print(f"[INFO] Descargando dump a: {local_dump_path}")
-    scp_result = subprocess.run(
-        ["scp", "-i", str(identity_file), f"{vps_user}@{vps_ip}:{remote_dump_path}", str(local_dump_path)],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-
-    if scp_result.returncode != 0:
-        print(f"[ERROR] Falló la descarga con scp: {scp_result.stderr.strip()}")
+    try:
+        scp_transfer(
+            local_dump_path,
+            remote_dump_path,
+            vps_ip=vps_ip,
+            vps_user=vps_user,
+            identity_file=identity_file,
+            direction="download",
+        )
+    except subprocess.CalledProcessError as exc:
+        print(f"[ERROR] Falló la descarga con scp: {exc}")
         print("[INFO] Limpiando archivo temporal en el VPS...")
-        run_remote(
+        run_ssh(
             f"rm -f {remote_dump_path}",
             identity_file=identity_file,
-            vps_user=vps_user,
-            vps_ip=vps_ip,
+            user=vps_user,
+            host=vps_ip,
         )
         raise SystemExit(1)
 
     print("[INFO] Borrando archivo temporal en el VPS...")
-    cleanup_result = run_remote(
+    cleanup_result = run_ssh(
         f"rm -f {remote_dump_path}",
         identity_file=identity_file,
-        vps_user=vps_user,
-        vps_ip=vps_ip,
+        user=vps_user,
+        host=vps_ip,
     )
     if cleanup_result.returncode != 0:
         print(f"[WARN] No se pudo borrar el archivo temporal en el VPS: {remote_dump_path}")

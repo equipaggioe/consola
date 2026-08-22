@@ -1,5 +1,7 @@
-import os
-import subprocess
+from __future__ import annotations
+
+import sys
+from dataclasses import dataclass
 from pathlib import Path
 
 """
@@ -19,191 +21,94 @@ Flujo:
 # SERVICE SETTINGS
 # =========================================================
 
-VPS_REMOTE_DIR = "/srv"
-SERVER_DIR = "server"
-UVICORN_APP = "app.main:app"
-
 SERVER_HOST = "0.0.0.0"
 SERVER_PORT = "443"
-CERT_FILE_PATH = "certs/cert.pem"
-KEY_FILE_PATH = "certs/key.pem"
-
 RESTART = "on-failure"
 RESTART_SEC = "3"
 TIMEOUT_STOP_SEC = "30"
 START_LIMIT_INTERVAL_SEC = "60"
 START_LIMIT_BURST = "10"
 
-# =========================================================
-# ENV LOADER
-# =========================================================
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_vps_config, repo_name_from_git_url, require_env, run_ssh
 
-def _find_env_file() -> Path:
 
-    start = Path(__file__).resolve().parent
+@dataclass(frozen=True)
+class ServiceConfig:
+    vps_ip: str
+    vps_user: str
+    identity_file: Path
+    repo_name: str
+    remote_server_path: str
+    remote_venv_path: str
+    remote_cert_file: str
+    remote_key_file: str
+    systemd_service_name: str
+    uvicorn_app: str
 
-    for path in [start, *start.parents]:
 
-        candidate = path / ".env"
+def _load_config() -> ServiceConfig:
+    repo_root = find_project_root(Path(__file__).resolve().parent)
+    vps_ip, vps_user, identity_file = load_vps_config(repo_root)
+    git_repo_url = require_env("GIT_REPO_URL")
 
-        if candidate.is_file():
-            return candidate
+    vps_deploy_dir = require_env("VPS_DEPLOY_DIR")
+    server_dir = require_env("SERVER_DIR")
+    cert_file_path = require_env("CERT_FILE_PATH")
+    key_file_path = require_env("KEY_FILE_PATH")
+    uvicorn_app = require_env("UVICORN_APP")
 
-    raise RuntimeError(
-        "No se encontró .env."
+    repo_name = repo_name_from_git_url(git_repo_url)
+    remote_repo_path = f"{vps_deploy_dir}/{repo_name}"
+    remote_server_path = f"{remote_repo_path}/{server_dir}"
+
+    return ServiceConfig(
+        vps_ip=vps_ip,
+        vps_user=vps_user,
+        identity_file=identity_file,
+        repo_name=repo_name,
+        remote_server_path=remote_server_path,
+        remote_venv_path=f"{remote_server_path}/.venv",
+        remote_cert_file=f"{remote_repo_path}/{cert_file_path}",
+        remote_key_file=f"{remote_repo_path}/{key_file_path}",
+        systemd_service_name=repo_name,
+        uvicorn_app=uvicorn_app,
     )
 
 
-def _load_env(path: Path) -> None:
-
-    for raw in path.read_text(
-        encoding="utf-8"
-    ).splitlines():
-
-        line = raw.strip()
-
-        if (
-            not line
-            or line.startswith("#")
-            or "=" not in line
-        ):
-            continue
-
-        key, value = line.split("=", 1)
-
-        key = key.strip()
-        value = value.strip()
-
-        if key and key not in os.environ:
-            os.environ[key] = value
+def run_remote(cfg: ServiceConfig, command: str):
+    return run_ssh(command, identity_file=cfg.identity_file, user=cfg.vps_user, host=cfg.vps_ip)
 
 
-_load_env(_find_env_file())
-
-# =========================================================
-# HELPERS
-# =========================================================
-
-def _require(name: str) -> str:
-
-    value = os.getenv(name)
-
-    if not value:
-
-        raise RuntimeError(
-            f"Falta variable requerida: {name}"
-        )
-
-    return value
-
-
-def run_remote(command: str):
-
-    return subprocess.run(
-        [
-            "ssh",
-            "-i",
-            str(LOCAL_IDENTITY_FILE),
-            f"{VPS_USER}@{VPS_IP}",
-            command
-        ],
-        capture_output=True,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-    )
-
-
-def run_remote_checked(command: str):
-
-    result = run_remote(command)
-
+def run_remote_checked(cfg: ServiceConfig, command: str):
+    result = run_remote(cfg, command)
     if result.returncode != 0:
-
-        raise RuntimeError(
-            f"\nCOMANDO REMOTO FALLÓ\n\n"
-            f"{result.stderr}"
-        )
-
+        raise RuntimeError(f"\nCOMANDO REMOTO FALLÓ\n\n{result.stderr}")
     return result
 
-# =========================================================
-# CONFIG (.env)
-# =========================================================
 
-VPS_IP = _require("VPS_IP")
-
-VPS_USER = _require("VPS_USER")
-
-VPS_KEY_NAME = _require("VPS_KEY_NAME")
-
-GIT_REPO_URL = _require("GIT_REPO_URL")
-
-# =========================================================
-# DERIVED
-# =========================================================
-
-LOCAL_IDENTITY_FILE = (
-    Path.home()
-    / ".ssh"
-    / VPS_KEY_NAME
-)
-
-REPO_NAME = (
-    GIT_REPO_URL
-    .split("/")[-1]
-    .replace(".git", "")
-)
-
-REMOTE_REPO_PATH = (
-    f"{VPS_REMOTE_DIR}/{REPO_NAME}"
-)
-
-REMOTE_SERVER_PATH = (
-    f"{REMOTE_REPO_PATH}/{SERVER_DIR}"
-)
-
-REMOTE_VENV_PATH = (
-    f"{REMOTE_SERVER_PATH}/.venv"
-)
-
-REMOTE_CERT_FILE = (
-    f"{REMOTE_SERVER_PATH}/{CERT_FILE_PATH}"
-)
-
-REMOTE_KEY_FILE = (
-    f"{REMOTE_SERVER_PATH}/{KEY_FILE_PATH}"
-)
-
-SYSTEMD_SERVICE_NAME = REPO_NAME
-
-# =========================================================
-# SYSTEMD
-# =========================================================
-
-def generate_service_text() -> str:
-
+def generate_service_text(cfg: ServiceConfig) -> str:
     exec_start = (
-        f"{REMOTE_VENV_PATH}/bin/python -m uvicorn "
-        f"{UVICORN_APP} "
+        f"{cfg.remote_venv_path}/bin/python -m uvicorn "
+        f"{cfg.uvicorn_app} "
         f"--host {SERVER_HOST} "
         f"--port {SERVER_PORT} "
-        f"--ssl-keyfile {REMOTE_KEY_FILE} "
-        f"--ssl-certfile {REMOTE_CERT_FILE} "
+        f"--ssl-keyfile {cfg.remote_key_file} "
+        f"--ssl-certfile {cfg.remote_cert_file} "
         "--no-access-log"
     )
 
     return f"""
 [Unit]
-Description={REPO_NAME} backend (uvicorn)
+Description={cfg.repo_name} backend (uvicorn)
 After=network.target
 StartLimitIntervalSec={START_LIMIT_INTERVAL_SEC}
 StartLimitBurst={START_LIMIT_BURST}
 
 [Service]
 Type=simple
-User={VPS_USER}
-WorkingDirectory={REMOTE_SERVER_PATH}
+User={cfg.vps_user}
+WorkingDirectory={cfg.remote_server_path}
 ExecStart={exec_start}
 Restart={RESTART}
 RestartSec={RESTART_SEC}
@@ -215,54 +120,40 @@ WantedBy=multi-user.target
 """.strip()
 
 
-def install_service():
+def install_service(cfg: ServiceConfig) -> None:
+    print("Instalando servicio...")
 
-    print(
-        "Instalando servicio..."
-    )
-
-    service_text = (
-        generate_service_text()
-    )
+    service_text = generate_service_text(cfg)
 
     install_command = f"""
-sudo tee "/etc/systemd/system/{SYSTEMD_SERVICE_NAME}.service" >/dev/null <<'UNIT'
+sudo tee "/etc/systemd/system/{cfg.systemd_service_name}.service" >/dev/null <<'UNIT'
 {service_text}
 UNIT
 
 sudo systemctl daemon-reload
 
-sudo systemctl enable {SYSTEMD_SERVICE_NAME}
+sudo systemctl enable {cfg.systemd_service_name}
 
-sudo systemctl restart {SYSTEMD_SERVICE_NAME}
+sudo systemctl restart {cfg.systemd_service_name}
 """
 
-    result = run_remote_checked(
-        install_command
-    )
-
+    result = run_remote_checked(cfg, install_command)
     print(result.stdout)
 
-    active_result = run_remote(
-        f"sudo systemctl is-active {SYSTEMD_SERVICE_NAME}"
-    )
+    active_result = run_remote(cfg, f"sudo systemctl is-active {cfg.systemd_service_name}")
     if active_result.stdout.strip():
         print(active_result.stdout)
     if active_result.stderr.strip():
         print(active_result.stderr)
 
-    status_result = run_remote(
-        f"sudo systemctl status {SYSTEMD_SERVICE_NAME} --no-pager -l"
-    )
+    status_result = run_remote(cfg, f"sudo systemctl status {cfg.systemd_service_name} --no-pager -l")
     if status_result.stdout.strip():
         print(status_result.stdout)
     if status_result.stderr.strip():
         print(status_result.stderr)
 
     if active_result.returncode != 0:
-        journal_result = run_remote(
-            f"sudo journalctl -u {SYSTEMD_SERVICE_NAME} -n 200 --no-pager"
-        )
+        journal_result = run_remote(cfg, f"sudo journalctl -u {cfg.systemd_service_name} -n 200 --no-pager")
         if journal_result.stdout.strip():
             print(journal_result.stdout)
         if journal_result.stderr.strip():
@@ -274,19 +165,11 @@ sudo systemctl restart {SYSTEMD_SERVICE_NAME}
         )
 
 
-# =========================================================
-# MAIN
-# =========================================================
-
-def main():
-
-    install_service()
-
-    print(
-        "\\nSERVICE INSTALADO"
-    )
+def main() -> None:
+    cfg = _load_config()
+    install_service(cfg)
+    print("\nSERVICE INSTALADO")
 
 
 if __name__ == "__main__":
-
     main()

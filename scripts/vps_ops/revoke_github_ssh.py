@@ -1,8 +1,6 @@
-import os
-import subprocess
-import urllib.request
-import urllib.error
-import json
+from __future__ import annotations
+
+import sys
 from pathlib import Path
 
 """
@@ -12,131 +10,55 @@ Deshace el setup:
 - elimina key de GitHub (por title)
 """
 
-# =========================================================
-# CONFIG
-# =========================================================
-
-def _find_env_file() -> Path:
-    start = Path(__file__).resolve().parent
-    for p in [start, *start.parents]:
-        candidate = p / ".env"
-        if candidate.is_file():
-            return candidate
-    raise RuntimeError("No se encontró .env en la raíz del proyecto.")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, github_api_request, load_vps_config, require_env, run_ssh_checked
 
 
-def _load_env(path: Path) -> None:
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        k = k.strip()
-        v = v.strip()
-        if k and k not in os.environ:
-            os.environ[k] = v
+def main() -> None:
+    vps_ip, vps_user, identity_file = load_vps_config(find_project_root(Path(__file__).resolve().parent))
 
+    github_token = require_env("GITHUB_TOKEN")
+    key_title = require_env("GITHUB_KEY_TITLE")
 
-_load_env(_find_env_file())
-
-
-def _require(name: str) -> str:
-    v = os.getenv(name)
-    if not v:
-        raise RuntimeError(f"Falta variable requerida en .env: {name}")
-    return v
-
-
-VPS_IP = _require("VPS_IP")
-VPS_USER = _require("VPS_USER")
-GITHUB_TOKEN = _require("GITHUB_TOKEN")
-KEY_TITLE = _require("GITHUB_KEY_TITLE")
-LOCAL_IDENTITY_FILE = Path.home() / ".ssh" / _require("VPS_KEY_NAME")
-
-# =========================================================
-# SSH RUNNER
-# =========================================================
-
-def run_remote(command: str):
-
-    return subprocess.run(
-        [
-            "ssh",
-            "-i",
-            str(LOCAL_IDENTITY_FILE),
-            f"{VPS_USER}@{VPS_IP}",
-            command
-        ],
-        text=True
-    )
-
-# =========================================================
-# 1. BORRAR KEYS DEL VPS
-# =========================================================
-
-print("Eliminando SSH keys del VPS...")
-
-run_remote(
-    "rm -f ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.pub"
-)
-
-print("Keys eliminadas del VPS.")
-
-# =========================================================
-# 2. ELIMINAR KEY DE GITHUB
-# =========================================================
-
-print("Buscando keys en GitHub...")
-
-req = urllib.request.Request(
-    "https://api.github.com/user/keys",
-    headers={
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json"
-    }
-)
-
-try:
-    with urllib.request.urlopen(req) as response:
-        keys = json.loads(response.read().decode())
-
-except urllib.error.HTTPError as e:
-    raise Exception(e.read().decode())
-
-# Buscar key por título
-key_id = None
-
-for k in keys:
-    if k.get("title") == KEY_TITLE:
-        key_id = k.get("id")
-        break
-
-if key_id:
-
-    print(f"Eliminando key en GitHub (ID: {key_id})...")
-
-    del_req = urllib.request.Request(
-        f"https://api.github.com/user/keys/{key_id}",
-        headers={
-            "Authorization": f"token {GITHUB_TOKEN}",
-            "Accept": "application/vnd.github+json"
-        },
-        method="DELETE"
-    )
-
+    print("[INFO] Eliminando SSH keys del VPS...")
     try:
-        urllib.request.urlopen(del_req)
-        print("Key eliminada de GitHub.")
+        run_ssh_checked(
+            "rm -f ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.pub",
+            identity_file=identity_file,
+            user=vps_user,
+            host=vps_ip,
+        )
+    except RuntimeError as exc:
+        print(f"[ERROR] No se pudieron eliminar las keys del VPS: {exc}")
+        raise SystemExit(1)
+    print("[OK] Keys eliminadas del VPS.")
 
-    except urllib.error.HTTPError as e:
-        print(e.read().decode())
-        raise
+    print("[INFO] Buscando keys en GitHub...")
+    status, keys = github_api_request("GET", "https://api.github.com/user/keys", token=github_token)
+    if status != 200 or not isinstance(keys, list):
+        print(f"[ERROR] No se pudo listar las keys de GitHub (status {status}): {keys}")
+        raise SystemExit(1)
 
-else:
-    print("No se encontró la key en GitHub.")
+    key_id = None
+    for k in keys:
+        if isinstance(k, dict) and k.get("title") == key_title:
+            key_id = k.get("id")
+            break
 
-# =========================================================
-# FINAL
-# =========================================================
+    if key_id is None:
+        print("[INFO] No se encontró la key en GitHub.")
+    else:
+        print(f"[INFO] Eliminando key en GitHub (ID: {key_id})...")
+        status, payload = github_api_request(
+            "DELETE", f"https://api.github.com/user/keys/{key_id}", token=github_token
+        )
+        if status != 204:
+            print(f"[ERROR] No se pudo eliminar la key de GitHub (status {status}): {payload}")
+            raise SystemExit(1)
+        print("[OK] Key eliminada de GitHub.")
 
-print("\nCLEANUP COMPLETADO")
+    print("\n[OK] CLEANUP COMPLETADO")
+
+
+if __name__ == "__main__":
+    main()

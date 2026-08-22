@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import os
-import subprocess
+import sys
 from pathlib import Path
 
 """
@@ -17,52 +16,20 @@ Flujo:
 7) Imprime el resultado y una advertencia.
 """
 
-
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        print(f"[ERROR] Falta variable de entorno: {name}")
-        raise SystemExit(1)
-    return value.strip()
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_vps_config, require_env, run_ssh
 
 
 def main() -> None:
-    repo_root = Path(__file__).resolve().parents[2]
-    env_path = repo_root / "scripts" / ".env"
-    _load_env_file(env_path)
-
-    ip = _require_env("VPS_IP")
-    usuario = _require_env("VPS_USER")
-    key_name = _require_env("VPS_KEY_NAME")
+    repo_root = find_project_root(Path(__file__).resolve().parent)
+    ip, usuario, private_key = load_vps_config(repo_root)
+    key_name = require_env("VPS_KEY_NAME")
 
     ssh_dir = Path.home() / ".ssh"
-    private_key = ssh_dir / key_name
     public_key = ssh_dir / f"{key_name}.pub"
 
     print("[INFO] Eliminando llave pública del VPS...")
 
-    if not private_key.is_file():
-        print(f"[ERROR] No existe la llave privada local: {private_key}")
-        raise SystemExit(1)
     if not public_key.is_file():
         print(f"[ERROR] No existe la llave pública local: {public_key}")
         raise SystemExit(1)
@@ -89,11 +56,7 @@ def main() -> None:
         "fi"
     )
 
-    result = subprocess.run(
-        ["ssh", "-i", str(private_key), f"{usuario}@{ip}", remote_cmd],
-        capture_output=True,
-        text=True,
-    )
+    result = run_ssh(remote_cmd, identity_file=private_key, user=usuario, host=ip)
     if result.stdout:
         print(result.stdout)
     if result.stderr:

@@ -1,13 +1,13 @@
-
-
-
-
 from __future__ import annotations
 
 import filecmp
 import os
 import shutil
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root
 
 """
 Sincroniza archivos comunes entre repos.
@@ -19,43 +19,42 @@ Flujo:
 4) Imprime el resumen.
 """
 
-SOURCE = os.path.abspath(os.getcwd())
-
 ONLY_REPLACE_EXISTING = False
 
 ALLOWED_EXTENSIONS: list[str] = [".py"]
+SOURCE = ""  # si esta vacia, se usa el repo actual como origen
 
 COMMON_TARGETS = [
-    r"e:\Git\banditore",
-    r"e:\Git\cadenza",
-    r"e:\Git\forziere",
-    r"e:\Git\navetta",
-    r"e:\Git\parametri",
+    #r"e:\Git\banditore",
+    #r"e:\Git\cadenza",
+    r"e:\Git\concordia",
+    #r"e:\Git\forziere",
+    #r"e:\Git\navetta",
+    #r"e:\Git\parametri",
     r"e:\Git\presenze",
-    r"e:\Git\spazio",
+    #r"e:\Git\spazio",
     r"e:\Git\vettore",
 ]
 
 COMMON_PATHS = [
 #    ".vscode/settings.json",
-    "docs/api_response_standard.md",
+    #"docs/api_response_standard.md",
     
     "scripts/",
     #"scripts/.env",
 
-    "server/alembic/env.py",
-    "server/alembic/script.py.mako",
-    "server/app/models/base.py",
-    "server/app/models/table_config.py",
-    "server/app/schemas/base.py",
+    #"server/alembic/env.py",
+    #"server/alembic/script.py.mako",
+    #"server/app/models/base.py",
+    #"server/app/models/table_config.py",
+    #"server/app/schemas/base.py",
 
-    "server/scripts/setup/",
-    "server/scripts/inspect_db.py",    
 
-    "server/.gitignore",
-    "server/alembic.ini",
+    #"server/.gitignore",
+    #"server/alembic.ini",
 
-    ".gitignore",
+    #".gitignore",
+    #"CLAUDE.md",
 ]
 
 
@@ -216,7 +215,8 @@ def run_common_only() -> None:
     print("\n" + "=" * 60)
     print("EJECUCION CENTRAL - SOLO GENERALES")
     print("=" * 60)
-    sync(targets=COMMON_TARGETS, source=SOURCE, paths=COMMON_PATHS)
+    source = SOURCE or str(find_project_root(Path(__file__).resolve().parent))
+    sync(targets=COMMON_TARGETS, source=source, paths=COMMON_PATHS)
 
 
 if __name__ == "__main__":

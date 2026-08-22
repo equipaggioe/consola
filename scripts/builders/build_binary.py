@@ -21,17 +21,18 @@ Flujo:
 
 Notas:
 - PyInstaller no compila cross-platform: para Windows y Linux, corre este script en cada SO.
+- Si BUILD_BINARY=false, se salta el bump de versión y PyInstaller, y solo se sube al VPS
+  el ejecutable y el pyproject.toml ya existentes (requiere COPY_TO_VPS=true).
 """
 
+BUILD_BINARY = True
+COPY_TO_VPS = False
 
-ENTRYPOINT = ""
+ENTRYPOINT = ""  # Archivo Python que PyInstaller ejecutará como punto de entrada (ej: server/main.py, tools/cli.py)
 APP_NAME = ""
 ONEFILE = True
-
 VERSION_BUMP_MODE = "patch"  # major | minor | patch | none
 
-COPY_TO_VPS = False
-VPS_REMOTE_DIR = "/srv"
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 from common import bump_semver, copy_to_vps, find_project_root, load_vps_config, require_env, reversible_write
@@ -134,10 +135,24 @@ def _ensure_pyproject(pyproject_path: Path, *, project_name: str) -> None:
     )
 
 
-def main() -> None:
-    repo_root = find_project_root(Path(__file__).resolve().parent)
-    tag = _platform_tag()
+def _copy_to_vps(*, local_path: Path, repo_root: Path, app_root: Path) -> str:
+    vps_ip, vps_user, identity_file = load_vps_config(repo_root)
+    git_repo_url = require_env("GIT_REPO_URL")
+    vps_deploy_dir = require_env("VPS_DEPLOY_DIR")
 
+    remote_rel = local_path.relative_to(app_root).as_posix()
+    return copy_to_vps(
+        local_path,
+        remote_rel_path=remote_rel,
+        remote_dir_base=vps_deploy_dir,
+        git_repo_url=git_repo_url,
+        vps_ip=vps_ip,
+        vps_user=vps_user,
+        identity_file=identity_file,
+    )
+
+
+def _resolve_entrypoint(repo_root: Path) -> Path:
     entrypoint_raw = ENTRYPOINT.strip()
     if len(sys.argv) >= 2 and sys.argv[1].strip():
         entrypoint_raw = sys.argv[1].strip()
@@ -153,12 +168,46 @@ def main() -> None:
     )
     if not entrypoint_path.is_file():
         raise FileNotFoundError(f"No existe ENTRYPOINT: {entrypoint_path}")
+    return entrypoint_path
 
+
+def _resolve_artifact(app_root: Path, *, app_name: str, tag: str) -> Path:
+    suffix = ".exe" if tag == "windows" and ONEFILE else ""
+    artifact = app_root / "dist" / f"{app_name}{suffix}"
+    if ONEFILE:
+        if not artifact.is_file():
+            raise FileNotFoundError(f"No se encontró el ejecutable esperado: {artifact}")
+    else:
+        artifact = app_root / "dist" / app_name
+        if not artifact.exists():
+            raise FileNotFoundError(f"No se encontró el output esperado: {artifact}")
+    return artifact
+
+
+def main() -> None:
+    repo_root = find_project_root(Path(__file__).resolve().parent)
+    tag = _platform_tag()
+
+    entrypoint_path = _resolve_entrypoint(repo_root)
     app_root = entrypoint_path.parent
     pyproject_path = app_root / "pyproject.toml"
     _ensure_pyproject(pyproject_path, project_name=(APP_NAME.strip() or app_root.name))
-
     app_name = APP_NAME.strip() or entrypoint_path.stem
+
+    if not BUILD_BINARY:
+        if not COPY_TO_VPS:
+            raise RuntimeError("BUILD_BINARY=false requiere COPY_TO_VPS=true.")
+
+        artifact = _resolve_artifact(app_root, app_name=app_name, tag=tag)
+        remote_artifact = _copy_to_vps(local_path=artifact, repo_root=repo_root, app_root=app_root)
+        remote_pyproject = _copy_to_vps(local_path=pyproject_path, repo_root=repo_root, app_root=app_root)
+
+        print("build_binary=false")
+        print(f"platform={tag}")
+        print(f"artifact={artifact}")
+        print(f"artifact_vps={remote_artifact}")
+        print(f"pyproject_vps={remote_pyproject}")
+        return
 
     pyinstaller = _find_pyinstaller()
 
@@ -177,31 +226,11 @@ def main() -> None:
 
         subprocess.run(cmd, cwd=str(app_root), check=True)
 
-    suffix = ".exe" if tag == "windows" and ONEFILE else ""
-    artifact = app_root / "dist" / f"{app_name}{suffix}"
-    if ONEFILE:
-        if not artifact.is_file():
-            raise FileNotFoundError(f"No se encontró el ejecutable esperado: {artifact}")
-    else:
-        artifact = app_root / "dist" / app_name
-        if not artifact.exists():
-            raise FileNotFoundError(f"No se encontró el output esperado: {artifact}")
+    artifact = _resolve_artifact(app_root, app_name=app_name, tag=tag)
 
     remote_artifact = ""
     if COPY_TO_VPS:
-        vps_ip, vps_user, identity_file = load_vps_config(repo_root)
-        git_repo_url = require_env("GIT_REPO_URL")
-
-        remote_rel = artifact.relative_to(app_root).as_posix()
-        remote_artifact = copy_to_vps(
-            artifact,
-            remote_rel_path=remote_rel,
-            remote_dir_base=VPS_REMOTE_DIR,
-            git_repo_url=git_repo_url,
-            vps_ip=vps_ip,
-            vps_user=vps_user,
-            identity_file=identity_file,
-        )
+        remote_artifact = _copy_to_vps(local_path=artifact, repo_root=repo_root, app_root=app_root)
 
     print(f"pyproject_version={old_version}->{new_version}")
     print(f"platform={tag}")

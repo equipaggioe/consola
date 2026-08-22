@@ -2,21 +2,24 @@ from __future__ import annotations
 
 import os
 import shutil
-from pathlib import Path
+import sys
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root
 
 """
 Limpia artefactos comunes del repo.
 
 Flujo:
-1) Calcula la raíz del repo (carpeta padre de scripts/).
+1) Calcula la raíz del repo (busca .git subiendo desde este archivo).
 2) Recorre recursivamente y, según la configuración y el modo (simulación/borrado), identifica y procesa:
 3) Loguea cada elemento procesado.
 4) Imprime el resumen de la operación.
 """
 
-
 dry_run = False
 excluded_dir_names = {".git"}
+
 
 dir_names = {"__pycache__", ".gradle", ".kotlin", ".cxx"} # ".dart_tool",
 file_names = {".flutter-plugins", ".flutter-plugins-dependencies", ".packages", "CMakeOutput.log"}
@@ -104,7 +107,7 @@ def clean_artifacts(
 
 
 def main() -> None:
-    project_root = Path(__file__).resolve().parent.parent.parent
+    project_root = find_project_root(Path(__file__).resolve().parent)
     mode = "SIMULACION" if dry_run else "BORRADO"
     print(f"Iniciando limpieza de artefactos desde: {project_root} ({mode})")
     (

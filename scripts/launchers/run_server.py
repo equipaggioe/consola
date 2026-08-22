@@ -1,7 +1,7 @@
 from __future__ import annotations
 
+import atexit
 import os
-import socket
 import sys
 from pathlib import Path
 
@@ -11,127 +11,49 @@ Arranca el backend (Uvicorn) usando el venv de server/.
 Flujo:
 1) Asegura que se ejecute con server/.venv.
 2) Carga variables desde la raíz/.env a os.environ.
-3) Lee SERVER_PREFERRED_PORT, SERVER_PORT_SEARCH, SERVER_HOST y SERVER_RELOAD desde os.environ.
-4) Intenta usar SERVER_PREFERRED_PORT. Si está ocupado:
+3) Resuelve DATABASE_URL según RUN_REMOTE (scripts/.env) y la exporta a os.environ
+   (pisa lo que tenga server/.env, solo para este proceso).
+4) Lee SERVER_PREFERRED_PORT, SERVER_PORT_SEARCH, SERVER_HOST y SERVER_RELOAD desde os.environ.
+5) Intenta usar SERVER_PREFERRED_PORT. Si está ocupado:
    - SERVER_PORT_SEARCH=false: termina con error.
    - SERVER_PORT_SEARCH=true: busca el siguiente puerto libre.
-5) Escribe SERVER_PORT en la raíz/.env con el puerto elegido.
-6) Arranca uvicorn con app.main:app, HOST y RELOAD.
-7) Si existen certs/cert.pem y certs/key.pem en server/, habilita TLS.
+6) Escribe SERVER_PORT en la raíz/.env con el puerto elegido.
+7) Arranca uvicorn con app.main:app, HOST y RELOAD.
+8) Si existen certs/cert.pem y certs/key.pem en server/, habilita TLS.
+
+Base de datos (RUN_REMOTE, scripts/.env):
+- false: usa la BD local. El puerto se lee de postgresql.conf (no se asume un valor fijo).
+  Usuario/password/nombre de BD salen de scripts/.env (VPS_USER, DB_PASSWORD, DB_NAME),
+  mismos valores que usa scripts/database/bootstrap_db.py al crear la BD local.
+- true: usa la BD remota del VPS. Antes de arrancar, consulta por SSH el puerto real de
+  Postgres en el VPS (SHOW port, no se asume el puerto por defecto) y abre un túnel SSH en
+  background hacia un puerto local libre.
+- Si RUN_REMOTE=false pero no hay Postgres local instalado, cae automáticamente a la BD
+  remota del VPS (con aviso). No hay fallback en la otra dirección: si RUN_REMOTE=true y
+  el VPS no está disponible, el script termina con error.
 """
 
-
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        print(f"[ERROR] Falta variable de entorno: {name}")
-        raise SystemExit(1)
-    return value.strip()
-
-
-def _require_int_env(name: str) -> int:
-    raw = _require_env(name)
-    try:
-        value = int(raw)
-    except ValueError as exc:
-        print(f"[ERROR] {name} no es numérico: {raw}")
-        raise SystemExit(1) from exc
-    if value < 1 or value > 65535:
-        print(f"[ERROR] {name} fuera de rango: {value}")
-        raise SystemExit(1)
-    return value
-
-
-def _require_bool_env(name: str) -> bool:
-    raw = _require_env(name).lower()
-    if raw in {"1", "true", "yes", "y", "on"}:
-        return True
-    if raw in {"0", "false", "no", "n", "off"}:
-        return False
-    print(f"[ERROR] {name} inválido (usa true/false, 1/0, yes/no): {raw}")
-    raise SystemExit(1)
-
-
-def _upsert_env_var(env_path: Path, key: str, value: str) -> None:
-    lines = env_path.read_text(encoding="utf-8").splitlines() if env_path.exists() else []
-    prefix = f"{key}="
-    out: list[str] = []
-    replaced = False
-    for line in lines:
-        if line.startswith(prefix):
-            out.append(f"{key}={value}")
-            replaced = True
-        else:
-            out.append(line)
-    if not replaced:
-        out.append(f"{key}={value}")
-    env_path.write_text("\n".join(out) + "\n", encoding="utf-8")
-
-
-def _is_port_free(port: int) -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        try:
-            sock.bind(("0.0.0.0", port))
-        except OSError:
-            return False
-        return True
-
-
-def _pick_port(*, preferred_port: int, search_if_busy: bool) -> int:
-    if _is_port_free(preferred_port):
-        return preferred_port
-
-    if not search_if_busy:
-        print(f"[ERROR] Puerto en uso: PREFERRED_PORT={preferred_port}")
-        raise SystemExit(1)
-
-    for port in range(preferred_port + 1, 65536):
-        if _is_port_free(port):
-            return port
-
-    print("[ERROR] No se encontró ningún puerto disponible.")
-    raise SystemExit(1)
-
-
-def _ensure_server_venv_python(repo_root: Path) -> None:
-    venv_python = repo_root / "server" / ".venv" / "Scripts" / "python.exe"
-    if not venv_python.exists():
-        print(f"[ERROR] No existe el Python del venv: {venv_python}")
-        raise SystemExit(1)
-
-    current_python = Path(sys.executable).resolve()
-    target_python = venv_python.resolve()
-    if os.path.normcase(str(current_python)) != os.path.normcase(str(target_python)):
-        print(f"[INFO] Reiniciando con el Python del venv: {target_python}")
-        os.execv(str(target_python), [str(target_python), *sys.argv])
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import (
+    find_project_root,
+    load_env_file,
+    pick_port,
+    require_bool_env,
+    require_env,
+    require_port_env,
+    resolve_database_url,
+    upsert_env_var,
+    venv_python,
+)
 
 
 def main() -> None:
-    repo_root = Path(__file__).resolve().parent.parent.parent
+    repo_root = find_project_root(Path(__file__).resolve().parent)
     server_dir = repo_root / "server"
     env_path = repo_root / "scripts" / ".env"
 
-    _ensure_server_venv_python(repo_root)
-    _load_env_file(env_path)
+    venv_python(server_dir / ".venv", restart=True)
+    load_env_file(env_path)
 
     if not server_dir.exists():
         print(f"[ERROR] No existe el directorio del servidor: {server_dir}")
@@ -140,14 +62,19 @@ def main() -> None:
     os.chdir(server_dir)
     sys.path.insert(0, str(server_dir))
 
-    preferred_port = _require_int_env("SERVER_PREFERRED_PORT")
-    search_if_busy = _require_bool_env("SERVER_PORT_SEARCH")
-    port = _pick_port(preferred_port=preferred_port, search_if_busy=search_if_busy)
-    _upsert_env_var(env_path, "SERVER_PORT", str(port))
+    database_url, tunnel = resolve_database_url(repo_root)
+    os.environ["DATABASE_URL"] = database_url
+    if tunnel is not None:
+        atexit.register(tunnel.terminate)
+
+    preferred_port = require_port_env("SERVER_PREFERRED_PORT")
+    search_if_busy = require_bool_env("SERVER_PORT_SEARCH")
+    port = pick_port(preferred_port=preferred_port, search_if_busy=search_if_busy, port_name="SERVER_PREFERRED_PORT")
+    upsert_env_var(env_path, key="SERVER_PORT", value=str(port))
 
     app_module = "app.main:app"
-    host = _require_env("SERVER_HOST")
-    reload_enabled = _require_bool_env("SERVER_RELOAD")
+    host = require_env("SERVER_HOST")
+    reload_enabled = require_bool_env("SERVER_RELOAD")
 
     cert_file = server_dir / "certs" / "cert.pem"
     key_file = server_dir / "certs" / "key.pem"

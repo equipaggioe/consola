@@ -1,8 +1,6 @@
-import os
-import subprocess
-import urllib.request
-import urllib.error
-import json
+from __future__ import annotations
+
+import sys
 from pathlib import Path
 
 """
@@ -11,163 +9,88 @@ Genera SSH key en el VPS
 Lee la llave pública
 La registra automáticamente en GitHub
 Prueba conexión SSH GitHub
+
+Token GitHub (classic). Permisos necesarios:
+- admin:public_key
+- repo (opcional)
 """
 
-# =========================================================
-# CONFIGURACION
-# =========================================================
-
-# Token GitHub (classic)
-# Permisos necesarios:
-# - admin:public_key
-# - repo (opcional)
-def _find_env_file() -> Path:
-    start = Path(__file__).resolve().parent
-    for p in [start, *start.parents]:
-        candidate = p / ".env"
-        if candidate.is_file():
-            return candidate
-    raise RuntimeError("No se encontró .env en la raíz del proyecto.")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, github_api_request, load_vps_config, require_env, run_ssh, run_ssh_checked
 
 
-def _load_env(path: Path) -> None:
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        k, v = line.split("=", 1)
-        k = k.strip()
-        v = v.strip()
-        if k and k not in os.environ:
-            os.environ[k] = v
+def main() -> None:
+    vps_ip, vps_user, identity_file = load_vps_config(find_project_root(Path(__file__).resolve().parent))
 
+    github_token = require_env("GITHUB_TOKEN")
+    key_title = require_env("GITHUB_KEY_TITLE")
 
-_load_env(_find_env_file())
-
-
-def _require(name: str) -> str:
-    v = os.getenv(name)
-    if not v:
-        raise RuntimeError(f"Falta variable requerida en .env: {name}")
-    return v
-
-
-VPS_IP = _require("VPS_IP")
-VPS_USER = _require("VPS_USER")
-GITHUB_TOKEN = _require("GITHUB_TOKEN")
-
-# Nombre visible en GitHub
-KEY_TITLE = _require("GITHUB_KEY_TITLE")
-
-LOCAL_IDENTITY_FILE = Path.home() / ".ssh" / _require("VPS_KEY_NAME")
-
-# =========================================================
-# HELPERS
-# =========================================================
-
-def run_remote(command: str):
-
-    return subprocess.run(
-        [
-            "ssh",
-            "-i",
-            str(LOCAL_IDENTITY_FILE),
-            f"{VPS_USER}@{VPS_IP}",
-            command
-        ],
-        capture_output=True,
-        text=True
+    print("[INFO] Verificando llave SSH en VPS...")
+    check_key = run_ssh(
+        "if [ -f ~/.ssh/id_ed25519.pub ]; then echo EXISTS; else echo MISSING; fi",
+        identity_file=identity_file,
+        user=vps_user,
+        host=vps_ip,
     )
+    if check_key.returncode != 0:
+        print(f"[ERROR] No se pudo conectar al VPS: {check_key.stderr.strip()}")
+        raise SystemExit(1)
 
-# =========================================================
-# 1. VERIFICAR SSH KEY
-# =========================================================
-
-print("Verificando llave SSH en VPS...")
-
-check_key = run_remote("if [ -f ~/.ssh/id_ed25519.pub ]; then echo EXISTS; else echo MISSING; fi")
-
-if "EXISTS" not in check_key.stdout:
-
-    print("Generando llave SSH en VPS...")
-
-    run_remote(
-        'mkdir -p ~/.ssh && '
-        'chmod 700 ~/.ssh && '
-        'ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""'
-    )
-
-else:
-    print("La llave ya existe.")
-
-# =========================================================
-# 2. LEER LLAVE PUBLICA
-# =========================================================
-
-print("Leyendo llave publica...")
-
-pubkey_result = run_remote(
-    "cat ~/.ssh/id_ed25519.pub"
-)
-
-PUBLIC_KEY = pubkey_result.stdout.strip()
-
-if not PUBLIC_KEY:
-    raise Exception("No se pudo leer la llave publica del VPS.")
-
-# =========================================================
-# 3. REGISTRAR EN GITHUB
-# =========================================================
-
-print("Registrando llave en GitHub...")
-
-payload = json.dumps({
-    "title": KEY_TITLE,
-    "key": PUBLIC_KEY
-}).encode("utf-8")
-
-request = urllib.request.Request(
-    "https://api.github.com/user/keys",
-    data=payload,
-    headers={
-        "Authorization": f"token {GITHUB_TOKEN}",
-        "Accept": "application/vnd.github+json",
-        "Content-Type": "application/json"
-    },
-    method="POST"
-)
-
-try:
-
-    with urllib.request.urlopen(request) as response:
-
-        if response.status == 201:
-            print("Llave registrada correctamente.")
-
-except urllib.error.HTTPError as e:
-
-    if e.code == 422:
-        print("La llave ya existe en GitHub.")
-
+    if "EXISTS" not in check_key.stdout:
+        print("[INFO] Generando llave SSH en VPS...")
+        try:
+            run_ssh_checked(
+                'mkdir -p ~/.ssh && chmod 700 ~/.ssh && ssh-keygen -t ed25519 -f ~/.ssh/id_ed25519 -N ""',
+                identity_file=identity_file,
+                user=vps_user,
+                host=vps_ip,
+            )
+        except RuntimeError as exc:
+            print(f"[ERROR] No se pudo generar la llave en el VPS: {exc}")
+            raise SystemExit(1)
     else:
-        print(e.read().decode())
-        raise
+        print("[OK] La llave ya existe.")
 
-# =========================================================
-# 4. PROBAR CONEXION GITHUB
-# =========================================================
+    print("[INFO] Leyendo llave pública...")
+    try:
+        public_key = run_ssh_checked(
+            "cat ~/.ssh/id_ed25519.pub", identity_file=identity_file, user=vps_user, host=vps_ip
+        )
+    except RuntimeError as exc:
+        print(f"[ERROR] No se pudo leer la llave pública del VPS: {exc}")
+        raise SystemExit(1)
 
-print("Probando conexion GitHub...")
+    if not public_key:
+        print("[ERROR] La llave pública del VPS está vacía.")
+        raise SystemExit(1)
 
-test_result = run_remote(
-    "ssh -o StrictHostKeyChecking=no -T git@github.com || true"
-)
+    print("[INFO] Registrando llave en GitHub...")
+    status, payload = github_api_request(
+        "POST",
+        "https://api.github.com/user/keys",
+        token=github_token,
+        body={"title": key_title, "key": public_key},
+    )
+    if status == 201:
+        print("[OK] Llave registrada correctamente.")
+    elif status == 422:
+        print("[OK] La llave ya existe en GitHub.")
+    else:
+        print(f"[ERROR] No se pudo registrar la llave en GitHub (status {status}): {payload}")
+        raise SystemExit(1)
 
-print(test_result.stdout)
-print(test_result.stderr)
+    print("[INFO] Probando conexión GitHub...")
+    test_result = run_ssh(
+        "ssh -o StrictHostKeyChecking=no -T git@github.com || true",
+        identity_file=identity_file,
+        user=vps_user,
+        host=vps_ip,
+    )
+    print(test_result.stdout)
+    print(test_result.stderr)
 
-# =========================================================
-# FINAL
-# =========================================================
+    print("\n[OK] SETUP SSH GITHUB COMPLETADO")
 
-print("\nSETUP SSH GITHUB COMPLETADO")
+
+if __name__ == "__main__":
+    main()

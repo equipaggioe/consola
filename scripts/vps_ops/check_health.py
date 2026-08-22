@@ -1,7 +1,6 @@
 from __future__ import annotations
 
-import os
-import subprocess
+import sys
 from pathlib import Path
 
 """
@@ -14,65 +13,25 @@ Muestra:
   - Conexiones activas (puertos abiertos, conexiones establecidas)
 """
 
-
-def _find_env_file() -> Path:
-    start = Path(__file__).resolve().parent
-    for path in [start, *start.parents]:
-        candidate = path / ".env"
-        if candidate.is_file():
-            return candidate
-    raise RuntimeError("No se encontró .env.")
-
-
-def _load_env(path: Path) -> None:
-    for raw in path.read_text(encoding="utf-8").splitlines():
-        line = raw.strip()
-        if not line or line.startswith("#") or "=" not in line:
-            continue
-        key, value = line.split("=", 1)
-        key = key.strip()
-        value = value.strip()
-        if key and key not in os.environ:
-            os.environ[key] = value
-
-
-_load_env(_find_env_file())
-
-
-def _require(name: str) -> str:
-    value = os.getenv(name)
-    if not value:
-        raise RuntimeError(f"Falta variable requerida: {name}")
-    return value
-
-
-def run_remote(command: str, timeout: int = 10) -> subprocess.CompletedProcess[str]:
-    try:
-        result = subprocess.run(
-            ["ssh", "-i", str(LOCAL_IDENTITY_FILE), f"{VPS_USER}@{VPS_IP}", command],
-            capture_output=True,
-            text=True,
-            encoding="utf-8",
-            errors="replace",
-            timeout=timeout,
-        )
-        return result
-    except subprocess.TimeoutExpired:
-        raise RuntimeError(f"Comando excedió timeout ({timeout}s)")
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_vps_config, run_ssh_checked
 
 
 def run_remote_checked(command: str, timeout: int = 10) -> str:
-    result = run_remote(command, timeout=timeout)
-    if result.returncode != 0:
-        raise RuntimeError(f"Comando falló: {result.stderr}")
-    return result.stdout.strip()
+    return run_ssh_checked(command, identity_file=LOCAL_IDENTITY_FILE, user=VPS_USER, host=VPS_IP, timeout=timeout)
 
 
-VPS_IP = _require("VPS_IP")
-VPS_USER = _require("VPS_USER")
-VPS_KEY_NAME = _require("VPS_KEY_NAME")
-
-LOCAL_IDENTITY_FILE = Path.home() / ".ssh" / VPS_KEY_NAME
+def _run_step(label: str, command: str, *, timeout: int = 10, empty_message: str | None = None) -> None:
+    if label:
+        print(label)
+    try:
+        output = run_remote_checked(command, timeout=timeout)
+        if output:
+            print(output)
+        elif empty_message:
+            print(empty_message)
+    except Exception as e:
+        print(f"⚠️  Error: {e}")
 
 
 def check_disk_space():
@@ -80,18 +39,8 @@ def check_disk_space():
     print("ESPACIO EN DISCO")
     print("=" * 50)
 
-    try:
-        output = run_remote_checked("df -h /srv", timeout=10)
-        print(output)
-    except Exception as e:
-        print(f"⚠️  Error: {e}")
-
-    print("\nTamaño por directorio:")
-    try:
-        output = run_remote_checked("du -sh /srv/* 2>/dev/null | sort -hr | head -10", timeout=15)
-        print(output)
-    except Exception as e:
-        print(f"⚠️  Error: {e}")
+    _run_step("", "df -h /srv", timeout=10)
+    _run_step("\nTamaño por directorio:", "du -sh /srv/* 2>/dev/null | sort -hr | head -10", timeout=15)
 
 
 def check_memory():
@@ -99,11 +48,7 @@ def check_memory():
     print("MEMORIA RAM")
     print("=" * 50)
 
-    try:
-        output = run_remote_checked("free -h", timeout=10)
-        print(output)
-    except Exception as e:
-        print(f"⚠️  Error: {e}")
+    _run_step("", "free -h", timeout=10)
 
 
 def check_cpu():
@@ -111,20 +56,12 @@ def check_cpu():
     print("CPU Y CARGA")
     print("=" * 50)
 
-    try:
-        output = run_remote_checked("uptime", timeout=10)
-        print(f"Uptime: {output}")
-    except Exception as e:
-        print(f"⚠️  Error: {e}")
-
-    print("\nTop 5 procesos por CPU:")
-    try:
-        output = run_remote_checked(
-            "ps aux --sort=-%cpu | head -6 | awk '{print $1, $3, $11}'", timeout=10
-        )
-        print(output)
-    except Exception as e:
-        print(f"⚠️  Error: {e}")
+    _run_step("", "uptime", timeout=10)
+    _run_step(
+        "\nTop 5 procesos por CPU:",
+        "ps aux --sort=-%cpu | head -6 | awk '{print $1, $3, $11}'",
+        timeout=10,
+    )
 
 
 def check_connections():
@@ -132,18 +69,8 @@ def check_connections():
     print("CONEXIONES ACTIVAS")
     print("=" * 50)
 
-    try:
-        output = run_remote_checked("ss -tulpn | grep LISTEN", timeout=10)
-        print(output)
-    except Exception as e:
-        print(f"⚠️  Error: {e}")
-
-    print("\nConexiones establecidas:")
-    try:
-        count = run_remote_checked("ss -tulpn | grep ESTABLISHED | wc -l", timeout=10)
-        print(f"Total: {count}")
-    except Exception as e:
-        print(f"⚠️  Error: {e}")
+    _run_step("", "ss -tulpn | grep LISTEN", timeout=10)
+    _run_step("\nConexiones establecidas:", "ss -tulpn | grep ESTABLISHED | wc -l", timeout=10)
 
 
 def check_recent_errors():
@@ -151,20 +78,19 @@ def check_recent_errors():
     print("ERRORES RECIENTES (últimas 24h)")
     print("=" * 50)
 
-    try:
-        output = run_remote_checked(
-            "sudo journalctl -p err --since '24 hours ago' -n 20 --no-pager",
-            timeout=10
-        )
-        if output:
-            print(output)
-        else:
-            print("✓ Sin errores del sistema")
-    except Exception as e:
-        print(f"⚠️  Error: {e}")
+    _run_step(
+        "",
+        "sudo journalctl -p err --since '24 hours ago' -n 20 --no-pager",
+        timeout=10,
+        empty_message="✓ Sin errores del sistema",
+    )
 
 
 def main():
+    global VPS_IP, VPS_USER, LOCAL_IDENTITY_FILE
+
+    VPS_IP, VPS_USER, LOCAL_IDENTITY_FILE = load_vps_config(find_project_root(Path(__file__).resolve().parent))
+
     print(f"\n[INFO] Conectando a {VPS_IP}...")
 
     try:

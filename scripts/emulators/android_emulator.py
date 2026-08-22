@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 import os
-import subprocess
+import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 """
 Código base para arrancar emuladores Android asegurando:
@@ -13,47 +14,28 @@ Código base para arrancar emuladores Android asegurando:
 5) Arranque del emulador con flags.
 """
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import print_header, resolve_android_tool, run_logged
+
 
 @dataclass(frozen=True)
 class AndroidSdkPaths:
-    android_home: str
     emulator: str
     adb: str
     sdkmanager: str
     avdmanager: str
 
 
-def print_header(title: str) -> None:
-    print("\n" + "=" * 80)
-    print(title)
-    print("=" * 80)
-
-
-def _require_env(name: str) -> str:
-    value = (os.environ.get(name) or "").strip()
-    if not value:
-        raise RuntimeError(f"Falta variable de entorno: {name}")
-    return value
-
-
-def sdk_paths(*, android_home: str | None = None) -> AndroidSdkPaths:
-    if android_home is None:
-        android_home = (os.environ.get("ANDROID_SDK_ROOT") or "").strip() or (os.environ.get("ANDROID_HOME") or "").strip()
-        if not android_home:
-            raise RuntimeError("Falta ANDROID_SDK_ROOT o ANDROID_HOME en el entorno.")
-
-    emulator = os.path.join(android_home, "emulator", "emulator.exe")
-    platform_tools = os.path.join(android_home, "platform-tools")
-    adb = os.path.join(platform_tools, "adb.exe")
-    cmdline_tools = os.path.join(android_home, "cmdline-tools", "latest", "bin")
-    sdkmanager = os.path.join(cmdline_tools, "sdkmanager.bat")
-    avdmanager = os.path.join(cmdline_tools, "avdmanager.bat")
+def sdk_paths() -> AndroidSdkPaths:
     return AndroidSdkPaths(
-        android_home=android_home,
-        emulator=emulator,
-        adb=adb,
-        sdkmanager=sdkmanager,
-        avdmanager=avdmanager,
+        emulator=resolve_android_tool(sdk_subpath=("emulator",), windows_name="emulator.exe", other_name="emulator"),
+        adb=resolve_android_tool(sdk_subpath=("platform-tools",), windows_name="adb.exe", other_name="adb"),
+        sdkmanager=resolve_android_tool(
+            sdk_subpath=("cmdline-tools", "latest", "bin"), windows_name="sdkmanager.bat", other_name="sdkmanager"
+        ),
+        avdmanager=resolve_android_tool(
+            sdk_subpath=("cmdline-tools", "latest", "bin"), windows_name="avdmanager.bat", other_name="avdmanager"
+        ),
     )
 
 
@@ -73,29 +55,30 @@ def _check_required_tools(paths: AndroidSdkPaths) -> None:
         print(f"[OK] {name}: {path}")
 
 
-def _run(cmd: list[str], *, capture_output: bool = False) -> subprocess.CompletedProcess[str]:
-    print(f"\n>>> {' '.join(cmd)}\n")
-    return subprocess.run(cmd, check=True, text=True, capture_output=capture_output)
-
-
 def system_image(*, api_level: str, target: str, abi: str) -> str:
     return f"system-images;android-{api_level};{target};{abi}"
 
 
 def _system_image_installed(paths: AndroidSdkPaths, system_image_id: str) -> bool:
-    result = _run([paths.sdkmanager, "--list_installed"], capture_output=True)
+    result = run_logged([paths.sdkmanager, "--list_installed"], capture_output=True)
     return system_image_id in (result.stdout or "")
 
 
 def _avd_exists(paths: AndroidSdkPaths, avd_name: str) -> bool:
-    result = _run([paths.emulator, "-list-avds"], capture_output=True)
+    result = run_logged([paths.emulator, "-list-avds"], capture_output=True)
     avds = [line.strip() for line in (result.stdout or "").splitlines() if line.strip()]
     return avd_name in avds
 
 
+def _avd_home() -> str:
+    avd_home = os.environ.get("ANDROID_AVD_HOME")
+    if not avd_home:
+        raise RuntimeError("La variable de entorno 'ANDROID_AVD_HOME' no está definida.")
+    return avd_home
+
+
 def _update_avd_config(*, avd_name: str) -> None:
-    userprofile = os.environ.get("USERPROFILE") or ""
-    config_ini_path = os.path.join(userprofile, ".android", "avd", f"{avd_name}.avd", "config.ini")
+    config_ini_path = os.path.join(_avd_home(), f"{avd_name}.avd", "config.ini")
     if not os.path.exists(config_ini_path):
         print(f"[ERROR] No se encontró config.ini para el AVD '{avd_name}' en: {config_ini_path}")
         return
@@ -124,9 +107,8 @@ def run(
     abi: str,
     target: str,
     flags: list[str] | None = None,
-    android_home: str | None = None,
 ) -> None:
-    paths = sdk_paths(android_home=android_home)
+    paths = sdk_paths()
     system_image_id = system_image(api_level=api_level, target=target, abi=abi)
     emulator_flags = flags or [
         "-no-boot-anim",
@@ -150,7 +132,7 @@ def run(
     else:
         print("[INFO] No está instalada.")
         print(f"[INFO] Instalando:\n       {system_image_id}")
-        _run([paths.sdkmanager, system_image_id])
+        run_logged([paths.sdkmanager, system_image_id])
 
     print_header("VALIDANDO AVD")
     if _avd_exists(paths, avd_name):
@@ -158,7 +140,7 @@ def run(
         _update_avd_config(avd_name=avd_name)
     else:
         print(f"[INFO] Creando AVD: {avd_name}")
-        _run(
+        run_logged(
             [
                 paths.avdmanager,
                 "create",
@@ -177,5 +159,5 @@ def run(
     cmd = [paths.emulator, "-avd", avd_name, *emulator_flags]
     print(f"[INFO] Iniciando emulador con AVD: {avd_name}")
     print(f"[INFO] Comando: {' '.join(cmd)}")
-    _run(cmd)
+    run_logged(cmd)
     print_header("EMULADOR FINALIZADO")

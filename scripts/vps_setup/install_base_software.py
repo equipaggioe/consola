@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import subprocess
+import sys
 from pathlib import Path
 
 """
@@ -17,6 +17,8 @@ Flujo:
 7) Imprime comandos de verificación según lo seleccionado.
 """
 
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_vps_config
 
 PACKAGES: dict[str, dict[str, object]] = {
     "python": {
@@ -39,10 +41,15 @@ PACKAGES: dict[str, dict[str, object]] = {
         "apt": ["postgis", "postgresql-postgis-scripts"],
         "verify": ["dpkg -s postgis | grep -i '^version'"],
     },
-    "nginx": {
-        "enabled": False,
-        "apt": ["nginx"],
-        "verify": ["nginx -v"],
+    "caddy": {
+        "enabled": True,
+        "apt": ["caddy"],
+        "verify": ["caddy version"],
+    },
+    "ufw": {
+        "enabled": True,
+        "apt": ["ufw"],
+        "verify": ["sudo -n ufw version"],
     },
 
     "redis": {
@@ -63,32 +70,6 @@ PACKAGES: dict[str, dict[str, object]] = {
 }
 
 
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        print(f"[ERROR] Falta variable de entorno: {name}")
-        raise SystemExit(1)
-    return value.strip()
-
 def _sh_single_quote(value: str) -> str:
     return "'" + value.replace("'", "'\"'\"'") + "'"
 
@@ -108,14 +89,8 @@ def _selected_packages() -> tuple[list[str], list[str]]:
 
 
 def main() -> None:
-    repo_root = Path(__file__).resolve().parents[2]
-    env_path = repo_root / "scripts" / ".env"
-    _load_env_file(env_path)
-
-    ip = _require_env("VPS_IP")
-    usuario = _require_env("VPS_USER")
-    key_name = _require_env("VPS_KEY_NAME")
-    identity_file = Path.home() / ".ssh" / key_name
+    repo_root = find_project_root(Path(__file__).resolve().parent)
+    ip, usuario, identity_file = load_vps_config(repo_root)
     apt_packages, verify_cmds = _selected_packages()
 
     print("[INFO] Actualizando sistema e instalando paquetes seleccionados...")
@@ -128,10 +103,6 @@ def main() -> None:
         f"sudo -n /usr/bin/apt-get -y install {' '.join(apt_packages)}; "
         + "; ".join(verify_cmds)
     )
-
-    if not identity_file.is_file():
-        print(f"[ERROR] No existe la llave local configurada en VPS_KEY_NAME: {identity_file}")
-        raise SystemExit(1)
 
     subprocess.run(["ssh", "-i", str(identity_file), f"{usuario}@{ip}", remote_cmd], check=True)
     print("[OK] Listo.")

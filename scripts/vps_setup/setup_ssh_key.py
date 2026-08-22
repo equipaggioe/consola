@@ -1,51 +1,43 @@
 from __future__ import annotations
 
-import os
+import shutil
 import subprocess
+import sys
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_vps_ip_user, optional_env, require_env
 
 """
 Instala una llave SSH en el VPS para poder entrar sin contraseña.
 
 Flujo:
 1) Calcula la raíz del repo (carpeta padre de scripts/).
-2) Carga scripts/.env a variables de entorno.
-3) Lee y valida VPS_IP, ROOT_USER, VPS_USER y VPS_KEY_NAME.
+2) Carga scripts/.env, VPS_IP y VPS_USER (default: nombre del repo si no está definida).
+3) Lee y valida ROOT_USER y VPS_KEY_NAME. Si ROOT_PASSWORD está definida
+   en el .env, se usa con sshpass para no pedir la contraseña en línea; si no está, SSH
+   la pide en línea como siempre.
 4) Conecta al VPS como ROOT_USER.
-5) Crea el usuario VPS_USER si no existe, lo añade al grupo sudo y configura sudo NOPASSWD para apt/apt-get/dpkg, systemctl, tee, journalctl, mkdir/chown/chmod.
+5) Crea el usuario VPS_USER si no existe, lo añade al grupo sudo y configura sudo NOPASSWD según
+   SUDO_NOPASSWD_MODE ("all" = todo; "specific" = solo los comandos listados en
+   SUDO_SPECIFIC_COMMANDS, más psql sobre postgres; "none" = no configura NOPASSWD).
 6) Asegura ~/.ssh y genera la llave si no existe (localmente).
 7) Agrega la llave pública a ~/.ssh/authorized_keys en el VPS para el VPS_USER.
 8) Prueba el login por SSH usando la llave con el VPS_USER.
 """
 
 SUDO_NOPASSWD_MODE = "all"  # all | specific | none
-
-
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        print(f"[ERROR] Falta variable de entorno: {name}")
-        raise SystemExit(1)
-    return value.strip()
+SUDO_SPECIFIC_COMMANDS = (
+    "/usr/bin/apt-get",     # instalar/actualizar paquetes
+    "/usr/bin/apt",         # instalar/actualizar paquetes (interfaz alternativa)
+    "/usr/bin/dpkg",        # instalar/consultar paquetes .deb
+    "/usr/bin/systemctl",   # iniciar/detener/reiniciar servicios
+    "/usr/bin/tee",         # escribir archivos como root (ej. configuraciones)
+    "/usr/bin/journalctl",  # leer logs del sistema
+    "/bin/mkdir",           # crear carpetas
+    "/bin/chown",           # cambiar dueño de archivos/carpetas
+    "/bin/chmod",           # cambiar permisos de archivos/carpetas
+)
 
 
 def _sh_single_quote(value: str) -> str:
@@ -53,14 +45,12 @@ def _sh_single_quote(value: str) -> str:
 
 
 def main() -> None:
-    repo_root = Path(__file__).resolve().parents[2]
-    env_path = repo_root / "scripts" / ".env"
-    _load_env_file(env_path)
+    repo_root = find_project_root(Path(__file__).resolve().parent)
+    ip, usuario = load_vps_ip_user(repo_root)
 
-    ip = _require_env("VPS_IP")
-    root_usuario = _require_env("ROOT_USER")
-    usuario = _require_env("VPS_USER")
-    key_name = _require_env("VPS_KEY_NAME")
+    root_usuario = require_env("ROOT_USER")
+    root_password = optional_env("ROOT_PASSWORD", "")
+    key_name = require_env("VPS_KEY_NAME")
 
     sudo_mode = (SUDO_NOPASSWD_MODE or "").strip().lower()
     if sudo_mode not in {"all", "specific", "none", "ninguno"}:
@@ -79,9 +69,10 @@ def main() -> None:
             "echo SUDOERS_OK; "
         )
     else:
+        comandos_especificos = ", ".join(SUDO_SPECIFIC_COMMANDS)
         sudoers_segment = (
             'sudoers="/etc/sudoers.d/vettore-$user"; '
-            'rule_root="$user ALL=(root) NOPASSWD: /usr/bin/apt-get, /usr/bin/apt, /usr/bin/dpkg, /usr/bin/systemctl, /usr/bin/tee, /usr/bin/journalctl, /bin/mkdir, /bin/chown, /bin/chmod"; '
+            f'rule_root="$user ALL=(root) NOPASSWD: {comandos_especificos}"; '
             'rule_postgres="$user ALL=(postgres) NOPASSWD: /usr/bin/psql"; '
             'printf "%s\\n%s\\n" "$rule_root" "$rule_postgres" > "$sudoers" && '
             'chmod 440 "$sudoers" && '
@@ -111,7 +102,18 @@ def main() -> None:
         raise SystemExit(1)
 
     print("[INFO] Copiando llave al VPS...")
-    print("[INFO] Te pedirá la contraseña una sola vez (usuario root).")
+
+    if root_password:
+        sshpass_bin = shutil.which("sshpass")
+        if not sshpass_bin:
+            print("[ERROR] ROOT_PASSWORD está definida pero no se encontró 'sshpass' instalado.")
+            print("[ERROR] Instálalo (ej. apt install sshpass) o quita ROOT_PASSWORD del .env.")
+            raise SystemExit(1)
+        ssh_prefix = [sshpass_bin, "-p", root_password]
+        print("[INFO] Usando la contraseña de ROOT_PASSWORD (no se pedirá en línea).")
+    else:
+        ssh_prefix = []
+        print("[INFO] Te pedirá la contraseña una sola vez (usuario root).")
 
     remote_cmd = (
         f"user={_sh_single_quote(usuario)}; "
@@ -142,10 +144,15 @@ def main() -> None:
         "echo SSH_OK"
     )
 
-    subprocess.run(["ssh", f"{root_usuario}@{ip}", remote_cmd], check=True)
+    ssh_opts = ["-o", "StrictHostKeyChecking=no"]
+
+    subprocess.run([*ssh_prefix, "ssh", *ssh_opts, f"{root_usuario}@{ip}", remote_cmd], check=True)
 
     print("[INFO] Probando login sin contraseña...")
-    subprocess.run(["ssh", "-i", str(private_key), f"{usuario}@{ip}", "echo LOGIN SSH EXITOSO"], check=True)
+    subprocess.run(
+        ["ssh", *ssh_opts, "-i", str(private_key), f"{usuario}@{ip}", "echo LOGIN SSH EXITOSO"],
+        check=True,
+    )
     print("[OK] Listo.")
 
 

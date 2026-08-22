@@ -1,7 +1,7 @@
 from __future__ import annotations
 
-import os
 import subprocess
+import sys
 from pathlib import Path
 
 """
@@ -10,38 +10,13 @@ REMOTE HOST IDENTIFICATION HAS CHANGED!
 
 Flujo:
 1) Calcula la raíz del repo (carpeta padre de scripts/).
-2) Carga scripts/.env a variables de entorno.
-3) Lee y valida VPS_IP y VPS_USER.
-4) Elimina entradas existentes de known_hosts para esa IP.
-5) Hace un intento de conexión SSH en modo batch para que SSH registre la clave actual del host en known_hosts.
+2) Carga scripts/.env, VPS_IP y VPS_USER (default: nombre del repo si no está definida).
+3) Elimina entradas existentes de known_hosts para esa IP.
+4) Hace un intento de conexión SSH en modo batch para que SSH registre la clave actual del host en known_hosts.
 """
 
-
-def _load_env_file(env_path: Path) -> None:
-    if not env_path.exists():
-        print(f"[ERROR] No existe el archivo .env: {env_path}")
-        raise SystemExit(1)
-
-    for raw_line in env_path.read_text(encoding="utf-8").splitlines():
-        line = raw_line.strip()
-        if not line or line.startswith("#"):
-            continue
-        key, sep, value = line.partition("=")
-        if not sep:
-            continue
-        k = key.strip()
-        v = value.strip()
-        if not k:
-            continue
-        os.environ[k] = v
-
-
-def _require_env(name: str) -> str:
-    value = os.getenv(name)
-    if value is None or not value.strip():
-        print(f"[ERROR] Falta variable de entorno: {name}")
-        raise SystemExit(1)
-    return value.strip()
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import find_project_root, load_vps_ip_user
 
 
 def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
@@ -53,12 +28,8 @@ def _run(args: list[str]) -> subprocess.CompletedProcess[str]:
 
 
 def main() -> None:
-    repo_root = Path(__file__).resolve().parents[2]
-    env_path = repo_root / "scripts" / ".env"
-    _load_env_file(env_path)
-
-    ip = _require_env("VPS_IP")
-    user = _require_env("VPS_USER")
+    repo_root = find_project_root(Path(__file__).resolve().parent)
+    ip, user = load_vps_ip_user(repo_root)
     ssh_dir = Path.home() / ".ssh"
     known_hosts = ssh_dir / "known_hosts"
 

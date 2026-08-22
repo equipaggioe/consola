@@ -4,12 +4,15 @@ import hashlib
 import json
 import os
 import platform
-import subprocess
 import sys
 import tempfile
 import urllib.request
 import zipfile
 from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+from common import detect_os, run_logged
+
 
 """
 Instala Flutter SDK (stable) y configura entorno.
@@ -24,35 +27,8 @@ Flujo:
 7) Ejecuta flutter --version y flutter doctor (sin fallar por warnings).
 """
 
-
 FLUTTER_HOME = r"D:\flutter"
 FLUTTER_RELEASES_BASE_URL = "https://storage.googleapis.com/flutter_infra_release/releases/"
-
-
-def _run(
-    cmd: list[str],
-    *,
-    check: bool = True,
-    capture_output: bool = False,
-    input_text: str | None = None,
-) -> subprocess.CompletedProcess[str]:
-    print(f"\n>>> {' '.join(cmd)}\n")
-    return subprocess.run(
-        cmd,
-        check=check,
-        text=True,
-        capture_output=capture_output,
-        input=input_text,
-    )
-
-
-def _detect_os() -> str:
-    if sys.platform.startswith("win"):
-        return "windows"
-    if sys.platform.startswith("linux"):
-        return "linux"
-    print(f"[ERROR] Sistema operativo no soportado: {sys.platform}")
-    raise SystemExit(1)
 
 
 def _default_flutter_home(os_key: str) -> Path:
@@ -61,7 +37,7 @@ def _default_flutter_home(os_key: str) -> Path:
 
 def _ensure_git() -> None:
     try:
-        _run(["git", "--version"], check=False, capture_output=True)
+        run_logged(["git", "--version"], check=False, capture_output=True)
     except FileNotFoundError:
         print("[ERROR] No se encontró Git (git). Flutter lo requiere (actualizaciones y herramientas).")
         raise SystemExit(1)
@@ -328,7 +304,7 @@ def _configure_unix_env(flutter_home: Path) -> None:
 
 
 def main() -> None:
-    os_key = _detect_os()
+    os_key = detect_os()
     flutter_home = _default_flutter_home(os_key)
 
     _ensure_git()
@@ -344,10 +320,10 @@ def main() -> None:
 
     flutter_bin = flutter_home / "bin" / ("flutter.bat" if os_key == "windows" else "flutter")
     print("\n[INFO] Verificando Flutter...")
-    _run([str(flutter_bin), "--version"], check=True)
+    run_logged([str(flutter_bin), "--version"], check=True)
 
     print("\n[INFO] Ejecutando flutter doctor (puede reportar warnings)...")
-    _run([str(flutter_bin), "doctor"], check=False)
+    run_logged([str(flutter_bin), "doctor"], check=False)
 
     print("\n[OK] Instalación completa.")
     print(f"[OK] Flutter instalado en: {flutter_home}")
