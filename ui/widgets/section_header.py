@@ -2,7 +2,7 @@ from __future__ import annotations
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel
 from PySide6.QtCore import Signal, Qt, QPropertyAnimation, Property, QEvent
 from PySide6.QtGui import QPainter, QColor
-from ..theme import Colors
+from ..theme import Colors, Fonts
 
 class ChevronWidget(QWidget):
     def __init__(self, parent=None):
@@ -38,7 +38,7 @@ class SectionHeader(QWidget):
     
     def __init__(self, title: str, icon: str = '', parent=None):
         super().__init__(parent)
-        self.setFixedHeight(28)
+        self.setFixedHeight(30)
         self.setContentsMargins(0, 12, 0, 0)
         self._expanded = True
         self._hovered = False
@@ -53,7 +53,7 @@ class SectionHeader(QWidget):
             
         self.title_label = QLabel(title.upper())
         font = self.title_label.font()
-        font.setPixelSize(11)
+        font.setPixelSize(Fonts.SIZE_XS)
         font.setBold(True)
         self.title_label.setFont(font)
         self.title_label.setStyleSheet(f"color: {Colors.TEXT_MUTED};")
@@ -72,6 +72,9 @@ class SectionHeader(QWidget):
         self.anim.setDuration(150)
         
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def is_expanded(self) -> bool:
+        return self._expanded
 
     def set_collapsed(self, collapsed: bool) -> None:
         if self._expanded == (not collapsed):
@@ -98,7 +101,7 @@ class SectionHeader(QWidget):
             QLabel {{
                 color: {Colors.TEXT_DIM};
                 padding: 2px 6px;
-                font-size: 10px;
+                font-size: 12px;
             }}
             QLabel[active="true"] {{
                 background: {Colors.ACCENT};

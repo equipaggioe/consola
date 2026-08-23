@@ -1,268 +1,346 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget, 
-    QPushButton, QFrame
+    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
+    QPushButton, QSizePolicy
 )
-from PySide6.QtCore import Qt, Signal, QPropertyAnimation
-from PySide6.QtGui import QColor
+from PySide6.QtCore import Qt, Signal, QRectF
+from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath
 
 from ui.theme import Colors, Fonts
 from core.registry import Capability
+from core.projects import Project
 from ui.console_view import ConsoleView
-from ui.widgets import LedIndicator
 
-class TabButton(QWidget):
+
+class SubTabButton(QWidget):
+    """Pestana de segundo nivel: una ejecucion dentro del repo activo.
+
+    Subordinada visualmente al nivel superior: mas baja, tipografia menor
+    y subrayado (no barra superior) en el color del repo.
+    """
+    clicked = Signal()
     close_requested = Signal()
-    tab_clicked = Signal()
-    
-    def __init__(self, title: str, icon_name: str, parent=None):
+
+    HEIGHT = 34
+
+    def __init__(self, title: str, icon: str, accent: str, parent=None):
         super().__init__(parent)
-        self.setFixedHeight(36)
         self.title = title
+        self.accent = accent
         self.is_active = False
-        
-        self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(12, 0, 8, 0)
-        self.layout.setSpacing(8)
-        
-        self.led = LedIndicator(self, size=8)
-        self.led.set_state('green')
-        
-        self.icon_label = QLabel(icon_name)
-        self.icon_label.setStyleSheet(f"color: {Colors.TEXT_DIM};")
-        
+        self._hovered = False
+
+        self.setFixedHeight(self.HEIGHT)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setStyleSheet("SubTabButton { background: transparent; }")
+        self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
+
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(14, 0, 10, 0)
+        layout.setSpacing(7)
+
+        self.icon_label = QLabel(icon or "⚡")
+        self.icon_label.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_SM}px;")
+
         self.title_label = QLabel(title)
-        
+
         self.close_btn = QPushButton("×")
-        self.close_btn.setFixedSize(16, 16)
+        self.close_btn.setFixedSize(18, 18)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.setStyleSheet(f"""
             QPushButton {{
                 color: {Colors.TEXT_MUTED};
                 background: transparent;
                 border: none;
-                font-size: 16px;
-                font-weight: bold;
+                font-size: {Fonts.SIZE_LG}px;
             }}
             QPushButton:hover {{
                 color: {Colors.ERROR};
             }}
         """)
         self.close_btn.clicked.connect(self.close_requested.emit)
-        self.close_btn.hide()
-        
-        self.layout.addWidget(self.led)
-        self.layout.addWidget(self.icon_label)
-        self.layout.addWidget(self.title_label)
-        self.layout.addWidget(self.close_btn)
-        
-        self.update_style()
-        
+        self.close_btn.setVisible(False)
+
+        layout.addWidget(self.icon_label)
+        layout.addWidget(self.title_label)
+        layout.addWidget(self.close_btn)
+
+        self._sync_text()
+
+    def set_accent(self, accent: str) -> None:
+        self.accent = accent
+        self.update()
+
+    def set_active(self, active: bool) -> None:
+        self.is_active = active
+        self._sync_text()
+        self.update()
+
+    def _sync_text(self) -> None:
+        f = QFont(self.title_label.font())
+        f.setPixelSize(Fonts.SIZE_SM)
+        f.setBold(self.is_active)
+        self.title_label.setFont(f)
+        color = Colors.TEXT if self.is_active else (Colors.TEXT_DIM if self._hovered else Colors.TEXT_MUTED)
+        self.title_label.setStyleSheet(f"background: transparent; color: {color};")
+
     def enterEvent(self, event):
-        self.close_btn.show()
-        if not self.is_active:
-            self.setStyleSheet(f"""
-                QWidget {{
-                    background: {Colors.SURFACE_HOVER};
-                    border-top-left-radius: 8px;
-                    border-top-right-radius: 8px;
-                }}
-            """)
+        self._hovered = True
+        self.close_btn.setVisible(True)
+        self._sync_text()
+        self.update()
         super().enterEvent(event)
-        
+
     def leaveEvent(self, event):
-        self.close_btn.hide()
-        self.update_style()
+        self._hovered = False
+        self.close_btn.setVisible(False)
+        self._sync_text()
+        self.update()
         super().leaveEvent(event)
-        
+
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
-            self.tab_clicked.emit()
+            self.clicked.emit()
+        elif event.button() == Qt.MouseButton.MiddleButton:
+            self.close_requested.emit()
         super().mousePressEvent(event)
-        
-    def set_active(self, active: bool):
-        self.is_active = active
-        self.update_style()
-        
-    def update_style(self):
-        if self.is_active:
-            self.setStyleSheet(f"""
-                QWidget {{
-                    background: {Colors.BG};
-                    border-top-left-radius: 8px;
-                    border-top-right-radius: 8px;
-                    border-bottom: 2px solid {Colors.ACCENT};
-                }}
-                QLabel {{
-                    color: {Colors.TEXT};
-                }}
-            """)
-        else:
-            self.setStyleSheet(f"""
-                QWidget {{
-                    background: transparent;
-                }}
-                QLabel {{
-                    color: {Colors.TEXT_DIM};
-                }}
-            """)
 
-class TabPanel(QWidget):
-    """Center panel: tab bar + console/view + sub-tab bar."""
-    
-    def __init__(self, parent=None):
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        r = QRectF(self.rect())
+        accent = QColor(self.accent)
+
+        if self.is_active:
+            path = QPainterPath()
+            path.addRoundedRect(r.adjusted(2, 4, -2, -3), 7, 7)
+            p.fillPath(path, QColor(accent.red(), accent.green(), accent.blue(), 34))
+            underline = QPainterPath()
+            underline.addRoundedRect(QRectF(r.left() + 8, r.bottom() - 3, r.width() - 16, 2.5), 1.2, 1.2)
+            p.fillPath(underline, accent)
+        elif self._hovered:
+            path = QPainterPath()
+            path.addRoundedRect(r.adjusted(2, 4, -2, -3), 7, 7)
+            p.fillPath(path, QColor(Colors.SURFACE_HOVER))
+        p.end()
+
+
+class ViewSwitcher(QWidget):
+    """Barra inferior del espacio de trabajo: vistas de la ejecucion activa."""
+    view_changed = Signal(str)
+
+    VIEWS = ["Consola", "Bitacora", "Historial", "Configuracion"]
+
+    def __init__(self, accent: str, parent=None):
         super().__init__(parent)
-        
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(0)
-        
-        # Tab bar
-        self.tab_bar_container = QWidget()
-        self.tab_bar_container.setFixedHeight(36)
-        self.tab_bar_container.setStyleSheet(f"background: {Colors.SURFACE};")
-        self.tab_bar_layout = QHBoxLayout(self.tab_bar_container)
-        self.tab_bar_layout.setContentsMargins(0, 0, 0, 0)
-        self.tab_bar_layout.setSpacing(0)
-        
-        self.tabs_layout = QHBoxLayout()
-        self.tabs_layout.setContentsMargins(0, 0, 0, 0)
-        self.tabs_layout.setSpacing(0)
-        self.tab_bar_layout.addLayout(self.tabs_layout)
-        
-        self.add_btn = QPushButton("+")
-        self.add_btn.setFixedSize(36, 36)
-        self.add_btn.setStyleSheet(f"""
-            QPushButton {{
-                color: {Colors.TEXT_MUTED};
-                background: transparent;
-                border: none;
-                font-size: 16px;
-            }}
-            QPushButton:hover {{
-                color: {Colors.TEXT};
-            }}
-        """)
-        self.tab_bar_layout.addWidget(self.add_btn)
-        self.tab_bar_layout.addStretch()
-        
-        # Content Area
-        self.content_area = QStackedWidget()
-        self.content_area.setStyleSheet(f"background: {Colors.BG};")
-        
-        # Welcome screen
-        self.welcome_widget = QWidget()
-        self.welcome_layout = QVBoxLayout(self.welcome_widget)
-        self.welcome_layout.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        self.diamond_label = QLabel("◇")
-        self.diamond_label.setStyleSheet(f"color: {Colors.ACCENT}; font-size: 48px;")
-        self.diamond_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        title = QLabel("CONSOLA")
-        title.setStyleSheet(f"color: {Colors.TEXT}; font-size: 24px; font-weight: 300; letter-spacing: 6px;")
-        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        subtitle = QLabel("Selecciona una acción del panel izquierdo")
-        subtitle.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: 13px;")
-        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        self.project_label = QLabel("── navetta ──")
-        self.project_label.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: 13px;")
-        self.project_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        
-        self.welcome_layout.addWidget(self.diamond_label, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.welcome_layout.addWidget(title, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.welcome_layout.addWidget(subtitle, 0, Qt.AlignmentFlag.AlignHCenter)
-        self.welcome_layout.addSpacing(20)
-        self.welcome_layout.addWidget(self.project_label, 0, Qt.AlignmentFlag.AlignHCenter)
-        
-        self.content_area.addWidget(self.welcome_widget)
-        
-        # Sub-tab bar
-        self.sub_tab_bar = QWidget()
-        self.sub_tab_bar.setFixedHeight(32)
-        self.sub_tab_bar.setStyleSheet(f"""
-            QWidget {{
+        self.accent = accent
+        self.setFixedHeight(34)
+        self.setStyleSheet(f"""
+            ViewSwitcher {{
                 background: {Colors.SURFACE};
                 border-top: 1px solid {Colors.BORDER};
             }}
         """)
-        self.sub_tab_layout = QHBoxLayout(self.sub_tab_bar)
-        self.sub_tab_layout.setContentsMargins(16, 0, 16, 0)
-        self.sub_tab_layout.setSpacing(24)
-        
-        for name in ["Consola", "Bitácora", "Historial", "Configuración"]:
+        layout = QHBoxLayout(self)
+        layout.setContentsMargins(16, 0, 16, 0)
+        layout.setSpacing(20)
+
+        self.labels: dict[str, QLabel] = {}
+        for name in self.VIEWS:
             lbl = QLabel(name)
-            if name == "Consola":
-                lbl.setStyleSheet(f"color: {Colors.ACCENT}; border-bottom: 2px solid {Colors.ACCENT};")
+            lbl.setCursor(Qt.CursorShape.PointingHandCursor)
+            lbl.mousePressEvent = lambda e, n=name: self.set_view(n)
+            self.labels[name] = lbl
+            layout.addWidget(lbl)
+
+        layout.addStretch()
+
+        self.status_label = QLabel("● 0 tareas activas  ·  00:00:00")
+        self.status_label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+        layout.addWidget(self.status_label)
+
+        self._current = self.VIEWS[0]
+        self._restyle()
+
+    def set_accent(self, accent: str) -> None:
+        self.accent = accent
+        self._restyle()
+
+    def set_view(self, name: str) -> None:
+        self._current = name
+        self._restyle()
+        self.view_changed.emit(name)
+
+    def set_status(self, text: str) -> None:
+        self.status_label.setText(text)
+
+    def _restyle(self) -> None:
+        for name, lbl in self.labels.items():
+            if name == self._current:
+                lbl.setStyleSheet(
+                    f"color: {self.accent}; font-size: {Fonts.SIZE_SM}px; font-weight: 600;"
+                )
             else:
-                lbl.setStyleSheet(f"color: {Colors.TEXT_MUTED};")
-            self.sub_tab_layout.addWidget(lbl)
-            
-        self.sub_tab_layout.addStretch()
-        
-        status_lbl = QLabel("● N tareas activas  ·  00:00:00")
-        status_lbl.setStyleSheet(f"color: {Colors.TEXT_DIM};")
-        self.sub_tab_layout.addWidget(status_lbl)
-        
-        self.layout.addWidget(self.tab_bar_container)
+                lbl.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;")
+
+
+class TabPanel(QWidget):
+    """Espacio de trabajo de UN repositorio.
+
+    Contiene el segundo nivel de pestanas (las ejecuciones de ese repo),
+    el area de consola y la barra de vistas. Cada repo tiene su propia
+    instancia, asi que las sub-pestanas nunca se mezclan entre repos.
+    """
+
+    def __init__(self, project: Project, parent=None):
+        super().__init__(parent)
+        self.project = project
+        self.accent = project.color
+
+        self.layout = QVBoxLayout(self)
+        self.layout.setContentsMargins(0, 0, 0, 0)
+        self.layout.setSpacing(0)
+
+        # --- barra de sub-pestanas -----------------------------------
+        self.sub_bar = QWidget()
+        self.sub_bar.setObjectName("subBar")
+        self.sub_bar.setFixedHeight(SubTabButton.HEIGHT + 4)
+        self.sub_bar.setStyleSheet(f"""
+            QWidget#subBar {{
+                background: {Colors.SURFACE};
+                border-bottom: 1px solid {Colors.BORDER};
+            }}
+        """)
+        sub_bar_layout = QHBoxLayout(self.sub_bar)
+        sub_bar_layout.setContentsMargins(10, 0, 10, 0)
+        sub_bar_layout.setSpacing(2)
+
+        self.tabs_layout = QHBoxLayout()
+        self.tabs_layout.setContentsMargins(0, 0, 0, 0)
+        self.tabs_layout.setSpacing(2)
+        sub_bar_layout.addLayout(self.tabs_layout)
+
+        self.empty_hint = QLabel("sin ejecuciones — lanza una accion del panel izquierdo")
+        self.empty_hint.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
+        sub_bar_layout.addWidget(self.empty_hint)
+        sub_bar_layout.addStretch()
+
+        # --- area de contenido ---------------------------------------
+        self.content_area = QStackedWidget()
+        self.content_area.setStyleSheet(f"background: {Colors.BG};")
+
+        self.welcome_widget = self._build_welcome()
+        self.content_area.addWidget(self.welcome_widget)
+
+        # --- barra de vistas -----------------------------------------
+        self.view_switcher = ViewSwitcher(self.accent)
+
+        self.layout.addWidget(self.sub_bar)
         self.layout.addWidget(self.content_area, 1)
-        self.layout.addWidget(self.sub_tab_bar)
-        
-        self.tabs = []
-        
-    def set_welcome_project(self, name: str):
-        self.project_label.setText(f"── {name} ──")
-        
-    def open_tab(self, capability: Capability, axis_value: str = '') -> None:
+        self.layout.addWidget(self.view_switcher)
+
+        self.tabs: list[SubTabButton] = []
+        self._consoles: dict[SubTabButton, ConsoleView] = {}
+
+    # --- construccion ------------------------------------------------
+    def _build_welcome(self) -> QWidget:
+        w = QWidget()
+        lay = QVBoxLayout(w)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setSpacing(6)
+
+        self.diamond_label = QLabel(self.project.icon or "◇")
+        self.diamond_label.setStyleSheet(f"color: {self.accent}; font-size: 54px;")
+        self.diamond_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.welcome_title = QLabel(self.project.name.upper())
+        self.welcome_title.setStyleSheet(
+            f"color: {Colors.TEXT}; font-size: {Fonts.SIZE_XXL}px; font-weight: 300; letter-spacing: 8px;"
+        )
+        self.welcome_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        subtitle = QLabel("Selecciona una accion del panel izquierdo")
+        subtitle.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_BASE}px;")
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        self.path_label = QLabel(self.project.path)
+        self.path_label.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;")
+        self.path_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        lay.addWidget(self.diamond_label, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addWidget(self.welcome_title, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addWidget(subtitle, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addSpacing(18)
+        lay.addWidget(self.path_label, 0, Qt.AlignmentFlag.AlignHCenter)
+        return w
+
+    # --- API ---------------------------------------------------------
+    def open_tab(self, capability: Capability, axis_value: str = '') -> ConsoleView:
         title = f"{capability.name} {axis_value}".strip()
-        icon = capability.icon or "⚡"
-        
-        btn = TabButton(title, icon)
-        self.tabs_layout.addWidget(btn)
-        self.tabs.append(btn)
-        
-        index = len(self.tabs) # welcome widget is 0
-        btn.tab_clicked.connect(lambda: self._switch_tab(index))
-        btn.close_requested.connect(lambda: self.close_tab(index))
-        
+
+        # Si ya existe una pestana para esta capacidad, se reutiliza.
+        for tab in self.tabs:
+            if tab.title == title:
+                self._activate(tab)
+                return self._consoles[tab]
+
+        tab = SubTabButton(title, capability.icon, self.accent)
+        self.tabs_layout.addWidget(tab)
+        self.tabs.append(tab)
+
         console = ConsoleView(self.content_area)
         self.content_area.addWidget(console)
-        
-        self._switch_tab(index)
-        
-    def close_tab(self, index: int) -> None:
-        if index < 1 or index > len(self.tabs):
+        self._consoles[tab] = console
+
+        tab.clicked.connect(lambda t=tab: self._activate(t))
+        tab.close_requested.connect(lambda t=tab: self.close_tab(t))
+
+        self.empty_hint.setVisible(False)
+        self._activate(tab)
+        return console
+
+    def close_tab(self, tab: SubTabButton) -> None:
+        if tab not in self.tabs:
             return
-            
-        btn = self.tabs.pop(index - 1)
-        btn.setParent(None)
-        btn.deleteLater()
-        
-        widget = self.content_area.widget(index)
-        self.content_area.removeWidget(widget)
-        widget.deleteLater()
-        
-        for i, t in enumerate(self.tabs):
-            t.tab_clicked.disconnect()
-            t.close_requested.disconnect()
-            t.tab_clicked.connect(lambda idx=i+1: self._switch_tab(idx))
-            t.close_requested.connect(lambda idx=i+1: self.close_tab(idx))
-            
+        idx = self.tabs.index(tab)
+        was_active = tab.is_active
+
+        console = self._consoles.pop(tab)
+        self.content_area.removeWidget(console)
+        console.deleteLater()
+
+        self.tabs.remove(tab)
+        self.tabs_layout.removeWidget(tab)
+        tab.setParent(None)
+        tab.deleteLater()
+
         if self.tabs:
-            new_idx = min(index, len(self.tabs))
-            self._switch_tab(new_idx)
+            if was_active:
+                self._activate(self.tabs[min(idx, len(self.tabs) - 1)])
         else:
-            self._switch_tab(0)
-            
-    def _switch_tab(self, index: int):
-        self.content_area.setCurrentIndex(index)
-        for i, btn in enumerate(self.tabs):
-            btn.set_active(i + 1 == index)
-            
-    def get_console(self, index: int) -> ConsoleView:
-        widget = self.content_area.widget(index)
-        if isinstance(widget, ConsoleView):
-            return widget
-        return None
+            self.empty_hint.setVisible(True)
+            self.content_area.setCurrentWidget(self.welcome_widget)
+
+    def current_console(self) -> ConsoleView | None:
+        w = self.content_area.currentWidget()
+        return w if isinstance(w, ConsoleView) else None
+
+    def set_accent(self, accent: str) -> None:
+        self.accent = accent
+        self.view_switcher.set_accent(accent)
+        self.diamond_label.setStyleSheet(f"color: {accent}; font-size: 54px;")
+        for tab in self.tabs:
+            tab.set_accent(accent)
+
+    def set_status(self, text: str) -> None:
+        self.view_switcher.set_status(text)
+
+    # --- interno ------------------------------------------------------
+    def _activate(self, tab: SubTabButton) -> None:
+        for t in self.tabs:
+            t.set_active(t is tab)
+        console = self._consoles.get(tab)
+        if console is not None:
+            self.content_area.setCurrentWidget(console)

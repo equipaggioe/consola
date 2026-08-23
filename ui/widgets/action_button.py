@@ -18,7 +18,7 @@ class ActionButton(QPushButton):
         self._running = False
         self._hovered = False
         
-        self.setFixedHeight(32)
+        self.setFixedHeight(36)
         self.setCursor(QCursor(Qt.CursorShape.PointingHandCursor))
         self.setObjectName("ActionButton")
         
@@ -30,16 +30,16 @@ class ActionButton(QPushButton):
         self.led.set_state('off')
         
         self.icon_label = QLabel(icon)
-        self.icon_label.setFixedWidth(16)
+        self.icon_label.setFixedWidth(18)
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
         
         self.text_label = QLabel(label)
         font = self.text_label.font()
-        font.setPointSize(Fonts.SIZE_BASE)
+        font.setPixelSize(Fonts.SIZE_SM)
         self.text_label.setFont(font)
         
         self.menu_indicator = QLabel("▸")
-        self.menu_indicator.setStyleSheet(f"color: {Colors.TEXT_MUTED};")
+        self.menu_indicator.setStyleSheet(f"color: {Colors.TEXT_MUTED}; background: transparent;")
         
         layout.addWidget(self.led)
         layout.addWidget(self.icon_label)
@@ -84,7 +84,7 @@ class ActionButton(QPushButton):
                 border: none;
             }}
         """)
-        self.text_label.setStyleSheet(f"color: {text_color};")
+        self.text_label.setStyleSheet(f"color: {text_color}; background: transparent;")
 
     def enterEvent(self, event: QEvent):
         self._hovered = True

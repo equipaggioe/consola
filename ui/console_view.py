@@ -17,12 +17,12 @@ class ConsoleView(QPlainTextEdit):
                 color: {Colors.TEXT_DIM};
                 selection-background-color: rgba(88, 166, 255, 0.3);
                 border: none;
-                padding: 8px;
+                padding: 10px 12px;
             }}
         """)
         font = QFont()
         font.setFamily(Fonts.MONO.split(',')[0].strip('\'"'))
-        font.setPixelSize(13)
+        font.setPixelSize(Fonts.SIZE_MONO)
         self.setFont(font)
         
         self.cursor_visible = False
@@ -38,7 +38,8 @@ class ConsoleView(QPlainTextEdit):
                 color: {Colors.TEXT};
                 border: 1px solid {Colors.BORDER};
                 border-radius: 4px;
-                padding: 4px;
+                padding: 6px;
+                font-size: 14px;
             }}
         """)
         self.search_bar.hide()

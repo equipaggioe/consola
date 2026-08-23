@@ -1,5 +1,5 @@
 from __future__ import annotations
-from PySide6.QtGui import QPalette, QColor
+from PySide6.QtGui import QPalette, QColor, QFont
 from PySide6.QtWidgets import QApplication
 
 class Colors:
@@ -7,11 +7,12 @@ class Colors:
     SURFACE       = '#161b22'
     SURFACE_HOVER = '#1c2128'
     SURFACE_ALT   = '#21262d'
+    CHROME        = '#0a0d12'   # barra superior (nivel de repos)
     BORDER        = '#30363d'
     BORDER_LIGHT  = '#3d444d'
     TEXT          = '#e6edf3'
     TEXT_DIM      = '#8b949e'
-    TEXT_MUTED    = '#484f58'
+    TEXT_MUTED    = '#6e7681'
     ACCENT        = '#58a6ff'
     ACCENT_PURPLE = '#bc8cff'
     SUCCESS       = '#3fb950'
@@ -22,11 +23,13 @@ class Colors:
 class Fonts:
     FAMILY    = '"Inter", "Segoe UI", "Helvetica Neue", sans-serif'
     MONO      = '"Cascadia Code", "Fira Code", "Consolas", monospace'
-    SIZE_SM   = 11
-    SIZE_BASE = 13
-    SIZE_LG   = 15
-    SIZE_XL   = 18
-    SIZE_XXL  = 24
+    SIZE_XS   = 12
+    SIZE_SM   = 13
+    SIZE_BASE = 15
+    SIZE_LG   = 17
+    SIZE_XL   = 21
+    SIZE_XXL  = 30
+    SIZE_MONO = 15
 
 class Spacing:
     XS = 4
@@ -42,7 +45,17 @@ class Radius:
     LG = 12
     XL = 16
 
+def tint(hex_color: str, alpha: float) -> str:
+    """rgba(...) a partir de un hex, para halos y fondos teñidos."""
+    c = QColor(hex_color)
+    return f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha:.2f})"
+
 def apply_theme(app: QApplication) -> None:
+    font = QFont()
+    font.setFamily("Inter")
+    font.setPixelSize(Fonts.SIZE_BASE)
+    app.setFont(font)
+
     app.setStyleSheet(global_stylesheet())
     palette = QPalette()
     palette.setColor(QPalette.ColorRole.Window, QColor(Colors.BG))
@@ -69,8 +82,8 @@ def global_stylesheet() -> str:
     }}
     QScrollBar {{
         background: transparent;
-        width: 6px;
-        height: 6px;
+        width: 8px;
+        height: 8px;
     }}
     QScrollBar::handle {{
         background: {Colors.BORDER_LIGHT};
@@ -91,6 +104,7 @@ def global_stylesheet() -> str:
         border: 1px solid {Colors.ACCENT};
         border-radius: {Radius.SM}px;
         padding: {Spacing.SM}px;
+        font-size: {Fonts.SIZE_SM}px;
     }}
     QMenu {{
         background-color: {Colors.SURFACE};
@@ -98,6 +112,7 @@ def global_stylesheet() -> str:
         border: 1px solid {Colors.BORDER};
         border-radius: {Radius.SM}px;
         padding: {Spacing.XS}px 0px;
+        font-size: {Fonts.SIZE_BASE}px;
     }}
     QMenu::item {{
         padding: {Spacing.SM}px {Spacing.XL}px {Spacing.SM}px {Spacing.XL}px;
@@ -105,27 +120,6 @@ def global_stylesheet() -> str:
     QMenu::item:selected {{
         background-color: {Colors.SURFACE_HOVER};
         color: {Colors.ACCENT};
-    }}
-    QComboBox {{
-        background-color: {Colors.SURFACE};
-        border: 1px solid {Colors.BORDER};
-        border-radius: {Radius.SM}px;
-        padding: {Spacing.XS}px {Spacing.SM}px;
-        color: {Colors.TEXT};
-    }}
-    QComboBox:focus {{
-        border: 1px solid {Colors.ACCENT};
-    }}
-    QComboBox::drop-down {{
-        border: none;
-        width: 20px;
-    }}
-    QComboBox::down-arrow {{
-        image: none;
-        border-left: 4px solid transparent;
-        border-right: 4px solid transparent;
-        border-top: 4px solid {Colors.TEXT_DIM};
-        margin-right: 8px;
     }}
     QSplitter::handle {{
         background-color: {Colors.BORDER};
@@ -135,21 +129,5 @@ def global_stylesheet() -> str:
     }}
     QSplitter::handle:vertical {{
         height: 1px;
-    }}
-    QTabBar {{
-        background-color: transparent;
-    }}
-    QTabBar::tab {{
-        background-color: transparent;
-        color: {Colors.TEXT_DIM};
-        padding: {Spacing.SM}px {Spacing.LG}px;
-        border-bottom: 2px solid transparent;
-    }}
-    QTabBar::tab:selected {{
-        color: {Colors.TEXT};
-        border-bottom: 2px solid {Colors.ACCENT};
-    }}
-    QTabBar::tab:hover {{
-        background-color: {Colors.SURFACE_HOVER};
     }}
     """
