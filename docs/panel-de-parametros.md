@@ -16,14 +16,14 @@ La propuesta invierte eso: **el botón es la acción, los valores son estado del
 
 1. **Una sola ejecución cubre varias variantes** — el pedido original. Marcas `panel` y
    `backoffice`, un toque, corren las dos.
-2. **El rail se achica casi a la mitad.** De ~55 botones a ~30, porque desaparecen las filas
-   duplicadas por eje. El rail vuelve a ser una lista navegable de un vistazo.
+2. **El rail se achica.** De 55 botones a 43 — las filas duplicadas por eje desaparecen y las
+   capacidades atómicas (`bump_version`, `upload_to_vps`) dejan de ser botones para ser pasos. El rail vuelve a ser una lista navegable de un vistazo.
 3. **Los pasos de una acción compuesta se vuelven visibles.** Hoy `build_apk` hace bump + build +
    subida y no hay manera de saberlo mirando la UI, mucho menos de saltarse la subida.
 
-Lo que se pierde: el toque único para *una* variante puntual. Se compensa con dos cosas — el botón
-muestra su selección actual como subtítulo (`Build Vite · panel, backoffice`), así que nunca corres a
-ciegas, y el menú `⋯` de la fila ofrece "solo panel" para el caso de una vez.
+Lo que se pierde: el toque único desde el rail para *una* variante puntual. Lo compensa el gesto del
+§5 — la pestaña queda abierta con su selección hecha, así que repetir es un clic en la pestaña y otro
+en Ejecutar, sin volver a marcar nada.
 
 ---
 
@@ -108,81 +108,87 @@ deja de ser un eje y pasa a ser la casilla del paso `upload_to_vps`, que es lo q
 │ ⚠  Falta VPS_IP para "Subir al VPS"   │
 │    → Configurar                       │
 ├───────────────────────────────────────┤
-│  Preset ▾              ▶  Ejecutar    │
+│                        ▶  Ejecutar    │
 └───────────────────────────────────────┘
 ```
 
 La línea `2 apps × 3 pasos` es la que hace legible el costo de lo que estás por lanzar **antes** de
 apretar. Sin ella, marcar tres apps y tres pasos es un compromiso invisible de varios minutos.
 
-**Dónde va:** columna derecha, entre la consola y el borde, con `QSplitter` para redimensionar y un
-gesto para colapsarla. Izquierda = *qué puedo correr*, centro = *qué está pasando*, derecha = *con
-qué parámetros*. Ancho por defecto ~300px, igual que el rail, para que la ventana quede simétrica.
-
-**No debajo del rail:** compartir la columna izquierda le quita al rail justo lo que necesita —
-altura — y deja el panel de parámetros en una franja donde no entra ni una sección.
+**Dónde va:** columna derecha, en un `QSplitter` horizontal contra la consola, con el panel de
+configuración del repo apilado debajo en un `QSplitter` vertical. Izquierda = *qué puedo correr*,
+centro = *qué está pasando*, derecha = *con qué parámetros y con qué configuración*. Ambos divisores
+se arrastran y se colapsan, así que la repartición 460/420 es solo el punto de partida.
 
 ---
 
-## 5. El gesto: cómo se llena el panel sin perder el toque único
+## 5. El gesto: la pestaña ES la instancia de la acción
 
-El riesgo obvio de este diseño: si cada acción hay que configurarla antes de correrla, se agrega un
-paso a las veinte veces al día que solo querías apretar y ver el log.
-
-Solución en dos gestos sobre la misma fila del rail:
+El clic en una fila del rail **abre o enfoca la pestaña de esa acción — no ejecuta nada.** La
+pestaña de segundo nivel deja de ser "una ejecución pasada" y pasa a ser la *instancia viva* de la
+acción: tiene su consola y su panel de parámetros, los dos suyos.
 
 | Gesto | Qué hace |
 |---|---|
-| Clic en el cuerpo del botón | **Ejecuta ya** con los parámetros actuales, y el panel salta a mostrarlos |
-| Clic en el `⚙` de la fila | **Solo enfoca** el panel en esa acción, sin ejecutar |
+| Clic en la fila del rail | Abre la pestaña de la acción (o la enfoca si ya existe). El panel se llena con sus parámetros. |
+| Clic en la pestaña | Vuelve a esa acción: reaparecen sus parámetros tal como los dejaste, y su consola con lo que ya corrió |
+| `▶ Ejecutar` en el panel | Corre con lo que está marcado. Se puede repetir cuantas veces quieras sin reabrir nada |
 
-El panel siempre refleja "la acción en foco". El estado no se pierde: cada combinación se guarda por
-**repo + capacidad** en la tabla `presets` de `PLAN.md` §8, así que el segundo toque del día ya sale
-con lo que dejaste. Un repo puede tener marcadas `panel`+`backoffice` y otro solo su única app, sin
-interferencia.
+Esto resuelve el riesgo de "configurar antes de correr agrega un paso": el paso se paga **una vez al
+abrir la acción**, no en cada ejecución. La segunda, tercera y décima corrida del día son un clic en
+la pestaña y otro en Ejecutar, con todo ya marcado.
 
-Primera vez que se abre una acción: marcadas **todas** las variantes descubiertas y los pasos con
-`default=True`. Para un repo con una sola app, eso significa que el comportamiento por defecto es
-idéntico al de hoy — apretar y correr.
+El estado vive en el panel de cada pestaña, así que dos acciones abiertas no se pisan, y dos repos
+tampoco: cada repo tiene su propio `TabPanel` con sus propias pestañas. (La persistencia entre
+sesiones — la tabla `presets` de `PLAN.md` §8 — es el paso siguiente; hoy el estado dura lo que dura
+la pestaña.)
 
----
-
-## 6. El `.env`: no es un segundo panel
-
-Aquí discrepo con la idea de apilar un editor abajo, y el motivo no es de gusto: **`PLAN.md` §9 ya
-decidió que la edición de `.consola/config.env` es la vista de Configuración** — que además ya existe
-como cuarta pestaña del pie (`Consola / Bitácora / Historial / Configuración`) y hoy no hace nada. Es
-un formulario generado del esquema `setting(...)`, no un editor de texto, y necesita el ancho
-completo del área central para ~15 campos agrupados por categoría.
-
-Apilar dos paneles en la columna derecha tendría tres costos concretos:
-
-1. Parte por la mitad el espacio vertical de los dos, y el panel de parámetros ya es el que más
-   crece (un repo con cinco apps y cuatro pasos llena esa altura solo).
-2. Duplica el lugar donde se edita lo mismo: ¿el `.env` se edita en el panelito o en Configuración?
-   Dos caminos hacia el mismo archivo es cómo se corrompe un archivo.
-3. Se consulta con frecuencias opuestas: los parámetros, cada ejecución; el `.env`, al dar de alta
-   el repo y casi nunca más.
-
-**Lo que sí va en el panel de parámetros** es la tira contextual del mockup: cuando un paso marcado
-necesita una clave que falta, se muestra ahí, nombrando *solo* esa clave y con un enlace que abre
-Configuración **filtrada a las claves de esa acción** — que es exactamente el engranaje por acción
-que §9 ya describe. Resuelve "me falta algo para lo que voy a correr" sin mover el editor de lugar.
+**Nada corre solo.** Ninguna acción se dispara al abrir la pestaña, ni siquiera las inofensivas.
+Para las destructivas eso importa el doble: `Limpiar VPS` abre su panel con los pasos a la vista, y
+recién ahí decides.
 
 ---
 
-## 7. Qué se toca
+## 6. El `.env`: panel apilado debajo, no vista aparte
 
-| Archivo | Cambio |
+**Decisión tomada:** el panel de configuración del repo va apilado bajo el de parámetros, en la
+misma columna derecha. Se descartó llevarlo a la vista de Configuración del pie.
+
+El argumento en contra era el espacio vertical, y sigue siendo real. Lo que lo compensa es que los
+dos paneles tienen *ritmos distintos*: el de arriba cambia con cada pestaña de acción, el de abajo
+es del repo y no se mueve. Verlos juntos hace visible la relación que importa — "este paso necesita
+esta clave, y la clave está ahí mismo" — sin cambiar de vista ni perder de vista lo que ibas a
+correr. Las mitigaciones concretas:
+
+- Los dos divisores son arrastrables y colapsables: el panel de `.env` se puede dejar en cero
+  mientras trabajas y recuperarlo cuando lo necesites.
+- El aviso de faltantes del panel de arriba tiene un botón **Configurar** que, además de expandir el
+  panel de abajo si estaba colapsado, **resalta en ámbar solo las claves que esa acción reclama** y
+  pone el foco en la primera. No hay que buscar entre veinte campos cuál era.
+- No es un editor de texto: es el formulario generado del esquema `setting(...)` de `PLAN.md` §9,
+  agrupado por categoría, con los secretos enmascarados y un ojo para revelarlos.
+
+**Lo que el panel hace además del alta manual:** si el repo todavía no tiene `.consola/config.env`
+pero sí el `scripts/.env` viejo, ofrece importarlo — trae solo las claves que sobreviven al esquema,
+las muestra para revisar, y **no escribe hasta que le des Guardar** (el mismo patrón de simulacro que
+`PLAN.md` §7 exige para lo destructivo). Al guardar, `.consola/` se agrega al `.gitignore` del repo
+si no estaba.
+
+Queda pendiente decidir qué hace la cuarta pestaña del pie (`Configuración`), que ahora se queda sin
+su contenido previsto.
+
+## 7. Estado de implementación
+
+| Archivo | Estado |
 |---|---|
-| `core/registry.py` | `AxisDef.select` (`'one'`/`'many'`); nueva dataclass `Step`; `Capability.steps` reemplaza a `composed_of` |
-| `core/catalog.py` | marcar `select` en cada eje; `composed_of` → `steps`; eliminar el eje `copy_to_vps` |
-| `core/presets.py` | **nuevo** — leer/guardar la selección por `(project, capability)` en SQLite |
-| `ui/params_panel.py` | **nuevo** — el panel: secciones, casillas, resumen, tira de faltantes |
-| `ui/widgets/action_button.py` | subtítulo con la selección actual; `⚙` para enfocar sin ejecutar |
-| `ui/rail.py` | un botón por capacidad (deja de expandir `buttons` por valor de eje) |
-| `ui/main_window.py` | `QSplitter` horizontal: rail │ workspace │ panel |
-
-El orden importa: `registry` + `catalog` primero (son datos, no dibujan nada), después el panel, y el
-rail al final — porque hasta que el panel no exista, quitarle los botones expandidos al rail deja
-variantes inalcanzables.
+| `core/registry.py` | ✅ `AxisDef.select`, `Step`, `Capability.steps`/`hidden`, `resolve_steps()` |
+| `core/catalog.py` | ✅ ejes marcados `many`; `copy_to_vps` → paso; atómicas ocultas del rail |
+| `core/settings.py` | ✅ esquema de las 21 claves de `PLAN.md` §9, con `required_by` |
+| `core/envfile.py` | ✅ leer/escribir `.consola/config.env`, importar `scripts/.env`, `.gitignore` |
+| `ui/params_panel.py` | ✅ variantes, pasos, opciones, aviso de faltantes, resumen, Ejecutar |
+| `ui/env_panel.py` | ✅ formulario agrupado, secretos enmascarados, importar, guardar |
+| `ui/widgets/segmented.py` | ✅ control segmentado para ejes `select='one'` |
+| `ui/tab_panel.py` | ✅ splitters, panel por pestaña, ejecución simulada a la consola |
+| `ui/rail.py` | ✅ un botón por capacidad (43, antes 55) |
+| `core/presets.py` | ⏳ persistir la selección entre sesiones (SQLite, `PLAN.md` §8) |
+| ejecución real | ⏳ hoy `Ejecutar` reporta a la consola lo que correría (stub, `PLAN.md` §10) |

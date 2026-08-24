@@ -121,6 +121,37 @@ def global_stylesheet() -> str:
         background-color: {Colors.SURFACE_HOVER};
         color: {Colors.ACCENT};
     }}
+    QCheckBox {{
+        background: transparent;
+        color: {Colors.TEXT_DIM};
+        spacing: 9px;
+        font-size: {Fonts.SIZE_SM}px;
+    }}
+    QCheckBox:hover {{
+        color: {Colors.TEXT};
+    }}
+    QCheckBox:disabled {{
+        color: {Colors.TEXT_MUTED};
+    }}
+    QCheckBox::indicator {{
+        width: 15px;
+        height: 15px;
+        border-radius: 4px;
+        border: 1px solid {Colors.BORDER_LIGHT};
+        background: {Colors.SURFACE_ALT};
+    }}
+    QCheckBox::indicator:hover {{
+        border: 1px solid {Colors.TEXT_DIM};
+    }}
+    QCheckBox::indicator:checked {{
+        background: {Colors.ACCENT};
+        border: 1px solid {Colors.ACCENT};
+        image: none;
+    }}
+    QCheckBox::indicator:checked:disabled {{
+        background: {Colors.TEXT_MUTED};
+        border: 1px solid {Colors.TEXT_MUTED};
+    }}
     QSplitter::handle {{
         background-color: {Colors.BORDER};
     }}

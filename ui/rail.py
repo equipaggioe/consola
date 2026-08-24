@@ -185,24 +185,14 @@ class ActionRail(QWidget):
 
             buttons: list[ActionButton] = []
 
-            def add_button(cap, label, danger=False):
-                btn = ActionButton(cap.id, label, cap.icon, cap.kind, danger, self)
+            # Un boton por capacidad: las variantes ya no duplican filas, viven
+            # en el panel de parametros (docs/panel-de-parametros.md §1).
+            for cap in capabilities:
+                btn = ActionButton(cap.id, cap.name, cap.icon, cap.kind,
+                                   cap.kind == 'destructive', self)
                 btn.action_triggered.connect(self._emit_action)
                 section_layout.addWidget(btn)
                 buttons.append(btn)
-
-            for cap in capabilities:
-                if cap.axes:
-                    axis = cap.axes[0]
-                    if axis.expand == 'buttons':
-                        for val in axis.values:
-                            add_button(cap, f"{cap.name} {val}", val in axis.danger)
-                    else:
-                        if axis.expand == 'scope':
-                            header.add_scope_selector(axis.values)
-                        add_button(cap, cap.name, cap.kind == 'destructive')
-                else:
-                    add_button(cap, cap.name, cap.kind == 'destructive')
 
             self.scroll_layout.addWidget(section_widget)
             header.toggled.connect(section_widget.setVisible)

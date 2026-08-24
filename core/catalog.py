@@ -1,21 +1,43 @@
 from __future__ import annotations
-from .registry import registry, Capability, AxisDef
+from .registry import registry, Capability, AxisDef, Step
+
+_VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
+
+# El paso nucleo va en su orden real, entre el bump y la subida.
+BUILD_APK_STEPS = [
+    Step('bump_version', 'Bump versión'),
+    Step('apk_build', 'Compilar APK', optional=False),
+    Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
+]
+
+BUILD_VITE_STEPS = [
+    Step('bump_version', 'Bump versión'),
+    Step('vite_build', 'Build Vite', optional=False),
+    Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
+]
+
+BUILD_BINARY_STEPS = [
+    Step('bump_version', 'Bump versión'),
+    Step('binary_build', 'Compilar binario', optional=False),
+    Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
+]
+
 
 def load_catalog() -> None:
     # Launchers group
     registry.register(Capability(id='backend', name='Backend', group='Launchers', section='Servidor', kind='live', icon='▶', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
-    registry.register(Capability(id='serve_vite', name='Servir SPA Vite', group='Launchers', section='Frontend', kind='live', icon='🌐', axes=[AxisDef('target', ['panel', 'backoffice', 'landing'], 'buttons')], stub=True))
-    registry.register(Capability(id='run_mobile', name='App móvil', group='Launchers', section='Móvil', kind='live', icon='📲', axes=[AxisDef('framework', ['Flutter', 'Flet'], 'buttons')], stub=True))
+    registry.register(Capability(id='serve_vite', name='Servir SPA Vite', group='Launchers', section='Frontend', kind='live', icon='🌐', axes=[AxisDef('target', ['panel', 'backoffice', 'landing'], 'checks', select='many', label='Apps')], stub=True))
+    registry.register(Capability(id='run_mobile', name='App móvil', group='Launchers', section='Móvil', kind='live', icon='📲', axes=[AxisDef('framework', ['Flutter', 'Flet'], 'checks', select='many', label='Frameworks')], stub=True))
     registry.register(Capability(id='terminal', name='Terminal', group='Launchers', section='Dev', kind='live', icon='⌨️', stub=True))
 
     # Builders group
-    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('bump_mode', ['patch', 'minor', 'major'], 'field'), AxisDef('copy_to_vps', ['local', 'con subida'], 'scope')], stub=True))
-    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('target', ['panel', 'backoffice', 'landing'], 'buttons'), AxisDef('copy_to_vps', ['local', 'con subida'], 'scope')], stub=True))
-    registry.register(Capability(id='build_binary', name='Build binario', group='Builders', section='Build binario', kind='once', icon='⚡', composed_of=['bump_version', 'upload_to_vps'], stub=True))
+    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', axes=[AxisDef('bump_mode', ['patch', 'minor', 'major'], 'field', label='Bump')], steps=BUILD_APK_STEPS, stub=True))
+    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', axes=[AxisDef('target', ['panel', 'backoffice', 'landing'], 'checks', select='many', label='Apps'), AxisDef('bump_mode', ['patch', 'minor', 'major'], 'field', label='Bump')], steps=BUILD_VITE_STEPS, stub=True))
+    registry.register(Capability(id='build_binary', name='Build binario', group='Builders', section='Build binario', kind='once', icon='⚡', steps=BUILD_BINARY_STEPS, stub=True))
     registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', stub=True))
 
     # Emulators group
-    registry.register(Capability(id='start_emulator', name='Arrancar emulador', group='Emulators', section='Emulador', kind='live', icon='📲', axes=[AxisDef('preset', ['pixel_4', 'pixel_8', 'resizable'], 'buttons')], stub=True))
+    registry.register(Capability(id='start_emulator', name='Arrancar emulador', group='Emulators', section='Emulador', kind='live', icon='📲', axes=[AxisDef('preset', ['pixel_4', 'pixel_8', 'resizable'], 'checks', select='many', label='Perfiles')], stub=True))
     registry.register(Capability(id='avd_manager', name='Gestor de AVD', group='Emulators', section='Gestión', kind='view', icon='🔧', stub=True))
     registry.register(Capability(id='purge_avds', name='Purgar AVDs', group='Emulators', section='Limpieza', kind='destructive', icon='🗑️', stub=True))
     registry.register(Capability(id='purge_images', name='Purgar imágenes', group='Emulators', section='Limpieza', kind='destructive', icon='🗑️', stub=True))
@@ -62,5 +84,5 @@ def load_catalog() -> None:
     registry.register(Capability(id='sync_common_files', name='Sync archivos comunes', group='Utils', section='Sync', kind='destructive', icon='🔄', axes=[AxisDef('mode', ['simulacro', 'aplicar'], 'scope')], stub=True))
 
     # Hidden atomic capabilities
-    registry.register(Capability(id='bump_version', name='Bump versión', group='Builders', section='Versión', kind='once', icon='🏷️', stub=True))
-    registry.register(Capability(id='upload_to_vps', name='Subir al VPS', group='VPS · ops', section='Subir artefacto', kind='once', icon='📤', stub=True))
+    registry.register(Capability(id='bump_version', name='Bump versión', group='Builders', section='Versión', kind='once', icon='🏷️', hidden=True, stub=True))
+    registry.register(Capability(id='upload_to_vps', name='Subir al VPS', group='VPS · ops', section='Subir artefacto', kind='once', icon='📤', hidden=True, stub=True))

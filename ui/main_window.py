@@ -176,10 +176,9 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"Consola — {project.name}")
 
     def _on_action_requested(self, capability_id: str) -> None:
+        """El clic abre (o enfoca) la pestana de la accion; no ejecuta.
+        Ejecutar es apretar Ejecutar en el panel de parametros."""
         capability = registry.get_capability(capability_id)
         workspace = self.current_workspace
-        if not capability or workspace is None:
-            return
-        console = workspace.open_tab(capability)
-        if console is not None:
-            console.write_stub_message(f"{capability.name} · {workspace.project.name}")
+        if capability and workspace is not None:
+            workspace.open_tab(capability)

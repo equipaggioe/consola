@@ -1,0 +1,101 @@
+from __future__ import annotations
+from dataclasses import dataclass, field
+
+@dataclass(frozen=True)
+class Setting:
+    """Una clave de `.consola/config.env`, declarada una sola vez.
+
+    Dos consumidores (PLAN.md §9): el formulario de Configuracion y la
+    validacion previa que marca en ambar lo que le falta a una accion.
+    """
+    key: str
+    group: str
+    label: str = ''
+    secret: bool = False
+    default: str = ''
+    placeholder: str = ''
+    required_by: tuple[str, ...] = field(default_factory=tuple)
+
+    @property
+    def display(self) -> str:
+        return self.label or self.key
+
+
+# Claves VPS que necesita cualquier operacion que alcance el servidor.
+_VPS_REACH = ('ssh_login', 'health_check', 'run_command', 'run_setup_scripts',
+              'update_remote', 'upload_to_vps', 'install_software', 'setup_ssh_key',
+              'setup_github_ssh', 'install_coturn', 'bootstrap_vps', 'view_logs',
+              'systemd_action', 'install_systemd', 'clean_vps', 'revoke_ssh')
+
+_DB_REMOTE = ('bootstrap_db', 'teardown_db', 'migrate_db', 'rebuild_db',
+              'backup_db', 'ssh_tunnel', 'inspect_db')
+
+SETTINGS: tuple[Setting, ...] = (
+    # --- Server ---
+    Setting('API_URL', 'Server', 'URL publica de la API',
+            placeholder='https://ejemplo.net:443', required_by=('backend',)),
+
+    # --- Cloudflare ---
+    Setting('CF_API_TOKEN', 'Cloudflare', 'API token', secret=True,
+            required_by=('update_cloudflare',)),
+    Setting('CF_DOMAIN_NAME', 'Cloudflare', 'Dominio',
+            required_by=('update_cloudflare',)),
+    Setting('CF_RECORD_NAME', 'Cloudflare', 'Registro DNS',
+            required_by=('update_cloudflare',)),
+
+    # --- VPS ---
+    Setting('VPS_IP', 'VPS', 'IP del servidor', required_by=_VPS_REACH),
+    Setting('ROOT_USER', 'VPS', 'Usuario root', default='root',
+            required_by=('setup_ssh_key', 'install_software', 'bootstrap_vps')),
+    Setting('VPS_USER', 'VPS', 'Usuario de despliegue', required_by=_VPS_REACH),
+    Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
+    Setting('VPS_PYTHON', 'VPS', 'Python del VPS', default='server/.venv/bin/python',
+            required_by=('update_remote', 'install_systemd')),
+    Setting('VPS_DEPLOY_DIR', 'VPS', 'Directorio de despliegue',
+            required_by=('update_remote', 'upload_to_vps')),
+    Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_REMOTE),
+    Setting('DB_PASSWORD', 'VPS', 'Password de la base', secret=True, required_by=_DB_REMOTE),
+    Setting('PG_SUPERUSER', 'VPS', 'Superusuario Postgres', default='postgres',
+            required_by=('bootstrap_db', 'teardown_db', 'rebuild_db')),
+    Setting('PG_PASSWORD', 'VPS', 'Password del superusuario', secret=True,
+            required_by=('bootstrap_db', 'teardown_db', 'rebuild_db')),
+
+    # --- GitHub ---
+    Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
+            placeholder='git@github.com:usuario/repo.git',
+            required_by=('update_remote', 'setup_github_ssh', 'bootstrap_vps')),
+    Setting('GITHUB_TOKEN', 'GitHub', 'Token', secret=True,
+            required_by=('setup_github_ssh', 'revoke_github_ssh')),
+    Setting('GITHUB_KEY_TITLE', 'GitHub', 'Titulo de la llave',
+            required_by=('setup_github_ssh', 'revoke_github_ssh')),
+
+    # --- Systemd ---
+    Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
+            required_by=('install_systemd',)),
+    Setting('CERT_FILE_PATH', 'Systemd', 'Certificado', default='server/certs/cert.pem',
+            required_by=('install_systemd', 'backend')),
+    Setting('KEY_FILE_PATH', 'Systemd', 'Llave privada', default='server/certs/key.pem',
+            required_by=('install_systemd', 'backend')),
+    Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
+            required_by=('install_systemd', 'backend')),
+)
+
+GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd')
+
+
+def settings_by_group() -> dict[str, list[Setting]]:
+    groups: dict[str, list[Setting]] = {g: [] for g in GROUP_ORDER}
+    for s in SETTINGS:
+        groups.setdefault(s.group, []).append(s)
+    return {g: items for g, items in groups.items() if items}
+
+
+def get_setting(key: str) -> Setting | None:
+    for s in SETTINGS:
+        if s.key == key:
+            return s
+    return None
+
+
+def required_keys_for(capability_id: str) -> list[str]:
+    return [s.key for s in SETTINGS if capability_id in s.required_by]

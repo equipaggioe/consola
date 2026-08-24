@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
-    QPushButton, QSizePolicy
+    QPushButton, QSizePolicy, QSplitter
 )
 from PySide6.QtCore import Qt, Signal, QRectF
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath
@@ -10,6 +10,8 @@ from ui.theme import Colors, Fonts
 from core.registry import Capability
 from core.projects import Project
 from ui.console_view import ConsoleView
+from ui.params_panel import ParamsPanel
+from ui.env_panel import EnvPanel
 
 
 class SubTabButton(QWidget):
@@ -220,7 +222,7 @@ class TabPanel(QWidget):
         self.tabs_layout.setSpacing(2)
         sub_bar_layout.addLayout(self.tabs_layout)
 
-        self.empty_hint = QLabel("sin ejecuciones — lanza una accion del panel izquierdo")
+        self.empty_hint = QLabel("sin acciones abiertas — elige una del panel izquierdo")
         self.empty_hint.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
         )
@@ -234,15 +236,36 @@ class TabPanel(QWidget):
         self.welcome_widget = self._build_welcome()
         self.content_area.addWidget(self.welcome_widget)
 
+        # --- columna derecha: parametros arriba, configuracion abajo ---
+        self.params_stack = QStackedWidget()
+        self.params_stack.addWidget(self._build_params_placeholder())
+
+        self.env_panel = EnvPanel(project)
+        self.env_panel.values_changed.connect(self._on_env_changed)
+
+        self.right_column = QSplitter(Qt.Orientation.Vertical)
+        self.right_column.addWidget(self.params_stack)
+        self.right_column.addWidget(self.env_panel)
+        self.right_column.setSizes([460, 420])
+        self.right_column.setChildrenCollapsible(True)
+
+        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter.addWidget(self.content_area)
+        self.splitter.addWidget(self.right_column)
+        self.splitter.setStretchFactor(0, 1)
+        self.splitter.setStretchFactor(1, 0)
+        self.splitter.setSizes([880, 330])
+
         # --- barra de vistas -----------------------------------------
         self.view_switcher = ViewSwitcher(self.accent)
 
         self.layout.addWidget(self.sub_bar)
-        self.layout.addWidget(self.content_area, 1)
+        self.layout.addWidget(self.splitter, 1)
         self.layout.addWidget(self.view_switcher)
 
         self.tabs: list[SubTabButton] = []
         self._consoles: dict[SubTabButton, ConsoleView] = {}
+        self._params: dict[SubTabButton, ParamsPanel] = {}
 
     # --- construccion ------------------------------------------------
     def _build_welcome(self) -> QWidget:
@@ -276,11 +299,26 @@ class TabPanel(QWidget):
         lay.addWidget(self.path_label, 0, Qt.AlignmentFlag.AlignHCenter)
         return w
 
+    def _build_params_placeholder(self) -> QWidget:
+        w = QWidget()
+        w.setStyleSheet(f"background: {Colors.SURFACE};")
+        lay = QVBoxLayout(w)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setContentsMargins(20, 20, 20, 20)
+        hint = QLabel("Los parámetros de la acción\naparecen aquí")
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hint.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
+        lay.addWidget(hint)
+        return w
+
     # --- API ---------------------------------------------------------
     def open_tab(self, capability: Capability, axis_value: str = '') -> ConsoleView:
+        """Abre (o enfoca) la pestana de una accion. **No ejecuta nada**:
+        ejecutar es apretar Ejecutar en el panel de parametros."""
         title = f"{capability.name} {axis_value}".strip()
 
-        # Si ya existe una pestana para esta capacidad, se reutiliza.
         for tab in self.tabs:
             if tab.title == title:
                 self._activate(tab)
@@ -291,8 +329,17 @@ class TabPanel(QWidget):
         self.tabs.append(tab)
 
         console = ConsoleView(self.content_area)
+        console.append_log(f"─── {capability.name} ───", "info")
+        console.append_log("Ajusta los parámetros a la derecha y pulsa Ejecutar.", "info")
         self.content_area.addWidget(console)
         self._consoles[tab] = console
+
+        panel = ParamsPanel(capability, self.project)
+        panel.set_env(self.env_panel.values())
+        panel.execute_requested.connect(lambda payload, t=tab: self._run(t, payload))
+        panel.configure_requested.connect(self._focus_env)
+        self.params_stack.addWidget(panel)
+        self._params[tab] = panel
 
         tab.clicked.connect(lambda t=tab: self._activate(t))
         tab.close_requested.connect(lambda t=tab: self.close_tab(t))
@@ -311,6 +358,11 @@ class TabPanel(QWidget):
         self.content_area.removeWidget(console)
         console.deleteLater()
 
+        panel = self._params.pop(tab, None)
+        if panel is not None:
+            self.params_stack.removeWidget(panel)
+            panel.deleteLater()
+
         self.tabs.remove(tab)
         self.tabs_layout.removeWidget(tab)
         tab.setParent(None)
@@ -322,10 +374,15 @@ class TabPanel(QWidget):
         else:
             self.empty_hint.setVisible(True)
             self.content_area.setCurrentWidget(self.welcome_widget)
+            self.params_stack.setCurrentIndex(0)
 
     def current_console(self) -> ConsoleView | None:
         w = self.content_area.currentWidget()
         return w if isinstance(w, ConsoleView) else None
+
+    def current_params(self) -> ParamsPanel | None:
+        w = self.params_stack.currentWidget()
+        return w if isinstance(w, ParamsPanel) else None
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
@@ -333,6 +390,9 @@ class TabPanel(QWidget):
         self.diamond_label.setStyleSheet(f"color: {accent}; font-size: 54px;")
         for tab in self.tabs:
             tab.set_accent(accent)
+        for panel in self._params.values():
+            panel.set_accent(accent)
+        self.env_panel.set_accent(accent)
 
     def set_status(self, text: str) -> None:
         self.view_switcher.set_status(text)
@@ -344,3 +404,47 @@ class TabPanel(QWidget):
         console = self._consoles.get(tab)
         if console is not None:
             self.content_area.setCurrentWidget(console)
+        panel = self._params.get(tab)
+        if panel is not None:
+            self.params_stack.setCurrentWidget(panel)
+
+    def _on_env_changed(self, values: dict) -> None:
+        for panel in self._params.values():
+            panel.set_env(values)
+
+    def _focus_env(self, keys: list) -> None:
+        sizes = self.right_column.sizes()
+        if len(sizes) == 2 and sizes[1] < 120:
+            self.right_column.setSizes([300, 460])
+        self.env_panel.highlight(list(keys))
+
+    def _run(self, tab: SubTabButton, payload: dict) -> None:
+        """Ejecucion simulada: reporta exactamente lo que correria (stub, PLAN.md §10)."""
+        console = self._consoles.get(tab)
+        if console is None:
+            return
+        console.append_log("─" * 46, "info")
+
+        variants = {k: v for k, v in payload['variants'].items() if v}
+        for name, values in variants.items():
+            console.append_log(f"{name}: {', '.join(values)}", "info")
+        for name, value in payload['options'].items():
+            console.append_log(f"{name}: {value}", "info")
+
+        combos = 1
+        for values in variants.values():
+            combos *= max(1, len(values))
+        steps = payload['steps']
+        console.append_log(f"{len(steps)} paso(s) × {combos} variante(s)", "info")
+
+        for step_id in steps:
+            for _ in range(combos):
+                pass
+            console.append_log(f"paso «{step_id}» — no implementado (stub)", "warn")
+
+        if payload['missing_env']:
+            console.append_log(
+                f"faltan claves: {', '.join(payload['missing_env'])}", "error"
+            )
+        else:
+            console.append_log("Simulación completada", "ok")
