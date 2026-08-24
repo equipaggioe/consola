@@ -1,12 +1,11 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QPushButton,
-    QScrollArea, QFrame
+    QScrollArea, QFrame, QButtonGroup
 )
 from PySide6.QtCore import Qt, Signal
 
 from ui.theme import Colors, Fonts
-from ui.widgets import Segmented
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
 from core.settings import required_keys_for
@@ -28,7 +27,6 @@ class ParamsPanel(QWidget):
     cambiar de pestana y volver — y desde ahi se puede volver a correr.
     """
     execute_requested = Signal(dict)
-    configure_requested = Signal(list)  # claves que faltan
 
     def __init__(self, capability: Capability, project: Project, parent=None):
         super().__init__(parent)
@@ -39,7 +37,8 @@ class ParamsPanel(QWidget):
         self._env: dict[str, str] = {}
 
         self._checks: dict[str, dict[str, QCheckBox]] = {}   # axis -> value -> check
-        self._segments: dict[str, Segmented] = {}            # axis -> control
+        self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
+        self._option_groups: list[QButtonGroup] = []
         self._step_checks: dict[str, QCheckBox] = {}
 
         self.setStyleSheet(f"ParamsPanel {{ background: {Colors.SURFACE}; }}")
@@ -50,8 +49,6 @@ class ParamsPanel(QWidget):
 
         root.addWidget(self._build_header())
         root.addWidget(self._build_body(), 1)
-        self.warning = self._build_warning()
-        root.addWidget(self.warning)
         root.addWidget(self._build_footer())
 
         self._refresh_summary()
@@ -77,13 +74,7 @@ class ParamsPanel(QWidget):
         title_row.addWidget(name)
         title_row.addStretch()
 
-        self.summary_label = QLabel("")
-        self.summary_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
-
         lay.addLayout(title_row)
-        lay.addWidget(self.summary_label)
         return head
 
     def _build_body(self) -> QWidget:
@@ -148,22 +139,12 @@ class ParamsPanel(QWidget):
 
             check = QCheckBox(step.label)
             check.setChecked(step.default or not step.optional)
-            check.setEnabled(step.optional)
-            if step.optional:
-                check.setCursor(Qt.CursorShape.PointingHandCursor)
-            else:
-                check.setToolTip("Paso obligatorio de esta acción")
+            check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.stateChanged.connect(self._refresh_summary)
             self._step_checks[step.id] = check
 
             row_lay.addWidget(check)
             row_lay.addStretch()
-            if not step.optional:
-                tag = QLabel("obligatorio")
-                tag.setStyleSheet(
-                    f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-                )
-                row_lay.addWidget(tag)
             lay.addWidget(row)
         return box
 
@@ -182,43 +163,24 @@ class ParamsPanel(QWidget):
             label.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
             )
-            control = Segmented(axis.values, accent=self.accent, danger=axis.danger)
-            control.value_changed.connect(lambda _v: self._refresh_summary())
-            self._segments[axis.name] = control
             row.addWidget(label)
-            row.addWidget(control)
+
+            group = QButtonGroup(self)
+            group.setExclusive(True)
+            self._option_groups.append(group)
+            self._options[axis.name] = {}
+            for i, value in enumerate(axis.values):
+                check = QCheckBox(value)
+                check.setCursor(Qt.CursorShape.PointingHandCursor)
+                if value in axis.danger:
+                    check.setStyleSheet(f"QCheckBox {{ color: {Colors.ERROR}; }}")
+                if i == 0:
+                    check.setChecked(True)
+                group.addButton(check)
+                check.toggled.connect(self._refresh_summary)
+                self._options[axis.name][value] = check
+                row.addWidget(check)
             lay.addLayout(row)
-        return box
-
-    def _build_warning(self) -> QWidget:
-        box = QWidget()
-        box.setStyleSheet(f"background: transparent; border-top: 1px solid {Colors.BORDER};")
-        lay = QHBoxLayout(box)
-        lay.setContentsMargins(16, 9, 16, 9)
-        lay.setSpacing(8)
-
-        self.warning_label = QLabel("")
-        self.warning_label.setWordWrap(True)
-        self.warning_label.setStyleSheet(
-            f"background: transparent; color: {Colors.WARNING}; font-size: {Fonts.SIZE_XS}px;"
-        )
-        self.warning_link = QPushButton("Configurar")
-        self.warning_link.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.warning_link.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {Colors.WARNING};
-                color: {Colors.WARNING}; border-radius: 4px;
-                padding: 3px 10px; font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; }}
-        """)
-        self.warning_link.clicked.connect(
-            lambda: self.configure_requested.emit(self._missing_keys())
-        )
-
-        lay.addWidget(self.warning_label, 1)
-        lay.addWidget(self.warning_link)
-        box.setVisible(False)
         return box
 
     def _build_footer(self) -> QWidget:
@@ -265,13 +227,19 @@ class ParamsPanel(QWidget):
         return [s for s in self.steps
                 if s.id not in self._step_checks or self._step_checks[s.id].isChecked()]
 
+    def option_value(self, axis_name: str) -> str:
+        for value, check in self._options.get(axis_name, {}).items():
+            if check.isChecked():
+                return value
+        return ''
+
     def payload(self) -> dict:
         return {
             'capability_id': self.capability.id,
             'project': self.project.name,
             'variants': {name: self.selection(name) for name in self._checks},
             'steps': [s.id for s in self.active_steps()],
-            'options': {name: seg.value() for name, seg in self._segments.items()},
+            'options': {name: self.option_value(name) for name in self._options},
             'missing_env': self._missing_keys(),
         }
 
@@ -282,8 +250,6 @@ class ParamsPanel(QWidget):
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
-        for seg in self._segments.values():
-            seg.set_accent(accent)
         self._restyle_run()
 
     def relevant_keys(self) -> set[str]:
@@ -320,25 +286,6 @@ class ParamsPanel(QWidget):
         return reasons
 
     def _refresh_summary(self, *_args) -> None:
-        parts = []
-        for axis in self.capability.multi_axes:
-            count = len(self.selection(axis.name))
-            parts.append(f"{count} {axis.display.lower()}")
-        steps = len(self.active_steps())
-        if len(self.steps) > 1:
-            parts.append(f"{steps} paso{'s' if steps != 1 else ''}")
-        self.summary_label.setText(
-            f"{self.project.name} · " + (" × ".join(parts) if parts else "sin variantes")
-        )
-
-        missing = self._missing_keys()
-        if missing:
-            names = ", ".join(missing[:3]) + ("…" if len(missing) > 3 else "")
-            self.warning_label.setText(f"Falta configurar {names}")
-            self.warning.setVisible(True)
-        else:
-            self.warning.setVisible(False)
-
         blockers = self._blockers()
         self.run_btn.setEnabled(not blockers)
         self.run_btn.setToolTip(blockers[0].capitalize() if blockers else "")

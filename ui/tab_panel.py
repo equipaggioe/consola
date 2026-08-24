@@ -61,7 +61,6 @@ class SubTabButton(QWidget):
             }}
         """)
         self.close_btn.clicked.connect(self.close_requested.emit)
-        self.close_btn.setVisible(False)
 
         layout.addWidget(self.icon_label)
         layout.addWidget(self.title_label)
@@ -88,14 +87,12 @@ class SubTabButton(QWidget):
 
     def enterEvent(self, event):
         self._hovered = True
-        self.close_btn.setVisible(True)
         self._sync_text()
         self.update()
         super().enterEvent(event)
 
     def leaveEvent(self, event):
         self._hovered = False
-        self.close_btn.setVisible(False)
         self._sync_text()
         self.update()
         super().leaveEvent(event)
@@ -337,7 +334,6 @@ class TabPanel(QWidget):
         panel = ParamsPanel(capability, self.project)
         panel.set_env(self.env_panel.values())
         panel.execute_requested.connect(lambda payload, t=tab: self._run(t, payload))
-        panel.configure_requested.connect(self._focus_env)
         self.params_stack.addWidget(panel)
         self._params[tab] = panel
 
@@ -413,12 +409,6 @@ class TabPanel(QWidget):
     def _on_env_changed(self, values: dict) -> None:
         for panel in self._params.values():
             panel.set_env(values)
-
-    def _focus_env(self, keys: list) -> None:
-        sizes = self.right_column.sizes()
-        if len(sizes) == 2 and sizes[1] < 120:
-            self.right_column.setSizes([300, 460])
-        self.env_panel.highlight(list(keys))
 
     def _run(self, tab: SubTabButton, payload: dict) -> None:
         """Ejecucion simulada: reporta exactamente lo que correria (stub, PLAN.md §10)."""

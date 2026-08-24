@@ -71,11 +71,6 @@ class EnvRow(QWidget):
         self.accent = accent
         self._restyle()
 
-    def highlight_missing(self, on: bool) -> None:
-        self.label.setStyleSheet(
-            f"background: transparent; font-size: {Fonts.SIZE_XS}px; "
-            f"color: {Colors.WARNING if on else Colors.TEXT_DIM};"
-        )
 
     def _toggle_echo(self, revealed: bool) -> None:
         self.field.setEchoMode(
@@ -339,18 +334,6 @@ class EnvPanel(QWidget):
                 visible_groups.add(self._row_group[key])
         for group_widget in set(self._row_group.values()):
             group_widget.setVisible(group_widget in visible_groups)
-
-    def highlight(self, keys: list[str]) -> None:
-        """Resalta en ambar las claves que una accion reclama."""
-        wanted = set(keys)
-        first: EnvRow | None = None
-        for key, row in self.rows.items():
-            missing = key in wanted
-            row.highlight_missing(missing)
-            if missing and first is None:
-                first = row
-        if first is not None:
-            first.field.setFocus()
 
     # --- interno ------------------------------------------------------------
     def _on_row_changed(self) -> None:
