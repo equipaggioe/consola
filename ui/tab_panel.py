@@ -375,6 +375,7 @@ class TabPanel(QWidget):
             self.empty_hint.setVisible(True)
             self.content_area.setCurrentWidget(self.welcome_widget)
             self.params_stack.setCurrentIndex(0)
+            self.env_panel.filter_for(None)
 
     def current_console(self) -> ConsoleView | None:
         w = self.content_area.currentWidget()
@@ -407,6 +408,7 @@ class TabPanel(QWidget):
         panel = self._params.get(tab)
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
+            self.env_panel.filter_for(panel.relevant_keys())
 
     def _on_env_changed(self, values: dict) -> None:
         for panel in self._params.values():

@@ -13,11 +13,6 @@ def config_path(repo_path: str) -> str:
     return os.path.join(repo_path, CONSOLA_DIR, CONFIG_NAME)
 
 
-def legacy_env_path(repo_path: str) -> str:
-    """El `scripts/.env` que los repos ya tienen hoy, para importar (PLAN.md §9)."""
-    return os.path.join(repo_path, 'scripts', '.env')
-
-
 def parse_env(text: str) -> dict[str, str]:
     values: dict[str, str] = {}
     for raw in text.splitlines():
@@ -95,9 +90,10 @@ def _ensure_gitignored(repo_path: str) -> None:
         pass  # no poder tocar .gitignore nunca debe romper el guardado
 
 
-def import_legacy(repo_path: str) -> dict[str, str]:
-    """Lee `scripts/.env` y devuelve solo las claves que sobreviven al esquema."""
-    legacy = load_env(legacy_env_path(repo_path))
+def import_from(path: str) -> dict[str, str]:
+    """Lee un archivo .env arbitrario (elegido por el usuario) y devuelve
+    solo las claves que sobreviven al esquema."""
+    legacy = load_env(path)
     known = {s.key for s in SETTINGS}
     return {k: v for k, v in legacy.items() if k in known and v}
 

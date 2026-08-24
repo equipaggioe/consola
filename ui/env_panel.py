@@ -2,9 +2,11 @@ from __future__ import annotations
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QFrame, QToolButton
+    QScrollArea, QFrame, QToolButton, QFileDialog
 )
 from PySide6.QtCore import Qt, Signal
+
+FOOTER_BTN_HEIGHT = 34
 
 from ui.theme import Colors, Fonts
 from core.projects import Project
@@ -113,7 +115,9 @@ class EnvPanel(QWidget):
         self.project = project
         self.accent = project.color
         self.rows: dict[str, EnvRow] = {}
+        self._row_group: dict[str, QWidget] = {}
         self._dirty = False
+        self._filter: set[str] | None = None
 
         self.setStyleSheet(f"EnvPanel {{ background: {Colors.SURFACE}; }}")
 
@@ -163,7 +167,7 @@ class EnvPanel(QWidget):
         self.banner_label.setStyleSheet(
             f"background: transparent; color: {Colors.WARNING}; font-size: {Fonts.SIZE_XS}px;"
         )
-        self.banner_btn = QPushButton("Importar de scripts/.env")
+        self.banner_btn = QPushButton("Importar desde archivo…")
         self.banner_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.banner_btn.setStyleSheet(f"""
             QPushButton {{
@@ -173,7 +177,7 @@ class EnvPanel(QWidget):
             }}
             QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; }}
         """)
-        self.banner_btn.clicked.connect(self.import_legacy)
+        self.banner_btn.clicked.connect(self.browse_import)
 
         lay.addWidget(self.banner_label, 1)
         lay.addWidget(self.banner_btn)
@@ -194,7 +198,10 @@ class EnvPanel(QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         for group, settings in settings_by_group().items():
-            block = QVBoxLayout()
+            block_widget = QWidget()
+            block_widget.setStyleSheet("background: transparent;")
+            block = QVBoxLayout(block_widget)
+            block.setContentsMargins(0, 0, 0, 0)
             block.setSpacing(6)
             header = QLabel(group.upper())
             header.setStyleSheet(
@@ -206,8 +213,9 @@ class EnvPanel(QWidget):
                 row = EnvRow(setting, '', self.accent)
                 row.changed.connect(self._on_row_changed)
                 self.rows[setting.key] = row
+                self._row_group[setting.key] = block_widget
                 block.addWidget(row)
-            lay.addLayout(block)
+            lay.addWidget(block_widget)
 
         scroll.setWidget(content)
         return scroll
@@ -226,6 +234,7 @@ class EnvPanel(QWidget):
 
         self.reload_btn = QPushButton("Recargar")
         self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.reload_btn.setFixedHeight(FOOTER_BTN_HEIGHT)
         self.reload_btn.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: 1px solid {Colors.BORDER};
@@ -238,6 +247,7 @@ class EnvPanel(QWidget):
 
         self.save_btn = QPushButton("Guardar")
         self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.save_btn.setFixedHeight(FOOTER_BTN_HEIGHT)
         self.save_btn.clicked.connect(self.save)
 
         lay.addWidget(self.status_label, 1)
@@ -263,17 +273,11 @@ class EnvPanel(QWidget):
         self.path_label.setText(f".consola/{envfile.CONFIG_NAME}" if exists else "sin archivo")
 
         if not exists:
-            legacy = envfile.import_legacy(self.project.path)
-            if legacy:
-                self.banner_label.setText(
-                    f"No hay .consola/config.env. Se detectaron {len(legacy)} claves en scripts/.env."
-                )
-                self.banner_btn.setVisible(True)
-            else:
-                self.banner_label.setText(
-                    "No hay .consola/config.env todavía. Completa y guarda para crearlo."
-                )
-                self.banner_btn.setVisible(False)
+            self.banner_label.setText(
+                "No hay .consola/config.env todavía. Completa y guarda para crearlo, "
+                "o impórtalo desde otro archivo .env."
+            )
+            self.banner_btn.setVisible(True)
             self.banner.setVisible(True)
         else:
             self.banner.setVisible(False)
@@ -281,19 +285,30 @@ class EnvPanel(QWidget):
         self._update_status()
         self.values_changed.emit(self.values())
 
-    def import_legacy(self) -> None:
-        """Trae de `scripts/.env` solo las claves del esquema — no escribe todavia."""
-        legacy = envfile.import_legacy(self.project.path)
-        if not legacy:
+    def browse_import(self) -> None:
+        """Importa claves conocidas desde cualquier archivo .env que el usuario elija.
+
+        No asume convenciones de otros proyectos (nada de rutas fijas):
+        el usuario elige el archivo, y recien Guardar escribe algo.
+        """
+        path, _ = QFileDialog.getOpenFileName(
+            self, "Importar variables desde…", self.project.path,
+            "Archivos .env (*.env);;Todos los archivos (*)"
+        )
+        if not path:
             return
-        for key, value in legacy.items():
+        imported = envfile.import_from(path)
+        if not imported:
+            self.banner_label.setText(f"{os.path.basename(path)} no tiene claves reconocidas.")
+            return
+        for key, value in imported.items():
             row = self.rows.get(key)
             if row is not None and not row.value():
                 row.set_value(value)
         self.banner_label.setText(
-            f"Se importaron {len(legacy)} claves. Revisa y guarda para escribir el archivo."
+            f"Se importaron {len(imported)} claves de {os.path.basename(path)}. "
+            f"Revisa y guarda para escribir el archivo."
         )
-        self.banner_btn.setVisible(False)
 
     def save(self) -> None:
         path = envfile.save_config(self.project.path, self.values())
@@ -309,6 +324,21 @@ class EnvPanel(QWidget):
         for row in self.rows.values():
             row.set_accent(accent)
         self._restyle_save()
+
+    def filter_for(self, keys: set[str] | None) -> None:
+        """Muestra solo las claves que la accion activa reclama.
+
+        `None` = sin filtro (vista completa, cuando no hay pestana abierta).
+        """
+        self._filter = keys
+        visible_groups: set[QWidget] = set()
+        for key, row in self.rows.items():
+            visible = keys is None or key in keys
+            row.setVisible(visible)
+            if visible:
+                visible_groups.add(self._row_group[key])
+        for group_widget in set(self._row_group.values()):
+            group_widget.setVisible(group_widget in visible_groups)
 
     def highlight(self, keys: list[str]) -> None:
         """Resalta en ambar las claves que una accion reclama."""

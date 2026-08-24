@@ -119,23 +119,7 @@ class ParamsPanel(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
 
-        header = QHBoxLayout()
-        header.addWidget(SectionLabel(axis.display))
-        header.addStretch()
-        for text, target in (("todas", True), ("ninguna", False)):
-            link = QPushButton(text)
-            link.setCursor(Qt.CursorShape.PointingHandCursor)
-            link.setFlat(True)
-            link.setStyleSheet(f"""
-                QPushButton {{
-                    background: transparent; border: none;
-                    color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px; padding: 0 3px;
-                }}
-                QPushButton:hover {{ color: {self.accent}; }}
-            """)
-            link.clicked.connect(lambda _=False, a=axis.name, v=target: self._set_all(a, v))
-            header.addWidget(link)
-        lay.addLayout(header)
+        lay.addWidget(SectionLabel(axis.display))
 
         self._checks[axis.name] = {}
         for value in axis.values:
@@ -242,14 +226,31 @@ class ParamsPanel(QWidget):
         foot.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(foot)
         lay.setContentsMargins(16, 10, 16, 10)
-        lay.setSpacing(8)
+        lay.setSpacing(6)
+
+        if self.capability.multi_axes:
+            for text, target in (("Todas", True), ("Ninguna", False)):
+                link = QPushButton(text)
+                link.setCursor(Qt.CursorShape.PointingHandCursor)
+                link.setFixedHeight(34)
+                link.setStyleSheet(f"""
+                    QPushButton {{
+                        background: transparent; border: 1px solid {Colors.BORDER};
+                        color: {Colors.TEXT_DIM}; border-radius: 5px;
+                        padding: 0 12px; font-size: {Fonts.SIZE_XS}px;
+                    }}
+                    QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
+                """)
+                link.clicked.connect(lambda _=False, v=target: self._set_all_axes(v))
+                lay.addWidget(link)
+
+        lay.addStretch()
 
         self.run_btn = QPushButton("▶  Ejecutar")
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_btn.setFixedHeight(34)
         self.run_btn.clicked.connect(self._emit_execute)
 
-        lay.addStretch()
         lay.addWidget(self.run_btn)
         self._restyle_run()
         return foot
@@ -285,10 +286,20 @@ class ParamsPanel(QWidget):
             seg.set_accent(accent)
         self._restyle_run()
 
+    def relevant_keys(self) -> set[str]:
+        """Claves de `.env` que esta accion puede llegar a necesitar (todos los
+        pasos, no solo los activos) — para filtrar el panel de configuracion."""
+        needed = set(required_keys_for(self.capability.id))
+        for step in self.steps:
+            needed |= step.requires_env
+            needed |= set(required_keys_for(step.id))
+        return needed
+
     # --- interno --------------------------------------------------------
-    def _set_all(self, axis_name: str, value: bool) -> None:
-        for check in self._checks.get(axis_name, {}).values():
-            check.setChecked(value)
+    def _set_all_axes(self, value: bool) -> None:
+        for checks in self._checks.values():
+            for check in checks.values():
+                check.setChecked(value)
         self._refresh_summary()
 
     def _missing_keys(self) -> list[str]:
