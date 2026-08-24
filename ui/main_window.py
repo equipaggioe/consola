@@ -2,7 +2,8 @@ from __future__ import annotations
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget
 )
-from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut
+from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut, QIcon, QPixmap, QFont
+from PySide6.QtCore import Qt
 
 from ui.rail import ActionRail
 from ui.tab_panel import TabPanel
@@ -10,6 +11,25 @@ from ui.project_tabs import ProjectTabBar, ProjectTab
 from ui.theme import Colors, Fonts
 from core.registry import registry
 from core.projects import MOCK_PROJECTS, Project
+
+
+def _brand_icon() -> QIcon:
+    """El mismo rombo de la marca (BrandMark), como icono de ventana — para
+    que la barra de titulo del sistema (junto a minimizar/maximizar) lo
+    muestre tambien, no solo la esquina superior izquierda del contenido."""
+    size = 64
+    pixmap = QPixmap(size, size)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
+    font = QFont()
+    font.setPixelSize(int(size * 0.8))
+    painter.setFont(font)
+    painter.setPen(QColor(Colors.ACCENT))
+    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "◇")
+    painter.end()
+    return QIcon(pixmap)
 
 
 class BrandMark(QWidget):
@@ -60,6 +80,7 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Consola")
+        self.setWindowIcon(_brand_icon())
         self.resize(1500, 950)
         self.setMinimumSize(1000, 650)
 

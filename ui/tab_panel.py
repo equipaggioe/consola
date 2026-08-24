@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
     QPushButton, QSizePolicy, QSplitter
 )
-from PySide6.QtCore import Qt, Signal, QRectF
+from PySide6.QtCore import Qt, Signal, QRectF, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath
 
 from ui.theme import Colors, Fonts
@@ -247,7 +247,7 @@ class TabPanel(QWidget):
         self.welcome_widget = self._build_welcome()
         self.content_area.addWidget(self.welcome_widget)
 
-        # --- columna derecha: parametros arriba, configuracion abajo ---
+        # --- columna derecha: cabecera unica + config arriba, parametros abajo ---
         self.params_stack = QStackedWidget()
         self.params_stack.addWidget(self._build_params_placeholder())
 
@@ -260,9 +260,18 @@ class TabPanel(QWidget):
         self.right_column.setSizes([420, 460])
         self.right_column.setChildrenCollapsible(True)
 
+        self.right_header = self._build_right_header()
+
+        right_container = QWidget()
+        right_layout = QVBoxLayout(right_container)
+        right_layout.setContentsMargins(0, 0, 0, 0)
+        right_layout.setSpacing(0)
+        right_layout.addWidget(self.right_header)
+        right_layout.addWidget(self.right_column, 1)
+
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.addWidget(self.content_area)
-        self.splitter.addWidget(self.right_column)
+        self.splitter.addWidget(right_container)
         self.splitter.setStretchFactor(0, 1)
         self.splitter.setStretchFactor(1, 0)
         self.splitter.setSizes([880, 330])
@@ -281,6 +290,32 @@ class TabPanel(QWidget):
         self._params: dict[SubTabButton, ParamsPanel] = {}
 
     # --- construccion ------------------------------------------------
+    def _build_right_header(self) -> QWidget:
+        """Cabecera unica de la columna derecha: reemplaza el rotulo fijo
+        'Configuracion del repo' — muestra el repo activo sin pestana
+        abierta, y el nombre de la accion en curso cuando hay una."""
+        head = QWidget()
+        head.setStyleSheet(f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
+        lay = QHBoxLayout(head)
+        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setSpacing(8)
+
+        self.right_header_icon = QLabel(self.project.icon or "◇")
+        self.right_header_icon.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_LG}px;")
+        self.right_header_name = QLabel(self.project.name)
+        self.right_header_name.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT}; "
+            f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
+        )
+        lay.addWidget(self.right_header_icon)
+        lay.addWidget(self.right_header_name)
+        lay.addStretch()
+        return head
+
+    def _set_right_header(self, icon: str, name: str) -> None:
+        self.right_header_icon.setText(icon or "◇")
+        self.right_header_name.setText(name)
+
     def _build_welcome(self) -> QWidget:
         w = QWidget()
         lay = QVBoxLayout(w)
@@ -347,7 +382,7 @@ class TabPanel(QWidget):
         self.content_area.addWidget(console)
         self._consoles[tab] = console
 
-        panel = ParamsPanel(capability, self.project)
+        panel = ParamsPanel(capability, self.project, self.env_panel)
         panel.set_env(self.env_panel.values())
         panel.execute_requested.connect(lambda payload, t=tab: self._run(t, payload))
         self.params_stack.addWidget(panel)
@@ -388,6 +423,7 @@ class TabPanel(QWidget):
             self.content_area.setCurrentWidget(self.welcome_widget)
             self.params_stack.setCurrentIndex(0)
             self.env_panel.filter_for(None)
+            self._set_right_header(self.project.icon, self.project.name)
 
     def current_console(self) -> ConsoleView | None:
         w = self.content_area.currentWidget()
@@ -421,6 +457,18 @@ class TabPanel(QWidget):
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
             self.env_panel.filter_for(panel.relevant_keys())
+            self._set_right_header(panel.capability.icon, panel.capability.name)
+            QTimer.singleShot(0, self._fit_params_height)
+
+    def _fit_params_height(self) -> None:
+        """El panel de parametros solo ocupa lo que su contenido necesita;
+        el resto de la columna derecha queda para el .env."""
+        panel = self.current_params()
+        if panel is None:
+            return
+        total = self.right_column.height()
+        params_h = max(160, min(panel.natural_height(), total - 120))
+        self.right_column.setSizes([total - params_h, params_h])
 
     def _on_env_changed(self, values: dict) -> None:
         for panel in self._params.values():

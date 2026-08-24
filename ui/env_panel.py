@@ -6,8 +6,6 @@ from PySide6.QtWidgets import (
 )
 from PySide6.QtCore import Qt, Signal
 
-FOOTER_BTN_HEIGHT = 34
-
 from ui.theme import Colors, Fonts
 from core.projects import Project
 from core import envfile
@@ -111,7 +109,6 @@ class EnvPanel(QWidget):
         self.accent = project.color
         self.rows: dict[str, EnvRow] = {}
         self._row_group: dict[str, QWidget] = {}
-        self._dirty = False
         self._filter: set[str] | None = None
 
         self.setStyleSheet(f"EnvPanel {{ background: {Colors.SURFACE}; }}")
@@ -120,36 +117,13 @@ class EnvPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        root.addWidget(self._build_header())
         self.banner = self._build_banner()
         root.addWidget(self.banner)
         root.addWidget(self._build_body(), 1)
-        root.addWidget(self._build_footer())
 
         self.reload()
 
     # --- construccion ---------------------------------------------------
-    def _build_header(self) -> QWidget:
-        head = QWidget()
-        head.setStyleSheet(f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
-        lay = QHBoxLayout(head)
-        lay.setContentsMargins(16, 9, 16, 9)
-        lay.setSpacing(8)
-
-        title = QLabel("CONFIGURACIÓN DEL REPO")
-        title.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.2px;"
-        )
-        self.path_label = QLabel("")
-        self.path_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
-        lay.addWidget(title)
-        lay.addStretch()
-        lay.addWidget(self.path_label)
-        return head
-
     def _build_banner(self) -> QWidget:
         box = QWidget()
         box.setStyleSheet(f"background: transparent; border-bottom: 1px solid {Colors.BORDER};")
@@ -215,42 +189,6 @@ class EnvPanel(QWidget):
         scroll.setWidget(content)
         return scroll
 
-    def _build_footer(self) -> QWidget:
-        foot = QWidget()
-        foot.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
-        lay = QHBoxLayout(foot)
-        lay.setContentsMargins(16, 9, 16, 9)
-        lay.setSpacing(8)
-
-        self.status_label = QLabel("")
-        self.status_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
-
-        self.reload_btn = QPushButton("Recargar")
-        self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.reload_btn.setFixedHeight(FOOTER_BTN_HEIGHT)
-        self.reload_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {Colors.BORDER};
-                color: {Colors.TEXT_DIM}; border-radius: 5px;
-                padding: 5px 12px; font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
-        """)
-        self.reload_btn.clicked.connect(self.reload)
-
-        self.save_btn = QPushButton("Guardar")
-        self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.save_btn.setFixedHeight(FOOTER_BTN_HEIGHT)
-        self.save_btn.clicked.connect(self.save)
-
-        lay.addWidget(self.status_label, 1)
-        lay.addWidget(self.reload_btn)
-        lay.addWidget(self.save_btn)
-        self._restyle_save()
-        return foot
-
     # --- API --------------------------------------------------------------
     def values(self) -> dict[str, str]:
         return {key: row.value() for key, row in self.rows.items()}
@@ -261,12 +199,8 @@ class EnvPanel(QWidget):
             row.blockSignals(True)
             row.set_value(values.get(key, ''))
             row.blockSignals(False)
-        self._dirty = False
 
-        path = envfile.config_path(self.project.path)
-        exists = os.path.isfile(path)
-        self.path_label.setText(f".consola/{envfile.CONFIG_NAME}" if exists else "sin archivo")
-
+        exists = os.path.isfile(envfile.config_path(self.project.path))
         if not exists:
             self.banner_label.setText(
                 "No hay .consola/config.env todavía. Completa y guarda para crearlo, "
@@ -277,7 +211,6 @@ class EnvPanel(QWidget):
         else:
             self.banner.setVisible(False)
 
-        self._update_status()
         self.values_changed.emit(self.values())
 
     def browse_import(self) -> None:
@@ -306,11 +239,8 @@ class EnvPanel(QWidget):
         )
 
     def save(self) -> None:
-        path = envfile.save_config(self.project.path, self.values())
-        self._dirty = False
+        envfile.save_config(self.project.path, self.values())
         self.banner.setVisible(False)
-        self.path_label.setText(f".consola/{envfile.CONFIG_NAME}")
-        self._update_status(f"Guardado en {os.path.basename(path)}")
         self.saved.emit(self.values())
         self.values_changed.emit(self.values())
 
@@ -318,7 +248,6 @@ class EnvPanel(QWidget):
         self.accent = accent
         for row in self.rows.values():
             row.set_accent(accent)
-        self._restyle_save()
 
     def filter_for(self, keys: set[str] | None) -> None:
         """Muestra solo las claves que la accion activa reclama.
@@ -337,26 +266,4 @@ class EnvPanel(QWidget):
 
     # --- interno ------------------------------------------------------------
     def _on_row_changed(self) -> None:
-        self._dirty = True
-        self._update_status()
         self.values_changed.emit(self.values())
-
-    def _update_status(self, message: str = '') -> None:
-        if message:
-            self.status_label.setText(message)
-        else:
-            filled = sum(1 for v in self.values().values() if v)
-            total = len(self.rows)
-            suffix = " · sin guardar" if self._dirty else ""
-            self.status_label.setText(f"{filled}/{total} claves con valor{suffix}")
-        self._restyle_save()
-
-    def _restyle_save(self) -> None:
-        self.save_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {self.accent if self._dirty else Colors.SURFACE_ALT};
-                color: {Colors.BG if self._dirty else Colors.TEXT_MUTED};
-                border: none; border-radius: 5px;
-                padding: 5px 14px; font-size: {Fonts.SIZE_XS}px; font-weight: 600;
-            }}
-        """)

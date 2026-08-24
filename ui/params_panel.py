@@ -28,11 +28,12 @@ class ParamsPanel(QWidget):
     """
     execute_requested = Signal(dict)
 
-    def __init__(self, capability: Capability, project: Project, parent=None):
+    def __init__(self, capability: Capability, project: Project, env_panel, parent=None):
         super().__init__(parent)
         self.capability = capability
         self.project = project
         self.accent = project.color
+        self.env_panel = env_panel
         self.steps: list[Step] = registry.resolve_steps(capability)
         self._env: dict[str, str] = {}
 
@@ -47,36 +48,15 @@ class ParamsPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        root.addWidget(self._build_header())
-        root.addWidget(self._build_body(), 1)
-        root.addWidget(self._build_footer())
+        self._body_widget = self._build_body()
+        self._footer_widget = self._build_footer()
+
+        root.addWidget(self._body_widget, 1)
+        root.addWidget(self._footer_widget)
 
         self._refresh_summary()
 
     # --- construccion -------------------------------------------------
-    def _build_header(self) -> QWidget:
-        head = QWidget()
-        head.setStyleSheet(f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
-        lay = QVBoxLayout(head)
-        lay.setContentsMargins(16, 12, 16, 12)
-        lay.setSpacing(3)
-
-        title_row = QHBoxLayout()
-        title_row.setSpacing(8)
-        icon = QLabel(self.capability.icon or "⚡")
-        icon.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_LG}px;")
-        name = QLabel(self.capability.name)
-        name.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT}; "
-            f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
-        )
-        title_row.addWidget(icon)
-        title_row.addWidget(name)
-        title_row.addStretch()
-
-        lay.addLayout(title_row)
-        return head
-
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -100,6 +80,7 @@ class ParamsPanel(QWidget):
         if singles:
             lay.addWidget(self._build_options(singles))
 
+        self._content = content
         scroll.setWidget(content)
         return scroll
 
@@ -190,22 +171,20 @@ class ParamsPanel(QWidget):
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(6)
 
-        if self.capability.multi_axes:
-            for text, target in (("Todas", True), ("Ninguna", False)):
-                link = QPushButton(text)
-                link.setCursor(Qt.CursorShape.PointingHandCursor)
-                link.setFixedHeight(34)
-                link.setStyleSheet(f"""
-                    QPushButton {{
-                        background: transparent; border: 1px solid {Colors.BORDER};
-                        color: {Colors.TEXT_DIM}; border-radius: 5px;
-                        padding: 0 12px; font-size: {Fonts.SIZE_XS}px;
-                    }}
-                    QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
-                """)
-                link.clicked.connect(lambda _=False, v=target: self._set_all_axes(v))
-                lay.addWidget(link)
-
+        for text, handler in (("Recargar", self.env_panel.reload), ("Guardar", self.env_panel.save)):
+            btn = QPushButton(text)
+            btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            btn.setFixedHeight(34)
+            btn.setStyleSheet(f"""
+                QPushButton {{
+                    background: transparent; border: 1px solid {Colors.BORDER};
+                    color: {Colors.TEXT_DIM}; border-radius: 5px;
+                    padding: 0 12px; font-size: {Fonts.SIZE_XS}px;
+                }}
+                QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
+            """)
+            btn.clicked.connect(handler)
+            lay.addWidget(btn)
         lay.addStretch()
 
         self.run_btn = QPushButton("▶  Ejecutar")
@@ -252,6 +231,13 @@ class ParamsPanel(QWidget):
         self.accent = accent
         self._restyle_run()
 
+    def natural_height(self) -> int:
+        """Alto que necesita para mostrar todo su contenido sin scroll, para
+        que el panel de `.env` se quede con el resto del espacio vertical."""
+        return (self._content.sizeHint().height()
+                + self._footer_widget.sizeHint().height()
+                + 4)
+
     def relevant_keys(self) -> set[str]:
         """Claves de `.env` que esta accion puede llegar a necesitar (todos los
         pasos, no solo los activos) — para filtrar el panel de configuracion."""
@@ -262,11 +248,6 @@ class ParamsPanel(QWidget):
         return needed
 
     # --- interno --------------------------------------------------------
-    def _set_all_axes(self, value: bool) -> None:
-        for checks in self._checks.values():
-            for check in checks.values():
-                check.setChecked(value)
-        self._refresh_summary()
 
     def _missing_keys(self) -> list[str]:
         needed = set(required_keys_for(self.capability.id))
