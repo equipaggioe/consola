@@ -1,10 +1,9 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
 from PySide6.QtCore import Qt, Signal, QRectF, QEvent
-from PySide6.QtGui import QPainter, QColor, QPainterPath, QFont, QFontMetrics
+from PySide6.QtGui import QPainter, QColor, QPainterPath, QFont
 
 from ..theme import Colors, Fonts
-from .flow_layout import FlowLayout
 from .section_header import ChevronWidget
 
 
@@ -16,64 +15,54 @@ def _alpha(hex_color: str, alpha: float) -> QColor:
     return c
 
 
-class ActionChip(QWidget):
-    """Una accion dentro de una caja de grupo: pastilla del ancho de su texto.
+class ActionRow(QWidget):
+    """Una accion dentro de una caja de grupo: renglon de ancho completo.
 
-    Alternativa al renglon de lista: al ocupar solo lo que mide su nombre,
-    varias caben por linea y un grupo entero se abarca de un vistazo.
+    Distinta de la pastilla (chip) que se probo antes: aqui cada accion
+    ocupa toda la fila, como una entrada de menu, con un filete de acento a
+    la izquierda que solo aparece con el hover o si es destructiva.
     """
     triggered = Signal(str)
 
-    HEIGHT = 30
-    MAX_TEXT = 150
+    HEIGHT = 32
 
-    def __init__(self, capability_id: str, label: str,
+    def __init__(self, capability_id: str, label: str, icon: str = '',
                  danger: bool = False, accent: str = Colors.ACCENT, parent=None):
         super().__init__(parent)
         self.capability_id = capability_id
-        self.label = label
         self.danger = danger
         self.accent = accent
         self._hovered = False
 
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setSizePolicy(QSizePolicy.Policy.Fixed, QSizePolicy.Policy.Fixed)
-        self.setToolTip(label)
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(9, 0, 10, 0)
-        layout.setSpacing(5)
+        layout.setContentsMargins(16, 0, 12, 0)
+        layout.setSpacing(9)
 
-        # Sin emoji: el icono del grupo ya esta en la cabecera de la caja, y
-        # 24 px por pastilla son la diferencia entre una por renglon y dos o
-        # tres — que es justamente el punto de presentarlas como etiquetas.
-        # Lo destructivo si conserva senal propia: un punto rojo.
-        self.dot_label = QLabel("●")
-        self.dot_label.setStyleSheet(
-            f"background: transparent; color: {Colors.ERROR}; font-size: 8px;"
-        )
-        self.dot_label.setVisible(danger)
+        self.icon_label = QLabel(icon or "·")
+        self.icon_label.setFixedWidth(18)
+        self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.icon_label.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_SM}px;")
 
-        self.text_label = QLabel()
+        self.text_label = QLabel(label)
         f = QFont(self.text_label.font())
         f.setPixelSize(Fonts.SIZE_SM)
         self.text_label.setFont(f)
-        self.text_label.setText(
-            QFontMetrics(f).elidedText(label, Qt.TextElideMode.ElideRight, self.MAX_TEXT)
-        )
 
-        layout.addWidget(self.dot_label)
+        layout.addWidget(self.icon_label)
         layout.addWidget(self.text_label)
+        layout.addStretch()
 
         self._restyle()
 
     def matches(self, needle: str) -> bool:
-        return needle in self.label.lower()
+        return needle in self.text_label.text().lower()
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
-        self._restyle()
         self.update()
 
     def _restyle(self) -> None:
@@ -104,24 +93,23 @@ class ActionChip(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5)
-        path = QPainterPath()
-        path.addRoundedRect(r, self.HEIGHT / 2, self.HEIGHT / 2)
+        r = QRectF(self.rect())
+        edge = QColor(Colors.ERROR) if self.danger else QColor(self.accent)
 
-        edge = Colors.ERROR if self.danger else self.accent
         if self._hovered:
-            p.fillPath(path, _alpha(edge, 0.20))
-            p.setPen(_alpha(edge, 0.75))
-        else:
-            p.fillPath(path, QColor(Colors.SURFACE_ALT))
-            p.setPen(_alpha(edge, 0.30) if self.danger else QColor(Colors.BORDER))
-        p.drawPath(path)
+            p.fillRect(r, _alpha(self.accent, 0.09) if not self.danger else _alpha(Colors.ERROR, 0.08))
+
+        # Filete de acento: siempre visible y tenue si es destructiva (aviso
+        # permanente), solo al pasar el mouse en las demas.
+        if self.danger or self._hovered:
+            bar_alpha = 0.9 if self._hovered else 0.55
+            p.fillRect(QRectF(0, 3, 2.5, r.height() - 6), _alpha(edge.name(), bar_alpha))
         p.end()
 
 
 class GroupCard(QWidget):
     """Caja de un grupo: cerrada es un recuadro con nombre y cuenta; abierta
-    despliega sus acciones como pastillas dentro del mismo recuadro."""
+    despliega sus acciones, una por renglon, dentro del mismo recuadro."""
     action_triggered = Signal(str)
     expanded = Signal(object)   # pide el foco del acordeon
 
@@ -175,25 +163,21 @@ class GroupCard(QWidget):
         hl.addWidget(self.count_label)
         hl.addWidget(self.chevron)
 
-        # --- cuerpo: pastillas que envuelven --------------------------
-        self.body = QWidget()
-        self.body.setStyleSheet("background: transparent;")
-        self.flow = FlowLayout(self.body, margin=0, h_spacing=5, v_spacing=5)
-
-        self.chips: list[ActionChip] = []
-        for cap in capabilities:
-            chip = ActionChip(cap.id, cap.name,
-                              danger=cap.kind == 'destructive', accent=accent)
-            chip.triggered.connect(self.action_triggered.emit)
-            self.flow.addWidget(chip)
-            self.chips.append(chip)
-
+        # --- cuerpo: un renglon por accion -----------------------------
         self.body_wrap = QWidget()
         self.body_wrap.setStyleSheet("background: transparent;")
         bw = QVBoxLayout(self.body_wrap)
-        bw.setContentsMargins(10, 0, 10, 10)
+        bw.setContentsMargins(0, 2, 0, 6)
         bw.setSpacing(0)
-        bw.addWidget(self.body)
+
+        self.rows: list[ActionRow] = []
+        for cap in capabilities:
+            row = ActionRow(cap.id, cap.name, cap.icon,
+                            danger=cap.kind == 'destructive', accent=accent)
+            row.triggered.connect(self.action_triggered.emit)
+            bw.addWidget(row)
+            self.rows.append(row)
+
         self.body_wrap.setVisible(False)
 
         outer.addWidget(self.header)
@@ -219,24 +203,22 @@ class GroupCard(QWidget):
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
-        for chip in self.chips:
-            chip.set_accent(accent)
+        for row in self.rows:
+            row.set_accent(accent)
         self._restyle()
         self.update()
 
     def filter(self, needle: str) -> int:
-        """Deja visibles las pastillas que coinciden; devuelve cuantas."""
+        """Deja visibles los renglones que coinciden; devuelve cuantos."""
         if not needle:
-            for chip in self.chips:
-                chip.setVisible(True)
-            self.flow.invalidate()
-            return len(self.chips)
+            for row in self.rows:
+                row.setVisible(True)
+            return len(self.rows)
         visible = 0
-        for chip in self.chips:
-            match = chip.matches(needle)
-            chip.setVisible(match)
+        for row in self.rows:
+            match = row.matches(needle)
+            row.setVisible(match)
             visible += int(match)
-        self.flow.invalidate()
         return visible
 
     def _restyle(self) -> None:
