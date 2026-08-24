@@ -93,6 +93,23 @@ class Registry:
             self._group_order.append(cap.group)
         self._capabilities[cap.id] = cap
 
+    def bind(self, cap_id: str, func: Callable[..., Any]) -> Callable[..., Any]:
+        """Le da cuerpo real a una capacidad declarada en el catalogo.
+
+        El catalogo (`core/catalog.py`) declara la forma: grupo, seccion, ejes,
+        pasos. `core/tasks/` la implementa. Mientras nadie llame a `bind`, la
+        capacidad sigue siendo un stub y la UI la dibuja como tal.
+        """
+        cap = self._capabilities.get(cap_id)
+        if cap is None:
+            raise KeyError(f'No hay ninguna capacidad registrada con id {cap_id!r}')
+        cap.func = func
+        cap.stub = False
+        return func
+
+    def implemented(self) -> list[Capability]:
+        return [c for c in self._capabilities.values() if not c.stub]
+
     def get_all(self) -> list[Capability]:
         return list(self._capabilities.values())
 

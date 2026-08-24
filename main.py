@@ -3,6 +3,7 @@ import sys
 from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import Qt
 from core.catalog import load_catalog
+from core.tasks import bind_all
 from ui.theme import apply_theme
 from ui.main_window import MainWindow
 
@@ -16,8 +17,9 @@ def main():
     app.setApplicationName('Consola')
     app.setOrganizationName('Consola')
     
-    # Load capability catalog (stubs)
+    # El catalogo declara la forma de cada capacidad; core/tasks le da cuerpo.
     load_catalog()
+    bind_all()
     
     # Apply premium dark theme
     apply_theme(app)

@@ -1,6 +1,6 @@
 from __future__ import annotations
 import re
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import ports, ssh, vps
@@ -120,3 +120,80 @@ def connect(ctx, scope: str = LOCAL) -> Connection:
 
     url = build_url(user=user, password=password, host='127.0.0.1', port=local, name=name)
     return Connection(url, REMOTE, tunnel)
+
+
+# ---------------------------------------------------------------------------
+# Canal de superusuario
+# ---------------------------------------------------------------------------
+
+def quote_ident(value: str) -> str:
+    """Cita un identificador SQL. Sin esto, un nombre con mayusculas o guion
+    rompe el DDL y un nombre malicioso lo reescribe."""
+    if not value or not all(c.isalnum() or c in '_-' for c in value):
+        raise TaskError(f'Identificador SQL invalido: {value!r}')
+    escaped = value.replace('"', '""')
+    return f'"{escaped}"'
+
+
+def quote_literal(value: str) -> str:
+    escaped = value.replace("'", "''")
+    return f"'{escaped}'"
+
+
+@dataclass
+class Admin:
+    """Ejecuta SQL como superusuario de Postgres, local o en el VPS.
+
+    Es el mecanismo del eje `scope` para las operaciones de ciclo de vida
+    (crear rol, crear base, borrarlas): a diferencia de `Connection`, que
+    conecta como la aplicacion, este canal necesita permisos de administrador
+    y por eso pasa por `psql`, no por el driver.
+    """
+    scope: str
+    remote: 'ssh.Remote | None' = None
+    argv: list = field(default_factory=list)
+    env: dict = field(default_factory=dict)
+
+    @property
+    def is_remote(self) -> bool:
+        return self.scope == REMOTE
+
+    def _command(self, database: str, sql: str, *, tuples: bool = False) -> list[str]:
+        flags = ['-tA'] if tuples else []
+        if self.is_remote:
+            assert self.remote is not None
+            remoto = ' '.join([
+                'sudo -n -u postgres psql -v ON_ERROR_STOP=1 -X -q',
+                *flags, '-d', ssh.quote(database), '-c', ssh.quote(sql),
+            ])
+            return self.remote.argv(remoto)
+        return [*self.argv, '-v', 'ON_ERROR_STOP=1', '-X', '-q', *flags,
+                '-d', database, '-c', sql]
+
+    def execute(self, ctx, sql: str, *, database: str = 'postgres') -> None:
+        ctx.run(self._command(database, sql), env=self.env or None, cwd=None)
+
+    def query(self, ctx, sql: str, *, database: str = 'postgres') -> list[str]:
+        salida = ctx.capture(self._command(database, sql, tuples=True),
+                             env=self.env or None, cwd=None)
+        return [line.strip() for line in salida.splitlines() if line.strip()]
+
+
+def _windows_psql() -> Path:
+    for version_dir in sorted(_PG_WINDOWS.iterdir(), reverse=True) if _PG_WINDOWS.is_dir() else []:
+        candidate = version_dir / 'bin' / 'psql.exe'
+        if candidate.is_file():
+            return candidate
+    raise TaskError('No se encontro psql.exe: instala PostgreSQL o usa el ambito remoto.')
+
+
+def resolve_admin(ctx, scope: str = LOCAL) -> Admin:
+    """El canal de superusuario del ambito pedido."""
+    if scope == REMOTE:
+        return Admin(REMOTE, remote=ssh.resolve_remote(ctx.config))
+
+    superuser = ctx.config.get('PG_SUPERUSER') or 'postgres'
+    password = ctx.config.require('PG_PASSWORD')
+    ctx.guard(password)
+    argv = [str(_windows_psql()), '-U', superuser, '-h', '127.0.0.1', '-p', str(local_port())]
+    return Admin(LOCAL, argv=argv, env={'PGPASSWORD': password})
