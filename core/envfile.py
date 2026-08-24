@@ -1,7 +1,8 @@
 from __future__ import annotations
 import os
 
-from .settings import SETTINGS, GROUP_ORDER, settings_by_group
+from .errors import MissingConfig, TaskError
+from .settings import SETTINGS, GROUP_ORDER, get_setting, settings_by_group
 
 CONSOLA_DIR = '.consola'
 CONFIG_NAME = 'config.env'
@@ -100,3 +101,110 @@ def import_from(path: str) -> dict[str, str]:
 
 def missing_keys(values: dict[str, str], keys) -> list[str]:
     return [k for k in keys if not values.get(k, '').strip()]
+
+
+# ---------------------------------------------------------------------------
+# Lectura tipada de un .env
+# ---------------------------------------------------------------------------
+
+def read_value(path: str, key: str) -> str:
+    """Lee una sola clave de un .env sin cargar nada al entorno del proceso.
+
+    Sustituye a `peek_env_value`: aca nunca se toca `os.environ`, porque una
+    tarea no puede pisarle el entorno a las otras pestanas que corren a la vez.
+    """
+    return load_env(path).get(key, '')
+
+
+def upsert_value(path: str, key: str, value: str) -> str:
+    """Reemplaza o agrega `KEY=value` conservando el resto del archivo intacto."""
+    lines = []
+    if os.path.isfile(path):
+        with open(path, 'r', encoding='utf-8') as fh:
+            lines = fh.read().splitlines()
+
+    prefix = f'{key}='
+    replaced = False
+    for i, line in enumerate(lines):
+        if line.startswith(prefix):
+            lines[i] = f'{key}={value}'
+            replaced = True
+    if not replaced:
+        lines.append(f'{key}={value}')
+
+    with open(path, 'w', encoding='utf-8', newline='\n') as fh:
+        fh.write('\n'.join(lines) + '\n')
+    return 'updated' if replaced else 'added'
+
+
+_TRUE = {'1', 'true', 'yes', 'y', 'on', 'si'}
+_FALSE = {'0', 'false', 'no', 'n', 'off'}
+
+
+class Config:
+    """Los valores de `.consola/config.env` de un proyecto, ya leidos.
+
+    Es lo que en los scripts eran ocho funciones sueltas sobre `os.environ`
+    (`require_env`, `require_port_env`, `require_bool_env`, `optional_env`...).
+    Aca son metodos de un solo objeto que la tarea recibe por el contexto, y
+    que no dependen del entorno del proceso.
+    """
+
+    def __init__(self, values: dict[str, str] | None = None, *, repo_name: str = '') -> None:
+        self.values = dict(values or {})
+        self.repo_name = repo_name
+
+    @classmethod
+    def for_project(cls, repo_path: str) -> 'Config':
+        return cls(load_config(repo_path), repo_name=os.path.basename(os.path.normpath(repo_path)))
+
+    def __contains__(self, key: str) -> bool:
+        return bool(self.values.get(key, '').strip())
+
+    def get(self, key: str, default: str = '') -> str:
+        """Valor, con el default del esquema como red antes que el default suelto."""
+        raw = self.values.get(key, '').strip()
+        if raw:
+            return raw
+        setting = get_setting(key)
+        if setting and setting.default:
+            return setting.default
+        return default
+
+    def require(self, key: str) -> str:
+        value = self.get(key)
+        if not value:
+            raise MissingConfig([key])
+        return value
+
+    def port(self, key: str, default: int = 0) -> int:
+        raw = self.get(key)
+        if not raw:
+            if default:
+                return default
+            raise MissingConfig([key])
+        if not raw.isdigit() or not 1 <= int(raw) <= 65535:
+            raise TaskError(f'{key} no es un puerto valido: {raw}')
+        return int(raw)
+
+    def flag(self, key: str, default: bool = False) -> bool:
+        raw = self.get(key).lower()
+        if not raw:
+            return default
+        if raw in _TRUE:
+            return True
+        if raw in _FALSE:
+            return False
+        raise TaskError(f'{key} no es un booleano: {raw}')
+
+    def rel_path(self, key: str, root: str) -> str:
+        """Una clave que guarda una ruta relativa al repo, resuelta contra `root`."""
+        return os.path.normpath(os.path.join(root, self.require(key)))
+
+    def missing(self, *keys: str) -> list[str]:
+        return [k for k in keys if not self.get(k)]
+
+    def secrets(self) -> list[str]:
+        """Valores a enmascarar en la consola (PLAN.md 9)."""
+        return [self.values[s.key] for s in SETTINGS
+                if s.secret and self.values.get(s.key, '').strip()]
