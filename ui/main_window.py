@@ -7,7 +7,6 @@ from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut
 from ui.rail import ActionRail
 from ui.tab_panel import TabPanel
 from ui.project_tabs import ProjectTabBar, ProjectTab
-from ui.status_bar import StatusBar
 from ui.theme import Colors, Fonts
 from core.registry import registry
 from core.projects import MOCK_PROJECTS, Project
@@ -101,10 +100,6 @@ class MainWindow(QMainWindow):
         body_layout.addWidget(self.workspace_stack, 1)
         self.main_layout.addLayout(body_layout, 1)
 
-        # --- Barra de estado --------------------------------------------
-        self.status_bar = StatusBar()
-        self.main_layout.addWidget(self.status_bar)
-
         # --- Conexiones ---------------------------------------------------
         self.rail.action_requested.connect(self._on_action_requested)
         self.project_tabs.project_selected.connect(self._on_project_selected)
@@ -171,8 +166,6 @@ class MainWindow(QMainWindow):
 
         self.rail.set_project(project)
         self.brand.set_accent(project.color)
-        self.status_bar.set_accent(project.color)
-        self.status_bar.set_project(project.name)
         self.setWindowTitle(f"Consola — {project.name}")
 
     def _on_action_requested(self, capability_id: str) -> None:

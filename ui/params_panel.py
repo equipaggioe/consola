@@ -283,6 +283,9 @@ class ParamsPanel(QWidget):
                 reasons.append(f"selecciona al menos un valor en {axis.display.lower()}")
         if not self.active_steps():
             reasons.append("selecciona al menos un paso")
+        missing = self._missing_keys()
+        if missing:
+            reasons.append(f"faltan claves de configuración: {', '.join(missing)}")
         return reasons
 
     def _refresh_summary(self, *_args) -> None:

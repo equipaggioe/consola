@@ -12,6 +12,7 @@ from core.projects import Project
 from ui.console_view import ConsoleView
 from ui.params_panel import ParamsPanel
 from ui.env_panel import EnvPanel
+from ui.widgets.led import LedIndicator
 
 
 class SubTabButton(QWidget):
@@ -124,33 +125,29 @@ class SubTabButton(QWidget):
         p.end()
 
 
-class ViewSwitcher(QWidget):
-    """Barra inferior del espacio de trabajo: vistas de la ejecucion activa."""
-    view_changed = Signal(str)
+class WorkspaceStatusBar(QWidget):
+    """Barra inferior del espacio de trabajo: repo activo, servicios y estado.
 
-    VIEWS = ["Consola", "Bitacora", "Historial", "Configuracion"]
+    Antes eran dos barras apiladas (un selector de vistas que no cambiaba
+    ninguna vista, y una barra de estado global repitiendo el mismo reloj).
+    Se fusionaron en una sola.
+    """
 
     def __init__(self, accent: str, parent=None):
         super().__init__(parent)
         self.accent = accent
         self.setFixedHeight(34)
-        self.setStyleSheet(f"""
-            ViewSwitcher {{
-                background: {Colors.SURFACE};
-                border-top: 1px solid {Colors.BORDER};
-            }}
-        """)
+
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 16, 0)
-        layout.setSpacing(20)
+        layout.setSpacing(12)
 
-        self.labels: dict[str, QLabel] = {}
-        for name in self.VIEWS:
-            lbl = QLabel(name)
-            lbl.setCursor(Qt.CursorShape.PointingHandCursor)
-            lbl.mousePressEvent = lambda e, n=name: self.set_view(n)
-            self.labels[name] = lbl
-            layout.addWidget(lbl)
+        self.project_label = QLabel("")
+        layout.addWidget(self.project_label)
+
+        self.services_layout = QHBoxLayout()
+        self.services_layout.setSpacing(10)
+        layout.addLayout(self.services_layout)
 
         layout.addStretch()
 
@@ -158,29 +155,46 @@ class ViewSwitcher(QWidget):
         self.status_label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
         layout.addWidget(self.status_label)
 
-        self._current = self.VIEWS[0]
         self._restyle()
+
+    def set_project(self, name: str, icon: str = "") -> None:
+        self.project_label.setText(f"{icon or '◇'} {name}")
+
+    def add_service(self, name: str) -> None:
+        container = QWidget()
+        container.setObjectName(f"service_{name}")
+        container.setStyleSheet("background: transparent;")
+        clayout = QHBoxLayout(container)
+        clayout.setContentsMargins(0, 0, 0, 0)
+        clayout.setSpacing(5)
+
+        led = LedIndicator(size=9)
+        led.set_state('green')
+        clayout.addWidget(led)
+
+        label = QLabel(name)
+        label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+        clayout.addWidget(label)
+
+        self.services_layout.addWidget(container)
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
         self._restyle()
 
-    def set_view(self, name: str) -> None:
-        self._current = name
-        self._restyle()
-        self.view_changed.emit(name)
-
     def set_status(self, text: str) -> None:
         self.status_label.setText(text)
 
     def _restyle(self) -> None:
-        for name, lbl in self.labels.items():
-            if name == self._current:
-                lbl.setStyleSheet(
-                    f"color: {self.accent}; font-size: {Fonts.SIZE_SM}px; font-weight: 600;"
-                )
-            else:
-                lbl.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;")
+        self.setStyleSheet(f"""
+            WorkspaceStatusBar {{
+                background: {Colors.SURFACE};
+                border-top: 1px solid {Colors.BORDER};
+            }}
+        """)
+        self.project_label.setStyleSheet(
+            f"color: {self.accent}; font-size: {Fonts.SIZE_SM}px; font-weight: 600;"
+        )
 
 
 class TabPanel(QWidget):
@@ -241,9 +255,9 @@ class TabPanel(QWidget):
         self.env_panel.values_changed.connect(self._on_env_changed)
 
         self.right_column = QSplitter(Qt.Orientation.Vertical)
-        self.right_column.addWidget(self.params_stack)
         self.right_column.addWidget(self.env_panel)
-        self.right_column.setSizes([460, 420])
+        self.right_column.addWidget(self.params_stack)
+        self.right_column.setSizes([420, 460])
         self.right_column.setChildrenCollapsible(True)
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -253,12 +267,14 @@ class TabPanel(QWidget):
         self.splitter.setStretchFactor(1, 0)
         self.splitter.setSizes([880, 330])
 
-        # --- barra de vistas -----------------------------------------
-        self.view_switcher = ViewSwitcher(self.accent)
+        # --- barra de estado -------------------------------------------
+        self.status_bar = WorkspaceStatusBar(self.accent)
+        self.status_bar.set_project(project.name, project.icon)
+        self.status_bar.add_service("Túnel Postgres")
 
         self.layout.addWidget(self.sub_bar)
         self.layout.addWidget(self.splitter, 1)
-        self.layout.addWidget(self.view_switcher)
+        self.layout.addWidget(self.status_bar)
 
         self.tabs: list[SubTabButton] = []
         self._consoles: dict[SubTabButton, ConsoleView] = {}
@@ -383,7 +399,7 @@ class TabPanel(QWidget):
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
-        self.view_switcher.set_accent(accent)
+        self.status_bar.set_accent(accent)
         self.diamond_label.setStyleSheet(f"color: {accent}; font-size: 54px;")
         for tab in self.tabs:
             tab.set_accent(accent)
@@ -392,7 +408,7 @@ class TabPanel(QWidget):
         self.env_panel.set_accent(accent)
 
     def set_status(self, text: str) -> None:
-        self.view_switcher.set_status(text)
+        self.status_bar.set_status(text)
 
     # --- interno ------------------------------------------------------
     def _activate(self, tab: SubTabButton) -> None:
