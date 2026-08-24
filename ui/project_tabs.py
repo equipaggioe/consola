@@ -1,9 +1,9 @@
 from __future__ import annotations
 import os
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFileDialog, QMenu, QSizePolicy
+from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFileDialog, QMenu, QSizePolicy, QPushButton
 from PySide6.QtCore import Qt, Signal, QRectF, QPointF
 from PySide6.QtGui import (
-    QPainter, QColor, QPainterPath, QLinearGradient, QRadialGradient,
+    QPainter, QColor, QPainterPath, QLinearGradient,
     QFont, QAction, QPen, QBrush
 )
 
@@ -18,15 +18,17 @@ PALETTE = ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#f47067',
 class ProjectTab(QWidget):
     """Pestana de nivel superior: un repositorio.
 
-    El estado activo se hace evidente con cuatro senales simultaneas:
-    barra superior del color del repo, fondo degradado que se funde con el
-    lienzo de abajo, texto brillante en negrita y punto luminoso encendido.
+    El estado activo se hace evidente con tres senales simultaneas: un
+    contorno del color del repo que envuelve la pestana por arriba y por
+    los lados (abierto por abajo, para fundirse con la linea separadora
+    de la barra), fondo degradado que se funde con el lienzo de abajo, y
+    texto brillante en negrita.
     """
     clicked = Signal()
     close_requested = Signal()
 
     HEIGHT = 44
-    RADIUS = 10
+    BORDER_WIDTH = 2.0
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
@@ -42,18 +44,34 @@ class ProjectTab(QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(30, 0, 18, 0)  # margen izq. deja sitio al punto
-        layout.setSpacing(9)
-
-        self.icon_label = QLabel(project.icon)
-        self.icon_label.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_LG}px;")
+        layout.setContentsMargins(16, 0, 10, 0)
+        layout.setSpacing(8)
 
         self.name_label = QLabel(project.name)
 
-        layout.addWidget(self.icon_label)
+        self.close_btn = QPushButton("×")
+        self.close_btn.setFixedSize(20, 20)
+        self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.close_btn.setStyleSheet(f"""
+            QPushButton {{
+                color: {Colors.TEXT_MUTED};
+                background: transparent;
+                border: none;
+                border-radius: 4px;
+                font-size: {Fonts.SIZE_LG}px;
+            }}
+            QPushButton:hover {{
+                color: {Colors.ERROR};
+                background: {Colors.SURFACE_HOVER};
+            }}
+        """)
+        self.close_btn.clicked.connect(self.close_requested.emit)
+
         layout.addWidget(self.name_label)
+        layout.addWidget(self.close_btn)
 
         self._sync_text()
+        self.set_closable(True)
 
     # --- estado -----------------------------------------------------
     def set_active(self, active: bool) -> None:
@@ -63,6 +81,7 @@ class ProjectTab(QWidget):
 
     def set_closable(self, closable: bool) -> None:
         self._closable = closable
+        self.close_btn.setVisible(closable)  # visible siempre que se pueda cerrar
 
     def _sync_text(self) -> None:
         f = QFont(self.name_label.font())
@@ -116,44 +135,34 @@ class ProjectTab(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         color = QColor(self.project.color)
-        r = QRectF(self.rect())
-
-        path = QPainterPath()
-        path.moveTo(r.left(), r.bottom())
-        path.lineTo(r.left(), r.top() + self.RADIUS)
-        path.quadTo(r.left(), r.top(), r.left() + self.RADIUS, r.top())
-        path.lineTo(r.right() - self.RADIUS, r.top())
-        path.quadTo(r.right(), r.top(), r.right(), r.top() + self.RADIUS)
-        path.lineTo(r.right(), r.bottom())
-        path.closeSubpath()
+        bw = self.BORDER_WIDTH
+        r = QRectF(self.rect()).adjusted(bw / 2, bw / 2, -bw / 2, 0)
 
         if self.is_active:
             grad = QLinearGradient(QPointF(r.left(), r.top()), QPointF(r.left(), r.bottom()))
             grad.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), 52))
             grad.setColorAt(1.0, QColor(Colors.BG))
-            p.fillPath(path, QBrush(grad))
+            p.fillRect(r, QBrush(grad))
 
-            top = QPainterPath()
-            top.addRoundedRect(QRectF(r.left() + 1, r.top(), r.width() - 2, 3.0), 1.5, 1.5)
-            p.fillPath(top, color)
+            # Contorno recto abierto por abajo: sube por la izquierda, cruza
+            # por arriba y baja por la derecha, para conectar con la linea
+            # separadora que dibuja ProjectTabBar justo debajo — una sola
+            # figura continua alrededor de la pestana activa.
+            outline = QPainterPath()
+            outline.moveTo(r.left(), r.bottom())
+            outline.lineTo(r.left(), r.top())
+            outline.lineTo(r.right(), r.top())
+            outline.lineTo(r.right(), r.bottom())
+
+            pen = QPen(color)
+            pen.setWidthF(bw)
+            pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+            p.setPen(pen)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawPath(outline)
         elif self._hovered:
-            p.fillPath(path, QColor(Colors.SURFACE_HOVER))
+            p.fillRect(r, QColor(Colors.SURFACE_HOVER))
 
-        # punto luminoso a la izquierda
-        cx = r.left() + 17
-        cy = r.center().y() + 1
-        p.setPen(Qt.PenStyle.NoPen)
-        if self.is_active:
-            halo = QRadialGradient(QPointF(cx, cy), 10)
-            halo.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), 160))
-            halo.setColorAt(1.0, QColor(color.red(), color.green(), color.blue(), 0))
-            p.setBrush(QBrush(halo))
-            p.drawEllipse(QPointF(cx, cy), 10, 10)
-            dot = color
-        else:
-            dot = QColor(Colors.INACTIVE)
-        p.setBrush(dot)
-        p.drawEllipse(QPointF(cx, cy), 4, 4)
         p.end()
 
 
@@ -188,16 +197,14 @@ class AddProjectTab(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(7, 8, -7, -10)
-        path = QPainterPath()
-        path.addRoundedRect(r, 8, 8)
         if self._hovered:
-            p.fillPath(path, QColor(Colors.SURFACE_HOVER))
+            p.fillRect(r, QColor(Colors.SURFACE_HOVER))
         else:
             pen = QPen(QColor(Colors.BORDER))
             pen.setWidth(1)
             p.setPen(pen)
             p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawPath(path)
+            p.drawRect(r)
         pen = QPen(QColor(Colors.TEXT if self._hovered else Colors.TEXT_MUTED))
         pen.setWidth(2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)

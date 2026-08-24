@@ -3,22 +3,22 @@ from PySide6.QtGui import QPalette, QColor, QFont
 from PySide6.QtWidgets import QApplication
 
 class Colors:
-    BG            = '#0d1117'
-    SURFACE       = '#161b22'
-    SURFACE_HOVER = '#1c2128'
-    SURFACE_ALT   = '#21262d'
-    CHROME        = '#0a0d12'   # barra superior (nivel de repos)
-    BORDER        = '#30363d'
-    BORDER_LIGHT  = '#3d444d'
-    TEXT          = '#e6edf3'
-    TEXT_DIM      = '#8b949e'
-    TEXT_MUTED    = '#6e7681'
+    CHROME        = '#08090c'   # barra superior (nivel de repos) — la capa mas oscura
+    BG            = '#0d1117'   # lienzo de contenido
+    SURFACE       = '#1c212b'   # rail, sub-barra de pestanas, barra de estado
+    SURFACE_HOVER = '#262d3a'
+    SURFACE_ALT   = '#2f3745'   # campos de entrada, chips — la superficie mas clara
+    BORDER        = '#3d4657'
+    BORDER_LIGHT  = '#4e586a'
+    TEXT          = '#f0f4f8'
+    TEXT_DIM      = '#9aa4b2'
+    TEXT_MUTED    = '#6b7484'
     ACCENT        = '#58a6ff'
     ACCENT_PURPLE = '#bc8cff'
     SUCCESS       = '#3fb950'
     WARNING       = '#d29922'
     ERROR         = '#f85149'
-    INACTIVE      = '#484f58'
+    INACTIVE      = '#4e586a'
 
 class Fonts:
     FAMILY    = '"Inter", "Segoe UI", "Helvetica Neue", sans-serif'
