@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QPushButton, QSizePolicy, QSplitter
 )
 from PySide6.QtCore import Qt, Signal, QRectF, QTimer
-from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath
+from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
 from core.registry import Capability
@@ -13,9 +13,10 @@ from ui.console_view import ConsoleView
 from ui.params_panel import ParamsPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
+from ui.widgets import ReorderableTab, ReorderableBar
 
 
-class SubTabButton(QWidget):
+class SubTabButton(ReorderableTab, QWidget):
     """Pestana de segundo nivel: una ejecucion dentro del repo activo.
 
     Subordinada visualmente al nivel superior: mas baja, tipografia menor
@@ -67,6 +68,7 @@ class SubTabButton(QWidget):
         layout.addWidget(self.title_label)
         layout.addWidget(self.close_btn)
 
+        self._init_reorder()
         self._sync_text()
 
     def set_accent(self, accent: str) -> None:
@@ -101,9 +103,18 @@ class SubTabButton(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
+            self._reorder_press(event)
         elif event.button() == Qt.MouseButton.MiddleButton:
             self.close_requested.emit()
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        self._reorder_move(event)
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._reorder_release(event)
+        super().mouseReleaseEvent(event)
 
     def paintEvent(self, event):
         p = QPainter(self)
@@ -118,10 +129,18 @@ class SubTabButton(QWidget):
             underline = QPainterPath()
             underline.addRoundedRect(QRectF(r.left() + 8, r.bottom() - 3, r.width() - 16, 2.5), 1.2, 1.2)
             p.fillPath(underline, accent)
-        elif self._hovered:
+        elif self._hovered or self.is_dragging:
             path = QPainterPath()
             path.addRoundedRect(r.adjusted(2, 4, -2, -3), 7, 7)
             p.fillPath(path, QColor(Colors.SURFACE_HOVER))
+
+        if self.is_dragging:
+            pen = QPen(accent)
+            pen.setWidthF(1.2)
+            pen.setStyle(Qt.PenStyle.DotLine)
+            p.setPen(pen)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawRoundedRect(r.adjusted(2.5, 4.5, -2.5, -3.5), 7, 7)
         p.end()
 
 
@@ -197,7 +216,7 @@ class WorkspaceStatusBar(QWidget):
         )
 
 
-class TabPanel(QWidget):
+class TabPanel(ReorderableBar, QWidget):
     """Espacio de trabajo de UN repositorio.
 
     Contiene el segundo nivel de pestanas (las ejecuciones de ese repo),
@@ -360,6 +379,10 @@ class TabPanel(QWidget):
         )
         lay.addWidget(hint)
         return w
+
+    # --- reordenar arrastrando ---------------------------------------
+    def _tab_layout(self):
+        return self.tabs_layout
 
     # --- API ---------------------------------------------------------
     def open_tab(self, capability: Capability, axis_value: str = '') -> ConsoleView:

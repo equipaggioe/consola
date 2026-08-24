@@ -8,6 +8,7 @@ from PySide6.QtGui import (
 )
 
 from ui.theme import Colors, Fonts
+from ui.widgets import ReorderableTab, ReorderableBar
 from core.projects import Project
 
 # Paleta rotativa para repos anadidos en caliente
@@ -15,7 +16,7 @@ PALETTE = ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#f47067',
            '#a5d6ff', '#ffa657', '#ff7b72', '#7ee787', '#79c0ff']
 
 
-class ProjectTab(QWidget):
+class ProjectTab(ReorderableTab, QWidget):
     """Pestana de nivel superior: un repositorio.
 
     El estado activo se hace evidente con tres senales simultaneas: un
@@ -70,6 +71,7 @@ class ProjectTab(QWidget):
         layout.addWidget(self.name_label)
         layout.addWidget(self.close_btn)
 
+        self._init_reorder()
         self._sync_text()
         self.set_closable(True)
 
@@ -114,9 +116,18 @@ class ProjectTab(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
+            self._reorder_press(event)
         elif event.button() == Qt.MouseButton.MiddleButton and self._closable:
             self.close_requested.emit()
         super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event):
+        self._reorder_move(event)
+        super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event):
+        self._reorder_release(event)
+        super().mouseReleaseEvent(event)
 
     def contextMenuEvent(self, event):
         menu = QMenu(self)
@@ -160,8 +171,16 @@ class ProjectTab(QWidget):
             p.setPen(pen)
             p.setBrush(Qt.BrushStyle.NoBrush)
             p.drawPath(outline)
-        elif self._hovered:
+        elif self._hovered or self.is_dragging:
             p.fillRect(r, QColor(Colors.SURFACE_HOVER))
+
+        if self.is_dragging:
+            pen = QPen(color)
+            pen.setWidthF(1.4)
+            pen.setStyle(Qt.PenStyle.DotLine)
+            p.setPen(pen)
+            p.setBrush(Qt.BrushStyle.NoBrush)
+            p.drawRect(r.adjusted(1, 1, -1, -1))
 
         p.end()
 
@@ -215,7 +234,7 @@ class AddProjectTab(QWidget):
         p.end()
 
 
-class ProjectTabBar(QWidget):
+class ProjectTabBar(ReorderableBar, QWidget):
     """Nivel superior de pestanas: un repositorio por pestana + boton '+'."""
     project_selected = Signal(object)   # Project
     project_added = Signal(object)      # Project
@@ -236,6 +255,13 @@ class ProjectTabBar(QWidget):
 
         self.layout.addWidget(self.add_tab)
         self.layout.addStretch()
+
+    # --- reordenar arrastrando ---------------------------------------
+    def _tab_layout(self):
+        return self.layout
+
+    def tabs_reordered(self) -> None:
+        self.update()
 
     # --- API ---------------------------------------------------------
     def add_project(self, project: Project, select: bool = False) -> ProjectTab:
