@@ -309,6 +309,8 @@ class TabPanel(ReorderableBar, QWidget):
         self._consoles: dict[SubTabButton, ConsoleView] = {}
         self._params: dict[SubTabButton, ParamsPanel] = {}
 
+        QTimer.singleShot(0, self._collapse_params)
+
     # --- construccion ------------------------------------------------
     def _build_right_header(self) -> QWidget:
         """Cabecera unica de la columna derecha: reemplaza el rotulo fijo
@@ -464,6 +466,7 @@ class TabPanel(ReorderableBar, QWidget):
             self.params_stack.setCurrentIndex(0)
             self.env_panel.filter_for(None)
             self._set_right_header(self.project.icon, self.project.name)
+            self._collapse_params()
 
     def current_console(self) -> ConsoleView | None:
         w = self.content_area.currentWidget()
@@ -499,6 +502,12 @@ class TabPanel(ReorderableBar, QWidget):
             self.env_panel.filter_for(panel.relevant_keys())
             self._set_right_header(panel.capability.icon, panel.capability.name)
             QTimer.singleShot(0, self._fit_params_height)
+
+    def _collapse_params(self) -> None:
+        """Sin pestana abierta no hay parametros que mostrar: el panel de
+        parametros colapsa a 0 y el .env se queda con toda la columna."""
+        total = self.right_column.height()
+        self.right_column.setSizes([total, 0])
 
     def _fit_params_height(self) -> None:
         """El panel de parametros solo ocupa lo que su contenido necesita;

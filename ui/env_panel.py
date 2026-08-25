@@ -117,10 +117,10 @@ class EnvPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
+        root.addWidget(self._build_file_bar())
         self.banner = self._build_banner()
         root.addWidget(self.banner)
         root.addWidget(self._build_body(), 1)
-        root.addWidget(self._build_file_bar())
 
         self.reload()
 
@@ -146,7 +146,7 @@ class EnvPanel(QWidget):
         acciones, mutuamente excluyentes: crear archivo si no existe,
         importar valores si ya existe uno donde ponerlos."""
         bar = QWidget()
-        bar.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
+        bar.setStyleSheet(f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(8)

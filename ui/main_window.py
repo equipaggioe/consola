@@ -84,6 +84,15 @@ class MainWindow(QMainWindow):
         self.resize(1500, 950)
         self.setMinimumSize(1000, 650)
 
+        self.menuBar().setStyleSheet(f"""
+            QMenuBar {{
+                background: {Colors.CHROME}; color: {Colors.TEXT};
+                border-bottom: 1px solid {Colors.BORDER};
+            }}
+            QMenuBar::item {{ background: transparent; padding: 4px 10px; }}
+            QMenuBar::item:selected {{ background: {Colors.SURFACE_HOVER}; }}
+        """)
+
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
 

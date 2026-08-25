@@ -12,7 +12,7 @@ class ChevronWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(20, 20)
+        self.setFixedSize(26, 26)
         self._angle = 0.0
 
     def get_angle(self) -> float:
@@ -33,9 +33,9 @@ class ChevronWidget(QWidget):
         painter.translate(-self.width() / 2, -self.height() / 2)
 
         font = QFont(painter.font())
-        font.setPixelSize(Fonts.SIZE_BASE)
+        font.setPixelSize(Fonts.SIZE_XL)
         font.setBold(True)
         painter.setFont(font)
-        painter.setPen(QColor(Colors.TEXT_DIM))
+        painter.setPen(QColor(Colors.TEXT))
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "▾")
         painter.end()
