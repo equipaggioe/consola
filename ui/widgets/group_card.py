@@ -27,11 +27,13 @@ class ActionRow(QWidget):
     HEIGHT = 32
 
     def __init__(self, capability_id: str, label: str, icon: str = '',
-                 danger: bool = False, accent: str = Colors.ACCENT, parent=None):
+                 danger: bool = False, accent: str = Colors.ACCENT,
+                 favorite: bool = False, parent=None):
         super().__init__(parent)
         self.capability_id = capability_id
         self.danger = danger
         self.accent = accent
+        self.favorite = favorite
         self._hovered = False
 
         self.setFixedHeight(self.HEIGHT)
@@ -65,11 +67,18 @@ class ActionRow(QWidget):
         self.accent = accent
         self.update()
 
+    def set_favorite(self, value: bool) -> None:
+        if value == self.favorite:
+            return
+        self.favorite = value
+        self._restyle()
+        self.update()
+
     def _restyle(self) -> None:
         if self.danger:
             color = Colors.ERROR if self._hovered else Colors.TEXT_DIM
         else:
-            color = Colors.TEXT if self._hovered else Colors.TEXT_DIM
+            color = Colors.TEXT if (self._hovered or self.favorite) else Colors.TEXT_DIM
         self.text_label.setStyleSheet(f"background: transparent; color: {color};")
 
     def enterEvent(self, event):
@@ -100,11 +109,55 @@ class ActionRow(QWidget):
             p.fillRect(r, _alpha(self.accent, 0.09) if not self.danger else _alpha(Colors.ERROR, 0.08))
 
         # Filete de acento: siempre visible y tenue si es destructiva (aviso
-        # permanente), solo al pasar el mouse en las demas.
-        if self.danger or self._hovered:
-            bar_alpha = 0.9 if self._hovered else 0.55
+        # permanente) o si es favorita del repo, solo al pasar el mouse en
+        # las demas. Asi el favorito se distingue aun viendo todo.
+        if self.danger or self.favorite or self._hovered:
+            bar_alpha = 0.9 if self._hovered else (0.7 if self.favorite else 0.55)
             p.fillRect(QRectF(0, 3, 2.5, r.height() - 6), _alpha(edge.name(), bar_alpha))
         p.end()
+
+
+class CountBadge(QLabel):
+    """Cuenta de acciones de la caja: `9`, o `3/9` cuando hay acciones
+    escondidas. En ese caso es el escape por caja — un clic muestra las 9
+    sin tener que apagar el interruptor global."""
+    clicked = Signal()
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self._clickable = False
+        self.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
+
+    def set_state(self, text: str, clickable: bool, peeking: bool = False) -> None:
+        self.setText(text)
+        self._clickable = clickable
+        self.setCursor(Qt.CursorShape.PointingHandCursor if clickable
+                       else Qt.CursorShape.ArrowCursor)
+        color = Colors.TEXT_DIM if clickable else Colors.TEXT_MUTED
+        self.setStyleSheet(
+            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
+        )
+        if clickable:
+            self.setToolTip("Ver solo las favoritas de esta caja" if peeking
+                            else "Ver todas las acciones de esta caja")
+        else:
+            self.setToolTip("")
+
+    def mouseReleaseEvent(self, event):
+        if self._clickable and event.button() == Qt.MouseButton.LeftButton:
+            self.clicked.emit()
+            event.accept()
+            return
+        super().mouseReleaseEvent(event)
+
+    def mousePressEvent(self, event):
+        # Sin esto el clic se filtra a la cabecera y abre o cierra la caja.
+        if self._clickable and event.button() == Qt.MouseButton.LeftButton:
+            event.accept()
+            return
+        super().mousePressEvent(event)
 
 
 class GroupCard(QWidget):
@@ -122,6 +175,10 @@ class GroupCard(QWidget):
         self.accent = accent
         self._expanded = False
         self._header_hovered = False
+        self._favorites: set[str] = set()
+        self._only_favorites = False
+        self._peek = False          # escape por caja: ver todo aqui, sin tocar el switch
+        self._needle = ''
 
         self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Minimum)
 
@@ -149,10 +206,9 @@ class GroupCard(QWidget):
         tf.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.7)
         self.title_label.setFont(tf)
 
-        self.count_label = QLabel(str(len(capabilities)))
-        self.count_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.count_label = CountBadge()
+        self.count_label.set_state(str(len(capabilities)), False)
+        self.count_label.clicked.connect(self._toggle_peek)
 
         self.chevron = ChevronWidget()
         self.chevron.set_angle(0.0)
@@ -193,6 +249,9 @@ class GroupCard(QWidget):
         if self._expanded == value:
             return
         self._expanded = value
+        if not value:
+            self._peek = False
+            self._sync_rows()
         self.body_wrap.setVisible(value)
         self.chevron.set_angle(90.0 if value else 0.0)
         self._restyle()
@@ -209,16 +268,54 @@ class GroupCard(QWidget):
         self.update()
 
     def filter(self, needle: str) -> int:
-        """Deja visibles los renglones que coinciden; devuelve cuantos."""
-        if not needle:
-            for row in self.rows:
-                row.setVisible(True)
-            return len(self.rows)
+        """Deja visibles los renglones que pasan el texto y el modo favoritos;
+        devuelve cuantos."""
+        self._needle = needle
+        return self._sync_rows()
+
+    # --- favoritos ------------------------------------------------------
+    def set_favorites(self, favorites: set[str]) -> int:
+        self._favorites = set(favorites)
+        for row in self.rows:
+            row.set_favorite(row.capability_id in self._favorites)
+        return self._sync_rows()
+
+    def set_only_favorites(self, value: bool) -> int:
+        self._only_favorites = value
+        self._peek = False
+        return self._sync_rows()
+
+    def favorite_count(self) -> int:
+        return sum(1 for row in self.rows if row.capability_id in self._favorites)
+
+    def _toggle_peek(self) -> None:
+        self._peek = not self._peek
+        self._sync_rows()
+        if self._peek:
+            self.set_expanded(True)
+
+    def _sync_rows(self) -> int:
+        """Una sola regla de visibilidad: pasa el filtro de texto Y (se ven
+        todas, o es favorita, o esta caja esta espiando).
+
+        Escribir en el filtro busca sobre TODAS las acciones aunque el
+        interruptor este puesto: buscar es ir por algo puntual, y esconder
+        justo lo que se busca por no estar marcado seria un chiste cruel.
+        """
+        hide_others = self._only_favorites and not self._peek and not self._needle
         visible = 0
         for row in self.rows:
-            match = row.matches(needle)
+            match = (not self._needle or row.matches(self._needle)) and (
+                not hide_others or row.capability_id in self._favorites)
             row.setVisible(match)
             visible += int(match)
+
+        total = len(self.rows)
+        text = str(total) if visible == total else f"{visible}/{total}"
+        escapable = (self._only_favorites and not self._needle
+                     and (self._peek or self.favorite_count() < total))
+        self.count_label.set_state(text, escapable, peeking=self._peek)
+        self.updateGeometry()
         return visible
 
     def _restyle(self) -> None:

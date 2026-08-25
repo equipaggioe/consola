@@ -173,6 +173,7 @@ class MainWindow(QMainWindow):
         workspace = self.workspaces.get(key)
         if workspace is None:
             workspace = TabPanel(project)
+            workspace.favorites_changed.connect(self.rail.reload_favorites)
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
