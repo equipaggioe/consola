@@ -68,7 +68,7 @@ class ActionRow(QWidget):
         layout.addStretch()
 
         self.run_btn = QPushButton("▶")
-        self.run_btn.setFixedSize(20, 20)
+        self.run_btn.setFixedSize(24, 24)
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_btn.clicked.connect(lambda: self.run_requested.emit(self.capability_id))
         layout.addWidget(self.run_btn)
@@ -94,7 +94,7 @@ class ActionRow(QWidget):
         self.run_btn.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: none; color: {color};
-                font-size: {Fonts.SIZE_XS}px; border-radius: 4px;
+                font-size: {Fonts.SIZE_BASE}px; border-radius: 4px;
             }}
             QPushButton:hover {{ background: {tint(self.accent, 0.16)}; }}
             QPushButton:disabled {{ color: {Colors.BORDER_LIGHT}; }}

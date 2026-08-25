@@ -137,28 +137,14 @@ class EnvPanel(QWidget):
         self.banner_label.setStyleSheet(
             f"background: transparent; color: {Colors.WARNING}; font-size: {Fonts.SIZE_XS}px;"
         )
-        self.banner_btn = QPushButton("Importar desde archivo…")
-        self.banner_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.banner_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {Colors.WARNING};
-                color: {Colors.WARNING}; border-radius: 4px;
-                padding: 3px 10px; font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; }}
-        """)
-        self.banner_btn.clicked.connect(self.browse_import)
-
         lay.addWidget(self.banner_label, 1)
-        lay.addWidget(self.banner_btn)
         box.setVisible(False)
         return box
 
     def _build_file_bar(self) -> QWidget:
-        """Barra fija con el estado de `.consola/config.env` y el boton que
-        lo crea. Es aparte del banner de arriba (que solo aparece cuando
-        falta) porque tambien sirve con el archivo ya hecho: rehace la
-        estructura completa cuando el esquema gana claves nuevas."""
+        """Barra fija con el estado de `.consola/config.env` y sus dos
+        acciones, mutuamente excluyentes: crear archivo si no existe,
+        importar valores si ya existe uno donde ponerlos."""
         bar = QWidget()
         bar.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(bar)
@@ -170,24 +156,31 @@ class EnvPanel(QWidget):
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
         )
 
+        self.import_btn = QPushButton("Importar desde archivo…")
+        self.import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.import_btn.clicked.connect(self.browse_import)
+
         self.create_btn = QPushButton("Crear archivo")
         self.create_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.create_btn.clicked.connect(self.create_file)
 
         lay.addWidget(self.file_label, 1)
+        lay.addWidget(self.import_btn)
         lay.addWidget(self.create_btn)
         self._restyle_create()
         return bar
 
     def _restyle_create(self) -> None:
-        self.create_btn.setStyleSheet(f"""
+        button_css = f"""
             QPushButton {{
                 background: transparent; border: 1px solid {self.accent};
                 color: {self.accent}; border-radius: 5px;
                 padding: 4px 12px; font-size: {Fonts.SIZE_XS}px;
             }}
             QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; }}
-        """)
+        """
+        self.create_btn.setStyleSheet(button_css)
+        self.import_btn.setStyleSheet(button_css)
 
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
@@ -240,9 +233,8 @@ class EnvPanel(QWidget):
         if not exists:
             self.banner_label.setText(
                 "No hay .consola/config.env todavía. Pulsa «Crear archivo» para "
-                "generarlo en blanco con todas las claves, o impórtalo desde otro .env."
+                "generarlo en blanco con todas las claves."
             )
-            self.banner_btn.setVisible(True)
             self.banner.setVisible(True)
         else:
             self.banner.setVisible(False)
@@ -253,11 +245,13 @@ class EnvPanel(QWidget):
     def _sync_file_bar(self, exists: bool) -> None:
         rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, '/')
         self.file_label.setText(f"{rel} — {'listo' if exists else 'no existe'}")
-        self.create_btn.setText("Regenerar archivo" if exists else "Crear archivo")
+        self.create_btn.setVisible(not exists)
+        self.import_btn.setVisible(exists)
         self.create_btn.setToolTip(
-            "Reescribe el archivo con todas las claves del esquema, conservando los valores"
-            if exists else
             "Crea el archivo con todas las claves del esquema, agrupadas y en blanco"
+        )
+        self.import_btn.setToolTip(
+            "Importa claves conocidas desde otro archivo .env"
         )
 
     def browse_import(self) -> None:
@@ -274,13 +268,13 @@ class EnvPanel(QWidget):
             return
         imported = envfile.import_from(path)
         if not imported:
-            self.banner_label.setText(f"{os.path.basename(path)} no tiene claves reconocidas.")
+            self._notify(f"{os.path.basename(path)} no tiene claves reconocidas.")
             return
         for key, value in imported.items():
             row = self.rows.get(key)
             if row is not None and not row.value():
                 row.set_value(value)
-        self.banner_label.setText(
+        self._notify(
             f"Se importaron {len(imported)} claves de {os.path.basename(path)}. "
             f"Revisa y guarda para escribir el archivo."
         )
@@ -296,8 +290,12 @@ class EnvPanel(QWidget):
         """
         path = envfile.save_config(self.project.path, self.values())
         self.reload()
-        self.banner_label.setText(f"Archivo creado en {path}")
+        self._notify(f"Archivo creado en {path}")
         self.saved.emit(self.values())
+
+    def _notify(self, text: str) -> None:
+        self.banner_label.setText(text)
+        self.banner.setVisible(True)
 
     def save(self) -> None:
         envfile.save_config(self.project.path, self.values())

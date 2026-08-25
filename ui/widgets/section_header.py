@@ -1,8 +1,8 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QWidget
 from PySide6.QtCore import Qt, Property
-from PySide6.QtGui import QPainter, QColor
-from ..theme import Colors
+from PySide6.QtGui import QPainter, QColor, QFont
+from ..theme import Colors, Fonts
 
 
 class ChevronWidget(QWidget):
@@ -12,7 +12,7 @@ class ChevronWidget(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedSize(16, 16)
+        self.setFixedSize(20, 20)
         self._angle = 0.0
 
     def get_angle(self) -> float:
@@ -32,6 +32,10 @@ class ChevronWidget(QWidget):
         painter.rotate(self._angle)
         painter.translate(-self.width() / 2, -self.height() / 2)
 
-        painter.setPen(QColor(Colors.TEXT_MUTED))
+        font = QFont(painter.font())
+        font.setPixelSize(Fonts.SIZE_BASE)
+        font.setBold(True)
+        painter.setFont(font)
+        painter.setPen(QColor(Colors.TEXT_DIM))
         painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "▾")
         painter.end()
