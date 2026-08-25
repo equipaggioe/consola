@@ -44,6 +44,24 @@ def has_config(repo_path: str) -> bool:
     return os.path.isfile(config_path(repo_path))
 
 
+def describe(setting) -> str:
+    """Renglon de comentario de una clave: para que sirve y que se espera.
+
+    Es lo que hace legible un archivo recien creado con todas las claves del
+    esquema y ningun valor: sin esto seria una lista de nombres a secas.
+    """
+    bits = []
+    if setting.label and setting.label != setting.key:
+        bits.append(setting.label)
+    if setting.secret:
+        bits.append('secreto')
+    if setting.placeholder:
+        bits.append(f'ej. {setting.placeholder}')
+    elif setting.default:
+        bits.append(f'por defecto: {setting.default}')
+    return ' · '.join(bits)
+
+
 def render_config(values: dict[str, str]) -> str:
     """Regenera el archivo agrupado por categoria; las claves ajenas se conservan al final."""
     known = {s.key for s in SETTINGS}
@@ -52,8 +70,11 @@ def render_config(values: dict[str, str]) -> str:
         items = settings_by_group().get(group, [])
         if not items:
             continue
-        out.append(f"\n# {group}\n")
+        out.append(f"\n# --- {group} ---\n")
         for setting in items:
+            note = describe(setting)
+            if note:
+                out.append(f"# {note}\n")
             out.append(f"{setting.key}={values.get(setting.key, '')}\n")
     extra = {k: v for k, v in values.items() if k not in known}
     if extra:

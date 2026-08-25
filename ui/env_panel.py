@@ -120,6 +120,7 @@ class EnvPanel(QWidget):
         self.banner = self._build_banner()
         root.addWidget(self.banner)
         root.addWidget(self._build_body(), 1)
+        root.addWidget(self._build_file_bar())
 
         self.reload()
 
@@ -152,6 +153,41 @@ class EnvPanel(QWidget):
         lay.addWidget(self.banner_btn)
         box.setVisible(False)
         return box
+
+    def _build_file_bar(self) -> QWidget:
+        """Barra fija con el estado de `.consola/config.env` y el boton que
+        lo crea. Es aparte del banner de arriba (que solo aparece cuando
+        falta) porque tambien sirve con el archivo ya hecho: rehace la
+        estructura completa cuando el esquema gana claves nuevas."""
+        bar = QWidget()
+        bar.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
+        lay = QHBoxLayout(bar)
+        lay.setContentsMargins(16, 8, 16, 8)
+        lay.setSpacing(8)
+
+        self.file_label = QLabel("")
+        self.file_label.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
+
+        self.create_btn = QPushButton("Crear archivo")
+        self.create_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.create_btn.clicked.connect(self.create_file)
+
+        lay.addWidget(self.file_label, 1)
+        lay.addWidget(self.create_btn)
+        self._restyle_create()
+        return bar
+
+    def _restyle_create(self) -> None:
+        self.create_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: 1px solid {self.accent};
+                color: {self.accent}; border-radius: 5px;
+                padding: 4px 12px; font-size: {Fonts.SIZE_XS}px;
+            }}
+            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; }}
+        """)
 
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
@@ -203,15 +239,26 @@ class EnvPanel(QWidget):
         exists = os.path.isfile(envfile.config_path(self.project.path))
         if not exists:
             self.banner_label.setText(
-                "No hay .consola/config.env todavía. Completa y guarda para crearlo, "
-                "o impórtalo desde otro archivo .env."
+                "No hay .consola/config.env todavía. Pulsa «Crear archivo» para "
+                "generarlo en blanco con todas las claves, o impórtalo desde otro .env."
             )
             self.banner_btn.setVisible(True)
             self.banner.setVisible(True)
         else:
             self.banner.setVisible(False)
 
+        self._sync_file_bar(exists)
         self.values_changed.emit(self.values())
+
+    def _sync_file_bar(self, exists: bool) -> None:
+        rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, '/')
+        self.file_label.setText(f"{rel} — {'listo' if exists else 'no existe'}")
+        self.create_btn.setText("Regenerar archivo" if exists else "Crear archivo")
+        self.create_btn.setToolTip(
+            "Reescribe el archivo con todas las claves del esquema, conservando los valores"
+            if exists else
+            "Crea el archivo con todas las claves del esquema, agrupadas y en blanco"
+        )
 
     def browse_import(self) -> None:
         """Importa claves conocidas desde cualquier archivo .env que el usuario elija.
@@ -238,6 +285,20 @@ class EnvPanel(QWidget):
             f"Revisa y guarda para escribir el archivo."
         )
 
+    def create_file(self) -> None:
+        """Crea `.consola/config.env` con TODAS las claves del esquema —
+        las que cualquier control puede llegar a pedir — agrupadas por
+        categoria, comentadas y vacias.
+
+        No pisa nada: si el archivo ya existe o el formulario tiene valores
+        (escritos o importados), se conservan y solo se agregan en blanco
+        las claves que falten.
+        """
+        path = envfile.save_config(self.project.path, self.values())
+        self.reload()
+        self.banner_label.setText(f"Archivo creado en {path}")
+        self.saved.emit(self.values())
+
     def save(self) -> None:
         envfile.save_config(self.project.path, self.values())
         self.banner.setVisible(False)
@@ -248,6 +309,7 @@ class EnvPanel(QWidget):
         self.accent = accent
         for row in self.rows.values():
             row.set_accent(accent)
+        self._restyle_create()
 
     def filter_for(self, keys: set[str] | None) -> None:
         """Muestra solo las claves que la accion activa reclama.

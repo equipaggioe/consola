@@ -11,15 +11,22 @@ from core.projects import Project
 from core.settings import required_keys_for
 from core import envfile
 from ui.widgets import GroupCard, ToggleSwitch
-from ui import favorites
+from ui import favorites, params_store
 
 
-def _missing_keys(capability, env: dict[str, str]) -> list[str]:
-    """Mismo calculo que `ParamsPanel.relevant_keys` (todos los pasos, no
-    solo los activos): correr sin abrir la pestana usa los valores por
-    defecto, asi que lo unico que puede faltar es configuracion."""
+def _missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
+    """Que le falta a una accion para poder correr sin abrir la pestana.
+
+    Correr desde el rail usa los parametros guardados para ese boton en ese
+    repo, asi que se mira exactamente lo que esos parametros van a correr:
+    los pasos apagados no pueden reclamar claves. Sin nada guardado se
+    cuentan todos los pasos, que es lo que correria por defecto.
+    """
+    active = params_store.stored_steps(repo_path, capability.id)
     needed = set(required_keys_for(capability.id))
     for step in registry.resolve_steps(capability):
+        if active is not None and step.optional and step.id not in active:
+            continue
         needed |= step.requires_env
         needed |= set(required_keys_for(step.id))
     return [k for k in needed if not env.get(k, '').strip()]
@@ -207,12 +214,14 @@ class ActionRail(QWidget):
 
     def refresh_readiness(self) -> None:
         """Que acciones pueden correr ya, sin abrir la pestana, con el
-        `.consola/config.env` guardado del repo activo. Se recalcula al
-        cambiar de repo y al guardar el `.env` (`ui/tab_panel.py`)."""
+        `.consola/config.env` guardado del repo activo y los parametros
+        guardados de cada boton. Se recalcula al cambiar de repo, al guardar
+        el `.env` y al cambiar parametros (`ui/tab_panel.py`)."""
         env = envfile.load_config(self.project.path) if self.project else {}
+        path = self.project.path if self.project else ''
         ready_ids = {
             cap.id for cap in registry.get_all()
-            if not _missing_keys(cap, env)
+            if not _missing_keys(cap, env, path)
         }
         for card in self._cards:
             card.set_ready(ready_ids)

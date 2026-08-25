@@ -88,7 +88,7 @@ class ActionRow(QWidget):
     def _restyle_run(self) -> None:
         self.run_btn.setEnabled(self._ready)
         self.run_btn.setToolTip(
-            "Correr con los parámetros por defecto" if self._ready
+            "Correr con los parámetros guardados de este repo" if self._ready
             else "Faltan claves de configuración para correr sin abrir la pestaña")
         color = self.accent if self._ready else Colors.TEXT_MUTED
         self.run_btn.setStyleSheet(f"""

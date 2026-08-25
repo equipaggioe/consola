@@ -190,5 +190,5 @@ su contenido previsto.
 | `ui/widgets/segmented.py` | ✅ control segmentado para ejes `select='one'` |
 | `ui/tab_panel.py` | ✅ splitters, panel por pestaña, ejecución simulada a la consola |
 | `ui/rail.py` | ✅ un botón por capacidad (43, antes 55) |
-| `core/presets.py` | ⏳ persistir la selección entre sesiones (SQLite, `PLAN.md` §8) |
+| `ui/params_store.py` | ✅ persistir la selección por repo y por botón (`QSettings`) — ver `docs/parametros-persistentes.md` |
 | ejecución real | ⏳ hoy `Ejecutar` reporta a la consola lo que correría (stub, `PLAN.md` §10) |

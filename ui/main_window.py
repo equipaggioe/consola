@@ -175,6 +175,7 @@ class MainWindow(QMainWindow):
         if workspace is None:
             workspace = TabPanel(project)
             workspace.env_panel.saved.connect(self._on_env_saved)
+            workspace.params_changed.connect(self._on_params_changed)
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -217,6 +218,11 @@ class MainWindow(QMainWindow):
         workspace = self.current_workspace
         if capability and workspace is not None:
             workspace.quick_run(capability)
+
+    def _on_params_changed(self) -> None:
+        """Apagar un paso puede dejar de reclamar claves (y encenderlo,
+        volver a pedirlas): el boton de correr del rail se recalcula."""
+        self.rail.refresh_readiness()
 
     def _on_env_saved(self, *_args) -> None:
         """La configuracion guardada cambio: puede haber acciones nuevas

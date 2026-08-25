@@ -9,6 +9,7 @@ from ui.theme import Colors, Fonts
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
 from core.settings import required_keys_for
+from ui import params_store
 
 
 class SectionLabel(QLabel):
@@ -27,6 +28,7 @@ class ParamsPanel(QWidget):
     cambiar de pestana y volver — y desde ahi se puede volver a correr.
     """
     execute_requested = Signal(dict)
+    params_changed = Signal()   # lo guardado cambio: el rail revisa que puede correr
 
     def __init__(self, capability: Capability, project: Project, env_panel, parent=None):
         super().__init__(parent)
@@ -41,6 +43,7 @@ class ParamsPanel(QWidget):
         self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
         self._option_groups: list[QButtonGroup] = []
         self._step_checks: dict[str, QCheckBox] = {}
+        self._restoring = True   # mientras se arma, ningun cambio se guarda
 
         self.setStyleSheet(f"ParamsPanel {{ background: {Colors.SURFACE}; }}")
 
@@ -54,6 +57,10 @@ class ParamsPanel(QWidget):
         root.addWidget(self._body_widget, 1)
         root.addWidget(self._footer_widget)
 
+        # Lo elegido la ultima vez para este boton EN ESTE repo manda sobre
+        # los valores por defecto; sin nada guardado, quedan los de arriba.
+        self.apply_state(params_store.load(self.project.path, self.capability.id))
+        self._restoring = False
         self._refresh_summary()
 
     # --- construccion -------------------------------------------------
@@ -212,6 +219,49 @@ class ParamsPanel(QWidget):
                 return value
         return ''
 
+    def state(self) -> dict:
+        """Lo que hay marcado ahora mismo, en forma serializable."""
+        return {
+            'variants': {name: self.selection(name) for name in self._checks},
+            'steps': [s.id for s in self.active_steps()],
+            'options': {name: self.option_value(name) for name in self._options},
+        }
+
+    def apply_state(self, state: dict | None) -> None:
+        """Vuelve a marcar lo guardado. Tolera un catalogo que cambio: los
+        valores que ya no existen se ignoran y los ejes nuevos se quedan con
+        su valor por defecto."""
+        if not state:
+            return
+        previous, self._restoring = self._restoring, True
+        try:
+            variants = state.get('variants') or {}
+            for axis_name, checks in self._checks.items():
+                saved = variants.get(axis_name)
+                if saved is None:
+                    continue
+                for value, check in checks.items():
+                    check.setChecked(value in saved)
+
+            steps = state.get('steps')
+            if steps is not None:
+                for step_id, check in self._step_checks.items():
+                    check.setChecked(step_id in steps)
+
+            options = state.get('options') or {}
+            for axis_name, checks in self._options.items():
+                value = options.get(axis_name)
+                if value in checks:
+                    checks[value].setChecked(True)
+        finally:
+            self._restoring = previous
+
+    def _persist(self) -> None:
+        if self._restoring:
+            return
+        params_store.save(self.project.path, self.capability.id, self.state())
+        self.params_changed.emit()
+
     def payload(self) -> dict:
         return {
             'capability_id': self.capability.id,
@@ -256,6 +306,11 @@ class ParamsPanel(QWidget):
             needed |= set(required_keys_for(step.id))
         return sorted(k for k in needed if not self._env.get(k, '').strip())
 
+    def blockers(self) -> list[str]:
+        """Publico para el rail: por que no se puede correr sin abrir la
+        pestana (`ui/tab_panel.py::quick_run` lo reporta en la consola)."""
+        return self._blockers()
+
     def _blockers(self) -> list[str]:
         """Razones por las que 'Ejecutar' no puede correr."""
         reasons = []
@@ -270,6 +325,7 @@ class ParamsPanel(QWidget):
         return reasons
 
     def _refresh_summary(self, *_args) -> None:
+        self._persist()
         blockers = self._blockers()
         self.run_btn.setEnabled(not blockers)
         self.run_btn.setToolTip(blockers[0].capitalize() if blockers else "")
@@ -295,7 +351,8 @@ class ParamsPanel(QWidget):
         return True
 
     def try_run(self) -> bool:
-        """Ejecuta con los parametros actuales de la pestana (los por
-        defecto si recien se abrio); usado por el boton de correr sin
-        abrir la pestana, en el rail. Devuelve si corrio."""
+        """Ejecuta con los parametros actuales de la pestana — que al
+        abrirse son los guardados para este boton en este repo, o los por
+        defecto si nunca se tocaron. Lo usa el boton de correr del rail.
+        Devuelve si corrio."""
         return self._emit_execute()

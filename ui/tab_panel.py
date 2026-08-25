@@ -223,6 +223,7 @@ class TabPanel(ReorderableBar, QWidget):
     el area de consola y la barra de vistas. Cada repo tiene su propia
     instancia, asi que las sub-pestanas nunca se mezclan entre repos.
     """
+    params_changed = Signal()   # algun panel guardo parametros nuevos
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
@@ -387,12 +388,18 @@ class TabPanel(ReorderableBar, QWidget):
     # --- API ---------------------------------------------------------
     def quick_run(self, capability: Capability) -> None:
         """Boton de 'correr' del rail: abre (o reusa) la pestana y la
-        ejecuta de una, con los parametros que ya tenga esa pestana — los
-        por defecto si es nueva."""
-        self.open_tab(capability)
+        ejecuta de una, con los parametros de esa pestana — que al abrirse
+        son los guardados para este boton en este repo (`ui/params_store`),
+        y los por defecto solo si nunca se tocaron."""
+        console = self.open_tab(capability)
         panel = self.current_params()
-        if panel is not None:
-            panel.try_run()
+        if panel is None:
+            return
+        if not panel.try_run():
+            # El rail creyo que podia correr: decir por que no, en la misma
+            # consola donde habria salido el resultado.
+            for reason in panel.blockers():
+                console.append_log(f"no se puede correr: {reason}", "warn")
 
     def open_tab(self, capability: Capability, axis_value: str = '') -> ConsoleView:
         """Abre (o enfoca) la pestana de una accion. **No ejecuta nada**:
@@ -417,6 +424,7 @@ class TabPanel(ReorderableBar, QWidget):
         panel = ParamsPanel(capability, self.project, self.env_panel)
         panel.set_env(self.env_panel.values())
         panel.execute_requested.connect(lambda payload, t=tab: self._run(t, payload))
+        panel.params_changed.connect(self.params_changed.emit)
         self.params_stack.addWidget(panel)
         self._params[tab] = panel
 
