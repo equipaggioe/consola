@@ -1,11 +1,11 @@
 from __future__ import annotations
 from .led import LedIndicator
 from .segmented import Segmented
-from .switch import ToggleSwitch, StarToggle
+from .switch import ToggleSwitch
 from .group_card import GroupCard, ActionRow, CountBadge
 from .tab_reorder import ReorderableTab, ReorderableBar
 
 __all__ = [
-    "LedIndicator", "Segmented", "ToggleSwitch", "StarToggle",
+    "LedIndicator", "Segmented", "ToggleSwitch",
     "GroupCard", "ActionRow", "CountBadge", "ReorderableTab", "ReorderableBar",
 ]

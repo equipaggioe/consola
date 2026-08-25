@@ -8,8 +8,21 @@ from PySide6.QtCore import Qt, Signal
 from ui.theme import Colors, Fonts
 from core.registry import registry
 from core.projects import Project
+from core.settings import required_keys_for
+from core import envfile
 from ui.widgets import GroupCard, ToggleSwitch
 from ui import favorites
+
+
+def _missing_keys(capability, env: dict[str, str]) -> list[str]:
+    """Mismo calculo que `ParamsPanel.relevant_keys` (todos los pasos, no
+    solo los activos): correr sin abrir la pestana usa los valores por
+    defecto, asi que lo unico que puede faltar es configuracion."""
+    needed = set(required_keys_for(capability.id))
+    for step in registry.resolve_steps(capability):
+        needed |= step.requires_env
+        needed |= set(required_keys_for(step.id))
+    return [k for k in needed if not env.get(k, '').strip()]
 
 
 class ProjectHeader(QWidget):
@@ -61,6 +74,7 @@ class ActionRail(QWidget):
     repo activo. Cada grupo es un recuadro cerrado; al abrirlo (acordeon,
     una caja a la vez) despliega sus acciones, una por renglon."""
     action_requested = Signal(str)  # capability_id
+    run_requested = Signal(str)     # capability_id: correr sin abrir la pestana
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -189,23 +203,31 @@ class ActionRail(QWidget):
         ))
         for card in self._cards:
             card.set_accent(project.color)
-        self.reload_favorites()
+        self.refresh_readiness()
 
-    def reload_favorites(self) -> None:
-        """Relee las favoritas del repo activo. La marca se pone desde la
-        cabecera de la accion, asi que el rail tiene que enterarse."""
-        marked = favorites.favorites_for(self.project.path) if self.project else set()
+    def refresh_readiness(self) -> None:
+        """Que acciones pueden correr ya, sin abrir la pestana, con el
+        `.consola/config.env` guardado del repo activo. Se recalcula al
+        cambiar de repo y al guardar el `.env` (`ui/tab_panel.py`)."""
+        env = envfile.load_config(self.project.path) if self.project else {}
+        ready_ids = {
+            cap.id for cap in registry.get_all()
+            if not _missing_keys(cap, env)
+        }
         for card in self._cards:
-            card.set_favorites(marked)
-        self._refresh()
+            card.set_ready(ready_ids)
 
     # --- construccion --------------------------------------------------
     def populate(self) -> None:
+        marked = favorites.favorite_ids()
         groups = registry.get_groups()
         for group_name, capabilities in groups.items():
             card = GroupCard(group_name, registry.get_group_icon(group_name), capabilities)
+            card.set_favorites(marked)
             card.set_only_favorites(self.fav_switch.is_checked())
             card.action_triggered.connect(self._emit_action)
+            card.favorite_toggled.connect(self._on_favorite_toggled)
+            card.run_requested.connect(self.run_requested.emit)
             card.expanded.connect(self._collapse_others)
             self.scroll_layout.addWidget(card)
             self._cards.append(card)
@@ -250,6 +272,11 @@ class ActionRail(QWidget):
 
     def _emit_action(self, cap_id: str):
         self.action_requested.emit(cap_id)
+
+    def _on_favorite_toggled(self, cap_id: str, value: bool) -> None:
+        favorites.set_favorite(cap_id, value)
+        if self.fav_switch.is_checked():
+            self._refresh()
 
     def set_active_action(self, cap_id: str) -> None:
         pass

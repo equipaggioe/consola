@@ -13,8 +13,7 @@ from ui.console_view import ConsoleView
 from ui.params_panel import ParamsPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
-from ui.widgets import ReorderableTab, ReorderableBar, StarToggle
-from ui import favorites
+from ui.widgets import ReorderableTab, ReorderableBar
 
 
 class SubTabButton(ReorderableTab, QWidget):
@@ -224,13 +223,11 @@ class TabPanel(ReorderableBar, QWidget):
     el area de consola y la barra de vistas. Cada repo tiene su propia
     instancia, asi que las sub-pestanas nunca se mezclan entre repos.
     """
-    favorites_changed = Signal()
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
         self.project = project
         self.accent = project.color
-        self._header_capability = ''
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -329,32 +326,14 @@ class TabPanel(ReorderableBar, QWidget):
             f"background: transparent; color: {Colors.TEXT}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
         )
-        self.favorite_star = StarToggle(accent=self.accent)
-        self.favorite_star.toggled.connect(self._on_star_toggled)
-        self.favorite_star.setVisible(False)
-
         lay.addWidget(self.right_header_icon)
         lay.addWidget(self.right_header_name)
         lay.addStretch()
-        lay.addWidget(self.favorite_star)
         return head
 
-    def _set_right_header(self, icon: str, name: str, capability_id: str = '') -> None:
+    def _set_right_header(self, icon: str, name: str) -> None:
         self.right_header_icon.setText(icon or "◇")
         self.right_header_name.setText(name)
-        self._header_capability = capability_id
-        self.favorite_star.setVisible(bool(capability_id))
-        if capability_id:
-            self.favorite_star.set_checked(
-                favorites.is_favorite(self.project.path, capability_id), announce=False)
-
-    def _on_star_toggled(self, value: bool) -> None:
-        """La estrella marca la accion como favorita de ESTE repo; el rail
-        se entera por la senal."""
-        if not self._header_capability:
-            return
-        favorites.set_favorite(self.project.path, self._header_capability, value)
-        self.favorites_changed.emit()
 
     def _build_welcome(self) -> QWidget:
         w = QWidget()
@@ -406,6 +385,15 @@ class TabPanel(ReorderableBar, QWidget):
         return self.tabs_layout
 
     # --- API ---------------------------------------------------------
+    def quick_run(self, capability: Capability) -> None:
+        """Boton de 'correr' del rail: abre (o reusa) la pestana y la
+        ejecuta de una, con los parametros que ya tenga esa pestana — los
+        por defecto si es nueva."""
+        self.open_tab(capability)
+        panel = self.current_params()
+        if panel is not None:
+            panel.try_run()
+
     def open_tab(self, capability: Capability, axis_value: str = '') -> ConsoleView:
         """Abre (o enfoca) la pestana de una accion. **No ejecuta nada**:
         ejecutar es apretar Ejecutar en el panel de parametros."""
@@ -485,7 +473,6 @@ class TabPanel(ReorderableBar, QWidget):
             tab.set_accent(accent)
         for panel in self._params.values():
             panel.set_accent(accent)
-        self.favorite_star.set_accent(accent)
         self.env_panel.set_accent(accent)
 
     def set_status(self, text: str) -> None:
@@ -502,8 +489,7 @@ class TabPanel(ReorderableBar, QWidget):
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
             self.env_panel.filter_for(panel.relevant_keys())
-            self._set_right_header(panel.capability.icon, panel.capability.name,
-                                   panel.capability.id)
+            self._set_right_header(panel.capability.icon, panel.capability.name)
             QTimer.singleShot(0, self._fit_params_height)
 
     def _fit_params_height(self) -> None:

@@ -123,6 +123,7 @@ class MainWindow(QMainWindow):
 
         # --- Conexiones ---------------------------------------------------
         self.rail.action_requested.connect(self._on_action_requested)
+        self.rail.run_requested.connect(self._on_run_requested)
         self.project_tabs.project_selected.connect(self._on_project_selected)
         self.project_tabs.project_added.connect(self._on_project_added)
         self.project_tabs.project_removed.connect(self._on_project_removed)
@@ -173,7 +174,7 @@ class MainWindow(QMainWindow):
         workspace = self.workspaces.get(key)
         if workspace is None:
             workspace = TabPanel(project)
-            workspace.favorites_changed.connect(self.rail.reload_favorites)
+            workspace.env_panel.saved.connect(self._on_env_saved)
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -209,3 +210,15 @@ class MainWindow(QMainWindow):
         workspace = self.current_workspace
         if capability and workspace is not None:
             workspace.open_tab(capability)
+
+    def _on_run_requested(self, capability_id: str) -> None:
+        """Boton de correr del rail: abre la pestana y ejecuta de una."""
+        capability = registry.get_capability(capability_id)
+        workspace = self.current_workspace
+        if capability and workspace is not None:
+            workspace.quick_run(capability)
+
+    def _on_env_saved(self, *_args) -> None:
+        """La configuracion guardada cambio: puede haber acciones nuevas
+        listas para correr sin abrir la pestana, o que dejaron de estarlo."""
+        self.rail.refresh_readiness()

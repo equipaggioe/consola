@@ -1,9 +1,9 @@
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QSizePolicy
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QSizePolicy
 from PySide6.QtCore import Qt, Signal, QRectF, QEvent
 from PySide6.QtGui import QPainter, QColor, QPainterPath, QFont
 
-from ..theme import Colors, Fonts
+from ..theme import Colors, Fonts, tint
 from .section_header import ChevronWidget
 
 
@@ -20,11 +20,16 @@ class ActionRow(QWidget):
 
     Distinta de la pastilla (chip) que se probo antes: aqui cada accion
     ocupa toda la fila, como una entrada de menu, con un filete de acento a
-    la izquierda que solo aparece con el hover o si es destructiva.
+    la izquierda que solo aparece con el hover o si es destructiva. Ese
+    mismo filete es el boton de favorito: un clic ahi marca la accion sin
+    abrirla, en vez de vivir en un lugar aparte.
     """
     triggered = Signal(str)
+    favorite_toggled = Signal(str, bool)
+    run_requested = Signal(str)
 
     HEIGHT = 32
+    PIN_ZONE = 12  # ancho clicable del filete, mas holgado que su trazo visual
 
     def __init__(self, capability_id: str, label: str, icon: str = '',
                  danger: bool = False, accent: str = Colors.ACCENT,
@@ -35,10 +40,14 @@ class ActionRow(QWidget):
         self.accent = accent
         self.favorite = favorite
         self._hovered = False
+        self._pin_hovered = False
+        self._ready = False
 
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
+        self.setToolTip("Clic para abrir · clic en el filete para marcar favorita")
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 12, 0)
@@ -58,13 +67,42 @@ class ActionRow(QWidget):
         layout.addWidget(self.text_label)
         layout.addStretch()
 
+        self.run_btn = QPushButton("▶")
+        self.run_btn.setFixedSize(20, 20)
+        self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.run_btn.clicked.connect(lambda: self.run_requested.emit(self.capability_id))
+        layout.addWidget(self.run_btn)
+
         self._restyle()
+        self._restyle_run()
 
     def matches(self, needle: str) -> bool:
         return needle in self.text_label.text().lower()
 
+    def set_ready(self, value: bool) -> None:
+        if value == self._ready:
+            return
+        self._ready = value
+        self._restyle_run()
+
+    def _restyle_run(self) -> None:
+        self.run_btn.setEnabled(self._ready)
+        self.run_btn.setToolTip(
+            "Correr con los parámetros por defecto" if self._ready
+            else "Faltan claves de configuración para correr sin abrir la pestaña")
+        color = self.accent if self._ready else Colors.TEXT_MUTED
+        self.run_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: none; color: {color};
+                font-size: {Fonts.SIZE_XS}px; border-radius: 4px;
+            }}
+            QPushButton:hover {{ background: {tint(self.accent, 0.16)}; }}
+            QPushButton:disabled {{ color: {Colors.BORDER_LIGHT}; }}
+        """)
+
     def set_accent(self, accent: str) -> None:
         self.accent = accent
+        self._restyle_run()
         self.update()
 
     def set_favorite(self, value: bool) -> None:
@@ -81,6 +119,9 @@ class ActionRow(QWidget):
             color = Colors.TEXT if (self._hovered or self.favorite) else Colors.TEXT_DIM
         self.text_label.setStyleSheet(f"background: transparent; color: {color};")
 
+    def _in_pin_zone(self, pos) -> bool:
+        return 0 <= pos.x() <= self.PIN_ZONE
+
     def enterEvent(self, event):
         self._hovered = True
         self._restyle()
@@ -89,14 +130,30 @@ class ActionRow(QWidget):
 
     def leaveEvent(self, event):
         self._hovered = False
+        self._pin_hovered = False
         self._restyle()
         self.update()
         super().leaveEvent(event)
 
+    def mouseMoveEvent(self, event):
+        pin_hovered = self._in_pin_zone(event.position())
+        if pin_hovered != self._pin_hovered:
+            self._pin_hovered = pin_hovered
+            self.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.update()
+        super().mouseMoveEvent(event)
+
     def mouseReleaseEvent(self, event):
-        inside = self.rect().contains(event.position().toPoint())
+        pos = event.position()
+        inside = self.rect().contains(pos.toPoint())
         if event.button() == Qt.MouseButton.LeftButton and inside:
-            self.triggered.emit(self.capability_id)
+            if self._in_pin_zone(pos):
+                self.favorite = not self.favorite
+                self._restyle()
+                self.update()
+                self.favorite_toggled.emit(self.capability_id, self.favorite)
+            else:
+                self.triggered.emit(self.capability_id)
         super().mouseReleaseEvent(event)
 
     def paintEvent(self, event):
@@ -109,11 +166,15 @@ class ActionRow(QWidget):
             p.fillRect(r, _alpha(self.accent, 0.09) if not self.danger else _alpha(Colors.ERROR, 0.08))
 
         # Filete de acento: siempre visible y tenue si es destructiva (aviso
-        # permanente) o si es favorita del repo, solo al pasar el mouse en
-        # las demas. Asi el favorito se distingue aun viendo todo.
+        # permanente) o si es favorita, mas ancho al pasar el mouse porque
+        # ahi mismo se hace clic para marcarla. Asi el favorito se distingue
+        # aun viendo todo, y su boton no necesita un lugar aparte.
         if self.danger or self.favorite or self._hovered:
-            bar_alpha = 0.9 if self._hovered else (0.7 if self.favorite else 0.55)
-            p.fillRect(QRectF(0, 3, 2.5, r.height() - 6), _alpha(edge.name(), bar_alpha))
+            bar_alpha = 0.9 if (self._hovered and not self._pin_hovered) else (0.7 if self.favorite else 0.55)
+            if self._pin_hovered:
+                bar_alpha = 1.0
+            bar_width = 5.0 if self._pin_hovered else 2.5
+            p.fillRect(QRectF(0, 3, bar_width, r.height() - 6), _alpha(edge.name(), bar_alpha))
         p.end()
 
 
@@ -164,6 +225,8 @@ class GroupCard(QWidget):
     """Caja de un grupo: cerrada es un recuadro con nombre y cuenta; abierta
     despliega sus acciones, una por renglon, dentro del mismo recuadro."""
     action_triggered = Signal(str)
+    favorite_toggled = Signal(str, bool)
+    run_requested = Signal(str)
     expanded = Signal(object)   # pide el foco del acordeon
 
     HEADER_HEIGHT = 38
@@ -231,6 +294,8 @@ class GroupCard(QWidget):
             row = ActionRow(cap.id, cap.name, cap.icon,
                             danger=cap.kind == 'destructive', accent=accent)
             row.triggered.connect(self.action_triggered.emit)
+            row.favorite_toggled.connect(self._on_row_favorite_toggled)
+            row.run_requested.connect(self.run_requested.emit)
             bw.addWidget(row)
             self.rows.append(row)
 
@@ -253,7 +318,7 @@ class GroupCard(QWidget):
             self._peek = False
             self._sync_rows()
         self.body_wrap.setVisible(value)
-        self.chevron.set_angle(90.0 if value else 0.0)
+        self.chevron.set_angle(180.0 if value else 0.0)
         self._restyle()
         self.update()
         self.updateGeometry()
@@ -273,6 +338,11 @@ class GroupCard(QWidget):
         self._needle = needle
         return self._sync_rows()
 
+    # --- correr sin abrir la pestana -------------------------------------
+    def set_ready(self, ready_ids: set[str]) -> None:
+        for row in self.rows:
+            row.set_ready(row.capability_id in ready_ids)
+
     # --- favoritos ------------------------------------------------------
     def set_favorites(self, favorites: set[str]) -> int:
         self._favorites = set(favorites)
@@ -287,6 +357,13 @@ class GroupCard(QWidget):
 
     def favorite_count(self) -> int:
         return sum(1 for row in self.rows if row.capability_id in self._favorites)
+
+    def _on_row_favorite_toggled(self, capability_id: str, value: bool) -> None:
+        """El renglon ya se repinto solo; aca se actualiza el conjunto y el
+        contador, y se avisa afuera para que quede guardado."""
+        self._favorites.add(capability_id) if value else self._favorites.discard(capability_id)
+        self._sync_rows()
+        self.favorite_toggled.emit(capability_id, value)
 
     def _toggle_peek(self) -> None:
         self._peek = not self._peek
@@ -355,13 +432,4 @@ class GroupCard(QWidget):
             p.fillPath(path, QColor(Colors.SURFACE))
             p.setPen(QColor(Colors.BORDER))
         p.drawPath(path)
-
-        # Barra de color a la izquierda de la caja abierta: pertenece al
-        # repo activo, como el resto del cromo.
-        if self._expanded:
-            bar = QPainterPath()
-            bar.addRoundedRect(
-                QRectF(r.left() + 2, r.top() + 10, 2.5, self.HEADER_HEIGHT - 20), 1.2, 1.2
-            )
-            p.fillPath(bar, QColor(self.accent))
         p.end()

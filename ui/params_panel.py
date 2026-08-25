@@ -288,6 +288,14 @@ class ParamsPanel(QWidget):
             QPushButton:hover {{ background: {self.accent if enabled else Colors.SURFACE_ALT}; }}
         """)
 
-    def _emit_execute(self) -> None:
-        if not self._blockers():
-            self.execute_requested.emit(self.payload())
+    def _emit_execute(self) -> bool:
+        if self._blockers():
+            return False
+        self.execute_requested.emit(self.payload())
+        return True
+
+    def try_run(self) -> bool:
+        """Ejecuta con los parametros actuales de la pestana (los por
+        defecto si recien se abrio); usado por el boton de correr sin
+        abrir la pestana, en el rail. Devuelve si corrio."""
+        return self._emit_execute()

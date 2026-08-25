@@ -6,8 +6,9 @@ from ..theme import Colors
 
 
 class ChevronWidget(QWidget):
-    """Flecha que rota entre 0 y 90 grados; usada por GroupCard para marcar
-    si una caja de grupo esta cerrada o abierta."""
+    """Flecha que apunta hacia abajo cerrada y hacia arriba abierta (rota
+    entre 0 y 180 grados); usada por GroupCard para marcar si una caja de
+    grupo esta cerrada o abierta."""
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -32,5 +33,5 @@ class ChevronWidget(QWidget):
         painter.translate(-self.width() / 2, -self.height() / 2)
 
         painter.setPen(QColor(Colors.TEXT_MUTED))
-        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "▸")
+        painter.drawText(self.rect(), Qt.AlignmentFlag.AlignCenter, "▾")
         painter.end()
