@@ -16,6 +16,9 @@ class AxisDef:
     danger: set[str] = field(default_factory=set)
     label: str = ''
     select: str = 'one'  # 'one' | 'many'
+    checked_by_default: bool = True  # solo para select='many': todas marcadas, o ninguna
+    allow_empty: bool = False  # solo para select='many': ninguna marcada es una eleccion valida,
+                                # no "olvidaste elegir" (ej. 'Pesados' en clean_artifacts)
 
     @property
     def is_multi(self) -> bool:
@@ -53,6 +56,8 @@ class Capability:
     composed_of: list[str] = field(default_factory=list)
     steps: list[Step] = field(default_factory=list)
     icon: str = ''
+    description: str = ''  # una linea: que hace el boton, en tooltip y cabecera
+    level: str = ''        # 'A' | 'C'; vacio = se deduce de steps/composed_of
     hidden: bool = False   # capacidad atomica: existe como paso, no como boton
     stub: bool = True
     func: Callable[..., Any] | None = None
@@ -64,6 +69,23 @@ class Capability:
     @property
     def single_axes(self) -> list[AxisDef]:
         return [a for a in self.axes if not a.is_multi]
+
+    @property
+    def is_composite(self) -> bool:
+        """Compuesta = encadena varias atomicas (docs/catalogo-funciones.md).
+
+        Lo normal es que se note sola: si declara `steps` o `composed_of`, es
+        compuesta. Pero varias compuestas reales (`bootstrap_db`,
+        `start_emulator`...) no publican sus pasos en el panel, y ahi el
+        catalogo lo dice con `level='C'`. Lo explicito manda.
+        """
+        if self.level:
+            return self.level.upper().startswith('C')
+        return bool(self.steps or self.composed_of)
+
+    @property
+    def level_label(self) -> str:
+        return 'Compuesta' if self.is_composite else 'Atómica'
 
 
 GROUP_ICONS = {

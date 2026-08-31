@@ -19,12 +19,30 @@ comparten el mismo patron: primero la lista exacta de lo que va a pasar, y recie
 despues el borrado (PLAN.md 7, caso 5).
 """
 
-ARTIFACT_DIRS = ('__pycache__', '.gradle', '.kotlin', '.cxx')
-ARTIFACT_FILES = ('.flutter-plugins', '.flutter-plugins-dependencies', '.packages',
-                  'CMakeOutput.log')
-ARTIFACT_PREFIXES = ('hs_err_pid', 'replay_pid')
-ARTIFACT_SUFFIXES = ('.pyc', '.pyo')
-SKIP_DIRS = {'.git', 'node_modules', '.venv', '.consola'}
+# Familias de artefactos livianos: se recorren y se listan archivo por
+# archivo. Cada clave es lo que entiende `find_artifacts(families=...)`;
+# `ui/task_adapters.py` traduce las etiquetas del panel a estas claves.
+FAMILIES: dict[str, dict[str, tuple[str, ...]]] = {
+    'python': {'dirs': ('__pycache__',), 'suffixes': ('.pyc', '.pyo')},
+    'gradle': {'dirs': ('.gradle', '.kotlin', '.cxx')},
+    'flutter': {'files': ('.flutter-plugins', '.flutter-plugins-dependencies', '.packages')},
+    'crash': {'files': ('CMakeOutput.log',), 'prefixes': ('hs_err_pid', 'replay_pid')},
+}
+
+# Carpetas pesadas: no se listan por dentro, se listan como una unidad y se
+# borran enteras. Apagadas por defecto (PLAN.md 7, caso 5: lo caro se pide
+# explicito). Varios nombres por clave porque node_modules no cambia, pero
+# "venv" y "build" si.
+HEAVY_DIRS: dict[str, tuple[str, ...]] = {
+    'node_modules': ('node_modules',),
+    'venv': ('.venv', 'venv'),
+    'build': ('build', 'dist'),
+    'dart_tool': ('.dart_tool',),
+}
+
+# Nunca se entra a estas, sin importar que se haya pedido: no son artefactos,
+# son el propio control de versiones y la config de Consola.
+ALWAYS_SKIP_DIRS = {'.git', '.consola'}
 
 COMMON_PATHS = ('server/alembic/env.py', 'server/alembic/script.py.mako',
                 'server/app/models/base.py', 'server/app/schemas/base.py',
@@ -36,33 +54,57 @@ IP_SERVICES = ('https://api.ipify.org', 'https://ifconfig.me/ip')
 
 # --- limpieza --------------------------------------------------------------
 
-def find_artifacts(ctx) -> list[Path]:
+def find_artifacts(ctx, families: list[str] | None = None,
+                   heavy: list[str] | None = None) -> list[Path]:
     """Lista los artefactos borrables del repo, sin tocar nada.
 
     Atomica de solo lectura: es el simulacro que alimenta al boton destructivo,
     y sirve sola para saber cuanto espacio hay para recuperar.
+
+    `families` filtra que tipos de cache liviana se listan (por defecto,
+    todas: `FAMILIES`). `heavy` son carpetas pesadas (`node_modules`, `.venv`,
+    `build`/`dist`, `.dart_tool`) que se listan enteras, no por dentro; por
+    defecto ninguna, para no ofrecer un borrado caro sin que se pida.
     """
+    active_families = set(FAMILIES) if families is None else set(families)
+    active_heavy_dirnames = {name for key in (heavy or ()) for name in HEAVY_DIRS.get(key, ())}
+    # Lo pesado que no se pidio sigue sin recorrerse: entrar a node_modules
+    # o .venv solo para no listar nada de adentro seria trabajo tirado.
+    skip_unrequested = {name for names in HEAVY_DIRS.values() for name in names} - active_heavy_dirnames
+
     encontrados: list[Path] = []
     for actual, subdirs, archivos in os.walk(ctx.root):
-        subdirs[:] = [d for d in subdirs if d not in SKIP_DIRS]
         base = Path(actual)
-
-        for nombre in list(subdirs):
-            if nombre in ARTIFACT_DIRS:
+        keep_subdirs = []
+        for nombre in subdirs:
+            if nombre in ALWAYS_SKIP_DIRS or nombre in skip_unrequested:
+                continue
+            if nombre in active_heavy_dirnames:
                 encontrados.append(base / nombre)
-                subdirs.remove(nombre)
+                continue  # se borra entera: no hace falta bajar a mirarla
+            if (('gradle' in active_families and nombre in FAMILIES['gradle']['dirs'])
+                    or ('python' in active_families and nombre in FAMILIES['python']['dirs'])):
+                encontrados.append(base / nombre)
+                continue
+            keep_subdirs.append(nombre)
+        subdirs[:] = keep_subdirs
 
         for nombre in archivos:
-            if (nombre in ARTIFACT_FILES
-                    or nombre.startswith(ARTIFACT_PREFIXES)
-                    or nombre.endswith(ARTIFACT_SUFFIXES)):
+            if ('flutter' in active_families and nombre in FAMILIES['flutter']['files']):
+                encontrados.append(base / nombre)
+            elif ('crash' in active_families
+                  and (nombre in FAMILIES['crash']['files']
+                       or nombre.startswith(FAMILIES['crash']['prefixes']))):
+                encontrados.append(base / nombre)
+            elif ('python' in active_families and nombre.endswith(FAMILIES['python']['suffixes'])):
                 encontrados.append(base / nombre)
     return encontrados
 
 
-def clean_artifacts(ctx, apply: bool = False) -> list[Path]:
+def clean_artifacts(ctx, apply: bool = False, families: list[str] | None = None,
+                    heavy: list[str] | None = None) -> list[Path]:
     """Borra los artefactos listados. En simulacro solo los muestra."""
-    encontrados = find_artifacts(ctx)
+    encontrados = find_artifacts(ctx, families, heavy)
     if not encontrados:
         ctx.ok('No hay artefactos para limpiar.')
         return []
