@@ -14,6 +14,9 @@ sobre ESE repo: que variantes construir, que pasos correr, con que opcion.
 El mismo boton en dos repos distintos casi nunca quiere lo mismo, asi que
 la clave de guardado lleva las dos cosas.
 
+La excepcion son las capacidades con `scope='machine'` (instalar un SDK): esas
+le pasan a la maquina, no al repo, y se guardan una sola vez para todos.
+
 Se guarda en QSettings (no en `.consola/config.env`): el archivo del repo
 es configuracion que el repo necesita para funcionar; esto es como dejaste
 la pantalla la ultima vez.
@@ -33,6 +36,13 @@ def _repo_key(repo_path: str) -> str:
 
 
 def _key(repo_path: str, capability_id: str) -> str:
+    from core.registry import registry
+
+    cap = registry.get_capability(capability_id)
+    if cap is not None and cap.is_machine_wide:
+        # Instalar un SDK no es una decision de un repo: el directorio elegido
+        # vale para todos, asi que se guarda una sola vez y no por repositorio.
+        return f'{_PREFIX}/machine/{capability_id}'
     return f'{_PREFIX}/{_repo_key(repo_path)}/{capability_id}'
 
 

@@ -42,7 +42,45 @@ def _clean_artifacts_kwargs(payload: dict) -> dict:
     return {'apply': apply, 'families': families, 'heavy': heavy}
 
 
+def _field(payload: dict, name: str) -> str:
+    return (payload.get('fields') or {}).get(name, '')
+
+
+def _install_dir_kwargs(payload: dict) -> dict:
+    """El unico parametro de una instalacion de SDK: donde va.
+
+    Vacio no es un error: cada funcion cae en el valor por defecto del
+    catalogo, que es justo lo que el campo mostraba antes de vaciarlo.
+    """
+    return {'install_dir': _field(payload, 'install_dir')}
+
+
+def _android_packages_kwargs(payload: dict) -> dict:
+    """Los componentes se marcan con su nombre real, asi que no hay que traducir:
+    a diferencia de las familias de artefactos, `platform-tools` se llama igual
+    en el panel que en sdkmanager."""
+    return {
+        'components': list(payload['variants'].get('components', [])),
+        'api_level': _field(payload, 'api_level'),
+        'build_tools': _field(payload, 'build_tools'),
+    }
+
+
+def _android_sdk_kwargs(payload: dict) -> dict:
+    """La compuesta recibe lo de las tres atomicas mas los pasos activos."""
+    return {
+        **_install_dir_kwargs(payload),
+        **_android_packages_kwargs(payload),
+        'steps': list(payload.get('steps') or []),
+    }
+
+
 # capability_id -> payload (de ParamsPanel.payload()) -> kwargs de la funcion real
 ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'clean_artifacts': _clean_artifacts_kwargs,
+    'install_android_tools': _install_dir_kwargs,
+    'install_android_packages': _android_packages_kwargs,
+    'install_android_hypervisor': lambda payload: {},
+    'install_android_sdk': _android_sdk_kwargs,
+    'install_flutter_sdk': _install_dir_kwargs,
 }

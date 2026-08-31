@@ -58,6 +58,7 @@ class Capability:
     icon: str = ''
     description: str = ''  # una linea: que hace el boton, en tooltip y cabecera
     level: str = ''        # 'A' | 'C'; vacio = se deduce de steps/composed_of
+    scope: str = 'repo'    # 'repo' | 'machine': ver `is_machine_wide`
     hidden: bool = False   # capacidad atomica: existe como paso, no como boton
     stub: bool = True
     func: Callable[..., Any] | None = None
@@ -68,7 +69,18 @@ class Capability:
 
     @property
     def single_axes(self) -> list[AxisDef]:
-        return [a for a in self.axes if not a.is_multi]
+        """Ejes de eleccion unica que se dibujan como opciones excluyentes.
+
+        Los de `expand='field'` quedan fuera: tambien son de valor unico, pero
+        el valor se escribe (una ruta de instalacion, un API level) en vez de
+        elegirse de una lista cerrada.
+        """
+        return [a for a in self.axes if not a.is_multi and a.expand != 'field']
+
+    @property
+    def field_axes(self) -> list[AxisDef]:
+        """Ejes que se escriben a mano. `values[0]` es el valor por defecto."""
+        return [a for a in self.axes if a.expand == 'field']
 
     @property
     def is_composite(self) -> bool:
@@ -86,6 +98,17 @@ class Capability:
     @property
     def level_label(self) -> str:
         return 'Compuesta' if self.is_composite else 'Atómica'
+
+    @property
+    def is_machine_wide(self) -> bool:
+        """Si la accion le pasa a la maquina y no al repo abierto.
+
+        Instalar un SDK no es una decision de un repositorio: el directorio
+        elegido vale para todos. Por eso sus parametros se guardan una sola vez
+        (`ui/params_store.py`) en vez de por repo, y no tiene sentido que la
+        accion dependa de que haya un proyecto abierto.
+        """
+        return self.scope == 'machine'
 
 
 GROUP_ICONS = {

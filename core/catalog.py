@@ -1,7 +1,26 @@
 from __future__ import annotations
+import os
+
 from .registry import registry, Capability, AxisDef, Step
 
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
+
+# Valores por defecto de los SDK. Viven aca, con el resto de la forma de los
+# botones, y `core/tasks/utils.py` los importa para usar el mismo cuando se le
+# llama sin parametros: asi el panel y la funcion no pueden discrepar.
+# En Linux se usan las rutas convencionales bajo el home; en Windows, las
+# unidades que ya usaban los scripts.
+ANDROID_DIR_DEFAULT = r'D:\Android' if os.name == 'nt' else '~/Android/Sdk'
+FLUTTER_DIR_DEFAULT = r'D:\flutter' if os.name == 'nt' else '~/flutter'
+API_LEVEL_DEFAULT = '36'
+BUILD_TOOLS_DEFAULT = '36.0.0'
+
+ANDROID_PACKAGE_AXES = [
+    AxisDef('components', ['platform-tools', 'emulator', 'build-tools', 'platform'],
+            'checks', select='many', label='Componentes'),
+    AxisDef('api_level', [API_LEVEL_DEFAULT], 'field', label='API level'),
+    AxisDef('build_tools', [BUILD_TOOLS_DEFAULT], 'field', label='Build-tools'),
+]
 
 # Etiquetas visibles de los ejes de 'clean_artifacts'; `ui/task_adapters.py`
 # las traduce de vuelta a las claves que entiende `core/tasks/utils.py`.
@@ -101,8 +120,41 @@ def load_catalog() -> None:
             AxisDef('dry_run', ['simulacro', 'borrar'], 'scope'),
         ],
         stub=True))
-    registry.register(Capability(id='install_android_sdk', name='SDK Android', group='Utils', section='SDKs', kind='once', icon='🤖', description='Descarga e instala el SDK de Android en esta máquina.', stub=True))
-    registry.register(Capability(id='install_flutter_sdk', name='SDK Flutter', group='Utils', section='SDKs', kind='once', icon='🦋', description='Descarga e instala el SDK de Flutter en esta máquina.', stub=True))
+    # Los SDK son de la maquina, no del repo abierto: `scope='machine'`. La
+    # instalacion se parte en tres atomicas porque agregar paquetes es lo que
+    # se repite (una API nueva, otro build-tools) y no tiene por que arrastrar
+    # la descarga del SDK ni tocar el PATH.
+    registry.register(Capability(
+        id='install_android_tools', name='Herramientas Android', group='Utils',
+        section='SDKs', kind='once', icon='🧰', scope='machine',
+        description='Descarga las command-line tools del SDK y las deja en el entorno del usuario.',
+        axes=[AxisDef('install_dir', [ANDROID_DIR_DEFAULT], 'field', label='Directorio')],
+        stub=True))
+    registry.register(Capability(
+        id='install_android_packages', name='Paquetes del SDK', group='Utils',
+        section='SDKs', kind='once', icon='📦', scope='machine',
+        description='Acepta las licencias e instala en el SDK los paquetes que falten.',
+        axes=list(ANDROID_PACKAGE_AXES), stub=True))
+    registry.register(Capability(
+        id='install_android_hypervisor', name='Aceleración del emulador', group='Utils',
+        section='SDKs', kind='once', icon='⚡', scope='machine',
+        description='Verifica la virtualización que el emulador necesita, y en Windows instala el driver.',
+        stub=True))
+    registry.register(Capability(
+        id='install_android_sdk', name='SDK Android', group='Utils', section='SDKs',
+        kind='once', icon='🤖', scope='machine',
+        description='Instala el SDK de Android completo: herramientas, paquetes y aceleración.',
+        composed_of=['install_android_tools', 'install_android_packages',
+                     'install_android_hypervisor'],
+        axes=[AxisDef('install_dir', [ANDROID_DIR_DEFAULT], 'field', label='Directorio'),
+              *ANDROID_PACKAGE_AXES],
+        stub=True))
+    registry.register(Capability(
+        id='install_flutter_sdk', name='SDK Flutter', group='Utils', section='SDKs',
+        kind='once', icon='🦋', scope='machine',
+        description='Descarga el canal stable de Flutter y lo deja en el entorno del usuario.',
+        axes=[AxisDef('install_dir', [FLUTTER_DIR_DEFAULT], 'field', label='Directorio')],
+        stub=True))
     registry.register(Capability(id='update_cloudflare', name='Actualizar Cloudflare', group='Utils', section='DNS', kind='once', icon='☁️', description='Apunta el registro DNS de Cloudflare a la IP pública actual.', stub=True))
     registry.register(Capability(id='sync_common_files', name='Sync archivos comunes', group='Utils', section='Sync', kind='destructive', icon='🔄', description='Copia los archivos compartidos a los otros repos; en simulacro solo compara.', axes=[AxisDef('mode', ['simulacro', 'aplicar'], 'scope')], stub=True))
 

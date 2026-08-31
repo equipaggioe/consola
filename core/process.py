@@ -164,6 +164,32 @@ def capture(
     return (result.stdout or '').strip()
 
 
+def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
+    """Corre un proceso escribiendole a stdin y devuelve todo lo que imprimio.
+
+    `stream` y `capture` cierran stdin a proposito: una tarea de fondo esperando
+    teclado es un cuelgue silencioso. La excepcion es `sdkmanager --licenses`,
+    que pregunta una por una y no tiene bandera para aceptar; sin respuesta lee
+    EOF y no acepta ninguna.
+    """
+    try:
+        result = subprocess.run(
+            [str(a) for a in argv],
+            input=stdin_text,
+            capture_output=True,
+            text=True,
+            encoding='utf-8',
+            errors='replace',
+            timeout=timeout,
+            creationflags=_NO_WINDOW,
+        )
+    except FileNotFoundError as exc:
+        raise TaskError(f"No se encontro el ejecutable: {argv[0]}") from exc
+    except subprocess.TimeoutExpired as exc:
+        raise TaskError(f"El comando excedio {timeout}s: {format_argv(argv)}") from exc
+    return ((result.stdout or '') + (result.stderr or '')).strip()
+
+
 def kill_tree(proc: subprocess.Popen, *, grace: float = 5.0) -> None:
     """Termina el proceso y sus hijos, de abajo hacia arriba (PLAN.md §7, caso 6).
 

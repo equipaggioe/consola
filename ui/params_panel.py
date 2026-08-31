@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QPushButton,
-    QScrollArea, QFrame, QButtonGroup
+    QScrollArea, QFrame, QButtonGroup, QLineEdit
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -41,6 +41,7 @@ class ParamsPanel(QWidget):
 
         self._checks: dict[str, dict[str, QCheckBox]] = {}   # axis -> value -> check
         self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
+        self._fields: dict[str, QLineEdit] = {}              # axis -> valor escrito
         self._option_groups: list[QButtonGroup] = []
         self._step_checks: dict[str, QCheckBox] = {}
         self._restoring = True   # mientras se arma, ningun cambio se guarda
@@ -77,6 +78,10 @@ class ParamsPanel(QWidget):
         lay.setSpacing(16)
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
+        fields = self.capability.field_axes
+        if fields:
+            lay.addWidget(self._build_fields(fields))
+
         for axis in self.capability.multi_axes:
             lay.addWidget(self._build_multi_axis(axis))
 
@@ -90,6 +95,47 @@ class ParamsPanel(QWidget):
         self._content = content
         scroll.setWidget(content)
         return scroll
+
+    def _build_fields(self, axes: list[AxisDef]) -> QWidget:
+        """Ejes que se escriben: un directorio de instalacion, un API level.
+
+        Van arriba de todo porque son los que condicionan al resto: de nada
+        sirve elegir componentes si el SDK va a caer en otro lado.
+        """
+        box = QWidget()
+        box.setStyleSheet("background: transparent;")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(9)
+
+        for axis in axes:
+            row = QVBoxLayout()
+            row.setSpacing(4)
+            label = QLabel(axis.display)
+            label.setStyleSheet(
+                f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
+            )
+            row.addWidget(label)
+
+            # `values[0]` es el valor por defecto, y se escribe en el campo en
+            # vez de dejarlo de marca de agua: asi se ve que se va a usar.
+            default = axis.values[0] if axis.values else ''
+            field = QLineEdit(default)
+            field.setPlaceholderText(default)
+            field.setFixedHeight(30)
+            field.setStyleSheet(f"""
+                QLineEdit {{
+                    background: {Colors.SURFACE_ALT}; border: 1px solid {Colors.BORDER};
+                    border-radius: 5px; padding: 0 8px;
+                    color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
+                }}
+                QLineEdit:focus {{ border: 1px solid {self.accent}; }}
+            """)
+            field.textChanged.connect(self._refresh_summary)
+            self._fields[axis.name] = field
+            row.addWidget(field)
+            lay.addLayout(row)
+        return box
 
     def _build_multi_axis(self, axis: AxisDef) -> QWidget:
         box = QWidget()
@@ -219,12 +265,17 @@ class ParamsPanel(QWidget):
                 return value
         return ''
 
+    def field_value(self, axis_name: str) -> str:
+        field = self._fields.get(axis_name)
+        return field.text().strip() if field else ''
+
     def state(self) -> dict:
         """Lo que hay marcado ahora mismo, en forma serializable."""
         return {
             'variants': {name: self.selection(name) for name in self._checks},
             'steps': [s.id for s in self.active_steps()],
             'options': {name: self.option_value(name) for name in self._options},
+            'fields': {name: self.field_value(name) for name in self._fields},
         }
 
     def apply_state(self, state: dict | None) -> None:
@@ -253,6 +304,14 @@ class ParamsPanel(QWidget):
                 value = options.get(axis_name)
                 if value in checks:
                     checks[value].setChecked(True)
+
+            fields = state.get('fields') or {}
+            for axis_name, field in self._fields.items():
+                saved = fields.get(axis_name)
+                # Una cadena vacia guardada es una eleccion valida (vuelve al
+                # valor por defecto de la funcion); un eje nuevo no lo es.
+                if saved is not None:
+                    field.setText(saved)
         finally:
             self._restoring = previous
 
@@ -269,6 +328,7 @@ class ParamsPanel(QWidget):
             'variants': {name: self.selection(name) for name in self._checks},
             'steps': [s.id for s in self.active_steps()],
             'options': {name: self.option_value(name) for name in self._options},
+            'fields': {name: self.field_value(name) for name in self._fields},
             'missing_env': self._missing_keys(),
         }
 

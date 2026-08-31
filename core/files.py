@@ -1,7 +1,10 @@
 from __future__ import annotations
 import filecmp
+import hashlib
 import os
 import shutil
+import tarfile
+import zipfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterable, Iterator
@@ -87,6 +90,54 @@ def remove(path: Path) -> None:
             path.unlink()
         except OSError:
             pass
+
+
+def digest(path: Path, algorithm: str = 'sha256') -> str:
+    """Huella del archivo, leyendolo por bloques.
+
+    Una sola funcion con el algoritmo como parametro porque los dos SDK
+    publican huellas distintas: Android da SHA-1 y Flutter SHA-256.
+    """
+    accumulator = hashlib.new(algorithm)
+    with path.open('rb') as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+            accumulator.update(chunk)
+    return accumulator.hexdigest()
+
+
+def extract(archive: Path, target: Path) -> Path:
+    """Descomprime un .zip o un .tar.* preservando el bit de ejecucion.
+
+    Los dos formatos hacen falta de verdad: Flutter publica .zip para Windows
+    pero .tar.xz para Linux, y el script original abria todo con `zipfile`, con
+    lo que en Linux no llegaba a descomprimir nada.
+    """
+    if archive.name.lower().endswith(('.tar.xz', '.tar.gz', '.tgz', '.tar.bz2')):
+        target.mkdir(parents=True, exist_ok=True)
+        with tarfile.open(archive) as bundle:
+            try:
+                bundle.extractall(target, filter='data')
+            except TypeError:  # Python anterior al filtro de extraccion
+                bundle.extractall(target)
+        return target
+    return extract_zip(archive, target)
+
+
+def extract_zip(archive: Path, target: Path) -> Path:
+    """Descomprime un zip conservando los permisos Unix de cada entrada.
+
+    `ZipFile.extractall` los descarta, y en Linux eso deja a `sdkmanager` y a
+    `flutter` sin permiso de ejecucion: el zip se descomprime bien y despues
+    nada arranca. Los modos viajan en los 16 bits altos de `external_attr`.
+    """
+    target.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(archive) as bundle:
+        for info in bundle.infolist():
+            extracted = Path(bundle.extract(info, target))
+            mode = info.external_attr >> 16 & 0o7777
+            if mode and os.name != 'nt':
+                extracted.chmod(mode)
+    return target
 
 
 def human_size(total: int) -> str:
