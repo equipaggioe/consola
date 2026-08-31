@@ -15,6 +15,31 @@ def _alpha(hex_color: str, alpha: float) -> QColor:
     return c
 
 
+class LevelMark(QLabel):
+    """Marca de nivel de una accion: un solo paso o varios encadenados.
+
+    Deliberadamente pequena y sin color propio: el color de la fila ya esta
+    hablando de otra cosa (destructiva, favorita, lista para correr), asi que
+    el nivel se dice con la forma. `◈` (rombo relleno, varias caras) es
+    compuesta; `◦` (punto hueco) es atomica. Quien no lo adivine lo lee en el
+    tooltip, que es el mismo lugar donde ya vive la descripcion.
+    """
+    COMPOSITE = '◈'
+    ATOMIC = '◦'
+
+    def __init__(self, composite: bool, parent=None):
+        super().__init__(parent)
+        self.setText(self.COMPOSITE if composite else self.ATOMIC)
+        self.setFixedWidth(12)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setToolTip(
+            "Compuesta: encadena varias acciones atómicas" if composite
+            else "Atómica: un solo paso, idempotente")
+        color = Colors.TEXT_DIM if composite else Colors.TEXT_MUTED
+        self.setStyleSheet(
+            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;")
+
+
 class ActionRow(QWidget):
     """Una accion dentro de una caja de grupo: renglon de ancho completo.
 
@@ -33,12 +58,15 @@ class ActionRow(QWidget):
 
     def __init__(self, capability_id: str, label: str, icon: str = '',
                  danger: bool = False, accent: str = Colors.ACCENT,
-                 favorite: bool = False, parent=None):
+                 favorite: bool = False, composite: bool = False,
+                 description: str = '', parent=None):
         super().__init__(parent)
         self.capability_id = capability_id
         self.danger = danger
         self.accent = accent
         self.favorite = favorite
+        self.composite = composite
+        self.description = description
         self._hovered = False
         self._pin_hovered = False
         self._ready = False
@@ -47,7 +75,7 @@ class ActionRow(QWidget):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        self.setToolTip("Clic para abrir · clic en el filete para marcar favorita")
+        self.setToolTip(self._tooltip(label))
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 12, 0)
@@ -66,6 +94,7 @@ class ActionRow(QWidget):
         layout.addWidget(self.icon_label)
         layout.addWidget(self.text_label)
         layout.addStretch()
+        layout.addWidget(LevelMark(composite))
 
         self.run_btn = QPushButton("▶")
         self.run_btn.setFixedSize(26, 26)
@@ -76,8 +105,22 @@ class ActionRow(QWidget):
         self._restyle()
         self._restyle_run()
 
+    def _tooltip(self, label: str) -> str:
+        """Nombre, que hace, de que nivel es y como se usa la fila."""
+        level = ("Compuesta · encadena varias atómicas" if self.composite
+                 else "Atómica · un solo paso")
+        lines = [f"<b>{label}</b>"]
+        if self.description:
+            lines.append(self.description)
+        lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>{level}</span>")
+        lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>"
+                     "Clic para abrir · clic en el filete para marcar favorita</span>")
+        return '<br>'.join(lines)
+
     def matches(self, needle: str) -> bool:
-        return needle in self.text_label.text().lower()
+        """El filtro tambien mira la descripcion: buscar 'disco' o 'caché'
+        deberia encontrar Limpiar artefactos aunque no lo diga su nombre."""
+        return needle in self.text_label.text().lower() or needle in self.description.lower()
 
     def set_ready(self, value: bool) -> None:
         if value == self._ready:
@@ -292,7 +335,8 @@ class GroupCard(QWidget):
         self.rows: list[ActionRow] = []
         for cap in capabilities:
             row = ActionRow(cap.id, cap.name, cap.icon,
-                            danger=cap.kind == 'destructive', accent=accent)
+                            danger=cap.kind == 'destructive', accent=accent,
+                            composite=cap.is_composite, description=cap.description)
             row.triggered.connect(self.action_triggered.emit)
             row.favorite_toggled.connect(self._on_row_favorite_toggled)
             row.run_requested.connect(self.run_requested.emit)

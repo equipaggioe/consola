@@ -322,24 +322,61 @@ class TabPanel(ReorderableBar, QWidget):
         head = QWidget()
         head.setStyleSheet(f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(head)
-        lay.setContentsMargins(16, 12, 16, 12)
+        lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
 
         self.right_header_icon = QLabel(self.project.icon or "◇")
         self.right_header_icon.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_LG}px;")
+
+        titles = QVBoxLayout()
+        titles.setContentsMargins(0, 0, 0, 0)
+        titles.setSpacing(1)
         self.right_header_name = QLabel(self.project.name)
         self.right_header_name.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
         )
-        lay.addWidget(self.right_header_icon)
-        lay.addWidget(self.right_header_name)
-        lay.addStretch()
+        # Que hace la accion abierta, en el unico lugar donde ya se la mira
+        # antes de apretar Ejecutar. Sin accion abierta queda vacio.
+        self.right_header_desc = QLabel("")
+        self.right_header_desc.setWordWrap(True)
+        self.right_header_desc.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
+        )
+        self.right_header_desc.setVisible(False)
+        titles.addWidget(self.right_header_name)
+        titles.addWidget(self.right_header_desc)
+
+        self.right_header_level = QLabel("")
+        self.right_header_level.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
+        self.right_header_level.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
+
+        lay.addWidget(self.right_header_icon, 0, Qt.AlignmentFlag.AlignTop)
+        lay.addLayout(titles, 1)
+        lay.addWidget(self.right_header_level, 0, Qt.AlignmentFlag.AlignTop)
         return head
 
-    def _set_right_header(self, icon: str, name: str) -> None:
+    def _set_right_header(self, icon: str, name: str,
+                          capability: Capability | None = None) -> None:
         self.right_header_icon.setText(icon or "◇")
         self.right_header_name.setText(name)
+
+        desc = capability.description if capability else ''
+        self.right_header_desc.setText(desc)
+        self.right_header_desc.setVisible(bool(desc))
+
+        if capability is None:
+            self.right_header_level.setText("")
+            self.right_header_level.setToolTip("")
+            return
+        composite = capability.is_composite
+        self.right_header_level.setText(
+            f"{LevelMark.COMPOSITE if composite else LevelMark.ATOMIC}  {capability.level_label.lower()}")
+        self.right_header_level.setToolTip(
+            "Compuesta: encadena varias acciones atómicas" if composite
+            else "Atómica: un solo paso, idempotente")
 
     def _build_welcome(self) -> QWidget:
         w = QWidget()
@@ -417,11 +454,14 @@ class TabPanel(ReorderableBar, QWidget):
                 return self._consoles[tab]
 
         tab = SubTabButton(title, capability.icon, self.accent)
+        tab.setToolTip(capability.description)
         self.tabs_layout.addWidget(tab)
         self.tabs.append(tab)
 
         console = ConsoleView(self.content_area)
         console.append_log(f"─── {capability.name} ───", "info")
+        if capability.description:
+            console.append_log(capability.description, "info")
         console.append_log("Ajusta los parámetros a la derecha y pulsa Ejecutar.", "info")
         self.content_area.addWidget(console)
         self._consoles[tab] = console
@@ -503,7 +543,8 @@ class TabPanel(ReorderableBar, QWidget):
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
             self.env_panel.filter_for(panel.relevant_keys())
-            self._set_right_header(panel.capability.icon, panel.capability.name)
+            self._set_right_header(panel.capability.icon, panel.capability.name,
+                                   panel.capability)
             QTimer.singleShot(0, self._fit_params_height)
 
     def _collapse_params(self) -> None:
