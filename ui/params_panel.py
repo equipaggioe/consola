@@ -103,7 +103,7 @@ class ParamsPanel(QWidget):
         self._checks[axis.name] = {}
         for value in axis.values:
             check = QCheckBox(value)
-            check.setChecked(True)  # por defecto todas: replica el comportamiento de hoy
+            check.setChecked(axis.checked_by_default)
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.stateChanged.connect(self._refresh_summary)
             self._checks[axis.name][value] = check
@@ -281,6 +281,15 @@ class ParamsPanel(QWidget):
         self.accent = accent
         self._restyle_run()
 
+    def refresh_run_state(self) -> None:
+        """Repone el boton Ejecutar segun los blockers actuales.
+
+        Publico para quien deshabilito el boton desde afuera mientras corria
+        de verdad (`ui/tab_panel.py::_run_real`) y necesita devolverselo al
+        estado que le corresponde, no simplemente a habilitado.
+        """
+        self._refresh_summary()
+
     def natural_height(self) -> int:
         """Alto que necesita para mostrar todo su contenido sin scroll, para
         que el panel de `.env` se quede con el resto del espacio vertical."""
@@ -315,7 +324,7 @@ class ParamsPanel(QWidget):
         """Razones por las que 'Ejecutar' no puede correr."""
         reasons = []
         for axis in self.capability.multi_axes:
-            if not self.selection(axis.name):
+            if not axis.allow_empty and not self.selection(axis.name):
                 reasons.append(f"selecciona al menos un valor en {axis.display.lower()}")
         if not self.active_steps():
             reasons.append("selecciona al menos un paso")

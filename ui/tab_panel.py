@@ -7,13 +7,15 @@ from PySide6.QtCore import Qt, Signal, QRectF, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
-from core.registry import Capability
+from core.registry import Capability, registry
 from core.projects import Project
 from ui.console_view import ConsoleView
 from ui.params_panel import ParamsPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
-from ui.widgets import ReorderableTab, ReorderableBar
+from ui.widgets import ReorderableTab, ReorderableBar, LevelMark
+from ui.task_adapters import ADAPTERS
+from ui.task_runner import TaskRunner
 
 
 class SubTabButton(ReorderableTab, QWidget):
@@ -308,6 +310,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.tabs: list[SubTabButton] = []
         self._consoles: dict[SubTabButton, ConsoleView] = {}
         self._params: dict[SubTabButton, ParamsPanel] = {}
+        self._runners: set[TaskRunner] = set()  # referencias vivas: sin esto Qt las recolecta a mitad de hilo
 
         QTimer.singleShot(0, self._collapse_params)
 
@@ -524,10 +527,43 @@ class TabPanel(ReorderableBar, QWidget):
             panel.set_env(values)
 
     def _run(self, tab: SubTabButton, payload: dict) -> None:
-        """Ejecucion simulada: reporta exactamente lo que correria (stub, PLAN.md §10)."""
+        """Punto unico de 'Ejecutar': corre de verdad lo que ya tiene cuerpo
+        (`func`) y adaptador (`ui/task_adapters.py`); el resto sigue
+        simulado, para que el rail y el panel funcionen igual mientras se
+        conecta boton por boton (PLAN.md §10)."""
         console = self._consoles.get(tab)
         if console is None:
             return
+
+        capability = registry.get_capability(payload['capability_id'])
+        adapter = ADAPTERS.get(payload['capability_id'])
+        if capability is not None and capability.func is not None and adapter is not None:
+            self._run_real(tab, console, capability, adapter(payload))
+        else:
+            self._run_stub(console, payload)
+
+    def _run_real(self, tab: SubTabButton, console: ConsoleView,
+                  capability: Capability, kwargs: dict) -> None:
+        console.append_log("─" * 46, "info")
+        panel = self._params.get(tab)
+        if panel is not None:
+            panel.run_btn.setEnabled(False)
+
+        runner = TaskRunner(capability.id, self.project, capability.func, kwargs)
+        runner.logged.connect(console.append_log)
+
+        def _on_done(ok: bool) -> None:
+            console.append_log("Hecho" if ok else "Terminó con errores", "ok" if ok else "error")
+            self._runners.discard(runner)
+            if panel is not None:
+                panel.refresh_run_state()
+
+        runner.finished_ok.connect(_on_done)
+        self._runners.add(runner)  # referencia viva mientras el hilo corre
+        runner.start()
+
+    def _run_stub(self, console: ConsoleView, payload: dict) -> None:
+        """Ejecucion simulada: reporta exactamente lo que correria (stub, PLAN.md §10)."""
         console.append_log("─" * 46, "info")
 
         variants = {k: v for k, v in payload['variants'].items() if v}
