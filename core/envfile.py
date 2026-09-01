@@ -14,6 +14,13 @@ def config_path(repo_path: str) -> str:
     return os.path.join(repo_path, CONSOLA_DIR, CONFIG_NAME)
 
 
+def repo_name_of(repo_path: str) -> str:
+    """El nombre que `VPS_USER`/`DB_NAME` usan como default cuando el repo no
+    especifica otra cosa: la carpeta del proyecto, igual que hacian los
+    scripts (`repo_root.name`)."""
+    return os.path.basename(os.path.normpath(repo_path))
+
+
 def parse_env(text: str) -> dict[str, str]:
     values: dict[str, str] = {}
     for raw in text.splitlines():
@@ -44,6 +51,14 @@ def has_config(repo_path: str) -> bool:
     return os.path.isfile(config_path(repo_path))
 
 
+# Descripcion generica del default dinamico, para el archivo plantilla (que no
+# es de ningun repo en particular y no puede resolverlo a un valor concreto).
+_DYNAMIC_DEFAULT_HINTS = {
+    'VPS_USER': 'nombre del repo',
+    'DB_NAME': '<VPS_USER>_db',
+}
+
+
 def describe(setting) -> str:
     """Renglon de comentario de una clave: para que sirve y que se espera.
 
@@ -59,6 +74,8 @@ def describe(setting) -> str:
         bits.append(f'ej. {setting.placeholder}')
     elif setting.default:
         bits.append(f'por defecto: {setting.default}')
+    elif setting.key in _DYNAMIC_DEFAULT_HINTS:
+        bits.append(f'por defecto: {_DYNAMIC_DEFAULT_HINTS[setting.key]}')
     return ' · '.join(bits)
 
 
@@ -177,20 +194,45 @@ class Config:
 
     @classmethod
     def for_project(cls, repo_path: str) -> 'Config':
-        return cls(load_config(repo_path), repo_name=os.path.basename(os.path.normpath(repo_path)))
+        return cls(load_config(repo_path), repo_name=repo_name_of(repo_path))
 
     def __contains__(self, key: str) -> bool:
         return bool(self.values.get(key, '').strip())
 
     def get(self, key: str, default: str = '') -> str:
-        """Valor, con el default del esquema como red antes que el default suelto."""
+        """Valor, con el default del esquema como red antes que el default suelto.
+
+        Dos clases de default, en orden: el fijo de `Setting.default` (mismo
+        para cualquier repo, ej. `ROOT_USER='root'`) y el dinamico de abajo,
+        que depende de ESTE repo (ej. `VPS_USER` -> su nombre de carpeta). Los
+        dos son "lo que la accion va a usar si el campo queda vacio", asi que
+        una clave con cualquiera de los dos nunca cuenta como faltante
+        (`missing()`, y con ella `ui/params_panel.py::_missing_keys`) — bloquear
+        un boton por un campo que igual se va a resolver solo era el bug.
+        """
         raw = self.values.get(key, '').strip()
         if raw:
             return raw
         setting = get_setting(key)
         if setting and setting.default:
             return setting.default
+        dynamic = self._dynamic_default(key)
+        if dynamic:
+            return dynamic
         return default
+
+    def _dynamic_default(self, key: str) -> str:
+        """Los dos valores que los scripts originales derivaban a mano en vez
+        de pedirlos (`optional_env('VPS_USER', repo_root.name)`, y desde ahi
+        `f'{vps_user}_db'`): el nombre del repo, y el de la base a partir del
+        usuario ya resuelto — por eso `DB_NAME` llama de vuelta a `self.get`.
+        """
+        if key == 'VPS_USER':
+            return self.repo_name
+        if key == 'DB_NAME':
+            user = self.get('VPS_USER')
+            return f'{user}_db' if user else ''
+        return ''
 
     def require(self, key: str) -> str:
         value = self.get(key)

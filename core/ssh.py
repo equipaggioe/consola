@@ -87,7 +87,7 @@ def resolve_remote(config: Config, *, user: str = '') -> Remote:
     """
     return Remote(
         host=config.require('VPS_IP'),
-        user=user or config.get('VPS_USER') or config.repo_name,
+        user=user or config.get('VPS_USER'),
         identity=resolve_identity(config.require('VPS_KEY_NAME')),
     )
 

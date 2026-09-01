@@ -16,7 +16,7 @@ class EnvRow(QWidget):
     """Una clave del esquema: etiqueta, campo y, si es secreta, ojo para revelar."""
     changed = Signal()
 
-    def __init__(self, setting: Setting, value: str, accent: str, parent=None):
+    def __init__(self, setting: Setting, value: str, accent: str, default_display: str = '', parent=None):
         super().__init__(parent)
         self.setting = setting
         self.accent = accent
@@ -34,7 +34,10 @@ class EnvRow(QWidget):
         )
 
         self.field = QLineEdit(value)
-        self.field.setPlaceholderText(setting.placeholder or setting.default or setting.key)
+        # `default_display` es el default ya resuelto para ESTE repo (fijo o
+        # dinamico, ej. VPS_USER -> nombre de carpeta): dejar el campo vacio
+        # no es un error, corre con lo que se ve de marca de agua aca.
+        self.field.setPlaceholderText(setting.placeholder or default_display or setting.key)
         if setting.secret:
             self.field.setEchoMode(QLineEdit.EchoMode.Password)
         self.field.textChanged.connect(self._on_text)
@@ -110,6 +113,10 @@ class EnvPanel(QWidget):
         self.rows: dict[str, EnvRow] = {}
         self._row_group: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
+        # Config vacio (sin valores, solo el repo): sirve para preguntarle
+        # "que usarias vos" y que conteste con el default fijo o dinamico
+        # (VPS_USER, DB_NAME) sin mezclarlo con lo que haya escrito el usuario.
+        self._defaults = envfile.Config(repo_name=envfile.repo_name_of(project.path))
 
         self.setStyleSheet(f"EnvPanel {{ background: {Colors.SURFACE}; }}")
 
@@ -208,7 +215,7 @@ class EnvPanel(QWidget):
             )
             block.addWidget(header)
             for setting in settings:
-                row = EnvRow(setting, '', self.accent)
+                row = EnvRow(setting, '', self.accent, default_display=self._defaults.get(setting.key))
                 row.changed.connect(self._on_row_changed)
                 self.rows[setting.key] = row
                 self._row_group[setting.key] = block_widget

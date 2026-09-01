@@ -261,11 +261,11 @@ la versión que el manifiesto ya tiene y subirla cambiada lo anunciaría como ot
 VPS el `pubspec.yaml` es lo único que lo identifica. Subir solo el binario deja al servidor
 anunciando la versión anterior, así que `_publish()` manda los dos o no manda ninguno.
 
-**`build_only` es un modo de bump nuevo** (`core/versioning.py`), y existe solo por el build number
-de Flutter: republicar el mismo `X.Y.Z` con un código nuevo, que es lo que se pide cuando el cambio
-no le cambia nada al usuario. En un manifiesto sin `+N` falla en vez de devolver la versión intacta
-como si hubiera hecho algo. Además `bump_mode` pasó de campo escrito a opción excluyente: es una
-lista cerrada de cinco valores, no un texto libre.
+**`bump_mode` pasó de campo escrito a opción excluyente**, y luego a algo más preciso que eso: el
+componente SemVer (`major`/`minor`/`patch`/`none`) es una elección excluyente, pero **subir el build
+number es independiente y se combina con cualquiera de las cuatro** (§4.4) — `patch` sola deja el
+build number igual, `patch`+`build` sube los dos. Es el mismo desglose que el script original tenía
+como `patch_only` vs. `patch+build`, solo que ahora son dos controles en vez de cuatro strings mágicos.
 
 **Validación previa, por paso y no por capacidad.** `API_URL` la necesita compilar (va por
 `--dart-define`), y las cuatro claves de VPS las necesita subir. Las dos van en `requires_env` del
@@ -296,9 +296,12 @@ Cómo se ve, según lo que haya en el repo:
 
 | Apps encontradas | Panel | Payload |
 |---|---|---|
-| una (el caso de los 8 repos) | **no dibuja selector** — un control de un solo valor es ruido | `app: 'app'` igual, para que el historial diga cuál se usó |
+| una (el caso de los 8 repos) | se dibuja igual, **marcada y sin poder desmarcarse** — se ve cuál es, sin dejar elegir algo que no existe | `app: 'app'` |
 | dos o más | opciones excluyentes, ordenadas por nombre | la elegida |
 | ninguna | botón en ámbar: *«no hay app móvil en este repo»* | — |
+
+(El caso "una sola opción se dibuja bloqueada en vez de ocultarse" cambió de rumbo una vez — ver
+§4.4 — y quedó documentado ahí junto con el resto de la revisión de ejes.)
 
 El ámbar del último caso es un blocker propio, distinto del genérico: un eje descubierto vacío no es
 "olvidaste elegir", es que el repo no tiene eso, y pedir que elija de una lista vacía sería absurdo.
@@ -308,14 +311,74 @@ El mismo mecanismo se aplicó a `build_vite`, `serve_vite` y `run_mobile`, que h
 que no hay que hacer. Y `run_mobile` perdió su eje `framework` de dos casillas por la misma razón que
 `build_apk` no lo tiene.
 
-**Lo único que Flutter y Flet no comparten** es `bump_mode='build_only'`: necesita el `+N` de
-`pubspec.yaml` y en un `pyproject.toml` no significa nada. Falla al primer paso, antes de compilar,
+**Lo único que Flutter y Flet no comparten** es el `+build` de `bump_mode` (§4.4): necesita el `+N`
+de `pubspec.yaml` y en un `pyproject.toml` no significa nada. Falla al primer paso, antes de compilar,
 con ese mensaje. No justifica dos botones — es validez por valor de eje, no otra capacidad.
 
 **Sin verificar:** la inyección de `API_BASE_URL` en el build de Flet. `flet build` delega en el
 `flutter build` de abajo, así que el `--dart-define` debería llegar (y se manda también por entorno),
 pero no hay ningún repo Flet a mano para comprobarlo. Es el único paso de este flujo que sigue a
 ciegas, y está marcado como tal en el código.
+
+### 4.4 — El eje bloqueado, el bump combinable y el default que ya no bloquea
+
+Tres ajustes sobre uso real de `build_apk`, después de mirarlo andar.
+
+**Ocultar el selector de una sola opción se revirtió.** §4.3 lo dibujaba así — "un control de un
+solo valor es ruido" — pero eso escondía justo la información que el botón necesita mostrar: *cuál*
+app se va a compilar cuando el repo tiene una. Ahora `_build_options()` sigue dibujando el eje con
+un único valor excluyente, pero marcado y con `setEnabled(False)`: se ve, no se puede tocar. Aplica a
+cualquier eje de un solo valor, no solo a `app` — `AxisDef.exclusive_values` es lo que cuenta para
+decidirlo, no `values` a secas (por el punto siguiente).
+
+**`bump_mode` dejó de ser una lista de un solo valor.** Subir el build number ya no es una variante
+más entre `major`/`minor`/`patch`/`build`/`none`: es un interruptor que se combina con cualquiera de
+las otras cuatro, que sí son excluyentes entre sí. `AxisDef` ganó dos campos para esto:
+
+```python
+combine: set[str] = field(default_factory=set)  # valores que stackean, fuera del grupo excluyente
+default: str = ''                                # cual arranca marcado; vacio = el primero
+```
+
+`_BUMP_AXIS()` en `core/catalog.py` declara `combine={'build'}, default='patch'` sobre
+`['major', 'minor', 'patch', 'build', 'none']` — ese es el orden de lectura pedido, con `build` entre
+`patch` y `none` en vez de aislado en su propia sección. El panel dibuja los cuatro excluyentes en un
+`QButtonGroup` y `build` como casilla suelta al lado; el payload de un eje con `combine` viaja como
+lista (`['patch', 'build']`) en vez de un string, y `ui/task_adapters.py::_bump_mode()` la arma de
+vuelta a lo que entiende `versioning.bump()`: `'patch+build'`, `'build'` (= el viejo `build_only`),
+`'major+build'`... `core/versioning.py::bump()` interpreta esa cadena con `_parse_mode()` — separa el
+componente SemVer del `+build` y los aplica por separado.
+
+**Un default con el que la acción igual puede correr ya no bloquea el botón.** Este era un bug
+general, no solo de `build_apk`: `VPS_USER` vacío bloqueaba en ámbar *«faltan claves: VPS_USER»`
+aunque `core/ssh.py`/`core/database.py` ya sabían resolverlo solos al nombre del repo — el campo
+vacío nunca iba a llegar vacío a la función real. Lo mismo le pasaba de encubierto a cualquier
+`Setting` con `default` fijo (`ROOT_USER='root'`, `VPS_PYTHON`, `PG_SUPERUSER`...): `Config.get()` ya
+aplicaba ese default al correr, pero `ui/params_panel.py::_missing_keys()` miraba el texto crudo del
+campo en vez de preguntarle a un `Config`, así que igual bloqueaba.
+
+La causa era una sola: dos caminos para la misma pregunta ("¿qué valor va a usar esto?"), uno en
+`core/envfile.py::Config.get()` y otro, más ingenuo, en el panel. Se unificaron en el primero:
+
+- `Config.get()` gana un segundo nivel de default, dinámico y por repo, además del fijo de
+  `Setting.default`: `VPS_USER` cae en `self.repo_name` (el nombre de la carpeta — lo que
+  `optional_env("VPS_USER", repo_root.name)` hacía en el script original) y `DB_NAME` cae en
+  `f'{vps_user}_db'` llamando de vuelta a `self.get('VPS_USER')`, así que encadena bien si las dos
+  quedan vacías. Los cinco lugares que reimplementaban `config.get('VPS_USER') or config.repo_name`
+  a mano (`ssh.py`, `database.py`, `vps_ops.py`, dos en `vps_setup.py`) quedaron en un `config.get()`
+  solo.
+- `_missing_keys()` ahora arma un `Config(self._env, repo_name=...)` con lo que hay tipeado en el
+  panel de configuración y le pregunta a *ese*, no al diccionario crudo — exactamente la misma
+  pregunta que se hace en tiempo de ejecución. Una clave con default fijo o dinámico deja de contar
+  como faltante.
+- `ui/env_panel.py::EnvRow` muestra ese mismo default como marca de agua del campo — antes cualquier
+  default no literal (`VPS_USER`) mostraba el nombre de la clave a secas. `EnvPanel` arma un `Config`
+  vacío (sin valores, solo `repo_name`) una vez por proyecto y se lo pasa a cada fila: la sugerencia
+  que se ve es la que de verdad se va a usar si el campo queda en blanco, no una genérica.
+
+`core/envfile.py` ganó `repo_name_of(path)` (el `os.path.basename(os.path.normpath(...))` que antes
+solo vivía dentro de `Config.for_project`) para no triplicarlo entre `Config`, `EnvPanel` y
+`ParamsPanel`.
 
 ### `core/session.py` — estado de sesión
 `run_server.py` escribía `SERVER_PORT` en `scripts/.env` para que `run_terminal.py` y `run_vite.py`

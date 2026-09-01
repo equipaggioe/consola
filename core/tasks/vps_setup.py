@@ -79,7 +79,7 @@ def refresh_known_host(ctx) -> str:
 
 def ensure_remote_user(ctx) -> str:
     """Crea el usuario de despliegue en el VPS y lo agrega al grupo sudo."""
-    user = ctx.config.get('VPS_USER') or ctx.config.repo_name
+    user = ctx.config.get('VPS_USER')
     quoted = ssh.quote(user)
     ctx.run(_root_argv(ctx, (
         f'if id -u {quoted} >/dev/null 2>&1; then echo "[OK] El usuario ya existe."; '
@@ -101,7 +101,7 @@ def configure_sudo(ctx, mode: str = 'all') -> str:
         ctx.info('Modo "none": no se toca el sudoers.')
         return mode
 
-    user = ctx.config.get('VPS_USER') or ctx.config.repo_name
+    user = ctx.config.get('VPS_USER')
     archivo = f'/etc/sudoers.d/consola-{user}'
     if mode == 'all':
         reglas = f'{user} ALL=(ALL) NOPASSWD: ALL'
@@ -122,7 +122,7 @@ def install_public_key(ctx) -> str:
     key_name = ctx.config.require('VPS_KEY_NAME')
     privada = ssh.ensure_local_keypair(ctx, key_name, comment=ctx.config.repo_name)
     publica = ssh.public_key(privada)
-    user = ctx.config.get('VPS_USER') or ctx.config.repo_name
+    user = ctx.config.get('VPS_USER')
 
     ctx.run(_root_argv(ctx, (
         f'home="$(getent passwd {ssh.quote(user)} | cut -d: -f6)"; '

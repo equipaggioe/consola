@@ -170,7 +170,7 @@ def remove_vps_user(ctx) -> bool:
     """Borra el usuario de despliegue y su home. Se corre como root."""
     from .vps_setup import _root_argv
 
-    user = ctx.config.get('VPS_USER') or ctx.config.repo_name
+    user = ctx.config.get('VPS_USER')
     ctx.run(_root_argv(ctx, (
         f'if id -u {ssh.quote(user)} >/dev/null 2>&1; then '
         f'  pkill -u {ssh.quote(user)} || true; '

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 
 from ui.theme import Colors, Fonts
+from core import envfile
 from core.catalog import for_project
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
@@ -409,11 +410,21 @@ class ParamsPanel(QWidget):
     # --- interno --------------------------------------------------------
 
     def _missing_keys(self) -> list[str]:
+        """Claves sin las que la accion no puede correr — de verdad, no solo
+        sin texto en el campo.
+
+        Antes miraba el texto crudo del campo: una clave con default fijo
+        (`ROOT_USER='root'`) o dinamico (`VPS_USER` -> nombre del repo, ya
+        resuelto por `Config.get`) quedaba en ambar aunque la funcion real
+        jamas la fuera a extranar. Envolver `self._env` en un `Config` hace
+        la misma pregunta que se hace en tiempo de ejecucion.
+        """
         needed = set(required_keys_for(self.capability.id))
         for step in self.active_steps():
             needed |= step.requires_env
             needed |= set(required_keys_for(step.id))
-        return sorted(k for k in needed if not self._env.get(k, '').strip())
+        cfg = envfile.Config(self._env, repo_name=envfile.repo_name_of(self.project.path))
+        return sorted(k for k in needed if not cfg.get(k))
 
     def blockers(self) -> list[str]:
         """Publico para el rail: por que no se puede correr sin abrir la

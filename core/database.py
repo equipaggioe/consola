@@ -86,9 +86,11 @@ class Connection:
 
 
 def credentials(config: Config) -> tuple[str, str, str]:
-    user = config.get('VPS_USER') or config.repo_name
+    # Los defaults de VPS_USER (nombre del repo) y DB_NAME (`{user}_db`) los
+    # resuelve `Config.get` solo; no hay que repetirlos aca.
+    user = config.get('VPS_USER')
     password = config.require('DB_PASSWORD')
-    name = config.get('DB_NAME') or f'{user}_db'
+    name = config.get('DB_NAME')
     return user, password, name
 
 
@@ -192,7 +194,7 @@ def resolve_admin(ctx, scope: str = LOCAL) -> Admin:
     if scope == REMOTE:
         return Admin(REMOTE, remote=ssh.resolve_remote(ctx.config))
 
-    superuser = ctx.config.get('PG_SUPERUSER') or 'postgres'
+    superuser = ctx.config.get('PG_SUPERUSER')  # Setting.default='postgres' ya cubre el vacio
     password = ctx.config.require('PG_PASSWORD')
     ctx.guard(password)
     argv = [str(_windows_psql()), '-U', superuser, '-h', '127.0.0.1', '-p', str(local_port())]
