@@ -53,7 +53,12 @@ ANDROID_PACKAGE_AXES = [
 FAMILY_AXIS_VALUES = ['Python', 'Gradle/Android', 'Flutter', 'Volcados de crash']
 HEAVY_AXIS_VALUES = ['node_modules', '.venv', 'build/dist', '.dart_tool']
 
-BUMP_MODES = ['patch', 'build_only', 'minor', 'major', 'none']
+# Orden de lectura: primero el componente SemVer de menos a mas peso... salvo
+# que la costumbre es al reves. Se muestran mayor->menor y `build` (que stackea
+# con cualquiera) queda antes de `none`. El default real es `patch`.
+BUMP_MODES = ['major', 'minor', 'patch', 'build', 'none']
+_BUMP_AXIS = lambda: AxisDef('bump_mode', BUMP_MODES, 'scope', label='Bump',
+                             combine={'build'}, default='patch')
 
 # El paso nucleo va en su orden real, entre el bump y la subida. A diferencia
 # de los otros dos builders, 'Compilar APK' si se puede desmarcar: sin
@@ -101,8 +106,8 @@ def load_catalog() -> None:
     # framework no se pregunta aparte porque viaja dentro del target elegido.
     # `bump_mode` es una lista cerrada, no un texto: va como opción excluyente
     # (igual que `dry_run` en clean_artifacts) y no como campo escrito.
-    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', description='Sube la versión, compila el APK y opcionalmente lo publica en el VPS.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP), AxisDef('bump_mode', BUMP_MODES, 'scope', label='Bump')], steps=BUILD_APK_STEPS, stub=True))
-    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), AxisDef('bump_mode', BUMP_MODES, 'scope', label='Bump')], steps=BUILD_VITE_STEPS, stub=True))
+    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', description='Sube la versión, compila el APK y opcionalmente lo publica en el VPS.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP), _BUMP_AXIS()], steps=BUILD_APK_STEPS, stub=True))
+    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _BUMP_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
     registry.register(Capability(id='build_binary', name='Build binario', group='Builders', section='Build binario', kind='once', icon='⚡', description='Sube la versión, compila el ejecutable y opcionalmente lo publica.', steps=BUILD_BINARY_STEPS, stub=True))
     registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', description='Promueve el último artefacto subido al canal de producción.', stub=True))
 

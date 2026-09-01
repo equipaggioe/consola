@@ -225,8 +225,9 @@ def build_apk(
 
     Un solo boton para Flutter y para Flet. `directory` nombra *cual* app del
     repo, no con que esta escrita: el framework sale de la carpeta. Lo unico
-    que no se comparte es `bump_mode='build_only'`, que necesita el `+N` de
-    `pubspec.yaml` y falla con ese mensaje en un `pyproject.toml`.
+    que no se comparte es el `+build` de `bump_mode` (subir el build number),
+    que necesita el `+N` de `pubspec.yaml` y falla con ese mensaje en un
+    `pyproject.toml` de Flet.
 
     Sin `build` no se compila nada: se sube el APK que ya esta en disco. Es el
     modo que el script original activaba con `BUILD_APK=false`, y el motivo de

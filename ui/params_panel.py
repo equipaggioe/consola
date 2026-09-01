@@ -44,7 +44,6 @@ class ParamsPanel(QWidget):
 
         self._checks: dict[str, dict[str, QCheckBox]] = {}   # axis -> value -> check
         self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
-        self._implicit: dict[str, str] = {}                  # axis -> unico valor, sin widget
         self._fields: dict[str, QLineEdit] = {}              # axis -> valor escrito
         self._option_groups: list[QButtonGroup] = []
         self._step_checks: dict[str, QCheckBox] = {}
@@ -92,15 +91,10 @@ class ParamsPanel(QWidget):
         if len(self.steps) > 1:
             lay.addWidget(self._build_steps())
 
-        # Un eje de un solo valor no es una eleccion: dibujar un selector con
-        # una opcion es ruido. El valor se recuerda igual para que viaje en el
-        # payload y el historial diga cual se uso.
-        singles = []
-        for axis in self.capability.single_axes:
-            if len(axis.values) > 1:
-                singles.append(axis)
-            elif axis.values:
-                self._implicit[axis.name] = axis.values[0]
+        # Un eje de un solo valor tampoco se elige, pero se muestra igual:
+        # marcado y deshabilitado, para que se vea CUAL es (que app móvil, que
+        # target) sin dejar quitarlo. `_build_options` lo dibuja asi.
+        singles = [a for a in self.capability.single_axes if a.values]
         if singles:
             lay.addWidget(self._build_options(singles))
 
@@ -215,14 +209,23 @@ class ParamsPanel(QWidget):
             group.setExclusive(True)
             self._option_groups.append(group)
             self._options[axis.name] = {}
-            for i, value in enumerate(axis.values):
+            # Un eje con un solo valor excluyente no se elige: se muestra fijo.
+            locked = len(axis.exclusive_values) <= 1 and not axis.combine
+            for value in axis.values:
                 check = QCheckBox(value)
                 check.setCursor(Qt.CursorShape.PointingHandCursor)
                 if value in axis.danger:
                     check.setStyleSheet(f"QCheckBox {{ color: {Colors.ERROR}; }}")
-                if i == 0:
-                    check.setChecked(True)
-                group.addButton(check)
+                if value in axis.combine:
+                    # Toggle independiente: fuera del grupo, arranca apagado.
+                    check.setChecked(False)
+                else:
+                    group.addButton(check)
+                    check.setChecked(value == axis.initial)
+                    if locked:
+                        check.setChecked(True)
+                        check.setEnabled(False)
+                        check.setCursor(Qt.CursorShape.ArrowCursor)
                 check.toggled.connect(self._refresh_summary)
                 self._options[axis.name][value] = check
                 row.addWidget(check)
@@ -275,7 +278,21 @@ class ParamsPanel(QWidget):
         for value, check in self._options.get(axis_name, {}).items():
             if check.isChecked():
                 return value
-        return self._implicit.get(axis_name, '')
+        return ''
+
+    def option_values(self, axis_name: str) -> list[str]:
+        return [v for v, c in self._options.get(axis_name, {}).items() if c.isChecked()]
+
+    def _axis(self, axis_name: str) -> AxisDef | None:
+        return next((a for a in self.capability.axes if a.name == axis_name), None)
+
+    def _option_payload(self, axis_name: str):
+        """Un eje con `combine` puede tener dos marcas a la vez (p. ej.
+        `patch` + `build`): viaja como lista. El resto, como un solo valor."""
+        axis = self._axis(axis_name)
+        if axis and axis.combine:
+            return self.option_values(axis_name)
+        return self.option_value(axis_name)
 
     def field_value(self, axis_name: str) -> str:
         field = self._fields.get(axis_name)
@@ -286,7 +303,7 @@ class ParamsPanel(QWidget):
         return {
             'variants': {name: self.selection(name) for name in self._checks},
             'steps': [s.id for s in self.active_steps()],
-            'options': {name: self.option_value(name) for name in (*self._options, *self._implicit)},
+            'options': {name: self._option_payload(name) for name in self._options},
             'fields': {name: self.field_value(name) for name in self._fields},
         }
 
@@ -313,9 +330,20 @@ class ParamsPanel(QWidget):
 
             options = state.get('options') or {}
             for axis_name, checks in self._options.items():
-                value = options.get(axis_name)
-                if value in checks:
-                    checks[value].setChecked(True)
+                saved = options.get(axis_name)
+                if saved is None:
+                    continue
+                marcados = set(saved) if isinstance(saved, list) else {saved}
+                axis = self._axis(axis_name)
+                combine = axis.combine if axis else set()
+                for value, check in checks.items():
+                    if not check.isEnabled():
+                        continue   # eje fijo: su marca no se toca
+                    if value in combine:
+                        # Un guardado sin este valor = toggle desmarcado.
+                        check.setChecked(value in marcados)
+                    elif value in marcados:
+                        check.setChecked(True)   # el grupo excluyente desmarca al resto
 
             fields = state.get('fields') or {}
             for axis_name, field in self._fields.items():
@@ -339,7 +367,7 @@ class ParamsPanel(QWidget):
             'project': self.project.name,
             'variants': {name: self.selection(name) for name in self._checks},
             'steps': [s.id for s in self.active_steps()],
-            'options': {name: self.option_value(name) for name in (*self._options, *self._implicit)},
+            'options': {name: self._option_payload(name) for name in self._options},
             'fields': {name: self.field_value(name) for name in self._fields},
             'missing_env': self._missing_keys(),
         }

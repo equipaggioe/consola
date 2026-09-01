@@ -6,7 +6,12 @@ from pathlib import Path
 from .errors import TaskError
 from .files import read_text, write_text
 
-MODES = ('patch', 'build_only', 'minor', 'major', 'none')
+# El modo tiene dos partes independientes: que componente SemVer subir
+# (`major`/`minor`/`patch`/`none`) y si ademas incrementar el build number
+# (`+build`). Se combinan: `patch+build`, `major+build`, etc. `build` a secas
+# equivale a `none+build` — republicar el mismo X.Y.Z con codigo nuevo.
+SEMVER_PARTS = ('major', 'minor', 'patch', 'none')
+MODES = ('major', 'minor', 'patch', 'build', 'none')
 
 # Cada manifiesto guarda la version en su propio formato; el resto del flujo
 # no tiene por que enterarse de cual es (PLAN.md 2.2: bump_version es una sola
@@ -18,21 +23,36 @@ _SEMVER = re.compile(r'^(\d+)\.(\d+)(?:\.(\d+))?(?:\+(\d+))?$')
 MANIFEST_NAMES = ('pubspec.yaml', 'package.json', 'pyproject.toml')
 
 
+def _parse_mode(mode: str) -> tuple[str, bool]:
+    """`'patch+build'` -> `('patch', True)`. `'build'` -> `('none', True)`."""
+    piezas = [p for p in (mode or 'patch').strip().lower().split('+') if p]
+    if not piezas:
+        piezas = ['patch']
+    base = piezas[0]
+    con_build = base == 'build' or 'build' in piezas[1:]
+    if base == 'build':
+        base = 'none'
+    if base not in SEMVER_PARTS or any(p not in ('build',) for p in piezas[1:]):
+        raise TaskError(f'Modo de bump invalido: {mode!r}. Usa {" | ".join(MODES)}, '
+                        f'combinando "build" con los demas (p. ej. patch+build).')
+    return base, con_build
+
+
 def bump(version: str, mode: str) -> str:
     """Incrementa una version SemVer conservando el formato de entrada.
 
-    Respeta el build number de Flutter (`1.4.22+318`), que sube siempre junto
-    con la version: Play Store rechaza un APK que repita el codigo anterior.
+    El modo tiene dos partes que se combinan (ver `MODES`): el componente
+    SemVer a subir y, con `+build`, el build number de Flutter (`1.4.22+318`).
+    Son independientes a proposito: `patch` sube solo `X.Y.Z` y deja el codigo
+    igual; `patch+build` sube los dos; `build` a secas republica el mismo
+    `X.Y.Z` con codigo nuevo, que es lo que se pide cuando el cambio no le
+    cambia nada al usuario.
 
-    `build_only` existe por ese mismo build number, al reves: republicar el
-    mismo `X.Y.Z` con un codigo nuevo, que es lo que se pide cuando el cambio
-    no le cambia nada al usuario. Sin `+N` no significa nada, y falla en vez de
-    devolver la version intacta como si hubiera hecho algo.
+    El build number solo existe en `pubspec.yaml`. Pedir `+build` sobre una
+    version sin `+N` falla en vez de fingir que hizo algo.
     """
-    mode = (mode or 'patch').strip().lower()
-    if mode not in MODES:
-        raise TaskError(f'Modo de bump invalido: {mode!r}. Usa {" | ".join(MODES)}.')
-    if mode == 'none':
+    base, con_build = _parse_mode(mode)
+    if base == 'none' and not con_build:
         return version
 
     match = _SEMVER.match(version.strip())
@@ -43,23 +63,22 @@ def bump(version: str, mode: str) -> str:
     major, minor = int(major), int(minor)
     patch = int(patch) if patch is not None else None
 
-    if mode == 'major':
+    if base == 'major':
         major, minor, patch = major + 1, 0, (0 if patch is not None else None)
-    elif mode == 'minor':
+    elif base == 'minor':
         minor, patch = minor + 1, (0 if patch is not None else None)
-    elif mode == 'build_only':
-        if build is None:
-            raise TaskError(
-                f'{version!r} no tiene build number (+N): build_only solo aplica a pubspec.yaml.')
-        # `X.Y.Z` queda intacto a proposito; el +1 del build lo hace el bloque final.
-    else:
+    elif base == 'patch':
         if patch is None:
             raise TaskError(f'{version!r} no tiene componente de parche para incrementar.')
         patch += 1
 
+    if con_build and build is None:
+        raise TaskError(
+            f'{version!r} no tiene build number (+N): "+build" solo aplica a pubspec.yaml.')
+
     nueva = f'{major}.{minor}' if patch is None else f'{major}.{minor}.{patch}'
     if build is not None:
-        nueva = f'{nueva}+{int(build) + 1}'
+        nueva = f'{nueva}+{int(build) + (1 if con_build else 0)}'
     return nueva
 
 

@@ -20,6 +20,23 @@ class AxisDef:
     allow_empty: bool = False  # solo para select='many': ninguna marcada es una eleccion valida,
                                 # no "olvidaste elegir" (ej. 'Pesados' en clean_artifacts)
     discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
+    combine: set[str] = field(default_factory=set)  # solo select='one': valores que se marcan
+                                # aparte del grupo excluyente y stackean con el (ej. 'build' en
+                                # bump_mode: patch|minor|major|none son excluyentes, 'build' suma)
+    default: str = ''           # solo select='one': valor excluyente marcado al inicio;
+                                # vacio = el primero que no este en `combine`
+
+    @property
+    def exclusive_values(self) -> list[str]:
+        return [v for v in self.values if v not in self.combine]
+
+    @property
+    def initial(self) -> str:
+        """El valor excluyente que arranca marcado."""
+        opciones = self.exclusive_values
+        if self.default in opciones:
+            return self.default
+        return opciones[0] if opciones else ''
 
     @property
     def is_multi(self) -> bool:

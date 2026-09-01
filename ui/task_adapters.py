@@ -92,11 +92,22 @@ def _build_apk_kwargs(payload: dict) -> dict:
         # programa: es justo la traduccion que este archivo existe para hacer.
         # Vacio significa "la unica que haya", que es lo que resuelve `pick()`.
         'directory': _option(payload, 'app'),
-        'bump_mode': _option(payload, 'bump_mode') or 'patch',
+        'bump_mode': _bump_mode(payload),
         'bump': 'bump_version' in steps,
         'build': 'apk_build' in steps,
         'upload': 'upload_to_vps' in steps,
     }
+
+
+def _bump_mode(payload: dict) -> str:
+    """El eje `bump_mode` combina: un componente SemVer excluyente + `build`
+    opcional. Llega como lista (`['patch', 'build']`) y se arma la cadena que
+    entiende `versioning.bump`: `patch+build`, `build`, `none`, ..."""
+    sel = (payload.get('options') or {}).get('bump_mode') or ['patch']
+    if isinstance(sel, str):
+        sel = [sel]
+    base = next((v for v in sel if v != 'build'), 'patch')
+    return f'{base}+build' if 'build' in sel else base
 
 
 # capability_id -> payload (de ParamsPanel.payload()) -> kwargs de la funcion real
