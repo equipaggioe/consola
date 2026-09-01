@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
-    QPushButton, QSizePolicy, QSplitter
+    QPushButton, QSizePolicy, QSplitter, QInputDialog, QLineEdit, QMessageBox
 )
 from PySide6.QtCore import Qt, Signal, QRectF, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
@@ -645,6 +645,12 @@ class TabPanel(ReorderableBar, QWidget):
 
         runner = TaskRunner(capability.id, self.project, capability.func, kwargs)
         runner.logged.connect(console.append_log)
+        # La bitacora todavia no existe (`core/store.py`, PLAN.md §8): hasta que
+        # exista, una nota no se pierde — se deja marcada en la consola.
+        runner.noted.connect(lambda entry: console.append_log(f'✱ {entry}', 'ok'))
+        runner.ask_requested.connect(
+            lambda q, danger, secret, expect: self._answer_task(runner, q, danger, secret, expect)
+        )
 
         def _on_done(ok: bool) -> None:
             console.append_log("Hecho" if ok else "Terminó con errores", "ok" if ok else "error")
@@ -660,6 +666,45 @@ class TabPanel(ReorderableBar, QWidget):
         runner.finished_ok.connect(_on_done)
         self._runners.add(runner)  # referencia viva mientras el hilo corre
         runner.start()
+
+    def _answer_task(self, runner: TaskRunner, question: str, danger: bool,
+                     secret: bool, expect: str) -> None:
+        """Contesta una pregunta de la tarea. Corre en el hilo de la interfaz.
+
+        Tres dialogos, elegidos por lo que la tarea espera de vuelta y no por
+        como se ve la pregunta:
+
+        - `expect` — hay que escribir un texto exacto (borrar una base, pisar
+          una carpeta). Campo de texto: la friccion es el punto.
+        - `secret` — un dato que no se debe ver mientras se escribe.
+        - el resto — si/no, con el boton peligroso sin ser el predeterminado,
+          para que un Enter de mas no descarte nada.
+
+        Siempre llama a `provide_answer`, tambien cuando se cierra el dialogo
+        con la X: sin eso la tarea se queda esperando una respuesta que no
+        llega. Una respuesta vacia es un "no" para `confirm`.
+        """
+        if expect:
+            answer, ok = QInputDialog.getText(
+                self, 'Confirmar', question, QLineEdit.EchoMode.Normal)
+            runner.provide_answer(answer if ok else '')
+            return
+
+        if secret:
+            answer, ok = QInputDialog.getText(
+                self, 'Dato requerido', question, QLineEdit.EchoMode.Password)
+            runner.provide_answer(answer if ok else '')
+            return
+
+        box = QMessageBox(self)
+        box.setIcon(QMessageBox.Icon.Warning if danger else QMessageBox.Icon.Question)
+        box.setWindowTitle('Confirmar' if danger else 'Pregunta')
+        box.setText(question)
+        box.addButton('Sí', QMessageBox.ButtonRole.YesRole)
+        no = box.addButton('No', QMessageBox.ButtonRole.NoRole)
+        box.setDefaultButton(no)
+        box.exec()
+        runner.provide_answer('no' if box.clickedButton() is no else 'si')
 
     def _run_stub(self, console: ConsoleView, payload: dict) -> None:
         """Ejecucion simulada: reporta exactamente lo que correria (stub, PLAN.md §10)."""

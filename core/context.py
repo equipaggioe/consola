@@ -22,7 +22,11 @@ class Level:
 
 
 LogSink = Callable[[str, str], None]
-AskSink = Callable[[str, bool, bool], str]
+# pregunta, peligrosa, secreta, texto que hay que escribir para aceptar.
+# `expect` viaja hasta el sink porque es lo unico que distingue un si/no de un
+# "escribe el nombre de la base": sin el, la UI tendria que adivinar cual de los
+# dos dialogos abrir y le pediria escribir "si" a una confirmacion corriente.
+AskSink = Callable[[str, bool, bool, str], str]
 ProgressSink = Callable[[int, int, str], None]
 NoteSink = Callable[[str], None]
 
@@ -162,7 +166,7 @@ class TaskContext:
         """Pregunta si seguir. `expect` exige escribir ese texto (destructivos, 7.5)."""
         if self.ask_sink is None:
             return not danger
-        answer = self.ask_sink(question, danger, False)
+        answer = self.ask_sink(question, danger, False, expect)
         if expect:
             return answer.strip() == expect
         return answer.strip().lower() in _YES
@@ -170,7 +174,7 @@ class TaskContext:
     def ask(self, prompt: str, *, secret: bool = False) -> str:
         if self.ask_sink is None:
             raise TaskError(f'Hace falta un dato que nadie puede responder: {prompt}')
-        answer = self.ask_sink(prompt, False, secret)
+        answer = self.ask_sink(prompt, False, secret, '')
         if secret:
             self.guard(answer)
         return answer

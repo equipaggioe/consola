@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QPushButton,
-    QScrollArea, QFrame, QButtonGroup, QLineEdit
+    QScrollArea, QFrame, QButtonGroup, QLineEdit, QPlainTextEdit
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -45,7 +45,7 @@ class ParamsPanel(QWidget):
 
         self._checks: dict[str, dict[str, QCheckBox]] = {}   # axis -> value -> check
         self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
-        self._fields: dict[str, QLineEdit] = {}              # axis -> valor escrito
+        self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}  # axis -> valor escrito
         self._option_groups: list[QButtonGroup] = []
         self._step_checks: dict[str, QCheckBox] = {}
         self._restoring = True   # mientras se arma, ningun cambio se guarda
@@ -126,19 +126,28 @@ class ParamsPanel(QWidget):
 
             # `values[0]` es el valor por defecto, y se escribe en el campo en
             # vez de dejarlo de marca de agua: asi se ve que se va a usar.
+            # `placeholder` es lo contrario: un ejemplo del formato para un
+            # campo que arranca vacio a proposito (las rutas a copiar), y que
+            # no debe prellenarse con algo que este repo quiza no tiene.
             default = axis.values[0] if axis.values else ''
-            field = QLineEdit(default)
-            field.setPlaceholderText(default)
-            field.setFixedHeight(30)
+            if axis.multiline:
+                field = QPlainTextEdit(default)
+                field.setFixedHeight(88)   # ~4 renglones: la lista tipica entra entera
+                field.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
+                field.textChanged.connect(self._refresh_summary)
+            else:
+                field = QLineEdit(default)
+                field.setFixedHeight(30)
+                field.textChanged.connect(self._refresh_summary)
+            field.setPlaceholderText(axis.placeholder or default)
             field.setStyleSheet(f"""
-                QLineEdit {{
+                QLineEdit, QPlainTextEdit {{
                     background: {Colors.SURFACE_ALT}; border: 1px solid {Colors.BORDER};
-                    border-radius: 5px; padding: 0 8px;
+                    border-radius: 5px; padding: {'5px 8px' if axis.multiline else '0 8px'};
                     color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
                 }}
-                QLineEdit:focus {{ border: 1px solid {self.accent}; }}
+                QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {self.accent}; }}
             """)
-            field.textChanged.connect(self._refresh_summary)
             self._fields[axis.name] = field
             row.addWidget(field)
             lay.addLayout(row)
@@ -296,8 +305,16 @@ class ParamsPanel(QWidget):
         return self.option_value(axis_name)
 
     def field_value(self, axis_name: str) -> str:
+        """El texto escrito, sea el campo de una linea o la caja de varias.
+
+        Los dos widgets guardan lo mismo — texto — pero no lo piden con el mismo
+        metodo, y quien lee el payload no tiene por que saber cual se dibujo.
+        """
         field = self._fields.get(axis_name)
-        return field.text().strip() if field else ''
+        if field is None:
+            return ''
+        leer = getattr(field, 'toPlainText', None) or field.text
+        return leer().strip()
 
     def state(self) -> dict:
         """Lo que hay marcado ahora mismo, en forma serializable."""
@@ -352,7 +369,8 @@ class ParamsPanel(QWidget):
                 # Una cadena vacia guardada es una eleccion valida (vuelve al
                 # valor por defecto de la funcion); un eje nuevo no lo es.
                 if saved is not None:
-                    field.setText(saved)
+                    escribir = getattr(field, 'setPlainText', None) or field.setText
+                    escribir(saved)
         finally:
             self._restoring = previous
 

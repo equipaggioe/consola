@@ -14,6 +14,17 @@ def config_path(repo_path: str) -> str:
     return os.path.join(repo_path, CONSOLA_DIR, CONFIG_NAME)
 
 
+def split_list(value: str) -> list[str]:
+    """Parte un valor que enumera varias cosas en una sola linea.
+
+    Acepta comas y saltos de linea como separador, descarta lo vacio y conserva
+    el orden escrito: la lista de archivos a copiar se lee de izquierda a
+    derecha igual que el `FILES_TO_UPLOAD` del script original.
+    """
+    partes = (p.strip() for chunk in value.splitlines() for p in chunk.split(','))
+    return [p for p in partes if p]
+
+
 def repo_name_of(repo_path: str) -> str:
     """El nombre que `VPS_USER`/`DB_NAME` usan como default cuando el repo no
     especifica otra cosa: la carpeta del proyecto, igual que hacian los

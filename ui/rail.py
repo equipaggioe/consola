@@ -21,6 +21,12 @@ def _missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
     repo, asi que se mira exactamente lo que esos parametros van a correr:
     los pasos apagados no pueden reclamar claves. Sin nada guardado se
     cuentan todos los pasos, que es lo que correria por defecto.
+
+    La pregunta final se la hace a un `Config`, igual que
+    `ui/params_panel.py::_missing_keys`: una clave con default fijo
+    (`SERVER_DIR='server'`) o dinamico (`VPS_USER` -> nombre del repo) se
+    resuelve sola al correr, y mirando el texto crudo del campo el rail la
+    marcaba como faltante mientras el panel la daba por buena.
     """
     active = params_store.stored_steps(repo_path, capability.id)
     needed = set(required_keys_for(capability.id))
@@ -29,7 +35,8 @@ def _missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
             continue
         needed |= step.requires_env
         needed |= set(required_keys_for(step.id))
-    return [k for k in needed if not env.get(k, '').strip()]
+    config = envfile.Config(env, repo_name=envfile.repo_name_of(repo_path))
+    return [k for k in needed if not config.get(k)]
 
 
 class ProjectHeader(QWidget):

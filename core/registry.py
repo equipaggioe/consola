@@ -20,6 +20,12 @@ class AxisDef:
     allow_empty: bool = False  # solo para select='many': ninguna marcada es una eleccion valida,
                                 # no "olvidaste elegir" (ej. 'Pesados' en clean_artifacts)
     discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
+    placeholder: str = ''       # solo expand='field': marca de agua del campo. Para cuando el
+                                # ejemplo ayuda a escribir el valor pero no es un default que
+                                # convenga dejar puesto (las rutas a copiar cambian por repo).
+    multiline: bool = False     # solo expand='field': caja de varios renglones, un valor por
+                                # linea. Para listas cortas que se escriben a mano (las rutas
+                                # a copiar): en una sola linea no se ve donde termina cada una.
     combine: set[str] = field(default_factory=set)  # solo select='one': valores que se marcan
                                 # aparte del grupo excluyente y stackean con el (ej. 'build' en
                                 # bump_mode: patch|minor|major|none son excluyentes, 'build' suma)

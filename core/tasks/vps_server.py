@@ -1,8 +1,7 @@
 from __future__ import annotations
-from pathlib import Path
-
-from .. import files, ssh, vps
+from .. import ssh, vps
 from ..errors import TaskError
+from ..process import which_any
 from ..registry import registry
 
 """
@@ -16,10 +15,16 @@ certificado habia que rehacer el `git pull`, el venv y el `pip install`.
 Aca cada paso es una atomica con boton propio y `update_remote` es la compuesta
 que los encadena, saltando el reinicio con un aviso si el servicio todavia no
 existe en vez de fallar.
+
+Que cuenta como atomica: una accion que alguien pediria sola, aunque por dentro
+llame a media docena de funciones. Por eso `clone_repository` y
+`ensure_remote_venv` dejaron de estar sueltas — nadie pide "solo clonar" ni
+"solo crear el venv" — y por eso aparecio `push_repository`, que el script
+original no tenia y sin la cual el despliegue publica el commit de otro.
+
+Las credenciales de git para el push no las administra Consola: salen del
+entorno (agente SSH para `git@github.com:...`, credential helper para `https://`).
 """
-
-SECRET_FILES = ('cert.pem', 'key.pem', 'firebase-service-account.json')
-
 
 def _remote(ctx) -> ssh.Remote:
     return ssh.resolve_remote(ctx.config)
@@ -33,14 +38,93 @@ def _venv_path(ctx) -> str:
     return vps.remote_path(ctx.config, _server_rel(ctx), '.venv')
 
 
+# --- codigo local ----------------------------------------------------------
+
+def _ensure_git(ctx) -> None:
+    """Git en el PATH y la carpeta abierta siendo un repo de verdad."""
+    if not which_any(['git', 'git.exe']):
+        raise TaskError('No se encontro Git en el PATH.')
+    if not ctx.path('.git').exists():
+        raise TaskError(f'La carpeta abierta no es un repositorio git: {ctx.root}')
+
+
+def _current_branch(ctx) -> str:
+    rama = ctx.capture(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
+    if rama == 'HEAD':
+        raise TaskError('El repo local esta en HEAD desacoplado: no hay rama que empujar.')
+    return rama
+
+
+def _head(ctx) -> str:
+    return ctx.capture(['git', 'rev-parse', '--short', 'HEAD'])
+
+
+def _already_pushed(ctx, upstream: str) -> bool:
+    """Si el remoto ya tiene exactamente lo que tiene la rama local.
+
+    El `fetch` de antes no es decorativo: sin el, un push hecho desde otra
+    maquina no se ve y el paso anunciaria trabajo pendiente que ya no existe.
+    """
+    ctx.run(['git', 'fetch', '--quiet'], check=False, echo=False)
+    local = ctx.capture(['git', 'rev-parse', 'HEAD'], check=False)
+    remoto = ctx.capture(['git', 'rev-parse', upstream], check=False)
+    return bool(local) and local == remoto
+
+
+def push_repository(ctx) -> str:
+    """Empuja la rama local a su remoto. Es la mitad del despliegue que faltaba.
+
+    El VPS hace `git pull` de GitHub, no de esta maquina: sin este paso,
+    "actualizar remoto" publica el ultimo commit que alguien subio a mano y el
+    codigo de la carpeta abierta puede diferir del que corre en el servidor sin
+    que nada lo avise.
+
+    Empuja y nada mas: no commitea. Que entra en un commit y con que mensaje es
+    una decision del trabajo, no del despliegue — un `git add -A` automatico se
+    lleva puesto lo que estaba a medias. Si hay cambios sin commitear se corta
+    con la lista a la vista.
+
+    Vive en este modulo, y no en uno de git aparte, porque es exactamente la
+    mitad local del mismo paso que `sync_repository` completa del otro lado.
+    """
+    _ensure_git(ctx)
+    rama = _current_branch(ctx)
+    sucio = ctx.capture(['git', 'status', '--porcelain'], check=False)
+
+    if sucio:
+        raise TaskError(
+            f'El repo local tiene cambios sin commitear:\n{sucio}\n'
+            'Commitealos antes de desplegar: este paso solo empuja.')
+
+    upstream = ctx.capture(
+        ['git', 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], check=False)
+
+    if not upstream:
+        ctx.info(f'La rama {rama} todavia no tiene upstream: se crea en origin.')
+        ctx.run(['git', 'push', '-u', 'origin', rama])
+    elif _already_pushed(ctx, upstream):
+        ctx.ok(f'{rama} ya esta al dia con {upstream}: no hay nada que empujar.')
+        return _head(ctx)
+    else:
+        ctx.run(['git', 'push'])
+
+    revision = _head(ctx)
+    ctx.ok(f'{rama} empujada en {revision}.')
+    return revision
+
+
 # --- codigo en el VPS ------------------------------------------------------
 
-def clone_repository(ctx) -> str:
-    """Clona el repo en el VPS si todavia no esta. Idempotente."""
+def _ensure_cloned(ctx) -> str:
+    """Clona el repo en el VPS si todavia no esta, y devuelve su ruta.
+
+    Dejo de ser un paso propio: "solo clonar" no es algo que alguien pida dos
+    veces — es la primera corrida de `sync_repository`, que cae aca sola cuando
+    la carpeta remota todavia no existe.
+    """
     remote = _remote(ctx)
     destino = vps.deploy_root(ctx.config)
     if ssh.path_exists(remote, f'{destino}/.git'):
-        ctx.ok(f'El repo ya esta clonado en {destino}.')
         return destino
 
     url = ctx.config.require('GIT_REPO_URL')
@@ -57,7 +141,7 @@ def sync_repository(ctx, discard_changes: bool = False) -> str:
     decision se toma cuando aparece el problema, con el detalle a la vista.
     """
     remote = _remote(ctx)
-    destino = clone_repository(ctx)
+    destino = _ensure_cloned(ctx)
     sucio = ssh.capture(remote, f'cd {ssh.quote(destino)} && git status --porcelain', check=False)
 
     if sucio:
@@ -74,12 +158,16 @@ def sync_repository(ctx, discard_changes: bool = False) -> str:
     return revision
 
 
-def ensure_remote_venv(ctx) -> str:
-    """Crea el virtualenv del servidor en el VPS si falta."""
+def _ensure_venv(ctx) -> str:
+    """Crea el virtualenv del servidor en el VPS si falta.
+
+    Tampoco es una atomica: un venv vacio no le sirve a nadie, se crea para
+    instalar algo dentro. Es el primer tramo de `install_remote_deps`.
+    """
     remote = _remote(ctx)
     venv = _venv_path(ctx)
     if ssh.path_exists(remote, f'{venv}/bin/python'):
-        ctx.ok('El venv del VPS ya existe.')
+        ctx.info(f'El venv del VPS ya existe: {venv}')
         return venv
     ssh.run(ctx, remote, f'python3 -m venv {ssh.quote(venv)}')
     ctx.ok(f'venv creado: {venv}')
@@ -87,9 +175,14 @@ def ensure_remote_venv(ctx) -> str:
 
 
 def install_remote_deps(ctx) -> None:
-    """`pip install -r requirements.txt` dentro del venv del VPS."""
+    """Deja el entorno Python del VPS listo: crea el venv si falta e instala
+    `requirements.txt` adentro.
+
+    Los dos tramos van juntos porque la accion que se pide es "que el servidor
+    tenga sus dependencias"; crear el venv es su primer paso, no otro boton.
+    """
     remote = _remote(ctx)
-    venv = _venv_path(ctx)
+    venv = _ensure_venv(ctx)
     requisitos = vps.remote_path(ctx.config, _server_rel(ctx), 'requirements.txt')
     if not ssh.path_exists(remote, requisitos):
         raise TaskError(f'No existe {requisitos} en el VPS.')
@@ -97,29 +190,38 @@ def install_remote_deps(ctx) -> None:
     ctx.ok('Dependencias del VPS instaladas.')
 
 
-def upload_secret_files(ctx) -> list[str]:
+def upload_secret_files(ctx, files: list[str] | None = None) -> list[str]:
     """Sube los archivos que nunca viajan por git: `.env`, certificados, credenciales.
 
-    Es el paso que mas se pide suelto — "solo recopiar los certificados" — y por
+    Las rutas se escriben en el campo "Archivos a copiar" del panel, relativas
+    a la raiz del repo y separadas por comas. No hay lista por defecto: que
+    archivos secretos tiene un proyecto lo sabe quien lo configura, y el script
+    original se equivocaba en las dos puntas — tres nombres fijos en la cabecera
+    mas un `rglob('.env')` que barria el repo entero y mandaba a produccion el
+    `.env.example` y el de los tests.
+
+    Es el paso que mas se pide suelto ("solo recopiar los certificados"), y por
     eso tiene boton propio en vez de vivir dentro de la actualizacion completa.
     """
     remote = _remote(ctx)
-    server = _server_rel(ctx)
-    subidos: list[str] = []
+    elegidos = [f.strip() for f in (files or []) if f.strip()]
+    if not elegidos:
+        ctx.warn('No hay archivos que copiar: escribe sus rutas en "Archivos a copiar".')
+        return []
 
-    for rel in (f'{server}/.env', *(f'{server}/certs/{n}' for n in SECRET_FILES[:2]),
-                f'{server}/{SECRET_FILES[2]}'):
+    subidos: list[str] = []
+    for rel in elegidos:
         local = ctx.path(rel)
         if not local.is_file():
-            ctx.info(f'No existe localmente, se saltea: {rel}')
+            ctx.warn(f'No existe localmente, se saltea: {rel}')
             continue
         subidos.append(ssh.upload(ctx, remote, local, vps.remote_path(ctx.config, rel),
                                   chmod='600'))
 
     if not subidos:
-        ctx.warn('No se subio ningun archivo: no se encontro ninguno de la lista.')
+        ctx.warn(f'Ninguno de los {len(elegidos)} archivo(s) elegidos existe en el repo.')
     else:
-        ctx.ok(f'{len(subidos)} archivo(s) subidos.')
+        ctx.ok(f'{len(subidos)} de {len(elegidos)} archivo(s) subidos.')
     return subidos
 
 
@@ -205,37 +307,54 @@ def install_systemd(ctx, host: str = '0.0.0.0', port: int = 443, *,
 
 def update_remote(
     ctx,
+    files: list[str] | None = None,
     *,
+    push: bool = False,
     pull: bool = True,
-    venv: bool = True,
     deps: bool = True,
     upload: bool = True,
     migrate: bool = True,
     restart: bool = True,
+    discard_changes: bool = False,
 ) -> None:
-    """Compuesta: actualizar codigo -> venv -> dependencias -> secretos -> migrar -> reiniciar.
+    """Compuesta: push local -> codigo -> dependencias -> secretos -> migrar -> reiniciar.
 
-    `venv` y `deps` son condicionales a proposito: si el repo no cambio, volver
-    a instalar dependencias es tiempo perdido, pero a veces se pide igual tras
-    tocar `requirements.txt` a mano.
+    Seis pasos, uno por accion reconocible del dominio. El venv ya no es uno de
+    ellos: se crea dentro de las dependencias, que es lo unico para lo que se
+    crea.
+
+    `push` arranca desmarcado porque publica hacia afuera: es el unico paso que
+    sale de esta maquina antes de tocar el VPS. No commitea nada — si hay
+    cambios sin commitear, corta ahi.
+
+    `deps` es condicional a proposito: si el repo no cambio, reinstalar es
+    tiempo perdido, pero se pide igual tras tocar `requirements.txt`.
+
+    El paso de migraciones solo **aplica** las que llegaron con el codigo
+    (`alembic upgrade head`). El script original llamaba a `migrate_db.py`, que
+    ademas las *generaba* contra la base del VPS: eso autogenera revisiones en
+    produccion a partir de un modelo que quiza ni se commiteo, y deja al
+    servidor con migraciones que el repo no tiene. Las revisiones se escriben en
+    local (boton Migrar de Base de datos), se commitean y se despliegan; aca solo
+    se corren.
     """
     from . import database as db_tasks
 
+    if push:
+        ctx.step('Push del repo local')
+        push_repository(ctx)
     if pull:
-        ctx.step('Codigo')
-        sync_repository(ctx)
-    if venv:
-        ctx.step('Entorno virtual')
-        ensure_remote_venv(ctx)
+        ctx.step('Codigo en el VPS')
+        sync_repository(ctx, discard_changes)
     if deps:
         ctx.step('Dependencias')
         install_remote_deps(ctx)
     if upload:
         ctx.step('Archivos que no viajan por git')
-        upload_secret_files(ctx)
+        upload_secret_files(ctx, files)
     if migrate:
-        ctx.step('Migraciones')
-        db_tasks.migrate_db(ctx, scope='remoto', message='auto')
+        ctx.step('Aplicar migraciones')
+        db_tasks.apply_migrations(ctx, scope='remoto')
     if restart:
         ctx.step('Servicio')
         restart_service(ctx)
@@ -243,6 +362,8 @@ def update_remote(
 
 
 def bind_all() -> None:
+    registry.bind('push_repository', push_repository)
+    registry.bind('upload_secret_files', upload_secret_files)
     registry.bind('systemd_action', systemd_action)
     registry.bind('view_logs', view_logs)
     registry.bind('install_systemd', install_systemd)

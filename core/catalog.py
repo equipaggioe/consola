@@ -6,6 +6,18 @@ from pathlib import Path
 from . import targets
 from .registry import registry, Capability, AxisDef, Step
 
+# Marca de agua del campo "Archivos a copiar". Es un ejemplo del formato, no un
+# default: que archivos secretos tiene un repo lo sabe quien lo configura, y
+# dejar una lista puesta haria que el primer deploy intentara copiar rutas que
+# quiza no existen en este proyecto.
+UPLOAD_FILES_HINT = 'server/.env\nserver/certs/cert.pem\nserver/certs/key.pem'
+
+# Multilinea: una ruta por renglon. Una lista de secretos son tres o cuatro
+# rutas largas, y en una sola linea no se ve donde termina una y empieza otra.
+# Las comas se siguen aceptando al leerlo (`envfile.split_list`).
+_FILES_AXIS = lambda: AxisDef('files', [''], 'field', label='Archivos a copiar',
+                              placeholder=UPLOAD_FILES_HINT, multiline=True)
+
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
 
 
@@ -83,6 +95,22 @@ BUILD_BINARY_STEPS = [
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
+# Los seis pasos del despliegue, en el orden en que ocurren: primero se publica
+# lo local, después el VPS lo trae. Las claves van por paso y no en el
+# `required_by` de la capacidad (§4.2 de docs/atomicas.md): "solo recopiar los
+# certificados" no tiene por qué quedar bloqueado por GIT_REPO_URL.
+#
+# 'push_repo' arranca desmarcado porque publica hacia afuera; el resto son
+# operaciones sobre el servidor del proyecto y van marcadas.
+UPDATE_REMOTE_STEPS = [
+    Step('push_repo', 'Push del repo local', default=False),
+    Step('git_pull', 'Pull en el VPS', requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
+    Step('install_deps', 'Dependencias', requires_env={'VPS_PYTHON', 'SERVER_DIR'}),
+    Step('upload_secrets', 'Archivos que no viajan por git'),
+    Step('apply_migrations', 'Aplicar migraciones', requires_env={'DB_NAME', 'DB_PASSWORD'}),
+    Step('restart_service', 'Reiniciar servicio'),
+]
+
 
 def load_catalog() -> None:
     """Declara la forma de cada boton.
@@ -130,7 +158,27 @@ def load_catalog() -> None:
     registry.register(Capability(id='systemd_action', name='Acción systemd', group='VPS · server', section='Servicio', kind='once', icon='⚙️', description='Manda una acción al servicio systemd del repo en el VPS.', axes=[AxisDef('action', ['start', 'stop', 'restart', 'status'], 'buttons', danger={'stop'}), AxisDef('action_ext', ['enable', 'disable', 'reload', 'is-active', 'is-enabled'], 'menu')], stub=True))
     registry.register(Capability(id='view_logs', name='Ver logs', group='VPS · server', section='Logs', kind='live', icon='📋', description='Muestra el journal del servicio, de una o siguiéndolo en vivo.', axes=[AxisDef('follow', ['sí', 'no'], 'field')], stub=True))
     registry.register(Capability(id='install_systemd', name='Instalar servicio', group='VPS · server', section='Servicio', kind='once', icon='📥', description='Escribe la unidad systemd del repo y la deja corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], stub=True))
-    registry.register(Capability(id='update_remote', name='Actualizar remoto', group='VPS · server', section='Deploy', kind='live', icon='🔄', description='Despliega: trae el código, actualiza venv y deps, sube secretos y reinicia.', composed_of=['git_sync_remote', 'ensure_remote_venv', 'install_remote_deps', 'upload_files', 'generate_migration', 'restart_service'], stub=True))
+    # La mitad local del despliegue: el VPS hace pull de GitHub, no de esta
+    # maquina. Tiene boton propio porque empujar sin desplegar se pide solo.
+    # Sin ejes: empuja la rama de la carpeta abierta a su remoto y se acabo. No
+    # commitea (eso es trabajo, no despliegue) ni declara `required_by` de
+    # ninguna clave: git ya sabe cual es su remoto.
+    registry.register(Capability(
+        id='push_repository', name='Push del repo', group='VPS · server', section='Deploy',
+        kind='once', icon='⬆️',
+        description='Empuja la rama local a su remoto. No commitea: si hay cambios pendientes, corta.',
+        stub=True))
+    # `composed_of` declaraba seis ids que no eran capacidades de nadie
+    # (`git_sync_remote`, `upload_files`, `generate_migration`): nombres sueltos
+    # que la UI alcanzaba a mostrar bonitos, pero que no apuntaban a ninguna
+    # función ni permitían declarar claves por paso. Los reemplazan los `Step`
+    # de arriba, que sí son los pasos que corre la compuesta.
+    registry.register(Capability(
+        id='update_remote', name='Actualizar remoto', group='VPS · server', section='Deploy',
+        kind='live', icon='🔄',
+        description='Despliega: publica el código, lo trae al VPS, instala, sube secretos y reinicia.',
+        axes=[_FILES_AXIS()],
+        steps=UPDATE_REMOTE_STEPS, stub=True))
 
     # VPS · setup group
     registry.register(Capability(id='install_software', name='Software base', group='VPS · setup', section='Paquetes', kind='once', icon='📦', description='Instala en el VPS los paquetes base que el despliegue da por dados.', stub=True))
@@ -204,3 +252,10 @@ def load_catalog() -> None:
     # Hidden atomic capabilities
     registry.register(Capability(id='bump_version', name='Bump versión', group='Builders', section='Versión', kind='once', icon='🏷️', description='Sube el número de versión del repo.', hidden=True, stub=True))
     registry.register(Capability(id='upload_to_vps', name='Subir al VPS', group='VPS · ops', section='Subir artefacto', kind='once', icon='📤', description='Copia el artefacto compilado al VPS.', hidden=True, stub=True))
+    # Visible, no oculta: "solo recopiar los certificados" es el paso que mas se
+    # pide suelto de todo el despliegue.
+    registry.register(Capability(
+        id='upload_secret_files', name='Copiar secretos', group='VPS · server',
+        section='Deploy', kind='once', icon='🔐',
+        description='Copia al VPS los archivos que nunca viajan por git.',
+        axes=[_FILES_AXIS()], stub=True))
