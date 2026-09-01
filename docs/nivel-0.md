@@ -165,12 +165,26 @@ El reemplazo real de `RUN_REMOTE` / `maybe_dispatch_remote`:
 ### `core/android.py`
 - **`Sdk`** (dataclass) — ubica las cuatro herramientas del SDK (`adb`, `emulator`,
   `avdmanager`, `sdkmanager`) una sola vez; si falta una, dice cuál y dónde se buscó.
-- **`Preset`** + diccionario `PRESETS` (`pixel_4`, `pixel_8`, `resizable`) — reemplaza a los
-  tres `run_emulator_N.py`, que eran el mismo flujo con una constante distinta.
+- **`Device` / `Image` / `AvdSpec`** + `device_catalog()` / `image_catalog()` — los catálogos
+  reales del SDK (88 dispositivos, 317 system images), parseados de `avdmanager list device` y
+  `sdkmanager --list`, ordenados por lo que se elige (teléfonos y APIs nuevas primero) y cacheados
+  un mes en `core/cache.py`: la consulta tarda 6 s y la relectura, 9 ms. Reemplazan al diccionario
+  `PRESETS` (`pixel_4`, `pixel_8`, `resizable`) que venía de los tres `run_emulator_N.py`.
+- `running()` — serial → nombre del AVD, preguntándole a la consola de cada emulador vivo.
+- `free_port()` — elige el puerto ANTES de arrancar (`-port 5556`), así el serial se conoce desde
+  el principio: sin eso no hay apagado limpio ni forma de decirle a la app móvil contra cuál correr.
+- `stop_quiet()` — `adb emu kill` sin log ni espera, para el gancho de cancelación.
 - `list_avds/list_images/list_devices` — el estado del emulador no se infiere de un PID (se
   desprende del proceso que lo lanzó, §7 caso 3): se sondea con `adb`.
-- `ensure_image` / `ensure_avd` (deja `hw.keyboard=yes` en `config.ini`) / `start` /
-  `wait_for_boot` / `stop` (`adb emu kill`, no matar el proceso) / `remove_avd` / `remove_image`.
+- `ensure_image` / `ensure_avd` (deja `hw.keyboard=yes` en `config.ini`) / `start` (con `port`,
+  `read_only` para levantar un AVD que ya corre, y `wipe`) / `wait_for_boot` / `stop`
+  (`adb emu kill`, no matar el proceso) / `remove_avd` / `remove_image`.
+
+### `core/cache.py`
+- `cached(nombre, productor, max_age=, refresh=)` — caché en disco
+  (`%LOCALAPPDATA%\Consola\cache`) para catálogos caros de consultar. Es caché de *catálogo*,
+  nunca de estado: lo que cambia solo —qué AVD hay, qué emulador está vivo— se pregunta cada vez.
+  Una caché ilegible es una caché vacía, nunca un error que corte una tarea.
 
 ### `core/targets.py`
 - **`Target`** (dataclass: `name`, `kind`, `path`) + `discover(root)` — recorre el repo hasta

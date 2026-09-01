@@ -1,13 +1,16 @@
 from __future__ import annotations
+from dataclasses import replace
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QPushButton,
-    QScrollArea, QFrame, QButtonGroup, QLineEdit, QPlainTextEdit
+    QScrollArea, QFrame, QButtonGroup, QLineEdit, QPlainTextEdit, QComboBox,
+    QCompleter
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QThread
 
 from ui.theme import Colors, Fonts
 from core import envfile
-from core.catalog import for_project
+from core.catalog import for_project, machine_values
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
 from core.settings import required_keys_for
@@ -23,6 +26,37 @@ class SectionLabel(QLabel):
         )
 
 
+class MachineAxesLoader(QThread):
+    """Lee en segundo plano los catalogos de la maquina que pide una capacidad.
+
+    Preguntarle al SDK que dispositivos y que system images existen tarda de
+    segundos a un minuto la primera vez (despues queda cacheado en
+    `core/cache.py`). Hacerlo en el hilo de la interfaz congelaria la ventana
+    cada vez que se abre la pestana del emulador, asi que el panel se dibuja
+    con las listas vacias y se completa solo cuando esto termina.
+    """
+    ready = Signal(dict)
+
+    def __init__(self, capability: Capability, refresh: bool = False, parent=None):
+        super().__init__(parent)
+        self._capability = capability
+        self._refresh = refresh
+
+    def run(self) -> None:
+        resuelto = {}
+        for axis in self._capability.axes:
+            if axis.is_from_machine:
+                resuelto[axis.name] = machine_values(axis.source, refresh=self._refresh)
+        if self._capability.live_state:
+            resuelto[_LIVE] = machine_values(self._capability.live_state)
+        self.ready.emit(resuelto)
+
+
+# Clave con la que viaja el inventario de "lo que esta corriendo" dentro del
+# resultado del loader. No es un eje: no se elige, se mira y se apaga.
+_LIVE = '@live'
+
+
 class ParamsPanel(QWidget):
     """Parametros de UNA ejecucion: variantes, pasos y opciones.
 
@@ -31,12 +65,16 @@ class ParamsPanel(QWidget):
     """
     execute_requested = Signal(dict)
     params_changed = Signal()   # lo guardado cambio: el rail revisa que puede correr
+    stop_requested = Signal(str)  # apagar algo que esta corriendo (un serial de emulador)
 
     def __init__(self, capability: Capability, project: Project, env_panel, parent=None):
         super().__init__(parent)
         # Los ejes descubiertos se resuelven contra ESTE repo, no contra el
         # catalogo: la lista de apps sale de mirar las carpetas (PLAN.md 2.4).
-        self.capability = for_project(capability, project.path)
+        # Copia propia de los ejes: los descubiertos y los de maquina se
+        # rellenan sobre esta capacidad, y el catalogo global no se toca.
+        base = for_project(capability, project.path)
+        self.capability = replace(base, axes=[replace(a) for a in base.axes])
         self.project = project
         self.accent = project.color
         self.env_panel = env_panel
@@ -46,6 +84,10 @@ class ParamsPanel(QWidget):
         self._checks: dict[str, dict[str, QCheckBox]] = {}   # axis -> value -> check
         self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
         self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}  # axis -> valor escrito
+        self._picks: dict[str, QComboBox] = {}   # axis -> lista larga con busqueda
+        self._multi_layouts: dict[str, QVBoxLayout] = {}  # axis -> donde van sus casillas
+        self._loader: MachineAxesLoader | None = None
+        self._loading = any(a.is_from_machine for a in self.capability.axes)
         self._option_groups: list[QButtonGroup] = []
         self._step_checks: dict[str, QCheckBox] = {}
         self._restoring = True   # mientras se arma, ningun cambio se guarda
@@ -67,6 +109,43 @@ class ParamsPanel(QWidget):
         self.apply_state(params_store.load(self.project.path, self.capability.id))
         self._restoring = False
         self._refresh_summary()
+        if self._loading or self.capability.live_state:
+            self._load_machine()
+
+    # --- catalogos de la maquina --------------------------------------
+    def _load_machine(self, refresh: bool = False) -> None:
+        """Pide los catalogos del SDK sin bloquear la ventana."""
+        if self._loader is not None and self._loader.isRunning():
+            return
+        self._loading = any(a.is_from_machine for a in self.capability.axes)
+        self._refresh_summary()
+        self._loader = MachineAxesLoader(self.capability, refresh, self)
+        self._loader.ready.connect(self._on_machine_ready)
+        self._loader.start()
+
+    def _on_machine_ready(self, resuelto: dict) -> None:
+        """Llena las listas que dependian del SDK y repone lo que estaba elegido."""
+        guardado = params_store.load(self.project.path, self.capability.id)
+        self._restoring = True
+        try:
+            for axis in self.capability.axes:
+                if axis.name not in resuelto:
+                    continue
+                axis.values, axis.labels = resuelto[axis.name]
+                if axis.name in self._picks:
+                    self._fill_pick(axis)
+                elif axis.name in self._multi_layouts:
+                    self._fill_multi(axis)
+            self._fill_live(resuelto.get(_LIVE, ([], {})))
+        finally:
+            self._restoring = False
+        self._loading = False
+        self.apply_state(guardado)
+        self._refresh_summary()
+
+    def refresh_machine(self) -> None:
+        """Vuelve a preguntarle al SDK, salteando la cache. Es el boton ↻."""
+        self._load_machine(refresh=True)
 
     # --- construccion -------------------------------------------------
     def _build_body(self) -> QWidget:
@@ -81,6 +160,16 @@ class ParamsPanel(QWidget):
         lay.setContentsMargins(16, 14, 16, 14)
         lay.setSpacing(16)
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # Lo que ya esta corriendo va arriba de todo: es lo primero que hay
+        # que saber antes de elegir nada (¿hace falta lanzar otro?), y es desde
+        # donde se apaga un emulador huerfano.
+        self._live_box = self._build_live()
+        lay.addWidget(self._live_box)
+
+        picks = self.capability.pick_axes
+        if picks:
+            lay.addWidget(self._build_picks(picks))
 
         fields = self.capability.field_axes
         if fields:
@@ -102,6 +191,143 @@ class ParamsPanel(QWidget):
         self._content = content
         scroll.setWidget(content)
         return scroll
+
+    def _build_picks(self, axes: list[AxisDef]) -> QWidget:
+        """Listas largas y cerradas: se escribe para filtrar y se elige.
+
+        Es la cuarta forma del panel, y existe por los catalogos del SDK: cien
+        dispositivos y varios cientos de system images no entran en casillas ni
+        en un segmentado, pero tampoco son texto libre — los valores validos son
+        exactamente esos. El valor guardado es el id (`pixel_4`,
+        `system-images;android-36;google_apis;x86_64`) y lo que se lee es su
+        etiqueta.
+        """
+        box = QWidget()
+        box.setStyleSheet("background: transparent;")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(9)
+
+        for axis in axes:
+            row = QVBoxLayout()
+            row.setSpacing(4)
+            label = QLabel(axis.display)
+            label.setStyleSheet(
+                f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
+            )
+            row.addWidget(label)
+
+            combo = QComboBox()
+            combo.setEditable(True)          # editable solo para poder escribir y filtrar
+            combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+            combo.setMinimumHeight(30)
+            combo.setMaxVisibleItems(18)
+            completer = QCompleter(combo.model(), combo)
+            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchFlag.MatchContains)
+            completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+            combo.setCompleter(completer)
+            combo.setStyleSheet(f"""
+                QComboBox {{
+                    background: {Colors.SURFACE_ALT}; border: 1px solid {Colors.BORDER};
+                    border-radius: 5px; padding: 0 8px;
+                    color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
+                }}
+                QComboBox:focus {{ border: 1px solid {self.accent}; }}
+                QComboBox QAbstractItemView {{
+                    background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
+                    selection-background-color: {self.accent};
+                    border: 1px solid {Colors.BORDER};
+                }}
+            """)
+            combo.currentIndexChanged.connect(self._refresh_summary)
+            self._picks[axis.name] = combo
+            self._fill_pick(axis)
+            row.addWidget(combo)
+            lay.addLayout(row)
+        return box
+
+    def _fill_pick(self, axis: AxisDef) -> None:
+        """(Re)carga las opciones de una lista larga, conservando lo elegido."""
+        combo = self._picks.get(axis.name)
+        if combo is None:
+            return
+        anterior = self.pick_value(axis.name)
+        combo.blockSignals(True)
+        combo.clear()
+        for value in axis.values:
+            combo.addItem(axis.text_of(value), value)
+        if not axis.values:
+            combo.lineEdit().setPlaceholderText(
+                'leyendo el catálogo del SDK…' if self._loading else 'no hay ninguno en esta máquina')
+        indice = combo.findData(anterior)
+        combo.setCurrentIndex(indice if indice >= 0 else 0)
+        combo.blockSignals(False)
+
+    def _fill_multi(self, axis: AxisDef) -> None:
+        """(Re)crea las casillas de un eje que se llenó desde la máquina."""
+        lay = self._multi_layouts.get(axis.name)
+        if lay is None:
+            return
+        for check in self._checks.get(axis.name, {}).values():
+            lay.removeWidget(check)
+            check.deleteLater()
+        self._checks[axis.name] = {}
+        for value in axis.values:
+            check = QCheckBox(axis.text_of(value))
+            check.setChecked(axis.checked_by_default)
+            check.setCursor(Qt.CursorShape.PointingHandCursor)
+            check.stateChanged.connect(self._refresh_summary)
+            self._checks[axis.name][value] = check
+            lay.addWidget(check)
+
+    def _build_live(self) -> QWidget:
+        """Cabecera con lo que esta corriendo ahora, y su ✕ para apagarlo."""
+        box = QWidget()
+        box.setStyleSheet("background: transparent;")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(7)
+        lay.addWidget(SectionLabel('Corriendo ahora'))
+        self._live_layout = lay
+        box.setVisible(False)
+        return box
+
+    def _fill_live(self, inventario: tuple) -> None:
+        """Rehace la lista de lo vivo. Vacia, la cabecera entera desaparece."""
+        valores, etiquetas = inventario
+        while self._live_layout.count() > 1:
+            item = self._live_layout.takeAt(1)
+            if item.widget():
+                item.widget().deleteLater()
+
+        for value in valores:
+            fila = QWidget()
+            fila.setStyleSheet("background: transparent;")
+            flay = QHBoxLayout(fila)
+            flay.setContentsMargins(0, 0, 0, 0)
+            flay.setSpacing(6)
+
+            texto = QLabel(f'● {etiquetas.get(value, value)}')
+            texto.setStyleSheet(
+                f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;")
+            apagar = QPushButton('✕')
+            apagar.setFixedSize(20, 20)
+            apagar.setCursor(Qt.CursorShape.PointingHandCursor)
+            apagar.setToolTip('Apagar')
+            apagar.setStyleSheet(f"""
+                QPushButton {{ background: transparent; border: none;
+                               color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px; }}
+                QPushButton:hover {{ color: {Colors.ERROR}; }}
+            """)
+            apagar.clicked.connect(lambda _=False, v=value: self.stop_requested.emit(v))
+
+            flay.addWidget(texto)
+            flay.addStretch()
+            flay.addWidget(apagar)
+            self._live_layout.addWidget(fila)
+
+        self._live_box.setVisible(bool(valores))
 
     def _build_fields(self, axes: list[AxisDef]) -> QWidget:
         """Ejes que se escriben: un directorio de instalacion, un API level.
@@ -162,9 +388,10 @@ class ParamsPanel(QWidget):
 
         lay.addWidget(SectionLabel(axis.display))
 
+        self._multi_layouts[axis.name] = lay
         self._checks[axis.name] = {}
         for value in axis.values:
-            check = QCheckBox(value)
+            check = QCheckBox(axis.text_of(value))
             check.setChecked(axis.checked_by_default)
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.stateChanged.connect(self._refresh_summary)
@@ -249,7 +476,12 @@ class ParamsPanel(QWidget):
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(6)
 
-        for text, handler in (("Recargar", self.env_panel.reload), ("Guardar", self.env_panel.save)):
+        botones = [("Recargar", self.env_panel.reload), ("Guardar", self.env_panel.save)]
+        if any(a.is_from_machine for a in self.capability.axes) or self.capability.live_state:
+            # Los catalogos del SDK se cachean por semanas: este es el unico
+            # modo de enterarse de una API nueva sin reiniciar Consola.
+            botones.append(("↻ Catálogo", self.refresh_machine))
+        for text, handler in botones:
             btn = QPushButton(text)
             btn.setCursor(Qt.CursorShape.PointingHandCursor)
             btn.setFixedHeight(34)
@@ -304,6 +536,14 @@ class ParamsPanel(QWidget):
             return self.option_values(axis_name)
         return self.option_value(axis_name)
 
+    def pick_value(self, axis_name: str) -> str:
+        """El id elegido en una lista larga (no su etiqueta)."""
+        combo = self._picks.get(axis_name)
+        if combo is None:
+            return ''
+        value = combo.currentData()
+        return value if isinstance(value, str) else ''
+
     def field_value(self, axis_name: str) -> str:
         """El texto escrito, sea el campo de una linea o la caja de varias.
 
@@ -323,6 +563,7 @@ class ParamsPanel(QWidget):
             'steps': [s.id for s in self.active_steps()],
             'options': {name: self._option_payload(name) for name in self._options},
             'fields': {name: self.field_value(name) for name in self._fields},
+            'picks': {name: self.pick_value(name) for name in self._picks},
         }
 
     def apply_state(self, state: dict | None) -> None:
@@ -363,6 +604,17 @@ class ParamsPanel(QWidget):
                     elif value in marcados:
                         check.setChecked(True)   # el grupo excluyente desmarca al resto
 
+            picks = state.get('picks') or {}
+            for axis_name, combo in self._picks.items():
+                elegido = picks.get(axis_name)
+                if not elegido:
+                    continue
+                indice = combo.findData(elegido)
+                # Un valor que ya no existe (un AVD borrado, una imagen
+                # desinstalada) no se fuerza: se queda el primero de la lista.
+                if indice >= 0:
+                    combo.setCurrentIndex(indice)
+
             fields = state.get('fields') or {}
             for axis_name, field in self._fields.items():
                 saved = fields.get(axis_name)
@@ -388,6 +640,7 @@ class ParamsPanel(QWidget):
             'steps': [s.id for s in self.active_steps()],
             'options': {name: self._option_payload(name) for name in self._options},
             'fields': {name: self.field_value(name) for name in self._fields},
+            'picks': {name: self.pick_value(name) for name in self._picks},
             'missing_env': self._missing_keys(),
         }
 
@@ -455,10 +708,22 @@ class ParamsPanel(QWidget):
         # Un eje descubierto sin valores no es "olvidaste elegir": es que el
         # repo no tiene eso. Se dice asi, y no se pide ademas que elija de una
         # lista vacia.
+        if self._loading:
+            return ["leyendo el catálogo del SDK…"]
         vacios = {a.name for a in self.capability.axes if a.is_discovered and not a.values}
         for axis in self.capability.axes:
-            if axis.name in vacios:
-                reasons.append(f"no hay {axis.display.lower()} en este repo")
+            if axis.name not in vacios:
+                continue
+            donde = 'en esta máquina' if axis.is_from_machine else 'en este repo'
+            # Un eje opcional que ademas admite estar vacio (las dos listas de
+            # "Liberar disco") no bloquea: que no haya AVD creados no impide
+            # borrar una imagen.
+            if axis.is_multi and axis.allow_empty:
+                continue
+            reasons.append(f"no hay {axis.display.lower()} {donde}")
+        for axis in self.capability.pick_axes:
+            if axis.values and not self.pick_value(axis.name):
+                reasons.append(f"elige {axis.display.lower()}")
         for axis in self.capability.multi_axes:
             if axis.name in vacios:
                 continue

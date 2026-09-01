@@ -105,7 +105,11 @@ sostienen o se corrigen respecto a la versión anterior:
 
 - `run_emulator_1/2/3.py` llaman los tres a la misma función `run()` de `android_emulator.py` con
   tres constantes distintas (`pixel_4`, `pixel_8`, `resizable`) → una capacidad `start_emulator` con
-  eje `preset`, `expand="buttons"`. Sigue igual.
+  eje `preset`, `expand="buttons"`. **Superado al implementarlo** (2026-09-01, ver
+  [emuladores.md](emuladores.md)): las tres constantes escondían los catálogos reales del SDK —88
+  perfiles de dispositivo y 317 system images—, así que el eje `preset` no era una simplificación
+  sino una amputación. Quedan tres capacidades, no una: `install_system_image`, `create_avd` y
+  `launch_emulator`, cada una con su catálogo (`expand="pick"`, la cuarta forma del panel).
 - Los duplicados de raíz (`run_server.py`, `run_terminal.py`, `run_panel.py`, `run_backoffice.py`)
   **ya no existen** — el usuario los borró al reemplazar los scripts, confirmando en los hechos la
   simplificación que este documento ya proponía. `run_panel`/`run_backoffice` sobreviven solo como
@@ -428,9 +432,11 @@ en §7, caso 7). "🧩" marca una capacidad compuesta.
 | Builders 🧩 | **Build Vite** (`build_vite.py`) — compuesta de: `npm install`, `bump_version(package.json)`, `npm run build`, `upload_to_vps` | `target` descubierto (igual que el launcher) × `copy_to_vps` scope | una vez |
 | Builders 🧩 | **Build binario** (`build_binary.py`, reemplaza a `build_executable.py` — ver §1) — compuesta de: `bump_version(pyproject)`, `pyinstaller`, `upload_to_vps` opcional | `entrypoint` campo | una vez |
 | Builders | Promote app (`promote_app.py`) | — (un solo paso: copia `app_web_ultima` → `app_web_estable`) | una vez / destructivo |
-| Emulators | Arrancar emulador (`android_emulator.py` + `run_emulator_1/2/3.py`) | `preset` → botones `pixel_4` \| `pixel_8` \| `resizable` | en vivo |
-| Emulators | Gestor de AVD (`emulator_manager.py`) | — (vista propia, no consola) | vista |
-| Emulators | Purgar AVD / Purgar imágenes de sistema | — | destructivo |
+| Emulators | Instalar máquina (`android_emulator.py`, parte de descarga) | `image` **de catálogo** → lista larga con búsqueda (317 system images publicadas) | una vez / máquina |
+| Emulators | Crear AVD (`android_emulator.py`, parte de creación) | `device` **de catálogo** (88 perfiles) × `image` (solo instaladas) × `name` campo | una vez / máquina |
+| Emulators | Emulador (`run_emulator_1/2/3.py`) | `avd` **de catálogo** (los ya creados) × `boot` normal\|borrar datos; se puede lanzar otro con uno corriendo | en vivo / máquina |
+| Emulators | Liberar disco (`purge_avds.py` + `purge_system_images.py`) | selección de AVD e imágenes × `dry_run` simulacro/borrado | destructivo / máquina |
+| Emulators | ~~Gestor de AVD (`emulator_manager.py`)~~ | absorbido: el inventario es la cabecera *Corriendo ahora* del panel del emulador, no una vista aparte | — |
 | VPS · ops | Sesión SSH (`ssh_login.py`) | — | interactivo |
 | VPS · ops | Health check / Comando remoto (`check_health.py`, `run_command.py`) | — | una vez |
 | VPS · ops 🧩 | **Correr setup remoto** (`run_scripts.py`) — compuesta de: `run_remote_script(script)` por cada entrada de `SETUP_SCRIPTS` (hoy apunta a `database/rebuild_db.py`, etc.) | `script` → 1 botón por entrada de la lista (config, no hardcode) + botón compuesto "Correr todos, en orden" | una vez |
@@ -826,7 +832,7 @@ no uno grande" es barato antes de escribir la función real; es caro después.
 
 5. **Builders + Emulators** — lo más pesado: los tres builders reemplazan su stub por las atómicas
    reales (`bump_version`, build, `upload_to_vps`) + compuesta con rollback si falla cualquier paso;
-   preset de emulador vía eje `expand="buttons"`; seguimiento por `adb`.
+   catálogos del SDK vía eje `expand="pick"` con caché en disco; seguimiento por `adb`.
    *Sale: ciclo completo de build y prueba.*
 
 6. **Base de datos** (§6) — depende de la etapa 4, porque el Explorer se conecta a través del

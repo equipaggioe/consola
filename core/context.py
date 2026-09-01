@@ -54,6 +54,7 @@ class TaskContext:
     _cancel: threading.Event = field(default_factory=threading.Event, repr=False)
     _children: list = field(default_factory=list, repr=False)
     _secrets: set = field(default_factory=set, repr=False)
+    _stoppers: list = field(default_factory=list, repr=False)
 
     # --- raiz del proyecto -------------------------------------------------
 
@@ -202,8 +203,24 @@ class TaskContext:
     def cancelled(self) -> bool:
         return self._cancel.is_set()
 
+    def on_cancel(self, stopper: Callable[[], None]) -> None:
+        """Registra un apagado limpio para cuando detengan la tarea.
+
+        Matar el proceso sirve para casi todo, pero no para lo que guarda estado
+        al cerrarse: al emulador hay que pedirle `adb emu kill` y darle un
+        momento, o el AVD queda a medio escribir (PLAN.md 7, caso 3). El gancho
+        corre ANTES que `kill_tree`, que asi casi siempre encuentra el proceso
+        ya terminado y no tiene nada que matar.
+        """
+        self._stoppers.append(stopper)
+
     def cancel(self) -> None:
         self._cancel.set()
+        for stopper in list(self._stoppers):
+            try:
+                stopper()
+            except Exception:
+                pass   # un apagado limpio que falla no impide el sucio
         for child in list(self._children):
             process.kill_tree(child)
 
@@ -228,6 +245,7 @@ class TaskContext:
             _cancel=self._cancel,
             _children=self._children,
             _secrets=self._secrets,
+            _stoppers=self._stoppers,
         )
 
 

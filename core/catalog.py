@@ -3,7 +3,8 @@ import os
 from dataclasses import replace
 from pathlib import Path
 
-from . import targets
+from . import android, cache, targets
+from .errors import TaskError
 from .registry import registry, Capability, AxisDef, Step
 
 # Marca de agua del campo "Archivos a copiar". Es un ejemplo del formato, no un
@@ -41,6 +42,85 @@ def for_project(cap: Capability, root: Path | str | None) -> Capability:
         return cap
     resueltos = [replace(a, values=targets.names_of(carpeta, a.discover)) if a.is_discovered else a
                  for a in cap.axes]
+    return replace(cap, axes=resueltos)
+
+
+# --- catalogos de la maquina ----------------------------------------------
+# Un eje `discover` se llena mirando el repo abierto (`core/targets.py`). Estos
+# se llenan preguntandole al SDK: que dispositivos existen, que maquinas
+# virtuales hay publicadas, cuales estan instaladas, que AVD hay creados. Son la
+# misma idea de PLAN.md 2.4 aplicada a la maquina en vez de a la carpeta — y por
+# eso viven aca, al lado de `for_project`, y no en el catalogo de botones.
+
+ANDROID_DEVICES = 'android_devices'            # catalogo de dispositivos
+ANDROID_IMAGES = 'android_images'              # catalogo de maquinas publicadas
+ANDROID_IMAGES_INSTALLED = 'android_installed'  # maquinas ya instaladas
+ANDROID_AVDS = 'android_avds'                  # AVD ya creados
+ANDROID_RUNNING = 'android_running'            # emuladores vivos ahora mismo
+
+# Lo instalado y lo creado cambian mientras Consola esta abierta, asi que se
+# cachean por un minuto y nada mas: alcanza para no repetir la consulta al abrir
+# tres pestanas seguidas, y no alcanza para mentir despues de una instalacion.
+# Los dos catalogos grandes usan el mes por defecto de `core/cache.py`.
+_FRESCO = 60.0
+
+
+def machine_values(source: str, *, refresh: bool = False) -> tuple[list[str], dict[str, str]]:
+    """Los valores de un eje de maquina, con sus etiquetas legibles.
+
+    Devuelve `([], {})` cuando el SDK no esta instalado en vez de fallar: un eje
+    vacio ya se explica solo en el panel ("no hay ... en esta maquina"), y una
+    excepcion aca dejaria sin dibujar toda la pestana.
+    """
+    try:
+        sdk = android.resolve_sdk()
+        if source == ANDROID_DEVICES:
+            catalogo = android.device_catalog(sdk, refresh=refresh)
+            return [d.id for d in catalogo], {d.id: d.label for d in catalogo}
+        if source == ANDROID_IMAGES:
+            catalogo = android.image_catalog(sdk, refresh=refresh)
+            return [i.package for i in catalogo], {i.package: i.label for i in catalogo}
+        if source == ANDROID_IMAGES_INSTALLED:
+            paquetes = cache.cached('android-installed', lambda: android.list_images(sdk),
+                                    max_age=_FRESCO, refresh=refresh)
+            imagenes = sorted((android.parse_image(p) for p in paquetes), key=lambda i: i.order)
+            return [i.package for i in imagenes], {i.package: i.label for i in imagenes}
+        if source == ANDROID_AVDS:
+            nombres = cache.cached('android-avds', lambda: android.list_avds(sdk),
+                                   max_age=_FRESCO, refresh=refresh)
+            return list(nombres), {}
+        if source == ANDROID_RUNNING:
+            # Nunca cacheado: es estado, no catalogo. Una respuesta vieja aca
+            # ofreceria apagar un emulador que ya no existe.
+            vivos = android.running(sdk)
+            return list(vivos), {s: f'{n or "?"}  ({s})' for s, n in vivos.items()}
+    except TaskError:
+        return [], {}
+    return [], {}
+
+
+def forget_machine_cache() -> None:
+    """Olvida lo que cambia al instalar, crear o borrar. La llama la UI cuando
+    termina una tarea de maquina: el proximo panel ve el estado nuevo."""
+    cache.forget('android-installed')
+    cache.forget('android-avds')
+
+
+def for_machine(cap: Capability, *, refresh: bool = False) -> Capability:
+    """La capacidad tal como se ve en ESTA maquina.
+
+    Hermana de `for_project`: misma mecanica, otra fuente. Se llama despues,
+    asi una capacidad puede tener ejes de las dos clases.
+    """
+    if not any(a.is_from_machine for a in cap.axes):
+        return cap
+    resueltos = []
+    for eje in cap.axes:
+        if not eje.is_from_machine:
+            resueltos.append(eje)
+            continue
+        values, labels = machine_values(eje.source, refresh=refresh)
+        resueltos.append(replace(eje, values=values, labels=labels))
     return replace(cap, axes=resueltos)
 
 # Valores por defecto de los SDK. Viven aca, con el resto de la forma de los
@@ -118,7 +198,7 @@ def load_catalog() -> None:
     `description` es la linea que la UI muestra en el tooltip del rail y bajo el
     nombre de la accion: que hace, en presente y en una oracion. `level` solo se
     escribe cuando no se deduce solo: una compuesta que no publica sus pasos
-    (`bootstrap_db`, `start_emulator`) tiene que declararse `level='C'` a mano,
+    (`bootstrap_db`, `teardown_db`) tiene que declararse `level='C'` a mano,
     porque sin `steps` ni `composed_of` la UI la tomaria por atomica.
     """
     # Launchers group
@@ -140,10 +220,55 @@ def load_catalog() -> None:
     registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', description='Promueve el último artefacto subido al canal de producción.', stub=True))
 
     # Emulators group
-    registry.register(Capability(id='start_emulator', name='Arrancar emulador', group='Emulators', section='Emulador', kind='live', icon='📲', description='Instala la imagen, crea el AVD si falta y arranca el emulador.', level='C', axes=[AxisDef('preset', ['pixel_4', 'pixel_8', 'resizable'], 'checks', select='many', label='Perfiles')], stub=True))
-    registry.register(Capability(id='avd_manager', name='Gestor de AVD', group='Emulators', section='Gestión', kind='view', icon='🔧', description='Lista los AVD y las imágenes de sistema instaladas, sin tocar nada.', stub=True))
-    registry.register(Capability(id='purge_avds', name='Purgar AVDs', group='Emulators', section='Limpieza', kind='destructive', icon='🗑️', description='Borra los AVD creados para liberar disco.', level='C', stub=True))
-    registry.register(Capability(id='purge_images', name='Purgar imágenes', group='Emulators', section='Limpieza', kind='destructive', icon='🗑️', description='Borra las imágenes de sistema descargadas del SDK.', level='C', stub=True))
+    # Los cuatro botones son de la maquina, no del repo: un AVD sirve para
+    # cualquier proyecto, igual que el SDK. Instalar la maquina virtual, crear
+    # el AVD y arrancarlo dejaron de ser tres casillas de una compuesta y son
+    # tres botones, porque cada uno tiene su propio catalogo de opciones: un
+    # paso con opciones propias ya no entra en una casilla (docs/emuladores.md).
+    registry.register(Capability(
+        id='install_system_image', name='Instalar máquina', group='Emulators',
+        section='Instalación', kind='once', icon='💿', scope='machine',
+        description='Descarga del SDK la máquina virtual (system image) que va a correr el AVD.',
+        axes=[AxisDef('image', [], 'pick', label='Máquina virtual',
+                      source=ANDROID_IMAGES)],
+        stub=True))
+    registry.register(Capability(
+        id='create_avd', name='Crear AVD', group='Emulators',
+        section='Instalación', kind='once', icon='🧱', scope='machine',
+        description='Crea el dispositivo virtual eligiéndolo del catálogo del SDK.',
+        axes=[AxisDef('device', [], 'pick', label='Dispositivo',
+                      source=ANDROID_DEVICES),
+              AxisDef('image', [], 'pick', label='Máquina virtual (instaladas)',
+                      source=ANDROID_IMAGES_INSTALLED),
+              # Vacio a proposito: el nombre se deriva del dispositivo y la API
+              # (`pixel_4_api36`). Solo se escribe cuando hace falta distinguir
+              # dos AVD del mismo modelo.
+              AxisDef('name', [''], 'field', label='Nombre del AVD',
+                      placeholder='se deriva del dispositivo y la API')],
+        stub=True))
+    registry.register(Capability(
+        id='launch_emulator', name='Emulador', group='Emulators',
+        section='Emulador', kind='live', icon='📲', scope='machine',
+        description='Arranca uno de los AVD ya creados. Se puede lanzar otro con uno corriendo.',
+        axes=[AxisDef('avd', [], 'pick', label='AVD', source=ANDROID_AVDS),
+              AxisDef('boot', ['normal', 'borrar datos'], 'scope', label='Arranque',
+                      danger={'borrar datos'})],
+        live_state=ANDROID_RUNNING,
+        stub=True))
+    # Un solo boton de limpieza para las dos cosas que ocupan disco: el AVD
+    # pesa cientos de MB y la maquina virtual, varios GB. Borrar uno suelto es
+    # marcar una casilla, no otro boton (docs/atomicas.md 1).
+    registry.register(Capability(
+        id='purge_emulators', name='Liberar disco', group='Emulators',
+        section='Limpieza', kind='destructive', icon='🗑️', scope='machine',
+        description='Borra AVD y máquinas virtuales; en simulacro solo los lista con su tamaño.',
+        axes=[AxisDef('avds', [], 'checks', select='many', label='AVD',
+                      source=ANDROID_AVDS, checked_by_default=False, allow_empty=True),
+              AxisDef('images', [], 'checks', select='many', label='Máquinas virtuales',
+                      source=ANDROID_IMAGES_INSTALLED, checked_by_default=False,
+                      allow_empty=True),
+              AxisDef('dry_run', ['simulacro', 'borrar'], 'scope')],
+        stub=True))
 
     # VPS · ops group
     registry.register(Capability(id='ssh_login', name='Sesión SSH', group='VPS · ops', section='Conexión', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
@@ -259,6 +384,15 @@ def load_catalog() -> None:
     registry.register(Capability(id='sync_common_files', name='Sync archivos comunes', group='Utils', section='Sync', kind='destructive', icon='🔄', description='Copia los archivos compartidos a los otros repos; en simulacro solo compara.', axes=[AxisDef('mode', ['simulacro', 'aplicar'], 'scope')], stub=True))
 
     # Hidden atomic capabilities
+    # Apagar no es un boton del rail: cerrar la pestana del emulador ya lo
+    # apaga, y para los huerfanos —un emulador de una sesion anterior o
+    # arrancado desde Android Studio— esta el ✕ de la cabecera de estado del
+    # panel, que es donde se ven. Sigue siendo una capacidad porque la corre el
+    # runner como cualquier otra, con su log en la consola.
+    registry.register(Capability(
+        id='stop_emulator', name='Apagar emulador', group='Emulators',
+        section='Emulador', kind='once', icon='⏹', scope='machine',
+        description='Apaga por adb el emulador indicado.', hidden=True, stub=True))
     registry.register(Capability(id='bump_version', name='Bump versión', group='Builders', section='Versión', kind='once', icon='🏷️', description='Sube el número de versión del repo.', hidden=True, stub=True))
     registry.register(Capability(id='upload_to_vps', name='Subir al VPS', group='VPS · ops', section='Subir artefacto', kind='once', icon='📤', description='Copia el artefacto compilado al VPS.', hidden=True, stub=True))
     # Visible, no oculta: "solo recopiar los certificados" es el paso que mas se

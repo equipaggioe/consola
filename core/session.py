@@ -13,6 +13,10 @@ Aca vive en memoria, con alcance por proyecto, y desaparece al cerrar la app.
 Nada de esto se escribe a disco.
 """
 
+# Ambito para lo que no es de ningun repo sino de la maquina: el serial del
+# emulador que se acaba de arrancar sirve igual desde cualquier proyecto.
+MACHINE = '@machine'
+
 _lock = threading.Lock()
 _state: dict[str, dict[str, object]] = {}
 

@@ -46,7 +46,8 @@ Cómo queda el catálogo actual:
 |---|---|---|---|
 | `target` (apps Vite) | `serve_vite`, `build_vite` | **many** | casillas |
 | `app` (apps Flutter) | `run_mobile`, `build_apk` | **many** | casillas |
-| `preset` (AVDs) | `start_emulator` | **many** | casillas |
+| `avds` / `images` (limpieza) | `purge_emulators` | **many** | casillas |
+| `device` / `image` / `avd` | `create_avd`, `install_system_image`, `launch_emulator` | one | lista larga con búsqueda (`pick`) |
 | `action` (systemd) | `systemd_action` | one | segmentado |
 | `bump_mode` | `build_apk`, `build_vite` | one | desplegable |
 | `scope` (local/remoto) | `bootstrap_db`, `migrate_db`, … | one | segmentado |

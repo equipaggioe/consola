@@ -8,6 +8,7 @@ from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
 from core import toolstatus
+from core.catalog import forget_machine_cache
 from core.registry import Capability, registry
 from core.projects import Project
 from ui.console_view import ConsoleView
@@ -360,6 +361,7 @@ class TabPanel(ReorderableBar, QWidget):
         self._consoles: dict[SubTabButton, ConsoleView] = {}
         self._params: dict[SubTabButton, ParamsPanel] = {}
         self._runners: set[TaskRunner] = set()  # referencias vivas: sin esto Qt las recolecta a mitad de hilo
+        self._busy: dict[SubTabButton, TaskRunner] = {}  # que pestana tiene tarea corriendo
 
         QTimer.singleShot(0, self._collapse_params)
 
@@ -502,9 +504,16 @@ class TabPanel(ReorderableBar, QWidget):
         title = f"{capability.name} {axis_value}".strip()
 
         for tab in self.tabs:
-            if tab.title == title:
-                self._activate(tab)
-                return self._consoles[tab]
+            if tab.title != title:
+                continue
+            # Una pestana ocupada por algo que corre en vivo no se reusa: se
+            # abre otra. Es lo que permite tener dos emuladores a la vez sin
+            # tener que esperar a que se cierre el primero.
+            if capability.kind == 'live' and tab in self._busy:
+                title = self._next_title(title)
+                break
+            self._activate(tab)
+            return self._consoles[tab]
 
         tab = SubTabButton(title, capability.icon, self.accent)
         tab.setToolTip(capability.description)
@@ -523,6 +532,7 @@ class TabPanel(ReorderableBar, QWidget):
         panel.set_env(self.env_panel.values())
         panel.execute_requested.connect(lambda payload, t=tab: self._run(t, payload))
         panel.params_changed.connect(self.params_changed.emit)
+        panel.stop_requested.connect(lambda serial, t=tab: self._stop_live(t, serial))
         self.params_stack.addWidget(panel)
         self._params[tab] = panel
 
@@ -533,9 +543,44 @@ class TabPanel(ReorderableBar, QWidget):
         self._activate(tab)
         return console
 
+    def _next_title(self, title: str) -> str:
+        """`Emulador`, `Emulador 2`, `Emulador 3`... el primero que este libre."""
+        usados = {t.title for t in self.tabs}
+        n = 2
+        while f'{title} {n}' in usados:
+            n += 1
+        return f'{title} {n}'
+
+    def _stop_live(self, tab: SubTabButton, serial: str) -> None:
+        """El ✕ de la cabecera de estado: apaga algo que quedo corriendo.
+
+        Corre la capacidad oculta `stop_emulator` como cualquier otra tarea —
+        misma consola, mismo log — en vez de tocar adb desde la interfaz.
+        """
+        capability = registry.get_capability('stop_emulator')
+        console = self._consoles.get(tab)
+        if capability is None or capability.func is None or console is None:
+            return
+        self._run_real(tab, console, capability, {'serial': serial}, track=False)
+
     def close_tab(self, tab: SubTabButton) -> None:
         if tab not in self.tabs:
             return
+        # Cerrar la pestana detiene lo que estaba corriendo en ella: para el
+        # emulador, eso es `adb emu kill` y no matarle el proceso
+        # (`core/tasks/emulators.py`). Las senales se cortan primero porque la
+        # consola se destruye en este mismo metodo y la tarea sigue viva unos
+        # instantes mas.
+        runner = self._busy.pop(tab, None)
+        if runner is not None:
+            try:
+                runner.logged.disconnect()
+                runner.noted.disconnect()
+                runner.finished_ok.disconnect()
+                runner.ask_requested.disconnect()
+            except (RuntimeError, TypeError):
+                pass
+            runner.cancel()
         idx = self.tabs.index(tab)
         was_active = tab.is_active
 
@@ -637,13 +682,19 @@ class TabPanel(ReorderableBar, QWidget):
             self._run_stub(console, payload)
 
     def _run_real(self, tab: SubTabButton, console: ConsoleView,
-                  capability: Capability, kwargs: dict) -> None:
+                  capability: Capability, kwargs: dict, track: bool = True) -> None:
+        """`track=False` para lo que corre *dentro* de una pestana ajena — el ✕
+        que apaga un emulador huerfano no debe pasar por dueno de la pestana:
+        si lo hiciera, cerrarla detendria el apagado y no el emulador que esa
+        pestana lanzo."""
         console.append_log("─" * 46, "info")
         panel = self._params.get(tab)
         if panel is not None:
             panel.run_btn.setEnabled(False)
 
         runner = TaskRunner(capability.id, self.project, capability.func, kwargs)
+        if track:
+            self._busy[tab] = runner
         runner.logged.connect(console.append_log)
         # La bitacora todavia no existe (`core/store.py`, PLAN.md §8): hasta que
         # exista, una nota no se pierde — se deja marcada en la consola.
@@ -655,9 +706,19 @@ class TabPanel(ReorderableBar, QWidget):
         def _on_done(ok: bool) -> None:
             console.append_log("Hecho" if ok else "Terminó con errores", "ok" if ok else "error")
             self._runners.discard(runner)
+            if self._busy.get(tab) is runner:
+                self._busy.pop(tab, None)
             if panel is not None:
                 panel.refresh_run_state()
             if capability.is_machine_wide:
+                # Instalar una imagen, crear un AVD o apagar un emulador cambia
+                # justo lo que los paneles de este grupo listan. Se olvida lo
+                # cacheado y se releen: si no, el AVD recien creado no aparece
+                # hasta reabrir la pestana.
+                forget_machine_cache()
+                for otro in self._params.values():
+                    if otro.capability.group == capability.group:
+                        otro.refresh_machine()
                 # Instalar un SDK cambia el entorno de la maquina: los
                 # indicadores de la barra tienen que reflejarlo ya, no al
                 # proximo arranque.

@@ -55,7 +55,7 @@ Si la respuesta es sí, es una atómica. Los ejemplos reales que motivaron esto:
 
 | Antes | Problema | Ahora |
 |---|---|---|
-| `android_emulator.py` — un `run()` que bajaba la system image, creaba el AVD, parcheaba `config.ini` y arrancaba | Para arrancar un emulador ya creado había que volver a entrar a la lógica de descarga y creación | `install_system_image` · `create_avd` · `launch_emulator` · `await_emulator` · `stop_emulator` |
+| `android_emulator.py` — un `run()` que bajaba la system image, creaba el AVD, parcheaba `config.ini` y arrancaba, con tres wrappers que solo cambiaban una constante | Para arrancar un emulador ya creado había que volver a entrar a la lógica de descarga y creación; y las tres constantes escondían los 88 dispositivos y 317 imágenes que publica el SDK | `install_system_image` · `create_avd` · `launch_emulator` · `await_emulator` · `stop_emulator` ([emuladores.md](emuladores.md)) |
 | `rebuild_db.py` — un archivo que borraba tablas, reseteaba Alembic, regeneraba la migración inicial, aseguraba particiones y corría dos tandas de seeders | Volver a correr solo los seeders mock obligaba a destruir el esquema | `drop_tables` · `reset_migrations` · `generate_migration` · `apply_migrations` · `ensure_partitions` · `run_seeders` · `run_mock_seeders` |
 | `update_remote.py` — 607 líneas en un `main()` | "Solo recopiar los certificados" implicaba rehacer `git pull` + venv + `pip install` | `sync_repository` · `ensure_remote_venv` · `install_remote_deps` · `upload_secret_files` · `restart_service` |
 | `setup_ssh_key.py` — un comando shell de 40 líneas encadenadas con `&&` | Si fallaba el login había que rehacer la creación del usuario que ya existía | `ensure_remote_user` · `configure_sudo` · `install_public_key` · `test_ssh_login` |
@@ -113,14 +113,17 @@ def rebuild_db(ctx, scope=db.LOCAL, *, drop=True, reset=True, generate=True,
 | Atómica | Qué hace sola |
 |---|---|
 | `install_system_image` | Descarga la imagen del perfil (puede tardar 10 min: se hace una vez) |
-| `create_avd` | Crea la máquina virtual; falla claro si falta la imagen |
-| `launch_emulator` | Arranca un AVD ya creado |
+| `create_avd` | Crea el dispositivo virtual eligiéndolo del catálogo; falla claro si falta la imagen |
+| `launch_emulator` | Arranca un AVD ya creado, en puerto propio y con `-read-only` si ya corría |
 | `await_emulator` | Espera el boot y devuelve el serial (lo usa `run_mobile`) |
 | `stop_emulator` | `adb emu kill` — matar el proceso no alcanza |
-| `delete_avd` / `delete_system_image` | Borrado puntual |
-| `inventory` | Vista del Gestor de AVD: no corre nada |
+| `purge_emulators` | Borra los AVD e imágenes marcados, con simulacro primero |
+| `inventory` | Lo que hay en la máquina; no corre nada |
 
-**Compuestas:** `start_emulator` (imagen → AVD → arrancar), `purge_avds`, `purge_system_images`.
+**Sin compuestas.** `start_emulator` (imagen → AVD → arrancar) existió y se borró: al conectar los
+catálogos reales del SDK —88 dispositivos, 317 system images— los tres pasos dejaron de ser
+variantes de lo mismo y pasaron a ser tres actividades con opciones propias. Un paso deja de caber
+en una casilla cuando gana su propio catálogo. Ver [emuladores.md](emuladores.md).
 
 ### `core/tasks/database.py`
 

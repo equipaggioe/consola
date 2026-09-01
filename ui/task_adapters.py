@@ -52,6 +52,17 @@ def _option(payload: dict, name: str) -> str:
     return (payload.get('options') or {}).get(name, '')
 
 
+def _pick(payload: dict, name: str) -> str:
+    """El id elegido en una lista larga con busqueda (`expand='pick'`).
+
+    Viaja aparte de `options` porque no es lo mismo: una opcion es una de tres
+    marcas visibles, esto es un id de catalogo — `pixel_4`,
+    `system-images;android-36;google_apis;x86_64` — que el panel muestra con su
+    etiqueta legible y guarda por su valor real.
+    """
+    return (payload.get('picks') or {}).get(name, '')
+
+
 def _install_dir_kwargs(payload: dict) -> dict:
     """El unico parametro de una instalacion de SDK: donde va.
 
@@ -149,6 +160,40 @@ def _update_remote_kwargs(payload: dict) -> dict:
     }
 
 
+def _create_avd_kwargs(payload: dict) -> dict:
+    """Dos catalogos y un nombre opcional.
+
+    El nombre vacio no se filtra: es el caso normal, y la funcion lo deriva del
+    dispositivo y la API (`pixel_4_api36`).
+    """
+    return {
+        'device': _pick(payload, 'device'),
+        'image': _pick(payload, 'image'),
+        'name': _field(payload, 'name'),
+    }
+
+
+def _launch_emulator_kwargs(payload: dict) -> dict:
+    """`-wipe-data` es una opcion de arranque, no un paso: borra los datos del
+    AVD antes de levantarlo y no tiene sentido pedirla sin arrancar."""
+    return {
+        'avd': _pick(payload, 'avd'),
+        'wipe': _option(payload, 'boot') == 'borrar datos',
+    }
+
+
+def _purge_emulators_kwargs(payload: dict) -> dict:
+    """Las dos listas se marcan con su id real, asi que no hay que traducir:
+    a diferencia de las familias de artefactos, el nombre de un AVD es el
+    mismo en el panel que en avdmanager."""
+    variants = payload.get('variants') or {}
+    return {
+        'avds': list(variants.get('avds', [])),
+        'images': list(variants.get('images', [])),
+        'apply': _option(payload, 'dry_run') == 'borrar',
+    }
+
+
 # capability_id -> payload (de ParamsPanel.payload()) -> kwargs de la funcion real
 ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'build_apk': _build_apk_kwargs,
@@ -162,4 +207,11 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'install_android_hypervisor': lambda payload: {},
     'install_android_sdk': _android_sdk_kwargs,
     'install_flutter_sdk': _install_dir_kwargs,
+    'install_system_image': lambda payload: {'image': _pick(payload, 'image')},
+    'create_avd': _create_avd_kwargs,
+    'launch_emulator': _launch_emulator_kwargs,
+    'purge_emulators': _purge_emulators_kwargs,
+    # No tiene panel: lo dispara el ✕ de la cabecera de estado, que pasa el
+    # serial directo (`ui/tab_panel.py::_stop_live`).
+    'stop_emulator': lambda payload: {'serial': _pick(payload, 'serial')},
 }

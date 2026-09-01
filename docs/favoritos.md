@@ -1,7 +1,7 @@
 # Favoritos — separar las cuatro acciones de todos los días de las cuarenta que existen
 
 El rail declara 43 acciones. Un repo cualquiera usa cinco o seis: el resto son operaciones de
-arranque (`bootstrap_vps`), de limpieza (`purge_images`) o de otro perfil de proyecto. Filtrar por
+arranque (`bootstrap_vps`), de limpieza (`purge_emulators`) o de otro perfil de proyecto. Filtrar por
 texto ya existía, pero exige saber de antemano qué buscás; esto es para lo contrario: tener a un
 clic lo que usás sin pensar.
 

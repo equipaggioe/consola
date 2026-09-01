@@ -1,6 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
+from . import emulators
 from .. import database as db
 from .. import ports, session, ssh, targets, toolchain
 from ..errors import TaskError
@@ -119,7 +120,12 @@ def run_mobile(ctx, target: str = '', device: str = '') -> None:
     app = targets.pick(ctx.root, targets.MOBILE_APP, target)
     kind = toolchain.detect_app_kind(app.path)
 
-    serial = device or toolchain.pick_emulator(toolchain.devices(ctx, app.path))
+    # Orden de preferencia: lo que se pidio a mano, el emulador que arranco la
+    # pestana "Emulador" de esta sesion, y recien despues el primero que
+    # conteste. Con dos emuladores vivos, "el primero" es una loteria.
+    serial = (device
+              or session.read(session.MACHINE, emulators.EMULATOR_SERIAL, '')
+              or toolchain.pick_emulator(toolchain.devices(ctx, app.path)))
     if not serial:
         raise TaskError('No hay ningun emulador Android corriendo. Arranca uno primero.')
 

@@ -12,7 +12,7 @@ class AxisDef:
     """
     name: str
     values: list[str]
-    expand: str  # 'checks' | 'buttons' | 'menu' | 'field' | 'scope'
+    expand: str  # 'checks' | 'buttons' | 'menu' | 'field' | 'scope' | 'pick'
     danger: set[str] = field(default_factory=set)
     label: str = ''
     select: str = 'one'  # 'one' | 'many'
@@ -20,6 +20,17 @@ class AxisDef:
     allow_empty: bool = False  # solo para select='many': ninguna marcada es una eleccion valida,
                                 # no "olvidaste elegir" (ej. 'Pesados' en clean_artifacts)
     discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
+    source: str = ''            # catalogo de la MAQUINA que llena este eje
+                                # (`core/catalog.py::machine_values`): el
+                                # dispositivo o la maquina virtual no salen de
+                                # mirar el repo abierto, salen de preguntarle al
+                                # SDK. Se resuelve igual que `discover`, pero
+                                # contra la maquina y no contra la carpeta.
+    labels: dict = field(default_factory=dict)  # valor -> como se lee. Para las
+                                # listas largas de `expand='pick'`, donde el
+                                # valor real es un id feo
+                                # (`system-images;android-36;google_apis;x86_64`)
+                                # y lo que se elige es "Android 36 | Google APIs".
     placeholder: str = ''       # solo expand='field': marca de agua del campo. Para cuando el
                                 # ejemplo ayuda a escribir el valor pero no es un default que
                                 # convenga dejar puesto (las rutas a copiar cambian por repo).
@@ -49,6 +60,11 @@ class AxisDef:
         return self.select == 'many'
 
     @property
+    def is_from_machine(self) -> bool:
+        """Sus valores salen de preguntarle al SDK, no del catalogo ni del repo."""
+        return bool(self.source)
+
+    @property
     def is_discovered(self) -> bool:
         """Sus valores salen de mirar el repo abierto, no del catalogo (PLAN.md 2.4).
 
@@ -56,11 +72,15 @@ class AxisDef:
         selector, asi que un eje descubierto se declara vacio aca y lo llena
         `catalog.for_project()` cada vez que se arma un panel.
         """
-        return bool(self.discover)
+        return bool(self.discover) or bool(self.source)
 
     @property
     def display(self) -> str:
         return self.label or self.name.replace('_', ' ').capitalize()
+
+    def text_of(self, value: str) -> str:
+        """Como se lee un valor. Sin etiqueta declarada, el valor tal cual."""
+        return self.labels.get(value, value)
 
 
 @dataclass
@@ -94,12 +114,27 @@ class Capability:
     level: str = ''        # 'A' | 'C'; vacio = se deduce de steps/composed_of
     scope: str = 'repo'    # 'repo' | 'machine': ver `is_machine_wide`
     hidden: bool = False   # capacidad atomica: existe como paso, no como boton
+    live_state: str = ''   # inventario que el panel muestra como cabecera de
+                           # estado, con su boton de apagar por fila
+                           # (`core/catalog.py::machine_values`). Es lo que
+                           # reemplaza al boton "Apagar emulador": lo que corre
+                           # se ve donde se elige, y se apaga desde ahi.
     stub: bool = True
     func: Callable[..., Any] | None = None
 
     @property
     def multi_axes(self) -> list[AxisDef]:
         return [a for a in self.axes if a.is_multi]
+
+    @property
+    def pick_axes(self) -> list[AxisDef]:
+        """Ejes de lista larga y cerrada: se eligen buscando, no marcando.
+
+        Un catalogo de cien dispositivos o de trescientas system images no entra
+        en casillas ni en un segmentado — pero tampoco es texto libre, porque
+        los valores validos son exactamente esos.
+        """
+        return [a for a in self.axes if a.expand == 'pick']
 
     @property
     def single_axes(self) -> list[AxisDef]:
@@ -109,7 +144,8 @@ class Capability:
         el valor se escribe (una ruta de instalacion, un API level) en vez de
         elegirse de una lista cerrada.
         """
-        return [a for a in self.axes if not a.is_multi and a.expand != 'field']
+        return [a for a in self.axes
+                if not a.is_multi and a.expand not in ('field', 'pick')]
 
     @property
     def field_axes(self) -> list[AxisDef]:
@@ -122,7 +158,7 @@ class Capability:
 
         Lo normal es que se note sola: si declara `steps` o `composed_of`, es
         compuesta. Pero varias compuestas reales (`bootstrap_db`,
-        `start_emulator`...) no publican sus pasos en el panel, y ahi el
+        `teardown_db`...) no publican sus pasos en el panel, y ahi el
         catalogo lo dice con `level='C'`. Lo explicito manda.
         """
         if self.level:

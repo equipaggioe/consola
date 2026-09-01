@@ -72,17 +72,16 @@ Tres columnas en las tablas de abajo:
 
 | Función | Nivel | Botón | Usada por |
 |---|---|---|---|
-| `install_system_image` | A | — | `start_emulator` |
-| `create_avd` | A | — | `start_emulator` |
-| `launch_emulator` | A | — | `start_emulator` |
+| `install_system_image` | A | `install_system_image` | — |
+| `create_avd` | A | `create_avd` | — |
+| `launch_emulator` | A | `launch_emulator` | — |
 | `await_emulator` | A | — | `run_mobile` (launchers.py) |
-| `stop_emulator` | A | — | ningún llamador hoy |
-| `delete_avd` | A | — | `purge_avds` |
-| `delete_system_image` | A | — | `purge_system_images` |
-| `inventory` | A | `avd_manager` | — |
-| `start_emulator` | C | `start_emulator` | — |
-| `purge_avds` | C | `purge_avds` | — |
-| `purge_system_images` | C | `purge_images` | — |
+| `stop_emulator` | A | oculto: el ✕ de *Corriendo ahora* | `ui/tab_panel.py` |
+| `purge_emulators` | A | `purge_emulators` | — |
+| `inventory` | A | — | — |
+
+El grupo no tiene compuestas: instalar la máquina, crear el AVD y arrancarlo son tres actividades
+con catálogos propios, no tres pasos de una secuencia. El porqué, en [emuladores.md](emuladores.md).
 
 ### `core/tasks/builders.py`
 
@@ -219,7 +218,6 @@ de que se confirme con uso que alguien las pide sueltas (PLAN.md §11.3):
 | `rotate_backups` | "Limpiar respaldos viejos sin volver a volcar la base" — el docstring ya lo dice explícito. |
 | `sync_repository` | Traer los últimos commits al VPS sin tocar venv, deps ni certificados. |
 | `write_systemd_unit` | Regenerar la unidad después de cambiar host/puerto, sin reinstalar el servicio. |
-| `stop_emulator` | Hoy no la llama nadie: ni `start_emulator` ni ninguna compuesta la usa todavía. |
 | `test_ssh_login` / `test_github_ssh` | Verificar una conexión ya configurada, sin rehacer el setup. |
 
 ### 4.2 — Compuestas que no existen todavía
@@ -293,8 +291,8 @@ usa para decir lo mismo sin abrir el markdown.
 | `level` / `is_composite` — atómica o compuesta | Marca al final de cada fila del rail: `◈` compuesta, `◦` atómica; y `◈ compuesta` / `◦ atómica` en la cabecera del panel derecho. El tooltip lo dice con palabras. |
 
 `is_composite` se deduce sola cuando la capacidad declara `steps` o `composed_of`. Las compuestas
-que no publican sus pasos en el panel (`bootstrap_db`, `teardown_db`, `migrate_db`,
-`start_emulator`, `purge_avds`, `purge_images`) lo declaran a mano con `level='C'` — si alguna de
+que no publican sus pasos en el panel (`bootstrap_db`, `teardown_db`, `migrate_db`)
+lo declaran a mano con `level='C'` — si alguna de
 ellas gana `composed_of` de verdad, el `level` se puede borrar y sigue saliendo bien.
 
 ---

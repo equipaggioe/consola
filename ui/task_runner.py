@@ -67,10 +67,18 @@ class TaskRunner(QThread):
         self._answered.set()
 
     def cancel(self) -> None:
-        """Detiene la tarea, incluso si esta esperando una respuesta."""
-        if self._ctx is not None:
-            self._ctx.cancel()
+        """Detiene la tarea, incluso si esta esperando una respuesta.
+
+        El apagado corre en un hilo aparte porque quien llama es la interfaz
+        (cerrar la pestana, apretar Detener) y los ganchos de
+        `TaskContext.on_cancel` pueden tardar un segundo o dos — un emulador
+        pidiendole a adb que se cierre. Nada de eso debe congelar la ventana.
+        """
         self._answered.set()
+        if self._ctx is None:
+            return
+        self._ctx._cancel.set()   # inmediato: los bucles largos ya lo ven
+        threading.Thread(target=self._ctx.cancel, daemon=True).start()
 
     # --- ejecucion ----------------------------------------------------------
 
