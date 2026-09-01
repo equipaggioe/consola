@@ -57,6 +57,12 @@ Regla para los que vengan: **¿tiene sentido pedir dos a la vez?** Sí → `many
 Los `many` casi siempre son targets descubiertos del repo; los `one` casi siempre son modos de la
 herramienta. Es la misma frontera de `capacidades-por-repo.md` §3, vista desde otro ángulo.
 
+**Un cuarto tipo, agregado con los instaladores de SDK:** `expand='field'` es para un eje que no se
+elige de una lista, se escribe — un directorio de instalación, un API level. `values[0]` es el
+valor por defecto (lo que la función usa si el campo queda vacío), y se dibuja como un `QLineEdit`,
+no como casillas ni segmentado. `Capability.field_axes` los separa del resto; ver el detalle de
+implementación en `docs/catalogo-funciones.md §7.1`.
+
 ---
 
 ## 3. Los pasos también son casillas
@@ -185,10 +191,10 @@ su contenido previsto.
 | `core/catalog.py` | ✅ ejes marcados `many`; `copy_to_vps` → paso; atómicas ocultas del rail |
 | `core/settings.py` | ✅ esquema de las 21 claves de `PLAN.md` §9, con `required_by` |
 | `core/envfile.py` | ✅ leer/escribir `.consola/config.env`, importar `scripts/.env`, `.gitignore` |
-| `ui/params_panel.py` | ✅ variantes, pasos, opciones, aviso de faltantes, resumen, Ejecutar |
+| `ui/params_panel.py` | ✅ variantes, pasos, opciones, campos de texto (`expand='field'`), aviso de faltantes, resumen, Ejecutar |
 | `ui/env_panel.py` | ✅ formulario agrupado, secretos enmascarados, importar, guardar |
 | `ui/widgets/segmented.py` | ✅ control segmentado para ejes `select='one'` |
-| `ui/tab_panel.py` | ✅ splitters, panel por pestaña, ejecución simulada a la consola |
-| `ui/rail.py` | ✅ un botón por capacidad (43, antes 55) |
-| `ui/params_store.py` | ✅ persistir la selección por repo y por botón (`QSettings`) — ver `docs/parametros-persistentes.md` |
-| ejecución real | ⏳ hoy `Ejecutar` reporta a la consola lo que correría (stub, `PLAN.md` §10) |
+| `ui/tab_panel.py` | ✅ splitters, panel por pestaña; ejecuta de verdad las capacidades con adaptador (`ui/task_adapters.py`), simula el resto |
+| `ui/rail.py` | ✅ un botón por capacidad (48 implementadas hoy) |
+| `ui/params_store.py` | ✅ persistir la selección por repo y por botón (`QSettings`); `scope='machine'` guarda una sola vez para todos los repos — ver `docs/parametros-persistentes.md` |
+| ejecución real | ⏳ conectada capacidad por capacidad vía `ui/task_runner.py` + `ADAPTERS`; ver `docs/catalogo-funciones.md §7` |

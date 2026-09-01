@@ -5,9 +5,17 @@ from PySide6.QtCore import Qt, QPropertyAnimation, Property, QEasingCurve
 from ..theme import Colors
 
 class LedIndicator(QWidget):
-    """Circular LED with states: 'off', 'green', 'amber', 'red'.
-    When 'green', pulses smoothly between 0.5 and 1.0 opacity."""
-    
+    """Circular LED with states: 'off', 'on', 'green', 'amber', 'red'.
+
+    Only 'green' pulses, and that pulse means *algo esta vivo ahora mismo*
+    (un servicio corriendo). Para un hecho estatico — una herramienta que
+    esta instalada — se usa 'on': el mismo verde, sin animacion. Sin esa
+    distincion cada indicador de la barra de estado dejaria una animacion en
+    bucle corriendo para siempre, y ademas mentiria sobre lo que informa.
+    """
+
+    STEADY = ('off', 'on', 'amber', 'red')
+
     def __init__(self, parent=None, size: int = 10):
         super().__init__(parent)
         self.setFixedSize(size, size)
@@ -47,6 +55,7 @@ class LedIndicator(QWidget):
         
         color_map = {
             'off': Colors.INACTIVE,
+            'on': Colors.SUCCESS,
             'green': Colors.SUCCESS,
             'amber': Colors.WARNING,
             'red': Colors.ERROR

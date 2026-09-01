@@ -7,13 +7,14 @@ from PySide6.QtCore import Qt, Signal, QRectF, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
+from core import toolstatus
 from core.registry import Capability, registry
 from core.projects import Project
 from ui.console_view import ConsoleView
 from ui.params_panel import ParamsPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
-from ui.widgets import ReorderableTab, ReorderableBar, LevelMark
+from ui.widgets import ReorderableTab, ReorderableBar, LevelMark, ScopeMark
 from ui.task_adapters import ADAPTERS
 from ui.task_runner import TaskRunner
 
@@ -172,6 +173,18 @@ class WorkspaceStatusBar(QWidget):
 
         layout.addStretch()
 
+        # Estado del entorno: se chequea solo, no con un boton. Va antes del
+        # reloj porque es informacion de la maquina, no de esta corrida.
+        self.tools_layout = QHBoxLayout()
+        self.tools_layout.setSpacing(10)
+        layout.addLayout(self.tools_layout)
+        self._tools: dict[str, tuple[LedIndicator, QLabel]] = {}
+        self.refresh_tools()
+
+        separator = QLabel("·")
+        separator.setStyleSheet(f"color: {Colors.BORDER_LIGHT}; font-size: {Fonts.SIZE_XS}px;")
+        layout.addWidget(separator)
+
         self.status_label = QLabel("● 0 tareas activas  ·  00:00:00")
         self.status_label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
         layout.addWidget(self.status_label)
@@ -180,6 +193,43 @@ class WorkspaceStatusBar(QWidget):
 
     def set_project(self, name: str, icon: str = "") -> None:
         self.project_label.setText(f"{icon or '◇'} {name}")
+
+    def refresh_tools(self) -> None:
+        """Vuelve a mirar el disco y repinta los indicadores del entorno.
+
+        Se llama al construir la barra y despues de cada accion de maquina
+        (instalar un SDK): como la instalacion deja las variables en el
+        `os.environ` del proceso, el LED se pone en verde sin reiniciar nada.
+        """
+        for tool in toolstatus.detect():
+            if tool.key not in self._tools:
+                self._tools[tool.key] = self._build_tool(tool)
+            led, label = self._tools[tool.key]
+            # 'on', no 'green': el verde que late dice "esto esta corriendo",
+            # y una herramienta instalada es un hecho quieto.
+            led.set_state('on' if tool.found else 'off')
+            tip = f"{tool.label}: {tool.detail}"
+            led.setToolTip(tip)
+            label.setToolTip(tip)
+            label.setStyleSheet(
+                f"color: {Colors.TEXT_DIM if tool.found else Colors.TEXT_MUTED}; "
+                f"font-size: {Fonts.SIZE_XS}px;"
+            )
+
+    def _build_tool(self, tool) -> tuple[LedIndicator, QLabel]:
+        container = QWidget()
+        container.setStyleSheet("background: transparent;")
+        clayout = QHBoxLayout(container)
+        clayout.setContentsMargins(0, 0, 0, 0)
+        clayout.setSpacing(5)
+
+        led = LedIndicator(size=8)
+        label = QLabel(tool.label)
+        clayout.addWidget(led)
+        clayout.addWidget(label)
+
+        self.tools_layout.addWidget(container)
+        return led, label
 
     def add_service(self, name: str) -> None:
         container = QWidget()
@@ -301,7 +351,6 @@ class TabPanel(ReorderableBar, QWidget):
         # --- barra de estado -------------------------------------------
         self.status_bar = WorkspaceStatusBar(self.accent)
         self.status_bar.set_project(project.name, project.icon)
-        self.status_bar.add_service("Túnel Postgres")
 
         self.layout.addWidget(self.sub_bar)
         self.layout.addWidget(self.splitter, 1)
@@ -372,11 +421,15 @@ class TabPanel(ReorderableBar, QWidget):
             self.right_header_level.setToolTip("")
             return
         composite = capability.is_composite
-        self.right_header_level.setText(
-            f"{LevelMark.COMPOSITE if composite else LevelMark.ATOMIC}  {capability.level_label.lower()}")
-        self.right_header_level.setToolTip(
-            "Compuesta: encadena varias acciones atómicas" if composite
-            else "Atómica: un solo paso, idempotente")
+        texto = (f"{LevelMark.COMPOSITE if composite else LevelMark.ATOMIC}"
+                 f"  {capability.level_label.lower()}")
+        tip = ("Compuesta: encadena varias acciones atómicas" if composite
+               else "Atómica: un solo paso, idempotente")
+        if capability.is_machine_wide:
+            texto += f"  ·  {ScopeMark.GLYPH} máquina"
+            tip += "\nDe la máquina: sus parámetros no dependen del repo abierto."
+        self.right_header_level.setText(texto)
+        self.right_header_level.setToolTip(tip)
 
     def _build_welcome(self) -> QWidget:
         w = QWidget()
@@ -598,6 +651,11 @@ class TabPanel(ReorderableBar, QWidget):
             self._runners.discard(runner)
             if panel is not None:
                 panel.refresh_run_state()
+            if capability.is_machine_wide:
+                # Instalar un SDK cambia el entorno de la maquina: los
+                # indicadores de la barra tienen que reflejarlo ya, no al
+                # proximo arranque.
+                self.status_bar.refresh_tools()
 
         runner.finished_ok.connect(_on_done)
         self._runners.add(runner)  # referencia viva mientras el hilo corre

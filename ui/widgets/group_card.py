@@ -40,6 +40,26 @@ class LevelMark(QLabel):
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;")
 
 
+class ScopeMark(QLabel):
+    """Marca de alcance: esta accion le pasa a la maquina, no al repo abierto.
+
+    Solo aparece en las de `scope='machine'` (instalar un SDK), porque la
+    ausencia de marca ya significa "es de este repo", que es el caso normal.
+    `⌂` se lee como la maquina misma, y no se confunde con las formas del
+    nivel (`◈`/`◦`) que van al lado.
+    """
+    GLYPH = '⌂'
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setText(self.GLYPH)
+        self.setFixedWidth(12)
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setToolTip("De la máquina: no depende del repositorio abierto")
+        self.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;")
+
+
 class ActionRow(QWidget):
     """Una accion dentro de una caja de grupo: renglon de ancho completo.
 
@@ -59,7 +79,7 @@ class ActionRow(QWidget):
     def __init__(self, capability_id: str, label: str, icon: str = '',
                  danger: bool = False, accent: str = Colors.ACCENT,
                  favorite: bool = False, composite: bool = False,
-                 description: str = '', parent=None):
+                 description: str = '', machine: bool = False, parent=None):
         super().__init__(parent)
         self.capability_id = capability_id
         self.danger = danger
@@ -67,6 +87,7 @@ class ActionRow(QWidget):
         self.favorite = favorite
         self.composite = composite
         self.description = description
+        self.machine = machine
         self._hovered = False
         self._pin_hovered = False
         self._ready = False
@@ -94,6 +115,8 @@ class ActionRow(QWidget):
         layout.addWidget(self.icon_label)
         layout.addWidget(self.text_label)
         layout.addStretch()
+        if machine:
+            layout.addWidget(ScopeMark())
         layout.addWidget(LevelMark(composite))
 
         self.run_btn = QPushButton("▶")
@@ -109,6 +132,8 @@ class ActionRow(QWidget):
         """Nombre, que hace, de que nivel es y como se usa la fila."""
         level = ("Compuesta · encadena varias atómicas" if self.composite
                  else "Atómica · un solo paso")
+        if self.machine:
+            level += " · de la máquina, no del repo"
         lines = [f"<b>{label}</b>"]
         if self.description:
             lines.append(self.description)
@@ -336,7 +361,8 @@ class GroupCard(QWidget):
         for cap in capabilities:
             row = ActionRow(cap.id, cap.name, cap.icon,
                             danger=cap.kind == 'destructive', accent=accent,
-                            composite=cap.is_composite, description=cap.description)
+                            composite=cap.is_composite, description=cap.description,
+                            machine=cap.is_machine_wide)
             row.triggered.connect(self.action_triggered.emit)
             row.favorite_toggled.connect(self._on_row_favorite_toggled)
             row.run_requested.connect(self.run_requested.emit)

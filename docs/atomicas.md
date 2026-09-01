@@ -1,8 +1,34 @@
 # Niveles 1 y 2 — atómicas y compuestas en `core/tasks/`
 
 Implementación de los niveles 1 y 2 de [PLAN.md §2](PLAN.md), sobre la plomería documentada en
-[nivel-0.md](nivel-0.md). Nueve módulos, ~2.300 líneas, **45 capacidades del catálogo con cuerpo
+[nivel-0.md](nivel-0.md). Nueve módulos, ~2.300 líneas, **48 capacidades del catálogo con cuerpo
 real** (0 stubs).
+
+---
+
+## 0. Corrección: qué NO es una atómica
+
+Al partir `install_android_sdk`, el criterio del §1 se aplicó mal por un momento: se propuso una
+casilla por cada función interna del script (`_resolve_cmdline_tools_release`, `_download`,
+`_extract`, `_accept_licenses`...). Eso es la confusión inversa a la que ya resuelve el
+contraejemplo de `clean_vps` — aquí ni siquiera son pasos de una compuesta, son **utilidades**
+dentro de una sola atómica: nadie va a querer nunca "solo aceptar las licencias" o "solo extraer
+el zip" sin lo demás.
+
+La pregunta del §1 (*¿tiene sentido re-ejecutar esto solo?*) sigue siendo la correcta; lo que
+faltó fue aplicarla a la granularidad justa. Aplicada bien a Android dio **tres** atómicas, no
+siete:
+
+- `install_android_tools` — resolver la versión publicada, descargar, verificar SHA-1,
+  descomprimir, dejar el entorno configurado. Todo eso es *un* paso reconocible del dominio
+  ("tener las cmdline-tools instaladas"), aunque por dentro llame a media docena de funciones.
+- `install_android_packages` — aparte porque *sí* se repite sola: cuando sale una API nueva o un
+  repo pide otro `build-tools`, se agrega ese paquete sin volver a bajar el SDK ni tocar el PATH.
+- `install_android_hypervisor` — aparte porque es lo único que pide permisos elevados (driver de
+  kernel en Windows); separarlo deja a las otras dos sin necesidad de admin.
+
+Ver el detalle completo en [catalogo-funciones.md §3](catalogo-funciones.md#3-catálogo-completo-por-módulo)
+y el §4.1 de más abajo.
 
 ---
 
@@ -148,11 +174,55 @@ y los seis pasos de la limpieza: `remove_systemd_service` · `remove_deployed_re
 
 `find_artifacts` (solo lectura, alimenta el simulacro) · `clean_artifacts` ·
 `compare_common_files` · `sync_common_files` · `detect_public_ip` · `update_cloudflare` ·
-`install_android_sdk` · `install_flutter_sdk`.
+`install_android_tools` · `install_android_packages` · `install_android_hypervisor` ·
+`install_flutter_sdk`.
+
+**Compuesta:** `install_android_sdk` (encadena las tres atómicas de Android; cada una sigue
+teniendo su propio botón). Detalle en el §4.1.
 
 ---
 
 ## 4. Piezas nuevas que aparecieron al implementar
+
+### 4.1 — Los SDK dejaron de pedir URL a mano: instalación completa, Linux primero
+
+La primera versión de `install_android_sdk`/`install_flutter_sdk` (línea final del §5 vieja de
+este documento) exigía la URL del paquete como parámetro porque "las de Google cambian con cada
+versión". Eso era falso — la URL se resuelve sola desde la misma fuente que consulta un humano a
+mano: la página de Android Studio (regex sobre el HTML, con su SHA-1 al lado) y el índice
+`releases_<os>.json` de Flutter (con su SHA-256). Ninguna de las dos atómicas pide hoy una URL.
+
+Consola está pensada para Linux y tiene que andar igual en Windows, así que se corrigieron tres
+cosas que los scripts originales solo probaban en Windows:
+
+- **Flutter en Linux se publica en `.tar.xz`, no en `.zip`.** El script original abría todo con
+  `zipfile` y en Linux no llegaba a descomprimir nada. `files.extract()` (nuevo en
+  [nivel-0.md](nivel-0.md)) elige el formato por la extensión.
+- **`zipfile.extractall` descarta los permisos Unix.** El zip de Android sí se descomprimía en
+  Linux, pero `sdkmanager` quedaba sin bit de ejecución. `files.extract_zip()` recupera el modo
+  de `external_attr` y lo aplica con `chmod`.
+- **Los directorios por defecto no miraban el sistema operativo** (`D:\Android` a secas). Ahora
+  son `~/Android/Sdk` / `~/flutter` en Linux, `D:\Android` / `D:\flutter` en Windows
+  (`core/catalog.py::ANDROID_DIR_DEFAULT`/`FLUTTER_DIR_DEFAULT`).
+
+**`core/userenv.py`** (nuevo, nivel 0) reemplaza el `setx /M` + HKLM de los scripts: escribe en
+`HKCU\Environment` en Windows y en un bloque delimitado (`# >>> consola >>>` / `# <<< consola
+<<<`) del perfil del shell en Linux/Mac — nunca a nivel sistema, nunca pide admin. El bloque se
+reescribe entero cada corrida (no se borra línea por línea como hacían los scripts), así que
+reinstalar en otro directorio es idempotente y no deja rutas viejas colgando. Ver el porqué de
+HKCU-vs-HKLM en la discusión que originó esto: nada de lo que Android o Flutter necesitan requiere
+una consola elevada salvo el hypervisor.
+
+Lo único que sí pide admin es `install_android_hypervisor` en Windows (el driver `gvm` es un
+driver de kernel); usa `ShellExecuteW(..., 'runas', ...)` para un único prompt de UAC en vez de
+exigir que toda Consola corra elevada. En Linux no se instala nada: se verifica `/dev/kvm` y, si
+el usuario no tiene permiso, se le da el `usermod -aG kvm` exacto en vez de tocarlo con `sudo`
+desde la interfaz.
+
+`core/files.py` ganó `digest()` (SHA-1/SHA-256 genérico, un algoritmo por parámetro porque Android
+publica SHA-1 y Flutter SHA-256) y `core/process.py` ganó `feed()` — el único punto de todo
+Consola que le escribe a stdin de un subproceso (`sdkmanager --licenses` pregunta una por una y no
+tiene bandera para aceptar todo).
 
 ### `core/session.py` — estado de sesión
 `run_server.py` escribía `SERVER_PORT` en `scripts/.env` para que `run_terminal.py` y `run_vite.py`
@@ -191,26 +261,27 @@ sigue con `stub=True` y la UI la dibuja como tal. `main.py` ahora hace `load_cat
 ## 5. Estado
 
 ```
-implementadas 45 / 45   ·   siguen stub: []
+implementadas 48 / 48   ·   siguen stub: []
 ```
 
 Verificado sobre un repo de prueba: bump en `pubspec.yaml` (`1.4.22+318` → `1.4.23+319`, con el
 build number) y en `package.json`, detección de targets (`flutter-app: app`, `spa-vite: panel`),
-listado de artefactos, y generación de la unidad systemd.
+listado de artefactos, y generación de la unidad systemd. La resolución de URL/hash de los SDK se
+verificó contra las fuentes oficiales en vivo (§4.1); la instalación completa (bajar ~600 MB y
+escribir el registro/perfil de verdad) todavía no se corrió de punta a punta.
 
-**Lo que falta para que los botones corran de verdad** (etapa 2 de PLAN.md §10, no cubierto acá):
+**Lo que falta para que los botones corran de verdad** (etapa 2 de PLAN.md §10):
 
-- `core/runner.py` — el pool de workers que ejecuta una capacidad en un hilo aparte. Hoy
-  `ui/tab_panel.py` sigue haciendo ejecución simulada e ignora `cap.func`.
-- El puente entre los ejes/pasos del panel de parámetros y los argumentos de cada función
-  (hoy las atómicas reciben kwargs con default; nadie los llena desde la UI todavía).
-- Los `ask_sink` / `note_sink` del `TaskContext` conectados a diálogos Qt reales.
+- ✅ `ui/task_runner.py` — `TaskRunner(QThread)` corre una capacidad en un hilo aparte (reemplaza
+  al pendiente `core/runner.py` de esta lista). Ver `docs/catalogo-funciones.md §6`.
+- ✅ El puente ejes/pasos del panel → kwargs de la función real: `ui/task_adapters.py`, un
+  adaptador por capacidad conectada. Ocho conectadas hoy: `clean_artifacts`,
+  `install_android_tools`, `install_android_packages`, `install_android_hypervisor`,
+  `install_android_sdk`, `install_flutter_sdk`, y las que sigan sumándose.
+- Los `ask_sink` / `note_sink` del `TaskContext` conectados a diálogos Qt reales — sigue pendiente
+  para las capacidades con `ctx.confirm()`/`ctx.ask()` real.
 - `core/store.py` — SQLite para historial, bitácora y presets.
 
 **Pendientes de confirmar con uso real** (PLAN.md §11, puntos 3 y 5): cuáles de estas atómicas se
 piden sueltas de verdad. Si alguna nunca se usa sola, sobra como botón y puede volver a ser un paso
 interno — la decisión es barata ahora y cara después.
-
-Los dos instaladores de SDK (`install_android_sdk`, `install_flutter_sdk`) piden la URL del paquete
-en vez de traerla hardcodeada: las de Google y Flutter cambian con cada versión y una constante
-vieja hacía fallar el script sin decir por qué.

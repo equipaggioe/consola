@@ -14,6 +14,14 @@ casi nunca quiere los mismos pasos. Por eso la clave de guardado es `params/<hue
 <capability_id>` (`ui/params_store.py`), y la huella es un sha1 corto de la ruta normalizada: en
 `QSettings` la barra separa grupos, y en Windows la ruta trae además `:` y mayúsculas inestables.
 
+**Excepción — `Capability.scope='machine'`:** instalar un SDK no es una decisión del repo desde el
+que se abrió el panel, es de la máquina entera. Esas capacidades guardan bajo
+`params/machine/<capability_id>` en vez de por repo: el directorio que elegiste para el SDK de
+Android en un proyecto es el mismo directorio en cualquier otro. `_key()` decide cuál de las dos
+claves usar mirando `registry.get_capability(id).is_machine_wide`; todo lo demás (cuándo se guarda,
+cuándo se lee, qué hace el rail) es idéntico a lo de abajo. Ver
+`docs/catalogo-funciones.md §5`.
+
 Va a `QSettings`, no a `.consola/config.env`. El archivo del repo es configuración que el repo
 necesita para funcionar; esto es *cómo dejaste la pantalla la última vez* — el mismo criterio que el
 orden de pestañas (`ui/project_tabs.py`) y los favoritos (`ui/favorites.py`).

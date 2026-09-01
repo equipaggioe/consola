@@ -67,6 +67,10 @@ Ejecución de binarios externos, sin Qt:
 - `stream(argv, on_line, cancel, register)` — corre y entrega cada línea a un callback;
   cancelable a mitad de camino (mata el proceso si `cancel` se activa).
 - `capture(argv, timeout, check)` — para consultas cortas.
+- `feed(argv, stdin_text, timeout)` — como `capture`, pero le escribe a stdin y no revisa el
+  código de salida. Es la excepción deliberada a "nunca dejar un proceso esperando teclado"
+  (`stream`/`capture` cierran stdin a propósito): `sdkmanager --licenses` pregunta licencia por
+  licencia y no tiene bandera para aceptar todas de una.
 - `spawn(argv, detached=)` / `kill_tree(proc)` — `kill_tree` termina de abajo hacia arriba
   (`taskkill /T /F` en Windows, `killpg` en POSIX) para no dejar procesos zombis ocupando
   puertos — el caso del launcher que vigila archivos y relanza a su hijo (§7, caso 6).
@@ -183,6 +187,44 @@ El reemplazo real de `RUN_REMOTE` / `maybe_dispatch_remote`:
   antes de habilitar Aplicar en cualquier destructivo.
 - `copy`, `collect(root, patterns)` (arma la lista exacta de lo que un destructivo va a tocar),
   `remove`, `size_of`, `human_size`.
+- `digest(path, algorithm)` — SHA-1/SHA-256 genérico por bloques, agregado para verificar los
+  paquetes descargados de los SDK (Android publica SHA-1, Flutter SHA-256; ver `atomicas.md §4.1`).
+- `extract(archive, target)` / `extract_zip(archive, target)` — descomprime `.zip` o
+  `.tar.{xz,gz,bz2}` según la extensión. `extract_zip` recupera el modo Unix de cada entrada desde
+  `external_attr`, que `ZipFile.extractall` a secas descarta — sin esto, un binario descomprimido
+  en Linux queda sin permiso de ejecución aunque el zip se haya descomprimido bien.
+
+### `core/userenv.py`
+Variables de entorno de usuario persistentes, sin permisos de administrador — Linux primero,
+Windows igual de completo. Reemplaza el `setx /M` + HKLM de los scripts originales, que exigían
+una consola elevada para instalar nada.
+
+- `configure(ctx, variables=, path_add=, path_drop=)` — escribe variables y agrega/quita entradas
+  del PATH, y además las aplica al `os.environ` del proceso vivo (para que la propia Consola
+  encuentre lo recién instalado sin reiniciarse).
+- En Linux/Mac: un bloque delimitado (`# >>> consola >>>` / `# <<< consola <<<`) en `.bashrc`/
+  `.zshrc`, que se reescribe entero cada vez — así dos capacidades distintas (Android, Flutter)
+  pueden compartir el mismo bloque sin pisarse, y reinstalar en otro directorio no deja rutas
+  viejas colgando.
+- En Windows: `HKCU\Environment`, nunca `HKLM`. `path_drop` avisa (sin tocarlo) si el PATH del
+  sistema tiene una entrada vieja de una instalación anterior con `setx /M`, que le ganaría por
+  orden de precedencia — limpiarla si hace falta admin, así que solo se informa.
+- `_broadcast_change()` — `WM_SETTINGCHANGE` por `SendMessageTimeout`, para que las terminales
+  nuevas vean el cambio sin cerrar sesión.
+
+### `core/toolstatus.py`
+Qué herramientas de desarrollo tiene la máquina, para los indicadores de la barra de estado.
+
+- `detect()` → `list[Tool]` con Java, Git, SDK de Android y Flutter. Cada `Tool` trae `found`,
+  la ruta donde se encontró y un `hint` de qué hacer si falta (los tres van al tooltip del LED).
+- Deliberadamente **barato**: solo mira que el archivo exista y dónde, nunca lanza `java -version`
+  ni `flutter doctor`. Preguntárselo a cada herramienta cuesta segundos y bloquearía la interfaz en
+  cada refresco; para lo que el indicador dice —está o no está— alcanza con el disco. Ocho
+  detecciones completas tardan ~6 ms.
+- Cada herramienta se busca primero bajo su variable (`JAVA_HOME`, `FLUTTER_HOME`,
+  `ANDROID_SDK_ROOT` vía `core/android.resolve_sdk()`) y recién después en el PATH, porque una
+  instalación recién hecha escribe la variable en el mismo momento que la ruta — así el LED se pone
+  en verde sin reiniciar Consola.
 
 ### `core/ports.py`
 - `is_free(port)` / `resolve_port(preferred, search)` — el puerto es estado de sesión

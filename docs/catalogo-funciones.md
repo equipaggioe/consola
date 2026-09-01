@@ -168,18 +168,24 @@ Puros atómicos: ninguno encadena a otro (el módulo no declara compuestas).
 
 ### `core/tasks/utils.py`
 
-Puros atómicos, sin compuestas propias:
+| Función | Nivel | Botón | Usada por |
+|---|---|---|---|
+| `find_artifacts` | A | — | `clean_artifacts`, es su simulacro |
+| `clean_artifacts` | A | `clean_artifacts` | — |
+| `compare_common_files` | A | — | `sync_common_files` |
+| `sync_common_files` | A | `sync_common_files` | — |
+| `detect_public_ip` | A | — | `update_cloudflare` en modo `detect` |
+| `update_cloudflare` | A | `update_cloudflare` | — |
+| `install_android_tools` | A | `install_android_tools` | `install_android_sdk` (y solo) |
+| `install_android_packages` | A | `install_android_packages` | `install_android_sdk` (y solo) |
+| `install_android_hypervisor` | A | `install_android_hypervisor` | `install_android_sdk` (y solo) |
+| `install_flutter_sdk` | A | `install_flutter_sdk` | — |
+| `install_android_sdk` | C | `install_android_sdk` | — |
 
-| Función | Nivel | Botón |
-|---|---|---|
-| `find_artifacts` | A | — (lo llama `clean_artifacts`, es su simulacro) |
-| `clean_artifacts` | A | `clean_artifacts` |
-| `compare_common_files` | A | — (lo llama `sync_common_files`) |
-| `sync_common_files` | A | `sync_common_files` |
-| `detect_public_ip` | A | — (lo llama `update_cloudflare` en modo `detect`) |
-| `update_cloudflare` | A | `update_cloudflare` |
-| `install_android_sdk` | A | `install_android_sdk` |
-| `install_flutter_sdk` | A | `install_flutter_sdk` |
+`install_android_sdk` era una sola atómica hasta que se implementó de verdad; ver por qué se
+partió en tres en [atomicas.md §0](atomicas.md#0-corrección-qué-no-es-una-atómica). Las cinco
+capacidades de este módulo llevan `scope='machine'` (§5): instalar un SDK no es una decisión del
+repo abierto, vale para toda la máquina.
 
 ### `core/tasks/payloads.py`
 
@@ -228,6 +234,8 @@ tras otro:
 | `setup_dev_machine` | `install_android_sdk` + `install_flutter_sdk` — preparar una máquina nueva de un tiro. |
 
 Ninguna de las dos está en `catalog.py` todavía: son propuestas, no capacidades a medio implementar.
+`install_android_sdk` ya es compuesta por su cuenta (§3), así que `setup_dev_machine` encadenaría
+una compuesta con una atómica, no dos atómicas sueltas.
 
 ### 4.3 — Referencias cosméticas en `composed_of` que no son capacidades reales
 
@@ -243,7 +251,39 @@ tenga que renombrar la mitad de las funciones.
 
 ---
 
-## 5. Cómo se ve esto en la UI
+## 5. `scope='machine'` — capacidades que no son del repo
+
+`Capability.scope` (`core/registry.py`) distingue dos cosas que hasta ahora se trataban igual:
+
+- `'repo'` (por defecto) — la selección del panel es una decisión sobre el repo abierto. `build_apk`
+  en `navetta` y en `otra-app` casi nunca marca lo mismo.
+- `'machine'` — la selección vale para toda la máquina, no para el repo desde el que se abrió el
+  panel. Instalar el SDK de Android en `D:\Android` no es una decisión de un proyecto.
+
+`ui/params_store.py` guarda las `machine` bajo una sola clave (`params/machine/<capability_id>`) en
+vez de una por repo (`params/<huella-del-repo>/<capability_id>`): el directorio elegido en un repo
+aparece igual en cualquier otro. Es la misma tabla `QSettings` de
+[parametros-persistentes.md](parametros-persistentes.md), con una excepción a su regla de
+"repo + botón".
+
+Las cinco capacidades de `install_*` en `core/tasks/utils.py` son hoy las únicas `scope='machine'`.
+
+**En el rail** llevan la marca `⌂` (`ui/widgets/group_card.py::ScopeMark`) antes de la marca de
+nivel, y la cabecera del panel derecho lo repite con palabras. Solo se marca lo de máquina: la
+ausencia de marca ya significa "es de este repo", que es el caso normal.
+
+**En la barra de estado** hay cuatro LED —Java, Git, SDK Android, Flutter— que salen de
+`core/toolstatus.py` (ver [nivel-0.md](nivel-0.md)). Se chequean solos al abrir el espacio de
+trabajo y **después de cada acción de máquina**: como la instalación deja las variables en el
+`os.environ` del proceso (`core/userenv.py`), el LED pasa a verde apenas termina, sin reiniciar
+Consola. Por eso no hay —ni hace falta— un botón de "estado del entorno".
+
+El verde de estos LED es fijo (`LedIndicator` estado `'on'`), no el verde que late: el pulso está
+reservado para un servicio corriendo ahora mismo, y una herramienta instalada es un hecho quieto.
+
+---
+
+## 6. Cómo se ve esto en la UI
 
 Lo de §3 dejó de vivir solo en este documento: cada `Capability` lleva dos campos que la interfaz
 usa para decir lo mismo sin abrir el markdown.
@@ -260,7 +300,7 @@ ellas gana `composed_of` de verdad, el `level` se puede borrar y sigue saliendo 
 
 ---
 
-## 6. Primer botón conectado de verdad: `clean_artifacts`
+## 7. Primer botón conectado de verdad: `clean_artifacts`
 
 Hasta ahora `TabPanel._run` simulaba siempre — reportaba lo que correría, sin correr nada (PLAN.md
 §10). `clean_artifacts` es el primero que corre de verdad, y deja el mecanismo para conectar el
@@ -281,14 +321,30 @@ no un olvido — a diferencia de un axis como "Apps" en `build_vite`, donde vaci
 
 Quedó afuera de esta vuelta (documentado como pendiente, no descartado): elegir el repo destino
 entre varios (`c` de la propuesta original) necesita un selector de multi-repo que hoy no existe
-en ningún botón; y filtrar por antigüedad/tamaño mínimo (`d`) necesita un tipo de campo numérico
-que el panel de parámetros todavía no sabe dibujar (hoy todo axis single-select es un grupo de
-radio buttons, ver `ui/params_panel.py::_build_options`).
+en ningún botón; y filtrar por antigüedad/tamaño mínimo (`d`) necesitaba un tipo de campo numérico
+que el panel no sabía dibujar — el §7.1 agrega uno de texto para otro caso, todavía no uno
+numérico con validación.
+
+### 7.1 — `expand='field'`: el primer axis que se escribe, no se elige
+
+Todos los `AxisDef` hasta `install_android_sdk` eran de una lista cerrada de valores (casillas,
+segmentado, menú). El directorio de instalación de un SDK, el API level, el build-tools — no son
+una lista: son un valor escrito, con un default razonable. `AxisDef(expand='field')` es ese cuarto
+tipo: `Capability.field_axes` filtra los ejes de este tipo, `ui/params_panel.py::_build_fields`
+dibuja un `QLineEdit` por cada uno con `values[0]` como valor inicial (y placeholder si se vacía),
+y `ParamsPanel.field_value(axis_name)` lee lo escrito. Se guarda y se restaura igual que el resto
+del estado del panel (`state()['fields']`, ver
+[parametros-persistentes.md](parametros-persistentes.md)).
+
+Las cinco capacidades de instalación de SDK (§5) son las primeras en usarlo:
+`install_android_tools`/`install_flutter_sdk` con un campo (`install_dir`),
+`install_android_packages`/`install_android_sdk` con tres (`install_dir` cuando aplica,
+`api_level`, `build_tools`).
 
 ---
 
-## 7. Estado
+## 8. Estado
 
-`registry.implemented()` devuelve 45 capacidades con `func` real (0 stubs) — ver
+`registry.implemented()` devuelve 48 capacidades con `func` real (0 stubs) — ver
 [atomicas.md §5](atomicas.md). Este documento no agrega capacidades nuevas: es el índice de qué
 función vive dónde, para no tener que grepear `core/tasks/` cada vez que hace falta ubicar una.
