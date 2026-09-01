@@ -177,7 +177,16 @@ def load_catalog() -> None:
         id='update_remote', name='Actualizar remoto', group='VPS · server', section='Deploy',
         kind='live', icon='🔄',
         description='Despliega: publica el código, lo trae al VPS, instala, sube secretos y reinicia.',
-        axes=[_FILES_AXIS()],
+        axes=[_FILES_AXIS(),
+              # El `git reset --hard` del VPS es la unica parte destructiva del
+              # despliegue, y hay dos formas legitimas de tratarla: 'preguntar'
+              # abre el dialogo con la lista de archivos a la vista, 'descartar'
+              # no pregunta. Lo segundo es lo que se quiere cuando el VPS es
+              # descartable y el ruido lo genera el propio servicio; lo primero,
+              # cuando alguien pudo haber tocado algo a mano ahi.
+              AxisDef('vps_dirty', ['preguntar', 'descartar'], 'scope',
+                      label='Si el VPS tiene cambios sin commitear',
+                      danger={'descartar'})],
         steps=UPDATE_REMOTE_STEPS, stub=True))
 
     # VPS · setup group

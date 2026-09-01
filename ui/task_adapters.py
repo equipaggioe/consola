@@ -137,6 +137,9 @@ def _update_remote_kwargs(payload: dict) -> dict:
     steps = set(payload.get('steps') or [])
     return {
         'files': _files(payload),
+        # 'preguntar' deja que la tarea abra el dialogo cuando el VPS tenga
+        # cambios sin commitear; 'descartar' se los salta y hace el reset.
+        'discard_changes': _option(payload, 'vps_dirty') == 'descartar',
         'push':    'push_repo'        in steps,
         'pull':    'git_pull'         in steps,
         'deps':    'install_deps'     in steps,

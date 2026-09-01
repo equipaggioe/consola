@@ -135,10 +135,13 @@ def _ensure_cloned(ctx) -> str:
 
 
 def sync_repository(ctx, discard_changes: bool = False) -> str:
-    """Actualiza el repo del VPS. Si hay cambios sin commitear, pregunta.
+    """Actualiza el repo del VPS.
 
-    El script original resolvia esto solo con constantes en la cabecera; aca la
-    decision se toma cuando aparece el problema, con el detalle a la vista.
+    `discard_changes` elige que hacer si el VPS tiene cambios sin commitear:
+    False pregunta (dialogo, con la lista de archivos a la vista), True los
+    descarta sin preguntar. Es un parametro y no una constante porque las dos
+    respuestas son legitimas segun el VPS, y el script original obligaba a
+    editar la cabecera para cambiar de una a otra.
     """
     remote = _remote(ctx)
     destino = _ensure_cloned(ctx)
