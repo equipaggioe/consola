@@ -19,10 +19,21 @@ class AxisDef:
     checked_by_default: bool = True  # solo para select='many': todas marcadas, o ninguna
     allow_empty: bool = False  # solo para select='many': ninguna marcada es una eleccion valida,
                                 # no "olvidaste elegir" (ej. 'Pesados' en clean_artifacts)
+    discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
 
     @property
     def is_multi(self) -> bool:
         return self.select == 'many'
+
+    @property
+    def is_discovered(self) -> bool:
+        """Sus valores salen de mirar el repo abierto, no del catalogo (PLAN.md 2.4).
+
+        El catalogo se carga una sola vez al arrancar y el repo cambia con el
+        selector, asi que un eje descubierto se declara vacio aca y lo llena
+        `catalog.for_project()` cada vez que se arma un panel.
+        """
+        return bool(self.discover)
 
     @property
     def display(self) -> str:

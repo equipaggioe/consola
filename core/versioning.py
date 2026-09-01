@@ -6,7 +6,7 @@ from pathlib import Path
 from .errors import TaskError
 from .files import read_text, write_text
 
-MODES = ('patch', 'minor', 'major', 'none')
+MODES = ('patch', 'build_only', 'minor', 'major', 'none')
 
 # Cada manifiesto guarda la version en su propio formato; el resto del flujo
 # no tiene por que enterarse de cual es (PLAN.md 2.2: bump_version es una sola
@@ -23,6 +23,11 @@ def bump(version: str, mode: str) -> str:
 
     Respeta el build number de Flutter (`1.4.22+318`), que sube siempre junto
     con la version: Play Store rechaza un APK que repita el codigo anterior.
+
+    `build_only` existe por ese mismo build number, al reves: republicar el
+    mismo `X.Y.Z` con un codigo nuevo, que es lo que se pide cuando el cambio
+    no le cambia nada al usuario. Sin `+N` no significa nada, y falla en vez de
+    devolver la version intacta como si hubiera hecho algo.
     """
     mode = (mode or 'patch').strip().lower()
     if mode not in MODES:
@@ -42,6 +47,11 @@ def bump(version: str, mode: str) -> str:
         major, minor, patch = major + 1, 0, (0 if patch is not None else None)
     elif mode == 'minor':
         minor, patch = minor + 1, (0 if patch is not None else None)
+    elif mode == 'build_only':
+        if build is None:
+            raise TaskError(
+                f'{version!r} no tiene build number (+N): build_only solo aplica a pubspec.yaml.')
+        # `X.Y.Z` queda intacto a proposito; el +1 del build lo hace el bloque final.
     else:
         if patch is None:
             raise TaskError(f'{version!r} no tiene componente de parche para incrementar.')

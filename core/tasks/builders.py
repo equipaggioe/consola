@@ -22,7 +22,19 @@ es otra, y lo unico propio de cada builder es el paso de compilacion.
 
 
 def _target(ctx, kind: str, name: str = '') -> targets.Target:
-    return targets.find(ctx.root, kind, name) if name else targets.only(ctx.root, kind)
+    return targets.pick(ctx.root, (kind,), name)
+
+
+def _mobile(ctx, name: str = '') -> targets.Target:
+    """La app movil del repo, sea Flutter o Flet.
+
+    Los dos tipos se buscan juntos porque el framework no es una eleccion de
+    quien aprieta el boton: es una propiedad de la carpeta, y `compile_apk` la
+    lee sola. Pedir "Flutter o Flet" seria pedir que confirme lo que el repo ya
+    contesta — y en un repo solo-Flet, exigir `flutter-app` fallaba antes de
+    llegar siquiera a la bifurcacion que ya existia.
+    """
+    return targets.pick(ctx.root, targets.MOBILE_APP, name)
 
 
 # --- atomicas transversales ------------------------------------------------
@@ -59,13 +71,6 @@ def upload_artifact(ctx, local: Path, remote_rel: str = '') -> str:
 
 # --- pasos de Flutter / Flet -----------------------------------------------
 
-def fetch_dependencies(ctx, directory: str = '') -> None:
-    """`flutter pub get`. Se separa porque a veces solo hace falta esto: tras un
-    cambio de rama, resolver dependencias sin compilar nada."""
-    app = _target(ctx, targets.FLUTTER_APP, directory)
-    ctx.run([*toolchain.flutter_cmd(), 'pub', 'get'], cwd=app.path)
-
-
 def compile_apk(ctx, directory: str = '') -> Path:
     """Compila el APK de release. Es el unico paso que cambia entre Flutter y Flet.
 
@@ -73,17 +78,22 @@ def compile_apk(ctx, directory: str = '') -> Path:
     la misma fuente que usa el launcher de debug, para que release y debug no
     apunten a servidores distintos por descuido.
     """
-    app = _target(ctx, targets.FLUTTER_APP, directory)
+    app = _mobile(ctx, directory)
     kind = toolchain.detect_app_kind(app.path)
-    api = ctx.config.get('API_URL')
+    api = ctx.config.require('API_URL')
 
     if kind == toolchain.FLUTTER:
         ctx.run([*toolchain.flutter_cmd(), 'build', 'apk', '--release',
                  f'--dart-define=API_BASE_URL={api}'], cwd=app.path)
-        apk = app.path / 'build' / 'app' / 'outputs' / 'flutter-apk' / 'app-release.apk'
+        apk = _release_apk(app.path)
     else:
-        ctx.run([*toolchain.flet_cmd(), 'build', 'apk'], cwd=app.path,
-                env={'API_BASE_URL': api} if api else None)
+        # `flet build` delega en el mismo `flutter build` de abajo, asi que el
+        # `--dart-define` llega igual; la variable de entorno queda ademas para
+        # el codigo Python que la lea al empaquetar. Sin verificar contra un
+        # repo Flet real: es el unico paso de este flujo que sigue a ciegas.
+        ctx.run([*toolchain.flet_cmd(), 'build', 'apk',
+                 f'--dart-define=API_BASE_URL={api}'], cwd=app.path,
+                env={'API_BASE_URL': api})
         apk = _find_flet_apk(app.path)
 
     if not apk.is_file():
@@ -92,11 +102,36 @@ def compile_apk(ctx, directory: str = '') -> Path:
     return apk
 
 
+def _release_apk(app_dir: Path) -> Path:
+    return app_dir / 'build' / 'app' / 'outputs' / 'flutter-apk' / 'app-release.apk'
+
+
 def _find_flet_apk(app_dir: Path) -> Path:
     encontrados = sorted((app_dir / 'build').rglob('*.apk'))
     if not encontrados:
         raise TaskError(f'No se encontro ningun .apk bajo {app_dir / "build"}.')
     return encontrados[-1]
+
+
+def _last_apk(app_dir: Path) -> Path:
+    """El APK que ya esta en disco, sin volver a compilarlo.
+
+    No mira el framework: si esta la salida de Flutter la usa, y si no busca la
+    de Flet. Lo que importa aca es que exista un binario, no quien lo genero.
+    """
+    release = _release_apk(app_dir)
+    return release if release.is_file() else _find_flet_apk(app_dir)
+
+
+def _publish(ctx, apk: Path, manifest: Path) -> None:
+    """Sube el APK junto con su manifiesto de version.
+
+    Van los dos o no va ninguno: el APK no dice de que version es, y del lado
+    del VPS el manifiesto es lo unico que lo identifica. Subir solo el binario
+    deja al servidor anunciando la version anterior.
+    """
+    upload_artifact(ctx, apk)
+    upload_artifact(ctx, manifest)
 
 
 # --- pasos de Vite ---------------------------------------------------------
@@ -186,28 +221,50 @@ def build_apk(
     build: bool = True,
     upload: bool = False,
 ) -> Path | None:
-    """Compuesta: bump -> pub get -> build -> subida opcional.
+    """Compuesta: bump -> compilar -> subir APK + manifiesto.
+
+    Un solo boton para Flutter y para Flet. `directory` nombra *cual* app del
+    repo, no con que esta escrita: el framework sale de la carpeta. Lo unico
+    que no se comparte es `bump_mode='build_only'`, que necesita el `+N` de
+    `pubspec.yaml` y falla con ese mensaje en un `pyproject.toml`.
+
+    Sin `build` no se compila nada: se sube el APK que ya esta en disco. Es el
+    modo que el script original activaba con `BUILD_APK=false`, y el motivo de
+    que 'Compilar APK' sea un paso desmarcable y no una casilla fija.
+
+    No hay paso de `pub get`: `flutter build apk` resuelve dependencias solo, y
+    el bump acaba de tocar `pubspec.yaml`, asi que las re-resuelve siempre.
+    (`build_vite` si conserva el suyo, porque `npm run build` no instala nada.)
 
     Si el build falla, la version vuelve a lo que era: el repo no queda marcado
     con un numero que nunca se publico.
     """
-    app = _target(ctx, targets.FLUTTER_APP, directory)
+    app = _mobile(ctx, directory)
     manifiesto = versioning.find_manifest(app.path)
+
+    if not build:
+        if not upload:
+            raise TaskError('Sin compilar y sin subir no queda nada por hacer.')
+        if bump:
+            ctx.warn('Bump ignorado: el APK que hay en disco se compilo con la '
+                     'version que ya tiene el manifiesto, y subirla cambiada lo '
+                     'anunciaria como otra cosa.')
+        apk = _last_apk(app.path)
+        ctx.step('Subida al VPS')
+        _publish(ctx, apk, manifiesto)
+        ctx.note(f'Re-subida APK {app.name} {versioning.read_version(manifiesto)}')
+        return apk
 
     with files.reversible(manifiesto):
         if bump:
             ctx.step('Version')
             bump_version(ctx, app.name, bump_mode)
-        if not build:
-            return None
-        ctx.step('Dependencias')
-        fetch_dependencies(ctx, app.name)
         ctx.step('Compilacion')
         apk = compile_apk(ctx, app.name)
 
     if upload:
         ctx.step('Subida al VPS')
-        upload_artifact(ctx, apk)
+        _publish(ctx, apk, manifiesto)
 
     ctx.note(f'Build APK {app.name} {versioning.read_version(manifiesto)}')
     return apk

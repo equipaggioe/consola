@@ -30,6 +30,18 @@ siete:
 Ver el detalle completo en [catalogo-funciones.md §3](catalogo-funciones.md#3-catálogo-completo-por-módulo)
 y el §4.1 de más abajo.
 
+**Segunda corrección, misma familia: `fetch_dependencies` (`flutter pub get`).** Estaba como paso
+de `build_apk` porque el script original lo llamaba antes del build. Pero `flutter build apk`
+resuelve dependencias solo cuando `pubspec.yaml` es más nuevo que `.dart_tool/package_config.json`
+— y en este flujo el bump acaba de tocar `pubspec.yaml`, así que la resolución ocurre **siempre**,
+llamemos o no a `pub get`. El paso no era una atómica de más: era trabajo duplicado con un
+encabezado en la consola que hacía parecer que decidía algo.
+
+Se borró (§4.2). El contraste que lo confirma es `install_node_modules`, que **sí** se queda:
+`npm run build` no instala nada, así que ahí el paso de dependencias es el único que las trae. La
+regla no es "los builders no llevan paso de dependencias" — es que el paso existe cuando la
+herramienta no lo hace por ti.
+
 ---
 
 ## 1. El criterio de corte
@@ -131,8 +143,7 @@ def rebuild_db(ctx, scope=db.LOCAL, *, drop=True, reset=True, generate=True,
 ### `core/tasks/builders.py`
 
 `bump_version` (sirve para los tres manifiestos) · `upload_artifact` (re-subir sin recompilar) ·
-`fetch_dependencies` · `compile_apk` · `install_node_modules` · `compile_spa` · `compile_binary` ·
-`promote_app`.
+`compile_apk` · `install_node_modules` · `compile_spa` · `compile_binary` · `promote_app`.
 
 **Compuestas:** `build_apk`, `build_vite`, `build_binary` — las tres envuelven el manifiesto en
 `files.reversible()`, así que si el build falla la versión vuelve atrás y el repo no queda marcado
@@ -224,6 +235,88 @@ publica SHA-1 y Flutter SHA-256) y `core/process.py` ganó `feed()` — el únic
 Consola que le escribe a stdin de un subproceso (`sdkmanager --licenses` pregunta una por una y no
 tiene bandera para aceptar todo).
 
+### 4.2 — Build APK: el primer builder conectado, y el paso que se puede apagar
+
+`build_apk` es la primera compuesta del grupo Builders con adaptador real. Quedó con **tres**
+pasos, uno por átomo del dominio, y ninguno más:
+
+| Paso | Función | Botón propio |
+|---|---|---|
+| Bump versión | `bump_version` | sí, oculto — compartido con los otros dos builders |
+| Compilar APK | `compile_apk` | no: fuera de un build no significa nada |
+| Subir al VPS | `upload_artifact` | sí, oculto — compartido |
+
+Que dos de los tres tengan botón propio no ensucia el rail: con *solo favoritos*
+([favoritos.md](favoritos.md)) las atómicas que ya viven dentro de una compuesta no se marcan, y
+la vista en reposo muestra el botón grande nada más. Por eso separar sale barato aquí.
+
+**El paso de compilar es desmarcable a propósito.** El script original tenía `BUILD_APK=false`
+para subir un APK ya compilado sin rehacer el build — el caso del `scp` que se corta a mitad. Eso
+sobrevive como el paso "Compilar APK" apagado: `build_apk` busca el binario que hay en disco
+(`_last_apk`, que no pregunta el framework: usa la salida de Flutter si está y si no la de Flet) y
+lo sube. Marcar el bump en ese modo se ignora con un aviso, porque el APK del disco se compiló con
+la versión que el manifiesto ya tiene y subirla cambiada lo anunciaría como otra cosa.
+
+**Sube el APK y el manifiesto, siempre juntos.** El `.apk` no dice de qué versión es; del lado del
+VPS el `pubspec.yaml` es lo único que lo identifica. Subir solo el binario deja al servidor
+anunciando la versión anterior, así que `_publish()` manda los dos o no manda ninguno.
+
+**`build_only` es un modo de bump nuevo** (`core/versioning.py`), y existe solo por el build number
+de Flutter: republicar el mismo `X.Y.Z` con un código nuevo, que es lo que se pide cuando el cambio
+no le cambia nada al usuario. En un manifiesto sin `+N` falla en vez de devolver la versión intacta
+como si hubiera hecho algo. Además `bump_mode` pasó de campo escrito a opción excluyente: es una
+lista cerrada de cinco valores, no un texto libre.
+
+**Validación previa, por paso y no por capacidad.** `API_URL` la necesita compilar (va por
+`--dart-define`), y las cuatro claves de VPS las necesita subir. Las dos van en `requires_env` del
+`Step`, no en `required_by` de la capacidad: así el modo re-subida no queda bloqueado por una clave
+que solo usa el build, y compilar sin subir no pide credenciales del VPS.
+
+### 4.3 — Un solo botón para Flutter y Flet, y el eje que sale del repo
+
+`build_apk` no pregunta el framework. El script original tampoco: detectaba `pubspec.yaml` vs.
+`pyproject.toml` con `flet` y seguía. La razón para no partirlo en dos botones es que **el framework
+no es una decisión de quien aprieta el botón, es una propiedad de la carpeta** — preguntarlo sería
+pedir que confirme algo que el repo ya contesta, y en cualquier repo real uno de los dos botones
+estaría siempre muerto en el rail.
+
+Lo que sí es una decisión es *cuál* app, cuando hay más de una. Ese es el eje:
+
+```python
+AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP)
+```
+
+`values` se declara vacío a propósito. El catálogo se arma una sola vez al arrancar
+(`load_catalog()`) y el repo cambia con el selector, así que un eje descubierto se llena al construir
+el panel: `catalog.for_project(cap, root)` devuelve una copia de la capacidad con los valores
+resueltos contra ese repo. `core/targets.py` ya tenía la mitad hecha (`names_of` está escrita para
+esto); faltaba el lado del catálogo y del panel.
+
+Cómo se ve, según lo que haya en el repo:
+
+| Apps encontradas | Panel | Payload |
+|---|---|---|
+| una (el caso de los 8 repos) | **no dibuja selector** — un control de un solo valor es ruido | `app: 'app'` igual, para que el historial diga cuál se usó |
+| dos o más | opciones excluyentes, ordenadas por nombre | la elegida |
+| ninguna | botón en ámbar: *«no hay app móvil en este repo»* | — |
+
+El ámbar del último caso es un blocker propio, distinto del genérico: un eje descubierto vacío no es
+"olvidaste elegir", es que el repo no tiene eso, y pedir que elija de una lista vacía sería absurdo.
+
+El mismo mecanismo se aplicó a `build_vite`, `serve_vite` y `run_mobile`, que hasta ahora declaraban
+`['panel', 'backoffice', 'landing']` **a mano en el catálogo** — exactamente lo que PLAN.md §2.4 dice
+que no hay que hacer. Y `run_mobile` perdió su eje `framework` de dos casillas por la misma razón que
+`build_apk` no lo tiene.
+
+**Lo único que Flutter y Flet no comparten** es `bump_mode='build_only'`: necesita el `+N` de
+`pubspec.yaml` y en un `pyproject.toml` no significa nada. Falla al primer paso, antes de compilar,
+con ese mensaje. No justifica dos botones — es validez por valor de eje, no otra capacidad.
+
+**Sin verificar:** la inyección de `API_BASE_URL` en el build de Flet. `flet build` delega en el
+`flutter build` de abajo, así que el `--dart-define` debería llegar (y se manda también por entorno),
+pero no hay ningún repo Flet a mano para comprobarlo. Es el único paso de este flujo que sigue a
+ciegas, y está marcado como tal en el código.
+
 ### `core/session.py` — estado de sesión
 `run_server.py` escribía `SERVER_PORT` en `scripts/.env` para que `run_terminal.py` y `run_vite.py`
 lo leyeran después. No es configuración: es el puerto que el backend consiguió *en esta corrida*.
@@ -275,9 +368,9 @@ escribir el registro/perfil de verdad) todavía no se corrió de punta a punta.
 - ✅ `ui/task_runner.py` — `TaskRunner(QThread)` corre una capacidad en un hilo aparte (reemplaza
   al pendiente `core/runner.py` de esta lista). Ver `docs/catalogo-funciones.md §6`.
 - ✅ El puente ejes/pasos del panel → kwargs de la función real: `ui/task_adapters.py`, un
-  adaptador por capacidad conectada. Ocho conectadas hoy: `clean_artifacts`,
+  adaptador por capacidad conectada. Siete conectadas hoy: `clean_artifacts`,
   `install_android_tools`, `install_android_packages`, `install_android_hypervisor`,
-  `install_android_sdk`, `install_flutter_sdk`, y las que sigan sumándose.
+  `install_android_sdk`, `install_flutter_sdk` y `build_apk` (§4.2) — y las que sigan sumándose.
 - Los `ask_sink` / `note_sink` del `TaskContext` conectados a diálogos Qt reales — sigue pendiente
   para las capacidades con `ctx.confirm()`/`ctx.ask()` real.
 - `core/store.py` — SQLite para historial, bitácora y presets.

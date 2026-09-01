@@ -1,9 +1,35 @@
 from __future__ import annotations
 import os
+from dataclasses import replace
+from pathlib import Path
 
+from . import targets
 from .registry import registry, Capability, AxisDef, Step
 
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
+
+
+def for_project(cap: Capability, root: Path | str | None) -> Capability:
+    """La capacidad tal como se ve con este repo abierto.
+
+    Los ejes descubiertos (PLAN.md 2.4) no pueden declararse en `load_catalog()`:
+    el catalogo se arma una vez al arrancar y el repo cambia con el selector.
+    Aca se les llenan los valores mirando el repo, justo antes de dibujar el
+    panel — en `navetta` el eje de SPA da tres, en un repo con solo `panel/` da
+    una, y un subproyecto nuevo aparece sin tocar el catalogo.
+
+    Devuelve la misma capacidad cuando no hay nada que descubrir, asi que no
+    cuesta nada llamarla para todas.
+    """
+    if not root or not any(a.is_discovered for a in cap.axes):
+        return cap
+    # `Project.path` es un str; el descubrimiento trabaja con rutas.
+    carpeta = Path(root)
+    if not carpeta.is_dir():
+        return cap
+    resueltos = [replace(a, values=targets.names_of(carpeta, a.discover)) if a.is_discovered else a
+                 for a in cap.axes]
+    return replace(cap, axes=resueltos)
 
 # Valores por defecto de los SDK. Viven aca, con el resto de la forma de los
 # botones, y `core/tasks/utils.py` los importa para usar el mismo cuando se le
@@ -27,10 +53,16 @@ ANDROID_PACKAGE_AXES = [
 FAMILY_AXIS_VALUES = ['Python', 'Gradle/Android', 'Flutter', 'Volcados de crash']
 HEAVY_AXIS_VALUES = ['node_modules', '.venv', 'build/dist', '.dart_tool']
 
-# El paso nucleo va en su orden real, entre el bump y la subida.
+BUMP_MODES = ['patch', 'build_only', 'minor', 'major', 'none']
+
+# El paso nucleo va en su orden real, entre el bump y la subida. A diferencia
+# de los otros dos builders, 'Compilar APK' si se puede desmarcar: sin
+# compilar, la capacidad sube el APK que ya esta en disco. Es el modo que el
+# script original activaba con BUILD_APK=false, y la razon es economica —
+# retomar un scp cortado no deberia costar diez minutos de build.
 BUILD_APK_STEPS = [
     Step('bump_version', 'Bump versión'),
-    Step('apk_build', 'Compilar APK', optional=False),
+    Step('apk_build', 'Compilar APK', requires_env={'API_URL'}),
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
@@ -58,13 +90,19 @@ def load_catalog() -> None:
     """
     # Launchers group
     registry.register(Capability(id='backend', name='Backend', group='Launchers', section='Servidor', kind='live', icon='▶', description='Levanta el servidor FastAPI del repo, local o contra el VPS.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
-    registry.register(Capability(id='serve_vite', name='Servir SPA Vite', group='Launchers', section='Frontend', kind='live', icon='🌐', description='Arranca el dev server de Vite para las apps elegidas.', axes=[AxisDef('target', ['panel', 'backoffice', 'landing'], 'checks', select='many', label='Apps')], stub=True))
-    registry.register(Capability(id='run_mobile', name='App móvil', group='Launchers', section='Móvil', kind='live', icon='📲', description='Corre la app móvil en el emulador o dispositivo conectado.', axes=[AxisDef('framework', ['Flutter', 'Flet'], 'checks', select='many', label='Frameworks')], stub=True))
+    registry.register(Capability(id='serve_vite', name='Servir SPA Vite', group='Launchers', section='Frontend', kind='live', icon='🌐', description='Arranca el dev server de Vite para las apps elegidas.', axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,))], stub=True))
+    # No hay eje `framework`: elegir "Flutter o Flet" seria pedir que confirmen
+    # algo que la carpeta ya contesta. Se elige la app; el framework viene con ella.
+    registry.register(Capability(id='run_mobile', name='App móvil', group='Launchers', section='Móvil', kind='live', icon='📲', description='Corre la app móvil en el emulador o dispositivo conectado.', axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP)], stub=True))
     registry.register(Capability(id='terminal', name='Terminal', group='Launchers', section='Dev', kind='live', icon='⌨️', description='Abre una terminal ya parada en la raíz del repo activo.', stub=True))
 
     # Builders group
-    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', description='Sube la versión, compila el APK y opcionalmente lo publica en el VPS.', axes=[AxisDef('bump_mode', ['patch', 'minor', 'major'], 'field', label='Bump')], steps=BUILD_APK_STEPS, stub=True))
-    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', axes=[AxisDef('target', ['panel', 'backoffice', 'landing'], 'checks', select='many', label='Apps'), AxisDef('bump_mode', ['patch', 'minor', 'major'], 'field', label='Bump')], steps=BUILD_VITE_STEPS, stub=True))
+    # `app` se descubre: un valor por app móvil del repo, sea Flutter o Flet. El
+    # framework no se pregunta aparte porque viaja dentro del target elegido.
+    # `bump_mode` es una lista cerrada, no un texto: va como opción excluyente
+    # (igual que `dry_run` en clean_artifacts) y no como campo escrito.
+    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', description='Sube la versión, compila el APK y opcionalmente lo publica en el VPS.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP), AxisDef('bump_mode', BUMP_MODES, 'scope', label='Bump')], steps=BUILD_APK_STEPS, stub=True))
+    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), AxisDef('bump_mode', BUMP_MODES, 'scope', label='Bump')], steps=BUILD_VITE_STEPS, stub=True))
     registry.register(Capability(id='build_binary', name='Build binario', group='Builders', section='Build binario', kind='once', icon='⚡', description='Sube la versión, compila el ejecutable y opcionalmente lo publica.', steps=BUILD_BINARY_STEPS, stub=True))
     registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', description='Promueve el último artefacto subido al canal de producción.', stub=True))
 

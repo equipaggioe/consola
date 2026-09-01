@@ -97,8 +97,7 @@ def serve_backend(
 
 def serve_spa(ctx, target: str = '', preferred_port: int = 5173) -> None:
     """Arranca `npm run dev` de una SPA, apuntandola al backend de esta sesion."""
-    spa = targets.find(ctx.root, targets.SPA_VITE, target) if target \
-        else targets.only(ctx.root, targets.SPA_VITE)
+    spa = targets.pick(ctx.root, (targets.SPA_VITE,), target)
     puerto = ports.resolve_port(preferred_port, label=f'puerto de {spa.name}')
 
     entorno = {'VITE_SERVER_URL': backend_url(ctx)} if session.read(ctx.project.name, SERVER_PORT) \
@@ -117,8 +116,7 @@ def run_mobile(ctx, target: str = '', device: str = '') -> None:
     Si no hay emulador vivo lo dice y no intenta arrancar contra el escritorio:
     ese era el modo mas facil de perder diez minutos con `flutter run`.
     """
-    app = targets.find(ctx.root, targets.FLUTTER_APP, target) if target \
-        else targets.only(ctx.root, targets.FLUTTER_APP)
+    app = targets.pick(ctx.root, targets.MOBILE_APP, target)
     kind = toolchain.detect_app_kind(app.path)
 
     serial = device or toolchain.pick_emulator(toolchain.devices(ctx, app.path))

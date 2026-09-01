@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal
 
 from ui.theme import Colors, Fonts
+from core.catalog import for_project
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
 from core.settings import required_keys_for
@@ -32,7 +33,9 @@ class ParamsPanel(QWidget):
 
     def __init__(self, capability: Capability, project: Project, env_panel, parent=None):
         super().__init__(parent)
-        self.capability = capability
+        # Los ejes descubiertos se resuelven contra ESTE repo, no contra el
+        # catalogo: la lista de apps sale de mirar las carpetas (PLAN.md 2.4).
+        self.capability = for_project(capability, project.path)
         self.project = project
         self.accent = project.color
         self.env_panel = env_panel
@@ -41,6 +44,7 @@ class ParamsPanel(QWidget):
 
         self._checks: dict[str, dict[str, QCheckBox]] = {}   # axis -> value -> check
         self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
+        self._implicit: dict[str, str] = {}                  # axis -> unico valor, sin widget
         self._fields: dict[str, QLineEdit] = {}              # axis -> valor escrito
         self._option_groups: list[QButtonGroup] = []
         self._step_checks: dict[str, QCheckBox] = {}
@@ -88,7 +92,15 @@ class ParamsPanel(QWidget):
         if len(self.steps) > 1:
             lay.addWidget(self._build_steps())
 
-        singles = self.capability.single_axes
+        # Un eje de un solo valor no es una eleccion: dibujar un selector con
+        # una opcion es ruido. El valor se recuerda igual para que viaje en el
+        # payload y el historial diga cual se uso.
+        singles = []
+        for axis in self.capability.single_axes:
+            if len(axis.values) > 1:
+                singles.append(axis)
+            elif axis.values:
+                self._implicit[axis.name] = axis.values[0]
         if singles:
             lay.addWidget(self._build_options(singles))
 
@@ -263,7 +275,7 @@ class ParamsPanel(QWidget):
         for value, check in self._options.get(axis_name, {}).items():
             if check.isChecked():
                 return value
-        return ''
+        return self._implicit.get(axis_name, '')
 
     def field_value(self, axis_name: str) -> str:
         field = self._fields.get(axis_name)
@@ -274,7 +286,7 @@ class ParamsPanel(QWidget):
         return {
             'variants': {name: self.selection(name) for name in self._checks},
             'steps': [s.id for s in self.active_steps()],
-            'options': {name: self.option_value(name) for name in self._options},
+            'options': {name: self.option_value(name) for name in (*self._options, *self._implicit)},
             'fields': {name: self.field_value(name) for name in self._fields},
         }
 
@@ -327,7 +339,7 @@ class ParamsPanel(QWidget):
             'project': self.project.name,
             'variants': {name: self.selection(name) for name in self._checks},
             'steps': [s.id for s in self.active_steps()],
-            'options': {name: self.option_value(name) for name in self._options},
+            'options': {name: self.option_value(name) for name in (*self._options, *self._implicit)},
             'fields': {name: self.field_value(name) for name in self._fields},
             'missing_env': self._missing_keys(),
         }
@@ -383,7 +395,16 @@ class ParamsPanel(QWidget):
     def _blockers(self) -> list[str]:
         """Razones por las que 'Ejecutar' no puede correr."""
         reasons = []
+        # Un eje descubierto sin valores no es "olvidaste elegir": es que el
+        # repo no tiene eso. Se dice asi, y no se pide ademas que elija de una
+        # lista vacia.
+        vacios = {a.name for a in self.capability.axes if a.is_discovered and not a.values}
+        for axis in self.capability.axes:
+            if axis.name in vacios:
+                reasons.append(f"no hay {axis.display.lower()} en este repo")
         for axis in self.capability.multi_axes:
+            if axis.name in vacios:
+                continue
             if not axis.allow_empty and not self.selection(axis.name):
                 reasons.append(f"selecciona al menos un valor en {axis.display.lower()}")
         if not self.active_steps():

@@ -178,7 +178,13 @@ El reemplazo real de `RUN_REMOTE` / `maybe_dispatch_remote`:
   subproyectos tipados que encuentra: `spa-vite`, `flutter-app`, `flet-app`, `fastapi-server`.
   Es el eje descubierto de §2.4: no hace falta enumerar a mano qué subproyecto tiene cada uno
   de los 8 repos gestionados.
-- `by_kind` / `names` / `find` / `only` (falla si hay cero o más de uno del tipo pedido).
+- `by_kinds` / `names_of` / **`pick`** — la familia que acepta **varios tipos a la vez**, porque
+  hay ejes donde el tipo no es la elección: "la app móvil" es una sola cosa del dominio aunque
+  esté escrita en Flutter o en Flet (`targets.MOBILE_APP`). `pick(root, kinds, name)` resuelve por
+  nombre, o cae en "el único que haya" y falla claro si hay cero o más de uno. `names_of` devuelve
+  los valores ordenados por nombre, listos para el panel.
+- `by_kind` / `names` / `find` / `only` — los mismos, para un solo tipo; hoy son envoltorios de
+  una línea sobre los de arriba.
 
 ### `core/files.py`
 - `reversible(path)` — context manager que revierte un archivo si el bloque falla (rollback

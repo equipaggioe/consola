@@ -90,7 +90,6 @@ Tres columnas en las tablas de abajo:
 |---|---|---|---|
 | `bump_version` | A | `bump_version` (hidden) | `build_apk`, `build_vite`, `build_binary` |
 | `upload_artifact` | A | `upload_to_vps` (hidden) | `build_apk`, `build_vite`, `build_binary` |
-| `fetch_dependencies` | A | — | `build_apk` |
 | `compile_apk` | A | — | `build_apk` |
 | `install_node_modules` | A | — | `build_vite` |
 | `compile_spa` | A | — | `build_vite` |

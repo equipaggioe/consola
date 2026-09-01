@@ -46,6 +46,10 @@ def _field(payload: dict, name: str) -> str:
     return (payload.get('fields') or {}).get(name, '')
 
 
+def _option(payload: dict, name: str) -> str:
+    return (payload.get('options') or {}).get(name, '')
+
+
 def _install_dir_kwargs(payload: dict) -> dict:
     """El unico parametro de una instalacion de SDK: donde va.
 
@@ -75,8 +79,29 @@ def _android_sdk_kwargs(payload: dict) -> dict:
     }
 
 
+def _build_apk_kwargs(payload: dict) -> dict:
+    """Los tres pasos del panel son tres booleanos de la compuesta.
+
+    'Compilar APK' desmarcado no se filtra aca: viaja como `build=False`, que
+    es el modo re-subida de la funcion. Traducirlo a "no hagas nada" seria
+    perder justamente la variante por la que ese paso es desmarcable.
+    """
+    steps = set(payload.get('steps') or [])
+    return {
+        # El eje se llama `app` para quien lo lee y `directory` para quien
+        # programa: es justo la traduccion que este archivo existe para hacer.
+        # Vacio significa "la unica que haya", que es lo que resuelve `pick()`.
+        'directory': _option(payload, 'app'),
+        'bump_mode': _option(payload, 'bump_mode') or 'patch',
+        'bump': 'bump_version' in steps,
+        'build': 'apk_build' in steps,
+        'upload': 'upload_to_vps' in steps,
+    }
+
+
 # capability_id -> payload (de ParamsPanel.payload()) -> kwargs de la funcion real
 ADAPTERS: dict[str, Callable[[dict], dict]] = {
+    'build_apk': _build_apk_kwargs,
     'clean_artifacts': _clean_artifacts_kwargs,
     'install_android_tools': _install_dir_kwargs,
     'install_android_packages': _android_packages_kwargs,
