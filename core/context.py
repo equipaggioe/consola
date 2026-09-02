@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Callable, Sequence
 
-from . import process
+from . import ports, process, session
 from .envfile import Config
 from .errors import Cancelled, MissingConfig, TaskError
 from .projects import Project
@@ -29,6 +29,9 @@ LogSink = Callable[[str, str], None]
 AskSink = Callable[[str, bool, bool, str], str]
 ProgressSink = Callable[[int, int, str], None]
 NoteSink = Callable[[str], None]
+# url, etiqueta, se abre en navegador, estado. Lo que la pestana necesita para
+# dibujar su barra de endpoint y decidir si ofrece la vista de navegador.
+ServeSink = Callable[[str, str, bool, str], None]
 
 _YES = ('s', 'si', 'sí', 'y', 'yes', 'ok')
 _MASK = '******'
@@ -50,11 +53,13 @@ class TaskContext:
     ask_sink: AskSink | None = None
     progress_sink: ProgressSink | None = None
     note_sink: NoteSink | None = None
+    serve_sink: ServeSink | None = None
 
     _cancel: threading.Event = field(default_factory=threading.Event, repr=False)
     _children: list = field(default_factory=list, repr=False)
     _secrets: set = field(default_factory=set, repr=False)
     _stoppers: list = field(default_factory=list, repr=False)
+    _served: list = field(default_factory=list, repr=False)
 
     # --- raiz del proyecto -------------------------------------------------
 
@@ -161,6 +166,75 @@ class TaskContext:
     def _default_cwd(self) -> str | None:
         return self.project.path if self.project else None
 
+    # --- endpoints ---------------------------------------------------------
+
+    def serve(self, url: str, *, key: str = '', label: str = '', web: bool = True,
+              wait: float = 90.0) -> None:
+        """Anuncia que esta tarea va a servir en esa URL.
+
+        Lo que un launcher entrega no es su log, es un endpoint: la consola es
+        el subproducto (docs/launchers.md 1). Llamar a esto antes de arrancar el
+        proceso hace tres cosas de una sola vez —la barra de la pestana con su
+        URL, la vista de navegador embebido, y la senal de "listo" que esperan
+        los launchers que dependen de este.
+
+        Se llama ANTES de `ctx.run()`, que bloquea hasta que el proceso muere:
+        el puerto ya se eligio (`ports.resolve_port`), asi que la URL se conoce
+        sin tener que olfatear la salida de vite o de uvicorn.
+        """
+        clave = key or self.capability_id
+        proyecto = self.project.name if self.project else ''
+        endpoint = session.Endpoint(key=clave, url=url, label=label or clave, web=web)
+        if proyecto:
+            session.publish_endpoint(proyecto, endpoint)
+        self._served.append((proyecto, clave))
+        self.log(f'Disponible en {url} (arrancando...)', Level.INFO)
+        self._emit_serve(endpoint)
+        if wait > 0:
+            threading.Thread(target=self._watch_endpoint, args=(endpoint, wait),
+                             daemon=True).start()
+
+    def _watch_endpoint(self, endpoint, timeout: float) -> None:
+        """Sondea el puerto hasta que conteste, en un hilo aparte.
+
+        Aparte porque quien llama a `serve()` sigue derecho a `ctx.run()`, que
+        no vuelve hasta que el proceso muere: si la espera fuera aca, la URL
+        nunca pasaria de "arrancando".
+        """
+        host, puerto = ports.split_host_port(endpoint.url)
+        listo = ports.wait_until_serving(puerto, host=host, timeout=timeout,
+                                         cancel=self._cancel)
+        if self._cancel.is_set():
+            return
+        proyecto = self.project.name if self.project else ''
+        estado = session.READY if listo else session.DOWN
+        if proyecto:
+            session.mark_endpoint(proyecto, endpoint.key, estado)
+        endpoint.state = estado
+        if listo:
+            self.log(f'Listo: {endpoint.url}', Level.OK)
+        else:
+            self.warn(f'{endpoint.url} no contesto despues de {int(timeout)}s.')
+        self._emit_serve(endpoint)
+
+    def _emit_serve(self, endpoint) -> None:
+        if self.serve_sink:
+            self.serve_sink(endpoint.url, endpoint.label, endpoint.web, endpoint.state)
+
+    def endpoint(self, key: str, *, wait: float = 0.0):
+        """El endpoint que publico otra tarea de este proyecto, si existe."""
+        if self.project is None:
+            return None
+        return session.wait_for_endpoint(self.project.name, key, wait)
+
+    def release_endpoints(self) -> None:
+        """Borra los endpoints que esta tarea publico. La llama quien la corre
+        cuando termina: una URL que ya no sirve nada no debe seguir ofrecida."""
+        for proyecto, clave in self._served:
+            if proyecto:
+                session.forget_endpoint(proyecto, clave)
+        self._served.clear()
+
     # --- interaccion -------------------------------------------------------
 
     def confirm(self, question: str, *, danger: bool = False, expect: str = '') -> bool:
@@ -242,7 +316,9 @@ class TaskContext:
             ask_sink=self.ask_sink,
             progress_sink=self.progress_sink,
             note_sink=self.note_sink,
+            serve_sink=self.serve_sink,
             _cancel=self._cancel,
+            _served=self._served,
             _children=self._children,
             _secrets=self._secrets,
             _stoppers=self._stoppers,

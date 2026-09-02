@@ -12,6 +12,7 @@ from core.catalog import forget_machine_cache
 from core.registry import Capability, registry
 from core.projects import Project
 from ui.console_view import ConsoleView
+from ui.tab_view import TabView
 from ui.params_panel import ParamsPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
@@ -358,6 +359,11 @@ class TabPanel(ReorderableBar, QWidget):
         self.layout.addWidget(self.status_bar)
 
         self.tabs: list[SubTabButton] = []
+        # La pestana ya no es una consola suelta: es una caja con la consola y,
+        # cuando la accion publica un endpoint, un navegador al lado
+        # (`ui/tab_view.py`, docs/launchers.md 2.3). `_consoles` sigue existiendo
+        # porque casi todo el archivo habla con la consola y no con la caja.
+        self._views: dict[SubTabButton, TabView] = {}
         self._consoles: dict[SubTabButton, ConsoleView] = {}
         self._params: dict[SubTabButton, ParamsPanel] = {}
         self._runners: set[TaskRunner] = set()  # referencias vivas: sin esto Qt las recolecta a mitad de hilo
@@ -501,6 +507,16 @@ class TabPanel(ReorderableBar, QWidget):
     def open_tab(self, capability: Capability, axis_value: str = '') -> ConsoleView:
         """Abre (o enfoca) la pestana de una accion. **No ejecuta nada**:
         ejecutar es apretar Ejecutar en el panel de parametros."""
+        return self._open(capability, axis_value)[1].console
+
+    def _open(self, capability: Capability,
+              axis_value: str = '') -> tuple[SubTabButton, TabView]:
+        """Lo mismo que `open_tab`, devolviendo tambien la pestana.
+
+        El reparto en pestanas de un eje `fanout` (docs/launchers.md 2.1)
+        necesita correr una tarea *en* la pestana que acaba de abrir, y para eso
+        hace falta el boton, no solo su consola.
+        """
         title = f"{capability.name} {axis_value}".strip()
 
         for tab in self.tabs:
@@ -513,19 +529,21 @@ class TabPanel(ReorderableBar, QWidget):
                 title = self._next_title(title)
                 break
             self._activate(tab)
-            return self._consoles[tab]
+            return tab, self._views[tab]
 
         tab = SubTabButton(title, capability.icon, self.accent)
         tab.setToolTip(capability.description)
         self.tabs_layout.addWidget(tab)
         self.tabs.append(tab)
 
-        console = ConsoleView(self.content_area)
+        view = TabView(capability, self.content_area)
+        console = view.console
         console.append_log(f"─── {capability.name} ───", "info")
         if capability.description:
             console.append_log(capability.description, "info")
         console.append_log("Ajusta los parámetros a la derecha y pulsa Ejecutar.", "info")
-        self.content_area.addWidget(console)
+        self.content_area.addWidget(view)
+        self._views[tab] = view
         self._consoles[tab] = console
 
         panel = ParamsPanel(capability, self.project, self.env_panel)
@@ -541,7 +559,21 @@ class TabPanel(ReorderableBar, QWidget):
 
         self.empty_hint.setVisible(False)
         self._activate(tab)
-        return console
+        return tab, view
+
+    def _retitle(self, tab: SubTabButton, title: str) -> None:
+        """Renombra una pestana ya abierta.
+
+        Lo usa el reparto de `fanout`: la pestana generica «Servir SPA Vite»
+        pasa a llamarse «Servir SPA Vite panel» cuando se sabe cual arranco. Una
+        pestana por proceso vivo, y el nombre dice cual (docs/launchers.md 2.1).
+        """
+        usados = {t.title for t in self.tabs if t is not tab}
+        if title in usados:
+            title = self._next_title(title)
+        tab.title = title
+        tab.title_label.setText(title)
+        tab._sync_text()
 
     def _next_title(self, title: str) -> str:
         """`Emulador`, `Emulador 2`, `Emulador 3`... el primero que este libre."""
@@ -578,15 +610,17 @@ class TabPanel(ReorderableBar, QWidget):
                 runner.noted.disconnect()
                 runner.finished_ok.disconnect()
                 runner.ask_requested.disconnect()
+                runner.serve_requested.disconnect()
             except (RuntimeError, TypeError):
                 pass
             runner.cancel()
         idx = self.tabs.index(tab)
         was_active = tab.is_active
 
-        console = self._consoles.pop(tab)
-        self.content_area.removeWidget(console)
-        console.deleteLater()
+        self._consoles.pop(tab, None)
+        view = self._views.pop(tab)
+        self.content_area.removeWidget(view)
+        view.deleteLater()
 
         panel = self._params.pop(tab, None)
         if panel is not None:
@@ -610,8 +644,20 @@ class TabPanel(ReorderableBar, QWidget):
             self._collapse_params()
 
     def current_console(self) -> ConsoleView | None:
+        """La consola de la pestana activa.
+
+        Se resuelve por la pestana y no por el widget visible: con el navegador
+        arriba, el widget visible no es la consola — pero la consola sigue
+        siendo la de esa pestana, y ahi es donde tiene que escribirse.
+        """
+        for tab in self.tabs:
+            if tab.is_active:
+                return self._consoles.get(tab)
+        return None
+
+    def current_view(self) -> TabView | None:
         w = self.content_area.currentWidget()
-        return w if isinstance(w, ConsoleView) else None
+        return w if isinstance(w, TabView) else None
 
     def current_params(self) -> ParamsPanel | None:
         w = self.params_stack.currentWidget()
@@ -634,9 +680,9 @@ class TabPanel(ReorderableBar, QWidget):
     def _activate(self, tab: SubTabButton) -> None:
         for t in self.tabs:
             t.set_active(t is tab)
-        console = self._consoles.get(tab)
-        if console is not None:
-            self.content_area.setCurrentWidget(console)
+        view = self._views.get(tab)
+        if view is not None:
+            self.content_area.setCurrentWidget(view)
         panel = self._params.get(tab)
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
@@ -675,11 +721,95 @@ class TabPanel(ReorderableBar, QWidget):
             return
 
         capability = registry.get_capability(payload['capability_id'])
-        adapter = ADAPTERS.get(payload['capability_id'])
-        if capability is not None and capability.func is not None and adapter is not None:
-            self._run_real(tab, console, capability, adapter(payload))
-        else:
+        if capability is None:
             self._run_stub(console, payload)
+            return
+
+        # Una compuesta concurrente no corre nada por si misma: reparte sus
+        # pasos, que son capacidades, una por pestana (docs/launchers.md 2.5).
+        if capability.concurrent:
+            self._run_concurrent(tab, capability, payload)
+            return
+
+        adapter = ADAPTERS.get(capability.id)
+        if capability.func is None or adapter is None:
+            self._run_stub(console, payload)
+            return
+
+        valores = self._fanout_values(capability, payload)
+        if valores:
+            self._run_fanout(tab, capability, adapter, payload, valores)
+        else:
+            self._run_real(tab, console, capability, adapter(payload))
+
+    # --- reparto en pestanas ------------------------------------------
+    def _fanout_values(self, capability: Capability, payload: dict) -> list[str]:
+        """Los valores del eje que se reparte en pestanas, si lo hay.
+
+        Solo para lo que corre en vivo: un eje `many` de una capacidad que
+        termina (`build_vite`) se recorre en un bucle dentro de su propia
+        consola, porque ver los builds en fila es lo correcto. Tres dev servers
+        en una sola consola, no (docs/launchers.md 2.1).
+        """
+        if capability.kind != 'live' or not capability.fanout:
+            return []
+        return list((payload.get('variants') or {}).get(capability.fanout) or [])
+
+    def _run_fanout(self, tab: SubTabButton, capability: Capability,
+                    adapter, payload: dict, valores: list[str]) -> None:
+        """Una pestana por valor marcado, cada una con su proceso vivo.
+
+        El primero se queda en la pestana desde la que se apreto Ejecutar (solo
+        cambia de nombre): asi el caso normal —un repo con una sola SPA— se ve
+        exactamente igual que antes, sin una pestana de mas.
+        """
+        def _para(valor: str) -> dict:
+            variantes = dict(payload.get('variants') or {})
+            variantes[capability.fanout] = [valor]
+            return {**payload, 'variants': variantes}
+
+        primero, resto = valores[0], valores[1:]
+        self._retitle(tab, f'{capability.name} {primero}')
+        if resto:
+            self._consoles[tab].append_log(
+                f'{len(valores)} apps marcadas: una pestaña por cada una '
+                f'({", ".join(valores)}).', 'info')
+        self._run_real(tab, self._consoles[tab], capability, adapter(_para(primero)))
+
+        for valor in resto:
+            otro, vista = self._open(capability, valor)
+            self._run_real(otro, vista.console, capability, adapter(_para(valor)))
+        self._activate(tab)
+
+    def _run_concurrent(self, tab: SubTabButton, capability: Capability,
+                        payload: dict) -> None:
+        """Compuesta concurrente: lanza cada paso en su propia pestana.
+
+        No hay `func` que llamar. Sus pasos son capacidades con boton propio, y
+        cada una arranca con los parametros que ya tiene guardados para este
+        repo — es exactamente lo que hace el boton de correr del rail, asi que
+        se reusa `quick_run` en vez de rearmar un payload a mano.
+
+        El orden de la lista es el de despacho y el unico que importa es que el
+        backend salga primero: los demas esperan su endpoint desde adentro
+        (`launchers.backend_url(wait=...)`), no por un `sleep` de la interfaz.
+        """
+        console = self._consoles[tab]
+        console.append_log(f'{capability.name}: cada paso va a su propia pestaña.', 'info')
+        lanzados = []
+        for step_id in payload.get('steps') or []:
+            sub_cap = registry.get_capability(step_id)
+            if sub_cap is None:
+                console.append_log(f'paso desconocido: {step_id}', 'warn')
+                continue
+            console.append_log(f'→ {sub_cap.name}', 'info')
+            self.quick_run(sub_cap)
+            lanzados.append(sub_cap.name)
+        self._activate(tab)
+        if lanzados:
+            console.append_log(f'Lanzados: {", ".join(lanzados)}.', 'ok')
+        else:
+            console.append_log('Ningún paso marcado.', 'warn')
 
     def _run_real(self, tab: SubTabButton, console: ConsoleView,
                   capability: Capability, kwargs: dict, track: bool = True) -> None:
@@ -696,6 +826,11 @@ class TabPanel(ReorderableBar, QWidget):
         if track:
             self._busy[tab] = runner
         runner.logged.connect(console.append_log)
+        # Lo que la tarea publica con `ctx.serve()`: la barra con la URL y, si
+        # la capacidad declara `view='web'`, el navegador de esta misma pestana.
+        view = self._views.get(tab)
+        if view is not None:
+            runner.serve_requested.connect(view.set_endpoint)
         # La bitacora todavia no existe (`core/store.py`, PLAN.md §8): hasta que
         # exista, una nota no se pierde — se deja marcada en la consola.
         runner.noted.connect(lambda entry: console.append_log(f'✱ {entry}', 'ok'))
@@ -705,6 +840,10 @@ class TabPanel(ReorderableBar, QWidget):
 
         def _on_done(ok: bool) -> None:
             console.append_log("Hecho" if ok else "Terminó con errores", "ok" if ok else "error")
+            # El proceso murio: la URL deja de ofrecerse como viva y la pestana
+            # vuelve a la consola, que es donde esta el motivo.
+            if view is not None:
+                view.endpoint_down()
             self._runners.discard(runner)
             if self._busy.get(tab) is runner:
                 self._busy.pop(tab, None)

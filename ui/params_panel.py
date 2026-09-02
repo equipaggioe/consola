@@ -13,7 +13,7 @@ from core import envfile
 from core.catalog import for_project, machine_values
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
-from core.settings import required_keys_for
+from core.settings import relevant_keys_for, required_keys_for
 from ui import params_store
 
 
@@ -672,10 +672,10 @@ class ParamsPanel(QWidget):
     def relevant_keys(self) -> set[str]:
         """Claves de `.env` que esta accion puede llegar a necesitar (todos los
         pasos, no solo los activos) — para filtrar el panel de configuracion."""
-        needed = set(required_keys_for(self.capability.id))
+        needed = set(relevant_keys_for(self.capability.id))
         for step in self.steps:
             needed |= step.requires_env
-            needed |= set(required_keys_for(step.id))
+            needed |= set(relevant_keys_for(step.id))
         return needed
 
     # --- interno --------------------------------------------------------

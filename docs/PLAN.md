@@ -36,6 +36,10 @@ Fecha de esta versión: 2026-08-18. Basado en el estado de `navetta/scripts/` au
 
 **Referencia visual** → [Propuesta de UI (Artifact)](https://claude.ai/code/artifact/2f6393a1-a1d6-4c66-92e9-3cba9dc5b0e9)
 
+**Documentos que continúan este plan** → [nivel-0.md](nivel-0.md) · [atomicas.md](atomicas.md) ·
+[catalogo-funciones.md](catalogo-funciones.md) · [emuladores.md](emuladores.md) ·
+[launchers.md](launchers.md) · [panel-de-parametros.md](panel-de-parametros.md)
+
 **Scripts de referencia** → copiados a `../scripts/` para auditoría y análisis sin tocar `navetta/scripts/`.
 Estos mismos scripts son la especificación de comportamiento que cada función debe reimplementar.
 
@@ -284,6 +288,14 @@ en ningún lado. Este es el patrón que se aplica también a `update_remote.py`,
 `setup_github_ssh.py`, `install_systemd_service.py`, `run_scripts.py` y los otros dos builders — el
 detalle de cada uno está en §5 y la regla para decidir qué atómica se separa está en §7, caso 7.
 
+**Corrección (2026-09-01, [launchers.md §2.5](launchers.md)): una compuesta no siempre es una
+secuencia.** Los launchers no encadenan nada — se lanzan a la vez, cada uno en su pestaña, y ninguno
+termina. «Entorno de desarrollo» (backend + SPA + terminal) es una **compuesta concurrente**: mismo
+concepto de nivel 2, pero sus pasos corren en paralelo y su única dependencia se resuelve esperando
+el endpoint del backend (§7, caso 4), no fijando un orden. Es además la única capacidad del catálogo
+cuyo cuerpo no vive en `core/tasks/` sino en la interfaz, porque "una pestaña por paso" no significa
+nada dentro de `core/`.
+
 `subprocess` no desaparece: `flutter`, `ssh`, `adb`, `uvicorn` son binarios externos y se siguen
 invocando. Lo que desaparece es la capa `python scripts/builders/build_apk.py` — la orquestación
 vive en la función, dentro de la app, analizada desde el comportamiento del script, no transcrita de
@@ -425,7 +437,7 @@ en §7, caso 7). "🧩" marca una capacidad compuesta.
 | Grupo | Capacidad | Ejes → botones que produce | Tipo |
 |---|---|---|---|
 | Launchers | Backend (`run_server.py`) | `scope` local/remoto (resuelve `DATABASE_URL` vía `RUN_REMOTE`, abre túnel solo si hace falta) | en vivo |
-| Launchers | Servir SPA Vite (`run_vite`+`run_landing`) | `target` **descubierto** (`panel`, `backoffice`, `landing`, …) → 1 botón por SPA encontrada | en vivo |
+| Launchers | Servir SPA Vite (`run_vite`+`run_landing`) | `target` **descubierto** — un botón, y **una pestaña por SPA marcada** ([launchers.md §2.1](launchers.md)) | en vivo |
 | Launchers | Correr app móvil en emulador (`run_flutter.py` + `run_flet.py`, nuevo) | `framework` **descubierto** (Flutter si hay `pubspec.yaml`, Flet si `pyproject.toml` declara `flet`) — normalmente 1 botón, salvo repo con ambos | en vivo |
 | Launchers | Terminal (`run_terminal.py`) | — (vigilante + hijo, caso 6) | en vivo |
 | Builders 🧩 | **Build APK** (`build_apk.py`) — compuesta de: `bump_version`, build (Flutter *o* Flet, mismo `framework` descubierto que el launcher), `upload_to_vps` | `bump_mode` campo; `copy_to_vps` scope local/con-subida | una vez |
@@ -559,6 +571,12 @@ de diseño explícitas:
    consiguió en esta corrida. Dentro de Consola vive en memoria, lo publica la acción Backend al
    arrancar, y las acciones lanzadas después lo leen de ahí. No se escribe a ningún archivo
    (ver §9: lo configurable es `server.preferred_port`, no el puerto resultante).
+
+   **Cerrado el 2026-09-01 ([launchers.md §2.2](launchers.md)):** «lo publica al arrancar y los
+   demás lo leen» todavía dependía del orden en que se apretaran los botones. Ahora el backend
+   publica un **endpoint** (`ctx.serve()`) con estado —`arrancando` / `listo` / `caído`— y los
+   launchers que lo necesitan *esperan* a que conteste (`backend_url(wait=...)`) en vez de mirar si
+   alguien dejó un puerto escrito: el puerto elegido no es lo mismo que el servidor sirviendo.
 
 5. **Destructivos que hoy no preguntan** (`purge_avds.py` borra AVDs, `purge_system_images.py`
    borra imágenes descargadas, `revoke_ssh_key.py` saca una llave del VPS). A un clic de distancia,

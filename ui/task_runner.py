@@ -28,6 +28,11 @@ class TaskRunner(QThread):
     logged = Signal(str, str)
     noted = Signal(str)
     ask_requested = Signal(str, bool, bool, str)
+    # url, etiqueta, se abre en navegador, estado. Lo emite `ctx.serve()` dos
+    # veces: al anunciar la URL y cuando el puerto contesta de verdad. La
+    # segunda llega desde el hilo que sondea el puerto, no desde este — una
+    # senal Qt entre hilos se entrega igual, en cola (docs/launchers.md 2.2).
+    serve_requested = Signal(str, str, bool, str)
     finished_ok = Signal(bool)
 
     def __init__(self, capability_id: str, project: Project, func: Callable,
@@ -90,20 +95,33 @@ class TaskRunner(QThread):
             log_sink=lambda msg, level: self.logged.emit(msg, level),
             ask_sink=self._ask,
             note_sink=lambda entry: self.noted.emit(entry),
+            serve_sink=lambda url, label, web, state: self.serve_requested.emit(
+                url, label, web, state),
         )
         self._ctx = ctx
         try:
             self._func(ctx, **self._kwargs)
         except Cancelled:
             ctx.warn('Detenido por el usuario.')
-            self.finished_ok.emit(False)
+            self._done(False)
             return
         except (TaskError, MissingConfig) as exc:
             ctx.error(str(exc))
-            self.finished_ok.emit(False)
+            self._done(False)
             return
         except Exception as exc:  # nunca dejar morir el hilo en silencio
             ctx.error(f'Error inesperado: {exc}')
-            self.finished_ok.emit(False)
+            self._done(False)
             return
-        self.finished_ok.emit(True)
+        self._done(True)
+
+    def _done(self, ok: bool) -> None:
+        """Cierre unico de la corrida.
+
+        Los endpoints se borran aca y no en cada `finally` de cada launcher: el
+        que publico la URL fue el contexto, y una URL que ya no sirve nada no
+        debe seguir ofrecida a la SPA que arranque despues.
+        """
+        if self._ctx is not None:
+            self._ctx.release_endpoints()
+        self.finished_ok.emit(ok)

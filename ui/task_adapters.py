@@ -160,6 +160,41 @@ def _update_remote_kwargs(payload: dict) -> dict:
     }
 
 
+def _variant(payload: dict, name: str) -> str:
+    """El unico valor marcado de un eje `many` que la interfaz ya repartio.
+
+    Un launcher con `fanout` recibe su payload con un solo valor en el eje
+    (`ui/tab_panel.py::_run_fanout` abre una pestana por cada uno), asi que aca
+    no hay una lista que recorrer: hay uno, o ninguno cuando el repo tiene una
+    sola app y el eje ni se dibujo.
+    """
+    valores = (payload.get('variants') or {}).get(name) or []
+    return valores[0] if valores else ''
+
+
+def _backend_kwargs(payload: dict) -> dict:
+    """El segmentado local/remoto viaja tal cual: `core.database` usa esas dos
+    mismas palabras como valores del ambito (`db.LOCAL` / `db.REMOTE`)."""
+    return {'scope': _option(payload, 'scope') or 'local'}
+
+
+def _serve_vite_kwargs(payload: dict) -> dict:
+    """Una SPA por pestana. Vacio significa "la unica que haya" (`targets.pick`)."""
+    return {'target': _variant(payload, 'target')}
+
+
+def _run_mobile_kwargs(payload: dict) -> dict:
+    """El eje se llama `app` para quien lo lee y `target` para quien programa."""
+    return {'target': _option(payload, 'app')}
+
+
+def _terminal_kwargs(payload: dict) -> dict:
+    return {
+        'target': _option(payload, 'app'),
+        'auto_login': _option(payload, 'auto_login') == 'sí',
+    }
+
+
 def _create_avd_kwargs(payload: dict) -> dict:
     """Dos catalogos y un nombre opcional.
 
@@ -196,6 +231,13 @@ def _purge_emulators_kwargs(payload: dict) -> dict:
 
 # capability_id -> payload (de ParamsPanel.payload()) -> kwargs de la funcion real
 ADAPTERS: dict[str, Callable[[dict], dict]] = {
+    # Launchers. `dev_env` no esta aca a proposito: es una compuesta concurrente
+    # y no llama a ninguna funcion de `core/tasks/` — la despacha `TabPanel`
+    # abriendo una pestana por paso (docs/launchers.md 2.5).
+    'backend': _backend_kwargs,
+    'serve_vite': _serve_vite_kwargs,
+    'run_mobile': _run_mobile_kwargs,
+    'terminal': _terminal_kwargs,
     'build_apk': _build_apk_kwargs,
     # Sin parametros: empuja la rama de la carpeta abierta y nada mas.
     'push_repository': lambda payload: {},

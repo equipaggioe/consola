@@ -15,6 +15,12 @@ class Setting:
     default: str = ''
     placeholder: str = ''
     required_by: tuple[str, ...] = field(default_factory=tuple)
+    # Acciones que USAN la clave pero corren igual sin ella. Aparece en el panel
+    # de configuracion filtrado de esas acciones, y no bloquea su boton. La
+    # distincion importa: `serve_backend` nunca lee `API_URL` —quien la lee es
+    # `compile_apk`, y ese ya la pide por paso— asi que exigirla dejaba el
+    # Backend en ambar por una clave que jamas iba a mirar (docs/launchers.md 3).
+    used_by: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def display(self) -> str:
@@ -32,8 +38,11 @@ _DB_REMOTE = ('bootstrap_db', 'teardown_db', 'migrate_db', 'rebuild_db',
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---
+    # No la exige nadie: el build del APK la pide por paso (`BUILD_APK_STEPS`) y
+    # `run_mobile` cae en la URL del backend de esta sesion si esta vacia.
     Setting('API_URL', 'Server', 'URL publica de la API',
-            placeholder='https://ejemplo.net:443', required_by=('backend',)),
+            placeholder='https://ejemplo.net:443',
+            used_by=('backend', 'run_mobile', 'build_apk')),
 
     # --- Cloudflare ---
     Setting('CF_API_TOKEN', 'Cloudflare', 'API token', secret=True,
@@ -98,4 +107,16 @@ def get_setting(key: str) -> Setting | None:
 
 
 def required_keys_for(capability_id: str) -> list[str]:
+    """Sin estas, la accion no puede correr: su boton queda en ambar."""
     return [s.key for s in SETTINGS if capability_id in s.required_by]
+
+
+def relevant_keys_for(capability_id: str) -> list[str]:
+    """Las que la accion puede llegar a mirar, obligatorias o no.
+
+    Es lo que filtra el panel de configuracion: que `API_URL` no bloquee al
+    Backend no quiere decir que no sea el lugar donde uno la busca cuando
+    tiene esa pestana abierta.
+    """
+    return [s.key for s in SETTINGS
+            if capability_id in s.required_by or capability_id in s.used_by]

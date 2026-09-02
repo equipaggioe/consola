@@ -10,6 +10,9 @@ SPA_VITE = 'spa-vite'
 FLUTTER_APP = 'flutter-app'
 FLET_APP = 'flet-app'
 FASTAPI = 'fastapi-server'
+# App de escritorio en Python con su propio venv (la terminal de navetta). Es
+# un tipo aparte y no `FASTAPI` porque no sirve HTTP: se lanza y abre su ventana.
+PYTHON_APP = 'python-app'
 
 # "La app movil" es una sola cosa del dominio aunque este escrita en Flutter o
 # en Flet: se compila igual, se sube igual y se corre en el mismo emulador. El
@@ -50,6 +53,10 @@ def _detect(directory: Path) -> str:
         return FLET_APP
     if (directory / 'app' / 'main.py').is_file() or (directory / 'alembic.ini').is_file():
         return FASTAPI
+    # Ultimo porque es el marcador mas debil: `src/main.py` lo tiene tambien
+    # algun servidor, y ese ya se reconocio arriba.
+    if (directory / 'src' / 'main.py').is_file():
+        return PYTHON_APP
     return ''
 
 

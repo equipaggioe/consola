@@ -192,6 +192,17 @@ UPDATE_REMOTE_STEPS = [
 ]
 
 
+# Los tres launchers del arranque diario, como pasos de una compuesta que NO es
+# una secuencia: se lanzan a la vez, cada uno en su pestana, y ninguno termina
+# (docs/launchers.md 2.5). El orden de esta lista es el de despacho, y el unico
+# que importa es que el backend salga primero: los otros dos esperan su endpoint.
+DEV_ENV_STEPS = [
+    Step('backend', 'Backend', optional=False),
+    Step('serve_vite', 'SPA Vite'),
+    Step('terminal', 'Terminal', default=False),
+]
+
+
 def load_catalog() -> None:
     """Declara la forma de cada boton.
 
@@ -202,12 +213,58 @@ def load_catalog() -> None:
     porque sin `steps` ni `composed_of` la UI la tomaria por atomica.
     """
     # Launchers group
-    registry.register(Capability(id='backend', name='Backend', group='Launchers', section='Servidor', kind='live', icon='▶', description='Levanta el servidor FastAPI del repo, local o contra el VPS.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
-    registry.register(Capability(id='serve_vite', name='Servir SPA Vite', group='Launchers', section='Frontend', kind='live', icon='🌐', description='Arranca el dev server de Vite para las apps elegidas.', axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,))], stub=True))
+    # Las secciones agrupan por lo que el launcher TE ENTREGA, que es lo mismo
+    # que decide si su pestana tiene segunda vista: una URL se mira en un
+    # navegador, un emulador se mira en su ventana (docs/launchers.md 2.4).
+    #
+    # `view='web'` no es un boton mas ni una capacidad aparte: es la segunda
+    # vista de la pestana del propio launcher, apuntada al endpoint que la tarea
+    # publica con `ctx.serve()`. Un boton "abrir navegador" en el rail seria una
+    # capacidad que no ejecuta nada, no registra nada y no tiene parametros.
+    registry.register(Capability(
+        id='backend', name='Backend', group='Launchers', section='Servidor',
+        kind='live', icon='▶', view='web',
+        description='Levanta el servidor FastAPI del repo, local o contra el VPS.',
+        axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
+    # `fanout='target'`: marcar panel + backoffice son dos dev servers vivos a la
+    # vez, no dos pasos en fila. Un eje `many` se recorre en bucle cuando la
+    # capacidad termina (`build_vite`) y se reparte en pestanas cuando no
+    # (docs/launchers.md 2.1).
+    registry.register(Capability(
+        id='serve_vite', name='Servir SPA Vite', group='Launchers', section='Web',
+        kind='live', icon='🌐', view='web', fanout='target',
+        description='Arranca el dev server de Vite para las apps elegidas.',
+        axes=[AxisDef('target', [], 'checks', select='many', label='Apps',
+                      discover=(targets.SPA_VITE,))], stub=True))
     # No hay eje `framework`: elegir "Flutter o Flet" seria pedir que confirmen
     # algo que la carpeta ya contesta. Se elige la app; el framework viene con ella.
-    registry.register(Capability(id='run_mobile', name='App móvil', group='Launchers', section='Móvil', kind='live', icon='📲', description='Corre la app móvil en el emulador o dispositivo conectado.', axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP)], stub=True))
-    registry.register(Capability(id='terminal', name='Terminal', group='Launchers', section='Dev', kind='live', icon='⌨️', description='Abre una terminal ya parada en la raíz del repo activo.', stub=True))
+    # Tampoco tiene `view`: lo que entrega no es una URL, es una app en un
+    # emulador, y esa ventana la dibuja Android.
+    registry.register(Capability(
+        id='run_mobile', name='App móvil', group='Launchers', section='Dispositivo',
+        kind='live', icon='📲',
+        description='Corre la app móvil en el emulador o dispositivo conectado.',
+        axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP)],
+        stub=True))
+    # La carpeta dejo de estar fija en el codigo: `python-app` es un tipo mas de
+    # `core/targets.py`, descubierto como las SPA (PLAN.md 2.4).
+    registry.register(Capability(
+        id='terminal', name='Terminal', group='Launchers', section='Escritorio',
+        kind='live', icon='⌨️',
+        description='Arranca la app de terminal del repo, con recarga al cambiar sus fuentes.',
+        axes=[AxisDef('app', [], 'scope', label='App', discover=(targets.PYTHON_APP,)),
+              AxisDef('auto_login', ['no', 'sí'], 'scope', label='Auto-login de dev')],
+        stub=True))
+    # La compuesta concurrente del grupo. No tiene `func` ni adaptador: su
+    # cuerpo es el despachador de `ui/tab_panel.py`, porque "una pestana por
+    # paso, todas vivas a la vez" no significa nada dentro de `core/`
+    # (docs/launchers.md 2.5). Por eso se declara `stub=False` a mano.
+    registry.register(Capability(
+        id='dev_env', name='Entorno de desarrollo', group='Launchers',
+        section='Todo junto', kind='live', icon='🧪', level='C', concurrent=True,
+        description='Levanta backend, SPA y terminal a la vez, cada uno en su pestaña.',
+        steps=DEV_ENV_STEPS, composed_of=['backend', 'serve_vite', 'terminal'],
+        stub=False))
 
     # Builders group
     # `app` se descubre: un valor por app móvil del repo, sea Flutter o Flet. El

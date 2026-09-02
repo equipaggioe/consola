@@ -114,6 +114,21 @@ class Capability:
     level: str = ''        # 'A' | 'C'; vacio = se deduce de steps/composed_of
     scope: str = 'repo'    # 'repo' | 'machine': ver `is_machine_wide`
     hidden: bool = False   # capacidad atomica: existe como paso, no como boton
+    view: str = ''         # segunda vista de la pestana, ademas de la consola:
+                           # 'web' = navegador embebido apuntado al endpoint que
+                           # la tarea publica con `ctx.serve()`. El log de un
+                           # launcher es el subproducto; lo que entrega es una
+                           # URL (docs/launchers.md 2.3).
+    fanout: str = ''       # solo kind='live': nombre del eje `select='many'`
+                           # cuyos valores NO se corren en un bucle sino en una
+                           # pestana cada uno. Marcar panel + backoffice son dos
+                           # dev servers vivos a la vez, no dos pasos en fila
+                           # (docs/launchers.md 2.1).
+    concurrent: bool = False  # compuesta concurrente: sus pasos son capacidades
+                           # que se lanzan en paralelo, una pestana cada una, y
+                           # ninguna termina. No tiene `func`: su cuerpo es el
+                           # despachador de la interfaz, porque "N pestanas" no
+                           # significa nada en `core/` (docs/launchers.md 2.5).
     live_state: str = ''   # inventario que el panel muestra como cabecera de
                            # estado, con su boton de apagar por fila
                            # (`core/catalog.py::machine_values`). Es lo que
@@ -151,6 +166,10 @@ class Capability:
     def field_axes(self) -> list[AxisDef]:
         """Ejes que se escriben a mano. `values[0]` es el valor por defecto."""
         return [a for a in self.axes if a.expand == 'field']
+
+    @property
+    def has_web_view(self) -> bool:
+        return self.view == 'web'
 
     @property
     def is_composite(self) -> bool:

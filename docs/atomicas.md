@@ -181,8 +181,18 @@ y los seis pasos de la limpieza: `remove_systemd_service` · `remove_deployed_re
 
 ### `core/tasks/launchers.py`
 
-`resolve_server_port` · `backend_url` · `resolve_tls` · `serve_backend` · `serve_spa` ·
-`run_mobile` · `open_terminal` · `open_ssh_session`.
+**Atómicas:** `serve_backend` · `serve_spa` · `run_mobile` · `open_terminal` · `open_ssh_session`.
+
+**Plomería, no atómicas** (corrección del §0 aplicada a este módulo):
+`resolve_server_port` · `backend_url` · `resolve_tls`. Estaban listadas como atómicas y no lo son
+—nadie pide «elige un puerto y nada más»—; son el `_download`/`_extract` de este grupo.
+`serve_backend` es **una** atómica hecha de cinco funciones. Ver
+[launchers.md §1](launchers.md).
+
+**Compuesta:** `dev_env` («Entorno de desarrollo»), y es de un tipo que este documento no tenía:
+**concurrente**. Sus pasos no van uno tras otro, van todos a la vez, una pestaña cada uno, y ninguno
+termina. No tiene cuerpo en `core/tasks/`: lo despacha la interfaz, porque «N pestañas» no significa
+nada acá adentro ([launchers.md §2.5](launchers.md)).
 
 ### `core/tasks/utils.py`
 
@@ -434,9 +444,11 @@ escribir el registro/perfil de verdad) todavía no se corrió de punta a punta.
 - ✅ `ui/task_runner.py` — `TaskRunner(QThread)` corre una capacidad en un hilo aparte (reemplaza
   al pendiente `core/runner.py` de esta lista). Ver `docs/catalogo-funciones.md §6`.
 - ✅ El puente ejes/pasos del panel → kwargs de la función real: `ui/task_adapters.py`, un
-  adaptador por capacidad conectada. Siete conectadas hoy: `clean_artifacts`,
-  `install_android_tools`, `install_android_packages`, `install_android_hypervisor`,
-  `install_android_sdk`, `install_flutter_sdk` y `build_apk` (§4.2) — y las que sigan sumándose.
+  adaptador por capacidad conectada. Conectadas hoy: `clean_artifacts`, `install_android_tools`,
+  `install_android_packages`, `install_android_hypervisor`, `install_android_sdk`,
+  `install_flutter_sdk`, `build_apk` (§4.2), `push_repository`, `upload_secret_files`,
+  `update_remote`, los cuatro de emuladores y **el grupo Launchers completo**
+  ([launchers.md](launchers.md)) — y las que sigan sumándose.
 - Los `ask_sink` / `note_sink` del `TaskContext` conectados a diálogos Qt reales — sigue pendiente
   para las capacidades con `ctx.confirm()`/`ctx.ask()` real.
 - `core/store.py` — SQLite para historial, bitácora y presets.
