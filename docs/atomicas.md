@@ -58,7 +58,7 @@ Si la respuesta es sí, es una atómica. Los ejemplos reales que motivaron esto:
 | `android_emulator.py` — un `run()` que bajaba la system image, creaba el AVD, parcheaba `config.ini` y arrancaba, con tres wrappers que solo cambiaban una constante | Para arrancar un emulador ya creado había que volver a entrar a la lógica de descarga y creación; y las tres constantes escondían los 88 dispositivos y 317 imágenes que publica el SDK | `install_system_image` · `create_avd` · `launch_emulator` · `await_emulator` · `stop_emulator` ([emuladores.md](emuladores.md)) |
 | `rebuild_db.py` — un archivo que borraba tablas, reseteaba Alembic, regeneraba la migración inicial, aseguraba particiones y corría dos tandas de seeders | Volver a correr solo los seeders mock obligaba a destruir el esquema | `drop_tables` · `reset_migrations` · `generate_migration` · `apply_migrations` · `ensure_partitions` · `run_seeders` · `run_mock_seeders` |
 | `update_remote.py` — 607 líneas en un `main()` | "Solo recopiar los certificados" implicaba rehacer `git pull` + venv + `pip install` | `sync_repository` · `ensure_remote_venv` · `install_remote_deps` · `upload_secret_files` · `restart_service` |
-| `setup_ssh_key.py` — un comando shell de 40 líneas encadenadas con `&&` | Si fallaba el login había que rehacer la creación del usuario que ya existía | `ensure_remote_user` · `configure_sudo` · `install_public_key` · `test_ssh_login` |
+| `setup_ssh_key.py` — un comando shell de 40 líneas encadenadas con `&&` | Si fallaba el login había que rehacer la creación del usuario que ya existía | `ensure_deploy_access` · `configure_sudo` (+ la verificación, que es plomería: §4.6) |
 | `build_apk.py` / `build_vite.py` / `build_binary.py` | Cada uno traía su propia copia del bump y del scp | `bump_version` (uno solo, tres manifiestos) · `upload_artifact` (uno solo) + el paso de compilación propio de cada builder |
 
 Y el contraejemplo, donde la regla dice **no separar**: los seis pasos de `clean_vps.py`. Cada uno
@@ -164,9 +164,11 @@ reimplementa), `update_remote`.
 
 ### `core/tasks/vps_setup.py`
 
-`refresh_known_host` · `ensure_remote_user` · `configure_sudo` · `install_public_key` ·
-`test_ssh_login` · `install_base_software` · `install_coturn` · `generate_remote_keypair` ·
-`register_github_key` · `test_github_ssh`.
+`refresh_known_host` · `ensure_deploy_access` · `configure_sudo` · `install_base_software` ·
+`install_coturn` · `generate_remote_keypair` · `register_github_key` · `test_github_ssh`.
+
+Eran cuatro donde ahora hay dos: la revisión del §4.6 fusionó `ensure_remote_user` con
+`install_public_key` y bajó `test_ssh_login` a `core/ssh.py::reachable`.
 
 **Compuestas:** `setup_ssh_key`, `setup_github_ssh`, y `bootstrap_vps` — la compuesta de compuestas
 (PLAN.md §7, caso 8): encadena `setup_ssh_key`, `update_remote`, `bootstrap_db` y `rebuild_db`,
@@ -467,6 +469,87 @@ corriendo con `--specpath build`, `dist/demo-windows-amd64.exe` (7.9 MB) + su `.
 ejecutable arrancando y escribiendo su salida. Las dos ramas de re-subida se probaron hasta el punto
 en que piden VPS. Lo único que sigue sin verificar es la subida real (`chmod 755` incluido), que
 necesita un servidor.
+
+### 4.6 — La segunda mitad del criterio: quién la llama
+
+El §1 pregunta *«¿tiene sentido re-ejecutar este paso solo?»*, y el §0 aclara que una utilidad
+interna de **una** atómica no es atómica. Faltaba el caso inverso: la utilidad que comparten
+**muchas**. `setup_ssh_key` lo expuso, y la regla que salió es:
+
+> Si algo lo necesitan la mayoría de los botones de una familia, es **plomería de nivel 0**,
+> no una atómica — aunque una persona pudiera pedirlo suelto.
+
+El olor concreto es una tarea que importa otra tarea de otro grupo para usarla como precondición.
+Si `vps_server.update_remote` tuviera que hacer `from .vps_setup import test_ssh_login`, eso ya es
+la prueba de que el lugar correcto era `core/`.
+
+**El caso.** `test_ssh_login` parecía la átomica más sólida del grupo: solo lectura, sin efectos,
+y su propio docstring decía que era «el paso que más se pide suelto». Los números decían otra cosa:
+
+| | |
+|---|---|
+| `ssh.resolve_remote()` | llamado en **11 lugares**, 7 módulos — todos necesitan «¿llego al VPS?» y ninguno lo verifica |
+| `test_ssh_login()` | llamado en **1 lugar**, dentro de su propia compuesta |
+
+Y el cuerpo lo confirmaba: una llamada a `ssh.succeeds` —que ya *era* la plomería— más dos líneas
+de consola. Bajó a `core/ssh.py::reachable()`, que es donde las once puertas pueden usarla.
+
+**El bug que tapaba.** `health_check` es el botón de diagnóstico del VPS, y con el SSH caído
+mentía. Las cuatro consultas de `vps.health()` usan `check=False`, y `service_state` cae por
+`succeeds` a `'missing'`:
+
+```
+  SSH caído → antes:                      ahora:
+
+    servicio: missing                       acceso: SIN ACCESO SSH a deploy@1.2.3.4
+    uptime:   (sin datos)
+    disco:    (sin datos)     ← parece
+    memoria:  (sin datos)       un servidor
+    carga:    (sin datos)       destruido
+```
+
+Confundir *servidor inalcanzable* con *servidor vacío* manda a arreglar lo que no está roto. La
+línea que faltaba era justo la que `test_ssh_login` tenía guardada para sí: `reachable()` es ahora
+lo primero que `health()` pregunta, y corta si falla.
+
+**La otra fusión, por el criterio viejo.** `ensure_remote_user` tampoco pasaba el §1: nadie lo
+corre solo, y si lo hiciera quedaría con un usuario al que no puede entrar. Tampoco servía como
+casilla desmarcable — el paso ya era idempotente (`id -u`), así que saltearlo no ahorraba nada. Es
+el mismo diagnóstico que borró `fetch_dependencies` (§0): trabajo con encabezado propio que parecía
+decidir algo. Se fusionó con `install_public_key` en `ensure_deploy_access` («dar de alta la cuenta
+de despliegue»), que es un átomo del dominio de verdad.
+
+Efecto medible, además del conceptual: la compuesta abre **dos** conexiones de root en vez de tres,
+y pide la contraseña una vez menos.
+
+**Las dos que sobreviven, y por qué.** `install_public_key` (dentro de `ensure_deploy_access`) y
+`configure_sudo`:
+
+- La simetría ya decidida: `revoke_ssh_key` **es** botón, con sus propias casillas. Un rail donde
+  se quita el acceso de un click pero devolverlo exige la compuesta entera está torcido.
+- `configure_sudo` ganó su propio catálogo — tres modos excluyentes con listas distintas. Es la
+  regla del §3 («un paso deja de caber en una casilla cuando gana su propio catálogo»), la misma
+  que borró `start_emulator`.
+
+**Y el contraejemplo que había que refutar:** esto se parece a `clean_vps` —pasos que se
+autodetectan y casi siempre se piden enteros—, pero `clean_vps` es *terminal*: no hay «después»,
+porque cuando termina no queda nada que re-pedir. El acceso SSH es lo único del catálogo que se
+**mantiene**: rota, se verifica, se afloja y se aprieta. Por eso las mismas propiedades
+superficiales dan resultados opuestos.
+
+**Lo que cambió en el código:**
+
+| Archivo | Qué |
+|---|---|
+| `core/ssh.py` | `reachable()` — la precondición que comparten las 11 puertas |
+| `core/vps.py` | `health()` pregunta `acceso` primero y corta |
+| `core/tasks/vps_setup.py` | `ensure_deploy_access` (fusión) · se va `test_ssh_login` · `SUDO_SPECIFIC` vuelve a cubrir todos los `sudo -n` del código |
+| `core/catalog.py` | eje `sudo_mode` (`all`/`specific`/`none`), y `steps` declarados en vez de un `composed_of` de cinco ids contra una función de cuatro parámetros |
+
+El eje era lo que faltaba para que `specific` fuera elegible: venía de `SUDO_NOPASSWD_MODE`, una
+constante que en el script se editaba a mano y que al portarse quedó como parámetro sin control que
+lo ofreciera. Al volverlo alcanzable, su lista recortada (tres comandos, sin `tee`, `ufw` ni `rm`)
+pasó de hueco latente a falla real, y se completó.
 
 ### `core/session.py` — estado de sesión
 `run_server.py` escribía `SERVER_PORT` en `scripts/.env` para que `run_terminal.py` y `run_vite.py`

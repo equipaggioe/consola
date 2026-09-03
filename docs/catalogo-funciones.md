@@ -120,10 +120,8 @@ Puros atómicos: ninguno encadena a otro (el módulo no declara compuestas).
 | Función | Nivel | Botón | Usada por |
 |---|---|---|---|
 | `refresh_known_host` | A | `refresh_known_host` | `bootstrap_vps` (y solo) |
-| `ensure_remote_user` | A | — | `setup_ssh_key` |
+| `ensure_deploy_access` | A | — | `setup_ssh_key` |
 | `configure_sudo` | A | — | `setup_ssh_key` |
-| `install_public_key` | A | — | `setup_ssh_key` |
-| `test_ssh_login` | A | — | `setup_ssh_key` |
 | `install_base_software` | A | `install_software` | `bootstrap_vps` (y solo) |
 | `install_coturn` | A | `install_coturn` | — |
 | `generate_remote_keypair` | A | — | `setup_github_ssh` |
@@ -220,7 +218,7 @@ de que se confirme con uso que alguien las pide sueltas (PLAN.md §11.3):
 | `rotate_backups` | "Limpiar respaldos viejos sin volver a volcar la base" — el docstring ya lo dice explícito. |
 | `sync_repository` | Traer los últimos commits al VPS sin tocar venv, deps ni certificados. |
 | `write_systemd_unit` | Regenerar la unidad después de cambiar host/puerto, sin reinstalar el servicio. |
-| `test_ssh_login` / `test_github_ssh` | Verificar una conexión ya configurada, sin rehacer el setup. |
+| `test_github_ssh` | Verificar una conexión ya configurada, sin rehacer el setup. (`test_ssh_login` era su hermana y dejó de existir: ver [atomicas.md §4.6](atomicas.md).) |
 
 ### 4.2 — Compuestas que no existen todavía
 
@@ -240,7 +238,9 @@ una compuesta con una atómica, no dos atómicas sueltas.
 
 Varios `composed_of=[...]` de `catalog.py` nombran ids que **no** están registrados como
 `Capability` (`git_sync_remote`, `upload_files`, `ensure_keypair`, `install_pubkey`,
-`remove_remote_ssh_key_files`, `run_remote_script`, entre otros). `Registry.resolve_steps()` cae al
+`remove_remote_ssh_key_files`, `run_remote_script`, entre otros). *(`ensure_keypair` e `install_pubkey`
+ya no: `setup_ssh_key` pasó a declarar `steps` reales — ver [atomicas.md §4.6](atomicas.md).)*
+`Registry.resolve_steps()` cae al
 `_prettify(sub_id)` cuando no encuentra la capacidad, así que el panel igual muestra un nombre
 legible — pero no es un botón real ni un atajo a la atómica homónima (que sí existe, con otro
 nombre: `sync_repository`, `upload_secret_files`, `generate_remote_keypair`, `install_public_key`,

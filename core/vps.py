@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from .envfile import Config
 from .errors import TaskError
-from .ssh import Remote, capture, quote, run, succeeds
+from .ssh import Remote, capture, quote, reachable, run, succeeds
 
 SUDO = 'sudo -n'
 
@@ -183,8 +183,17 @@ def postgres_port(remote: Remote) -> int:
 
 
 def health(remote: Remote, service: str) -> dict[str, str]:
-    """Resumen de un vistazo para el chequeo de salud: servicio, disco y memoria."""
+    """Resumen de un vistazo para el chequeo de salud: acceso, servicio, disco y memoria.
+
+    `acceso` va primero y corta. Las otras cuatro consultas usan `check=False`,
+    asi que con el SSH caido devolvian vacio y `service_state` caia en 'missing':
+    el resumen anunciaba un servidor destruido cuando la verdad era que no se
+    llegaba a la maquina, y mandaba a arreglar lo que no estaba roto.
+    """
+    if not reachable(remote):
+        return {'acceso': f'SIN ACCESO SSH a {remote.target}'}
     return {
+        'acceso': f'ok ({remote.target})',
         'servicio': service_state(remote, service),
         'uptime': capture(remote, 'uptime -p', check=False),
         'disco': capture(remote, "df -h / | awk 'NR==2 {print $5\" usado de \"$2}'", check=False),

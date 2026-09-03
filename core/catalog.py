@@ -213,6 +213,23 @@ UPDATE_REMOTE_STEPS = [
 ]
 
 
+# La verificacion final NO nombra una atomica: es `ssh.reachable`, la plomeria
+# que comparten las once puertas de `resolve_remote`. Un paso puede existir sin
+# ser un atomo del dominio; lo que no puede es fingir que lo es. Antes estos
+# pasos salian de `composed_of`, que derivaba cinco casillas ('ensure_keypair',
+# 'install_pubkey') contra una funcion de cuatro parametros, y dos de esos ids
+# no correspondian a ninguna capacidad ni a ninguna funcion.
+#
+# 'Prueba de login' es desmarcable porque hay un caso real: preparar un VPS al
+# que todavia no se llega desde esta maquina (firewall, VPN pendiente).
+SETUP_SSH_STEPS = [
+    Step('deploy_access', 'Cuenta de despliegue y llave',
+         requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
+    Step('sudo_rules', 'Sudo sin contraseña', requires_env={'VPS_IP'}),
+    Step('verify_login', 'Prueba de login', requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
+]
+
+
 # Los tres launchers del arranque diario, como pasos de una compuesta que NO es
 # una secuencia: se lanzan a la vez, cada uno en su pestana, y ninguno termina
 # (docs/launchers.md 2.5). El orden de esta lista es el de despacho, y el unico
@@ -425,7 +442,18 @@ def load_catalog() -> None:
     # VPS · setup group
     registry.register(Capability(id='install_software', name='Software base', group='VPS · setup', section='Paquetes', kind='once', icon='📦', description='Instala en el VPS los paquetes base que el despliegue da por dados.', stub=True))
     registry.register(Capability(id='refresh_known_host', name='Refrescar known_host', group='VPS · setup', section='SSH', kind='once', icon='🔄', description='Renueva la huella del VPS en known_hosts tras recrear la máquina.', stub=True))
-    registry.register(Capability(id='setup_ssh_key', name='Configurar SSH', group='VPS · setup', section='SSH', kind='once', icon='🔑', description='Crea el usuario remoto con sudo e instala la clave con la que se entra.', composed_of=['ensure_remote_user', 'configure_sudo', 'ensure_keypair', 'install_pubkey', 'test_ssh_login'], stub=True))
+    # `SUDO_NOPASSWD_MODE` era una constante que se editaba en el script; al
+    # portarlo quedo como parametro de `configure_sudo` sin eje que lo ofreciera,
+    # o sea clavado en 'all'. Es una eleccion excluyente de tres valores, igual
+    # que `bump_mode`: 'specific' escribe solo los comandos de `SUDO_SPECIFIC`,
+    # 'none' no toca el sudoers.
+    registry.register(Capability(
+        id='setup_ssh_key', name='Configurar SSH', group='VPS · setup', section='SSH',
+        kind='once', icon='🔑',
+        description='Crea el usuario remoto con sudo e instala la clave con la que se entra.',
+        axes=[AxisDef('sudo_mode', ['all', 'specific', 'none'], 'scope',
+                      label='Sudo sin contraseña', default='all')],
+        steps=SETUP_SSH_STEPS, stub=True))
     registry.register(Capability(id='setup_github_ssh', name='Configurar GitHub SSH', group='VPS · setup', section='GitHub', kind='once', icon='🐙', description='Genera la deploy key en el VPS y la registra en GitHub.', composed_of=['generate_remote_keypair', 'register_github_key', 'test_github_ssh'], stub=True))
     registry.register(Capability(id='install_coturn', name='Instalar coturn', group='VPS · setup', section='Comunicaciones', kind='once', icon='📡', description='Instala y configura el servidor TURN para las llamadas.', stub=True))
     registry.register(Capability(id='bootstrap_vps', name='Bootstrap VPS', group='VPS · setup', section='Bootstrap', kind='once', icon='🚀', description='De VPS recién creado a servicio corriendo: SSH, software, deploy, base y systemd.', composed_of=['refresh_known_host', 'setup_ssh_key', 'install_software', 'setup_github_ssh', 'update_remote', 'bootstrap_db', 'rebuild_db', 'install_systemd'], stub=True))

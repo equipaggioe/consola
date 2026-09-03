@@ -14,8 +14,11 @@ Grupo VPS - setup.
 llave publica y probaba el login. Si el login fallaba habia que volver a correr
 todo, incluida la creacion del usuario que ya existia.
 
-Aca son cinco atomicas: cada una detecta su estado antes de actuar y se puede
-repetir sola. `setup_ssh_key` es la compuesta que las corre en orden.
+Aca son dos atomicas —`ensure_deploy_access` y `configure_sudo`—: cada una
+detecta su estado antes de actuar y se puede repetir sola. `setup_ssh_key` es la
+compuesta que las corre en orden y cierra con la verificacion, que no es atomica
+sino `ssh.reachable`: algo que necesitan casi todos los botones de SSH es
+plomeria de nivel 0, no una tarea con boton (docs/atomicas.md 4.6).
 """
 
 PACKAGE_GROUPS: dict[str, list[str]] = {
@@ -33,7 +36,25 @@ PACKAGE_GROUPS: dict[str, list[str]] = {
 DEFAULT_GROUPS = ['python', 'git', 'postgresql', 'caddy', 'ufw']
 
 SUDO_MODES = ('all', 'specific', 'none')
-SUDO_SPECIFIC = ('/usr/bin/systemctl', '/usr/bin/apt-get', '/usr/bin/journalctl')
+# Modo 'specific': la lista tiene que cubrir TODOS los `sudo -n` que corre el
+# resto de Consola, o el VPS queda a medias sin decir por que. Se habia recortado
+# a tres comandos y dejaba afuera `tee` (unidad systemd y turnserver.conf), `ufw`
+# (puertos de coturn) y `rm` (limpieza del servicio). Al agregar el eje sudo_mode
+# el modo dejo de ser inalcanzable, asi que el hueco pasaba de latente a real.
+SUDO_SPECIFIC = (
+    '/usr/bin/apt-get',     # instalar y purgar paquetes
+    '/usr/bin/apt',         # interfaz alternativa
+    '/usr/bin/dpkg',        # consultar lo ya instalado
+    '/usr/bin/systemctl',   # arrancar, parar y recargar el servicio
+    '/usr/bin/journalctl',  # leer los logs del servicio
+    '/usr/bin/tee',         # escribir la unidad systemd y turnserver.conf
+    '/usr/bin/sed',         # habilitar coturn en /etc/default/coturn
+    '/usr/sbin/ufw',        # abrir los puertos de coturn
+    '/bin/mkdir',           # crear las carpetas del despliegue
+    '/bin/chown',           # dueno de archivos y carpetas
+    '/bin/chmod',           # permisos
+    '/bin/rm',              # borrar la unidad al limpiar el VPS
+)
 
 REMOTE_KEY = '~/.ssh/id_ed25519'
 TURN_PORT = 3478
@@ -77,14 +98,38 @@ def refresh_known_host(ctx) -> str:
     return host
 
 
-def ensure_remote_user(ctx) -> str:
-    """Crea el usuario de despliegue en el VPS y lo agrega al grupo sudo."""
+def ensure_deploy_access(ctx) -> str:
+    """Da de alta la cuenta de despliegue y le instala la llave con la que se entra.
+
+    Eran dos atomicas, `ensure_remote_user` e `install_public_key`. Se fusionaron
+    porque la primera no pasaba el criterio del 1 de docs/atomicas.md: nadie la
+    corre sola, y si lo hiciera quedaria con un usuario al que no puede entrar.
+    Tampoco servia como casilla desmarcable, porque el paso ya era idempotente y
+    saltearlo solo ahorraba un `id -u`.
+
+    Fusionarlas ademas baja de tres a dos las conexiones de root que abre la
+    compuesta, y con eso las veces que pide la contrasena.
+    """
     user = ctx.config.get('VPS_USER')
     quoted = ssh.quote(user)
+    key_name = ctx.config.require('VPS_KEY_NAME')
+    privada = ssh.ensure_local_keypair(ctx, key_name, comment=ctx.config.repo_name)
+    publica = ssh.public_key(privada)
+
     ctx.run(_root_argv(ctx, (
         f'if id -u {quoted} >/dev/null 2>&1; then echo "[OK] El usuario ya existe."; '
         f'else useradd -m -s /bin/bash {quoted} && echo "[OK] Usuario creado."; fi; '
-        f'usermod -aG sudo {quoted} && echo "[OK] Agregado al grupo sudo."'
+        'if getent group sudo >/dev/null 2>&1; then '
+        f'  usermod -aG sudo {quoted} && echo "[OK] Agregado al grupo sudo."; '
+        'else echo "[AVISO] Este sistema no tiene grupo sudo."; fi; '
+        f'home="$(getent passwd {quoted} | cut -d: -f6)"; '
+        'if [ -z "$home" ]; then echo "[ERROR] El usuario no tiene home."; exit 1; fi; '
+        'mkdir -p "$home/.ssh" && chmod 700 "$home/.ssh"; '
+        'auth="$home/.ssh/authorized_keys"; '
+        f'if [ -f "$auth" ] && grep -qxF -- {ssh.quote(publica)} "$auth"; then '
+        '  echo "[OK] La llave ya estaba instalada."; '
+        f'else printf "%s\\n" {ssh.quote(publica)} >> "$auth" && echo "[OK] Llave instalada."; fi; '
+        f'chmod 600 "$auth" && chown -R {quoted}:{quoted} "$home/.ssh"'
     )))
     return user
 
@@ -115,37 +160,6 @@ def configure_sudo(ctx, mode: str = 'all') -> str:
     )))
     ctx.ok(f'Sudo sin contrasena configurado ({mode}).')
     return mode
-
-
-def install_public_key(ctx) -> str:
-    """Instala la llave publica local en el `authorized_keys` del VPS."""
-    key_name = ctx.config.require('VPS_KEY_NAME')
-    privada = ssh.ensure_local_keypair(ctx, key_name, comment=ctx.config.repo_name)
-    publica = ssh.public_key(privada)
-    user = ctx.config.get('VPS_USER')
-
-    ctx.run(_root_argv(ctx, (
-        f'home="$(getent passwd {ssh.quote(user)} | cut -d: -f6)"; '
-        'if [ -z "$home" ]; then echo "[ERROR] El usuario no tiene home."; exit 1; fi; '
-        'mkdir -p "$home/.ssh" && chmod 700 "$home/.ssh"; '
-        'auth="$home/.ssh/authorized_keys"; '
-        f'if [ -f "$auth" ] && grep -qxF -- {ssh.quote(publica)} "$auth"; then '
-        '  echo "[OK] La llave ya estaba instalada."; '
-        f'else printf "%s\\n" {ssh.quote(publica)} >> "$auth" && echo "[OK] Llave instalada."; fi; '
-        f'chmod 600 "$auth" && chown -R {ssh.quote(user)}:{ssh.quote(user)} "$home/.ssh"'
-    )))
-    return publica
-
-
-def test_ssh_login(ctx) -> bool:
-    """Prueba el login sin contrasena. Es el paso que mas se pide suelto: verificar
-    que el acceso sigue funcionando sin volver a tocar nada."""
-    remote = ssh.resolve_remote(ctx.config)
-    if ssh.succeeds(remote, 'echo ok'):
-        ctx.ok(f'Login sin contrasena funcionando: {remote.target}')
-        return True
-    ctx.error(f'No se pudo entrar como {remote.target} con la llave.')
-    return False
 
 
 # --- atomicas de software --------------------------------------------------
@@ -240,24 +254,29 @@ def setup_ssh_key(
     ctx,
     sudo_mode: str = 'all',
     *,
-    create_user: bool = True,
+    access: bool = True,
     sudo: bool = True,
-    install_key: bool = True,
     verify: bool = True,
 ) -> None:
-    """Compuesta: usuario -> sudo -> llave -> prueba de login."""
-    if create_user:
-        ctx.step('Usuario de despliegue')
-        ensure_remote_user(ctx)
+    """Compuesta: acceso (cuenta + llave) -> sudo -> verificacion.
+
+    La verificacion no es un paso atomico con nombre propio: es `ssh.reachable`,
+    la plomeria que comparten las once puertas de `resolve_remote`. Lo mismo que
+    verifica el final del setup es lo que `health_check` informa despues.
+    """
+    if access:
+        ctx.step('Acceso de despliegue')
+        ensure_deploy_access(ctx)
     if sudo:
         ctx.step('Sudo sin contrasena')
         configure_sudo(ctx, sudo_mode)
-    if install_key:
-        ctx.step('Llave publica')
-        install_public_key(ctx)
     if verify:
         ctx.step('Prueba de login')
-        test_ssh_login(ctx)
+        remote = ssh.resolve_remote(ctx.config)
+        if ssh.reachable(remote):
+            ctx.ok(f'Login sin contrasena funcionando: {remote.target}')
+        else:
+            ctx.error(f'No se pudo entrar como {remote.target} con la llave.')
 
 
 def setup_github_ssh(ctx, *, generate: bool = True, register: bool = True,

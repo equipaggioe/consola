@@ -122,6 +122,19 @@ def succeeds(remote: Remote, command: str) -> bool:
         return False
 
 
+def reachable(remote: Remote) -> bool:
+    """True si se llega al VPS con la llave y sin contrasena.
+
+    Es la precondicion que comparten las once puertas de `resolve_remote`:
+    todas fallan igual de feo cuando el acceso esta roto y ninguna sabe
+    distinguir "no llego a la maquina" de "el comando fallo". Vivio un tiempo
+    como la atomica `test_ssh_login` de `vps_setup`, y se bajo aca al notar que
+    algo que necesitan casi todos los botones de SSH es plomeria, no una tarea
+    con boton propio (docs/atomicas.md 0).
+    """
+    return succeeds(remote, 'echo ok')
+
+
 def path_exists(remote: Remote, remote_path: str) -> bool:
     return succeeds(remote, f'test -e {quote(remote_path)}')
 
