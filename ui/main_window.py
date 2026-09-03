@@ -7,7 +7,7 @@ from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut, QIcon, QPix
 from PySide6.QtCore import Qt, QEvent, QTimer
 
 from ui.rail import ActionRail
-from ui.tab_panel import TabPanel
+from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar, ProjectTab
 from ui.theme import Colors, Fonts
 from core.registry import registry
@@ -151,6 +151,14 @@ class MainWindow(QMainWindow):
         self.main_layout.addLayout(body_layout, 1)
         QTimer.singleShot(0, self._sync_rail_width)
 
+        # --- barra de estado: una sola, a lo ancho de toda la ventana ---
+        # Vive aca y no dentro de cada TabPanel para que llegue de borde a borde,
+        # por debajo del rail y del espacio de trabajo — no arrancando despues
+        # del rail. Refleja el repo activo y se refresca cuando una tarea de
+        # maquina toca el entorno (`TabPanel.machine_changed`).
+        self.status_bar = WorkspaceStatusBar(Colors.ACCENT)
+        self.main_layout.addWidget(self.status_bar)
+
         # --- Conexiones ---------------------------------------------------
         self.rail.action_requested.connect(self._on_action_requested)
         self.rail.run_requested.connect(self._on_run_requested)
@@ -206,6 +214,7 @@ class MainWindow(QMainWindow):
             workspace = TabPanel(project)
             workspace.env_panel.saved.connect(self._on_env_saved)
             workspace.params_changed.connect(self._on_params_changed)
+            workspace.machine_changed.connect(self.status_bar.refresh_tools)
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -254,6 +263,8 @@ class MainWindow(QMainWindow):
 
         self.rail.set_project(project)
         self.brand.set_accent(project.color)
+        self.status_bar.set_project(project.name, project.icon)
+        self.status_bar.set_accent(project.color)
         self.setWindowTitle(f"Consola — {project.name}")
 
     def _on_action_requested(self, capability_id: str) -> None:

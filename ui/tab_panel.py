@@ -278,6 +278,7 @@ class TabPanel(ReorderableBar, QWidget):
     instancia, asi que las sub-pestanas nunca se mezclan entre repos.
     """
     params_changed = Signal()   # algun panel guardo parametros nuevos
+    machine_changed = Signal()  # una tarea de maquina cambio el entorno (SDK instalado, AVD creado)
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
@@ -350,13 +351,13 @@ class TabPanel(ReorderableBar, QWidget):
         self.splitter.setStretchFactor(1, 0)
         self.splitter.setSizes([880, 330])
 
-        # --- barra de estado -------------------------------------------
-        self.status_bar = WorkspaceStatusBar(self.accent)
-        self.status_bar.set_project(project.name, project.icon)
+        # La barra de estado ya no vive aca: es una sola, a lo ancho de toda la
+        # ventana, y la arma `MainWindow` debajo del rail y el espacio de trabajo
+        # (`ui/main_window.py`). Este panel solo le avisa, con `machine_changed`,
+        # cuando una tarea de maquina toca el entorno.
 
         self.layout.addWidget(self.sub_bar)
         self.layout.addWidget(self.splitter, 1)
-        self.layout.addWidget(self.status_bar)
 
         self.tabs: list[SubTabButton] = []
         # La pestana ya no es una consola suelta: es una caja con la consola y,
@@ -665,16 +666,12 @@ class TabPanel(ReorderableBar, QWidget):
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
-        self.status_bar.set_accent(accent)
         self.diamond_label.setStyleSheet(f"color: {accent}; font-size: 54px;")
         for tab in self.tabs:
             tab.set_accent(accent)
         for panel in self._params.values():
             panel.set_accent(accent)
         self.env_panel.set_accent(accent)
-
-    def set_status(self, text: str) -> None:
-        self.status_bar.set_status(text)
 
     # --- interno ------------------------------------------------------
     def _activate(self, tab: SubTabButton) -> None:
@@ -861,7 +858,7 @@ class TabPanel(ReorderableBar, QWidget):
                 # Instalar un SDK cambia el entorno de la maquina: los
                 # indicadores de la barra tienen que reflejarlo ya, no al
                 # proximo arranque.
-                self.status_bar.refresh_tools()
+                self.machine_changed.emit()
 
         runner.finished_ok.connect(_on_done)
         self._runners.add(runner)  # referencia viva mientras el hilo corre
