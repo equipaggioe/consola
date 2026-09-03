@@ -112,6 +112,26 @@ def _build_apk_kwargs(payload: dict) -> dict:
     }
 
 
+def _build_vite_kwargs(payload: dict) -> dict:
+    """Homologo de `_build_apk_kwargs`, con la unica diferencia entre los dos
+    builders: las SPA se marcan (eje `many`), asi que lo que viaja es la lista
+    de apps y no una sola.
+
+    La lista vacia no se filtra ni se corrige: significa "la unica SPA que
+    haya", que es lo mismo que el `directory` vacio del APK y lo que resuelve
+    `targets.pick()`. En un repo con una sola SPA el eje ni siquiera se dibuja.
+    """
+    steps = set(payload.get('steps') or [])
+    return {
+        # El eje se llama `target` en el panel y `directories` en la funcion.
+        'directories': list((payload.get('variants') or {}).get('target') or []),
+        'bump_mode': _bump_mode(payload),
+        'bump': 'bump_version' in steps,
+        'build': 'vite_build' in steps,
+        'upload': 'upload_to_vps' in steps,
+    }
+
+
 def _bump_mode(payload: dict) -> str:
     """El eje `bump_mode` combina: un componente SemVer excluyente + `build`
     opcional. Llega como lista (`['patch', 'build']`) y se arma la cadena que
@@ -239,6 +259,7 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'run_mobile': _run_mobile_kwargs,
     'terminal': _terminal_kwargs,
     'build_apk': _build_apk_kwargs,
+    'build_vite': _build_vite_kwargs,
     # Sin parametros: empuja la rama de la carpeta abierta y nada mas.
     'push_repository': lambda payload: {},
     'upload_secret_files': _upload_secrets_kwargs,

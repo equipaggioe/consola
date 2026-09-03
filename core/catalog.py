@@ -153,19 +153,23 @@ _BUMP_AXIS = lambda: AxisDef('bump_mode', BUMP_MODES, 'scope', label='Bump',
                              combine={'build'}, default='patch')
 
 # El paso nucleo va en su orden real, entre el bump y la subida. A diferencia
-# de los otros dos builders, 'Compilar APK' si se puede desmarcar: sin
-# compilar, la capacidad sube el APK que ya esta en disco. Es el modo que el
-# script original activaba con BUILD_APK=false, y la razon es economica —
-# retomar un scp cortado no deberia costar diez minutos de build.
+# de 'Compilar binario', 'Compilar APK' si se puede desmarcar: sin compilar, la
+# capacidad sube el APK que ya esta en disco. Es el modo que el script original
+# activaba con BUILD_APK=false, y la razon es economica — retomar un scp
+# cortado no deberia costar diez minutos de build.
 BUILD_APK_STEPS = [
     Step('bump_version', 'Bump versión'),
     Step('apk_build', 'Compilar APK', requires_env={'API_URL'}),
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
+# Los mismos tres pasos del APK, con la misma semantica: 'Build Vite'
+# desmarcado sube la carpeta compilada que ya esta en disco (el BUILD_SPA=false
+# del script original), y ahi el `npm install` que abre el paso de compilacion
+# es justo lo que no se quiere repetir para retomar un scp cortado.
 BUILD_VITE_STEPS = [
     Step('bump_version', 'Bump versión'),
-    Step('vite_build', 'Build Vite', optional=False),
+    Step('vite_build', 'Build Vite'),
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
@@ -272,7 +276,11 @@ def load_catalog() -> None:
     # `bump_mode` es una lista cerrada, no un texto: va como opción excluyente
     # (igual que `dry_run` en clean_artifacts) y no como campo escrito.
     registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', description='Sube la versión, compila el APK y opcionalmente lo publica en el VPS.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP), _BUMP_AXIS()], steps=BUILD_APK_STEPS, stub=True))
-    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _BUMP_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
+    # Homologo de `build_apk`: mismas atomicas compuestas, mismos tres pasos.
+    # Lo unico propio es que su eje es `many` — un repo tiene una app móvil y
+    # tres SPA — y como es una capacidad que termina, las marcadas se recorren
+    # en un bucle dentro de `build_vite`, no en una pestaña por cada una.
+    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _BUMP_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
     registry.register(Capability(id='build_binary', name='Build binario', group='Builders', section='Build binario', kind='once', icon='⚡', description='Sube la versión, compila el ejecutable y opcionalmente lo publica.', steps=BUILD_BINARY_STEPS, stub=True))
     registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', description='Promueve el último artefacto subido al canal de producción.', stub=True))
 

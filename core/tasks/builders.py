@@ -1,5 +1,6 @@
 from __future__ import annotations
 import platform
+from collections.abc import Sequence
 from pathlib import Path
 
 from .. import files, ssh, targets, toolchain, versioning, vps
@@ -147,13 +148,36 @@ def compile_spa(ctx, directory: str = '') -> Path:
     """`npm run build`. Devuelve la carpeta de salida que declara Vite."""
     spa = _target(ctx, targets.SPA_VITE, directory)
     ctx.run([*toolchain.npm_cmd(), 'run', 'build'], cwd=spa.path)
+    salida = _spa_output(spa)
+    ctx.ok(f'Build de {spa.name}: {salida} ({files.human_size(files.size_of(salida))})')
+    return salida
 
+
+def _spa_output(spa: targets.Target) -> Path:
+    """La carpeta que dejo el build: `dist/` en Vite pelado, `build/` en los
+    adaptadores de SvelteKit. Se mira el disco y no `vite.config.*` porque la
+    salida puede venir declarada desde un plugin.
+
+    Es el homologo de `_last_apk`: sirve para leer lo recien compilado y
+    tambien para encontrar lo que ya estaba, cuando se sube sin recompilar.
+    """
     for candidata in ('dist', 'build'):
         salida = spa.path / candidata
         if salida.is_dir():
-            ctx.ok(f'Build de {spa.name}: {salida}')
             return salida
-    raise TaskError(f'El build de {spa.name} no dejo carpeta dist/ ni build/.')
+    raise TaskError(f'{spa.name} no tiene carpeta dist/ ni build/.')
+
+
+def _publish_spa(ctx, salida: Path, manifest: Path) -> None:
+    """Sube la carpeta del build junto con su `package.json`.
+
+    Por el mismo motivo que `_publish` en el APK: la carpeta compilada no dice
+    de que version es, y del lado del VPS el manifiesto es lo unico que la
+    identifica. El script original (`scripts/builders/build_vite.py`) tambien
+    subia los dos.
+    """
+    upload_artifact(ctx, salida)
+    upload_artifact(ctx, manifest)
 
 
 # --- pasos de binario ------------------------------------------------------
@@ -273,16 +297,72 @@ def build_apk(
 
 def build_vite(
     ctx,
-    directory: str = '',
+    directories: Sequence[str] = (),
     bump_mode: str = 'patch',
     *,
     bump: bool = True,
     build: bool = True,
     upload: bool = False,
-) -> Path | None:
-    """Compuesta: npm install -> bump -> npm run build -> subida opcional."""
-    spa = _target(ctx, targets.SPA_VITE, directory)
+) -> list[Path]:
+    """Compuesta: por cada SPA elegida, npm install -> bump -> build -> subida.
+
+    Mismo esqueleto que `build_apk`, con la unica diferencia que declara el
+    catalogo: su eje es `many`. Un repo tiene una app movil pero suele tener
+    tres SPA (`panel`, `backoffice`, `landing`), y compilarlas es una tarea que
+    termina — asi que las marcadas se recorren en un bucle aca dentro, N builds
+    en fila en un solo log, y no una pestana por cada una como hace el launcher
+    de dev servers (docs/launchers.md 2.1).
+
+    La lista vacia significa "la unica SPA que haya", igual que el `directory`
+    vacio de `build_apk`: en un repo con una sola, el eje ni se dibuja.
+
+    Cada SPA se compila y se sube entera antes de pasar a la siguiente, y su
+    bump es reversible por separado: si la tercera revienta, las dos que ya se
+    publicaron conservan la version con la que salieron.
+    """
+    elegidas = [_target(ctx, targets.SPA_VITE, nombre) for nombre in (directories or [''])]
+    salidas: list[Path] = []
+    for indice, spa in enumerate(elegidas, start=1):
+        ctx.raise_if_cancelled()
+        if len(elegidas) > 1:
+            ctx.step(f'{spa.name} ({indice} de {len(elegidas)})')
+        salidas.append(_build_spa(ctx, spa, bump_mode, bump=bump, build=build, upload=upload))
+    return salidas
+
+
+def _build_spa(
+    ctx,
+    spa: targets.Target,
+    bump_mode: str,
+    *,
+    bump: bool,
+    build: bool,
+    upload: bool,
+) -> Path:
+    """Una SPA. Es el cuerpo de `build_apk` con `npm` en vez de `flutter`.
+
+    Sin `build` no se compila nada: se sube la carpeta que ya esta en disco.
+    Es el modo que el script original activaba con `BUILD_SPA=false`, y la
+    razon es la misma que en el APK — retomar un scp cortado no deberia costar
+    otro `npm install` y otro build.
+
+    A diferencia del APK, aca si hay paso de dependencias: `npm run build` no
+    instala nada, y el bump acaba de tocar `package.json` sin agregar ninguna.
+    """
     manifiesto = versioning.find_manifest(spa.path)
+
+    if not build:
+        if not upload:
+            raise TaskError('Sin compilar y sin subir no queda nada por hacer.')
+        if bump:
+            ctx.warn('Bump ignorado: la carpeta que hay en disco se compilo con la '
+                     'version que ya tiene el manifiesto, y subirla cambiada la '
+                     'anunciaria como otra cosa.')
+        salida = _spa_output(spa)
+        ctx.step('Subida al VPS')
+        _publish_spa(ctx, salida, manifiesto)
+        ctx.note(f'Re-subida SPA {spa.name} {versioning.read_version(manifiesto)}')
+        return salida
 
     with files.reversible(manifiesto):
         ctx.step('Dependencias')
@@ -290,14 +370,12 @@ def build_vite(
         if bump:
             ctx.step('Version')
             bump_version(ctx, spa.name, bump_mode)
-        if not build:
-            return None
         ctx.step('Compilacion')
         salida = compile_spa(ctx, spa.name)
 
     if upload:
         ctx.step('Subida al VPS')
-        upload_artifact(ctx, salida)
+        _publish_spa(ctx, salida, manifiesto)
 
     ctx.note(f'Build Vite {spa.name} {versioning.read_version(manifiesto)}')
     return salida

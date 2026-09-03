@@ -87,8 +87,10 @@ class AxisDef:
 class Step:
     """Un paso de una capacidad compuesta, con casilla propia en el panel.
 
-    `optional=False` se dibuja marcado y deshabilitado: un 'Build Vite' sin
-    build no es una variante, es un error.
+    `optional=False` se dibuja marcado y deshabilitado: un 'Build binario' sin
+    build no es una variante, es un error. Los builders que si dejan desmarcar
+    su compilacion (APK, Vite) lo hacen porque sin ella queda un modo con
+    sentido: subir el artefacto que ya esta en disco.
     """
     id: str
     label: str

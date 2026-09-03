@@ -73,19 +73,24 @@ declara si se puede desmarcar:
 
 ```python
 Capability(
-    id='build_vite', name='Build Vite',
+    id='build_binary', name='Build binario',
     steps=[
-        Step('bump_version', 'Bump versión', optional=True,  default=True),
-        Step('vite_build',   'Build Vite',   optional=False),              # el núcleo
-        Step('upload_to_vps','Subir al VPS', optional=True,  default=False,
+        Step('bump_version',  'Bump versión',     optional=True,  default=True),
+        Step('binary_build',  'Compilar binario', optional=False),           # el núcleo
+        Step('upload_to_vps', 'Subir al VPS',     optional=True,  default=False,
              requires_env={'VPS_IP','VPS_USER','VPS_KEY_NAME'}),
     ],
 )
 ```
 
-`optional=False` se dibuja marcado y deshabilitado: un `Build Vite` sin build no es una variante, es
-un error. Y un paso puede tener sus propios requisitos de config — de ahí sale la advertencia
-contextual del §5.
+`optional=False` se dibuja marcado y deshabilitado: un `Build binario` sin build no es una variante,
+es un error — PyInstaller no deja nada re-subible sin volver a empaquetar. Y un paso puede tener sus
+propios requisitos de config — de ahí sale la advertencia contextual del §5.
+
+Los otros dos builders **sí** dejan desmarcar su compilación, y por la misma razón económica: sin
+ella queda un modo con sentido, que es subir el artefacto que ya está en disco (el `BUILD_APK=false`
+/ `BUILD_SPA=false` de los scripts originales). Retomar un `scp` cortado no debería costar otro
+build — ni, en el caso de Vite, otro `npm install`.
 
 Esto absorbe el eje `copy_to_vps=['local','con subida']` que hoy tienen `build_apk` y `build_vite`:
 deja de ser un eje y pasa a ser la casilla del paso `upload_to_vps`, que es lo que siempre fue.
@@ -106,7 +111,7 @@ deja de ser un eje y pasa a ser la casilla del paso `upload_to_vps`, que es lo q
 ├───────────────────────────────────────┤
 │ PASOS                                 │
 │  ☑ Bump versión           patch  ▾    │
-│  ◼ Build Vite            obligatorio  │
+│  ☑ Build Vite                         │
 │  ☑ Subir al VPS                       │
 ├───────────────────────────────────────┤
 │ OPCIONES                              │
