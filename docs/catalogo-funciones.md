@@ -93,6 +93,8 @@ con catálogos propios, no tres pasos de una secuencia. El porqué, en [emulador
 | `install_node_modules` | A | — | `build_vite` |
 | `compile_spa` | A | — | `build_vite` |
 | `compile_binary` | A | — | `build_binary` |
+| `resolve_entrypoint` | A | — | `build_binary` (deduce `src/main.py` cuando el campo va vacío) |
+| `checksum_artifact` | A | — | `build_binary` (paso `binary_checksum`) |
 | `promote_app` | A | `promote_app` | — |
 | `build_apk` | C | `build_apk` | — |
 | `build_vite` | C | `build_vite` | — |

@@ -132,6 +132,34 @@ def _build_vite_kwargs(payload: dict) -> dict:
     }
 
 
+def _build_binary_kwargs(payload: dict) -> dict:
+    """El tercer builder. Mismos pasos que los otros dos, mas los campos que
+    PyInstaller necesita y ninguna otra punta traduce.
+
+    Los tres campos viajan vacios cuando estan vacios, sin corregirlos: vacio
+    significa "deducilo" — el entrypoint sale de la app Python del repo, el
+    nombre de la carpeta de esa app, y sin icono se empaqueta con el de
+    PyInstaller. Es el mismo criterio que el `directory` vacio del APK.
+
+    Los dos segmentados si se traducen aca, que es para lo que existe este
+    archivo: 'carpeta' y 'ventana' son como se leen, `onefile=False` y
+    `windowed=True` son como se programan.
+    """
+    steps = set(payload.get('steps') or [])
+    return {
+        'entrypoint': _field(payload, 'entrypoint'),
+        'name': _field(payload, 'name'),
+        'icon': _field(payload, 'icon'),
+        'onefile': _option(payload, 'packaging') != 'carpeta',
+        'windowed': _option(payload, 'window') == 'ventana',
+        'bump_mode': _bump_mode(payload),
+        'bump': 'bump_version' in steps,
+        'build': 'binary_build' in steps,
+        'checksum': 'binary_checksum' in steps,
+        'upload': 'upload_to_vps' in steps,
+    }
+
+
 def _bump_mode(payload: dict) -> str:
     """El eje `bump_mode` combina: un componente SemVer excluyente + `build`
     opcional. Llega como lista (`['patch', 'build']`) y se arma la cadena que
@@ -260,6 +288,7 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'terminal': _terminal_kwargs,
     'build_apk': _build_apk_kwargs,
     'build_vite': _build_vite_kwargs,
+    'build_binary': _build_binary_kwargs,
     # Sin parametros: empuja la rama de la carpeta abierta y nada mas.
     'push_repository': lambda payload: {},
     'upload_secret_files': _upload_secrets_kwargs,

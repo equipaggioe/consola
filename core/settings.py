@@ -87,9 +87,18 @@ SETTINGS: tuple[Setting, ...] = (
             required_by=('install_systemd', 'backend')),
     Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
             required_by=('install_systemd', 'backend')),
+
+    # --- Builders ---
+    # El `PYINSTALLER_BIN` del script original, y por el mismo motivo: `pip
+    # install pyinstaller` deja el ejecutable en el Scripts del usuario, que en
+    # Windows no siempre esta en el PATH. No bloquea el boton — vacio, se busca
+    # primero en el venv de la app y despues en el PATH.
+    Setting('PYINSTALLER_BIN', 'Builders', 'Ruta de PyInstaller',
+            placeholder='se busca en el venv de la app y en el PATH',
+            used_by=('build_binary',)),
 )
 
-GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd')
+GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd', 'Builders')
 
 
 def settings_by_group() -> dict[str, list[Setting]]:

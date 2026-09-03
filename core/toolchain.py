@@ -33,6 +33,42 @@ def npm_cmd(override: str = '') -> list[str]:
     )
 
 
+def pyinstaller_cmd(app_dir: Path | None = None, override: str = '') -> list[str]:
+    """PyInstaller, prefiriendo el del venv de la app que se va a empaquetar.
+
+    PyInstaller congela el entorno desde el que corre: el global no ve las
+    dependencias del proyecto y deja un binario que muere al primer import. El
+    script original resolvia solo por PATH (o `PYINSTALLER_BIN`), asi que
+    empaquetar bien dependia de haber activado el venv correcto antes de
+    lanzarlo — algo que un boton no puede pedir.
+
+    Se mira el mismo `.venv` que usa el launcher de la terminal
+    (`core/tasks/launchers.py`), y solo se prefiere si PyInstaller esta
+    realmente instalado ahi; si no, se cae al PATH como antes.
+    """
+    if not override and app_dir is not None:
+        del_venv = _venv_tool(app_dir / '.venv', 'pyinstaller')
+        if del_venv is not None:
+            return [str(del_venv)]
+    return resolve_executable(
+        ['pyinstaller', 'pyinstaller.exe', 'pyinstaller.cmd'],
+        override=override, label='PyInstaller',
+        hint='Instalalo en el venv de la app (pip install pyinstaller) o '
+             'escribe su ruta en PYINSTALLER_BIN.',
+    )
+
+
+def _venv_tool(venv_dir: Path, name: str) -> Path | None:
+    """Un ejecutable dentro de un venv, o None si ese venv no lo tiene."""
+    carpeta = venv_dir / ('Scripts' if os.name == 'nt' else 'bin')
+    nombres = (f'{name}.exe', f'{name}.cmd', name) if os.name == 'nt' else (name,)
+    for nombre in nombres:
+        ruta = carpeta / nombre
+        if ruta.is_file():
+            return ruta
+    return None
+
+
 def app_cmd(kind: str) -> list[str]:
     """El binario que corresponde al tipo de app movil detectado."""
     if kind == FLUTTER:

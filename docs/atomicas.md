@@ -146,7 +146,8 @@ en una casilla cuando gana su propio catálogo. Ver [emuladores.md](emuladores.m
 ### `core/tasks/builders.py`
 
 `bump_version` (sirve para los tres manifiestos) · `upload_artifact` (re-subir sin recompilar) ·
-`compile_apk` · `install_node_modules` · `compile_spa` · `compile_binary` · `promote_app`.
+`compile_apk` · `install_node_modules` · `compile_spa` · `compile_binary` · `resolve_entrypoint` ·
+`checksum_artifact` · `promote_app`.
 
 **Compuestas:** `build_apk`, `build_vite`, `build_binary` — las tres envuelven el manifiesto en
 `files.reversible()`, así que si el build falla la versión vuelve atrás y el repo no queda marcado
@@ -393,6 +394,80 @@ La causa era una sola: dos caminos para la misma pregunta ("¿qué valor va a us
 solo vivía dentro de `Config.for_project`) para no triplicarlo entre `Config`, `EnvPanel` y
 `ParamsPanel`.
 
+### 4.5 — Build binario: el tercer builder, y el paso que nunca debió ser obligatorio
+
+`build_binary` se conectó último y homologando a los otros dos: mismo esqueleto, mismos pasos, misma
+reversibilidad del manifiesto. Lo que cambió al leer el script original
+(`scripts/builders/build_binary.py`) fue más de lo esperado.
+
+**El flag que el catálogo había dado por imposible.** El script tenía `BUILD_BINARY=false`: no
+compila, no versiona, y sube al VPS el ejecutable y el `pyproject.toml` que ya están en disco. El
+catálogo declaraba `Step('binary_build', optional=False)` con la explicación contraria — «PyInstaller
+no deja nada re-subible» — y la función devolvía `None` sin subir nada cuando el paso venía
+apagado. `dist/` sí conserva el binario, y el modo re-subida existía justamente porque un `scp`
+cortado no debería costar otro empaquetado. Ahora los tres builders tienen el mismo paso desmarcable
+y el mismo aviso de bump ignorado.
+
+**Sube el binario con su manifiesto, siempre juntos.** Igual que `_publish` (APK) y `_publish_spa`.
+El script original lo hacía solo en su rama `BUILD_BINARY=false`; en la normal subía el ejecutable y
+dejaba el manifiesto remoto anunciando la versión anterior. Es el mismo descuido que ya se había
+corregido en Vite.
+
+**El binario se sube ejecutable.** `scp` no conserva el bit de ejecución: del otro lado quedaba un
+ejecutable que no se podía ejecutar. `upload_artifact` ganó un `chmod` opcional (`755`, o `-R 755`
+cuando el empaquetado es una carpeta) que solo usa este builder — un APK o una carpeta de SPA se
+sirven, no se ejecutan.
+
+**PyInstaller sale del venv de la app.** PyInstaller congela el entorno desde el que corre: con el
+global, el binario sale sin las dependencias del proyecto y muere al primer import. El script
+resolvía solo por PATH, así que empaquetar bien dependía de haber activado el venv correcto antes de
+lanzarlo — algo que un botón no puede pedir. `toolchain.pyinstaller_cmd()` mira primero el mismo
+`.venv` que usa el launcher de la terminal, y cae al PATH si ahí no está. El `PYINSTALLER_BIN` del
+script sobrevive como clave de configuración (grupo Builders, `used_by` y no `required_by`: no
+bloquea el botón) — hace falta más seguido de lo que parece, porque `pip install pyinstaller` deja
+el ejecutable en un `Scripts/` de usuario que en Windows no suele estar en el PATH.
+
+**No hay eje `app` descubierto, a diferencia de los otros dos builders.** Un eje descubierto vacío
+deja el botón en ámbar (§4.3), y el repo que se empaqueta desde su raíz —el caso de la propia
+Consola (PLAN.md §7)— no tiene ningún `python-app` que descubrir: quedaría sin poder compilar su
+propio ejecutable. El eje es el campo `entrypoint`, como en PLAN.md §5, y acepta cualquier ruta del
+repo igual que el script (`server/main.py`, `tools/cli.py`). Vacío no es "falta un dato":
+`resolve_entrypoint` deduce `src/main.py` de la única app Python del repo — el mismo entrypoint que
+lanza `open_terminal`, para que lo que se descarga sea lo que se corre en desarrollo — y si el repo
+no tiene ninguna, un `main.py` en la raíz. Con dos apps Python el error pide escribir cuál, que es
+la única pregunta que queda sin respuesta en la carpeta.
+
+**La carpeta de la app se busca subiendo desde el entrypoint** hasta el primer manifiesto. El script
+se quedaba con `entrypoint.parent`, que para `src/main.py` es `src/`: ahí creaba un `pyproject.toml`
+paralelo al de la app, con una versión propia que no leía nadie. `_ensure_manifest` conserva la parte
+buena de ese `_ensure_pyproject` — un script suelto que se empieza a distribuir no tiene por qué
+traer manifiesto — pero lo crea donde corresponde y lo avisa.
+
+**Tres cosas nuevas que el script no hacía**, y que son del dominio de "ejecutable descargable":
+
+| Novedad | Por qué |
+|---|---|
+| Paso `binary_checksum` | Un ejecutable descargado no se puede mirar por dentro: el `<binario>.sha256` (formato `sha256sum -c`) es lo único que deja comprobar que lo bajado es lo publicado. Se sube junto al binario. Con empaquetado en carpeta no aplica y se saltea con aviso, sin tirar el build. |
+| Ejes `packaging` y `window` | `ONEFILE` era una constante del script y ahora es un segmentado; `--windowed` es su hermano que faltaba — en Windows, una app de ventana empaquetada sin eso arrastra una consola negra detrás. |
+| Campo `icon` | `--icon`, para que el ejecutable no se distribuya con el ícono por defecto de PyInstaller. Es lo que PLAN.md §7 pide para `Consola.exe`. |
+
+**Dos detalles de higiene.** El `.spec` generado va a `build/` (`--specpath`): en la raíz de la app
+aparecía como cambio sin commitear después de cada compilación, y en `build/` ya lo cubre 'Limpiar
+artefactos'. Y no se pasa `--clean`, que el script sí traía: borra la caché y vuelve a analizar todas
+las dependencias en cada corrida. Es la misma economía por la que `install_node_modules` usa
+`npm install` y no `npm ci` — para el limpio de verdad está el botón de limpiar artefactos.
+
+**El nombre lleva la plataforma y no la versión:** `consola-windows-amd64.exe`. PyInstaller no
+compila cruzado, así que sin etiqueta el binario de Windows y el de Linux se pisan en la misma ruta
+del VPS; y sin versión en el nombre, la URL de descarga queda estable y quien quiere saber qué
+versión es lee el manifiesto que se publica al lado.
+
+**Verificado de punta a punta** sobre un repo de prueba: `pyproject.toml` 0.4.1 → 0.4.2, PyInstaller
+corriendo con `--specpath build`, `dist/demo-windows-amd64.exe` (7.9 MB) + su `.sha256`, y el
+ejecutable arrancando y escribiendo su salida. Las dos ramas de re-subida se probaron hasta el punto
+en que piden VPS. Lo único que sigue sin verificar es la subida real (`chmod 755` incluido), que
+necesita un servidor.
+
 ### `core/session.py` — estado de sesión
 `run_server.py` escribía `SERVER_PORT` en `scripts/.env` para que `run_terminal.py` y `run_vite.py`
 lo leyeran después. No es configuración: es el puerto que el backend consiguió *en esta corrida*.
@@ -446,7 +521,8 @@ escribir el registro/perfil de verdad) todavía no se corrió de punta a punta.
 - ✅ El puente ejes/pasos del panel → kwargs de la función real: `ui/task_adapters.py`, un
   adaptador por capacidad conectada. Conectadas hoy: `clean_artifacts`, `install_android_tools`,
   `install_android_packages`, `install_android_hypervisor`, `install_android_sdk`,
-  `install_flutter_sdk`, `build_apk` (§4.2), `push_repository`, `upload_secret_files`,
+  `install_flutter_sdk`, `build_apk` (§4.2), `build_vite`, `build_binary` (§4.5),
+  `push_repository`, `upload_secret_files`,
   `update_remote`, los cuatro de emuladores y **el grupo Launchers completo**
   ([launchers.md](launchers.md)) — y las que sigan sumándose.
 - Los `ask_sink` / `note_sink` del `TaskContext` conectados a diálogos Qt reales — sigue pendiente

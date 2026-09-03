@@ -50,6 +50,8 @@ Cómo queda el catálogo actual:
 | `device` / `image` / `avd` | `create_avd`, `install_system_image`, `launch_emulator` | one | lista larga con búsqueda (`pick`) |
 | `action` (systemd) | `systemd_action` | one | segmentado |
 | `bump_mode` | `build_apk` (con `+build`), `build_vite` / `build_binary` (SemVer pelado) | one | segmentado |
+| `packaging` / `window` | `build_binary` | one | segmentado |
+| `entrypoint` / `name` / `icon` | `build_binary` | one | campo escrito (vacío = se deduce) |
 | `scope` (local/remoto) | `bootstrap_db`, `migrate_db`, … | one | segmentado |
 | `dry_run` (simulacro/borrar) | `clean_artifacts`, `sync_common_files` | one | segmentado |
 | `follow` (sí/no) | `view_logs` | one | switch |
@@ -75,22 +77,25 @@ declara si se puede desmarcar:
 Capability(
     id='build_binary', name='Build binario',
     steps=[
-        Step('bump_version',  'Bump versión',     optional=True,  default=True),
-        Step('binary_build',  'Compilar binario', optional=False),           # el núcleo
-        Step('upload_to_vps', 'Subir al VPS',     optional=True,  default=False,
+        Step('bump_version',    'Bump versión',      optional=True, default=True),
+        Step('binary_build',    'Compilar binario',  optional=True, default=True),
+        Step('binary_checksum', 'Checksum SHA-256',  optional=True, default=True),
+        Step('upload_to_vps',   'Subir al VPS',      optional=True, default=False,
              requires_env={'VPS_IP','VPS_USER','VPS_KEY_NAME'}),
     ],
 )
 ```
 
-`optional=False` se dibuja marcado y deshabilitado: un `Build binario` sin build no es una variante,
-es un error — PyInstaller no deja nada re-subible sin volver a empaquetar. Y un paso puede tener sus
-propios requisitos de config — de ahí sale la advertencia contextual del §5.
+`optional=False` se dibuja marcado y deshabilitado: existe para el paso núcleo que sin él deja a la
+capacidad sin significado. Y un paso puede tener sus propios requisitos de config — de ahí sale la
+advertencia contextual del §5.
 
-Los otros dos builders **sí** dejan desmarcar su compilación, y por la misma razón económica: sin
-ella queda un modo con sentido, que es subir el artefacto que ya está en disco (el `BUILD_APK=false`
-/ `BUILD_SPA=false` de los scripts originales). Retomar un `scp` cortado no debería costar otro
-build — ni, en el caso de Vite, otro `npm install`.
+**`binary_build` era ese caso y dejó de serlo** (ver `atomicas.md §4.5`). Se declaraba
+`optional=False` con el argumento de que «PyInstaller no deja nada re-subible sin volver a
+empaquetar», y eso era falso: `dist/` conserva el ejecutable, y el script original traía un flag
+`BUILD_BINARY=false` para subirlo sin recompilar. Los tres builders comparten hoy la misma economía:
+retomar un `scp` cortado no debería costar otro build — ni, en el caso de Vite, otro `npm install`,
+ni, en el del binario, otro análisis completo de dependencias.
 
 Esto absorbe el eje `copy_to_vps=['local','con subida']` que hoy tienen `build_apk` y `build_vite`:
 deja de ser un eje y pasa a ser la casilla del paso `upload_to_vps`, que es lo que siempre fue.

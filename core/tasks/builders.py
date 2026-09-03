@@ -1,11 +1,11 @@
 from __future__ import annotations
 import platform
+import re
 from collections.abc import Sequence
 from pathlib import Path
 
 from .. import files, ssh, targets, toolchain, versioning, vps
 from ..errors import TaskError
-from ..process import resolve_executable
 from ..registry import registry
 
 """
@@ -55,17 +55,22 @@ def bump_version(ctx, directory: str = '', mode: str = 'patch') -> tuple[str, st
     return anterior, nueva
 
 
-def upload_artifact(ctx, local: Path, remote_rel: str = '') -> str:
+def upload_artifact(ctx, local: Path, remote_rel: str = '', *, chmod: str = '') -> str:
     """Sube un artefacto al VPS respetando su ruta relativa dentro del repo.
 
     Boton propio: re-subir un APK ya compilado despues de un corte de red no
     deberia obligar a recompilarlo.
+
+    `chmod` es para lo que del otro lado se ejecuta: `scp` no conserva el bit de
+    ejecucion, asi que un binario subido sin esto llega inservible. Los demas
+    artefactos (un APK, una carpeta de SPA) se sirven, no se ejecutan, y no lo
+    necesitan.
     """
     if not local.exists():
         raise TaskError(f'No existe el artefacto: {local}')
     rel = remote_rel or local.relative_to(ctx.root).as_posix()
     remote = ssh.resolve_remote(ctx.config)
-    destino = ssh.upload(ctx, remote, local, vps.remote_path(ctx.config, rel))
+    destino = ssh.upload(ctx, remote, local, vps.remote_path(ctx.config, rel), chmod=chmod)
     ctx.ok(f'Subido: {destino}')
     return destino
 
@@ -182,31 +187,207 @@ def _publish_spa(ctx, salida: Path, manifest: Path) -> None:
 
 # --- pasos de binario ------------------------------------------------------
 
-def compile_binary(ctx, entrypoint: str = '', name: str = '', onefile: bool = True) -> Path:
+# Entrypoints que se prueban cuando el campo queda vacio, en orden. `src/main.py`
+# va primero porque es el que ya usa el launcher de la terminal
+# (`core/tasks/launchers.py::open_terminal`): el ejecutable que se descarga es la
+# misma app que se lanza en desarrollo, y preguntar la ruta seria pedir que
+# confirmen lo que la carpeta ya contesta.
+_ENTRYPOINTS = ('src/main.py', 'main.py', 'app/main.py')
+
+# Un entrypoint llamado asi no nombra al programa, nombra al archivo de arranque:
+# `src/main.py` daria un ejecutable "main". En ese caso el nombre sale de la
+# carpeta de la app, que es como se llama el proyecto.
+_NOMBRES_GENERICOS = ('main', '__main__', 'app', 'cli', 'run')
+
+
+def resolve_entrypoint(ctx, entrypoint: str = '') -> Path:
+    """El archivo Python que PyInstaller va a empaquetar.
+
+    Escrito a mano gana siempre — el script original aceptaba cualquier ruta del
+    repo (`server/main.py`, `tools/cli.py`) y eso se conserva. Vacio se deduce:
+    el unico `python-app` del repo y su `src/main.py`, y si el repo no tiene
+    ninguno, un `main.py` en la raiz (el caso de una app de un solo arranque,
+    como la propia Consola).
+
+    No hay eje `app` con la lista de apps descubiertas, a diferencia de los otros
+    dos builders: un eje descubierto vacio bloquea el boton en ambar, y un repo
+    que se empaqueta desde su raiz no tiene ningun `python-app` que descubrir —
+    quedaria sin poder compilarse su propio ejecutable.
+    """
+    if entrypoint:
+        fuente = ctx.path(entrypoint)
+        if not fuente.is_file():
+            raise TaskError(f'No existe el punto de entrada: {fuente}')
+        return fuente
+
+    apps = targets.by_kind(ctx.root, targets.PYTHON_APP)
+    if len(apps) > 1:
+        elegir = ', '.join(a.name for a in apps)
+        raise TaskError(f'Hay mas de una app Python en {ctx.root.name}: {elegir}. '
+                        'Escribe el punto de entrada de la que quieras empaquetar.')
+
+    base = apps[0].path if apps else ctx.root
+    for candidato in _ENTRYPOINTS:
+        fuente = base / candidato
+        if fuente.is_file():
+            return fuente
+    raise TaskError(f'No se encontro un punto de entrada en {base.name} '
+                    f'({", ".join(_ENTRYPOINTS)}). Escribe cual es.')
+
+
+def _binary_app(root: Path, fuente: Path) -> Path:
+    """La carpeta de la app a la que pertenece el entrypoint.
+
+    Es donde vive el manifiesto que se versiona y donde PyInstaller deja
+    `dist/` y `build/`. Se busca subiendo desde el entrypoint hasta encontrar un
+    manifiesto: el script original se quedaba con `entrypoint.parent`, que para
+    `src/main.py` es `src/` y terminaba creando ahi un `pyproject.toml` paralelo
+    al de la app, con su propia version que nadie mas leia.
+    """
+    carpeta = fuente.parent
+    while carpeta != carpeta.parent:
+        if any((carpeta / nombre).is_file() for nombre in versioning.MANIFEST_NAMES):
+            return carpeta
+        if carpeta == root:
+            break
+        carpeta = carpeta.parent
+    return root
+
+
+def _ensure_manifest(ctx, app_dir: Path) -> Path:
+    """El manifiesto de version de la app; se crea en 0.0.0 si no hay ninguno.
+
+    Es el `_ensure_pyproject` del script original, y esta por la misma razon:
+    un script suelto que se empieza a distribuir no tiene por que traer un
+    `pyproject.toml` escrito de antemano, y sin manifiesto no hay version que
+    subir ni que publicar al lado del binario.
+    """
+    try:
+        return versioning.find_manifest(app_dir)
+    except TaskError:
+        pass
+    nombre = re.sub(r'[^0-9A-Za-z._-]+', '-', app_dir.name).strip('-').lower() or 'python-app'
+    manifiesto = app_dir / 'pyproject.toml'
+    files.write_text(manifiesto, f'[project]\nname = "{nombre}"\nversion = "0.0.0"\n')
+    ctx.warn(f'{app_dir.name} no tenia manifiesto: se creo {manifiesto.name} en 0.0.0.')
+    return manifiesto
+
+
+def _binary_label(app_dir: Path, fuente: Path, name: str) -> str:
+    """Nombre del ejecutable, con la etiqueta de la plataforma que lo produjo.
+
+    PyInstaller no compila cruzado: el binario sirve para el sistema donde corre
+    Consola, y sin la etiqueta el de Windows y el de Linux se pisan en la misma
+    ruta del VPS. El nombre no lleva la version a proposito — la URL de descarga
+    se mantiene estable y quien quiere saber que version es lee el manifiesto
+    que se publica al lado.
+    """
+    base = name.strip()
+    if not base:
+        base = app_dir.name if fuente.stem in _NOMBRES_GENERICOS else fuente.stem
+    return f'{base}-{platform.system().lower()}-{platform.machine().lower()}'
+
+
+def _binary_output(app_dir: Path, etiqueta: str, onefile: bool) -> Path:
+    """Donde queda lo que deja PyInstaller: un archivo con `--onefile`, una
+    carpeta sin el. Sirve para leer lo recien compilado y para encontrar lo que
+    ya estaba, igual que `_last_apk` y `_spa_output`."""
+    sufijo = '.exe' if platform.system() == 'Windows' and onefile else ''
+    return app_dir / 'dist' / f'{etiqueta}{sufijo}'
+
+
+def compile_binary(ctx, entrypoint: str = '', name: str = '', *, onefile: bool = True,
+                   windowed: bool = False, icon: str = '') -> Path:
     """Empaqueta un ejecutable con PyInstaller.
 
-    PyInstaller no compila para otro sistema operativo: el binario que sale es
-    para el sistema donde corre Consola, y por eso el nombre lleva la etiqueta.
+    Corre con la carpeta de la app como directorio de trabajo, no con la raiz
+    del repo: asi `dist/` y `build/` quedan al lado del manifiesto que se acaba
+    de versionar, que es lo que hacia el script original.
+
+    `--specpath build` manda el `.spec` generado adentro de `build/`. Es un
+    archivo derivado, y en la raiz de la app aparecia como cambio sin commitear
+    despues de cada compilacion; en `build/` ya lo cubre 'Limpiar artefactos'.
+
+    No se pasa `--clean`: borra la cache de PyInstaller y vuelve a analizar
+    todas las dependencias en cada corrida. Es la misma economia por la que
+    `install_node_modules` usa `npm install` y no `npm ci` — la cache existe
+    justo para el build repetido, y para el limpio de verdad esta el boton de
+    limpiar artefactos.
     """
-    if not entrypoint:
-        raise TaskError('Falta el archivo de entrada del binario.')
-    fuente = ctx.path(entrypoint)
-    if not fuente.is_file():
-        raise TaskError(f'No existe el punto de entrada: {fuente}')
+    fuente = resolve_entrypoint(ctx, entrypoint)
+    app_dir = _binary_app(ctx.root, fuente)
+    etiqueta = _binary_label(app_dir, fuente, name)
+    pyinstaller = toolchain.pyinstaller_cmd(app_dir, ctx.config.get('PYINSTALLER_BIN'))
 
-    app_name = name or fuente.stem
-    etiqueta = f'{app_name}-{platform.system().lower()}-{platform.machine().lower()}'
-    pyinstaller = resolve_executable(['pyinstaller', 'pyinstaller.exe'], label='PyInstaller')
+    argv = [*pyinstaller, '--noconfirm', '--name', etiqueta,
+            '--specpath', 'build', *(['--onefile'] if onefile else [])]
+    if windowed:
+        # Sin consola: en Windows una app de ventana abre ademas una cmd negra
+        # detras si se empaqueta sin esto.
+        argv.append('--windowed')
+    if icon:
+        ruta_icono = ctx.path(icon)
+        if not ruta_icono.is_file():
+            raise TaskError(f'No existe el icono: {ruta_icono}')
+        argv += ['--icon', str(ruta_icono)]
+    (app_dir / 'build').mkdir(parents=True, exist_ok=True)
+    ctx.run([*argv, str(fuente)], cwd=app_dir)
 
-    ctx.run([*pyinstaller, *(['--onefile'] if onefile else []), '--noconfirm',
-             '--name', etiqueta, str(fuente)], cwd=ctx.root)
-
-    sufijo = '.exe' if platform.system() == 'Windows' else ''
-    artefacto = ctx.root / 'dist' / f'{etiqueta}{sufijo}'
+    artefacto = _binary_output(app_dir, etiqueta, onefile)
     if not artefacto.exists():
         raise TaskError(f'PyInstaller no dejo el binario esperado en {artefacto}.')
     ctx.ok(f'Binario: {artefacto} ({files.human_size(files.size_of(artefacto))})')
     return artefacto
+
+
+def checksum_artifact(ctx, artifact: Path) -> Path:
+    """Escribe el SHA-256 del artefacto al lado, en formato `sha256sum`.
+
+    Un ejecutable que se descarga no se puede mirar por dentro: el hash es lo
+    unico que deja comprobar que lo bajado es lo que se publico. Se guarda como
+    `<binario>.sha256` para que `sha256sum -c` lo verifique sin editarlo.
+    """
+    if artifact.is_dir():
+        # Con `--onefile` desactivado no hay un archivo que firmar sino un arbol
+        # entero; un hash por archivo no es lo que nadie va a verificar a mano.
+        raise TaskError('El checksum solo aplica al empaquetado en un archivo.')
+    huella = files.digest(artifact)
+    destino = artifact.with_name(f'{artifact.name}.sha256')
+    files.write_text(destino, f'{huella}  {artifact.name}\n')
+    ctx.ok(f'SHA-256: {huella}')
+    return destino
+
+
+def _maybe_checksum(ctx, artifact: Path) -> Path | None:
+    """El checksum del paso marcado, salteado con un aviso si no aplica.
+
+    El empaquetado en carpeta no tiene un archivo que firmar, y ahi el paso no
+    es un error: es una combinacion que no significa nada. Fallar despues de
+    empaquetar —lo unico caro del flujo— seria tirar el build por una casilla.
+    """
+    if artifact.is_dir():
+        ctx.warn('Checksum omitido: el empaquetado en carpeta no es un archivo que firmar.')
+        return None
+    return checksum_artifact(ctx, artifact)
+
+
+def _publish_binary(ctx, artifact: Path, manifest: Path, checksum: Path | None) -> None:
+    """Sube el binario con su manifiesto (y su checksum, si se genero).
+
+    Homologo de `_publish` y `_publish_spa`: van juntos o no va ninguno. El
+    ejecutable no dice de que version es, y del lado del VPS el manifiesto es lo
+    unico que lo identifica. El script original subia los dos solo en su rama
+    `BUILD_BINARY=false`; en la normal dejaba el manifiesto remoto viejo.
+
+    El binario se sube con permiso de ejecucion: `scp` no lo conserva, y del
+    otro lado quedaba un ejecutable que no se podia ejecutar.
+    """
+    # `chmod -R` para el empaquetado en carpeta: ahi el ejecutable es un archivo
+    # de adentro, y el bit del directorio no le sirve de nada.
+    upload_artifact(ctx, artifact, chmod='-R 755' if artifact.is_dir() else '755')
+    upload_artifact(ctx, manifest)
+    if checksum is not None:
+        upload_artifact(ctx, checksum)
 
 
 # --- promocion -------------------------------------------------------------
@@ -393,27 +574,64 @@ def build_binary(
     name: str = '',
     bump_mode: str = 'patch',
     *,
+    onefile: bool = True,
+    windowed: bool = False,
+    icon: str = '',
     bump: bool = True,
     build: bool = True,
+    checksum: bool = True,
     upload: bool = False,
 ) -> Path | None:
-    """Compuesta: bump de `pyproject.toml` -> PyInstaller -> subida opcional."""
-    manifiesto = versioning.find_manifest(ctx.root)
+    """Compuesta: bump del manifiesto -> PyInstaller -> checksum -> subida.
+
+    Mismo esqueleto que `build_apk` y `build_vite`, y por fin con el mismo modo
+    re-subida: sin `build` no se compila nada y se sube el ejecutable que ya
+    esta en `dist/`. Es el `BUILD_BINARY=false` del script original — que era
+    justamente el modo que existia para retomar un `scp` cortado sin pagar otro
+    empaquetado entero — y por eso 'Compilar binario' dejo de ser un paso fijo.
+
+    Si el build falla, la version vuelve a lo que era: el repo no queda marcado
+    con un numero que nunca se publico.
+    """
+    fuente = resolve_entrypoint(ctx, entrypoint)
+    app_dir = _binary_app(ctx.root, fuente)
+    manifiesto = _ensure_manifest(ctx, app_dir)
+    rel = '' if app_dir == ctx.root else app_dir.relative_to(ctx.root).as_posix()
+
+    if not build:
+        if not upload:
+            raise TaskError('Sin compilar y sin subir no queda nada por hacer.')
+        if bump:
+            ctx.warn('Bump ignorado: el binario que hay en disco se empaqueto con la '
+                     'version que ya tiene el manifiesto, y subirla cambiada lo '
+                     'anunciaria como otra cosa.')
+        artefacto = _binary_output(app_dir, _binary_label(app_dir, fuente, name), onefile)
+        if not artefacto.exists():
+            raise TaskError(f'No hay ningun binario compilado en {artefacto}.')
+        firma = _maybe_checksum(ctx, artefacto) if checksum else None
+        ctx.step('Subida al VPS')
+        _publish_binary(ctx, artefacto, manifiesto, firma)
+        ctx.note(f'Re-subida binario {artefacto.name} {versioning.read_version(manifiesto)}')
+        return artefacto
 
     with files.reversible(manifiesto):
         if bump:
             ctx.step('Version')
-            bump_version(ctx, '', bump_mode)
-        if not build:
-            return None
+            bump_version(ctx, rel, bump_mode)
         ctx.step('Empaquetado')
-        artefacto = compile_binary(ctx, entrypoint, name)
+        artefacto = compile_binary(ctx, str(fuente), name, onefile=onefile,
+                                   windowed=windowed, icon=icon)
+
+    firma = None
+    if checksum:
+        ctx.step('Checksum')
+        firma = _maybe_checksum(ctx, artefacto)
 
     if upload:
         ctx.step('Subida al VPS')
-        upload_artifact(ctx, artefacto)
+        _publish_binary(ctx, artefacto, manifiesto, firma)
 
-    ctx.note(f'Build binario {artefacto.name}')
+    ctx.note(f'Build binario {artefacto.name} {versioning.read_version(manifiesto)}')
     return artefacto
 
 

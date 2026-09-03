@@ -182,9 +182,17 @@ BUILD_VITE_STEPS = [
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
+# Los mismos pasos de los otros dos builders, con uno propio. 'Compilar
+# binario' dejo de ser obligatorio: el script original tenia `BUILD_BINARY=false`
+# para subir el ejecutable que ya estaba en `dist/` sin volver a empaquetarlo —
+# el mismo caso del `scp` cortado que justifica el paso desmarcable del APK.
+# 'Checksum SHA-256' es propio del binario y no de los otros dos: un ejecutable
+# que alguien descarga no se puede mirar por dentro, y el hash es lo unico que
+# deja comprobar que lo bajado es lo que se publico.
 BUILD_BINARY_STEPS = [
     Step('bump_version', 'Bump versión'),
-    Step('binary_build', 'Compilar binario', optional=False),
+    Step('binary_build', 'Compilar binario'),
+    Step('binary_checksum', 'Checksum SHA-256'),
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
@@ -290,7 +298,33 @@ def load_catalog() -> None:
     # tres SPA — y como es una capacidad que termina, las marcadas se recorren
     # en un bucle dentro de `build_vite`, no en una pestaña por cada una.
     registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _SEMVER_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
-    registry.register(Capability(id='build_binary', name='Build binario', group='Builders', section='Build binario', kind='once', icon='⚡', description='Sube la versión, compila el ejecutable y opcionalmente lo publica.', steps=BUILD_BINARY_STEPS, stub=True))
+    # El tercer builder, con los mismos pasos y el mismo `bump` SemVer que Vite
+    # (`pyproject.toml` tampoco tiene build number). Lo propio es que sus ejes
+    # son campos y no una lista descubierta: el script original empaquetaba
+    # *cualquier* ruta del repo (`server/main.py`, `tools/cli.py`), y un eje
+    # `app` descubierto vacío dejaría en ámbar justo al repo que se empaqueta
+    # desde su raíz — que es el caso de la propia Consola (PLAN.md §7).
+    # Vacío no es "falta un dato": `resolve_entrypoint` deduce `src/main.py` de
+    # la única app Python del repo, igual que hace el launcher de la terminal.
+    registry.register(Capability(
+        id='build_binary', name='Build binario', group='Builders',
+        section='Build binario', kind='once', icon='⚡',
+        description='Sube la versión, compila el ejecutable y opcionalmente lo publica.',
+        composed_of=['bump_version', 'upload_to_vps'],
+        axes=[AxisDef('entrypoint', [''], 'field', label='Punto de entrada',
+                      placeholder='se deduce: src/main.py de la app Python del repo'),
+              AxisDef('name', [''], 'field', label='Nombre del ejecutable',
+                      placeholder='se deriva de la app, con la etiqueta de la plataforma'),
+              AxisDef('icon', [''], 'field', label='Ícono',
+                      placeholder='assets/icon.ico'),
+              # Las dos decisiones de PyInstaller que cambian *que* se entrega:
+              # un archivo suelto o una carpeta, y con o sin consola detras.
+              AxisDef('packaging', ['un archivo', 'carpeta'], 'scope',
+                      label='Empaquetado'),
+              AxisDef('window', ['consola', 'ventana'], 'scope',
+                      label='Al ejecutarse'),
+              _SEMVER_AXIS()],
+        steps=BUILD_BINARY_STEPS, stub=True))
     registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', description='Promueve el último artefacto subido al canal de producción.', stub=True))
 
     # Emulators group
