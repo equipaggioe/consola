@@ -115,26 +115,28 @@ def push_repository(ctx) -> str:
 
 # --- codigo en el VPS ------------------------------------------------------
 
-def _ensure_cloned(ctx) -> str:
-    """Clona el repo en el VPS si todavia no esta, y devuelve su ruta.
+def _remote_state(remote: ssh.Remote, destino: str) -> tuple[bool, str]:
+    """Si el repo ya esta clonado en el VPS y que tiene sin commitear, en UNA
+    sola conexion.
 
-    Dejo de ser un paso propio: "solo clonar" no es algo que alguien pida dos
-    veces — es la primera corrida de `sync_repository`, que cae aca sola cuando
-    la carpeta remota todavia no existe.
+    Antes eran dos (`ssh.path_exists` y despues `git status`). En Windows el
+    multiplexado esta desactivado (`core/ssh.py::_control_args`), asi que cada
+    `ssh` abre un handshake nuevo: agrupar las preguntas que se contestan juntas
+    no es microoptimizacion, es una oportunidad menos de quedarse esperando
+    contra el timeout de 30s.
     """
-    remote = _remote(ctx)
-    destino = vps.deploy_root(ctx.config)
-    if ssh.path_exists(remote, f'{destino}/.git'):
-        return destino
+    salida = ssh.capture(
+        remote,
+        f'if [ -d {ssh.quote(destino + "/.git")} ]; then echo CLONADO; '
+        f'cd {ssh.quote(destino)} && git status --porcelain; else echo VACIO; fi',
+        check=False)
+    lineas = salida.splitlines()
+    if not lineas or lineas[0].strip() != 'CLONADO':
+        return False, ''
+    return True, '\n'.join(lineas[1:]).strip()
 
-    url = ctx.config.require('GIT_REPO_URL')
-    ssh.ensure_dir(remote, destino.rsplit('/', 1)[0])
-    ssh.run(ctx, remote, f'git clone {ssh.quote(url)} {ssh.quote(destino)}')
-    ctx.ok(f'Repo clonado en {destino}.')
-    return destino
 
-
-def sync_repository(ctx, discard_changes: bool = False) -> str:
+def sync_repository(ctx, discard_changes: bool = False) -> None:
     """Actualiza el repo del VPS.
 
     `discard_changes` elige que hacer si el VPS tiene cambios sin commitear:
@@ -142,23 +144,43 @@ def sync_repository(ctx, discard_changes: bool = False) -> str:
     descarta sin preguntar. Es un parametro y no una constante porque las dos
     respuestas son legitimas segun el VPS, y el script original obligaba a
     editar la cabecera para cambiar de una a otra.
+
+    Dos conexiones SSH: una para preguntar en que estado esta el repo, otra para
+    dejarlo al dia. Eran cinco, y la unica decision que obliga a cortar en dos es
+    la pregunta al usuario — todo lo que va antes se contesta junto, y todo lo
+    que va despues se aplica junto.
     """
     remote = _remote(ctx)
-    destino = _ensure_cloned(ctx)
-    sucio = ssh.capture(remote, f'cd {ssh.quote(destino)} && git status --porcelain', check=False)
+    destino = vps.deploy_root(ctx.config)
+    clonado, sucio = _remote_state(remote, destino)
 
+    if not clonado:
+        # Primera corrida: clonar ya deja el repo en origin/HEAD, no hay nada
+        # que traer despues. "Solo clonar" no es un boton aparte — nadie lo pide
+        # dos veces.
+        url = ctx.config.require('GIT_REPO_URL')
+        ssh.ensure_dir(remote, destino.rsplit('/', 1)[0])
+        ssh.run(ctx, remote, f'git clone {ssh.quote(url)} {ssh.quote(destino)}')
+        ctx.ok(f'Repo clonado en {destino}.')
+        return
+
+    limpiar = ''
     if sucio:
         ctx.warn(f'El repo del VPS tiene cambios sin commitear:\n{sucio}')
         if not discard_changes and not ctx.confirm(
                 'Descartar esos cambios y actualizar igual?', danger=True):
             raise TaskError('Actualizacion cancelada: el VPS tiene cambios sin commitear.')
-        ssh.run(ctx, remote, f'cd {ssh.quote(destino)} && git reset --hard && git clean -fd')
+        limpiar = 'git reset --hard && git clean -fd && '
 
-    ssh.run(ctx, remote, f'cd {ssh.quote(destino)} && git fetch --all && '
-                         'git reset --hard "@{u}"')
-    revision = ssh.capture(remote, f'cd {ssh.quote(destino)} && git rev-parse --short HEAD')
-    ctx.ok(f'Repo actualizado en {revision}.')
-    return revision
+    # Descartar, traer y posicionarse van en el mismo comando: es un solo tramo
+    # sin decision en el medio. `git reset --hard "@{u}"` ya imprime
+    # "HEAD is now at <sha> <mensaje>", asi que la revision queda en el log sin
+    # gastar otra conexion en un `git rev-parse` puramente decorativo — que era,
+    # justamente, el comando que se colgaba.
+    ssh.run(ctx, remote,
+            f'cd {ssh.quote(destino)} && {limpiar}'
+            'git fetch --all && git reset --hard "@{u}"')
+    ctx.ok('Repo del VPS actualizado.')
 
 
 def _ensure_venv(ctx) -> str:
