@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QLabel, QScrollArea, QPushButton, QHBoxLayout,
     QLineEdit
 )
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSize, QTimer, QSettings
 
 from ui.theme import Colors, Fonts
 from core.registry import registry
@@ -89,10 +89,24 @@ class ActionRail(QWidget):
     una caja a la vez) despliega sus acciones, una por renglon."""
     action_requested = Signal(str)  # capability_id
     run_requested = Signal(str)     # capability_id: correr sin abrir la pestana
+    width_hint_changed = Signal()   # el ancho natural del contenido cambio
+
+    # El rail deja de tener un ancho fijo: se ajusta al contenido (un nombre de
+    # repo largo, una caja abierta con acciones de titulo largo) entre estos dos
+    # limites, y el usuario lo puede fijar arrastrando el separador — igual que
+    # el panel de parametros. `MIN` es lo que necesita el filtro y la cabecera;
+    # `MAX` evita que una sola accion con nombre kilometrico se coma media
+    # ventana.
+    MIN_WIDTH = 232
+    MAX_WIDTH = 460
+    DEFAULT_WIDTH = 288
+    _SETTINGS_KEY = 'ui/rail_width'
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setFixedWidth(288)
+        self.setMinimumWidth(self.MIN_WIDTH)
+        self.setMaximumWidth(self.MAX_WIDTH)
+        self._user_width = self._load_user_width()
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -207,6 +221,57 @@ class ActionRail(QWidget):
         self.populate()
         self._refresh()
 
+    # --- ancho: auto al contenido, o fijado por el usuario ------------
+    def _load_user_width(self) -> int:
+        try:
+            w = int(QSettings().value(self._SETTINGS_KEY, 0) or 0)
+        except (TypeError, ValueError):
+            return 0
+        return w if self.MIN_WIDTH <= w <= self.MAX_WIDTH else 0
+
+    def has_user_width(self) -> bool:
+        return self._user_width > 0
+
+    def set_user_width(self, width: int) -> int:
+        """Lo llama la ventana cuando se arrastra el separador: a partir de aca
+        el ancho lo manda el usuario y el auto-ajuste no lo pisa. Devuelve el
+        ancho ya clampado a [MIN, MAX]."""
+        self._user_width = max(self.MIN_WIDTH, min(self.MAX_WIDTH, int(width)))
+        QSettings().setValue(self._SETTINGS_KEY, self._user_width)
+        return self._user_width
+
+    def clear_user_width(self) -> None:
+        """Vuelve al ancho automatico (doble clic en el separador)."""
+        self._user_width = 0
+        QSettings().remove(self._SETTINGS_KEY)
+        self.width_hint_changed.emit()
+
+    def content_width(self) -> int:
+        """El ancho que el contenido pide para no recortar nada.
+
+        Se mide sobre el contenido del scroll (las cajas de grupo, que crecen
+        con la caja abierta) mas los margenes y el ancho de la barra de scroll;
+        la cabecera y el filtro caben siempre dentro del minimo.
+        """
+        inner = self.scroll_content.sizeHint().width()
+        margins = self.scroll_layout.contentsMargins()
+        chrome = margins.left() + margins.right() + 10  # 10 = barra de scroll
+        return max(self.MIN_WIDTH, min(self.MAX_WIDTH, inner + chrome))
+
+    def preferred_width(self) -> int:
+        return self._user_width or self.content_width()
+
+    def _schedule_width_hint(self) -> None:
+        """El sizeHint de una caja recien abierta solo es correcto despues de
+        que el layout se acomode, asi que el aviso se difiere un ciclo."""
+        QTimer.singleShot(0, self.width_hint_changed.emit)
+
+    def sizeHint(self) -> QSize:
+        return QSize(self.preferred_width(), super().sizeHint().height())
+
+    def minimumSizeHint(self) -> QSize:
+        return QSize(self.MIN_WIDTH, super().minimumSizeHint().height())
+
     # --- API ----------------------------------------------------------
     def set_project(self, project: Project) -> None:
         self.project = project
@@ -218,6 +283,7 @@ class ActionRail(QWidget):
         for card in self._cards:
             card.set_accent(project.color)
         self.refresh_readiness()
+        self._schedule_width_hint()
 
     def refresh_readiness(self) -> None:
         """Que acciones pueden correr ya, sin abrir la pestana, con el
@@ -255,10 +321,12 @@ class ActionRail(QWidget):
         No aplica mientras se ven solo las favoritas: ahi las cajas ya estan
         podadas y caben todas abiertas."""
         if self.fav_switch.is_checked() or self.filter_box.text().strip():
+            self._schedule_width_hint()
             return
         for card in self._cards:
             if card is not opened:
                 card.set_expanded(False)
+        self._schedule_width_hint()
 
     # --- filtro y modo --------------------------------------------------
     def _apply_filter(self, text: str) -> None:
@@ -285,6 +353,7 @@ class ActionRail(QWidget):
                 card.set_expanded(hits > 0, announce=False)
             else:
                 card.set_expanded(False, announce=False)
+        self._schedule_width_hint()
 
     def _emit_action(self, cap_id: str):
         self.action_requested.emit(cap_id)

@@ -49,7 +49,7 @@ Cómo queda el catálogo actual:
 | `avds` / `images` (limpieza) | `purge_emulators` | **many** | casillas |
 | `device` / `image` / `avd` | `create_avd`, `install_system_image`, `launch_emulator` | one | lista larga con búsqueda (`pick`) |
 | `action` (systemd) | `systemd_action` | one | segmentado |
-| `bump_mode` | `build_apk`, `build_vite` | one | desplegable |
+| `bump_mode` | `build_apk` (con `+build`), `build_vite` / `build_binary` (SemVer pelado) | one | segmentado |
 | `scope` (local/remoto) | `bootstrap_db`, `migrate_db`, … | one | segmentado |
 | `dry_run` (simulacro/borrar) | `clean_artifacts`, `sync_common_files` | one | segmentado |
 | `follow` (sí/no) | `view_logs` | one | switch |

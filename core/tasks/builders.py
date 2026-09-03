@@ -171,10 +171,10 @@ def _spa_output(spa: targets.Target) -> Path:
 def _publish_spa(ctx, salida: Path, manifest: Path) -> None:
     """Sube la carpeta del build junto con su `package.json`.
 
-    Por el mismo motivo que `_publish` en el APK: la carpeta compilada no dice
-    de que version es, y del lado del VPS el manifiesto es lo unico que la
-    identifica. El script original (`scripts/builders/build_vite.py`) tambien
-    subia los dos.
+    Homologo de `_publish` en el APK: van los dos o no va ninguno. La carpeta
+    compilada no lleva su version adentro, y si el `package.json` del VPS
+    queda con el numero viejo, todo lo que lo lea (health check, la propia
+    SPA) va a anunciar una version que ya no es la que esta servida.
     """
     upload_artifact(ctx, salida)
     upload_artifact(ctx, manifest)
@@ -348,6 +348,12 @@ def _build_spa(
 
     A diferencia del APK, aca si hay paso de dependencias: `npm run build` no
     instala nada, y el bump acaba de tocar `package.json` sin agregar ninguna.
+
+    Se sube la carpeta del build Y el `package.json` recien bumpeado, igual
+    que `_publish` sube el APK con su manifiesto. El script original solo
+    subia el manifiesto en su rama `BUILD_SPA=false`; que el build normal lo
+    dejara sin actualizar del lado del VPS era un descuido, no una decision:
+    la carpeta compilada no dice de que version es.
     """
     manifiesto = versioning.find_manifest(spa.path)
 

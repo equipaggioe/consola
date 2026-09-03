@@ -152,6 +152,15 @@ BUMP_MODES = ['major', 'minor', 'patch', 'build', 'none']
 _BUMP_AXIS = lambda: AxisDef('bump_mode', BUMP_MODES, 'scope', label='Bump',
                              combine={'build'}, default='patch')
 
+# El `+N` del build number solo existe en `pubspec.yaml`. Una SPA versiona en
+# `package.json`, que es SemVer pelado: ofrecer ahi la casilla `build` seria
+# ofrecer una eleccion que siempre termina en el error de `versioning.bump`
+# ("+build solo aplica a pubspec.yaml"). Los ejes se comparten hasta donde el
+# manifiesto los comparte, no mas.
+SEMVER_MODES = ['major', 'minor', 'patch', 'none']
+_SEMVER_AXIS = lambda: AxisDef('bump_mode', SEMVER_MODES, 'scope', label='Bump',
+                               default='patch')
+
 # El paso nucleo va en su orden real, entre el bump y la subida. A diferencia
 # de 'Compilar binario', 'Compilar APK' si se puede desmarcar: sin compilar, la
 # capacidad sube el APK que ya esta en disco. Es el modo que el script original
@@ -280,7 +289,7 @@ def load_catalog() -> None:
     # Lo unico propio es que su eje es `many` — un repo tiene una app móvil y
     # tres SPA — y como es una capacidad que termina, las marcadas se recorren
     # en un bucle dentro de `build_vite`, no en una pestaña por cada una.
-    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _BUMP_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
+    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _SEMVER_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
     registry.register(Capability(id='build_binary', name='Build binario', group='Builders', section='Build binario', kind='once', icon='⚡', description='Sube la versión, compila el ejecutable y opcionalmente lo publica.', steps=BUILD_BINARY_STEPS, stub=True))
     registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', description='Promueve el último artefacto subido al canal de producción.', stub=True))
 

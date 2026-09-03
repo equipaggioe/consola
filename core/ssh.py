@@ -131,15 +131,30 @@ def ensure_dir(remote: Remote, remote_path: str) -> None:
 
 def upload(ctx, remote: Remote, local: Path, remote_path: str, *,
            chmod: str = '', make_parent: bool = True) -> str:
-    """Sube un archivo o directorio y devuelve la ruta remota resultante."""
+    """Sube un archivo o directorio y devuelve la ruta remota resultante.
+
+    Un directorio se manda al PADRE de `remote_path`, no a `remote_path`.
+    `scp -r origen destino` copia la carpeta *dentro* del destino cuando el
+    destino ya existe, asi que apuntar a la ruta final funciona la primera vez
+    y a partir de la segunda deja `.../dist/dist`: el servidor sigue sirviendo
+    el build viejo y el nuevo queda enterrado un nivel mas abajo.
+
+    Es exactamente lo que hacia `scripts/common.py::copy_to_vps`, que pasaba
+    `remote_parent` para directorios y la ruta completa para archivos.
+    """
     if not local.exists():
         raise TaskError(f'No existe la ruta local: {local}')
-    if make_parent:
-        parent = remote_path.rsplit('/', 1)[0]
-        if parent:
-            ensure_dir(remote, parent)
 
-    ctx.run(remote.scp_argv(local, remote_path, recursive=local.is_dir()))
+    parent, _, base = remote_path.rpartition('/')
+    if local.is_dir() and base != local.name:
+        raise TaskError(
+            f'La carpeta local {local.name!r} no coincide con el destino remoto '
+            f'{base!r}: scp -r no renombra, la dejaria en {remote_path}/{local.name}.')
+    if make_parent and parent:
+        ensure_dir(remote, parent)
+
+    destino = parent if local.is_dir() else remote_path
+    ctx.run(remote.scp_argv(local, destino, recursive=local.is_dir()))
     if chmod:
         capture(remote, f'chmod {chmod} {quote(remote_path)}')
     return remote_path

@@ -1,9 +1,10 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget
+    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
+    QSplitter
 )
 from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut, QIcon, QPixmap, QFont
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, QEvent, QTimer
 
 from ui.rail import ActionRail
 from ui.tab_panel import TabPanel
@@ -67,6 +68,11 @@ class BrandMark(QWidget):
         )
         self.update()
 
+    def set_width(self, width: int) -> None:
+        """La marca ocupa la columna del rail: sigue su ancho para que el borde
+        inferior coincida con el separador."""
+        self.setFixedSize(width, ProjectTab.HEIGHT)
+
     def paintEvent(self, event):
         p = QPainter(self)
         p.fillRect(self.rect(), QColor(Colors.CHROME))
@@ -110,7 +116,7 @@ class MainWindow(QMainWindow):
         top_layout.setContentsMargins(0, 0, 0, 0)
         top_layout.setSpacing(0)
 
-        self.brand = BrandMark(self.rail.minimumWidth())
+        self.brand = BrandMark(self.rail.preferred_width())
         self.project_tabs = ProjectTabBar()
 
         top_layout.addWidget(self.brand)
@@ -126,9 +132,24 @@ class MainWindow(QMainWindow):
         self.workspace_stack = QStackedWidget()
         self.workspaces: dict[int, TabPanel] = {}
 
-        body_layout.addWidget(self.rail)
-        body_layout.addWidget(self.workspace_stack, 1)
+        # Rail y espacio de trabajo van en un splitter: el rail se ajusta solo
+        # al contenido y ademas se puede fijar arrastrando el separador, igual
+        # que el panel de parametros dentro de cada pestana. Doble clic en el
+        # separador vuelve al ancho automatico.
+        self.body_splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.body_splitter.setChildrenCollapsible(False)
+        self.body_splitter.setHandleWidth(4)
+        self.body_splitter.addWidget(self.rail)
+        self.body_splitter.addWidget(self.workspace_stack)
+        self.body_splitter.setStretchFactor(0, 0)
+        self.body_splitter.setStretchFactor(1, 1)
+        self.body_splitter.splitterMoved.connect(self._on_rail_dragged)
+        self.body_splitter.handle(1).installEventFilter(self)
+        self.rail.width_hint_changed.connect(self._sync_rail_width)
+
+        body_layout.addWidget(self.body_splitter, 1)
         self.main_layout.addLayout(body_layout, 1)
+        QTimer.singleShot(0, self._sync_rail_width)
 
         # --- Conexiones ---------------------------------------------------
         self.rail.action_requested.connect(self._on_action_requested)
@@ -193,6 +214,28 @@ class MainWindow(QMainWindow):
     def current_workspace(self) -> TabPanel | None:
         w = self.workspace_stack.currentWidget()
         return w if isinstance(w, TabPanel) else None
+
+    # --- ancho del rail -------------------------------------------------
+    def eventFilter(self, obj, event):
+        """Doble clic en el separador del rail = volver al ancho automatico."""
+        if obj is self.body_splitter.handle(1) and event.type() == QEvent.Type.MouseButtonDblClick:
+            self.rail.clear_user_width()
+            return True
+        return super().eventFilter(obj, event)
+
+    def _on_rail_dragged(self, pos: int, index: int) -> None:
+        # `pos` es la posicion del separador = ancho del rail. El rail se clampa
+        # solo en `set_user_width`; la marca copia el resultado ya clampado.
+        self.brand.set_width(self.rail.set_user_width(pos))
+
+    def _sync_rail_width(self) -> None:
+        """Aplica el ancho preferido del rail (fijado por el usuario, o el que
+        pide el contenido) al splitter y a la marca."""
+        sizes = self.body_splitter.sizes()
+        total = sum(sizes) or self.width()
+        target = self.rail.preferred_width()
+        self.body_splitter.setSizes([target, max(1, total - target)])
+        self.brand.set_width(target)
 
     # --- reacciones -------------------------------------------------------
     def _on_project_added(self, project: Project) -> None:
