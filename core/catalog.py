@@ -399,7 +399,7 @@ def load_catalog() -> None:
     registry.register(Capability(
         id='push_repository', name='Push del repo', group='VPS · server', section='Deploy',
         kind='once', icon='⬆️',
-        description='Empuja la rama local a su remoto. No commitea: si hay cambios pendientes, corta.',
+        description='Empuja la rama local a su remoto. No commitea: si hay cambios pendientes, avisa y sigue.',
         stub=True))
     # `composed_of` declaraba seis ids que no eran capacidades de nadie
     # (`git_sync_remote`, `upload_files`, `generate_migration`): nombres sueltos

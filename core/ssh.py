@@ -66,8 +66,11 @@ class Remote:
         return Remote(self.host, user, self.identity)
 
     def argv(self, command: str, *, tty: bool = False, extra: Sequence[str] = ()) -> list[str]:
+        # `-n` salvo que se pida TTY: estos comandos no leen teclado, y sin
+        # cerrarle el stdin `ssh` lo reenvia al comando remoto y puede quedar
+        # esperando un EOF que nunca llega cuando corre dentro de la GUI.
         return ['ssh', *CONNECT_TIMEOUT, *_control_args(self.identity, self.target),
-                *(['-t'] if tty else []), *extra,
+                *(['-t'] if tty else ['-n']), *extra,
                 '-i', str(self.identity), self.target, command]
 
     def scp_argv(self, local: Path, remote_path: str, *,

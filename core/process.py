@@ -140,12 +140,20 @@ def capture(
     timeout: float | None = None,
     check: bool = True,
 ) -> str:
-    """Corre un proceso y devuelve su salida. Para consultas cortas, no para builds."""
+    """Corre un proceso y devuelve su salida. Para consultas cortas, no para builds.
+
+    `stdin` va a DEVNULL igual que en `spawn`: una consulta corta no lee teclado,
+    y sin cerrarlo hereda el stdin del proceso padre. Desde la terminal eso no se
+    nota, pero corriendo dentro de la GUI ese handle heredado deja a `ssh` (que
+    reenvia stdin al comando remoto) esperando un EOF que no llega, y la consulta
+    se cuelga hasta el timeout aunque el comando remoto ya haya terminado.
+    """
     try:
         result = subprocess.run(
             [str(a) for a in argv],
             cwd=str(cwd) if cwd else None,
             env={**os.environ, **env} if env else None,
+            stdin=subprocess.DEVNULL,
             capture_output=True,
             text=True,
             encoding='utf-8',

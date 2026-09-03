@@ -81,8 +81,9 @@ def push_repository(ctx) -> str:
 
     Empuja y nada mas: no commitea. Que entra en un commit y con que mensaje es
     una decision del trabajo, no del despliegue — un `git add -A` automatico se
-    lleva puesto lo que estaba a medias. Si hay cambios sin commitear se corta
-    con la lista a la vista.
+    lleva puesto lo que estaba a medias. Si hay cambios sin commitear lo avisa
+    con la lista a la vista, pero no corta: `git push` nunca sube trabajo sin
+    commitear, y decidir empujar de todos modos es del que aprieta el boton.
 
     Vive en este modulo, y no en uno de git aparte, porque es exactamente la
     mitad local del mismo paso que `sync_repository` completa del otro lado.
@@ -92,9 +93,8 @@ def push_repository(ctx) -> str:
     sucio = ctx.capture(['git', 'status', '--porcelain'], check=False)
 
     if sucio:
-        raise TaskError(
-            f'El repo local tiene cambios sin commitear:\n{sucio}\n'
-            'Commitealos antes de desplegar: este paso solo empuja.')
+        ctx.warn(
+            f'El repo local tiene cambios sin commitear (no se empujan):\n{sucio}')
 
     upstream = ctx.capture(
         ['git', 'rev-parse', '--abbrev-ref', '--symbolic-full-name', '@{u}'], check=False)
