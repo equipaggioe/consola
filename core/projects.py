@@ -1,6 +1,7 @@
 from __future__ import annotations
 from dataclasses import dataclass
 
+
 @dataclass
 class Project:
     name: str
@@ -8,13 +9,9 @@ class Project:
     color: str  # hex
     icon: str   # emoji
 
-MOCK_PROJECTS = [
-    Project('navetta', 'E:/Git/navetta', '#58a6ff', '🚢'),
-    Project('cadenza', 'E:/Git/cadenza', '#bc8cff', '🎵'),
-    Project('forziere', 'E:/Git/forziere', '#3fb950', '🔐'),
-    Project('vettore', 'E:/Git/vettore', '#d29922', '📦'),
-    Project('parametri', 'E:/Git/parametri', '#f47067', '⚙️'),
-    Project('presenze', 'E:/Git/presenze', '#a5d6ff', '👥'),
-    Project('spazio', 'E:/Git/spazio', '#ffa657', '🌌'),
-    Project('banditore', 'E:/Git/banditore', '#ff7b72', '📢'),
-]
+
+# No hay lista de repos de fabrica. La primera vez que se abre Consola la barra
+# de pestanas esta vacia y se anade el primero con «+» (`ui/project_store.py`
+# guarda lo que se vaya anadiendo). Antes vivia aca un `MOCK_PROJECTS` con las
+# rutas del desarrollador, que en cualquier otra maquina eran ocho pestanas
+# rotas.

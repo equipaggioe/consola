@@ -133,6 +133,11 @@ SETTINGS: tuple[Setting, ...] = (
 
 GROUP_ORDER = ('Seguridad', 'Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd', 'Builders')
 
+# El unico grupo que `EnvPanel.filter_for` nunca oculta (docs/seguro-destructivos.md
+# §4): son decisiones del repo, no parametros de la accion abierta, asi que no
+# tiene sentido que aparezcan y desaparezcan segun que pestana este activa.
+PINNED_GROUP = 'Seguridad'
+
 
 def settings_by_group() -> dict[str, list[Setting]]:
     groups: dict[str, list[Setting]] = {g: [] for g in GROUP_ORDER}

@@ -82,6 +82,21 @@ class ProjectHeader(QWidget):
             }}
         """)
 
+    def clear(self) -> None:
+        """Sin ningun repositorio en pestanas (arranque en vacio o se cerro el
+        ultimo): nada que acentuar todavia."""
+        self.accent = Colors.TEXT_MUTED
+        self.icon_label.setText("◇")
+        self.name_label.setText("—")
+        self.path_label.setText("Añade un repositorio con «+»")
+        self.setStyleSheet(f"""
+            ProjectHeader {{
+                background: {Colors.SURFACE};
+                border-left: 3px solid {Colors.BORDER};
+                border-bottom: 1px solid {Colors.BORDER};
+            }}
+        """)
+
 
 class ActionRail(QWidget):
     """Rail izquierdo: acciones agrupadas en cajas, siempre relativas al
@@ -282,8 +297,21 @@ class ActionRail(QWidget):
         ))
         for card in self._cards:
             card.set_accent(project.color)
+        self.scroll_area.setEnabled(True)
+        self.db_btn.setEnabled(True)
         self.refresh_readiness()
         self._schedule_width_hint()
+
+    def clear_project(self) -> None:
+        """Sin ningun repositorio en pestanas: nada sobre lo que correr una
+        accion todavia. Deshabilita las cajas en vez de solo vaciarlas, para
+        que un clic perdido en un boton de accion no quede sin efecto en
+        silencio (`ui/main_window.py::_show_empty_state`)."""
+        self.project = None
+        self.project_header.clear()
+        self.scroll_area.setEnabled(False)
+        self.db_btn.setEnabled(False)
+        self.refresh_readiness()
 
     def refresh_readiness(self) -> None:
         """Que acciones pueden correr ya, sin abrir la pestana, con el

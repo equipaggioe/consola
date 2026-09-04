@@ -4,21 +4,21 @@ import os
 
 from PySide6.QtCore import QSettings
 
-from core.projects import Project, MOCK_PROJECTS
+from core.projects import Project
 
 """
 Conjunto de repositorios abiertos como pestanas de nivel superior.
 
-Antes solo se guardaba el ORDEN (una lista de rutas) y la lista real de repos
-salia siempre de `MOCK_PROJECTS`: anadir un repo con «+», quitar uno o
-reordenar uno anadido no sobrevivia al reinicio. Aca se guarda la lista
-entera —ruta, nombre, color, icono— para que la UI arranque como quedo.
+La primera vez que se abre Consola no hay ninguno: la barra arranca vacia y el
+primero se anade con «+». A partir de ahi se guarda la lista entera —ruta,
+nombre, color, icono— para que la UI arranque como quedo: anadir, quitar y
+reordenar sobreviven al reinicio.
 
 **Esto SI va en QSettings**, a diferencia de los parametros de cada accion, que
-desde ahora viven en el repo (`ui/params_store.py`). La regla es de quien es la
-decision: que repos tengo abiertos en pestanas es una decision de ESTA maquina
-—un repo no puede saber que esta en tu barra— mientras que como quedaron
-marcados los pasos de «Actualizar remoto» es una decision sobre ESE repo.
+viven en el repo (`ui/params_store.py`). La regla es de quien es la decision:
+que repos tengo abiertos en pestanas es una decision de ESTA maquina —un repo
+no puede saber que esta en tu barra— mientras que como quedaron marcados los
+pasos de «Actualizar remoto» es una decision sobre ESE repo.
 """
 
 _KEY = 'projects/list'
@@ -77,36 +77,19 @@ def dedupe(projects: list[Project]) -> list[Project]:
     return unicos
 
 
-def _seed() -> list[Project]:
-    """Primera vez (nada guardado): siembra con `MOCK_PROJECTS`, respetando el
-    orden de la clave vieja `projects/order` si existe, y lo persiste — para
-    que a partir de ahi quitar uno de fabrica tambien se recuerde."""
-    order = QSettings().value(_LEGACY_ORDER_KEY, []) or []
-    order = [order] if isinstance(order, str) else list(order)
-    if order:
-        by_key = {identity(p.path): p for p in MOCK_PROJECTS}
-        seeded = [by_key.pop(identity(path)) for path in order if identity(path) in by_key]
-        seeded.extend(by_key.values())
-    else:
-        seeded = list(MOCK_PROJECTS)
-    save(seeded)
-    return seeded
-
-
 def load() -> list[Project]:
-    """Los repos guardados, en orden. Nunca devuelve una lista vacia."""
+    """Los repos guardados, en orden. Vacia la primera vez."""
     raw = QSettings().value(_KEY, '')
-    if raw:
-        try:
-            data = json.loads(raw)
-        except (TypeError, ValueError):
-            data = None
-        if isinstance(data, list):
-            projects = dedupe([p for p in (_from_dict(d) for d in data
-                                           if isinstance(d, dict)) if p])
-            if projects:
-                return projects
-    return _seed()
+    if not raw:
+        return []
+    try:
+        data = json.loads(raw)
+    except (TypeError, ValueError):
+        return []
+    if not isinstance(data, list):
+        return []
+    return dedupe([p for p in (_from_dict(d) for d in data
+                               if isinstance(d, dict)) if p])
 
 
 def save(projects: list[Project]) -> None:
@@ -115,11 +98,7 @@ def save(projects: list[Project]) -> None:
     )
 
 
-def reset() -> list[Project]:
-    """Vuelve a la lista de fabrica. Es la unica salida si la guardada quedo
-    apuntando a carpetas que ya no existen (`MOCK_PROJECTS` trae rutas de una
-    maquina concreta, y una vez sembradas persisten para siempre)."""
+def clear() -> None:
+    """Deja la barra vacia, como la primera vez."""
     QSettings().remove(_KEY)
     QSettings().remove(_LEGACY_ORDER_KEY)
-    save(MOCK_PROJECTS)
-    return list(MOCK_PROJECTS)

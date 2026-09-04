@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, Signal
 from ui.theme import Colors, Fonts
 from core.projects import Project
 from core import envfile
-from core.settings import settings_by_group, Setting
+from core.settings import settings_by_group, Setting, PINNED_GROUP
 from ui.widgets import ToggleSwitch
 
 
@@ -161,6 +161,7 @@ class EnvPanel(QWidget):
         self.accent = project.color
         self.rows: dict[str, EnvRow] = {}
         self._row_group: dict[str, QWidget] = {}
+        self._group_widgets: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
         # Config vacio (sin valores, solo el repo): sirve para preguntarle
         # "que usarias vos" y que conteste con el default fijo o dinamico
@@ -239,7 +240,7 @@ class EnvPanel(QWidget):
         self.import_btn.setStyleSheet(button_css)
 
     def _build_body(self) -> QWidget:
-        scroll = QScrollArea()
+        self._scroll = scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
@@ -270,6 +271,7 @@ class EnvPanel(QWidget):
                 self._row_group[setting.key] = block_widget
                 block.addWidget(row)
             lay.addWidget(block_widget)
+            self._group_widgets[group] = block_widget
 
         scroll.setWidget(content)
         return scroll
@@ -369,16 +371,31 @@ class EnvPanel(QWidget):
         """Muestra solo las claves que la accion activa reclama.
 
         `None` = sin filtro (vista completa, cuando no hay pestana abierta).
+
+        El grupo `PINNED_GROUP` ("Seguridad") queda SIEMPRE visible, filtro o
+        no: son decisiones del repo —que objetivo esta protegido—, no
+        parametros de la accion abierta, y esconderlas detras de que boton
+        tengas activo es lo que hacia dificil encontrarlas
+        (`docs/seguro-destructivos.md` §4). El indicador de la barra de estado
+        (`ui/tab_panel.py::WorkspaceStatusBar`) es el atajo para llegar aca;
+        esto es lo que hace que llegar sirva de algo.
         """
         self._filter = keys
         visible_groups: set[QWidget] = set()
         for key, row in self.rows.items():
-            visible = keys is None or key in keys
+            visible = keys is None or key in keys or row.setting.group == PINNED_GROUP
             row.setVisible(visible)
             if visible:
                 visible_groups.add(self._row_group[key])
         for group_widget in set(self._row_group.values()):
             group_widget.setVisible(group_widget in visible_groups)
+
+    def reveal_security(self) -> None:
+        """Salta a la seccion Seguridad: la llama el indicador de la barra de
+        estado (`ui/main_window.py::_on_security_clicked`)."""
+        widget = self._group_widgets.get(PINNED_GROUP)
+        if widget is not None:
+            self._scroll.ensureWidgetVisible(widget, 0, 0)
 
     # --- interno ------------------------------------------------------------
     def _on_row_changed(self) -> None:

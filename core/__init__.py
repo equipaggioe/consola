@@ -23,20 +23,20 @@ por el `TaskContext` que recibe y levanta `TaskError` cuando no puede seguir
     android     SDK, AVDs, system images y emuladores
     targets     descubrir subproyectos dentro del repo abierto
     registry    catalogo de capacidades
-    projects    los proyectos gestionados
+    projects    el dataclass Project (la lista la maneja la UI)
 """
 
 from .errors import Cancelled, MissingConfig, TaskError
 from .context import Level, TaskContext
 from .envfile import Config
-from .projects import MOCK_PROJECTS, Project
+from .projects import Project
 from .registry import AxisDef, Capability, Registry, Step, registry
 from .ssh import Remote
 
 __all__ = [
     'Cancelled', 'MissingConfig', 'TaskError',
     'Level', 'TaskContext', 'Config',
-    'Project', 'MOCK_PROJECTS',
+    'Project',
     'Registry', 'registry', 'Capability', 'AxisDef', 'Step',
     'Remote',
 ]

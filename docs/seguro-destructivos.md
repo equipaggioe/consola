@@ -103,15 +103,40 @@ if targets:
   corre sobre vettore.»* Es el aviso más útil del diálogo — no dice "te equivocaste de palabra", dice
   "te equivocaste de repositorio", que es el error que todo esto existe para atajar.
 
-## 7. Archivos
+## 7. Encontrar los interruptores: el indicador de la barra de estado
+
+Los cinco interruptores viven en la sección Seguridad del panel de configuración (§4), pero esa
+sección quedaba enterrada: `EnvPanel.filter_for()` sólo muestra las claves que la acción abierta
+reclama, así que con cualquier acción no destructiva —o sin ninguna pestaña abierta— desaparecían.
+
+Dos cambios, ninguno vuelve al modelo de "un interruptor junto al botón Ejecutar" que ya se
+descartó en el §4:
+
+- **La sección Seguridad queda exenta del filtro** (`core.settings.PINNED_GROUP`,
+  `EnvPanel.filter_for`): siempre está en el panel de configuración, arriba de todo, sea cual sea la
+  acción activa. Sigue siendo *un* control — no hay un segundo lugar que la duplique y se pueda
+  desincronizar.
+- **La barra de estado inferior** —siempre visible, a lo ancho de toda la ventana— lleva un
+  indicador con lo que el repo activo tiene protegido ahora mismo: `🔒 VPS · BD · otros repos` o,
+  si no protege nada, `🔓 sin seguros` en ámbar. No es un dato oculto detrás de un menú: un repo sin
+  ningún seguro es tan digno de verse de un vistazo como uno que sí los tiene.
+
+El indicador lee **lo que hay en pantalla**, no sólo lo guardado (`EnvPanel.values()`, vía
+`values_changed`): si tocaste un interruptor y todavía no apretaste Guardar, el indicador ya lo
+refleja — es el mismo valor que `TabPanel._guard_ok` va a mirar si apretás Ejecutar antes de guardar.
+Un clic en el indicador llama a `TabPanel.reveal_security()`, que hace scroll hasta la sección.
+
+## 8. Archivos
 
 | Archivo | Qué hace |
 |---|---|
-| `core/protection.py` | los objetivos, qué rompe cada acción y cómo lo modulan sus ejes |
-| `core/settings.py` | `_protection_settings()` deriva un `Setting` por objetivo; `kind='bool'` |
-| `ui/env_panel.py` | los `kind='bool'` se dibujan como interruptor |
+| `core/protection.py` | los objetivos, qué rompe cada acción, cómo lo modulan sus ejes y `repo_protections()` para el indicador |
+| `core/settings.py` | `_protection_settings()` deriva un `Setting` por objetivo; `PINNED_GROUP` |
+| `ui/env_panel.py` | los `kind='bool'` como interruptor; `filter_for` nunca oculta `PINNED_GROUP`; `reveal_security()` |
 | `ui/guard_dialog.py` | la confirmación escrita |
-| `ui/tab_panel.py` | `_guard_ok`, en el punto único de ejecución |
+| `ui/tab_panel.py` | `TabPanel._guard_ok` en el punto único de ejecución; `WorkspaceStatusBar` lleva el indicador |
+| `ui/main_window.py` | conecta el indicador al repo activo y al clic (`_refresh_protection`, `_on_security_clicked`) |
 
 Añadir un objetivo nuevo es una fila en `TARGETS` y una en `RULES`: la clave de configuración, su
-valor por defecto y qué acciones lo tocan salen todos de la misma tabla.
+etiqueta corta para la barra de estado, su valor por defecto y qué acciones lo tocan salen todos de
+la misma tabla.

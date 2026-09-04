@@ -336,7 +336,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
                 return
 
     def remove_tab(self, tab: ProjectTab) -> None:
-        if len(self.tabs) <= 1:
+        if tab not in self.tabs:
             return
         idx = self.tabs.index(tab)
         was_active = tab is self._active
@@ -348,8 +348,11 @@ class ProjectTabBar(ReorderableBar, QWidget):
         self._refresh_closable()
         self._persist()
         if was_active:
+            # Quitar el ultimo repo deja la barra vacia: no hay a que saltar y
+            # MainWindow muestra la pantalla de "anade un repositorio".
             self._active = None
-            self.select_tab(self.tabs[min(idx, len(self.tabs) - 1)])
+            if self.tabs:
+                self.select_tab(self.tabs[min(idx, len(self.tabs) - 1)])
         self.project_removed.emit(project)
 
     @property
@@ -357,23 +360,24 @@ class ProjectTabBar(ReorderableBar, QWidget):
         return self._active.project if self._active else None
 
     def _refresh_closable(self) -> None:
-        only_one = len(self.tabs) <= 1
+        # Toda pestana se puede cerrar, incluida la ultima: quedarse sin repos
+        # abiertos es un estado valido, no un callejon.
         for t in self.tabs:
-            t.set_closable(not only_one)
+            t.set_closable(True)
 
     # --- anadir repo --------------------------------------------------
     def _pick_repo(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Elegir carpeta del repositorio", "")
         if not path:
             return
-        norm = os.path.normcase(os.path.normpath(path))
-        for t in self.tabs:
-            if os.path.normcase(os.path.normpath(t.project.path)) == norm:
-                self.select_tab(t)
-                return
-        name = os.path.basename(os.path.normpath(path)) or path
+        ya = self.find_tab(path)
+        if ya is not None:
+            self.select_tab(ya)
+            return
+        limpia = project_store.display_path(path)
+        name = os.path.basename(limpia) or limpia
         color = PALETTE[len(self.tabs) % len(PALETTE)]
-        project = Project(name, path.replace(os.sep, '/'), color, '\U0001F4C1')
+        project = Project(name, limpia, color, '\U0001F4C1')
         self.add_project(project, select=True)
         self.project_added.emit(project)
 

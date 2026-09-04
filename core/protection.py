@@ -42,6 +42,7 @@ class Target:
     """Un tipo de cosa que una accion destructiva puede romper."""
     id: str
     label: str          # como se lee en el dialogo: "el VPS", "la base de datos"
+    chip: str           # etiqueta corta para la barra de estado: "VPS", "BD"
     key: str            # clave de `.consola/config.env` que lo protege
     setting_label: str  # como se lee el interruptor en el panel de configuracion
     protected_by_default: bool
@@ -49,17 +50,17 @@ class Target:
 
 
 TARGETS: tuple[Target, ...] = (
-    Target('vps', 'el VPS', 'PROTECT_VPS', 'Proteger el VPS', True,
+    Target('vps', 'el VPS', 'VPS', 'PROTECT_VPS', 'Proteger el VPS', True,
            'alcanza a una maquina remota y no hay deshacer'),
-    Target('db', 'la base de datos', 'PROTECT_DB', 'Proteger la base de datos', True,
+    Target('db', 'la base de datos', 'BD', 'PROTECT_DB', 'Proteger la base de datos', True,
            'los datos borrados no vuelven sin un backup'),
-    Target('otros_repos', 'otros repositorios', 'PROTECT_OTHER_REPOS',
+    Target('otros_repos', 'otros repositorios', 'otros repos', 'PROTECT_OTHER_REPOS',
            'Proteger otros repos', True,
            'escribe fuera de este repo, en carpetas que no estas mirando'),
-    Target('publicacion', 'el canal de publicacion', 'PROTECT_RELEASE',
+    Target('publicacion', 'el canal de publicacion', 'publicacion', 'PROTECT_RELEASE',
            'Proteger publicacion', True,
            'lo que se promueve queda a la vista de los usuarios'),
-    Target('local', 'archivos de este repo', 'PROTECT_LOCAL',
+    Target('local', 'archivos de este repo', 'local', 'PROTECT_LOCAL',
            'Proteger archivos locales', False,
            'apagado por defecto: un artefacto borrado se rehace con un build'),
 )
@@ -147,3 +148,14 @@ def protected(config, capability_id: str, payload: dict | None = None) -> list[T
     """
     return [t for t in targets_of(capability_id, payload)
             if config.flag(t.key, t.protected_by_default)]
+
+
+def is_protected(config, target: Target) -> bool:
+    return config.flag(target.key, target.protected_by_default)
+
+
+def repo_protections(config) -> list[Target]:
+    """Todos los objetivos que este repo tiene protegidos, sin mirar ninguna
+    accion en particular. Es lo que resume el indicador de la barra de estado
+    (`ui/tab_panel.py::WorkspaceStatusBar`)."""
+    return [t for t in TARGETS if is_protected(config, t)]

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
-    QSplitter
+    QSplitter, QPushButton
 )
 from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut, QIcon, QPixmap, QFont
 from PySide6.QtCore import Qt, QEvent, QTimer
@@ -11,6 +11,7 @@ from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar, ProjectTab
 from ui import project_store, params_store
 from ui.theme import Colors, Fonts
+from core import protection, envfile
 from core.registry import registry
 from core.projects import Project
 
@@ -137,6 +138,11 @@ class MainWindow(QMainWindow):
         # viejo. La ruta es la identidad real de un repo — es la misma con la
         # que se guardan sus parametros y su `.consola/config.env`.
         self.workspaces: dict[str, TabPanel] = {}
+        # No hay una lista de repos de fabrica (`core/projects.py`): la primera
+        # vez que se abre Consola, y cada vez que se cierra el ultimo repo, la
+        # pila muestra esto en vez de un TabPanel.
+        self.empty_state = self._build_empty_state()
+        self.workspace_stack.addWidget(self.empty_state)
 
         # Rail y espacio de trabajo van en un splitter: el rail se ajusta solo
         # al contenido y ademas se puede fijar arrastrando el separador, igual
@@ -163,6 +169,7 @@ class MainWindow(QMainWindow):
         # del rail. Refleja el repo activo y se refresca cuando una tarea de
         # maquina toca el entorno (`TabPanel.machine_changed`).
         self.status_bar = WorkspaceStatusBar(Colors.ACCENT)
+        self.status_bar.security_clicked.connect(self._on_security_clicked)
         self.main_layout.addWidget(self.status_bar)
 
         # --- Conexiones ---------------------------------------------------
@@ -176,8 +183,58 @@ class MainWindow(QMainWindow):
         for project in proyectos:
             self._ensure_workspace(project)
         self.project_tabs.load_projects(proyectos)
+        if not proyectos:
+            self._show_empty_state()
 
         self._install_shortcuts()
+
+    # --- estado vacio: sin ningun repositorio en pestanas -----------------
+    def _build_empty_state(self) -> QWidget:
+        w = QWidget()
+        w.setStyleSheet(f"background: {Colors.BG};")
+        lay = QVBoxLayout(w)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setSpacing(6)
+
+        diamond = QLabel("◇")
+        diamond.setStyleSheet(f"color: {Colors.ACCENT}; font-size: 54px;")
+        diamond.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        title = QLabel("SIN REPOSITORIOS ABIERTOS")
+        title.setStyleSheet(
+            f"color: {Colors.TEXT}; font-size: {Fonts.SIZE_XXL}px; "
+            f"font-weight: 300; letter-spacing: 6px;")
+        title.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        subtitle = QLabel("Añade la carpeta de un proyecto para empezar")
+        subtitle.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_BASE}px;")
+        subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
+
+        add_btn = QPushButton("+  Añadir repositorio")
+        add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        add_btn.setFixedHeight(38)
+        add_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {Colors.ACCENT}; color: {Colors.BG};
+                border: none; border-radius: 6px; padding: 0 24px;
+                font-size: {Fonts.SIZE_SM}px; font-weight: 600;
+            }}
+        """)
+        add_btn.clicked.connect(lambda: self.project_tabs._pick_repo())
+
+        lay.addWidget(diamond, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addWidget(title, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addWidget(subtitle, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addSpacing(16)
+        lay.addWidget(add_btn, 0, Qt.AlignmentFlag.AlignHCenter)
+        return w
+
+    def _show_empty_state(self) -> None:
+        self.workspace_stack.setCurrentWidget(self.empty_state)
+        self.rail.clear_project()
+        self.brand.set_accent(Colors.ACCENT)
+        self.status_bar.clear()
+        self.setWindowTitle("Consola")
 
     # --- atajos ----------------------------------------------------------
     def _install_shortcuts(self) -> None:
@@ -208,6 +265,8 @@ class MainWindow(QMainWindow):
         if workspace is None:
             workspace = TabPanel(project)
             workspace.env_panel.saved.connect(self._on_env_saved)
+            workspace.env_panel.values_changed.connect(
+                lambda _values, w=workspace: self._on_env_values_changed(w))
             workspace.params_changed.connect(self._on_params_changed)
             workspace.machine_changed.connect(self.status_bar.refresh_tools)
             self.workspaces[key] = workspace
@@ -254,6 +313,8 @@ class MainWindow(QMainWindow):
         # Lo elegido en sus paneles ya no se va a volver a mirar en esta sesion:
         # se baja al repo lo que quedara pendiente y se suelta el cache.
         params_store.forget(project.path)
+        if not self.project_tabs.tabs:
+            self._show_empty_state()
 
     def closeEvent(self, event):
         """Los parametros se escriben en rafagas de medio segundo
@@ -270,7 +331,30 @@ class MainWindow(QMainWindow):
         self.brand.set_accent(project.color)
         self.status_bar.set_project(project.name, project.icon)
         self.status_bar.set_accent(project.color)
+        self._refresh_protection(workspace)
         self.setWindowTitle(f"Consola — {project.name}")
+
+    def _refresh_protection(self, workspace: TabPanel) -> None:
+        """Lo que el repo de ESE espacio de trabajo tiene protegido ahora
+        mismo, para el indicador de la barra de estado. Lee lo que hay en
+        pantalla (`env_panel.values()`), no solo lo guardado: si acabas de
+        tocar un interruptor pero no apretaste Guardar, el indicador —y el
+        seguro que de verdad se aplica al correr (`TabPanel._guard_ok`)—
+        tienen que decir lo mismo."""
+        config = envfile.Config(workspace.env_panel.values(),
+                                repo_name=envfile.repo_name_of(workspace.project.path))
+        self.status_bar.set_protection(protection.repo_protections(config))
+
+    def _on_env_values_changed(self, workspace: TabPanel) -> None:
+        if workspace is self.current_workspace:
+            self._refresh_protection(workspace)
+
+    def _on_security_clicked(self) -> None:
+        """Clic en el indicador de la barra de estado: salta a la seccion
+        Seguridad del repo activo (`docs/seguro-destructivos.md` §4)."""
+        workspace = self.current_workspace
+        if workspace is not None:
+            workspace.reveal_security()
 
     def _on_action_requested(self, capability_id: str) -> None:
         """El clic abre (o enfoca) la pestana de la accion; no ejecuta.

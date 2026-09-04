@@ -158,6 +158,7 @@ class WorkspaceStatusBar(QWidget):
     ninguna vista, y una barra de estado global repitiendo el mismo reloj).
     Se fusionaron en una sola.
     """
+    security_clicked = Signal()  # clic en el indicador de seguros del repo activo
 
     def __init__(self, accent: str, parent=None):
         super().__init__(parent)
@@ -184,6 +185,17 @@ class WorkspaceStatusBar(QWidget):
         layout.addLayout(self.tools_layout)
         self._tools: dict[str, tuple[LedIndicator, QLabel]] = {}
         self.refresh_tools()
+
+        # Que objetivos tiene protegidos el repo activo (`core/protection.py`),
+        # siempre a la vista sin importar que accion este abierta arriba: es la
+        # razon de ser de este boton — antes solo se veia si abrias justo una
+        # accion destructiva (`docs/seguro-destructivos.md` §4). El clic salta
+        # a la seccion Seguridad de la configuracion.
+        self.security_btn = QPushButton("")
+        self.security_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.security_btn.setFlat(True)
+        self.security_btn.clicked.connect(self.security_clicked.emit)
+        layout.addWidget(self.security_btn)
 
         separator = QLabel("·")
         separator.setStyleSheet(f"color: {Colors.BORDER_LIGHT}; font-size: {Fonts.SIZE_XS}px;")
@@ -260,6 +272,32 @@ class WorkspaceStatusBar(QWidget):
     def set_status(self, text: str) -> None:
         self.status_label.setText(text)
 
+    def clear(self) -> None:
+        """Sin ningun repositorio abierto: nada que decir sobre repo, seguros
+        ni tareas activas (`ui/main_window.py::_show_empty_state`)."""
+        self.project_label.setText("")
+        self.security_btn.setVisible(False)
+        self.set_status("")
+
+    def set_protection(self, targets: list) -> None:
+        self.security_btn.setVisible(True)
+        """Refresca el indicador con lo que este repo tiene protegido ahora
+        mismo (`core/protection.Target`). Se llama al cambiar de repo y cada
+        vez que se toca un interruptor de Seguridad — protegido o no, siempre
+        dice algo: un repo sin ningun seguro tambien es un dato."""
+        if targets:
+            texto = '🔒 ' + ' · '.join(t.chip for t in targets)
+            self._protected = True
+        else:
+            texto = '🔓 sin seguros'
+            self._protected = False
+        self.security_btn.setText(texto)
+        self.security_btn.setToolTip(
+            ('Protegido: ' + ', '.join(t.label for t in targets)
+             if targets else 'Este repo no tiene ningun objetivo protegido')
+            + '. Clic para administrar en Configuración → Seguridad.')
+        self._restyle()
+
     def _restyle(self) -> None:
         self.setStyleSheet(f"""
             WorkspaceStatusBar {{
@@ -270,6 +308,16 @@ class WorkspaceStatusBar(QWidget):
         self.project_label.setStyleSheet(
             f"color: {self.accent}; font-size: {Fonts.SIZE_SM}px; font-weight: 600;"
         )
+        protegido = getattr(self, '_protected', True)
+        self.security_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: none; padding: 2px 6px;
+                border-radius: 4px;
+                color: {Colors.TEXT_DIM if protegido else Colors.WARNING};
+                font-size: {Fonts.SIZE_XS}px;
+            }}
+            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
+        """)
 
 
 class TabPanel(ReorderableBar, QWidget):
@@ -674,6 +722,11 @@ class TabPanel(ReorderableBar, QWidget):
         for panel in self._params.values():
             panel.set_accent(accent)
         self.env_panel.set_accent(accent)
+
+    def reveal_security(self) -> None:
+        """Salta a la seccion Seguridad de la configuracion de este repo. La
+        llama el indicador de la barra de estado (`ui/main_window.py`)."""
+        self.env_panel.reveal_security()
 
     # --- interno ------------------------------------------------------
     def _activate(self, tab: SubTabButton) -> None:
