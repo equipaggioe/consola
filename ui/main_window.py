@@ -9,9 +9,10 @@ from PySide6.QtCore import Qt, QEvent, QTimer
 from ui.rail import ActionRail
 from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar, ProjectTab
+from ui import project_store
 from ui.theme import Colors, Fonts
 from core.registry import registry
-from core.projects import MOCK_PROJECTS, Project
+from core.projects import Project
 
 
 def _brand_icon() -> QIcon:
@@ -166,9 +167,11 @@ class MainWindow(QMainWindow):
         self.project_tabs.project_added.connect(self._on_project_added)
         self.project_tabs.project_removed.connect(self._on_project_removed)
 
-        for project in self._ordered_projects():
+        self.project_tabs._loading = True
+        for project in project_store.load():
             self._ensure_workspace(project)
             self.project_tabs.add_project(project)
+        self.project_tabs._loading = False
 
         self._install_shortcuts()
 
@@ -193,18 +196,6 @@ class MainWindow(QMainWindow):
         current = self.project_tabs._active
         i = tabs.index(current) if current in tabs else 0
         self.project_tabs.select_tab(tabs[(i + delta) % len(tabs)])
-
-    def _ordered_projects(self) -> list[Project]:
-        """MOCK_PROJECTS en el orden en que quedaron la ultima vez que se
-        arrastraron sus pestanas; los que no aparecen en el orden guardado
-        (nunca movidos, o nuevos) se anaden al final en su orden original."""
-        order = ProjectTabBar.saved_order()
-        if not order:
-            return list(MOCK_PROJECTS)
-        by_path = {p.path: p for p in MOCK_PROJECTS}
-        ordered = [by_path.pop(path) for path in order if path in by_path]
-        ordered.extend(by_path.values())
-        return ordered
 
     # --- espacios de trabajo ---------------------------------------------
     def _ensure_workspace(self, project: Project) -> TabPanel:

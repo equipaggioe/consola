@@ -1,7 +1,7 @@
 from __future__ import annotations
 import os
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFileDialog, QMenu, QSizePolicy, QPushButton
-from PySide6.QtCore import Qt, Signal, QRectF, QPointF, QSettings
+from PySide6.QtCore import Qt, Signal, QRectF, QPointF
 from PySide6.QtGui import (
     QPainter, QColor, QPainterPath, QLinearGradient,
     QFont, QAction, QPen, QBrush
@@ -9,6 +9,7 @@ from PySide6.QtGui import (
 
 from ui.theme import Colors, Fonts
 from ui.widgets import ReorderableTab, ReorderableBar
+from ui import project_store
 from core.projects import Project
 
 # Paleta rotativa para repos anadidos en caliente
@@ -245,6 +246,9 @@ class ProjectTabBar(ReorderableBar, QWidget):
         self.setFixedHeight(ProjectTab.HEIGHT)
         self.tabs: list[ProjectTab] = []
         self._active: ProjectTab | None = None
+        # Mientras MainWindow puebla las pestanas al arrancar no hay que
+        # reescribir el store en cada `add_project`: se guarda ya al terminar.
+        self._loading = False
 
         self.layout = QHBoxLayout(self)
         self.layout.setContentsMargins(8, 0, 10, 0)
@@ -262,20 +266,16 @@ class ProjectTabBar(ReorderableBar, QWidget):
 
     def tabs_reordered(self) -> None:
         self.update()
-        self._save_order()
+        self._persist()
 
-    # --- orden persistente ---------------------------------------------
-    _ORDER_KEY = 'projects/order'
-
-    def _save_order(self) -> None:
-        QSettings().setValue(self._ORDER_KEY, [t.project.path for t in self.tabs])
-
-    @classmethod
-    def saved_order(cls) -> list[str]:
-        """Rutas de proyecto en el orden en que quedaron la ultima vez que
-        se arrastraron pestanas, para que MainWindow las anada en ese orden."""
-        value = QSettings().value(cls._ORDER_KEY, [])
-        return list(value) if value else []
+    # --- conjunto persistente ----------------------------------------
+    def _persist(self) -> None:
+        """Guarda la lista entera de repos (ruta, nombre, color, icono) en el
+        orden actual: anadir, quitar y reordenar sobreviven al reinicio
+        (`ui/project_store.py`)."""
+        if self._loading:
+            return
+        project_store.save([t.project for t in self.tabs])
 
     # --- API ---------------------------------------------------------
     def add_project(self, project: Project, select: bool = False) -> ProjectTab:
@@ -286,7 +286,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
         self.layout.insertWidget(index, tab)
         self.tabs.append(tab)
         self._refresh_closable()
-        self._save_order()
+        self._persist()
         if select or self._active is None:
             self.select_tab(tab)
         return tab
@@ -317,7 +317,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
         tab.setParent(None)
         tab.deleteLater()
         self._refresh_closable()
-        self._save_order()
+        self._persist()
         if was_active:
             self._active = None
             self.select_tab(self.tabs[min(idx, len(self.tabs) - 1)])
