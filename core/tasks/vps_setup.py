@@ -65,13 +65,15 @@ def _root_argv(ctx, command: str) -> list[str]:
     """Comando como root, antes de que exista el usuario de despliegue.
 
     Es el unico momento en que Consola se conecta con contrasena: se pide al
-    usuario en el momento y nunca se guarda en ningun archivo.
+    usuario en el momento y nunca se guarda en ningun archivo. `ask_once` la
+    recuerda para el resto de la corrida, porque la compuesta abre una conexion
+    por atomica y preguntarla dos veces seria un impuesto de la atomizacion.
     """
     host = ctx.config.require('VPS_IP')
     root = ctx.config.get('ROOT_USER', 'root')
     base = ['ssh', '-o', 'StrictHostKeyChecking=no', f'{root}@{host}', command]
 
-    password = ctx.ask(f'Contrasena de {root}@{host}', secret=True)
+    password = ctx.ask_once(f'Contrasena de {root}@{host}', secret=True)
     if not password:
         return base
 
@@ -293,10 +295,10 @@ def setup_github_ssh(ctx, *, generate: bool = True, register: bool = True,
         test_github_ssh(ctx)
 
 
-def bootstrap_vps(ctx, *, known_host: bool = True, ssh_key: bool = True,
-                  software: bool = True, github_ssh: bool = True,
-                  deploy: bool = True, database: bool = True,
-                  service: bool = True) -> None:
+def bootstrap_vps(ctx, sudo_mode: str = 'all', *, known_host: bool = True,
+                  ssh_key: bool = True, software: bool = True,
+                  github_ssh: bool = True, deploy: bool = True,
+                  database: bool = True, service: bool = True) -> None:
     """Compuesta de compuestas: el VPS desde cero (PLAN.md 7, caso 8).
 
     Encadena capacidades que ya tienen su propio boton compuesto. Si un paso
@@ -311,7 +313,7 @@ def bootstrap_vps(ctx, *, known_host: bool = True, ssh_key: bool = True,
         refresh_known_host(ctx)
     if ssh_key:
         ctx.step('Acceso SSH')
-        setup_ssh_key(ctx)
+        setup_ssh_key(ctx, sudo_mode)
     if software:
         ctx.step('Software base')
         install_base_software(ctx)

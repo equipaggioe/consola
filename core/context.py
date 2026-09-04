@@ -55,6 +55,7 @@ class TaskContext:
     note_sink: NoteSink | None = None
     serve_sink: ServeSink | None = None
 
+    _asked: dict = field(default_factory=dict, repr=False)
     _cancel: threading.Event = field(default_factory=threading.Event, repr=False)
     _children: list = field(default_factory=list, repr=False)
     _secrets: set = field(default_factory=set, repr=False)
@@ -254,6 +255,19 @@ class TaskContext:
             self.guard(answer)
         return answer
 
+    def ask_once(self, prompt: str, *, secret: bool = False) -> str:
+        """Como `ask`, pero recuerda la respuesta durante el resto de la corrida.
+
+        Una compuesta que abre varias conexiones de root preguntaria la misma
+        contrasena una vez por atomica: cada atomica es independiente a
+        proposito y ninguna sabe que las otras ya la pidieron. La memoria vive
+        en el contexto de esta corrida, se comparte con los `child()` y muere
+        con ella; no se escribe a ningun archivo.
+        """
+        if prompt not in self._asked:
+            self._asked[prompt] = self.ask(prompt, secret=secret)
+        return self._asked[prompt]
+
     def progress(self, done: int, total: int, label: str = '') -> None:
         if self.progress_sink:
             self.progress_sink(done, total, label)
@@ -317,6 +331,7 @@ class TaskContext:
             progress_sink=self.progress_sink,
             note_sink=self.note_sink,
             serve_sink=self.serve_sink,
+            _asked=self._asked,
             _cancel=self._cancel,
             _served=self._served,
             _children=self._children,

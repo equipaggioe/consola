@@ -213,6 +213,21 @@ UPDATE_REMOTE_STEPS = [
 ]
 
 
+# `composed_of` derivaba ocho casillas porque nombraba `bootstrap_db` y
+# `rebuild_db` por separado, pero la funcion las corre juntas bajo un unico
+# `database`: crear la base vacia y sembrarla no son dos decisiones cuando se
+# arranca un VPS de cero. Siete pasos, siete booleanos.
+BOOTSTRAP_VPS_STEPS = [
+    Step('known_host', 'Refrescar known_hosts', requires_env={'VPS_IP'}),
+    Step('ssh_key', 'Acceso SSH', requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
+    Step('software', 'Software base'),
+    Step('github_ssh', 'GitHub SSH', requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
+    Step('deploy', 'Código en el VPS', requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
+    Step('database', 'Base de datos', requires_env={'DB_NAME', 'DB_PASSWORD'}),
+    Step('service', 'Servicio systemd'),
+]
+
+
 # La verificacion final NO nombra una atomica: es `ssh.reachable`, la plomeria
 # que comparten las once puertas de `resolve_remote`. Un paso puede existir sin
 # ser un atomo del dominio; lo que no puede es fingir que lo es. Antes estos
@@ -456,7 +471,13 @@ def load_catalog() -> None:
         steps=SETUP_SSH_STEPS, stub=True))
     registry.register(Capability(id='setup_github_ssh', name='Configurar GitHub SSH', group='VPS · setup', section='GitHub', kind='once', icon='🐙', description='Genera la deploy key en el VPS y la registra en GitHub.', composed_of=['generate_remote_keypair', 'register_github_key', 'test_github_ssh'], stub=True))
     registry.register(Capability(id='install_coturn', name='Instalar coturn', group='VPS · setup', section='Comunicaciones', kind='once', icon='📡', description='Instala y configura el servidor TURN para las llamadas.', stub=True))
-    registry.register(Capability(id='bootstrap_vps', name='Bootstrap VPS', group='VPS · setup', section='Bootstrap', kind='once', icon='🚀', description='De VPS recién creado a servicio corriendo: SSH, software, deploy, base y systemd.', composed_of=['refresh_known_host', 'setup_ssh_key', 'install_software', 'setup_github_ssh', 'update_remote', 'bootstrap_db', 'rebuild_db', 'install_systemd'], stub=True))
+    registry.register(Capability(
+        id='bootstrap_vps', name='Bootstrap VPS', group='VPS · setup', section='Bootstrap',
+        kind='once', icon='🚀',
+        description='De VPS recién creado a servicio corriendo: SSH, software, deploy, base y systemd.',
+        axes=[AxisDef('sudo_mode', ['all', 'specific', 'none'], 'scope',
+                      label='Sudo sin contraseña', default='all')],
+        steps=BOOTSTRAP_VPS_STEPS, stub=True))
 
     # Base de datos group
     registry.register(Capability(id='bootstrap_db', name='Bootstrap DB', group='Base de datos', section='Ciclo de vida', kind='once', icon='🏗️', description='Crea rol, base, privilegios y extensiones desde cero.', level='C', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))

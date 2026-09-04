@@ -606,10 +606,15 @@ escribir el registro/perfil de verdad) todavía no se corrió de punta a punta.
   `install_android_packages`, `install_android_hypervisor`, `install_android_sdk`,
   `install_flutter_sdk`, `build_apk` (§4.2), `build_vite`, `build_binary` (§4.5),
   `push_repository`, `upload_secret_files`,
-  `update_remote`, los cuatro de emuladores y **el grupo Launchers completo**
-  ([launchers.md](launchers.md)) — y las que sigan sumándose.
-- Los `ask_sink` / `note_sink` del `TaskContext` conectados a diálogos Qt reales — sigue pendiente
-  para las capacidades con `ctx.confirm()`/`ctx.ask()` real.
+  `update_remote`, los cuatro de emuladores, **el grupo Launchers completo**
+  ([launchers.md](launchers.md)) y **el grupo VPS · setup completo** (§4.6) — y las que sigan
+  sumándose.
+- ✅ Los `ask_sink` / `note_sink` del `TaskContext` conectados a diálogos Qt reales. Esta línea
+  decía "sigue pendiente" y estaba vencida: `ui/task_runner.py` ya expone `ask_requested` y
+  `ui/tab_panel.py` lo conecta a un diálogo que sabe ocultar lo que se escribe. Lo que sí faltaba
+  era **no repetir la pregunta**: `TaskContext.ask_once()` recuerda la respuesta durante la
+  corrida, porque una compuesta abre una conexión por atómica y ninguna sabe que las otras ya
+  pidieron la misma contraseña. `setup_ssh_key` pasó de tres preguntas a una.
 - `core/store.py` — SQLite para historial, bitácora y presets.
 
 **Pendientes de confirmar con uso real** (PLAN.md §11, puntos 3 y 5): cuáles de estas atómicas se

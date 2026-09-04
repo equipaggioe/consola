@@ -277,6 +277,48 @@ def _purge_emulators_kwargs(payload: dict) -> dict:
     }
 
 
+# --- VPS - setup -----------------------------------------------------------
+
+def _setup_ssh_kwargs(payload: dict) -> dict:
+    """Los tres pasos del panel son los tres booleanos, y el eje es el modo de sudo.
+
+    `sudo_mode` llega vacio solo si el eje no se dibujo (un preset viejo guardado
+    antes de que existiera); en ese caso vale el mismo default que declara el
+    catalogo, no un error.
+    """
+    steps = set(payload.get('steps') or [])
+    return {
+        'sudo_mode': _option(payload, 'sudo_mode') or 'all',
+        'access': 'deploy_access' in steps,
+        'sudo':   'sudo_rules'    in steps,
+        'verify': 'verify_login'  in steps,
+    }
+
+
+def _setup_github_ssh_kwargs(payload: dict) -> dict:
+    """Aca los ids de los pasos son los nombres de las atomicas: salen de
+    `composed_of`, que en esta capacidad si nombra funciones reales."""
+    steps = set(payload.get('steps') or [])
+    return {
+        'generate': 'generate_remote_keypair' in steps,
+        'register': 'register_github_key'     in steps,
+        'verify':   'test_github_ssh'         in steps,
+    }
+
+
+_BOOTSTRAP_STEPS = ('known_host', 'ssh_key', 'software', 'github_ssh',
+                    'deploy', 'database', 'service')
+
+
+def _bootstrap_vps_kwargs(payload: dict) -> dict:
+    """La compuesta de compuestas: un booleano por paso, mas el modo de sudo que
+    le reenvia a `setup_ssh_key`."""
+    steps = set(payload.get('steps') or [])
+    kwargs = {nombre: nombre in steps for nombre in _BOOTSTRAP_STEPS}
+    kwargs['sudo_mode'] = _option(payload, 'sudo_mode') or 'all'
+    return kwargs
+
+
 # capability_id -> payload (de ParamsPanel.payload()) -> kwargs de la funcion real
 ADAPTERS: dict[str, Callable[[dict], dict]] = {
     # Launchers. `dev_env` no esta aca a proposito: es una compuesta concurrente
@@ -293,6 +335,16 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'push_repository': lambda payload: {},
     'upload_secret_files': _upload_secrets_kwargs,
     'update_remote': _update_remote_kwargs,
+    # VPS - setup. Los tres sin parametros no son un olvido: `refresh_known_host`
+    # solo necesita VPS_IP, `install_software` cae en DEFAULT_GROUPS y el realm de
+    # `install_coturn` sale de CF_DOMAIN_NAME o del propio host. Si alguno gana un
+    # eje despues, gana adaptador con el.
+    'refresh_known_host': lambda payload: {},
+    'setup_ssh_key': _setup_ssh_kwargs,
+    'setup_github_ssh': _setup_github_ssh_kwargs,
+    'install_software': lambda payload: {},
+    'install_coturn': lambda payload: {},
+    'bootstrap_vps': _bootstrap_vps_kwargs,
     'clean_artifacts': _clean_artifacts_kwargs,
     'install_android_tools': _install_dir_kwargs,
     'install_android_packages': _android_packages_kwargs,
