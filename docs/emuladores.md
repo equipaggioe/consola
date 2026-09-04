@@ -40,8 +40,9 @@ Por eso `start_emulator` desaparece y quedan **tres actividades separadas**, má
 | **Liberar disco** (`purge_emulators`) | A | destructive · machine | `avds` · `images` (casillas) · `dry_run` |
 
 Las cuatro son **`scope='machine'`**: un AVD no es de un repositorio, sirve para cualquiera. Igual
-que los instaladores de SDK, sus parámetros se guardan una sola vez para toda la máquina
-(`ui/params_store.py`) y no dependen del proyecto abierto.
+que los instaladores de SDK, sus parámetros se guardan una sola vez para toda la máquina, en
+`QSettings` y no en el `.consola/params.json` de ningún repo (`ui/params_store.py`): no dependen
+del proyecto abierto.
 
 Ninguna es compuesta. El grupo entero es de nivel 1 sobre la plomería de `core/android.py`, que es
 donde vive el trabajo real — cada atómica son entre 5 y 20 líneas.

@@ -14,6 +14,10 @@ class Setting:
     secret: bool = False
     default: str = ''
     placeholder: str = ''
+    kind: str = 'text'  # 'text' | 'bool'. Un booleano se dibuja como
+                        # interruptor y no como campo (`ui/env_panel.py`):
+                        # escribir '1' a mano en una casilla de seguridad es
+                        # pedir que se escriba mal.
     required_by: tuple[str, ...] = field(default_factory=tuple)
     # Acciones que USAN la clave pero corren igual sin ella. Aparece en el panel
     # de configuracion filtrado de esas acciones, y no bloquea su boton. La
@@ -35,6 +39,35 @@ _VPS_REACH = ('ssh_login', 'health_check', 'run_command', 'run_setup_scripts',
 
 _DB_REMOTE = ('bootstrap_db', 'teardown_db', 'migrate_db', 'rebuild_db',
               'backup_db', 'ssh_tunnel', 'inspect_db')
+
+def _protection_settings() -> tuple[Setting, ...]:
+    """Un interruptor por tipo de objetivo (`core/protection.py`).
+
+    Se derivan de ahi en vez de escribirse a mano para que anadir un objetivo
+    nuevo sea una sola linea: la clave, su default y que acciones lo tocan
+    salen todos de la misma tabla.
+
+    `used_by` y nunca `required_by`: el seguro decide COMO se corre la accion,
+    no si puede correr. Puesto en `required_by` dejaria el boton en ambar por
+    una clave de seguridad, que es justo al reves de lo que se quiere.
+    """
+    from .protection import TARGETS, RULES
+
+    salida = []
+    for target in TARGETS:
+        tocan = tuple(sorted(cap_id for cap_id, rule in RULES.items()
+                             if target.id in rule.always
+                             or any(target.id in extra
+                                    for mapa in rule.when.values()
+                                    for extra in mapa.values())))
+        salida.append(Setting(
+            target.key, 'Seguridad', target.setting_label, kind='bool',
+            default='1' if target.protected_by_default else '0',
+            placeholder=target.why,
+            used_by=tocan,
+        ))
+    return tuple(salida)
+
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---
@@ -96,9 +129,9 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('PYINSTALLER_BIN', 'Builders', 'Ruta de PyInstaller',
             placeholder='se busca en el venv de la app y en el PATH',
             used_by=('build_binary',)),
-)
+) + _protection_settings()
 
-GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd', 'Builders')
+GROUP_ORDER = ('Seguridad', 'Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd', 'Builders')
 
 
 def settings_by_group() -> dict[str, list[Setting]]:

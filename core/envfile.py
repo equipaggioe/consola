@@ -118,12 +118,16 @@ def save_config(repo_path: str, values: dict[str, str]) -> str:
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as fh:
         fh.write(render_config(values))
-    _ensure_gitignored(repo_path)
+    ensure_gitignored(repo_path)
     return path
 
 
-def _ensure_gitignored(repo_path: str) -> None:
-    """`.consola/` nunca se commitea (PLAN.md §9)."""
+def ensure_gitignored(repo_path: str) -> None:
+    """`.consola/` nunca se commitea (PLAN.md §9).
+
+    Publica porque ya no la usa solo `save_config`: `ui/params_store.py`
+    escribe ahi `params.json` y necesita la misma garantia.
+    """
     gitignore = os.path.join(repo_path, '.gitignore')
     entry = f"{CONSOLA_DIR}/"
     try:

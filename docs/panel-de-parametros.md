@@ -207,5 +207,5 @@ su contenido previsto.
 | `ui/widgets/segmented.py` | ✅ control segmentado para ejes `select='one'` |
 | `ui/tab_panel.py` | ✅ splitters, panel por pestaña; ejecuta de verdad las capacidades con adaptador (`ui/task_adapters.py`), simula el resto |
 | `ui/rail.py` | ✅ un botón por capacidad (48 implementadas hoy) |
-| `ui/params_store.py` | ✅ persistir la selección por repo y por botón (`QSettings`); `scope='machine'` guarda una sola vez para todos los repos — ver `docs/parametros-persistentes.md` |
+| `ui/params_store.py` | ✅ persistir la selección por repo y por botón en `.consola/params.json` **dentro del repo**, con cache y escrituras agrupadas; `scope='machine'` se queda en `QSettings`, una sola vez para todos los repos — ver `docs/parametros-persistentes.md` |
 | ejecución real | ⏳ conectada capacidad por capacidad vía `ui/task_runner.py` + `ADAPTERS`; ver `docs/catalogo-funciones.md §7` |

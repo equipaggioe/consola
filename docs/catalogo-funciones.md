@@ -259,11 +259,11 @@ tenga que renombrar la mitad de las funciones.
 - `'machine'` — la selección vale para toda la máquina, no para el repo desde el que se abrió el
   panel. Instalar el SDK de Android en `D:\Android` no es una decisión de un proyecto.
 
-`ui/params_store.py` guarda las `machine` bajo una sola clave (`params/machine/<capability_id>`) en
-vez de una por repo (`params/<huella-del-repo>/<capability_id>`): el directorio elegido en un repo
-aparece igual en cualquier otro. Es la misma tabla `QSettings` de
-[parametros-persistentes.md](parametros-persistentes.md), con una excepción a su regla de
-"repo + botón".
+`ui/params_store.py` guarda las `machine` en `QSettings`, bajo una sola clave
+(`params/machine/<capability_id>`): el directorio elegido en un repo aparece igual en cualquier
+otro. Es **la excepción** a la regla de [parametros-persistentes.md](parametros-persistentes.md),
+donde todo lo demás baja a `.consola/params.json` dentro del repo. El criterio es de quién es la
+decisión: el repo no puede opinar sobre dónde va el SDK de Android.
 
 Las cinco capacidades de `install_*` en `core/tasks/utils.py` son hoy las únicas `scope='machine'`.
 

@@ -7,24 +7,66 @@ todas las variantes marcadas, los pasos con su `default`, la primera opción de 
 paso de subida en `build_apk`, cerrar la pestaña y volver te devolvía la subida encendida. Y el
 botón ▶ del rail —que corre sin abrir la pestaña— arrancaba siempre desde esos valores de fábrica.
 
-## 2. La clave lleva las dos cosas: repo y botón
+## 2. Dónde vive: en el repo, no en la máquina
 
 Lo que marcas en el panel es una decisión sobre **ese** repo. El mismo `build_apk` en dos proyectos
-casi nunca quiere los mismos pasos. Por eso la clave de guardado es `params/<huella-de-la-ruta>/
-<capability_id>` (`ui/params_store.py`), y la huella es un sha1 corto de la ruta normalizada: en
-`QSettings` la barra separa grupos, y en Windows la ruta trae además `:` y mayúsculas inestables.
+casi nunca quiere los mismos pasos. Por eso se guarda **dentro del repo**, en
+`.consola/params.json`, al lado de `config.env` (`ui/params_store.py`):
+
+```json
+{
+  "build_apk": { "steps": ["bump", "compile_apk"], "variants": {"app": ["cliente"]} },
+  "update_remote": { "steps": ["pull", "restart"], "options": {} }
+}
+```
+
+Antes vivía en `QSettings`, bajo `params/<sha1-de-la-ruta>/<capability_id>`. Esa clave tenía tres
+problemas que el archivo resuelve solos:
+
+- **Mover o renombrar la carpeta perdía todo**, porque la huella era de la ruta vieja. Ahora los
+  parámetros viajan con la carpeta.
+- **Borrar el repo dejaba su basura en el registro** de Windows para siempre.
+- **No había forma de mirar ni editar** lo guardado.
+
+`.consola/` está en el `.gitignore` (`core/envfile.py::ensure_gitignored`), así que el archivo no se
+commitea: sigue siendo preferencia de esta máquina, solo que guardada donde corresponde. Dos
+checkouts del mismo repo tienen cada uno los suyos.
 
 **Excepción — `Capability.scope='machine'`:** instalar un SDK no es una decisión del repo desde el
-que se abrió el panel, es de la máquina entera. Esas capacidades guardan bajo
-`params/machine/<capability_id>` en vez de por repo: el directorio que elegiste para el SDK de
-Android en un proyecto es el mismo directorio en cualquier otro. `_key()` decide cuál de las dos
-claves usar mirando `registry.get_capability(id).is_machine_wide`; todo lo demás (cuándo se guarda,
-cuándo se lee, qué hace el rail) es idéntico a lo de abajo. Ver
+que se abrió el panel, es de la máquina entera. Un repo no puede opinar sobre dónde va el SDK de
+Android, así que esas siguen en `QSettings` bajo `params/machine/<capability_id>`. La regla completa
+es **decisión del repo → archivo del repo; decisión de la máquina → `QSettings`**. Por eso la lista
+de repos abiertos en pestañas también se queda en `QSettings` (`ui/project_store.py`): un repo no
+puede saber que está en tu barra.
+
+`_is_machine()` decide mirando `registry.get_capability(id).is_machine_wide`. Ver
 `docs/catalogo-funciones.md §5`.
 
-Va a `QSettings`, no a `.consola/config.env`. El archivo del repo es configuración que el repo
-necesita para funcionar; esto es *cómo dejaste la pantalla la última vez* — el mismo criterio que el
-orden de pestañas (`ui/project_tabs.py`) y los favoritos (`ui/favorites.py`).
+### Migración automática
+
+La primera vez que se lee un repo que todavía no tiene `params.json`, el store barre las claves
+viejas de `QSettings` de ese repo y las adopta (`_adopt_legacy`); el primer guardado las baja al
+archivo. Las claves viejas **no se borran**: volver a una versión anterior de Consola sigue
+encontrando lo elegido.
+
+### Cache y escrituras agrupadas
+
+Dos accesos dominan y los dos son calientes:
+
+- `ui/rail.py::_missing_keys` llama a `stored_steps` **una vez por capacidad** cada vez que cambias
+  de repo — decenas de lecturas seguidas.
+- `ParamsPanel._refresh_summary` llama a `save` **en cada tecla** de un campo de texto.
+
+Con una clave por botón en `QSettings` eso lo amortiguaba Qt. Con un archivo hay que hacerlo a mano:
+el archivo se lee entero **una vez por repo** a un cache en memoria, y las escrituras se juntan en un
+temporizador de 500 ms. Veinte pulsaciones seguidas son **una** bajada a disco; guardar un estado
+idéntico al que ya está no escribe nada. `flush()` fuerza la bajada y la llama
+`MainWindow.closeEvent`, para que marcar una casilla y cerrar enseguida no pierda el cambio.
+
+La escritura es atómica (temporal + `os.replace`): ahora es un archivo por repo y no una clave por
+botón, así que un corte a mitad de escritura se llevaría *todos* los parámetros del repo. Si el
+disco no deja escribir (unidad desconectada, solo lectura), lo elegido sigue en el cache y vale para
+la sesión — nunca tumba la interfaz.
 
 ## 3. Cuándo se guarda y cuándo se lee
 

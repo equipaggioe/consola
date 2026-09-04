@@ -7,8 +7,9 @@ from PySide6.QtCore import Qt, Signal, QRectF, QTimer
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
-from core import toolstatus
+from core import toolstatus, envfile
 from core.catalog import forget_machine_cache
+from core import protection
 from core.registry import Capability, registry
 from core.projects import Project
 from ui.console_view import ConsoleView
@@ -17,6 +18,7 @@ from ui.params_panel import ParamsPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
 from ui.widgets import ReorderableTab, ReorderableBar, LevelMark, ScopeMark
+from ui.guard_dialog import GuardDialog
 from ui.task_adapters import ADAPTERS
 from ui.task_runner import TaskRunner
 
@@ -722,6 +724,13 @@ class TabPanel(ReorderableBar, QWidget):
             self._run_stub(console, payload)
             return
 
+        # El seguro va aca y no en el panel de parametros porque este es el
+        # unico punto por el que pasan LAS DOS formas de ejecutar: el boton
+        # Ejecutar y el boton de correr del rail (`quick_run`). Ponerlo en el
+        # panel dejaria el segundo camino sin red.
+        if not self._guard_ok(capability, payload, console):
+            return
+
         # Una compuesta concurrente no corre nada por si misma: reparte sus
         # pasos, que son capacidades, una por pestana (docs/launchers.md 2.5).
         if capability.concurrent:
@@ -738,6 +747,30 @@ class TabPanel(ReorderableBar, QWidget):
             self._run_fanout(tab, capability, adapter, payload, valores)
         else:
             self._run_real(tab, console, capability, adapter(payload))
+
+    # --- seguro por tipo de objetivo ----------------------------------
+    def _guard_ok(self, capability: Capability, payload: dict,
+                  console: ConsoleView) -> bool:
+        """Deja pasar, salvo que esta corrida toque un objetivo protegido.
+
+        Lo que decide no es "es destructivo" sino "que rompe, con ESTOS
+        parametros, y esta protegido en ESTE repo" (`core/protection.py`): un
+        simulacro de `clean_artifacts` no pregunta nada, y `teardown_db` contra
+        `local` no pregunta lo mismo que contra `remoto`.
+        """
+        config = envfile.Config(self.env_panel.values(),
+                                repo_name=envfile.repo_name_of(self.project.path))
+        targets = protection.protected(config, capability.id, payload)
+        if not targets:
+            return True
+
+        dialog = GuardDialog(self.project, capability.name, targets, self)
+        if dialog.exec() == GuardDialog.DialogCode.Accepted:
+            return True
+        console.append_log(
+            f'Cancelado: {capability.name} no llego a correr sobre '
+            f'{self.project.name}.', 'warn')
+        return False
 
     # --- reparto en pestanas ------------------------------------------
     def _fanout_values(self, capability: Capability, payload: dict) -> list[str]:

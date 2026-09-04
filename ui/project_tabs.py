@@ -278,7 +278,36 @@ class ProjectTabBar(ReorderableBar, QWidget):
         project_store.save([t.project for t in self.tabs])
 
     # --- API ---------------------------------------------------------
+    def load_projects(self, projects: list[Project]) -> None:
+        """Puebla la barra al arrancar sin reescribir el store en cada paso.
+
+        Existe para que MainWindow no tenga que tocar el guardado por dentro:
+        anadir ocho repos disparaba ocho escrituras de la lista entera, y la
+        ultima era la unica correcta.
+        """
+        self._loading = True
+        try:
+            for project in projects:
+                self.add_project(project)
+        finally:
+            self._loading = False
+        self._persist()
+
+    def find_tab(self, path: str) -> ProjectTab | None:
+        """La pestana de esa carpeta, sin importar como este escrita la ruta."""
+        key = project_store.identity(path)
+        return next((t for t in self.tabs
+                     if project_store.identity(t.project.path) == key), None)
+
     def add_project(self, project: Project, select: bool = False) -> ProjectTab:
+        # Una carpeta, una pestana: dos pestanas del mismo repo serian dos
+        # paneles escribiendo el mismo `.consola/params.json`.
+        existente = self.find_tab(project.path)
+        if existente is not None:
+            if select:
+                self.select_tab(existente)
+            return existente
+
         tab = ProjectTab(project)
         tab.clicked.connect(lambda t=tab: self.select_tab(t))
         tab.close_requested.connect(lambda t=tab: self.remove_tab(t))

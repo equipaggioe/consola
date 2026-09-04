@@ -9,7 +9,7 @@ from PySide6.QtCore import Qt, QEvent, QTimer
 from ui.rail import ActionRail
 from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar, ProjectTab
-from ui import project_store
+from ui import project_store, params_store
 from ui.theme import Colors, Fonts
 from core.registry import registry
 from core.projects import Project
@@ -131,7 +131,12 @@ class MainWindow(QMainWindow):
         body_layout.setSpacing(0)
 
         self.workspace_stack = QStackedWidget()
-        self.workspaces: dict[int, TabPanel] = {}
+        # Indexados por la ruta normalizada del repo, no por la identidad del
+        # objeto: CPython reusa la direccion de uno liberado, asi que quitar
+        # un repo y anadir otro podia darle al nuevo el espacio de trabajo del
+        # viejo. La ruta es la identidad real de un repo — es la misma con la
+        # que se guardan sus parametros y su `.consola/config.env`.
+        self.workspaces: dict[str, TabPanel] = {}
 
         # Rail y espacio de trabajo van en un splitter: el rail se ajusta solo
         # al contenido y ademas se puede fijar arrastrando el separador, igual
@@ -167,11 +172,10 @@ class MainWindow(QMainWindow):
         self.project_tabs.project_added.connect(self._on_project_added)
         self.project_tabs.project_removed.connect(self._on_project_removed)
 
-        self.project_tabs._loading = True
-        for project in project_store.load():
+        proyectos = project_store.load()
+        for project in proyectos:
             self._ensure_workspace(project)
-            self.project_tabs.add_project(project)
-        self.project_tabs._loading = False
+        self.project_tabs.load_projects(proyectos)
 
         self._install_shortcuts()
 
@@ -199,7 +203,7 @@ class MainWindow(QMainWindow):
 
     # --- espacios de trabajo ---------------------------------------------
     def _ensure_workspace(self, project: Project) -> TabPanel:
-        key = id(project)
+        key = project_store.identity(project.path)
         workspace = self.workspaces.get(key)
         if workspace is None:
             workspace = TabPanel(project)
@@ -243,10 +247,20 @@ class MainWindow(QMainWindow):
         self._on_project_selected(project)
 
     def _on_project_removed(self, project: Project) -> None:
-        workspace = self.workspaces.pop(id(project), None)
+        workspace = self.workspaces.pop(project_store.identity(project.path), None)
         if workspace is not None:
             self.workspace_stack.removeWidget(workspace)
             workspace.deleteLater()
+        # Lo elegido en sus paneles ya no se va a volver a mirar en esta sesion:
+        # se baja al repo lo que quedara pendiente y se suelta el cache.
+        params_store.forget(project.path)
+
+    def closeEvent(self, event):
+        """Los parametros se escriben en rafagas de medio segundo
+        (`ui/params_store.py`): al cerrar hay que bajar lo pendiente, o el
+        ultimo cambio se pierde por marcar una casilla y cerrar enseguida."""
+        params_store.flush()
+        super().closeEvent(event)
 
     def _on_project_selected(self, project: Project) -> None:
         workspace = self._ensure_workspace(project)

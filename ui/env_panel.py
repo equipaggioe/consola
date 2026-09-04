@@ -10,10 +10,23 @@ from ui.theme import Colors, Fonts
 from core.projects import Project
 from core import envfile
 from core.settings import settings_by_group, Setting
+from ui.widgets import ToggleSwitch
+
+
+_TRUE = {'1', 'true', 'yes', 'y', 'on', 'si', 'true'}
+
+
+def _truthy(value: str) -> bool:
+    return (value or '').strip().lower() in _TRUE
 
 
 class EnvRow(QWidget):
-    """Una clave del esquema: etiqueta, campo y, si es secreta, ojo para revelar."""
+    """Una clave del esquema: etiqueta, campo y, si es secreta, ojo para revelar.
+
+    Con `kind='bool'` (los seguros de `core/protection.py`) es un interruptor en
+    vez de un campo: `value()` devuelve '1'/'0' para que el resto del panel siga
+    tratando todo como texto y `.consola/config.env` no cambie de forma.
+    """
     changed = Signal()
 
     def __init__(self, setting: Setting, value: str, accent: str, default_display: str = '', parent=None):
@@ -25,6 +38,26 @@ class EnvRow(QWidget):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
+
+        # Un seguro no es un campo de texto: se dibuja como interruptor, con la
+        # explicacion al lado en vez de una etiqueta a la izquierda. Escribir
+        # '1' a mano en una casilla de seguridad es pedir que se escriba mal.
+        self.field = None
+        self.toggle = None
+        if setting.kind == 'bool':
+            self.toggle = ToggleSwitch(setting.display, _truthy(value), accent)
+            self.toggle.setToolTip(f'{setting.key} - {setting.placeholder}')
+            self.toggle.toggled.connect(self._on_toggle)
+            lay.addWidget(self.toggle)
+            if setting.placeholder:
+                nota = QLabel(setting.placeholder)
+                nota.setWordWrap(True)
+                nota.setStyleSheet(
+                    f"background: transparent; color: {Colors.TEXT_MUTED}; "
+                    f"font-size: {Fonts.SIZE_XS}px;"
+                )
+                lay.addWidget(nota, 1)
+            return
 
         self.label = QLabel(setting.display)
         self.label.setFixedWidth(118)
@@ -63,14 +96,30 @@ class EnvRow(QWidget):
         self._restyle()
 
     def value(self) -> str:
+        if self.toggle is not None:
+            return '1' if self.toggle.is_checked() else '0'
         return self.field.text().strip()
 
     def set_value(self, value: str) -> None:
+        if self.toggle is not None:
+            # Un repo que todavia no dice nada se queda con el default del
+            # esquema, que para los seguros es "protegido".
+            crudo = (value or '').strip()
+            self.toggle.set_checked(_truthy(crudo) if crudo
+                                    else _truthy(self.setting.default),
+                                    announce=False)
+            return
         self.field.setText(value)
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
+        if self.toggle is not None:
+            self.toggle.set_accent(accent)
+            return
         self._restyle()
+
+    def _on_toggle(self, _checked: bool) -> None:
+        self.changed.emit()
 
 
     def _toggle_echo(self, revealed: bool) -> None:
