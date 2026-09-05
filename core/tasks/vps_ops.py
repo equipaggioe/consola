@@ -168,16 +168,16 @@ def uninstall_packages(ctx, packages: list[str] | None = None) -> list[str]:
 
 def remove_vps_user(ctx) -> bool:
     """Borra el usuario de despliegue y su home. Se corre como root."""
-    from .vps_setup import _root_argv
+    from .vps_setup import _root_run
 
     user = ctx.config.get('VPS_USER')
-    ctx.run(_root_argv(ctx, (
+    _root_run(ctx, (
         f'if id -u {ssh.quote(user)} >/dev/null 2>&1; then '
         f'  pkill -u {ssh.quote(user)} || true; '
         f'  userdel -r {ssh.quote(user)} && echo "[OK] Usuario eliminado."; '
         'else echo "[INFO] El usuario no existe."; fi; '
         f'rm -f /etc/sudoers.d/consola-{user}'
-    )), check=False)
+    ), check=False)
     return True
 
 

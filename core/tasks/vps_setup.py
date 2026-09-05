@@ -3,7 +3,6 @@ import secrets
 
 from .. import github, ssh, vps
 from ..errors import TaskError
-from ..process import which_any
 from ..registry import registry
 
 """
@@ -61,29 +60,28 @@ TURN_PORT = 3478
 RELAY_RANGE = (49160, 49360)
 
 
-def _root_argv(ctx, command: str) -> list[str]:
+def _root_run(ctx, command: str, *, check: bool = True) -> int:
     """Comando como root, antes de que exista el usuario de despliegue.
 
     Es el unico momento en que Consola se conecta con contrasena: se pide al
     usuario en el momento y nunca se guarda en ningun archivo. `ask_once` la
     recuerda para el resto de la corrida, porque la compuesta abre una conexion
     por atomica y preguntarla dos veces seria un impuesto de la atomizacion.
+
+    La contrasena es el ultimo recurso, no el primero: `ssh` prueba las llaves
+    y solo si ninguna sirve la pide, asi que en un VPS donde root ya tiene la
+    llave instalada no llega a usarse.
     """
     host = ctx.config.require('VPS_IP')
     root = ctx.config.get('ROOT_USER', 'root')
-    base = ['ssh', '-o', 'StrictHostKeyChecking=no', f'{root}@{host}', command]
+    opciones = ['-o', 'StrictHostKeyChecking=no']
 
     password = ctx.ask_once(f'Contrasena de {root}@{host}', secret=True)
-    if not password:
-        return base
-
-    sshpass = which_any(['sshpass'])
-    if not sshpass:
-        raise TaskError(
-            'Hace falta "sshpass" para autenticar con contrasena. '
-            'Instala sshpass, o deja la contrasena vacia para que SSH la pida por consola.'
-        )
-    return [sshpass, '-p', password, *base]
+    entorno = None
+    if password:
+        opciones += ssh.PASSWORD_OPTS
+        entorno = ssh.password_env(password)
+    return ctx.run(['ssh', *opciones, f'{root}@{host}', command], env=entorno, check=check)
 
 
 # --- atomicas de acceso ----------------------------------------------------
@@ -118,7 +116,7 @@ def ensure_deploy_access(ctx) -> str:
     privada = ssh.ensure_local_keypair(ctx, key_name, comment=ctx.config.repo_name)
     publica = ssh.public_key(privada)
 
-    ctx.run(_root_argv(ctx, (
+    _root_run(ctx, (
         f'if id -u {quoted} >/dev/null 2>&1; then echo "[OK] El usuario ya existe."; '
         f'else useradd -m -s /bin/bash {quoted} && echo "[OK] Usuario creado."; fi; '
         'if getent group sudo >/dev/null 2>&1; then '
@@ -132,7 +130,7 @@ def ensure_deploy_access(ctx) -> str:
         '  echo "[OK] La llave ya estaba instalada."; '
         f'else printf "%s\\n" {ssh.quote(publica)} >> "$auth" && echo "[OK] Llave instalada."; fi; '
         f'chmod 600 "$auth" && chown -R {quoted}:{quoted} "$home/.ssh"'
-    )))
+    ))
     return user
 
 
@@ -156,10 +154,10 @@ def configure_sudo(ctx, mode: str = 'all') -> str:
         reglas = (f'{user} ALL=(root) NOPASSWD: {", ".join(SUDO_SPECIFIC)}\n'
                   f'{user} ALL=(postgres) NOPASSWD: /usr/bin/psql')
 
-    ctx.run(_root_argv(ctx, (
+    _root_run(ctx, (
         f'printf "%s\\n" {ssh.quote(reglas)} > {ssh.quote(archivo)} && '
         f'chmod 440 {ssh.quote(archivo)} && visudo -cf {ssh.quote(archivo)}'
-    )))
+    ))
     ctx.ok(f'Sudo sin contrasena configurado ({mode}).')
     return mode
 

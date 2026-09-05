@@ -100,6 +100,57 @@ def quote(value: str) -> str:
     return shlex.quote(value)
 
 
+# --- contrasena sin consola ------------------------------------------------
+
+_PASSWORD_VAR = 'CONSOLA_SSH_PASSWORD'
+
+# Sin `PubkeyAuthentication=no`: si root ya tiene la llave instalada se entra con
+# ella y la contrasena no llega a usarse, que es como funcionaba antes de que
+# esto existiera. Forzar contrasena cerraba ese camino y el setup moria con
+# "Permission denied" en servidores donde la llave alcanzaba.
+# Un solo intento: con el helper, reintentar es mandar tres veces lo mismo.
+PASSWORD_OPTS = ['-o', 'NumberOfPasswordPrompts=1']
+
+
+def _askpass_helper() -> Path:
+    """Script que solo reimprime la contrasena que le llega por el entorno."""
+    directory = Path(tempfile.gettempdir()) / 'consola_ssh'
+    directory.mkdir(parents=True, exist_ok=True)
+    if os.name == 'nt':
+        # `!VAR!` y no `%VAR%`: con expansion retardada cmd no vuelve a parsear
+        # el valor, asi que una contrasena con & | > ^ % ! llega entera.
+        helper = directory / 'askpass.bat'
+        helper.write_text('@echo off\r\nsetlocal EnableDelayedExpansion\r\n'
+                          f'echo !{_PASSWORD_VAR}!\r\n', encoding='utf-8')
+    else:
+        helper = directory / 'askpass.sh'
+        helper.write_text(f'#!/bin/sh\nprintf "%s\\n" "${_PASSWORD_VAR}"\n', encoding='utf-8')
+        helper.chmod(0o700)
+    return helper
+
+
+def password_env(password: str) -> dict[str, str]:
+    """Entorno para darle una contrasena a `ssh` sin consola donde escribirla.
+
+    La GUI lanza todo con el stdin cerrado y sin ventana (`core/process.py`), y
+    `ssh` pide la contrasena a la consola, no a stdin: dentro de la app no hay
+    donde escribirla y la conexion se queda esperando. `SSH_ASKPASS_REQUIRE`
+    (OpenSSH 8.4+) la deriva a un helper, que es lo que `sshpass` conseguia con
+    un PTY falso; y `sshpass` no existe en Windows, que era el error con el que
+    moria el boton de setup.
+
+    La contrasena viaja por el entorno del proceso: no toca el disco ni la
+    linea de comandos, que es lo unico que se ve en el log.
+    """
+    return {
+        'SSH_ASKPASS': str(_askpass_helper()),
+        'SSH_ASKPASS_REQUIRE': 'force',
+        # Antes de 8.4 el helper se ignora si no hay DISPLAY, aunque no se use.
+        'DISPLAY': os.environ.get('DISPLAY') or ':0',
+        _PASSWORD_VAR: password,
+    }
+
+
 # --- ejecucion remota ------------------------------------------------------
 
 def capture(remote: Remote, command: str, *, timeout: float | None = 30.0,
