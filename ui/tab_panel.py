@@ -19,7 +19,7 @@ from ui.command_info_panel import CommandInfoPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
 from ui.widgets import (ReorderableTab, ReorderableBar, LevelMark, ScopeMark,
-                        AccordionSection)
+                        AccordionSection, SectionResizeGrip)
 from ui.guard_dialog import GuardDialog
 from ui.task_adapters import ADAPTERS
 from ui.task_runner import TaskRunner
@@ -162,7 +162,9 @@ class PadlockChip(QLabel):
     def __init__(self, chip: str, label: str, protected: bool, parent=None):
         super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        color = Colors.TEXT_DIM if protected else Colors.WARNING
+        # Cerrado = a salvo (verde); abierto = expuesto a un destructivo sin red
+        # (naranja de aviso).
+        color = Colors.SUCCESS if protected else Colors.WARNING
         self.setStyleSheet(
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;")
         self.setToolTip(
@@ -399,15 +401,19 @@ class TabPanel(ReorderableBar, QWidget):
         self.env_panel.values_changed.connect(self._on_env_changed)
         self.env_panel.values_changed.connect(self._refresh_security_summary)
 
-        # Seccion de arriba: la descripcion larga de la accion abierta. Su
-        # cabecera lleva el nombre de la accion (no una etiqueta fija), asi que
-        # plegada sigue diciendo cual es sin la descripcion.
+        # Seccion de arriba: la descripcion larga de la accion abierta y sus
+        # pasos. Su cabecera siempre dice «Acción»; plegada, eso es todo lo que
+        # se ve.
         self.info_panel = CommandInfoPanel()
         self.info_section = AccordionSection('Acción', self.info_panel, expanded=False)
         self.security_section = AccordionSection('Seguridad', self.env_panel.security_panel)
         self.params_section = AccordionSection('Parámetros', self.params_stack,
                                                expanded=False)
         self.config_section = AccordionSection('Configuración del repo', self.env_panel)
+        # El estado de config.env va en el rotulo de la seccion, no en un
+        # renglon aparte de su pie.
+        self.env_panel.file_status_changed.connect(self.config_section.set_summary)
+        self.config_section.set_summary(self.env_panel.file_status)
 
         # Un layout y no un `QSplitter`: plegar es ponerle un tope de alto a la
         # seccion, y un splitter guarda sus propios tamanos aparte — los dos
@@ -423,13 +429,28 @@ class TabPanel(ReorderableBar, QWidget):
         column = QVBoxLayout(self.right_column)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(0)
-        for section in (self.info_section, self.security_section,
-                        self.params_section, self.config_section):
+        # Alto elegido a mano por seccion (arrastrando la barra de abajo). `None`
+        # = seguir el reparto automatico de `_relayout_right`. Se limpia sola al
+        # plegar la seccion: reabrirla vuelve a autoajustarse.
+        self._manual: dict[AccordionSection, int | None] = {}
+        self._grips: dict[AccordionSection, SectionResizeGrip] = {}
+        self._sections = (self.info_section, self.security_section,
+                          self.params_section, self.config_section)
+        for section in self._sections:
             # Configuracion es la unica que estira: asi ocupa su tope entero en
             # vez de quedarse en el `sizeHint` de su formulario y dejar un hueco
             # muerto abajo. Las otras dos ya valen exactamente su contenido.
             column.addWidget(section, 1 if section is self.config_section else 0)
-            section.toggled.connect(self._relayout_right)
+            section.toggled.connect(self._on_section_toggled)
+            # Configuracion es la ultima: no tiene con quien negociar hacia abajo.
+            if section is not self.config_section:
+                self._manual[section] = None
+                grip = SectionResizeGrip()
+                grip.dragged.connect(
+                    lambda d, s=section: self._resize_section(s, d))
+                grip.reset.connect(lambda s=section: self._resize_section(s, None))
+                column.addWidget(grip)
+                self._grips[section] = grip
         # Con Configuracion plegada no queda quien estire: este resorte se come
         # el sobrante para que las cabeceras se apilen arriba.
         column.addStretch(0)
@@ -503,16 +524,9 @@ class TabPanel(ReorderableBar, QWidget):
             f"background: transparent; color: {Colors.TEXT}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
         )
-        # Que hace la accion abierta, en el unico lugar donde ya se la mira
-        # antes de apretar Ejecutar. Sin accion abierta queda vacio.
-        self.right_header_desc = QLabel("")
-        self.right_header_desc.setWordWrap(True)
-        self.right_header_desc.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
-        )
-        self.right_header_desc.setVisible(False)
+        # La descripcion de la accion vive ahora en la seccion «Acción» del
+        # acordeon, que la muestra entera con sus pasos. Aca solo el nombre.
         titles.addWidget(self.right_header_name)
-        titles.addWidget(self.right_header_desc)
 
         self.right_header_level = QLabel("")
         self.right_header_level.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
@@ -529,10 +543,6 @@ class TabPanel(ReorderableBar, QWidget):
                           capability: Capability | None = None) -> None:
         self.right_header_icon.setText(icon or "◇")
         self.right_header_name.setText(name)
-
-        desc = capability.description if capability else ''
-        self.right_header_desc.setText(desc)
-        self.right_header_desc.setVisible(bool(desc))
 
         if capability is None:
             self.right_header_level.setText("")
@@ -778,7 +788,6 @@ class TabPanel(ReorderableBar, QWidget):
             self.env_panel.filter_for(None)
             self._set_right_header(self.project.icon, self.project.name)
             self.info_panel.set_capability(None)
-            self.info_section.set_title('Acción')
             self.info_section.set_expanded(False, announce=False)
             self.params_section.set_expanded(False, announce=False)
             self._relayout_right()
@@ -832,7 +841,6 @@ class TabPanel(ReorderableBar, QWidget):
             self._set_right_header(panel.capability.icon, panel.capability.name,
                                    panel.capability)
             self.info_panel.set_capability(panel.capability)
-            self.info_section.set_title(panel.capability.name)
             # Abrir una accion despliega sus parametros; si la habias plegado
             # a mano, vuelve a abrirse — es lo que fuiste a buscar al clic.
             self.params_section.set_expanded(True, announce=False)
@@ -858,30 +866,24 @@ class TabPanel(ReorderableBar, QWidget):
         total = self.right_column.height()
         if total <= 0:
             return
-        secciones = (self.info_section, self.security_section,
-                     self.params_section, self.config_section)
+        secciones = self._sections
         alto = {s: s.header_height() for s in secciones}
         libre = total - sum(alto.values())
 
-        if self.info_section.is_expanded():
-            # Como Seguridad: se queda con lo que su texto necesita, hasta un
-            # tercio de la columna, para que una descripcion larga no aplaste
-            # al resto.
-            dar = max(0, min(self._info_wanted(), int(total * 0.33), libre))
-            alto[self.info_section] += dar
-            libre -= dar
-        if self.security_section.is_expanded():
-            dar = max(0, min(self._security_wanted(), libre))
-            alto[self.security_section] += dar
-            libre -= dar
-        if self.params_section.is_expanded():
-            # Configuracion conserva un minimo util si tambien esta abierta.
-            techo = min(self._params_wanted(), int(total * 0.55))
-            dar = max(0, min(techo, libre - (120 if self.config_section.is_expanded() else 0)))
-            alto[self.params_section] += dar
+        for section in (self.info_section, self.security_section, self.params_section):
+            if not section.is_expanded():
+                continue
+            # Si Configuracion tambien esta abierta le reservamos un minimo util,
+            # salvo que el usuario haya fijado a mano el alto de esta seccion:
+            # ahi manda su gesto.
+            reserva = (120 if (section is self.params_section
+                               and self.config_section.is_expanded()
+                               and self._manual[section] is None) else 0)
+            dar = max(0, min(self._section_wanted(section), libre - reserva))
+            alto[section] += dar
             libre -= dar
         if self.config_section.is_expanded():
-            alto[self.config_section] += libre
+            alto[self.config_section] += max(0, libre)
 
         for section, valor in alto.items():
             # Tope y no alto fijo: con las tres clavadas, la columna imponia su
@@ -889,6 +891,45 @@ class TabPanel(ReorderableBar, QWidget):
             # piso queda en la cabecera, que es lo unico irrenunciable.
             section.setMaximumHeight(valor)
             section.setMinimumHeight(section.header_height())
+        self._sync_grips()
+
+    def _on_section_toggled(self, *_args) -> None:
+        # Plegar una seccion descarta su alto manual: al reabrirla se espera el
+        # tamano que le calcula el contenido, no el que tenia hace tres clics.
+        for section in self._manual:
+            if not section.is_expanded():
+                self._manual[section] = None
+        self._relayout_right()
+
+    def _resize_section(self, section: AccordionSection, delta: int | None) -> None:
+        """Fija (o suelta, con `delta=None`) el alto de una seccion arrastrando
+        la barra de abajo. El resto se reparte lo que quede en `_relayout_right`."""
+        if delta is None:
+            self._manual[section] = None
+        else:
+            base = self._manual[section]
+            if base is None:
+                base = section.height()
+            self._manual[section] = max(section.header_height() + 24, base + delta)
+        self._relayout_right()
+
+    def _sync_grips(self) -> None:
+        """Una barra se ve solo si hay con que negociar: su seccion abierta y
+        alguna abierta debajo."""
+        order = self._sections
+        for i, section in enumerate(order[:-1]):
+            hay_abajo = any(s.is_expanded() for s in order[i + 1:])
+            self._grips[section].setVisible(section.is_expanded() and hay_abajo)
+
+    def _section_wanted(self, section: AccordionSection) -> int:
+        manual = self._manual.get(section)
+        if manual is not None:
+            return manual
+        if section is self.info_section:
+            return self._info_wanted()
+        if section is self.security_section:
+            return self._security_wanted()
+        return min(self._params_wanted(), int(self.right_column.height() * 0.55))
 
     def _params_wanted(self) -> int:
         panel = self.current_params()

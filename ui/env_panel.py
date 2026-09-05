@@ -159,6 +159,7 @@ class EnvPanel(QWidget):
     """
     saved = Signal(dict)
     values_changed = Signal(dict)
+    file_status_changed = Signal(str)  # estado de config.env: va al rotulo de la seccion
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
@@ -171,6 +172,7 @@ class EnvPanel(QWidget):
         # "que usarias vos" y que conteste con el default fijo o dinamico
         # (VPS_USER, DB_NAME) sin mezclarlo con lo que haya escrito el usuario.
         self._defaults = envfile.Config(repo_name=envfile.repo_name_of(project.path))
+        self.file_status = ''
 
         self.setStyleSheet(f"EnvPanel {{ background: {Colors.SURFACE}; }}")
 
@@ -210,19 +212,18 @@ class EnvPanel(QWidget):
         return box
 
     def _build_file_bar(self) -> QWidget:
-        """Barra fija con el estado de `.consola/config.env` y sus dos
-        acciones, mutuamente excluyentes: crear archivo si no existe,
-        importar valores si ya existe uno donde ponerlos."""
+        """Pie de la seccion con las acciones sobre `.consola/config.env`.
+
+        El estado del archivo (existe o no) no va aca: viaja por
+        `file_status_changed` al rotulo de la cabecera de la seccion. Orden:
+        importar/crear a la izquierda, y a la derecha Recargar y Guardar —
+        Guardar es el unico camino para persistir lo editado, porque los
+        cambios de fila solo emiten en memoria."""
         bar = QWidget()
         bar.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(8)
-
-        self.file_label = QLabel("")
-        self.file_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
 
         self.import_btn = QPushButton("Importar desde archivo…")
         self.import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -232,10 +233,6 @@ class EnvPanel(QWidget):
         self.create_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.create_btn.clicked.connect(self.create_file)
 
-        # Recargar y Guardar antes vivian en el pie del panel de parametros, que
-        # es donde no correspondian: operan sobre este archivo, no sobre la
-        # accion abierta. Guardar es ademas el unico camino para persistir lo
-        # editado (los cambios de fila solo emiten en memoria).
         self.reload_btn = QPushButton("Recargar")
         self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.reload_btn.setToolTip("Descarta los cambios sin guardar y relee el archivo")
@@ -246,10 +243,10 @@ class EnvPanel(QWidget):
         self.save_btn.setToolTip("Escribe .consola/config.env con los valores actuales")
         self.save_btn.clicked.connect(self.save)
 
-        lay.addWidget(self.file_label, 1)
-        lay.addWidget(self.reload_btn)
         lay.addWidget(self.import_btn)
         lay.addWidget(self.create_btn)
+        lay.addStretch(1)
+        lay.addWidget(self.reload_btn)
         lay.addWidget(self.save_btn)
         self._restyle_create()
         return bar
@@ -353,7 +350,8 @@ class EnvPanel(QWidget):
 
     def _sync_file_bar(self, exists: bool) -> None:
         rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, '/')
-        self.file_label.setText(f"{rel} — {'listo' if exists else 'no existe'}")
+        self.file_status = f"{rel} — {'listo' if exists else 'no existe'}"
+        self.file_status_changed.emit(self.file_status)
         self.create_btn.setVisible(not exists)
         self.import_btn.setVisible(exists)
         self.create_btn.setToolTip(

@@ -122,7 +122,51 @@ class AccordionSection(QWidget):
     def set_summary(self, text: str) -> None:
         self.header.summary.setText(text)
 
-    def set_title(self, text: str) -> None:
-        """Cambia el rotulo de la cabecera. Para la seccion cuyo titulo es el
-        nombre de la accion abierta, no una etiqueta fija."""
-        self.header.title.setText(text.upper())
+
+class SectionResizeGrip(QWidget):
+    """Barra fina entre dos secciones abiertas del acordeon.
+
+    Arrastrarla reparte el alto a mano: lo que la seccion de arriba gana, lo
+    pierde el resto (`TabPanel._resize_section`). Doble clic vuelve al reparto
+    automatico. Solo se ve cuando hay algo con que negociar —su seccion abierta
+    y al menos una abierta debajo—; si no, no hay nada que arrastrar.
+    """
+
+    dragged = Signal(int)   # px movidos desde el ultimo evento (+ = agrandar arriba)
+    reset = Signal()
+
+    HEIGHT = 7
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName('sectionGrip')
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setFixedHeight(self.HEIGHT)
+        self.setCursor(Qt.CursorShape.SplitVCursor)
+        self.setStyleSheet(f"""
+            QWidget#sectionGrip {{
+                background: {Colors.SURFACE};
+                border-bottom: 1px solid {Colors.BORDER};
+            }}
+            QWidget#sectionGrip:hover {{ background: {Colors.SURFACE_HOVER}; }}
+        """)
+        self._last_y: float | None = None
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._last_y = event.globalPosition().y()
+
+    def mouseMoveEvent(self, event):
+        if self._last_y is None:
+            return
+        y = event.globalPosition().y()
+        delta = int(y - self._last_y)
+        if delta:
+            self._last_y = y
+            self.dragged.emit(delta)
+
+    def mouseReleaseEvent(self, event):
+        self._last_y = None
+
+    def mouseDoubleClickEvent(self, event):
+        self.reset.emit()
