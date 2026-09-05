@@ -45,9 +45,11 @@ class ActionMenuBar(QMenuBar):
             QMenuBar {{
                 background: {Colors.CHROME}; color: {Colors.TEXT};
                 border-bottom: 1px solid {Colors.BORDER};
-                font-size: {Fonts.SIZE_SM}px;
+                font-size: {Fonts.SIZE_BASE}px;
+                min-height: 20px;
+                padding: 3px 2px;
             }}
-            QMenuBar::item {{ background: transparent; padding: 5px 11px; }}
+            QMenuBar::item {{ background: transparent; padding: 9px 13px; }}
             QMenuBar::item:selected {{ background: {Colors.SURFACE_HOVER}; }}
             QMenuBar::item:pressed {{ background: {Colors.SURFACE_ALT}; }}
         """)

@@ -99,10 +99,14 @@ class ParamsPanel(QWidget):
         root.setSpacing(0)
 
         self._body_widget = self._build_body()
-        self._footer_widget = self._build_footer()
+        # El pie con Ejecutar / Simulacro no vive dentro del panel: `TabPanel`
+        # lo saca a una barra fija al fondo de la columna, para que el boton no
+        # se pliegue con la seccion de parametros ni haya que scrollear hasta
+        # el. Se construye igual aca (toda la logica de bloqueos es de esta
+        # clase) y el contenedor lo reparenta.
+        self.footer = self._build_footer()
 
         root.addWidget(self._body_widget, 1)
-        root.addWidget(self._footer_widget)
 
         # Lo elegido la ultima vez para este boton EN ESTE repo manda sobre
         # los valores por defecto; sin nada guardado, quedan los de arriba.
@@ -187,6 +191,12 @@ class ParamsPanel(QWidget):
         singles = [a for a in self.capability.single_axes if a.values]
         if singles:
             lay.addWidget(self._build_options(singles))
+
+        # ↻ Catálogo va junto a los ejes que llena (los del SDK), no en el pie:
+        # ahi solo va Ejecutar. Recargar/Guardar del .env se fueron a su propia
+        # seccion (`ui/env_panel.py`).
+        if any(a.is_from_machine for a in self.capability.axes) or self.capability.live_state:
+            lay.addWidget(self._build_catalog_bar())
 
         self._content = content
         scroll.setWidget(content)
@@ -469,33 +479,64 @@ class ParamsPanel(QWidget):
             lay.addLayout(row)
         return box
 
+    def _build_catalog_bar(self) -> QWidget:
+        """El boton ↻ Catálogo: releer los catálogos del SDK salteando la caché
+        (se cachea por semanas). Es el unico modo de enterarse de una API nueva
+        sin reiniciar Consola."""
+        bar = QWidget()
+        bar.setStyleSheet("background: transparent;")
+        lay = QHBoxLayout(bar)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(0)
+        btn = QPushButton("↻ Catálogo")
+        btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        btn.setFixedHeight(28)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: 1px solid {Colors.BORDER};
+                color: {Colors.TEXT_DIM}; border-radius: 5px;
+                padding: 0 12px; font-size: {Fonts.SIZE_XS}px;
+            }}
+            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
+        """)
+        btn.clicked.connect(self.refresh_machine)
+        lay.addWidget(btn)
+        lay.addStretch()
+        return bar
+
+    @property
+    def _dry_run_axis(self) -> AxisDef | None:
+        """El eje excluyente que ofrece un simulacro (`clean_artifacts`,
+        `sync_common_files`, borrar emuladores). Su presencia es lo que hace
+        aparecer el boton Simulacro."""
+        return next((a for a in self.capability.single_axes
+                     if 'simulacro' in a.values), None)
+
     def _build_footer(self) -> QWidget:
         foot = QWidget()
         foot.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(foot)
         lay.setContentsMargins(16, 10, 16, 10)
-        lay.setSpacing(6)
+        lay.setSpacing(8)
+        lay.addStretch()
 
-        botones = [("Recargar", self.env_panel.reload), ("Guardar", self.env_panel.save)]
-        if any(a.is_from_machine for a in self.capability.axes) or self.capability.live_state:
-            # Los catalogos del SDK se cachean por semanas: este es el unico
-            # modo de enterarse de una API nueva sin reiniciar Consola.
-            botones.append(("↻ Catálogo", self.refresh_machine))
-        for text, handler in botones:
-            btn = QPushButton(text)
-            btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            btn.setFixedHeight(34)
-            btn.setStyleSheet(f"""
+        self.dry_btn: QPushButton | None = None
+        if self._dry_run_axis is not None:
+            self.dry_btn = QPushButton("Simulacro")
+            self.dry_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.dry_btn.setFixedHeight(34)
+            self.dry_btn.setToolTip("Corre sin tocar nada: solo muestra qué haría")
+            self.dry_btn.clicked.connect(lambda: self._emit_execute(dry_run=True))
+            self.dry_btn.setStyleSheet(f"""
                 QPushButton {{
                     background: transparent; border: 1px solid {Colors.BORDER};
-                    color: {Colors.TEXT_DIM}; border-radius: 5px;
-                    padding: 0 12px; font-size: {Fonts.SIZE_XS}px;
+                    color: {Colors.TEXT_DIM}; border-radius: 6px;
+                    padding: 0 16px; font-size: {Fonts.SIZE_SM}px;
                 }}
                 QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
+                QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; }}
             """)
-            btn.clicked.connect(handler)
-            lay.addWidget(btn)
-        lay.addStretch()
+            lay.addWidget(self.dry_btn)
 
         self.run_btn = QPushButton("▶  Ejecutar")
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -665,9 +706,7 @@ class ParamsPanel(QWidget):
     def natural_height(self) -> int:
         """Alto que necesita para mostrar todo su contenido sin scroll, para
         que el panel de `.env` se quede con el resto del espacio vertical."""
-        return (self._content.sizeHint().height()
-                + self._footer_widget.sizeHint().height()
-                + 4)
+        return self._content.sizeHint().height() + 4
 
     def relevant_keys(self) -> set[str]:
         """Claves de `.env` que esta accion puede llegar a necesitar (todos los
@@ -741,6 +780,11 @@ class ParamsPanel(QWidget):
         blockers = self._blockers()
         self.run_btn.setEnabled(not blockers)
         self.run_btn.setToolTip(blockers[0].capitalize() if blockers else "")
+        if self.dry_btn is not None:
+            self.dry_btn.setEnabled(not blockers)
+            self.dry_btn.setToolTip(
+                blockers[0].capitalize() if blockers
+                else "Corre sin tocar nada: solo muestra qué haría")
         self._restyle_run()
 
     def _restyle_run(self) -> None:
@@ -756,10 +800,17 @@ class ParamsPanel(QWidget):
             QPushButton:hover {{ background: {self.accent if enabled else Colors.SURFACE_ALT}; }}
         """)
 
-    def _emit_execute(self) -> bool:
+    def _emit_execute(self, _checked: bool = False, *, dry_run: bool = False) -> bool:
         if self._blockers():
             return False
-        self.execute_requested.emit(self.payload())
+        payload = self.payload()
+        if dry_run:
+            axis = self._dry_run_axis
+            if axis is not None:
+                # No toca lo guardado: solo fuerza el modo seguro en el payload
+                # de ESTA corrida.
+                payload['options'] = {**payload['options'], axis.name: 'simulacro'}
+        self.execute_requested.emit(payload)
         return True
 
     def try_run(self) -> bool:

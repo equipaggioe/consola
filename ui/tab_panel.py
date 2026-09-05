@@ -385,9 +385,9 @@ class TabPanel(ReorderableBar, QWidget):
         self.env_panel.values_changed.connect(self._on_env_changed)
         self.env_panel.values_changed.connect(self._refresh_security_summary)
 
+        self.security_section = AccordionSection('Seguridad', self.env_panel.security_panel)
         self.params_section = AccordionSection('Parámetros', self.params_stack,
                                                expanded=False)
-        self.security_section = AccordionSection('Seguridad', self.env_panel.security_panel)
         self.config_section = AccordionSection('Configuración del repo', self.env_panel)
 
         # Un layout y no un `QSplitter`: plegar es ponerle un tope de alto a la
@@ -404,7 +404,7 @@ class TabPanel(ReorderableBar, QWidget):
         column = QVBoxLayout(self.right_column)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(0)
-        for section in (self.params_section, self.security_section, self.config_section):
+        for section in (self.security_section, self.params_section, self.config_section):
             # Configuracion es la unica que estira: asi ocupa su tope entero en
             # vez de quedarse en el `sizeHint` de su formulario y dejar un hueco
             # muerto abajo. Las otras dos ya valen exactamente su contenido.
@@ -416,12 +416,21 @@ class TabPanel(ReorderableBar, QWidget):
 
         self.right_header = self._build_right_header()
 
+        # Pie fijo con Ejecutar / Simulacro: fuera del acordeon, para que el
+        # boton no se pliegue con la seccion de Parametros ni haya que
+        # scrollear hasta el. Una pila con un pie por accion abierta
+        # (`ParamsPanel.footer`), mas un placeholder deshabilitado para cuando
+        # no hay ninguna.
+        self.run_footer = QStackedWidget()
+        self.run_footer.addWidget(self._build_footer_placeholder())
+
         right_container = QWidget()
         right_layout = QVBoxLayout(right_container)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
         right_layout.addWidget(self.right_header)
         right_layout.addWidget(self.right_column, 1)
+        right_layout.addWidget(self.run_footer)
 
         self.splitter = QSplitter(Qt.Orientation.Horizontal)
         self.splitter.addWidget(self.content_area)
@@ -565,6 +574,28 @@ class TabPanel(ReorderableBar, QWidget):
         lay.addWidget(hint)
         return w
 
+    def _build_footer_placeholder(self) -> QWidget:
+        """Pie sin accion abierta: Ejecutar visible pero deshabilitado, para
+        que la barra no cambie de alto al abrir la primera accion."""
+        foot = QWidget()
+        foot.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
+        lay = QHBoxLayout(foot)
+        lay.setContentsMargins(16, 10, 16, 10)
+        lay.setSpacing(8)
+        lay.addStretch()
+        btn = QPushButton("▶  Ejecutar")
+        btn.setFixedHeight(34)
+        btn.setEnabled(False)
+        btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT_MUTED};
+                border: none; border-radius: 6px; padding: 0 22px;
+                font-size: {Fonts.SIZE_SM}px; font-weight: 600;
+            }}
+        """)
+        lay.addWidget(btn)
+        return foot
+
     # --- reordenar arrastrando ---------------------------------------
     def _tab_layout(self):
         return self.tabs_layout
@@ -633,6 +664,7 @@ class TabPanel(ReorderableBar, QWidget):
         panel.params_changed.connect(self.params_changed.emit)
         panel.stop_requested.connect(lambda serial, t=tab: self._stop_live(t, serial))
         self.params_stack.addWidget(panel)
+        self.run_footer.addWidget(panel.footer)
         self._params[tab] = panel
 
         tab.clicked.connect(lambda t=tab: self._activate(t))
@@ -706,6 +738,8 @@ class TabPanel(ReorderableBar, QWidget):
         panel = self._params.pop(tab, None)
         if panel is not None:
             self.params_stack.removeWidget(panel)
+            self.run_footer.removeWidget(panel.footer)
+            panel.footer.deleteLater()
             panel.deleteLater()
 
         self.tabs.remove(tab)
@@ -720,6 +754,7 @@ class TabPanel(ReorderableBar, QWidget):
             self.empty_hint.setVisible(True)
             self.content_area.setCurrentWidget(self.welcome_widget)
             self.params_stack.setCurrentIndex(0)
+            self.run_footer.setCurrentIndex(0)
             self.env_panel.filter_for(None)
             self._set_right_header(self.project.icon, self.project.name)
             self.params_section.set_expanded(False, announce=False)
@@ -769,6 +804,7 @@ class TabPanel(ReorderableBar, QWidget):
         panel = self._params.get(tab)
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
+            self.run_footer.setCurrentWidget(panel.footer)
             self.env_panel.filter_for(panel.relevant_keys())
             self._set_right_header(panel.capability.icon, panel.capability.name,
                                    panel.capability)
@@ -797,7 +833,7 @@ class TabPanel(ReorderableBar, QWidget):
         total = self.right_column.height()
         if total <= 0:
             return
-        secciones = (self.params_section, self.security_section, self.config_section)
+        secciones = (self.security_section, self.params_section, self.config_section)
         alto = {s: s.header_height() for s in secciones}
         libre = total - sum(alto.values())
 
@@ -986,6 +1022,8 @@ class TabPanel(ReorderableBar, QWidget):
         panel = self._params.get(tab)
         if panel is not None:
             panel.run_btn.setEnabled(False)
+            if panel.dry_btn is not None:
+                panel.dry_btn.setEnabled(False)
 
         runner = TaskRunner(capability.id, self.project, capability.func, kwargs)
         if track:

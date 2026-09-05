@@ -229,9 +229,25 @@ class EnvPanel(QWidget):
         self.create_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.create_btn.clicked.connect(self.create_file)
 
+        # Recargar y Guardar antes vivian en el pie del panel de parametros, que
+        # es donde no correspondian: operan sobre este archivo, no sobre la
+        # accion abierta. Guardar es ademas el unico camino para persistir lo
+        # editado (los cambios de fila solo emiten en memoria).
+        self.reload_btn = QPushButton("Recargar")
+        self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.reload_btn.setToolTip("Descarta los cambios sin guardar y relee el archivo")
+        self.reload_btn.clicked.connect(self.reload)
+
+        self.save_btn = QPushButton("Guardar")
+        self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.save_btn.setToolTip("Escribe .consola/config.env con los valores actuales")
+        self.save_btn.clicked.connect(self.save)
+
         lay.addWidget(self.file_label, 1)
+        lay.addWidget(self.reload_btn)
         lay.addWidget(self.import_btn)
         lay.addWidget(self.create_btn)
+        lay.addWidget(self.save_btn)
         self._restyle_create()
         return bar
 
@@ -246,6 +262,8 @@ class EnvPanel(QWidget):
         """
         self.create_btn.setStyleSheet(button_css)
         self.import_btn.setStyleSheet(button_css)
+        self.reload_btn.setStyleSheet(button_css)
+        self.save_btn.setStyleSheet(button_css)
 
     def _build_security(self) -> QWidget:
         """Los seguros del repo, sin encabezado de grupo: el titulo lo pone la
