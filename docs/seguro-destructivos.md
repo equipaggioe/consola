@@ -61,8 +61,8 @@ ningún repo), así que un interruptor por repositorio no tendría a qué reposi
 
 ## 4. Dónde vive el interruptor, y por qué ahí
 
-En **la configuración del repo** (`.consola/config.env`, sección Seguridad del panel), **no** en el
-panel de parámetros.
+En **la configuración del repo** (`.consola/config.env`, sección Seguridad del panel derecho), **no**
+en el panel de parámetros.
 
 Es la decisión de diseño que sostiene todo lo demás. Un seguro que se quita con el mismo gesto con el
 que se aprieta Ejecutar —una casilla "desbloquear" al lado del botón— se vuelve parte del gesto, y a
@@ -72,8 +72,10 @@ Aquí se decide **una vez**, cuando das de alta el repo, y queda escrito en un a
 `grep`ear. Un interruptor que se toca cada varios meses no llega a ser reflejo. Lo que **sí** se
 repite es la confirmación escrita, y esa verifica identidad.
 
-Se dibujan como interruptores y no como campos de texto (`Setting.kind='bool'`,
-`ui/env_panel.py`): escribir `1` a mano en una casilla de seguridad es pedir que se escriba mal.
+Se dibujan como **casillas** y no como campos de texto (`Setting.kind='bool'`, `ui/env_panel.py`):
+escribir `1` a mano en una casilla de seguridad es pedir que se escriba mal. Son las mismas casillas
+que los parámetros de una acción —mismo widget, mismo tamaño de letra—, sin texto explicativo al
+lado: la etiqueta ya dice qué protege y el detalle vive en el tooltip.
 
 ## 5. Dónde se aplica
 
@@ -105,36 +107,41 @@ if targets:
 
 ## 7. Encontrar los interruptores: el indicador de la barra de estado
 
-Los cinco interruptores viven en la sección Seguridad del panel de configuración (§4), pero esa
-sección quedaba enterrada: `EnvPanel.filter_for()` sólo muestra las claves que la acción abierta
-reclama, así que con cualquier acción no destructiva —o sin ninguna pestaña abierta— desaparecían.
+Los cinco seguros viven en la sección Seguridad del panel derecho (§4), pero esa sección quedaba
+enterrada: `EnvPanel.filter_for()` sólo muestra las claves que la acción abierta reclama, así que con
+cualquier acción no destructiva —o sin ninguna pestaña abierta— desaparecían.
 
-Dos cambios, ninguno vuelve al modelo de "un interruptor junto al botón Ejecutar" que ya se
+Tres cambios, ninguno vuelve al modelo de "un interruptor junto al botón Ejecutar" que ya se
 descartó en el §4:
 
-- **La sección Seguridad queda exenta del filtro** (`core.settings.PINNED_GROUP`,
-  `EnvPanel.filter_for`): siempre está en el panel de configuración, arriba de todo, sea cual sea la
-  acción activa. Sigue siendo *un* control — no hay un segundo lugar que la duplique y se pueda
-  desincronizar.
+- **Seguridad es una sección propia del acordeón del panel derecho** (`ui/widgets/accordion.py`),
+  hermana de Parámetros y de Configuración y no un grupo dentro de esta última. Por eso ya no
+  necesita la exención al filtro que tenía: ningún filtro de acción la alcanza, porque no vive en el
+  formulario que se filtra. Sigue siendo *un* control — no hay un segundo lugar que la duplique y se
+  pueda desincronizar. Se puede plegar como las otras dos, y plegada sigue diciendo lo suyo: su
+  cabecera lleva el resumen «*n* de 5 protegidos».
 - **La barra de estado inferior** —siempre visible, a lo ancho de toda la ventana— lleva un
   indicador con lo que el repo activo tiene protegido ahora mismo: `🔒 VPS · BD · otros repos` o,
   si no protege nada, `🔓 sin seguros` en ámbar. No es un dato oculto detrás de un menú: un repo sin
   ningún seguro es tan digno de verse de un vistazo como uno que sí los tiene.
+- **`core.settings.PINNED_GROUP`** sigue existiendo, pero ahora sólo nombra qué grupo del esquema se
+  va a esa sección aparte (`EnvPanel._build_security`), no una excepción al filtrado.
 
 El indicador lee **lo que hay en pantalla**, no sólo lo guardado (`EnvPanel.values()`, vía
-`values_changed`): si tocaste un interruptor y todavía no apretaste Guardar, el indicador ya lo
-refleja — es el mismo valor que `TabPanel._guard_ok` va a mirar si apretás Ejecutar antes de guardar.
-Un clic en el indicador llama a `TabPanel.reveal_security()`, que hace scroll hasta la sección.
+`values_changed`): si tocaste una casilla y todavía no apretaste Guardar, el indicador ya lo
+refleja — es el mismo valor que `TabPanel._guard_ok` va a mirar si aprietas Ejecutar antes de
+guardar. Un clic en el indicador llama a `TabPanel.reveal_security()`, que despliega la sección.
 
 ## 8. Archivos
 
 | Archivo | Qué hace |
 |---|---|
 | `core/protection.py` | los objetivos, qué rompe cada acción, cómo lo modulan sus ejes y `repo_protections()` para el indicador |
-| `core/settings.py` | `_protection_settings()` deriva un `Setting` por objetivo; `PINNED_GROUP` |
-| `ui/env_panel.py` | los `kind='bool'` como interruptor; `filter_for` nunca oculta `PINNED_GROUP`; `reveal_security()` |
+| `core/settings.py` | `_protection_settings()` deriva un `Setting` por objetivo; `PINNED_GROUP` marca cuál va a su sección |
+| `ui/env_panel.py` | los `kind='bool'` como casilla; `_build_security()` arma el cuerpo de la sección Seguridad |
+| `ui/widgets/accordion.py` | la sección plegable con su cabecera y su resumen |
 | `ui/guard_dialog.py` | la confirmación escrita |
-| `ui/tab_panel.py` | `TabPanel._guard_ok` en el punto único de ejecución; `WorkspaceStatusBar` lleva el indicador |
+| `ui/tab_panel.py` | `TabPanel._guard_ok` en el punto único de ejecución; el acordeón del panel derecho; `WorkspaceStatusBar` lleva el indicador |
 | `ui/main_window.py` | conecta el indicador al repo activo y al clic (`_refresh_protection`, `_on_security_clicked`) |
 
 Añadir un objetivo nuevo es una fila en `TARGETS` y una en `RULES`: la clave de configuración, su

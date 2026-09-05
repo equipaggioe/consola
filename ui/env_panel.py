@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QFrame, QToolButton, QFileDialog
+    QScrollArea, QFrame, QToolButton, QFileDialog, QCheckBox
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -10,7 +10,6 @@ from ui.theme import Colors, Fonts
 from core.projects import Project
 from core import envfile
 from core.settings import settings_by_group, Setting, PINNED_GROUP
-from ui.widgets import ToggleSwitch
 
 
 _TRUE = {'1', 'true', 'yes', 'y', 'on', 'si', 'true'}
@@ -23,7 +22,7 @@ def _truthy(value: str) -> bool:
 class EnvRow(QWidget):
     """Una clave del esquema: etiqueta, campo y, si es secreta, ojo para revelar.
 
-    Con `kind='bool'` (los seguros de `core/protection.py`) es un interruptor en
+    Con `kind='bool'` (los seguros de `core/protection.py`) es una casilla en
     vez de un campo: `value()` devuelve '1'/'0' para que el resto del panel siga
     tratando todo como texto y `.consola/config.env` no cambie de forma.
     """
@@ -39,24 +38,23 @@ class EnvRow(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
 
-        # Un seguro no es un campo de texto: se dibuja como interruptor, con la
-        # explicacion al lado en vez de una etiqueta a la izquierda. Escribir
-        # '1' a mano en una casilla de seguridad es pedir que se escriba mal.
+        # Un seguro no es un campo de texto: se dibuja como casilla, igual que
+        # los parametros de una accion (mismo widget, mismo tamano de fuente).
+        # Escribir '1' a mano en una casilla de seguridad es pedir que se
+        # escriba mal. La explicacion vive en el tooltip, no en un texto al
+        # lado: la etiqueta de la casilla ya dice que protege.
         self.field = None
-        self.toggle = None
+        self.check = None
         if setting.kind == 'bool':
-            self.toggle = ToggleSwitch(setting.display, _truthy(value), accent)
-            self.toggle.setToolTip(f'{setting.key} - {setting.placeholder}')
-            self.toggle.toggled.connect(self._on_toggle)
-            lay.addWidget(self.toggle)
-            if setting.placeholder:
-                nota = QLabel(setting.placeholder)
-                nota.setWordWrap(True)
-                nota.setStyleSheet(
-                    f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                    f"font-size: {Fonts.SIZE_XS}px;"
-                )
-                lay.addWidget(nota, 1)
+            self.check = QCheckBox(setting.display)
+            self.check.setCursor(Qt.CursorShape.PointingHandCursor)
+            self.check.setChecked(_truthy(value))
+            self.check.setToolTip(
+                f'{setting.key} — {setting.placeholder}' if setting.placeholder
+                else setting.key)
+            self.check.toggled.connect(self._on_toggle)
+            lay.addWidget(self.check)
+            lay.addStretch(1)
             return
 
         self.label = QLabel(setting.display)
@@ -96,25 +94,25 @@ class EnvRow(QWidget):
         self._restyle()
 
     def value(self) -> str:
-        if self.toggle is not None:
-            return '1' if self.toggle.is_checked() else '0'
+        if self.check is not None:
+            return '1' if self.check.isChecked() else '0'
         return self.field.text().strip()
 
     def set_value(self, value: str) -> None:
-        if self.toggle is not None:
+        if self.check is not None:
             # Un repo que todavia no dice nada se queda con el default del
             # esquema, que para los seguros es "protegido".
             crudo = (value or '').strip()
-            self.toggle.set_checked(_truthy(crudo) if crudo
-                                    else _truthy(self.setting.default),
-                                    announce=False)
+            marcado = _truthy(crudo) if crudo else _truthy(self.setting.default)
+            self.check.blockSignals(True)
+            self.check.setChecked(marcado)
+            self.check.blockSignals(False)
             return
         self.field.setText(value)
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
-        if self.toggle is not None:
-            self.toggle.set_accent(accent)
+        if self.check is not None:
             return
         self._restyle()
 
@@ -151,6 +149,13 @@ class EnvPanel(QWidget):
 
     Es por repo, no por pestana: se queda igual mientras cambias de accion
     arriba. Escribe el archivo regenerado desde el esquema (core/envfile).
+
+    Dibuja DOS cuerpos, no uno: este widget es el de «Configuración», y
+    `security_panel` —los seguros de `core/protection.py`— es un widget
+    hermano que no entra en este layout porque lo reclama `TabPanel` para su
+    propia seccion del acordeon. El estado sigue siendo uno solo: `rows`
+    tiene las claves de los dos, asi que `values()`, `reload()` y `save()`
+    ven el archivo entero y no una mitad.
     """
     saved = Signal(dict)
     values_changed = Signal(dict)
@@ -161,7 +166,6 @@ class EnvPanel(QWidget):
         self.accent = project.color
         self.rows: dict[str, EnvRow] = {}
         self._row_group: dict[str, QWidget] = {}
-        self._group_widgets: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
         # Config vacio (sin valores, solo el repo): sirve para preguntarle
         # "que usarias vos" y que conteste con el default fijo o dinamico
@@ -178,6 +182,10 @@ class EnvPanel(QWidget):
         self.banner = self._build_banner()
         root.addWidget(self.banner)
         root.addWidget(self._build_body(), 1)
+
+        # Sin padre y fuera de `root` a proposito: `TabPanel` lo mete en su
+        # seccion «Seguridad» y con eso adopta la propiedad del widget.
+        self.security_panel = self._build_security()
 
         self.reload()
 
@@ -239,8 +247,29 @@ class EnvPanel(QWidget):
         self.create_btn.setStyleSheet(button_css)
         self.import_btn.setStyleSheet(button_css)
 
+    def _build_security(self) -> QWidget:
+        """Los seguros del repo, sin encabezado de grupo: el titulo lo pone la
+        cabecera de la seccion del acordeon que lo aloja.
+
+        Son cinco casillas fijas (`core/protection.TARGETS`), asi que no lleva
+        scroll propio; la seccion se colapsa entera si estorba.
+        """
+        box = QWidget()
+        box.setStyleSheet(f"background: {Colors.SURFACE};")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(16, 10, 16, 12)
+        lay.setSpacing(6)
+        lay.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        for setting in settings_by_group().get(PINNED_GROUP, []):
+            row = EnvRow(setting, '', self.accent)
+            row.changed.connect(self._on_row_changed)
+            self.rows[setting.key] = row
+            lay.addWidget(row)
+        return box
+
     def _build_body(self) -> QWidget:
-        self._scroll = scroll = QScrollArea()
+        scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
@@ -253,6 +282,8 @@ class EnvPanel(QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         for group, settings in settings_by_group().items():
+            if group == PINNED_GROUP:
+                continue   # tiene seccion propia (`_build_security`)
             block_widget = QWidget()
             block_widget.setStyleSheet("background: transparent;")
             block = QVBoxLayout(block_widget)
@@ -271,7 +302,6 @@ class EnvPanel(QWidget):
                 self._row_group[setting.key] = block_widget
                 block.addWidget(row)
             lay.addWidget(block_widget)
-            self._group_widgets[group] = block_widget
 
         scroll.setWidget(content)
         return scroll
@@ -372,30 +402,21 @@ class EnvPanel(QWidget):
 
         `None` = sin filtro (vista completa, cuando no hay pestana abierta).
 
-        El grupo `PINNED_GROUP` ("Seguridad") queda SIEMPRE visible, filtro o
-        no: son decisiones del repo —que objetivo esta protegido—, no
-        parametros de la accion abierta, y esconderlas detras de que boton
-        tengas activo es lo que hacia dificil encontrarlas
-        (`docs/seguro-destructivos.md` §4). El indicador de la barra de estado
-        (`ui/tab_panel.py::WorkspaceStatusBar`) es el atajo para llegar aca;
-        esto es lo que hace que llegar sirva de algo.
+        Solo alcanza a las filas de ESTE cuerpo. Los seguros
+        (`PINNED_GROUP`) ya no necesitan la excepcion que tenian aca: viven en
+        su propia seccion del acordeon, asi que ningun filtro de accion los
+        toca — son decisiones del repo, no parametros de lo que este abierto
+        (`docs/seguro-destructivos.md` §4).
         """
         self._filter = keys
         visible_groups: set[QWidget] = set()
-        for key, row in self.rows.items():
-            visible = keys is None or key in keys or row.setting.group == PINNED_GROUP
-            row.setVisible(visible)
+        for key, block in self._row_group.items():
+            visible = keys is None or key in keys
+            self.rows[key].setVisible(visible)
             if visible:
-                visible_groups.add(self._row_group[key])
+                visible_groups.add(block)
         for group_widget in set(self._row_group.values()):
             group_widget.setVisible(group_widget in visible_groups)
-
-    def reveal_security(self) -> None:
-        """Salta a la seccion Seguridad: la llama el indicador de la barra de
-        estado (`ui/main_window.py::_on_security_clicked`)."""
-        widget = self._group_widgets.get(PINNED_GROUP)
-        if widget is not None:
-            self._scroll.ensureWidgetVisible(widget, 0, 0)
 
     # --- interno ------------------------------------------------------------
     def _on_row_changed(self) -> None:

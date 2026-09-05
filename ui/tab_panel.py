@@ -3,7 +3,7 @@ from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
     QPushButton, QSizePolicy, QSplitter, QInputDialog, QLineEdit, QMessageBox
 )
-from PySide6.QtCore import Qt, Signal, QRectF, QTimer
+from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QEvent
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
@@ -17,7 +17,8 @@ from ui.tab_view import TabView
 from ui.params_panel import ParamsPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
-from ui.widgets import ReorderableTab, ReorderableBar, LevelMark, ScopeMark
+from ui.widgets import (ReorderableTab, ReorderableBar, LevelMark, ScopeMark,
+                        AccordionSection)
 from ui.guard_dialog import GuardDialog
 from ui.task_adapters import ADAPTERS
 from ui.task_runner import TaskRunner
@@ -372,18 +373,46 @@ class TabPanel(ReorderableBar, QWidget):
         self.welcome_widget = self._build_welcome()
         self.content_area.addWidget(self.welcome_widget)
 
-        # --- columna derecha: cabecera unica + config arriba, parametros abajo ---
+        # --- columna derecha: cabecera unica + acordeon de tres secciones ---
+        # Acordeon y no pestanas porque las tres se leen juntas: un bloqueo de
+        # `ParamsPanel` puede decir "faltan claves de configuracion: VPS_IP" y
+        # esa clave esta en la seccion de abajo. Con pestanas, el mensaje
+        # apuntaria a algo que no se ve. Ver `ui/widgets/accordion.py`.
         self.params_stack = QStackedWidget()
         self.params_stack.addWidget(self._build_params_placeholder())
 
         self.env_panel = EnvPanel(project)
         self.env_panel.values_changed.connect(self._on_env_changed)
+        self.env_panel.values_changed.connect(self._refresh_security_summary)
 
-        self.right_column = QSplitter(Qt.Orientation.Vertical)
-        self.right_column.addWidget(self.env_panel)
-        self.right_column.addWidget(self.params_stack)
-        self.right_column.setSizes([420, 460])
-        self.right_column.setChildrenCollapsible(True)
+        self.params_section = AccordionSection('Parámetros', self.params_stack,
+                                               expanded=False)
+        self.security_section = AccordionSection('Seguridad', self.env_panel.security_panel)
+        self.config_section = AccordionSection('Configuración del repo', self.env_panel)
+
+        # Un layout y no un `QSplitter`: plegar es ponerle un tope de alto a la
+        # seccion, y un splitter guarda sus propios tamanos aparte — los dos
+        # mandos peleaban y el reparto solo cuajaba un turno despues.
+        #
+        # Quien reparte es `_relayout_right`, que le calcula el tope a cada una;
+        # el layout solo lo obedece. Dejarselo a los factores de estiramiento no
+        # alcanzaba: `params_stack` y `env_panel` piden alturas que no tienen
+        # nada que ver con lo que la columna puede dar, y negociando entre ellos
+        # una seccion terminaba con el alto de otra.
+        self.right_column = QWidget()
+        self.right_column.installEventFilter(self)   # ver `eventFilter`
+        column = QVBoxLayout(self.right_column)
+        column.setContentsMargins(0, 0, 0, 0)
+        column.setSpacing(0)
+        for section in (self.params_section, self.security_section, self.config_section):
+            # Configuracion es la unica que estira: asi ocupa su tope entero en
+            # vez de quedarse en el `sizeHint` de su formulario y dejar un hueco
+            # muerto abajo. Las otras dos ya valen exactamente su contenido.
+            column.addWidget(section, 1 if section is self.config_section else 0)
+            section.toggled.connect(self._relayout_right)
+        # Con Configuracion plegada no queda quien estire: este resorte se come
+        # el sobrante para que las cabeceras se apilen arriba.
+        column.addStretch(0)
 
         self.right_header = self._build_right_header()
 
@@ -420,7 +449,8 @@ class TabPanel(ReorderableBar, QWidget):
         self._runners: set[TaskRunner] = set()  # referencias vivas: sin esto Qt las recolecta a mitad de hilo
         self._busy: dict[SubTabButton, TaskRunner] = {}  # que pestana tiene tarea corriendo
 
-        QTimer.singleShot(0, self._collapse_params)
+        self._refresh_security_summary(self.env_panel.values())
+        QTimer.singleShot(0, self._relayout_right)
 
     # --- construccion ------------------------------------------------
     def _build_right_header(self) -> QWidget:
@@ -692,7 +722,8 @@ class TabPanel(ReorderableBar, QWidget):
             self.params_stack.setCurrentIndex(0)
             self.env_panel.filter_for(None)
             self._set_right_header(self.project.icon, self.project.name)
-            self._collapse_params()
+            self.params_section.set_expanded(False, announce=False)
+            self._relayout_right()
 
     def current_console(self) -> ConsoleView | None:
         """La consola de la pestana activa.
@@ -724,9 +755,9 @@ class TabPanel(ReorderableBar, QWidget):
         self.env_panel.set_accent(accent)
 
     def reveal_security(self) -> None:
-        """Salta a la seccion Seguridad de la configuracion de este repo. La
-        llama el indicador de la barra de estado (`ui/main_window.py`)."""
-        self.env_panel.reveal_security()
+        """Despliega la seccion Seguridad de este repo. La llama el indicador
+        de la barra de estado (`ui/main_window.py`)."""
+        self.security_section.set_expanded(True)
 
     # --- interno ------------------------------------------------------
     def _activate(self, tab: SubTabButton) -> None:
@@ -741,23 +772,74 @@ class TabPanel(ReorderableBar, QWidget):
             self.env_panel.filter_for(panel.relevant_keys())
             self._set_right_header(panel.capability.icon, panel.capability.name,
                                    panel.capability)
-            QTimer.singleShot(0, self._fit_params_height)
+            # Abrir una accion despliega sus parametros; si la habias plegado
+            # a mano, vuelve a abrirse — es lo que fuiste a buscar al clic.
+            self.params_section.set_expanded(True, announce=False)
+            QTimer.singleShot(0, self._relayout_right)
 
-    def _collapse_params(self) -> None:
-        """Sin pestana abierta no hay parametros que mostrar: el panel de
-        parametros colapsa a 0 y el .env se queda con toda la columna."""
+    def eventFilter(self, obj, event):
+        """La columna derecha cambio de alto (ventana redimensionada, o la
+        cabecera crecio con la descripcion de la accion): hay que repartir de
+        nuevo, porque el alto de Configuracion es «lo que sobre»."""
+        if obj is self.right_column and event.type() == QEvent.Type.Resize:
+            self._relayout_right()
+        return super().eventFilter(obj, event)
+
+    def _relayout_right(self, *_args) -> None:
+        """Le calcula el tope de alto a cada una de las tres secciones.
+
+        Plegada, una seccion es solo su cabecera. Abiertas, Seguridad se queda
+        con lo que sus casillas necesitan y Parametros con lo que pida su
+        accion —hasta la mitad larga de la columna, para que una accion con
+        muchas opciones no deje al resto en un hilo—; Configuracion recibe lo
+        que sobre, que para eso es la unica con scroll largo.
+        """
         total = self.right_column.height()
-        self.right_column.setSizes([total, 0])
+        if total <= 0:
+            return
+        secciones = (self.params_section, self.security_section, self.config_section)
+        alto = {s: s.header_height() for s in secciones}
+        libre = total - sum(alto.values())
 
-    def _fit_params_height(self) -> None:
-        """El panel de parametros solo ocupa lo que su contenido necesita;
-        el resto de la columna derecha queda para el .env."""
+        if self.security_section.is_expanded():
+            dar = max(0, min(self._security_wanted(), libre))
+            alto[self.security_section] += dar
+            libre -= dar
+        if self.params_section.is_expanded():
+            # Configuracion conserva un minimo util si tambien esta abierta.
+            techo = min(self._params_wanted(), int(total * 0.55))
+            dar = max(0, min(techo, libre - (120 if self.config_section.is_expanded() else 0)))
+            alto[self.params_section] += dar
+            libre -= dar
+        if self.config_section.is_expanded():
+            alto[self.config_section] += libre
+
+        for section, valor in alto.items():
+            # Tope y no alto fijo: con las tres clavadas, la columna imponia su
+            # suma como alto minimo y la ventana ya no se podia achicar. El
+            # piso queda en la cabecera, que es lo unico irrenunciable.
+            section.setMaximumHeight(valor)
+            section.setMinimumHeight(section.header_height())
+
+    def _params_wanted(self) -> int:
         panel = self.current_params()
         if panel is None:
-            return
-        total = self.right_column.height()
-        params_h = max(160, min(panel.natural_height(), total - 120))
-        self.right_column.setSizes([total - params_h, params_h])
+            return self.params_stack.sizeHint().height()
+        return max(160, panel.natural_height())
+
+    def _security_wanted(self) -> int:
+        return self.env_panel.security_panel.sizeHint().height()
+
+    def _refresh_security_summary(self, values: dict) -> None:
+        """Cuantos objetivos estan protegidos, en la cabecera de la seccion.
+
+        Es lo que hace que cerrarla no cueste informacion: plegada sigue
+        diciendo el unico dato por el que se abre."""
+        config = envfile.Config(values, repo_name=envfile.repo_name_of(self.project.path))
+        protegidos = len(protection.repo_protections(config))
+        total = len(protection.TARGETS)
+        self.security_section.set_summary(
+            f'{protegidos} de {total} protegidos' if protegidos else 'sin seguros')
 
     def _on_env_changed(self, values: dict) -> None:
         for panel in self._params.values():
