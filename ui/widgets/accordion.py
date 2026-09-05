@@ -121,3 +121,8 @@ class AccordionSection(QWidget):
 
     def set_summary(self, text: str) -> None:
         self.header.summary.setText(text)
+
+    def set_title(self, text: str) -> None:
+        """Cambia el rotulo de la cabecera. Para la seccion cuyo titulo es el
+        nombre de la accion abierta, no una etiqueta fija."""
+        self.header.title.setText(text.upper())

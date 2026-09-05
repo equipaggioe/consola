@@ -12,7 +12,7 @@ from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar, ProjectTab
 from ui import project_store, params_store, readiness
 from ui.theme import Colors, Fonts
-from core import protection, envfile
+from core import envfile
 from core.registry import registry
 from core.projects import Project
 
@@ -376,7 +376,7 @@ class MainWindow(QMainWindow):
         tienen que decir lo mismo."""
         config = envfile.Config(workspace.env_panel.values(),
                                 repo_name=envfile.repo_name_of(workspace.project.path))
-        self.status_bar.set_protection(protection.repo_protections(config))
+        self.status_bar.set_protection(config)
 
     def _on_env_values_changed(self, workspace: TabPanel) -> None:
         if workspace is self.current_workspace:

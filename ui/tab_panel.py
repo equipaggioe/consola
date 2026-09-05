@@ -15,6 +15,7 @@ from core.projects import Project
 from ui.console_view import ConsoleView
 from ui.tab_view import TabView
 from ui.params_panel import ParamsPanel
+from ui.command_info_panel import CommandInfoPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
 from ui.widgets import (ReorderableTab, ReorderableBar, LevelMark, ScopeMark,
@@ -152,6 +153,29 @@ class SubTabButton(ReorderableTab, QWidget):
         p.end()
 
 
+class PadlockChip(QLabel):
+    """Un objetivo de proteccion en la barra de estado: su nombre corto con un
+    candado cerrado (protegido) o abierto (sin proteger). Clic -> salta a la
+    seccion Seguridad."""
+    clicked = Signal()
+
+    def __init__(self, chip: str, label: str, protected: bool, parent=None):
+        super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        color = Colors.TEXT_DIM if protected else Colors.WARNING
+        self.setStyleSheet(
+            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;")
+        self.setToolTip(
+            f"{label}: {'protegido' if protected else 'sin proteger'}. "
+            "Clic para administrar en Configuración → Seguridad.")
+
+    def mouseReleaseEvent(self, event):
+        if (event.button() == Qt.MouseButton.LeftButton
+                and self.rect().contains(event.position().toPoint())):
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+
 class WorkspaceStatusBar(QWidget):
     """Barra inferior del espacio de trabajo: repo activo, servicios y estado.
 
@@ -187,16 +211,16 @@ class WorkspaceStatusBar(QWidget):
         self._tools: dict[str, tuple[LedIndicator, QLabel]] = {}
         self.refresh_tools()
 
-        # Que objetivos tiene protegidos el repo activo (`core/protection.py`),
-        # siempre a la vista sin importar que accion este abierta arriba: es la
-        # razon de ser de este boton — antes solo se veia si abrias justo una
-        # accion destructiva (`docs/seguro-destructivos.md` §4). El clic salta
-        # a la seccion Seguridad de la configuracion.
-        self.security_btn = QPushButton("")
-        self.security_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.security_btn.setFlat(True)
-        self.security_btn.clicked.connect(self.security_clicked.emit)
-        layout.addWidget(self.security_btn)
+        # Los objetivos de proteccion del repo activo (`core/protection.py`),
+        # cada uno con su candado abierto o cerrado, siempre a la vista sin
+        # importar que accion este abierta arriba (`docs/seguro-destructivos.md`
+        # §4). El clic en cualquiera salta a la seccion Seguridad.
+        self.security_box = QWidget()
+        self.security_box.setStyleSheet("background: transparent;")
+        self._security_row = QHBoxLayout(self.security_box)
+        self._security_row.setContentsMargins(0, 0, 0, 0)
+        self._security_row.setSpacing(9)
+        layout.addWidget(self.security_box)
 
         separator = QLabel("·")
         separator.setStyleSheet(f"color: {Colors.BORDER_LIGHT}; font-size: {Fonts.SIZE_XS}px;")
@@ -277,26 +301,26 @@ class WorkspaceStatusBar(QWidget):
         """Sin ningun repositorio abierto: nada que decir sobre repo, seguros
         ni tareas activas (`ui/main_window.py::_show_empty_state`)."""
         self.project_label.setText("")
-        self.security_btn.setVisible(False)
+        self.security_box.setVisible(False)
         self.set_status("")
 
-    def set_protection(self, targets: list) -> None:
-        self.security_btn.setVisible(True)
-        """Refresca el indicador con lo que este repo tiene protegido ahora
-        mismo (`core/protection.Target`). Se llama al cambiar de repo y cada
-        vez que se toca un interruptor de Seguridad — protegido o no, siempre
-        dice algo: un repo sin ningun seguro tambien es un dato."""
-        if targets:
-            texto = '🔒 ' + ' · '.join(t.chip for t in targets)
-            self._protected = True
-        else:
-            texto = '🔓 sin seguros'
-            self._protected = False
-        self.security_btn.setText(texto)
-        self.security_btn.setToolTip(
-            ('Protegido: ' + ', '.join(t.label for t in targets)
-             if targets else 'Este repo no tiene ningun objetivo protegido')
-            + '. Clic para administrar en Configuración → Seguridad.')
+    def set_protection(self, config) -> None:
+        """Refresca los candados con el estado de CADA objetivo de proteccion
+        (`core/protection.TARGETS`), no solo los protegidos: un objetivo sin
+        seguro tambien es un dato, y con su candado abierto se ve de un
+        vistazo. `config` es un `core.envfile.Config`. Se llama al cambiar de
+        repo y cada vez que se toca un interruptor de Seguridad."""
+        while self._security_row.count():
+            item = self._security_row.takeAt(0)
+            if item.widget():
+                item.widget().deleteLater()
+
+        self.security_box.setVisible(True)
+        for target in protection.TARGETS:
+            protegido = protection.is_protected(config, target)
+            chip = PadlockChip(target.chip, target.label, protegido)
+            chip.clicked.connect(self.security_clicked.emit)
+            self._security_row.addWidget(chip)
         self._restyle()
 
     def _restyle(self) -> None:
@@ -309,16 +333,6 @@ class WorkspaceStatusBar(QWidget):
         self.project_label.setStyleSheet(
             f"color: {self.accent}; font-size: {Fonts.SIZE_SM}px; font-weight: 600;"
         )
-        protegido = getattr(self, '_protected', True)
-        self.security_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: none; padding: 2px 6px;
-                border-radius: 4px;
-                color: {Colors.TEXT_DIM if protegido else Colors.WARNING};
-                font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
-        """)
 
 
 class TabPanel(ReorderableBar, QWidget):
@@ -385,6 +399,11 @@ class TabPanel(ReorderableBar, QWidget):
         self.env_panel.values_changed.connect(self._on_env_changed)
         self.env_panel.values_changed.connect(self._refresh_security_summary)
 
+        # Seccion de arriba: la descripcion larga de la accion abierta. Su
+        # cabecera lleva el nombre de la accion (no una etiqueta fija), asi que
+        # plegada sigue diciendo cual es sin la descripcion.
+        self.info_panel = CommandInfoPanel()
+        self.info_section = AccordionSection('Acción', self.info_panel, expanded=False)
         self.security_section = AccordionSection('Seguridad', self.env_panel.security_panel)
         self.params_section = AccordionSection('Parámetros', self.params_stack,
                                                expanded=False)
@@ -404,7 +423,8 @@ class TabPanel(ReorderableBar, QWidget):
         column = QVBoxLayout(self.right_column)
         column.setContentsMargins(0, 0, 0, 0)
         column.setSpacing(0)
-        for section in (self.security_section, self.params_section, self.config_section):
+        for section in (self.info_section, self.security_section,
+                        self.params_section, self.config_section):
             # Configuracion es la unica que estira: asi ocupa su tope entero en
             # vez de quedarse en el `sizeHint` de su formulario y dejar un hueco
             # muerto abajo. Las otras dos ya valen exactamente su contenido.
@@ -757,6 +777,9 @@ class TabPanel(ReorderableBar, QWidget):
             self.run_footer.setCurrentIndex(0)
             self.env_panel.filter_for(None)
             self._set_right_header(self.project.icon, self.project.name)
+            self.info_panel.set_capability(None)
+            self.info_section.set_title('Acción')
+            self.info_section.set_expanded(False, announce=False)
             self.params_section.set_expanded(False, announce=False)
             self._relayout_right()
 
@@ -808,6 +831,8 @@ class TabPanel(ReorderableBar, QWidget):
             self.env_panel.filter_for(panel.relevant_keys())
             self._set_right_header(panel.capability.icon, panel.capability.name,
                                    panel.capability)
+            self.info_panel.set_capability(panel.capability)
+            self.info_section.set_title(panel.capability.name)
             # Abrir una accion despliega sus parametros; si la habias plegado
             # a mano, vuelve a abrirse — es lo que fuiste a buscar al clic.
             self.params_section.set_expanded(True, announce=False)
@@ -833,10 +858,18 @@ class TabPanel(ReorderableBar, QWidget):
         total = self.right_column.height()
         if total <= 0:
             return
-        secciones = (self.security_section, self.params_section, self.config_section)
+        secciones = (self.info_section, self.security_section,
+                     self.params_section, self.config_section)
         alto = {s: s.header_height() for s in secciones}
         libre = total - sum(alto.values())
 
+        if self.info_section.is_expanded():
+            # Como Seguridad: se queda con lo que su texto necesita, hasta un
+            # tercio de la columna, para que una descripcion larga no aplaste
+            # al resto.
+            dar = max(0, min(self._info_wanted(), int(total * 0.33), libre))
+            alto[self.info_section] += dar
+            libre -= dar
         if self.security_section.is_expanded():
             dar = max(0, min(self._security_wanted(), libre))
             alto[self.security_section] += dar
@@ -865,6 +898,9 @@ class TabPanel(ReorderableBar, QWidget):
 
     def _security_wanted(self) -> int:
         return self.env_panel.security_panel.sizeHint().height()
+
+    def _info_wanted(self) -> int:
+        return self.info_panel.content_height() + 28
 
     def _refresh_security_summary(self, values: dict) -> None:
         """Cuantos objetivos estan protegidos, en la cabecera de la seccion.

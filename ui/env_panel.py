@@ -178,10 +178,13 @@ class EnvPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        root.addWidget(self._build_file_bar())
+        # El formulario arriba y las acciones abajo: los botones caen justo
+        # sobre el borde de la seccion, a la mano y sin competir con la primera
+        # clave por la mirada.
+        root.addWidget(self._build_body(), 1)
         self.banner = self._build_banner()
         root.addWidget(self.banner)
-        root.addWidget(self._build_body(), 1)
+        root.addWidget(self._build_file_bar())
 
         # Sin padre y fuera de `root` a proposito: `TabPanel` lo mete en su
         # seccion «Seguridad» y con eso adopta la propiedad del widget.
@@ -192,7 +195,7 @@ class EnvPanel(QWidget):
     # --- construccion ---------------------------------------------------
     def _build_banner(self) -> QWidget:
         box = QWidget()
-        box.setStyleSheet(f"background: transparent; border-bottom: 1px solid {Colors.BORDER};")
+        box.setStyleSheet(f"background: transparent; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(box)
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(8)
@@ -211,7 +214,7 @@ class EnvPanel(QWidget):
         acciones, mutuamente excluyentes: crear archivo si no existe,
         importar valores si ya existe uno donde ponerlos."""
         bar = QWidget()
-        bar.setStyleSheet(f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
+        bar.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(8)
