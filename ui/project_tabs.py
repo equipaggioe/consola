@@ -240,6 +240,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
     project_selected = Signal(object)   # Project
     project_added = Signal(object)      # Project
     project_removed = Signal(object)    # Project
+    order_changed = Signal()            # se arrastro una pestana a otro sitio
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -267,6 +268,9 @@ class ProjectTabBar(ReorderableBar, QWidget):
     def tabs_reordered(self) -> None:
         self.update()
         self._persist()
+        # El menu Repositorio lista los repos en este mismo orden, y de el
+        # cuelgan los Ctrl+1..9: reordenar aqui tiene que renumerarlos alli.
+        self.order_changed.emit()
 
     # --- conjunto persistente ----------------------------------------
     def _persist(self) -> None:

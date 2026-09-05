@@ -7,9 +7,10 @@ from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut, QIcon, QPix
 from PySide6.QtCore import Qt, QEvent, QTimer
 
 from ui.rail import ActionRail
+from ui.menu_bar import ActionMenuBar
 from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar, ProjectTab
-from ui import project_store, params_store
+from ui import project_store, params_store, readiness
 from ui.theme import Colors, Fonts
 from core import protection, envfile
 from core.registry import registry
@@ -92,14 +93,11 @@ class MainWindow(QMainWindow):
         self.resize(1500, 950)
         self.setMinimumSize(1000, 650)
 
-        self.menuBar().setStyleSheet(f"""
-            QMenuBar {{
-                background: {Colors.CHROME}; color: {Colors.TEXT};
-                border-bottom: 1px solid {Colors.BORDER};
-            }}
-            QMenuBar::item {{ background: transparent; padding: 4px 10px; }}
-            QMenuBar::item:selected {{ background: {Colors.SURFACE_HOVER}; }}
-        """)
+        # Barra de menu: el catalogo entero de acciones, sin ocupar ancho.
+        # Convive con el rail, no lo reemplaza — las dos superficies emiten
+        # las mismas senales y caen en los mismos manejadores.
+        self.action_menu = ActionMenuBar(self)
+        self.setMenuBar(self.action_menu)
 
         self.central_widget = QWidget()
         self.setCentralWidget(self.central_widget)
@@ -178,11 +176,21 @@ class MainWindow(QMainWindow):
         self.project_tabs.project_selected.connect(self._on_project_selected)
         self.project_tabs.project_added.connect(self._on_project_added)
         self.project_tabs.project_removed.connect(self._on_project_removed)
+        self.project_tabs.order_changed.connect(self._sync_repo_menu)
+
+        self.action_menu.action_requested.connect(self._on_action_requested)
+        self.action_menu.run_requested.connect(self._on_run_requested)
+        self.action_menu.add_project_requested.connect(self.project_tabs._pick_repo)
+        self.action_menu.close_project_requested.connect(self._close_active_project)
+        self.action_menu.project_chosen.connect(self._select_project_by_path)
+        self.action_menu.focus_filter_requested.connect(self.rail.filter_box.setFocus)
+        self.action_menu.rail_auto_width_requested.connect(self.rail.clear_user_width)
 
         proyectos = project_store.load()
         for project in proyectos:
             self._ensure_workspace(project)
         self.project_tabs.load_projects(proyectos)
+        self._sync_repo_menu()
         if not proyectos:
             self._show_empty_state()
 
@@ -232,23 +240,43 @@ class MainWindow(QMainWindow):
     def _show_empty_state(self) -> None:
         self.workspace_stack.setCurrentWidget(self.empty_state)
         self.rail.clear_project()
+        self.action_menu.set_project_active(False)
+        self._refresh_readiness()
         self.brand.set_accent(Colors.ACCENT)
         self.status_bar.clear()
         self.setWindowTitle("Consola")
 
     # --- atajos ----------------------------------------------------------
     def _install_shortcuts(self) -> None:
-        for i in range(1, 10):
-            sc = QShortcut(QKeySequence(f"Ctrl+{i}"), self)
-            sc.activated.connect(lambda idx=i - 1: self._select_index(idx))
+        """Solo los que no cuelgan de ningun item de menu.
+
+        Ctrl+T (anadir repo), Ctrl+L (filtrar) y Ctrl+1..9 (saltar a un repo)
+        viven ahora en `ui/menu_bar.py`, sobre la propia `QAction`: asi el
+        atajo se lee al lado de lo que dispara. Declararlos tambien aqui daria
+        un atajo ambiguo y no responderia ninguno de los dos.
+        """
         QShortcut(QKeySequence("Ctrl+Tab"), self).activated.connect(lambda: self._cycle(1))
         QShortcut(QKeySequence("Ctrl+Shift+Tab"), self).activated.connect(lambda: self._cycle(-1))
-        QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(self.project_tabs._pick_repo)
-        QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(self.rail.filter_box.setFocus)
 
-    def _select_index(self, idx: int) -> None:
-        if 0 <= idx < len(self.project_tabs.tabs):
-            self.project_tabs.select_tab(self.project_tabs.tabs[idx])
+    def _select_project_by_path(self, path: str) -> None:
+        """Item del menu Repositorio: activa ese repo. Va por ruta y no por
+        indice porque la lista se puede reordenar arrastrando pestanas."""
+        tab = self.project_tabs.find_tab(path)
+        if tab is not None:
+            self.project_tabs.select_tab(tab)
+
+    def _close_active_project(self) -> None:
+        tab = self.project_tabs._active
+        if tab is not None:
+            self.project_tabs.remove_tab(tab)
+
+    def _sync_repo_menu(self) -> None:
+        """El menu Repositorio refleja las pestanas: cuales hay, en que orden
+        (de ahi salen los Ctrl+1..9) y cual esta activa."""
+        active = self.project_tabs.active_project
+        self.action_menu.set_projects(
+            [t.project for t in self.project_tabs.tabs],
+            active.path if active else None)
 
     def _cycle(self, delta: int) -> None:
         tabs = self.project_tabs.tabs
@@ -304,6 +332,7 @@ class MainWindow(QMainWindow):
     def _on_project_added(self, project: Project) -> None:
         self._ensure_workspace(project)
         self._on_project_selected(project)
+        self._sync_repo_menu()
 
     def _on_project_removed(self, project: Project) -> None:
         workspace = self.workspaces.pop(project_store.identity(project.path), None)
@@ -313,6 +342,7 @@ class MainWindow(QMainWindow):
         # Lo elegido en sus paneles ya no se va a volver a mirar en esta sesion:
         # se baja al repo lo que quedara pendiente y se suelta el cache.
         params_store.forget(project.path)
+        self._sync_repo_menu()
         if not self.project_tabs.tabs:
             self._show_empty_state()
 
@@ -328,6 +358,9 @@ class MainWindow(QMainWindow):
         self.workspace_stack.setCurrentWidget(workspace)
 
         self.rail.set_project(project)
+        self.action_menu.set_project_active(True)
+        self._refresh_readiness()
+        self._sync_repo_menu()
         self.brand.set_accent(project.color)
         self.status_bar.set_project(project.name, project.icon)
         self.status_bar.set_accent(project.color)
@@ -371,12 +404,24 @@ class MainWindow(QMainWindow):
         if capability and workspace is not None:
             workspace.quick_run(capability)
 
+    def _refresh_readiness(self) -> None:
+        """Que acciones pueden correr ya sobre el repo activo.
+
+        La cuenta se hace una sola vez (`ui/readiness.py`) y se reparte a las
+        dos superficies que la muestran: el ▶ de cada fila del rail y el
+        marcador ▸ del menu. Si cada una la calculara por su cuenta podrian
+        discrepar, y son la misma pregunta.
+        """
+        ready = readiness.ready_ids(self.project_tabs.active_project)
+        self.rail.refresh_readiness(ready)
+        self.action_menu.set_ready(ready)
+
     def _on_params_changed(self) -> None:
         """Apagar un paso puede dejar de reclamar claves (y encenderlo,
         volver a pedirlas): el boton de correr del rail se recalcula."""
-        self.rail.refresh_readiness()
+        self._refresh_readiness()
 
     def _on_env_saved(self, *_args) -> None:
         """La configuracion guardada cambio: puede haber acciones nuevas
         listas para correr sin abrir la pestana, o que dejaron de estarlo."""
-        self.rail.refresh_readiness()
+        self._refresh_readiness()

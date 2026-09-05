@@ -8,35 +8,8 @@ from PySide6.QtCore import Qt, Signal, QSize, QTimer, QSettings
 from ui.theme import Colors, Fonts
 from core.registry import registry
 from core.projects import Project
-from core.settings import required_keys_for
-from core import envfile
 from ui.widgets import GroupCard, ToggleSwitch
-from ui import favorites, params_store
-
-
-def _missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
-    """Que le falta a una accion para poder correr sin abrir la pestana.
-
-    Correr desde el rail usa los parametros guardados para ese boton en ese
-    repo, asi que se mira exactamente lo que esos parametros van a correr:
-    los pasos apagados no pueden reclamar claves. Sin nada guardado se
-    cuentan todos los pasos, que es lo que correria por defecto.
-
-    La pregunta final se la hace a un `Config`, igual que
-    `ui/params_panel.py::_missing_keys`: una clave con default fijo
-    (`SERVER_DIR='server'`) o dinamico (`VPS_USER` -> nombre del repo) se
-    resuelve sola al correr, y mirando el texto crudo del campo el rail la
-    marcaba como faltante mientras el panel la daba por buena.
-    """
-    active = params_store.stored_steps(repo_path, capability.id)
-    needed = set(required_keys_for(capability.id))
-    for step in registry.resolve_steps(capability):
-        if active is not None and step.optional and step.id not in active:
-            continue
-        needed |= step.requires_env
-        needed |= set(required_keys_for(step.id))
-    config = envfile.Config(env, repo_name=envfile.repo_name_of(repo_path))
-    return [k for k in needed if not config.get(k)]
+from ui import favorites, readiness
 
 
 class ProjectHeader(QWidget):
@@ -299,7 +272,6 @@ class ActionRail(QWidget):
             card.set_accent(project.color)
         self.scroll_area.setEnabled(True)
         self.db_btn.setEnabled(True)
-        self.refresh_readiness()
         self._schedule_width_hint()
 
     def clear_project(self) -> None:
@@ -311,21 +283,20 @@ class ActionRail(QWidget):
         self.project_header.clear()
         self.scroll_area.setEnabled(False)
         self.db_btn.setEnabled(False)
-        self.refresh_readiness()
 
-    def refresh_readiness(self) -> None:
+    def refresh_readiness(self, ready: set[str] | None = None) -> None:
         """Que acciones pueden correr ya, sin abrir la pestana, con el
         `.consola/config.env` guardado del repo activo y los parametros
         guardados de cada boton. Se recalcula al cambiar de repo, al guardar
-        el `.env` y al cambiar parametros (`ui/tab_panel.py`)."""
-        env = envfile.load_config(self.project.path) if self.project else {}
-        path = self.project.path if self.project else ''
-        ready_ids = {
-            cap.id for cap in registry.get_all()
-            if not _missing_keys(cap, env, path)
-        }
+        el `.env` y al cambiar parametros (`ui/tab_panel.py`).
+
+        La ventana pasa `ready` ya calculado cuando la misma cuenta alimenta
+        tambien a la barra de menu, para no recorrer el registro dos veces.
+        """
+        if ready is None:
+            ready = readiness.ready_ids(self.project)
         for card in self._cards:
-            card.set_ready(ready_ids)
+            card.set_ready(ready)
 
     # --- construccion --------------------------------------------------
     def populate(self) -> None:
