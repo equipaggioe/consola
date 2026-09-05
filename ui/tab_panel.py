@@ -347,6 +347,9 @@ class TabPanel(ReorderableBar, QWidget):
     params_changed = Signal()   # algun panel guardo parametros nuevos
     machine_changed = Signal()  # una tarea de maquina cambio el entorno (SDK instalado, AVD creado)
 
+    # Piso del cuerpo de una seccion del acordeon al arrastrarla a mano.
+    MIN_BODY = 48
+
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
         self.project = project
@@ -424,36 +427,41 @@ class TabPanel(ReorderableBar, QWidget):
         # alcanzaba: `params_stack` y `env_panel` piden alturas que no tienen
         # nada que ver con lo que la columna puede dar, y negociando entre ellos
         # una seccion terminaba con el alto de otra.
-        self.right_column = QWidget()
-        self.right_column.installEventFilter(self)   # ver `eventFilter`
-        column = QVBoxLayout(self.right_column)
-        column.setContentsMargins(0, 0, 0, 0)
-        column.setSpacing(0)
-        # Alto elegido a mano por seccion (arrastrando la barra de abajo). `None`
-        # = seguir el reparto automatico de `_relayout_right`. Se limpia sola al
-        # plegar la seccion: reabrirla vuelve a autoajustarse.
+        # Alto de cuerpo (sin cabecera) elegido a mano arrastrando la barra de
+        # abajo. `None` = seguir el reparto automatico de `_relayout_right`. Se
+        # limpia sola al plegar la seccion: reabrirla vuelve a autoajustarse.
         self._manual: dict[AccordionSection, int | None] = {}
         self._grips: dict[AccordionSection, SectionResizeGrip] = {}
         self._sections = (self.info_section, self.security_section,
                           self.params_section, self.config_section)
+
+        self.right_column = QWidget()
+        self._column = QVBoxLayout(self.right_column)
+        self._column.setContentsMargins(0, 0, 0, 0)
+        self._column.setSpacing(0)
         for section in self._sections:
-            # Configuracion es la unica que estira: asi ocupa su tope entero en
-            # vez de quedarse en el `sizeHint` de su formulario y dejar un hueco
-            # muerto abajo. Las otras dos ya valen exactamente su contenido.
-            column.addWidget(section, 1 if section is self.config_section else 0)
+            # Quien estira lo decide `_relayout_right` con `setStretchFactor`:
+            # tiene que ser la ultima seccion abierta que no este fijada a mano,
+            # que no siempre es Configuracion. Sin eso, con Configuracion plegada
+            # el sobrante caia en el resorte del final y quedaba un hueco muerto.
+            self._column.addWidget(section, 0)
             section.toggled.connect(self._on_section_toggled)
             # Configuracion es la ultima: no tiene con quien negociar hacia abajo.
             if section is not self.config_section:
                 self._manual[section] = None
                 grip = SectionResizeGrip()
+                grip.pressed.connect(lambda s=section: self._begin_resize(s))
                 grip.dragged.connect(
                     lambda d, s=section: self._resize_section(s, d))
                 grip.reset.connect(lambda s=section: self._resize_section(s, None))
-                column.addWidget(grip)
+                self._column.addWidget(grip)
                 self._grips[section] = grip
-        # Con Configuracion plegada no queda quien estire: este resorte se come
-        # el sobrante para que las cabeceras se apilen arriba.
-        column.addStretch(0)
+        # Con TODO plegado no queda quien estire: este resorte se come el
+        # sobrante para que las cabeceras se apilen arriba.
+        self._column.addStretch(0)
+        # Recien ahora: el filtro dispara `_relayout_right`, que necesita las
+        # secciones y las barras ya armadas.
+        self.right_column.installEventFilter(self)   # ver `eventFilter`
 
         self.right_header = self._build_right_header()
 
@@ -855,35 +863,63 @@ class TabPanel(ReorderableBar, QWidget):
         return super().eventFilter(obj, event)
 
     def _relayout_right(self, *_args) -> None:
-        """Le calcula el tope de alto a cada una de las tres secciones.
+        """Le calcula el alto a cada una de las cuatro secciones.
 
         Plegada, una seccion es solo su cabecera. Abiertas, Seguridad se queda
         con lo que sus casillas necesitan y Parametros con lo que pida su
         accion —hasta la mitad larga de la columna, para que una accion con
         muchas opciones no deje al resto en un hilo—; Configuracion recibe lo
-        que sobre, que para eso es la unica con scroll largo.
+        que sobre, que para eso es la unica con scroll largo. Una seccion
+        arrastrada a mano (`_manual`) manda sobre todo eso.
+
+        Reparte CUERPOS, no secciones enteras: `alto` arranca en la cabecera y
+        lo que se suma es el cuerpo. Mezclar las dos unidades hacia que la
+        primera arrastrada saltara el alto de su cabecera de golpe.
         """
         total = self.right_column.height()
         if total <= 0:
             return
         secciones = self._sections
+        self._sync_grips()
+        # Las barras de arrastre tambien ocupan alto. Sin descontarlas se
+        # repartian mas pixeles de los que hay y el layout tenia que apretar
+        # algun cuerpo por debajo de su minimo para que entrara todo.
+        gastado = sum(s.header_height() for s in secciones) + sum(
+            SectionResizeGrip.HEIGHT for s in secciones[:-1] if self._grip_visible(s))
         alto = {s: s.header_height() for s in secciones}
-        libre = total - sum(alto.values())
+        libre = max(0, total - gastado)
 
-        for section in (self.info_section, self.security_section, self.params_section):
+        # El sobrante va a la ultima seccion abierta — normalmente Configuracion,
+        # pero si esta plegada lo absorbe Parametros, y asi hacia arriba. Antes
+        # iba siempre a Configuracion: con ella plegada el resto caia en el
+        # resorte del final y la ultima cabecera se despegaba del borde de abajo
+        # dejando un hueco muerto.
+        absorbente = next((s for s in reversed(secciones) if s.is_expanded()), None)
+        # La ultima abierta no tiene barra propia (no hay con quien negociar
+        # debajo), asi que un alto a mano suyo es de un estado anterior: se cae.
+        # Si no, ese valor viejo se quedaba corto y volvia el hueco.
+        if absorbente in self._manual:
+            self._manual[absorbente] = None
+
+        for i, section in enumerate(secciones[:-1]):
             if not section.is_expanded():
                 continue
-            # Si Configuracion tambien esta abierta le reservamos un minimo util,
-            # salvo que el usuario haya fijado a mano el alto de esta seccion:
-            # ahi manda su gesto.
-            reserva = (120 if (section is self.params_section
-                               and self.config_section.is_expanded()
-                               and self._manual[section] is None) else 0)
+            # Le guardamos el piso a cada seccion abierta que quede debajo: una
+            # seccion desplegada que muestra cero cuerpo se lee como rota. Es lo
+            # que hace que la barra tope al arrastrar en vez de borrar lo de
+            # abajo. Configuracion, ademas, tiene un minimo mas generoso.
+            reserva = self.MIN_BODY * sum(1 for s in secciones[i + 1:] if s.is_expanded())
+            if (self._manual[section] is None and section is self.params_section
+                    and self.config_section.is_expanded()):
+                reserva = max(reserva, 120)
+            # Pero la reserva no puede comerse el piso de esta misma seccion.
+            reserva = min(reserva, max(0, libre - self.MIN_BODY))
             dar = max(0, min(self._section_wanted(section), libre - reserva))
             alto[section] += dar
             libre -= dar
-        if self.config_section.is_expanded():
-            alto[self.config_section] += max(0, libre)
+
+        if absorbente is not None:
+            alto[absorbente] += libre
 
         for section, valor in alto.items():
             # Tope y no alto fijo: con las tres clavadas, la columna imponia su
@@ -891,7 +927,12 @@ class TabPanel(ReorderableBar, QWidget):
             # piso queda en la cabecera, que es lo unico irrenunciable.
             section.setMaximumHeight(valor)
             section.setMinimumHeight(section.header_height())
-        self._sync_grips()
+            # Y ademas el hint, que es por donde el layout reparte de verdad
+            # (ver `AccordionSection.set_allotted`).
+            section.set_allotted(valor)
+            # Si igual sobrara un pixel por redondeo, que se lo quede la
+            # absorbente y no el resorte del final.
+            self._column.setStretchFactor(section, 1 if section is absorbente else 0)
 
     def _on_section_toggled(self, *_args) -> None:
         # Plegar una seccion descarta su alto manual: al reabrirla se espera el
@@ -901,27 +942,43 @@ class TabPanel(ReorderableBar, QWidget):
                 self._manual[section] = None
         self._relayout_right()
 
+    def _begin_resize(self, section: AccordionSection) -> None:
+        """Arranca un arrastre desde el alto que la seccion tiene EN PANTALLA.
+
+        Sin esto el arrastre seguia contando desde el valor guardado, que el
+        reparto pudo haber recortado (no habia lugar): quedaba una zona muerta
+        en la que mover el mouse no movia nada hasta recuperar la diferencia.
+        """
+        if section in self._manual:
+            self._manual[section] = max(0, section.height() - section.header_height())
+
     def _resize_section(self, section: AccordionSection, delta: int | None) -> None:
-        """Fija (o suelta, con `delta=None`) el alto de una seccion arrastrando
-        la barra de abajo. El resto se reparte lo que quede en `_relayout_right`."""
+        """Fija (o suelta, con `delta=None`) el alto del cuerpo de una seccion.
+        El resto se reparte lo que quede en `_relayout_right`."""
         if delta is None:
             self._manual[section] = None
         else:
             base = self._manual[section]
             if base is None:
-                base = section.height()
-            self._manual[section] = max(section.header_height() + 24, base + delta)
+                base = max(0, section.height() - section.header_height())
+            # Piso: por debajo el scroll del cuerpo queda mas chico que su propia
+            # barra y no se puede ni scrollear. Para achicar mas esta el chevron.
+            self._manual[section] = max(self.MIN_BODY, base + delta)
         self._relayout_right()
 
+    def _grip_visible(self, section: AccordionSection) -> bool:
+        """Hay algo que negociar: la seccion esta abierta y hay alguna abierta
+        debajo con la que intercambiar alto."""
+        i = self._sections.index(section)
+        return section.is_expanded() and any(
+            s.is_expanded() for s in self._sections[i + 1:])
+
     def _sync_grips(self) -> None:
-        """Una barra se ve solo si hay con que negociar: su seccion abierta y
-        alguna abierta debajo."""
-        order = self._sections
-        for i, section in enumerate(order[:-1]):
-            hay_abajo = any(s.is_expanded() for s in order[i + 1:])
-            self._grips[section].setVisible(section.is_expanded() and hay_abajo)
+        for section, grip in self._grips.items():
+            grip.setVisible(self._grip_visible(section))
 
     def _section_wanted(self, section: AccordionSection) -> int:
+        """Alto de cuerpo que pide una seccion abierta."""
         manual = self._manual.get(section)
         if manual is not None:
             return manual
@@ -938,7 +995,9 @@ class TabPanel(ReorderableBar, QWidget):
         return max(160, panel.natural_height())
 
     def _security_wanted(self) -> int:
-        return self.env_panel.security_panel.sizeHint().height()
+        # Al contenido, no al scroll que lo envuelve: un `QScrollArea` no tiene
+        # alto propio y contestaria un `sizeHint` generico.
+        return self.env_panel.security_height()
 
     def _info_wanted(self) -> int:
         return self.info_panel.content_height() + 28

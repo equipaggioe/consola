@@ -1,6 +1,6 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, QSize
 
 from ..theme import Colors, Fonts
 
@@ -95,12 +95,34 @@ class AccordionSection(QWidget):
         root.addWidget(self.header)
         root.addWidget(body, 1)
 
+        self._allotted: int | None = None
         self._expanded = not expanded   # para que `set_expanded` no salga de una
         self.set_expanded(expanded, announce=False)
 
     # --- estado -------------------------------------------------------
     def is_expanded(self) -> bool:
         return self._expanded
+
+    def set_allotted(self, height: int) -> None:
+        """El alto que el reparto le concedio (`TabPanel._relayout_right`).
+
+        Hace falta ademas del `maximumHeight` porque `QBoxLayout` reparte por
+        `sizeHint` y solo usa el tope para recortar: un cuerpo que pide menos de
+        lo concedido —cualquiera envuelto en un `QScrollArea`, que no tiene alto
+        propio— se quedaba en su hint y los pixeles que sobraban caian en el
+        resorte del final de la columna, o sea un hueco muerto abajo. Contestando
+        aca lo concedido, la suma de los hints da exacto y no sobra nada.
+        """
+        if height == self._allotted:
+            return
+        self._allotted = height
+        self.updateGeometry()
+
+    def sizeHint(self) -> QSize:
+        hint = super().sizeHint()
+        if self._allotted is None:
+            return hint
+        return QSize(hint.width(), self._allotted)
 
     def header_height(self) -> int:
         return AccordionHeader.HEIGHT
@@ -132,6 +154,7 @@ class SectionResizeGrip(QWidget):
     y al menos una abierta debajo—; si no, no hay nada que arrastrar.
     """
 
+    pressed = Signal()      # arranca un arrastre: hay que resincronizar con lo real
     dragged = Signal(int)   # px movidos desde el ultimo evento (+ = agrandar arriba)
     reset = Signal()
 
@@ -155,6 +178,7 @@ class SectionResizeGrip(QWidget):
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:
             self._last_y = event.globalPosition().y()
+            self.pressed.emit()
 
     def mouseMoveEvent(self, event):
         if self._last_y is None:

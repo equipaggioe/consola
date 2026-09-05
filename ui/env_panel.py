@@ -269,9 +269,16 @@ class EnvPanel(QWidget):
         """Los seguros del repo, sin encabezado de grupo: el titulo lo pone la
         cabecera de la seccion del acordeon que lo aloja.
 
-        Son cinco casillas fijas (`core/protection.TARGETS`), asi que no lleva
-        scroll propio; la seccion se colapsa entera si estorba.
+        Son cinco casillas fijas (`core/protection.TARGETS`), pero igual va
+        dentro de un scroll: la seccion del acordeon se arrastra a mano y sin
+        el, achicarla de mas aplastaba las casillas una contra otra en vez de
+        recortarlas. Con scroll, achicar solo esconde —y se llega scrolleando.
         """
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+
         box = QWidget()
         box.setStyleSheet(f"background: {Colors.SURFACE};")
         lay = QVBoxLayout(box)
@@ -284,7 +291,16 @@ class EnvPanel(QWidget):
             row.changed.connect(self._on_row_changed)
             self.rows[setting.key] = row
             lay.addWidget(row)
-        return box
+
+        self._security_content = box
+        scroll.setWidget(box)
+        return scroll
+
+    def security_height(self) -> int:
+        """Alto que piden las casillas sin scroll — lo usa
+        `TabPanel._relayout_right` para decidir cuanto darle a la seccion.
+        Se pregunta al contenido y no al scroll, que no tiene alto propio."""
+        return self._security_content.sizeHint().height()
 
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
