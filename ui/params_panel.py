@@ -470,9 +470,13 @@ class ParamsPanel(QWidget):
                     group.addButton(check)
                     check.setChecked(value == axis.initial)
                     if locked:
+                        # Única opción: se muestra marcada y con el color de
+                        # seleccionada, pero no se puede desmarcar — el grupo
+                        # exclusivo ya impide soltar el único botón, y no hay
+                        # otro al que saltar. Queda habilitada (no en gris)
+                        # para que se lea como una elección viva, no muerta.
                         check.setChecked(True)
-                        check.setEnabled(False)
-                        check.setCursor(Qt.CursorShape.ArrowCursor)
+                        check.setToolTip("Única opción disponible")
                 check.toggled.connect(self._refresh_summary)
                 self._options[axis.name][value] = check
                 row.addWidget(check)

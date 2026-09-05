@@ -1,7 +1,8 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
-    QPushButton, QSizePolicy, QSplitter, QInputDialog, QLineEdit, QMessageBox
+    QPushButton, QSizePolicy, QSplitter, QInputDialog, QLineEdit, QMessageBox,
+    QFrame
 )
 from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QEvent
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
@@ -18,7 +19,7 @@ from ui.params_panel import ParamsPanel
 from ui.command_info_panel import CommandInfoPanel
 from ui.env_panel import EnvPanel
 from ui.widgets.led import LedIndicator
-from ui.widgets import (ReorderableTab, ReorderableBar, LevelMark, ScopeMark,
+from ui.widgets import (ReorderableTab, ReorderableBar,
                         AccordionSection, SectionResizeGrip)
 from ui.guard_dialog import GuardDialog
 from ui.task_adapters import ADAPTERS
@@ -162,9 +163,9 @@ class PadlockChip(QLabel):
     def __init__(self, chip: str, label: str, protected: bool, parent=None):
         super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        # Cerrado = a salvo (verde); abierto = expuesto a un destructivo sin red
-        # (naranja de aviso).
-        color = Colors.SUCCESS if protected else Colors.WARNING
+        # Cerrado = a salvo (azul); abierto = expuesto a un destructivo sin red
+        # (rojo de alerta).
+        color = Colors.ACCENT if protected else Colors.ERROR
         self.setStyleSheet(
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;")
         self.setToolTip(
@@ -191,6 +192,10 @@ class WorkspaceStatusBar(QWidget):
         super().__init__(parent)
         self.accent = accent
         self.setFixedHeight(34)
+        # Sin esto un QWidget derivado no pinta ni el fondo ni el borde de su
+        # hoja de estilo: la linea de arriba que la separa del contenido no se
+        # veia (mismo motivo que en `ui/widgets/accordion.py`).
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 16, 0)
@@ -205,6 +210,11 @@ class WorkspaceStatusBar(QWidget):
 
         layout.addStretch()
 
+        # De aca a la derecha, cada seccion va separada de la anterior por una
+        # linea fina: entorno · seguros · estado se leen como bloques distintos.
+        self._sep_tools = self._divider()
+        layout.addWidget(self._sep_tools)
+
         # Estado del entorno: se chequea solo, no con un boton. Va antes del
         # reloj porque es informacion de la maquina, no de esta corrida.
         self.tools_layout = QHBoxLayout()
@@ -212,6 +222,9 @@ class WorkspaceStatusBar(QWidget):
         layout.addLayout(self.tools_layout)
         self._tools: dict[str, tuple[LedIndicator, QLabel]] = {}
         self.refresh_tools()
+
+        self._sep_security = self._divider()
+        layout.addWidget(self._sep_security)
 
         # Los objetivos de proteccion del repo activo (`core/protection.py`),
         # cada uno con su candado abierto o cerrado, siempre a la vista sin
@@ -224,15 +237,23 @@ class WorkspaceStatusBar(QWidget):
         self._security_row.setSpacing(9)
         layout.addWidget(self.security_box)
 
-        separator = QLabel("·")
-        separator.setStyleSheet(f"color: {Colors.BORDER_LIGHT}; font-size: {Fonts.SIZE_XS}px;")
-        layout.addWidget(separator)
+        self._sep_status = self._divider()
+        layout.addWidget(self._sep_status)
 
         self.status_label = QLabel("● 0 tareas activas  ·  00:00:00")
         self.status_label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
         layout.addWidget(self.status_label)
 
         self._restyle()
+
+    def _divider(self) -> QFrame:
+        """Linea vertical fina entre dos secciones de la barra."""
+        line = QFrame()
+        line.setFrameShape(QFrame.Shape.VLine)
+        line.setFixedWidth(1)
+        line.setStyleSheet(f"background: {Colors.BORDER}; border: none;")
+        line.setFixedHeight(16)
+        return line
 
     def set_project(self, name: str, icon: str = "") -> None:
         self.project_label.setText(f"{icon or '◇'} {name}")
@@ -304,6 +325,8 @@ class WorkspaceStatusBar(QWidget):
         ni tareas activas (`ui/main_window.py::_show_empty_state`)."""
         self.project_label.setText("")
         self.security_box.setVisible(False)
+        # Sin seguros que mostrar, la division que los precede sobra.
+        self._sep_security.setVisible(False)
         self.set_status("")
 
     def set_protection(self, config) -> None:
@@ -318,6 +341,7 @@ class WorkspaceStatusBar(QWidget):
                 item.widget().deleteLater()
 
         self.security_box.setVisible(True)
+        self._sep_security.setVisible(True)
         for target in protection.TARGETS:
             protegido = protection.is_protected(config, target)
             chip = PadlockChip(target.chip, target.label, protegido)
@@ -409,9 +433,16 @@ class TabPanel(ReorderableBar, QWidget):
         # se ve.
         self.info_panel = CommandInfoPanel()
         self.info_section = AccordionSection('Acción', self.info_panel, expanded=False)
-        self.security_section = AccordionSection('Seguridad', self.env_panel.security_panel)
+        # Plegada de entrada: su cabecera ya resume cuantos objetivos estan
+        # protegidos (`_refresh_security_summary`), asi que abrirla es solo para
+        # tocar los seguros, no para enterarse.
+        self.security_section = AccordionSection('Seguridad', self.env_panel.security_panel,
+                                                 expanded=False)
+        # Desplegada de entrada y sin plegarse sola: es la seccion que se usa en
+        # cada corrida, y abrir una accion para tener que abrirla ademas es un
+        # clic de mas. `_relayout_right` le da su alto natural completo.
         self.params_section = AccordionSection('Parámetros', self.params_stack,
-                                               expanded=False)
+                                               expanded=True)
         self.config_section = AccordionSection('Configuración del repo', self.env_panel)
         # El estado de config.env va en el rotulo de la seccion, no en un
         # renglon aparte de su pie.
@@ -516,7 +547,7 @@ class TabPanel(ReorderableBar, QWidget):
         'Configuracion del repo' — muestra el repo activo sin pestana
         abierta, y el nombre de la accion en curso cuando hay una."""
         head = QWidget()
-        head.setStyleSheet(f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
+        head.setStyleSheet(f"background: {Colors.SURFACE};")
         lay = QHBoxLayout(head)
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
@@ -536,36 +567,17 @@ class TabPanel(ReorderableBar, QWidget):
         # acordeon, que la muestra entera con sus pasos. Aca solo el nombre.
         titles.addWidget(self.right_header_name)
 
-        self.right_header_level = QLabel("")
-        self.right_header_level.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignRight)
-        self.right_header_level.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
-
         lay.addWidget(self.right_header_icon, 0, Qt.AlignmentFlag.AlignTop)
         lay.addLayout(titles, 1)
-        lay.addWidget(self.right_header_level, 0, Qt.AlignmentFlag.AlignTop)
         return head
 
     def _set_right_header(self, icon: str, name: str,
                           capability: Capability | None = None) -> None:
+        # `capability` se sigue recibiendo por compatibilidad con quien llama;
+        # el nivel (atómica/compuesta) ya no se muestra aquí — vive en el
+        # tooltip de la fila del rail y en la sección «Acción».
         self.right_header_icon.setText(icon or "◇")
         self.right_header_name.setText(name)
-
-        if capability is None:
-            self.right_header_level.setText("")
-            self.right_header_level.setToolTip("")
-            return
-        composite = capability.is_composite
-        texto = (f"{LevelMark.COMPOSITE if composite else LevelMark.ATOMIC}"
-                 f"  {capability.level_label.lower()}")
-        tip = ("Compuesta: encadena varias acciones atómicas" if composite
-               else "Atómica: un solo paso, idempotente")
-        if capability.is_machine_wide:
-            texto += f"  ·  {ScopeMark.GLYPH} máquina"
-            tip += "\nDe la máquina: sus parámetros no dependen del repo abierto."
-        self.right_header_level.setText(texto)
-        self.right_header_level.setToolTip(tip)
 
     def _build_welcome(self) -> QWidget:
         w = QWidget()
@@ -797,7 +809,8 @@ class TabPanel(ReorderableBar, QWidget):
             self._set_right_header(self.project.icon, self.project.name)
             self.info_panel.set_capability(None)
             self.info_section.set_expanded(False, announce=False)
-            self.params_section.set_expanded(False, announce=False)
+            # Parametros se queda desplegada: es su estado por defecto (aunque
+            # ahora solo muestre el placeholder).
             self._relayout_right()
 
     def current_console(self) -> ConsoleView | None:
@@ -986,7 +999,10 @@ class TabPanel(ReorderableBar, QWidget):
             return self._info_wanted()
         if section is self.security_section:
             return self._security_wanted()
-        return min(self._params_wanted(), int(self.right_column.height() * 0.55))
+        # Parametros pide su alto natural entero: la idea es ver todas las
+        # opciones de la accion sin scroll. Que Configuracion no se quede sin
+        # nada lo cubre la reserva de `_relayout_right`, no un tope aca.
+        return self._params_wanted()
 
     def _params_wanted(self) -> int:
         panel = self.current_params()
