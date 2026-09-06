@@ -87,14 +87,16 @@ def _root_run(ctx, command: str, *, check: bool = True) -> int:
 # --- atomicas de acceso ----------------------------------------------------
 
 def refresh_known_host(ctx) -> str:
-    """Olvida la huella vieja del VPS y anota la actual.
+    """Olvida la huella vieja del VPS.
 
     Despues de reinstalar el servidor cambia la huella y todas las conexiones
     fallan con un error de "host key verification" que no dice como arreglarlo.
+
+    Solo borra la entrada vieja: la nueva la vuelve a anotar la primera conexion
+    de cualquier otra atomica, que se conecta con `StrictHostKeyChecking=no`.
     """
     host = ctx.config.require('VPS_IP')
     ssh.forget_host(ctx, host)
-    ssh.trust_host(ctx, host)
     return host
 
 

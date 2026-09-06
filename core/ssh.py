@@ -304,18 +304,6 @@ def forget_host(ctx, host: str) -> None:
     ctx.run(['ssh-keygen', '-R', host], check=False)
 
 
-def trust_host(ctx, host: str) -> None:
-    """Vuelve a anotar la huella actual del servidor en known_hosts."""
-    known = Path.home() / '.ssh' / 'known_hosts'
-    known.parent.mkdir(parents=True, exist_ok=True)
-    scanned = process.capture(['ssh-keyscan', '-H', host], timeout=30.0, check=False)
-    if not scanned:
-        raise TaskError(f'No se pudo leer la huella de {host}.')
-    with open(known, 'a', encoding='utf-8', newline='\n') as fh:
-        fh.write(scanned.rstrip() + '\n')
-    ctx.ok(f'Huella de {host} registrada en known_hosts.')
-
-
 def terminal_argv(remote: Remote) -> list[str]:
     """Sesion interactiva en terminal externa: necesita TTY real (PLAN.md 7.1)."""
     ssh = ['ssh', '-i', str(remote.identity), remote.target]

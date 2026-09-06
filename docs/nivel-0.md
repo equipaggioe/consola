@@ -102,8 +102,9 @@ Ya existía (parseo de `.consola/config.env`, `render_config`, `save_config`,
 - `upload/download` — sube o baja archivos/directorios por scp.
 - **`Tunnel`** (context manager) — `open_tunnel(remote, local_port, remote_port)`; `.alive`,
   `.endpoint`, `.close()`.
-- `ensure_local_keypair`, `public_key`, `forget_host`/`trust_host` (limpiar y repoblar
-  `known_hosts` tras reinstalar el VPS), `terminal_argv(remote)` (arma el comando para abrir
+- `ensure_local_keypair`, `public_key`, `forget_host` (borra la entrada vieja de
+  `known_hosts` tras reinstalar el VPS; la nueva la reanota la primera conexión con
+  `StrictHostKeyChecking=no`), `terminal_argv(remote)` (arma el comando para abrir
   una terminal externa — sesión SSH interactiva, §7 caso 1).
 - Multiplexado SSH (`ControlMaster`) preservado tal cual estaba en `common.py`, con el mismo
   apagado condicional en Windows (el `ControlMaster` de Win32-OpenSSH no es confiable ahí).
