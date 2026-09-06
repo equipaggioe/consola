@@ -306,6 +306,22 @@ def _setup_github_ssh_kwargs(payload: dict) -> dict:
     }
 
 
+# --- VPS - ops -------------------------------------------------------------
+
+_CLEAN_VPS_STEPS = ('service', 'database', 'repo', 'github_key', 'packages', 'user')
+
+
+def _clean_vps_kwargs(payload: dict) -> dict:
+    """Un booleano por casilla, con los mismos ids que declara `CLEAN_VPS_STEPS`.
+
+    Desmarcar todo no se traduce a "corre igual": la funcion recibe los seis en
+    False y no toca nada, que es lo que pidio quien desmarco. La confirmacion
+    tipeada de la IP vive dentro de `clean_vps`, no aca.
+    """
+    steps = set(payload.get('steps') or [])
+    return {nombre: nombre in steps for nombre in _CLEAN_VPS_STEPS}
+
+
 _BOOTSTRAP_STEPS = ('known_host', 'ssh_key', 'software', 'github_ssh',
                     'deploy', 'database', 'service')
 
@@ -345,6 +361,8 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'install_software': lambda payload: {},
     'install_coturn': lambda payload: {},
     'bootstrap_vps': _bootstrap_vps_kwargs,
+    # VPS - ops. La compuesta destructiva: seis casillas, seis booleanos.
+    'clean_vps': _clean_vps_kwargs,
     'clean_artifacts': _clean_artifacts_kwargs,
     'install_android_tools': _install_dir_kwargs,
     'install_android_packages': _android_packages_kwargs,

@@ -228,6 +228,24 @@ BOOTSTRAP_VPS_STEPS = [
 ]
 
 
+# Los seis pasos de la limpieza son casillas del formulario, no botones del rail
+# (PLAN.md 7, caso 7): "dejar el VPS como recien formateado" casi siempre se pide
+# entero. Los ids son los de los parametros de `vps_ops.clean_vps`, no los de
+# `composed_of`: ese lista las atomicas que encadena, que no son capacidades del
+# catalogo y por eso derivaban etiquetas en ingles.
+#
+# El orden es el de la funcion y no es cosmetico: los paquetes se purgan con el
+# sudo del usuario de despliegue, asi que borrar el usuario va ultimo.
+CLEAN_VPS_STEPS = [
+    Step('service', 'Servicio systemd'),
+    Step('database', 'Base de datos y rol', requires_env={'DB_NAME'}),
+    Step('repo', 'Repo desplegado', requires_env={'VPS_DEPLOY_DIR'}),
+    Step('github_key', 'Llave de GitHub', requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
+    Step('packages', 'Paquetes apt'),
+    Step('user', 'Usuario de despliegue', requires_env={'ROOT_USER'}),
+]
+
+
 # La verificacion final NO nombra una atomica: es `ssh.reachable`, la plomeria
 # que comparten las once puertas de `resolve_remote`. Un paso puede existir sin
 # ser un atomo del dominio; lo que no puede es fingir que lo es. Antes estos
@@ -417,7 +435,7 @@ def load_catalog() -> None:
     registry.register(Capability(id='run_setup_scripts', name='Correr setup remoto', group='VPS · ops', section='Setup', kind='once', icon='📜', description='Ejecuta los scripts de setup del repo, en la máquina local o en el VPS.', composed_of=['run_remote_script'], axes=[AxisDef('where', ['local', 'remoto'], 'scope')], stub=True))
     registry.register(Capability(id='revoke_ssh', name='Revocar SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Quita del VPS la clave pública con la que entra esta máquina.', stub=True))
     registry.register(Capability(id='revoke_github_ssh', name='Revocar GitHub SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Borra la deploy key del VPS y la da de baja en GitHub.', composed_of=['remove_remote_ssh_key_files', 'revoke_github_key'], stub=True))
-    registry.register(Capability(id='clean_vps', name='Limpiar VPS', group='VPS · ops', section='Limpieza', kind='destructive', icon='💣', description='Deja el VPS como estaba: servicio, base, repo, claves, paquetes y usuario.', composed_of=['remove_systemd_service', 'drop_database', 'remove_deployed_repo', 'revoke_github_key', 'uninstall_packages', 'remove_vps_user'], stub=True))
+    registry.register(Capability(id='clean_vps', name='Limpiar VPS', group='VPS · ops', section='Limpieza', kind='destructive', icon='💣', description='Deja el VPS como estaba: servicio, base, repo, claves, paquetes y usuario.', composed_of=['remove_systemd_service', 'drop_database', 'remove_deployed_repo', 'revoke_github_key', 'uninstall_packages', 'remove_vps_user'], steps=CLEAN_VPS_STEPS, stub=True))
 
     # VPS · server group
     registry.register(Capability(id='systemd_action', name='Acción systemd', group='VPS · server', section='Servicio', kind='once', icon='⚙️', description='Manda una acción al servicio systemd del repo en el VPS.', axes=[AxisDef('action', ['start', 'stop', 'restart', 'status'], 'buttons', danger={'stop'}), AxisDef('action_ext', ['enable', 'disable', 'reload', 'is-active', 'is-enabled'], 'menu')], stub=True))
