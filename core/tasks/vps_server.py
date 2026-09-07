@@ -160,7 +160,7 @@ def sync_repository(ctx, discard_changes: bool = False) -> None:
         # que traer despues. "Solo clonar" no es un boton aparte — nadie lo pide
         # dos veces.
         url = ctx.config.require('GIT_REPO_URL')
-        ssh.ensure_dir(remote, destino.rsplit('/', 1)[0])
+        vps.ensure_deploy_dir(ctx, remote, ctx.config)
         ssh.run(ctx, remote, f'git clone {ssh.quote(url)} {ssh.quote(destino)}')
         ctx.ok(f'Repo clonado en {destino}.')
         return

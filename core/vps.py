@@ -50,6 +50,35 @@ def deploy_root(config: Config) -> str:
     return f'{base}/{repo_name(config)}'
 
 
+def ensure_deploy_dir(ctx, remote: Remote, config: Config) -> str:
+    """Deja la carpeta del despliegue creada y a nombre del usuario que clona.
+
+    `VPS_DEPLOY_DIR` suele apuntar a un lugar del sistema (`/srv`, `/opt`) que
+    es de root. Un `mkdir -p` del padre no alcanza y ademas no falla —el padre
+    ya existe—, asi que el problema recien aparecia en el `git clone`, con un
+    "Permission denied" que no dice que lo que faltaba era el dueno.
+
+    Por eso la carpeta se crea aca con sudo y se le pasa al usuario de
+    despliegue: `git clone` acepta un directorio vacio como destino.
+    """
+    destino = deploy_root(config)
+    if succeeds(remote, f'test -w {quote(destino)}'):
+        return destino
+
+    user = config.get('VPS_USER') or remote.user
+    run(ctx, remote,
+        f'{SUDO} mkdir -p {quote(destino)} && '
+        f'{SUDO} chown {quote(user)}:{quote(user)} {quote(destino)}',
+        check=False)
+    if not succeeds(remote, f'test -w {quote(destino)}'):
+        raise TaskError(
+            f'{destino} no se pudo crear a nombre de {user}: el directorio padre '
+            f'es de root y sudo sin contrasena no respondio. Corre "Configurar '
+            f'sudo" para el usuario de despliegue, o crea la carpeta a mano.')
+    ctx.ok(f'Carpeta de despliegue lista: {destino} (dueno {user}).')
+    return destino
+
+
 def remote_path(config: Config, *parts: str) -> str:
     """Ruta remota que respeta la misma jerarquia relativa que el repo local."""
     tail = '/'.join(p.strip('/').replace('\\', '/') for p in parts if p)
