@@ -19,17 +19,20 @@ UPLOAD_FILES_HINT = 'server/.env\nserver/certs/cert.pem\nserver/certs/key.pem'
 _FILES_AXIS = lambda: AxisDef('files', [''], 'field', label='Archivos a copiar',
                               placeholder=UPLOAD_FILES_HINT, multiline=True)
 
-# Nueve grupos, cinco marcados. Un solo eje y no dos ("base" / "opcionales")
+# Ocho grupos, cinco marcados. Un solo eje y no dos ("base" / "opcionales")
 # porque abajo hay un solo parametro (`install_base_software(groups)`): partirlo
 # obligaria al adaptador a concatenar dos listas para reconstruir la unica que
 # existe, y convertiria un default en una categoria. La categoria seria ademas
 # falsa — `postgis` es tan base como `postgresql` en un repo con datos
 # geograficos — y `allow_empty=False` dejaria de poder decir lo unico que hay
 # que validar aca: al menos un paquete.
+# `coturn` esta en la lista por lo mismo que `postgresql`: el paquete se instala
+# aca y se configura despues (`install_coturn` / `bootstrap_db`). Marcarlo solo
+# deja el servicio inerte, que es un estado legitimo — no uno roto.
 _PACKAGE_LABELS = {
     'python': 'Python', 'git': 'Git', 'postgresql': 'PostgreSQL',
     'postgis': 'PostGIS', 'caddy': 'Caddy', 'ufw': 'UFW',
-    'redis': 'Redis',
+    'redis': 'Redis', 'coturn': 'Coturn',
 }
 _PACKAGES_AXIS = lambda: AxisDef('groups', list(vps.PACKAGE_GROUPS), 'checks',
                                  select='many', label='Paquetes',

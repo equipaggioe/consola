@@ -18,6 +18,7 @@ PACKAGE_GROUPS: dict[str, list[str]] = {
     'caddy': ['caddy'],
     'ufw': ['ufw'],
     'redis': ['redis-server'],
+    'coturn': ['coturn'],
 }
 
 # Los que arrancan marcados: lo que necesita un backend Python detras de Caddy.
