@@ -24,6 +24,13 @@ def _to_lines(value: str) -> str:
     return '\n'.join(envfile.split_list(value or ''))
 
 
+# Alto del campo multilinea, en renglones. Arranca en tres vacios —una lista de
+# rutas suele tener dos o tres— y crece con lo escrito hasta cinco; de ahi en
+# adelante scrollea.
+LIST_MIN_ROWS = 3
+LIST_MAX_ROWS = 5
+
+
 class EnvRow(QWidget):
     """Una clave del esquema: etiqueta, campo y, si es secreta, ojo para revelar.
 
@@ -74,7 +81,6 @@ class EnvRow(QWidget):
         # Guarda separado por comas — ver `Setting.kind`.
         if setting.kind == 'list':
             self.field = QPlainTextEdit(_to_lines(value))
-            self.field.setFixedHeight(58)
             self.field.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self.field.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
             self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
@@ -107,6 +113,8 @@ class EnvRow(QWidget):
             lay.addWidget(self.eye)
 
         self._restyle()
+        if self._is_list:
+            self._fit_list_height()
 
     @property
     def _is_list(self) -> bool:
@@ -131,6 +139,7 @@ class EnvRow(QWidget):
             return
         if self._is_list:
             self.field.setPlainText(_to_lines(value))
+            self._fit_list_height()
             return
         self.field.setText(value)
 
@@ -154,7 +163,40 @@ class EnvRow(QWidget):
     # escrito no llegaba a guardarse.
     def _on_text(self, _text: str = '') -> None:
         self._restyle()
+        if self._is_list:
+            self._fit_list_height()
         self.changed.emit()
+
+    def resizeEvent(self, event):
+        # Al angostarse la fila cambia donde parte cada ruta larga, y con eso
+        # cuantos renglones ocupa lo mismo escrito.
+        super().resizeEvent(event)
+        if self._is_list:
+            self._fit_list_height()
+
+    def _fit_list_height(self) -> None:
+        """Alto del campo segun lo escrito, con un renglon vacio de sobra.
+
+        Ese renglon de mas es el que dice "esto es todo": un campo que termina
+        justo en la ultima ruta no se distingue de uno que esta cortando el
+        resto, y la lista de archivos a copiar es justamente donde una entrada
+        que no se ve se convierte en un deploy sin su secreto.
+
+        `documentSize()` de un QPlainTextEdit cuenta RENGLONES, no pixeles, y
+        cuenta los que se ven: una ruta larga que se parte en dos ocupa dos.
+        """
+        doc = self.field.document()
+        doc.setTextWidth(max(1, self.field.viewport().width()))
+        escritos = max(1, int(doc.size().height()))
+        filas = min(max(escritos + 1, LIST_MIN_ROWS), LIST_MAX_ROWS)
+        # `frameWidth` de un QPlainTextEdit con hoja de estilos ya incluye el
+        # `padding` ademas del borde: sumarlo aparte daba un campo mas alto de
+        # los renglones que decia mostrar.
+        alto = (filas * self.field.fontMetrics().lineSpacing()
+                + 2 * int(doc.documentMargin())
+                + 2 * self.field.frameWidth())
+        if self.field.height() != alto:
+            self.field.setFixedHeight(alto)
 
     def _restyle(self) -> None:
         border = Colors.BORDER if self.value() else Colors.BORDER_LIGHT
