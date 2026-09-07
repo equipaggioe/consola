@@ -223,11 +223,21 @@ BUILD_BINARY_STEPS = [
 #
 # 'push_repo' arranca desmarcado porque publica hacia afuera; el resto son
 # operaciones sobre el servidor del proyecto y van marcadas.
-UPDATE_REMOTE_STEPS = [
+#
+# 'Codigo en el VPS' y no 'Pull en el VPS': `sync_repository` decide sola si
+# clona o actualiza mirando el estado del servidor, y en la primera corrida —la
+# del bootstrap— lo que hace es clonar. El rotulo viejo mentia justo ahi.
+PUBLISH_CODE_STEPS = [
     Step('push_repo', 'Push del repo local', default=False),
-    Step('git_pull', 'Pull en el VPS', requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
+    Step('git_pull', 'Código en el VPS', requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
     Step('install_deps', 'Dependencias', requires_env={'VPS_PYTHON', 'SERVER_DIR'}),
     Step('upload_secrets', 'Archivos que no viajan por git'),
+]
+
+# Los seis del despliegue completo son los cuatro de arriba mas los dos que
+# tocan lo que ya esta corriendo. Se derivan y no se copian: si un paso de
+# `publish_code` cambia de etiqueta o de claves, los dos paneles cambian juntos.
+UPDATE_REMOTE_STEPS = PUBLISH_CODE_STEPS + [
     Step('apply_migrations', 'Aplicar migraciones', requires_env={'DB_NAME', 'DB_PASSWORD'}),
     Step('restart_service', 'Reiniciar servicio'),
 ]
@@ -471,6 +481,21 @@ def load_catalog() -> None:
         kind='once', icon='⬆️',
         description='Empuja la rama local a su remoto. No commitea: si hay cambios pendientes, avisa y sigue.',
         stub=True))
+    # La mitad del despliegue que no toca lo que ya esta corriendo: codigo,
+    # dependencias y secretos. Tiene boton propio porque la piden dos —el deploy
+    # del dia a dia y el bootstrap de un VPS de cero— y porque en un servidor
+    # recien armado es todo lo que se puede hacer: migrar seria contra una base
+    # que todavia no existe y reiniciar contra un servicio que todavia no esta
+    # instalado.
+    registry.register(Capability(
+        id='publish_code', name='Publicar código', group='VPS · server', section='Deploy',
+        kind='live', icon='🛫',
+        description='Deja el código, sus dependencias y los secretos en el VPS, sin tocar base ni servicio.',
+        axes=[_FILES_AXIS(),
+              AxisDef('vps_dirty', ['preguntar', 'descartar'], 'scope',
+                      label='Si el VPS tiene cambios sin commitear',
+                      danger={'descartar'})],
+        steps=PUBLISH_CODE_STEPS, stub=True))
     # `composed_of` declaraba seis ids que no eran capacidades de nadie
     # (`git_sync_remote`, `upload_files`, `generate_migration`): nombres sueltos
     # que la UI alcanzaba a mostrar bonitos, pero que no apuntaban a ninguna
@@ -519,7 +544,12 @@ def load_catalog() -> None:
         description='De VPS recién creado a servicio corriendo: SSH, software, deploy, base y systemd.',
         axes=[AxisDef('sudo_mode', ['all', 'specific', 'none'], 'scope',
                       label='Sudo sin contraseña', default='all'),
-              _PACKAGES_AXIS()],
+              _PACKAGES_AXIS(),
+              # El bootstrap promete "servicio corriendo", y un servicio sin su
+              # .env arranca y muere. Sin este eje el paso de deploy corria
+              # `upload_secret_files` con la lista vacia: un paso que avisaba
+              # "no hay archivos que copiar" y no podia hacer otra cosa.
+              _FILES_AXIS()],
         steps=BOOTSTRAP_VPS_STEPS, stub=True))
 
     # Base de datos group

@@ -12,9 +12,10 @@ repo, crear el venv, instalar dependencias, subir el `.env` y los certificados,
 generar la migracion y reiniciar el servicio. Todo o nada: para recopiar un
 certificado habia que rehacer el `git pull`, el venv y el `pip install`.
 
-Aca cada paso es una atomica con boton propio y `update_remote` es la compuesta
-que los encadena, saltando el reinicio con un aviso si el servicio todavia no
-existe en vez de fallar.
+Aca cada paso es una atomica con boton propio, `publish_code` encadena los
+cuatro que dejan el codigo listo en el VPS y `update_remote` le suma migrar y
+reiniciar, saltando el reinicio con un aviso si el servicio todavia no existe en
+vez de fallar.
 
 Que cuenta como atomica: una accion que alguien pediria sola, aunque por dentro
 llame a media docena de funciones. Por eso `clone_repository` y
@@ -330,7 +331,7 @@ def install_systemd(ctx, host: str = '0.0.0.0', port: int = 443, *,
     ctx.note(f'Servicio {vps.service_name(ctx.config)} instalado.')
 
 
-def update_remote(
+def publish_code(
     ctx,
     files: list[str] | None = None,
     *,
@@ -338,33 +339,27 @@ def update_remote(
     pull: bool = True,
     deps: bool = True,
     upload: bool = True,
-    migrate: bool = True,
-    restart: bool = True,
     discard_changes: bool = False,
 ) -> None:
-    """Compuesta: push local -> codigo -> dependencias -> secretos -> migrar -> reiniciar.
+    """Compuesta: push local -> codigo -> dependencias -> secretos.
 
-    Seis pasos, uno por accion reconocible del dominio. El venv ya no es uno de
-    ellos: se crea dentro de las dependencias, que es lo unico para lo que se
-    crea.
+    Deja el VPS con el codigo que corresponde y todo lo que necesita para
+    arrancar, sin tocar nada que ya este corriendo. Los dos pasos que faltan
+    para el despliegue completo —migrar y reiniciar— son justamente los que un
+    VPS recien creado no puede hacer: migrar seria contra una base que todavia
+    no existe, y reiniciar contra un servicio que todavia no esta instalado.
+
+    Por eso existe aparte y no como cuatro casillas desmarcadas de
+    `update_remote`: la usan los dos, `update_remote` agregandole esos dos
+    pasos y `bootstrap_vps` tal cual.
 
     `push` arranca desmarcado porque publica hacia afuera: es el unico paso que
     sale de esta maquina antes de tocar el VPS. No commitea nada — si hay
-    cambios sin commitear, corta ahi.
+    cambios sin commitear, avisa y sigue.
 
     `deps` es condicional a proposito: si el repo no cambio, reinstalar es
     tiempo perdido, pero se pide igual tras tocar `requirements.txt`.
-
-    El paso de migraciones solo **aplica** las que llegaron con el codigo
-    (`alembic upgrade head`). El script original llamaba a `migrate_db.py`, que
-    ademas las *generaba* contra la base del VPS: eso autogenera revisiones en
-    produccion a partir de un modelo que quiza ni se commiteo, y deja al
-    servidor con migraciones que el repo no tiene. Las revisiones se escriben en
-    local (boton Migrar de Base de datos), se commitean y se despliegan; aca solo
-    se corren.
     """
-    from . import database as db_tasks
-
     if push:
         ctx.step('Push del repo local')
         push_repository(ctx)
@@ -377,6 +372,42 @@ def update_remote(
     if upload:
         ctx.step('Archivos que no viajan por git')
         upload_secret_files(ctx, files)
+
+
+def update_remote(
+    ctx,
+    files: list[str] | None = None,
+    *,
+    push: bool = False,
+    pull: bool = True,
+    deps: bool = True,
+    upload: bool = True,
+    migrate: bool = True,
+    restart: bool = True,
+    discard_changes: bool = False,
+) -> None:
+    """Compuesta: `publish_code` -> migrar -> reiniciar.
+
+    Seis pasos, uno por accion reconocible del dominio. El venv ya no es uno de
+    ellos: se crea dentro de las dependencias, que es lo unico para lo que se
+    crea.
+
+    Los cuatro primeros no se reescriben aca: son `publish_code`, y sus cuatro
+    banderas se le reenvian enteras. El panel sigue mostrando las seis casillas
+    planas — la compuesta de adentro no se ve desde afuera y no tiene por que.
+
+    El paso de migraciones solo **aplica** las que llegaron con el codigo
+    (`alembic upgrade head`). El script original llamaba a `migrate_db.py`, que
+    ademas las *generaba* contra la base del VPS: eso autogenera revisiones en
+    produccion a partir de un modelo que quiza ni se commiteo, y deja al
+    servidor con migraciones que el repo no tiene. Las revisiones se escriben en
+    local (boton Migrar de Base de datos), se commitean y se despliegan; aca solo
+    se corren.
+    """
+    from . import database as db_tasks
+
+    publish_code(ctx, files, push=push, pull=pull, deps=deps, upload=upload,
+                 discard_changes=discard_changes)
     if migrate:
         ctx.step('Aplicar migraciones')
         db_tasks.apply_migrations(ctx, scope='remoto')
@@ -392,4 +423,5 @@ def bind_all() -> None:
     registry.bind('systemd_action', systemd_action)
     registry.bind('view_logs', view_logs)
     registry.bind('install_systemd', install_systemd)
+    registry.bind('publish_code', publish_code)
     registry.bind('update_remote', update_remote)

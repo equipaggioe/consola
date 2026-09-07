@@ -186,8 +186,8 @@ def _upload_secrets_kwargs(payload: dict) -> dict:
     return {'files': _files(payload)}
 
 
-def _update_remote_kwargs(payload: dict) -> dict:
-    """Los seis pasos del panel son los seis booleanos de la compuesta.
+def _publish_code_kwargs(payload: dict) -> dict:
+    """Los cuatro pasos del panel son los cuatro booleanos de la compuesta.
 
     `files` viaja aunque el paso de secretos este desmarcado: la compuesta lo
     ignora en ese caso, y asi el adaptador no tiene que saber en que orden se
@@ -199,10 +199,21 @@ def _update_remote_kwargs(payload: dict) -> dict:
         # 'preguntar' deja que la tarea abra el dialogo cuando el VPS tenga
         # cambios sin commitear; 'descartar' se los salta y hace el reset.
         'discard_changes': _option(payload, 'vps_dirty') == 'descartar',
-        'push':    'push_repo'        in steps,
-        'pull':    'git_pull'         in steps,
-        'deps':    'install_deps'     in steps,
-        'upload':  'upload_secrets'   in steps,
+        'push':   'push_repo'      in steps,
+        'pull':   'git_pull'       in steps,
+        'deps':   'install_deps'   in steps,
+        'upload': 'upload_secrets' in steps,
+    }
+
+
+def _update_remote_kwargs(payload: dict) -> dict:
+    """Los seis del despliegue: los cuatro de `publish_code` mas los dos que
+    tocan lo que ya esta corriendo. Se derivan del mismo lector por la misma
+    razon por la que `UPDATE_REMOTE_STEPS` se deriva de `PUBLISH_CODE_STEPS`:
+    los cuatro ids son los mismos y no tienen por que leerse dos veces."""
+    steps = set(payload.get('steps') or [])
+    return {
+        **_publish_code_kwargs(payload),
         'migrate': 'apply_migrations' in steps,
         'restart': 'restart_service'  in steps,
     }
@@ -341,12 +352,14 @@ _BOOTSTRAP_STEPS = ('known_host', 'ssh_key', 'software', 'github_ssh',
 
 
 def _bootstrap_vps_kwargs(payload: dict) -> dict:
-    """La compuesta de compuestas: un booleano por paso, mas el modo de sudo que
-    le reenvia a `setup_ssh_key`."""
+    """La compuesta de compuestas: un booleano por paso, mas los tres valores
+    que reenvia a las compuestas de adentro — sudo, paquetes y los archivos que
+    `publish_code` sube al VPS."""
     steps = set(payload.get('steps') or [])
     kwargs = {nombre: nombre in steps for nombre in _BOOTSTRAP_STEPS}
     kwargs['sudo_mode'] = _option(payload, 'sudo_mode') or 'all'
     kwargs['groups'] = payload['variants'].get('groups') or None
+    kwargs['files'] = _files(payload)
     return kwargs
 
 
@@ -365,6 +378,7 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     # Sin parametros: empuja la rama de la carpeta abierta y nada mas.
     'push_repository': lambda payload: {},
     'upload_secret_files': _upload_secrets_kwargs,
+    'publish_code': _publish_code_kwargs,
     'update_remote': _update_remote_kwargs,
     # VPS - setup. Los dos sin parametros no son un olvido: `refresh_known_host`
     # solo necesita VPS_IP y el realm de `install_coturn` sale de CF_DOMAIN_NAME

@@ -286,7 +286,8 @@ def setup_github_ssh(ctx, *, generate: bool = True, register: bool = True,
         test_github_ssh(ctx)
 
 
-def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, *,
+def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None,
+                  files: list[str] | None = None, *,
                   known_host: bool = True,
                   ssh_key: bool = True, software: bool = True,
                   github_ssh: bool = True, deploy: bool = True,
@@ -297,10 +298,17 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
     falla, la receta se detiene ahi: cada compuesta interna ya sabe revertir lo
     suyo, asi que la externa no necesita un rollback propio ademas.
 
-    `sudo_mode` y `groups` se reenvian a las compuestas de adentro. No es
-    duplicar sus ejes: un parametro que el bootstrap no reenvia queda clavado en
-    su default y el eje del boton suelto no sirve de nada aca — el mismo agujero
-    que tenia `sudo_mode` antes de docs/atomicas.md 4.6, una capa mas arriba.
+    `sudo_mode`, `groups` y `files` se reenvian a las compuestas de adentro. No
+    es duplicar sus ejes: un parametro que el bootstrap no reenvia queda clavado
+    en su default y el eje del boton suelto no sirve de nada aca — el mismo
+    agujero que tenia `sudo_mode` antes de docs/atomicas.md 4.6, una capa mas
+    arriba.
+
+    El paso de codigo llama a `publish_code` y no a `update_remote`: una
+    compuesta puede reusar otra solo si quiere todos sus pasos, y aca sobraban
+    los dos que tocan lo que ya esta corriendo. `update_remote` traia
+    `migrate=True` por default, o sea `alembic upgrade` contra una base que el
+    paso siguiente todavia no creo.
     """
     from . import database as db_tasks
     from . import vps_server
@@ -319,7 +327,7 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
         setup_github_ssh(ctx)
     if deploy:
         ctx.step('Codigo en el VPS')
-        vps_server.update_remote(ctx, restart=False)
+        vps_server.publish_code(ctx, files)
     if database:
         ctx.step('Base de datos')
         db_tasks.bootstrap_db(ctx, scope='remoto')

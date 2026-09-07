@@ -155,12 +155,16 @@ con un número que nunca se publicó.
 
 ### `core/tasks/vps_server.py`
 
-`clone_repository` · `sync_repository` (pregunta si el VPS tiene cambios sin commitear) ·
-`ensure_remote_venv` · `install_remote_deps` · `upload_secret_files` · `restart_service` (avisa y
-sigue si el servicio no existe) · `write_systemd_unit` · `systemd_action` · `view_logs`.
+`push_repository` · `sync_repository` (clona o actualiza segun el estado del VPS; pregunta si
+tiene cambios sin commitear) · `install_remote_deps` (crea el venv adentro) · `upload_secret_files` ·
+`restart_service` (avisa y sigue si el servicio no existe) · `write_systemd_unit` · `systemd_action` ·
+`view_logs`.
+
+`clone_repository` y `ensure_remote_venv` ya no están sueltas: nadie pide «solo clonar» ni «solo
+crear el venv», así que son el primer tramo de `sync_repository` y de `install_remote_deps` (§1).
 
 **Compuestas:** `install_systemd` (reusa `systemd_action` para `enable`/`restart`, no lo
-reimplementa), `update_remote`.
+reimplementa), `publish_code` y `update_remote` (§4.7).
 
 ### `core/tasks/vps_setup.py`
 
@@ -171,8 +175,9 @@ Eran cuatro donde ahora hay dos: la revisión del §4.6 fusionó `ensure_remote_
 `install_public_key` y bajó `test_ssh_login` a `core/ssh.py::reachable`.
 
 **Compuestas:** `setup_ssh_key`, `setup_github_ssh`, y `bootstrap_vps` — la compuesta de compuestas
-(PLAN.md §7, caso 8): encadena `setup_ssh_key`, `update_remote`, `bootstrap_db` y `rebuild_db`,
-que ya son compuestas con botón propio.
+(PLAN.md §7, caso 8): encadena `setup_ssh_key`, `publish_code`, `bootstrap_db` y `rebuild_db`, que
+ya son compuestas con botón propio. Encadenaba `update_remote` y por qué dejó de hacerlo está en el
+§4.7.
 
 ### `core/tasks/vps_ops.py`
 
@@ -550,6 +555,40 @@ El eje era lo que faltaba para que `specific` fuera elegible: venía de `SUDO_NO
 constante que en el script se editaba a mano y que al portarse quedó como parámetro sin control que
 lo ofreciera. Al volverlo alcanzable, su lista recortada (tres comandos, sin `tee`, `ufw` ni `rm`)
 pasó de hueco latente a falla real, y se completó.
+
+### 4.7 — Una compuesta solo reusa a otra si quiere todos sus pasos
+
+El §4.6 cerró el agujero de «un parámetro que no se reenvía queda clavado en su default». Faltaba el
+caso en que lo clavado no es un parámetro sino **la mitad de una receta**.
+
+`bootstrap_vps` llamaba a `vps_server.update_remote(ctx, restart=False)`. De los seis pasos del
+despliegue quería tres, y los otros tres entraban por sus defaults sin que nadie los viera — las
+casillas de una compuesta interna no se dibujan en el panel del botón externo. Dos hacían daño:
+
+| Paso heredado | Qué pasaba en un VPS de cero |
+|---|---|
+| `migrate=True` | `alembic upgrade` contra una base que **el paso siguiente todavía no creó**. Y `bootstrap_db` ya termina con `apply_migrations`, así que aun en orden sobraba |
+| `upload=True` con `files=None` | `upload_secret_files` avisaba «no hay archivos que copiar» y no hacía nada. El botón Bootstrap no declaraba el eje `files`, así que ese paso **nunca** pudo hacer otra cosa |
+
+La regla que sale, hermana de la del §4.6:
+
+> Una compuesta puede reusar a otra **solo si quiere todos sus pasos**. Si quiere la mitad, o baja a
+> las atómicas, o la mitad que comparten es una compuesta por derecho propio.
+
+Aquí valió lo segundo, porque esa mitad tiene dos consumidores reales y un significado propio:
+**`publish_code`** — push → código → dependencias → secretos. Es el despliegue sin las dos acciones
+que tocan lo que ya está corriendo, que son exactamente las que un servidor recién armado no puede
+hacer. `update_remote` pasó a ser `publish_code` más migrar y reiniciar, reenviándole las cuatro
+banderas enteras: su panel sigue mostrando las seis casillas planas, la compuesta de adentro no se
+ve desde afuera.
+
+`bootstrap_vps` la llama tal cual y ganó el eje `files`, que es lo que le faltaba para cumplir lo
+que su descripción promete («de VPS recién creado a servicio corriendo»): sin `.env` el servicio
+arranca y muere, así que el último paso instalaba un systemd condenado y el botón anunciaba éxito.
+
+Y un rótulo que mentía: el paso `git_pull` se llamaba «Pull en el VPS», pero `sync_repository`
+decide sola —con `_remote_state`, sin ninguna bandera— si clona o actualiza, y en la primera
+corrida clona. Ahora es «Código en el VPS».
 
 ### `core/session.py` — estado de sesión
 `run_server.py` escribía `SERVER_PORT` en `scripts/.env` para que `run_terminal.py` y `run_vite.py`
