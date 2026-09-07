@@ -67,6 +67,7 @@ def has_config(repo_path: str) -> bool:
 _DYNAMIC_DEFAULT_HINTS = {
     'VPS_USER': 'nombre del repo',
     'DB_NAME': '<VPS_USER>_db',
+    'GITHUB_KEY_TITLE': '<nombre del repo>-vps',
 }
 
 
@@ -237,16 +238,24 @@ class Config:
         return default
 
     def _dynamic_default(self, key: str) -> str:
-        """Los dos valores que los scripts originales derivaban a mano en vez
+        """Los valores que los scripts originales derivaban a mano en vez
         de pedirlos (`optional_env('VPS_USER', repo_root.name)`, y desde ahi
         `f'{vps_user}_db'`): el nombre del repo, y el de la base a partir del
         usuario ya resuelto — por eso `DB_NAME` llama de vuelta a `self.get`.
+
+        `GITHUB_KEY_TITLE` sigue la misma idea pero se deriva del repo y NO del
+        VPS: el titulo es el identificador con el que `core/github.py` busca la
+        llave para reemplazarla o revocarla, asi que atarlo a `VPS_IP` haria
+        que cambiar de servidor dejara huerfana la llave vieja en la cuenta.
+        El sufijo distingue la llave del VPS de una llave personal homonima.
         """
         if key == 'VPS_USER':
             return self.repo_name
         if key == 'DB_NAME':
             user = self.get('VPS_USER')
             return f'{user}_db' if user else ''
+        if key == 'GITHUB_KEY_TITLE':
+            return f'{self.repo_name}-vps' if self.repo_name else ''
         return ''
 
     def require(self, key: str) -> str:
