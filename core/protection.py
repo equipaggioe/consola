@@ -17,12 +17,17 @@ Tres decisiones sostienen el diseno:
    boton puede tocar objetivos distintos segun sus parametros (`teardown_db`
    contra `local` no sale de esta maquina; contra `remoto` alcanza al VPS).
 
-2. **El interruptor vive en la configuracion del repo, no en el panel de
-   parametros.** Es deliberado: un seguro que se quita en el mismo gesto con el
-   que se aprieta Ejecutar se vuelve parte del gesto, y a las dos semanas se
-   quita sin leerlo. Aca se decide UNA vez, cuando se da de alta el repo, y
-   queda escrito en `.consola/config.env`. Un interruptor que se toca cada
-   varios meses no llega a ser un reflejo.
+2. **El interruptor vive en su propia seccion, no en el panel de parametros.**
+   Es deliberado: un seguro que se quita en el mismo gesto con el que se aprieta
+   Ejecutar se vuelve parte del gesto, y a las dos semanas se quita sin leerlo.
+   Aca se decide UNA vez, cuando se da de alta el repo. Un interruptor que se
+   toca cada varios meses no llega a ser un reflejo.
+
+   Se guarda en `.consola/params.json` (`ui/params_store.py`), no en
+   `config.env`: el archivo .env son los DATOS que las tareas necesitan para
+   hacer su trabajo —la IP, el usuario, el token—, y ningun paso lee jamas un
+   `PROTECT_*`. Es una decision de la consola sobre este repo, de la misma
+   familia que los pasos que quedan marcados en un panel, y va donde van esas.
 
 3. **Lo que se repite es la confirmacion escrita, y verifica identidad.**
    Escribir `BORRAR` es correcto en cualquier repo: el automatismo siempre
@@ -40,13 +45,15 @@ seria justo el ruido que gasta la senal del aviso de verdad.
 @dataclass(frozen=True)
 class Target:
     """Un tipo de cosa que una accion destructiva puede romper."""
-    id: str
+    id: str             # como se guarda en `.consola/params.json`
     label: str          # como se lee en el dialogo: "el VPS", "la base de datos"
     chip: str           # etiqueta corta para la barra de estado: "VPS", "BD"
-    key: str            # clave de `.consola/config.env` que lo protege
-    setting_label: str  # como se lee el interruptor en el panel de configuracion
+    legacy_key: str     # la clave que tenia en `config.env` antes de mudarse al
+                        # json. Solo la mira la adopcion de
+                        # `ui/params_store.py::load_protection`; no se escribe.
+    setting_label: str  # como se lee el interruptor en la seccion Seguridad
     protected_by_default: bool
-    why: str            # por que ese default, para el comentario del archivo
+    why: str            # por que ese default, para el tooltip del interruptor
 
 
 TARGETS: tuple[Target, ...] = (
@@ -140,22 +147,39 @@ def targets_of(capability_id: str, payload: dict | None = None) -> list[Target]:
     return salida
 
 
-def protected(config, capability_id: str, payload: dict | None = None) -> list[Target]:
+def defaults() -> dict:
+    """Como arranca un repo que todavia no dijo nada."""
+    return {t.id: t.protected_by_default for t in TARGETS}
+
+
+def state_from(stored: dict | None) -> dict:
+    """El estado completo a partir de lo guardado, que puede ser parcial.
+
+    Un objetivo que no figura en el json cae en su default —protegido, salvo
+    `local`—: agregar un objetivo nuevo no puede dejar desprotegidos a los
+    repos que ya existen.
+    """
+    estado = defaults()
+    for tid, valor in (stored or {}).items():
+        if tid in _BY_ID:
+            estado[tid] = bool(valor)
+    return estado
+
+
+def protected(state: dict, capability_id: str, payload: dict | None = None) -> list[Target]:
     """Los objetivos que esta corrida toca Y que este repo tiene protegidos.
 
-    `config` es un `core.envfile.Config`: su `flag()` ya entiende `1/si/true` y
-    cae en el default del esquema cuando el repo no dice nada.
+    `state` es lo que devuelve `state_from`: `{target_id: bool}`.
     """
-    return [t for t in targets_of(capability_id, payload)
-            if config.flag(t.key, t.protected_by_default)]
+    return [t for t in targets_of(capability_id, payload) if is_protected(state, t)]
 
 
-def is_protected(config, target: Target) -> bool:
-    return config.flag(target.key, target.protected_by_default)
+def is_protected(state: dict, target: Target) -> bool:
+    return bool(state.get(target.id, target.protected_by_default))
 
 
-def repo_protections(config) -> list[Target]:
+def repo_protections(state: dict) -> list[Target]:
     """Todos los objetivos que este repo tiene protegidos, sin mirar ninguna
     accion en particular. Es lo que resume el indicador de la barra de estado
     (`ui/tab_panel.py::WorkspaceStatusBar`)."""
-    return [t for t in TARGETS if is_protected(config, t)]
+    return [t for t in TARGETS if is_protected(state, t)]

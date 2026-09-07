@@ -41,11 +41,11 @@ radio de daño es lo que importa y no coincide con los botones:
 
 | Objetivo | Clave | Por defecto | Por qué |
 |---|---|---|---|
-| VPS | `PROTECT_VPS` | protegido | alcanza una máquina remota, no hay deshacer |
-| Base de datos | `PROTECT_DB` | protegido | los datos borrados no vuelven sin backup |
-| Otros repositorios | `PROTECT_OTHER_REPOS` | protegido | escribe fuera de este repo, en carpetas que no miras |
-| Publicación | `PROTECT_RELEASE` | protegido | lo promovido queda a la vista de los usuarios |
-| Archivos locales | `PROTECT_LOCAL` | **libre** | un artefacto borrado se rehace con un build |
+| VPS | `vps` | protegido | alcanza una máquina remota, no hay deshacer |
+| Base de datos | `db` | protegido | los datos borrados no vuelven sin backup |
+| Otros repositorios | `otros_repos` | protegido | escribe fuera de este repo, en carpetas que no miras |
+| Publicación | `publicacion` | protegido | lo promovido queda a la vista de los usuarios |
+| Archivos locales | `local` | **libre** | un artefacto borrado se rehace con un build |
 
 Dos cosas que un seguro por botón no podría expresar:
 
@@ -61,21 +61,37 @@ ningún repo), así que un interruptor por repositorio no tendría a qué reposi
 
 ## 4. Dónde vive el interruptor, y por qué ahí
 
-En **la configuración del repo** (`.consola/config.env`, sección Seguridad del panel derecho), **no**
-en el panel de parámetros.
+En su **propia sección del panel derecho**, **no** en el panel de parámetros de la acción.
 
 Es la decisión de diseño que sostiene todo lo demás. Un seguro que se quita con el mismo gesto con el
 que se aprieta Ejecutar —una casilla "desbloquear" al lado del botón— se vuelve parte del gesto, y a
 las dos semanas se quita sin leerlo. Un reflejo necesita repetición para formarse.
 
-Aquí se decide **una vez**, cuando das de alta el repo, y queda escrito en un archivo que puedes
-`grep`ear. Un interruptor que se toca cada varios meses no llega a ser reflejo. Lo que **sí** se
-repite es la confirmación escrita, y esa verifica identidad.
+Aquí se decide **una vez**, cuando das de alta el repo. Un interruptor que se toca cada varios meses
+no llega a ser reflejo. Lo que **sí** se repite es la confirmación escrita, y esa verifica identidad.
 
-Se dibujan como **casillas** y no como campos de texto (`Setting.kind='bool'`, `ui/env_panel.py`):
-escribir `1` a mano en una casilla de seguridad es pedir que se escriba mal. Son las mismas casillas
-que los parámetros de una acción —mismo widget, mismo tamaño de letra—, sin texto explicativo al
-lado: la etiqueta ya dice qué protege y el detalle vive en el tooltip.
+### Y en qué archivo: `params.json`, no `config.env`
+
+Estuvieron un tiempo en `.consola/config.env`, como cinco claves `PROTECT_*` del esquema de
+`core/settings.py`. Estaba mal y se corrigió: **`config.env` son los datos que las tareas necesitan
+para trabajar** —la IP del VPS, el usuario, el token, las rutas de los certificados— y **ningún paso
+lee jamás un seguro**. Quien los mira es la consola, antes de dejar correr. Son de la misma familia
+que los pasos que quedan marcados en el panel de una acción, así que viven en el mismo archivo que
+ellos: `.consola/params.json`, bajo la clave `@protection` (`ui/params_store.py::load_protection`,
+`docs/parametros-persistentes.md §2`).
+
+Eso arregla además algo visible: la sección Seguridad **no tiene botón Guardar**, porque tocar una
+casilla la guarda, igual que en el panel de parámetros. Antes dependía del Guardar de *otra* sección
+—la de Configuración—, que es lo que hacía creer que los seguros no se estaban guardando.
+
+**Migración:** un repo que todavía tenga sus `PROTECT_*` en `config.env` los adopta la primera vez
+que se abre y los baja al json en ese momento. Las claves viejas del `.env` desaparecen solas en el
+siguiente Guardar de Configuración, porque el archivo se regenera desde un esquema que ya no las
+tiene.
+
+Se dibujan como **casillas** y no como campos de texto: escribir `1` a mano en un seguro es pedir que
+se escriba mal. Sin texto explicativo al lado — la etiqueta ya dice qué protege y el detalle vive en
+el tooltip.
 
 ## 5. Dónde se aplica
 
@@ -87,8 +103,7 @@ La pregunta que se hace no es "¿es destructivo?" sino "¿qué rompe **con estos
 protegido **en este repo**?":
 
 ```python
-config  = envfile.Config(self.env_panel.values(), repo_name=...)
-targets = protection.protected(config, capability.id, payload)
+targets = protection.protected(self.security_panel.state(), capability.id, payload)
 if targets:
     # GuardDialog: pide el nombre del repo
 ```
@@ -107,9 +122,10 @@ if targets:
 
 ## 7. Encontrar los interruptores: el indicador de la barra de estado
 
-Los cinco seguros viven en la sección Seguridad del panel derecho (§4), pero esa sección quedaba
-enterrada: `EnvPanel.filter_for()` sólo muestra las claves que la acción abierta reclama, así que con
-cualquier acción no destructiva —o sin ninguna pestaña abierta— desaparecían.
+Los cinco seguros viven en la sección Seguridad del panel derecho (§4). Cuando eran claves del
+formulario de Configuración quedaban enterrados: `EnvPanel.filter_for()` sólo muestra las claves que
+la acción abierta reclama, así que con cualquier acción no destructiva —o sin ninguna pestaña
+abierta— desaparecían.
 
 Tres cambios, ninguno vuelve al modelo de "un interruptor junto al botón Ejecutar" que ya se
 descartó en el §4:
@@ -124,21 +140,21 @@ descartó en el §4:
   indicador con lo que el repo activo tiene protegido ahora mismo: `🔒 VPS · BD · otros repos` o,
   si no protege nada, `🔓 sin seguros` en ámbar. No es un dato oculto detrás de un menú: un repo sin
   ningún seguro es tan digno de verse de un vistazo como uno que sí los tiene.
-- **`core.settings.PINNED_GROUP`** sigue existiendo, pero ahora sólo nombra qué grupo del esquema se
-  va a esa sección aparte (`EnvPanel._build_security`), no una excepción al filtrado.
+- **Un widget propio, `ui/security_panel.py`**, con su propio archivo detrás: ya no es un grupo del
+  formulario de Configuración, así que ningún filtro de acción lo alcanza y `PINNED_GROUP` dejó de
+  hacer falta.
 
-El indicador lee **lo que hay en pantalla**, no sólo lo guardado (`EnvPanel.values()`, vía
-`values_changed`): si tocaste una casilla y todavía no apretaste Guardar, el indicador ya lo
-refleja — es el mismo valor que `TabPanel._guard_ok` va a mirar si aprietas Ejecutar antes de
-guardar. Un clic en el indicador llama a `TabPanel.reveal_security()`, que despliega la sección.
+El indicador y el guard leen **la misma fuente**, `SecurityPanel.state()`, vía la señal `changed`: no
+pueden decir una cosa y aplicar otra. Un clic en el indicador llama a `TabPanel.reveal_security()`,
+que despliega la sección.
 
 ## 8. Archivos
 
 | Archivo | Qué hace |
 |---|---|
-| `core/protection.py` | los objetivos, qué rompe cada acción, cómo lo modulan sus ejes y `repo_protections()` para el indicador |
-| `core/settings.py` | `_protection_settings()` deriva un `Setting` por objetivo; `PINNED_GROUP` marca cuál va a su sección |
-| `ui/env_panel.py` | los `kind='bool'` como casilla; `_build_security()` arma el cuerpo de la sección Seguridad |
+| `core/protection.py` | los objetivos, qué rompe cada acción, cómo lo modulan sus ejes, `state_from()` y `repo_protections()` |
+| `ui/security_panel.py` | las cinco casillas de la sección Seguridad; guarda al tocarlas |
+| `ui/params_store.py` | `load_protection()` / `save_protection()`: la clave `@protection` de `params.json` y la adopción de los `PROTECT_*` viejos |
 | `ui/widgets/accordion.py` | la sección plegable con su cabecera y su resumen |
 | `ui/guard_dialog.py` | la confirmación escrita |
 | `ui/tab_panel.py` | `TabPanel._guard_ok` en el punto único de ejecución; el acordeón del panel derecho; `WorkspaceStatusBar` lleva el indicador |

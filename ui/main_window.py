@@ -12,7 +12,6 @@ from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar, ProjectTab
 from ui import project_store, params_store, readiness
 from ui.theme import Colors, Fonts
-from core import envfile
 from core.registry import registry
 from core.projects import Project
 
@@ -293,8 +292,8 @@ class MainWindow(QMainWindow):
         if workspace is None:
             workspace = TabPanel(project)
             workspace.env_panel.saved.connect(self._on_env_saved)
-            workspace.env_panel.values_changed.connect(
-                lambda _values, w=workspace: self._on_env_values_changed(w))
+            workspace.security_panel.changed.connect(
+                lambda _state, w=workspace: self._on_protection_changed(w))
             workspace.params_changed.connect(self._on_params_changed)
             workspace.machine_changed.connect(self.status_bar.refresh_tools)
             self.workspaces[key] = workspace
@@ -369,16 +368,13 @@ class MainWindow(QMainWindow):
 
     def _refresh_protection(self, workspace: TabPanel) -> None:
         """Lo que el repo de ESE espacio de trabajo tiene protegido ahora
-        mismo, para el indicador de la barra de estado. Lee lo que hay en
-        pantalla (`env_panel.values()`), no solo lo guardado: si acabas de
-        tocar un interruptor pero no apretaste Guardar, el indicador —y el
-        seguro que de verdad se aplica al correr (`TabPanel._guard_ok`)—
-        tienen que decir lo mismo."""
-        config = envfile.Config(workspace.env_panel.values(),
-                                repo_name=envfile.repo_name_of(workspace.project.path))
-        self.status_bar.set_protection(config)
+        mismo, para el indicador de la barra de estado. Lee el panel
+        (`security_panel.state()`), que es la misma fuente que consulta el
+        seguro al correr (`TabPanel._guard_ok`): el indicador no puede decir
+        una cosa y el guard aplicar otra."""
+        self.status_bar.set_protection(workspace.security_panel.state())
 
-    def _on_env_values_changed(self, workspace: TabPanel) -> None:
+    def _on_protection_changed(self, workspace: TabPanel) -> None:
         if workspace is self.current_workspace:
             self._refresh_protection(workspace)
 

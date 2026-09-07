@@ -15,10 +15,17 @@ casi nunca quiere los mismos pasos. Por eso se guarda **dentro del repo**, en
 
 ```json
 {
+  "@protection": { "vps": true, "db": true, "otros_repos": true, "publicacion": true, "local": false },
   "build_apk": { "steps": ["bump", "compile_apk"], "variants": {"app": ["cliente"]} },
   "update_remote": { "steps": ["pull", "restart"], "options": {} }
 }
 ```
+
+La clave `@protection` son los seguros del repo (`docs/seguro-destructivos.md`). Comparte archivo
+con los parámetros de los botones porque comparte naturaleza —una decisión de la consola sobre este
+repo, no un dato que ninguna tarea lea— y así comparte también el cache, la escritura atómica y el
+temporizador. El `@` la mantiene fuera del espacio de nombres de los `capability_id`, que son
+identificadores de Python y no pueden llevarlo.
 
 Antes vivía en `QSettings`, bajo `params/<sha1-de-la-ruta>/<capability_id>`. Esa clave tenía tres
 problemas que el archivo resuelve solos:

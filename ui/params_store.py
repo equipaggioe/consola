@@ -43,6 +43,13 @@ pulsacion. `flush()` fuerza la bajada; la llama el cierre de la ventana.
 """
 
 _FILE_NAME = 'params.json'
+# Los seguros del repo (`core/protection.py`) comparten el archivo con los
+# parametros de cada boton, bajo una clave que ningun `capability_id` puede
+# tener: un id es un identificador de Python y no lleva '@'. Comparten archivo
+# porque comparten naturaleza —decisiones de la consola sobre ESTE repo, no
+# datos que las tareas consuman— y asi comparten tambien el cache, la escritura
+# atomica y el temporizador.
+_PROTECTION_KEY = '@protection'
 _LEGACY_PREFIX = 'params'
 _FLUSH_MS = 500
 
@@ -148,6 +155,52 @@ def load(repo_path: str, capability_id: str) -> dict | None:
 
     state = _read(repo_path).get(capability_id)
     return state if isinstance(state, dict) else None
+
+
+def load_protection(repo_path: str) -> dict:
+    """Los seguros del repo, ya completados con sus defaults.
+
+    Si el archivo todavia no tiene la seccion, se adopta lo que el repo tenga
+    escrito en `config.env` de cuando los seguros vivian ahi: un repo que ya
+    habia decidido no vuelve a arrancar con los defaults. Las claves viejas no
+    se borran a mano — `config.env` se regenera desde el esquema, que ya no las
+    tiene, asi que desaparecen solas en el proximo Guardar.
+    """
+    from core import envfile, protection
+
+    guardado = _read(repo_path).get(_PROTECTION_KEY)
+    if not isinstance(guardado, dict):
+        valores = envfile.load_config(repo_path)
+        guardado = {t.id: _truthy(valores[t.legacy_key])
+                    for t in protection.TARGETS
+                    if valores.get(t.legacy_key, '').strip()}
+        if guardado:
+            # Se baja al json en cuanto se adopta, sin esperar a que se toque
+            # una casilla: la fuente vieja se borra sola en el proximo Guardar
+            # de config.env, y para entonces lo decidido ya tiene que estar aca.
+            save_protection(repo_path, protection.state_from(guardado))
+    return protection.state_from(guardado)
+
+
+def save_protection(repo_path: str, state: dict) -> None:
+    """Guarda los seguros enteros, no el que se toco.
+
+    Enteros porque el estado es de cinco casillas que se leen juntas, y porque
+    asi el archivo queda con las cinco escritas aunque una valga su default:
+    un seguro que no aparece en el archivo se lee peor que uno que dice `false`.
+    """
+    key = _norm(repo_path)
+    data = _read(repo_path)
+    limpio = {k: bool(v) for k, v in state.items()}
+    if data.get(_PROTECTION_KEY) == limpio:
+        return
+    data[_PROTECTION_KEY] = limpio
+    _dirty.add(key)
+    _schedule()
+
+
+def _truthy(value: str) -> bool:
+    return (value or '').strip().lower() in {'1', 'true', 'yes', 'y', 'on', 'si'}
 
 
 def stored_steps(repo_path: str, capability_id: str) -> list[str] | None:

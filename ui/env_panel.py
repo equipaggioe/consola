@@ -2,21 +2,14 @@ from __future__ import annotations
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QFrame, QToolButton, QFileDialog, QCheckBox, QPlainTextEdit
+    QScrollArea, QFrame, QToolButton, QFileDialog, QPlainTextEdit
 )
 from PySide6.QtCore import Qt, Signal
 
 from ui.theme import Colors, Fonts
 from core.projects import Project
 from core import envfile
-from core.settings import settings_by_group, Setting, PINNED_GROUP
-
-
-_TRUE = {'1', 'true', 'yes', 'y', 'on', 'si', 'true'}
-
-
-def _truthy(value: str) -> bool:
-    return (value or '').strip().lower() in _TRUE
+from core.settings import settings_by_group, Setting
 
 
 def _to_lines(value: str) -> str:
@@ -32,12 +25,7 @@ LIST_MAX_ROWS = 5
 
 
 class EnvRow(QWidget):
-    """Una clave del esquema: etiqueta, campo y, si es secreta, ojo para revelar.
-
-    Con `kind='bool'` (los seguros de `core/protection.py`) es una casilla en
-    vez de un campo: `value()` devuelve '1'/'0' para que el resto del panel siga
-    tratando todo como texto y `.consola/config.env` no cambie de forma.
-    """
+    """Una clave del esquema: etiqueta, campo y, si es secreta, ojo para revelar."""
     changed = Signal()
 
     def __init__(self, setting: Setting, value: str, accent: str, default_display: str = '', parent=None):
@@ -49,25 +37,6 @@ class EnvRow(QWidget):
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
-
-        # Un seguro no es un campo de texto: se dibuja como casilla, igual que
-        # los parametros de una accion (mismo widget, mismo tamano de fuente).
-        # Escribir '1' a mano en una casilla de seguridad es pedir que se
-        # escriba mal. La explicacion vive en el tooltip, no en un texto al
-        # lado: la etiqueta de la casilla ya dice que protege.
-        self.field = None
-        self.check = None
-        if setting.kind == 'bool':
-            self.check = QCheckBox(setting.display)
-            self.check.setCursor(Qt.CursorShape.PointingHandCursor)
-            self.check.setChecked(_truthy(value))
-            self.check.setToolTip(
-                f'{setting.key} — {setting.placeholder}' if setting.placeholder
-                else setting.key)
-            self.check.toggled.connect(self._on_toggle)
-            lay.addWidget(self.check)
-            lay.addStretch(1)
-            return
 
         self.label = QLabel(setting.display)
         self.label.setFixedWidth(118)
@@ -121,22 +90,11 @@ class EnvRow(QWidget):
         return self.setting.kind == 'list'
 
     def value(self) -> str:
-        if self.check is not None:
-            return '1' if self.check.isChecked() else '0'
         if self._is_list:
             return ', '.join(envfile.split_list(self.field.toPlainText()))
         return self.field.text().strip()
 
     def set_value(self, value: str) -> None:
-        if self.check is not None:
-            # Un repo que todavia no dice nada se queda con el default del
-            # esquema, que para los seguros es "protegido".
-            crudo = (value or '').strip()
-            marcado = _truthy(crudo) if crudo else _truthy(self.setting.default)
-            self.check.blockSignals(True)
-            self.check.setChecked(marcado)
-            self.check.blockSignals(False)
-            return
         if self._is_list:
             self.field.setPlainText(_to_lines(value))
             self._fit_list_height()
@@ -145,13 +103,7 @@ class EnvRow(QWidget):
 
     def set_accent(self, accent: str) -> None:
         self.accent = accent
-        if self.check is not None:
-            return
         self._restyle()
-
-    def _on_toggle(self, _checked: bool) -> None:
-        self.changed.emit()
-
 
     def _toggle_echo(self, revealed: bool) -> None:
         self.field.setEchoMode(
@@ -220,12 +172,10 @@ class EnvPanel(QWidget):
     Es por repo, no por pestana: se queda igual mientras cambias de accion
     arriba. Escribe el archivo regenerado desde el esquema (core/envfile).
 
-    Dibuja DOS cuerpos, no uno: este widget es el de «Configuración», y
-    `security_panel` —los seguros de `core/protection.py`— es un widget
-    hermano que no entra en este layout porque lo reclama `TabPanel` para su
-    propia seccion del acordeon. El estado sigue siendo uno solo: `rows`
-    tiene las claves de los dos, asi que `values()`, `reload()` y `save()`
-    ven el archivo entero y no una mitad.
+    Aca hay DATOS —lo que las tareas necesitan para trabajar—, y nada mas. Los
+    seguros del repo estuvieron un tiempo en este formulario y se fueron a
+    `ui/security_panel.py`: no los lee ninguna tarea, asi que no son un dato de
+    este archivo (`core/settings.py`, al final).
     """
     saved = Signal(dict)
     values_changed = Signal(dict)
@@ -257,10 +207,6 @@ class EnvPanel(QWidget):
         self.banner = self._build_banner()
         root.addWidget(self.banner)
         root.addWidget(self._build_file_bar())
-
-        # Sin padre y fuera de `root` a proposito: `TabPanel` lo mete en su
-        # seccion «Seguridad» y con eso adopta la propiedad del widget.
-        self.security_panel = self._build_security()
 
         self.reload()
 
@@ -335,43 +281,6 @@ class EnvPanel(QWidget):
         self.reload_btn.setStyleSheet(button_css)
         self.save_btn.setStyleSheet(button_css)
 
-    def _build_security(self) -> QWidget:
-        """Los seguros del repo, sin encabezado de grupo: el titulo lo pone la
-        cabecera de la seccion del acordeon que lo aloja.
-
-        Son cinco casillas fijas (`core/protection.TARGETS`), pero igual va
-        dentro de un scroll: la seccion del acordeon se arrastra a mano y sin
-        el, achicarla de mas aplastaba las casillas una contra otra en vez de
-        recortarlas. Con scroll, achicar solo esconde —y se llega scrolleando.
-        """
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
-
-        box = QWidget()
-        box.setStyleSheet(f"background: {Colors.SURFACE};")
-        lay = QVBoxLayout(box)
-        lay.setContentsMargins(16, 10, 16, 12)
-        lay.setSpacing(6)
-        lay.setAlignment(Qt.AlignmentFlag.AlignTop)
-
-        for setting in settings_by_group().get(PINNED_GROUP, []):
-            row = EnvRow(setting, '', self.accent)
-            row.changed.connect(self._on_row_changed)
-            self.rows[setting.key] = row
-            lay.addWidget(row)
-
-        self._security_content = box
-        scroll.setWidget(box)
-        return scroll
-
-    def security_height(self) -> int:
-        """Alto que piden las casillas sin scroll — lo usa
-        `TabPanel._relayout_right` para decidir cuanto darle a la seccion.
-        Se pregunta al contenido y no al scroll, que no tiene alto propio."""
-        return self._security_content.sizeHint().height()
-
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -386,8 +295,6 @@ class EnvPanel(QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         for group, settings in settings_by_group().items():
-            if group == PINNED_GROUP:
-                continue   # tiene seccion propia (`_build_security`)
             block_widget = QWidget()
             block_widget.setStyleSheet("background: transparent;")
             block = QVBoxLayout(block_widget)
@@ -507,10 +414,8 @@ class EnvPanel(QWidget):
 
         `None` = sin filtro (vista completa, cuando no hay pestana abierta).
 
-        Solo alcanza a las filas de ESTE cuerpo. Los seguros
-        (`PINNED_GROUP`) ya no necesitan la excepcion que tenian aca: viven en
-        su propia seccion del acordeon, asi que ningun filtro de accion los
-        toca — son decisiones del repo, no parametros de lo que este abierto
+        Los seguros del repo no necesitan la excepcion al filtro que tenian
+        aca: viven en otra seccion y en otro archivo
         (`docs/seguro-destructivos.md` §4).
         """
         self._filter = keys

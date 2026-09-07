@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QEvent
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
-from core import toolstatus, envfile
+from core import toolstatus
 from core.catalog import forget_machine_cache
 from core import protection
 from core.registry import Capability, registry
@@ -18,6 +18,7 @@ from ui.tab_view import TabView
 from ui.params_panel import ParamsPanel
 from ui.command_info_panel import CommandInfoPanel
 from ui.env_panel import EnvPanel
+from ui.security_panel import SecurityPanel
 from ui.widgets.led import LedIndicator
 from ui.widgets import (ReorderableTab, ReorderableBar,
                         AccordionSection, SectionResizeGrip)
@@ -329,12 +330,12 @@ class WorkspaceStatusBar(QWidget):
         self._sep_security.setVisible(False)
         self.set_status("")
 
-    def set_protection(self, config) -> None:
+    def set_protection(self, state: dict) -> None:
         """Refresca los candados con el estado de CADA objetivo de proteccion
         (`core/protection.TARGETS`), no solo los protegidos: un objetivo sin
         seguro tambien es un dato, y con su candado abierto se ve de un
-        vistazo. `config` es un `core.envfile.Config`. Se llama al cambiar de
-        repo y cada vez que se toca un interruptor de Seguridad."""
+        vistazo. `state` es `{target_id: bool}` (`ui/security_panel.py`). Se
+        llama al cambiar de repo y cada vez que se toca un interruptor."""
         while self._security_row.count():
             item = self._security_row.takeAt(0)
             if item.widget():
@@ -343,7 +344,7 @@ class WorkspaceStatusBar(QWidget):
         self.security_box.setVisible(True)
         self._sep_security.setVisible(True)
         for target in protection.TARGETS:
-            protegido = protection.is_protected(config, target)
+            protegido = protection.is_protected(state, target)
             chip = PadlockChip(target.chip, target.label, protegido)
             chip.clicked.connect(self.security_clicked.emit)
             self._security_row.addWidget(chip)
@@ -426,7 +427,12 @@ class TabPanel(ReorderableBar, QWidget):
 
         self.env_panel = EnvPanel(project)
         self.env_panel.values_changed.connect(self._on_env_changed)
-        self.env_panel.values_changed.connect(self._refresh_security_summary)
+
+        # Los seguros no salen de `config.env`: viven en `.consola/params.json`
+        # y se guardan al tocarlos, sin pasar por el boton Guardar de
+        # Configuracion (`ui/security_panel.py`).
+        self.security_panel = SecurityPanel(project)
+        self.security_panel.changed.connect(self._refresh_security_summary)
 
         # Seccion de arriba: la descripcion larga de la accion abierta y sus
         # pasos. Su cabecera siempre dice «Acción»; plegada, eso es todo lo que
@@ -436,7 +442,7 @@ class TabPanel(ReorderableBar, QWidget):
         # Plegada de entrada: su cabecera ya resume cuantos objetivos estan
         # protegidos (`_refresh_security_summary`), asi que abrirla es solo para
         # tocar los seguros, no para enterarse.
-        self.security_section = AccordionSection('Seguridad', self.env_panel.security_panel,
+        self.security_section = AccordionSection('Seguridad', self.security_panel,
                                                  expanded=False)
         # Desplegada de entrada y sin plegarse sola: es la seccion que se usa en
         # cada corrida, y abrir una accion para tener que abrirla ademas es un
@@ -538,7 +544,7 @@ class TabPanel(ReorderableBar, QWidget):
         self._runners: set[TaskRunner] = set()  # referencias vivas: sin esto Qt las recolecta a mitad de hilo
         self._busy: dict[SubTabButton, TaskRunner] = {}  # que pestana tiene tarea corriendo
 
-        self._refresh_security_summary(self.env_panel.values())
+        self._refresh_security_summary(self.security_panel.state())
         QTimer.singleShot(0, self._relayout_right)
 
     # --- construccion ------------------------------------------------
@@ -1013,18 +1019,17 @@ class TabPanel(ReorderableBar, QWidget):
     def _security_wanted(self) -> int:
         # Al contenido, no al scroll que lo envuelve: un `QScrollArea` no tiene
         # alto propio y contestaria un `sizeHint` generico.
-        return self.env_panel.security_height()
+        return self.security_panel.content_height()
 
     def _info_wanted(self) -> int:
         return self.info_panel.content_height() + 28
 
-    def _refresh_security_summary(self, values: dict) -> None:
+    def _refresh_security_summary(self, state: dict) -> None:
         """Cuantos objetivos estan protegidos, en la cabecera de la seccion.
 
         Es lo que hace que cerrarla no cueste informacion: plegada sigue
         diciendo el unico dato por el que se abre."""
-        config = envfile.Config(values, repo_name=envfile.repo_name_of(self.project.path))
-        protegidos = len(protection.repo_protections(config))
+        protegidos = len(protection.repo_protections(state))
         total = len(protection.TARGETS)
         self.security_section.set_summary(
             f'{protegidos} de {total} protegidos' if protegidos else 'sin seguros')
@@ -1081,9 +1086,8 @@ class TabPanel(ReorderableBar, QWidget):
         simulacro de `clean_artifacts` no pregunta nada, y `teardown_db` contra
         `local` no pregunta lo mismo que contra `remoto`.
         """
-        config = envfile.Config(self.env_panel.values(),
-                                repo_name=envfile.repo_name_of(self.project.path))
-        targets = protection.protected(config, capability.id, payload)
+        targets = protection.protected(self.security_panel.state(),
+                                       capability.id, payload)
         if not targets:
             return True
 
