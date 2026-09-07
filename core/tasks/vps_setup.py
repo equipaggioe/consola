@@ -20,19 +20,10 @@ sino `ssh.reachable`: algo que necesitan casi todos los botones de SSH es
 plomeria de nivel 0, no una tarea con boton (docs/atomicas.md 4.6).
 """
 
-PACKAGE_GROUPS: dict[str, list[str]] = {
-    'python': ['python3', 'python3-venv', 'python3-pip'],
-    'git': ['git'],
-    'postgresql': ['postgresql', 'postgresql-contrib'],
-    'postgis': ['postgis', 'postgresql-postgis-scripts'],
-    'caddy': ['caddy'],
-    'ufw': ['ufw'],
-    'redis': ['redis-server'],
-    'curl': ['curl'],
-    'htop': ['htop'],
-}
-
-DEFAULT_GROUPS = ['python', 'git', 'postgresql', 'caddy', 'ufw']
+# `PACKAGE_GROUPS` y `DEFAULT_GROUPS` viven en `core/vps.py`: el catalogo los
+# necesita para dibujar el eje y no puede importar de esta capa.
+PACKAGE_GROUPS = vps.PACKAGE_GROUPS
+DEFAULT_GROUPS = vps.DEFAULT_GROUPS
 
 SUDO_MODES = ('all', 'specific', 'none')
 # Modo 'specific': la lista tiene que cubrir TODOS los `sudo -n` que corre el
@@ -295,7 +286,8 @@ def setup_github_ssh(ctx, *, generate: bool = True, register: bool = True,
         test_github_ssh(ctx)
 
 
-def bootstrap_vps(ctx, sudo_mode: str = 'all', *, known_host: bool = True,
+def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, *,
+                  known_host: bool = True,
                   ssh_key: bool = True, software: bool = True,
                   github_ssh: bool = True, deploy: bool = True,
                   database: bool = True, service: bool = True) -> None:
@@ -304,6 +296,11 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', *, known_host: bool = True,
     Encadena capacidades que ya tienen su propio boton compuesto. Si un paso
     falla, la receta se detiene ahi: cada compuesta interna ya sabe revertir lo
     suyo, asi que la externa no necesita un rollback propio ademas.
+
+    `sudo_mode` y `groups` se reenvian a las compuestas de adentro. No es
+    duplicar sus ejes: un parametro que el bootstrap no reenvia queda clavado en
+    su default y el eje del boton suelto no sirve de nada aca — el mismo agujero
+    que tenia `sudo_mode` antes de docs/atomicas.md 4.6, una capa mas arriba.
     """
     from . import database as db_tasks
     from . import vps_server
@@ -316,7 +313,7 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', *, known_host: bool = True,
         setup_ssh_key(ctx, sudo_mode)
     if software:
         ctx.step('Software base')
-        install_base_software(ctx)
+        install_base_software(ctx, groups)
     if github_ssh:
         ctx.step('GitHub SSH')
         setup_github_ssh(ctx)

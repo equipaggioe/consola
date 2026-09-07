@@ -285,7 +285,7 @@ class ParamsPanel(QWidget):
         self._checks[axis.name] = {}
         for value in axis.values:
             check = QCheckBox(axis.text_of(value))
-            check.setChecked(axis.checked_by_default)
+            check.setChecked(axis.starts_checked(value))
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.stateChanged.connect(self._refresh_summary)
             self._checks[axis.name][value] = check
@@ -402,7 +402,7 @@ class ParamsPanel(QWidget):
         self._checks[axis.name] = {}
         for value in axis.values:
             check = QCheckBox(axis.text_of(value))
-            check.setChecked(axis.checked_by_default)
+            check.setChecked(axis.starts_checked(value))
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.stateChanged.connect(self._refresh_summary)
             self._checks[axis.name][value] = check

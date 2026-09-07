@@ -6,6 +6,25 @@ from .ssh import Remote, capture, quote, reachable, run, succeeds
 
 SUDO = 'sudo -n'
 
+# Los paquetes que el despliegue da por dados, agrupados por lo que significan
+# para quien elige (no por como se llaman en apt: `python` son tres paquetes).
+# Vive aca y no en `core/tasks/vps_setup.py` porque `core/catalog.py` dibuja el
+# eje con estas mismas claves y no puede importar de la capa de tareas.
+PACKAGE_GROUPS: dict[str, list[str]] = {
+    'python': ['python3', 'python3-venv', 'python3-pip'],
+    'git': ['git'],
+    'postgresql': ['postgresql', 'postgresql-contrib'],
+    'postgis': ['postgis', 'postgresql-postgis-scripts'],
+    'caddy': ['caddy'],
+    'ufw': ['ufw'],
+    'redis': ['redis-server'],
+}
+
+# Los que arrancan marcados: lo que necesita un backend Python detras de Caddy.
+# No es una categoria ("base" vs "opcional"), es un default — por eso viaja como
+# `AxisDef.defaults` y no como dos ejes separados.
+DEFAULT_GROUPS = ['python', 'git', 'postgresql', 'caddy', 'ufw']
+
 
 # --- rutas del despliegue --------------------------------------------------
 

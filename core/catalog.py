@@ -3,7 +3,7 @@ import os
 from dataclasses import replace
 from pathlib import Path
 
-from . import android, cache, targets
+from . import android, cache, targets, vps
 from .errors import TaskError
 from .registry import registry, Capability, AxisDef, Step
 
@@ -18,6 +18,23 @@ UPLOAD_FILES_HINT = 'server/.env\nserver/certs/cert.pem\nserver/certs/key.pem'
 # Las comas se siguen aceptando al leerlo (`envfile.split_list`).
 _FILES_AXIS = lambda: AxisDef('files', [''], 'field', label='Archivos a copiar',
                               placeholder=UPLOAD_FILES_HINT, multiline=True)
+
+# Nueve grupos, cinco marcados. Un solo eje y no dos ("base" / "opcionales")
+# porque abajo hay un solo parametro (`install_base_software(groups)`): partirlo
+# obligaria al adaptador a concatenar dos listas para reconstruir la unica que
+# existe, y convertiria un default en una categoria. La categoria seria ademas
+# falsa — `postgis` es tan base como `postgresql` en un repo con datos
+# geograficos — y `allow_empty=False` dejaria de poder decir lo unico que hay
+# que validar aca: al menos un paquete.
+_PACKAGE_LABELS = {
+    'python': 'Python', 'git': 'Git', 'postgresql': 'PostgreSQL',
+    'postgis': 'PostGIS', 'caddy': 'Caddy', 'ufw': 'UFW',
+    'redis': 'Redis',
+}
+_PACKAGES_AXIS = lambda: AxisDef('groups', list(vps.PACKAGE_GROUPS), 'checks',
+                                 select='many', label='Paquetes',
+                                 defaults=set(vps.DEFAULT_GROUPS),
+                                 labels=_PACKAGE_LABELS)
 
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
 
@@ -473,7 +490,11 @@ def load_catalog() -> None:
         steps=UPDATE_REMOTE_STEPS, stub=True))
 
     # VPS · setup group
-    registry.register(Capability(id='install_software', name='Software base', group='VPS · setup', section='Paquetes', kind='once', icon='📦', description='Instala en el VPS los paquetes base que el despliegue da por dados.', stub=True))
+    registry.register(Capability(
+        id='install_software', name='Software base', group='VPS · setup', section='Paquetes',
+        kind='once', icon='📦',
+        description='Instala en el VPS los paquetes que elijas, salteando los que ya estén.',
+        axes=[_PACKAGES_AXIS()], stub=True))
     registry.register(Capability(id='refresh_known_host', name='Refrescar known_host', group='VPS · setup', section='SSH', kind='once', icon='🔄', description='Renueva la huella del VPS en known_hosts tras recrear la máquina.', stub=True))
     # `SUDO_NOPASSWD_MODE` era una constante que se editaba en el script; al
     # portarlo quedo como parametro de `configure_sudo` sin eje que lo ofreciera,
@@ -494,7 +515,8 @@ def load_catalog() -> None:
         kind='once', icon='🚀',
         description='De VPS recién creado a servicio corriendo: SSH, software, deploy, base y systemd.',
         axes=[AxisDef('sudo_mode', ['all', 'specific', 'none'], 'scope',
-                      label='Sudo sin contraseña', default='all')],
+                      label='Sudo sin contraseña', default='all'),
+              _PACKAGES_AXIS()],
         steps=BOOTSTRAP_VPS_STEPS, stub=True))
 
     # Base de datos group

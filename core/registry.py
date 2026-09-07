@@ -16,7 +16,15 @@ class AxisDef:
     danger: set[str] = field(default_factory=set)
     label: str = ''
     select: str = 'one'  # 'one' | 'many'
-    checked_by_default: bool = True  # solo para select='many': todas marcadas, o ninguna
+    checked_by_default: bool = True  # solo para select='many': todas marcadas, o ninguna.
+                                # Es el caso degenerado de `defaults`: cuando el default es
+                                # "todas" o "ninguna" no hace falta enumerarlas.
+    defaults: set[str] = field(default_factory=set)  # solo para select='many': cuales arrancan
+                                # marcadas cuando no son ni todas ni ninguna (los cinco paquetes
+                                # base de nueve). Declarar el default como dato evita partir un
+                                # eje en dos secciones solo para expresarlo: la division
+                                # base/opcional no es una propiedad del dominio (`postgis` es
+                                # base en un repo con datos geograficos), es este default.
     allow_empty: bool = False  # solo para select='many': ninguna marcada es una eleccion valida,
                                 # no "olvidaste elegir" (ej. 'Pesados' en clean_artifacts)
     discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
@@ -58,6 +66,12 @@ class AxisDef:
     @property
     def is_multi(self) -> bool:
         return self.select == 'many'
+
+    def starts_checked(self, value: str) -> bool:
+        """Si esta casilla arranca marcada. Sin `defaults`, manda el booleano global."""
+        if self.defaults:
+            return value in self.defaults
+        return self.checked_by_default
 
     @property
     def is_from_machine(self) -> bool:

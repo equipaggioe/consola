@@ -306,6 +306,20 @@ def _setup_github_ssh_kwargs(payload: dict) -> dict:
     }
 
 
+def _install_software_kwargs(payload: dict) -> dict:
+    """Las casillas marcadas son la lista de grupos, tal cual.
+
+    Los valores del eje son las claves de `vps.PACKAGE_GROUPS`, no etiquetas
+    traducidas: no hay tabla que mantener como en `clean_artifacts`, y un grupo
+    nuevo en `core/vps.py` aparece solo en el panel.
+
+    Lista vacia no llega nunca (el eje no declara `allow_empty`, asi que el panel
+    bloquea el boton), pero si llegara, `None` deja que la funcion caiga en
+    `DEFAULT_GROUPS` en vez de instalar nada en silencio.
+    """
+    return {'groups': (payload['variants'].get('groups') or None)}
+
+
 # --- VPS - ops -------------------------------------------------------------
 
 _CLEAN_VPS_STEPS = ('service', 'database', 'repo', 'github_key', 'packages', 'user')
@@ -332,6 +346,7 @@ def _bootstrap_vps_kwargs(payload: dict) -> dict:
     steps = set(payload.get('steps') or [])
     kwargs = {nombre: nombre in steps for nombre in _BOOTSTRAP_STEPS}
     kwargs['sudo_mode'] = _option(payload, 'sudo_mode') or 'all'
+    kwargs['groups'] = payload['variants'].get('groups') or None
     return kwargs
 
 
@@ -351,14 +366,13 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'push_repository': lambda payload: {},
     'upload_secret_files': _upload_secrets_kwargs,
     'update_remote': _update_remote_kwargs,
-    # VPS - setup. Los tres sin parametros no son un olvido: `refresh_known_host`
-    # solo necesita VPS_IP, `install_software` cae en DEFAULT_GROUPS y el realm de
-    # `install_coturn` sale de CF_DOMAIN_NAME o del propio host. Si alguno gana un
-    # eje despues, gana adaptador con el.
+    # VPS - setup. Los dos sin parametros no son un olvido: `refresh_known_host`
+    # solo necesita VPS_IP y el realm de `install_coturn` sale de CF_DOMAIN_NAME
+    # o del propio host. Si alguno gana un eje despues, gana adaptador con el.
     'refresh_known_host': lambda payload: {},
     'setup_ssh_key': _setup_ssh_kwargs,
     'setup_github_ssh': _setup_github_ssh_kwargs,
-    'install_software': lambda payload: {},
+    'install_software': _install_software_kwargs,
     'install_coturn': lambda payload: {},
     'bootstrap_vps': _bootstrap_vps_kwargs,
     # VPS - ops. La compuesta destructiva: seis casillas, seis booleanos.
