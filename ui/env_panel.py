@@ -2,7 +2,7 @@ from __future__ import annotations
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QFrame, QToolButton, QFileDialog, QCheckBox
+    QScrollArea, QFrame, QToolButton, QFileDialog, QCheckBox, QPlainTextEdit
 )
 from PySide6.QtCore import Qt, Signal
 
@@ -17,6 +17,11 @@ _TRUE = {'1', 'true', 'yes', 'y', 'on', 'si', 'true'}
 
 def _truthy(value: str) -> bool:
     return (value or '').strip().lower() in _TRUE
+
+
+def _to_lines(value: str) -> str:
+    """Lo guardado (comas) tal como se edita (un renglon por entrada)."""
+    return '\n'.join(envfile.split_list(value or ''))
 
 
 class EnvRow(QWidget):
@@ -64,13 +69,23 @@ class EnvRow(QWidget):
             f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
         )
 
-        self.field = QLineEdit(value)
+        # Una lista se escribe en varios renglones: tres rutas de certificados
+        # en un QLineEdit no dejan ver donde termina una y empieza la otra.
+        # Guarda separado por comas — ver `Setting.kind`.
+        if setting.kind == 'list':
+            self.field = QPlainTextEdit(_to_lines(value))
+            self.field.setFixedHeight(58)
+            self.field.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
+            self.field.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+            self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+        else:
+            self.field = QLineEdit(value)
+            if setting.secret:
+                self.field.setEchoMode(QLineEdit.EchoMode.Password)
         # `default_display` es el default ya resuelto para ESTE repo (fijo o
         # dinamico, ej. VPS_USER -> nombre de carpeta): dejar el campo vacio
         # no es un error, corre con lo que se ve de marca de agua aca.
         self.field.setPlaceholderText(setting.placeholder or default_display or setting.key)
-        if setting.secret:
-            self.field.setEchoMode(QLineEdit.EchoMode.Password)
         self.field.textChanged.connect(self._on_text)
 
         lay.addWidget(self.label)
@@ -93,9 +108,15 @@ class EnvRow(QWidget):
 
         self._restyle()
 
+    @property
+    def _is_list(self) -> bool:
+        return self.setting.kind == 'list'
+
     def value(self) -> str:
         if self.check is not None:
             return '1' if self.check.isChecked() else '0'
+        if self._is_list:
+            return ', '.join(envfile.split_list(self.field.toPlainText()))
         return self.field.text().strip()
 
     def set_value(self, value: str) -> None:
@@ -107,6 +128,9 @@ class EnvRow(QWidget):
             self.check.blockSignals(True)
             self.check.setChecked(marcado)
             self.check.blockSignals(False)
+            return
+        if self._is_list:
+            self.field.setPlainText(_to_lines(value))
             return
         self.field.setText(value)
 
@@ -125,14 +149,18 @@ class EnvRow(QWidget):
             QLineEdit.EchoMode.Normal if revealed else QLineEdit.EchoMode.Password
         )
 
-    def _on_text(self, _text: str) -> None:
+    # `textChanged` de QLineEdit manda el texto y el de QPlainTextEdit no manda
+    # nada: sin el default, el campo multilinea nunca emitia `changed` y lo
+    # escrito no llegaba a guardarse.
+    def _on_text(self, _text: str = '') -> None:
         self._restyle()
         self.changed.emit()
 
     def _restyle(self) -> None:
         border = Colors.BORDER if self.value() else Colors.BORDER_LIGHT
+        widget = 'QPlainTextEdit' if self._is_list else 'QLineEdit'
         self.field.setStyleSheet(f"""
-            QLineEdit {{
+            {widget} {{
                 background: {Colors.SURFACE_ALT};
                 color: {Colors.TEXT};
                 border: 1px solid {border};
@@ -140,7 +168,7 @@ class EnvRow(QWidget):
                 padding: 5px 8px;
                 font-size: {Fonts.SIZE_XS}px;
             }}
-            QLineEdit:focus {{ border: 1px solid {self.accent}; }}
+            {widget}:focus {{ border: 1px solid {self.accent}; }}
         """)
 
 

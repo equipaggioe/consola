@@ -1,8 +1,6 @@
 from __future__ import annotations
 from typing import Callable
 
-from core.envfile import split_list
-
 """
 El puente entre lo que marca el panel de parametros y lo que espera la
 funcion real de `core/tasks/`.
@@ -171,31 +169,14 @@ def _bump_mode(payload: dict) -> str:
     return f'{base}+build' if 'build' in sel else base
 
 
-def _files(payload: dict) -> list[str]:
-    """El campo "Archivos a copiar" es una caja con una ruta por renglon.
-
-    Se parte aca y no en la tarea porque es exactamente el trabajo de este
-    archivo: el panel entrega texto tal como se escribio, y la funcion espera
-    la lista de rutas que va a recorrer. `split_list` acepta tambien comas, asi
-    que lo que alguien haya dejado escrito en una sola linea sigue valiendo.
-    """
-    return split_list(_field(payload, 'files'))
-
-
-def _upload_secrets_kwargs(payload: dict) -> dict:
-    return {'files': _files(payload)}
-
-
 def _publish_code_kwargs(payload: dict) -> dict:
     """Los cuatro pasos del panel son los cuatro booleanos de la compuesta.
 
-    `files` viaja aunque el paso de secretos este desmarcado: la compuesta lo
-    ignora en ese caso, y asi el adaptador no tiene que saber en que orden se
-    leen los pasos.
+    No hay `files`: la lista de secretos es la clave `SECRET_FILES` y la lee
+    `upload_secret_files` de la configuracion del repo, no del panel.
     """
     steps = set(payload.get('steps') or [])
     return {
-        'files': _files(payload),
         # 'preguntar' deja que la tarea abra el dialogo cuando el VPS tenga
         # cambios sin commitear; 'descartar' se los salta y hace el reset.
         'discard_changes': _option(payload, 'vps_dirty') == 'descartar',
@@ -352,14 +333,12 @@ _BOOTSTRAP_STEPS = ('known_host', 'ssh_key', 'software', 'github_ssh',
 
 
 def _bootstrap_vps_kwargs(payload: dict) -> dict:
-    """La compuesta de compuestas: un booleano por paso, mas los tres valores
-    que reenvia a las compuestas de adentro — sudo, paquetes y los archivos que
-    `publish_code` sube al VPS."""
+    """La compuesta de compuestas: un booleano por paso, mas el modo de sudo y
+    los paquetes que reenvia a las compuestas de adentro."""
     steps = set(payload.get('steps') or [])
     kwargs = {nombre: nombre in steps for nombre in _BOOTSTRAP_STEPS}
     kwargs['sudo_mode'] = _option(payload, 'sudo_mode') or 'all'
     kwargs['groups'] = payload['variants'].get('groups') or None
-    kwargs['files'] = _files(payload)
     return kwargs
 
 
@@ -375,9 +354,8 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'build_apk': _build_apk_kwargs,
     'build_vite': _build_vite_kwargs,
     'build_binary': _build_binary_kwargs,
-    # Sin parametros: empuja la rama de la carpeta abierta y nada mas.
-    'push_repository': lambda payload: {},
-    'upload_secret_files': _upload_secrets_kwargs,
+    # Sin parametros: las rutas salen de `SECRET_FILES` (Configuracion).
+    'upload_secret_files': lambda payload: {},
     'publish_code': _publish_code_kwargs,
     'update_remote': _update_remote_kwargs,
     # VPS - setup. Los dos sin parametros no son un olvido: `refresh_known_host`

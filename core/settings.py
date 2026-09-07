@@ -14,10 +14,12 @@ class Setting:
     secret: bool = False
     default: str = ''
     placeholder: str = ''
-    kind: str = 'text'  # 'text' | 'bool'. Un booleano se dibuja como
+    kind: str = 'text'  # 'text' | 'bool' | 'list'. Un booleano se dibuja como
                         # interruptor y no como campo (`ui/env_panel.py`):
                         # escribir '1' a mano en una casilla de seguridad es
-                        # pedir que se escriba mal.
+                        # pedir que se escriba mal. 'list' es un campo
+                        # multilinea: una entrada por renglon, guardadas
+                        # separadas por comas.
     required_by: tuple[str, ...] = field(default_factory=tuple)
     # Acciones que USAN la clave pero corren igual sin ella. Aparece en el panel
     # de configuracion filtrado de esas acciones, y no bloquea su boton. La
@@ -95,6 +97,20 @@ SETTINGS: tuple[Setting, ...] = (
             required_by=('update_remote', 'install_systemd')),
     Setting('VPS_DEPLOY_DIR', 'VPS', 'Directorio de despliegue',
             required_by=('update_remote', 'upload_to_vps')),
+    # Los archivos que nunca viajan por git. Era un eje repetido en los cuatro
+    # botones del deploy, con su propio valor guardado en cada uno: cambiar la
+    # lista obligaba a escribirla cuatro veces y nada avisaba cuando dos
+    # discrepaban. Que archivos secretos tiene un repo no es una decision de
+    # quien aprieta el boton, es una propiedad del proyecto — o sea,
+    # configuracion.
+    #
+    # `kind='list'` la dibuja multilinea, una ruta por renglon. En el archivo va
+    # separada por comas, que es lo unico que entra en un renglon de .env;
+    # `envfile.split_list` acepta las dos formas al leerla.
+    Setting('SECRET_FILES', 'VPS', 'Archivos a copiar', kind='list',
+            placeholder='server/.env, server/certs/cert.pem, server/certs/key.pem',
+            used_by=('publish_code', 'update_remote', 'upload_secret_files',
+                     'bootstrap_vps')),
     Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_REMOTE),
     Setting('DB_PASSWORD', 'VPS', 'Password de la base', secret=True, required_by=_DB_REMOTE),
     Setting('PG_SUPERUSER', 'VPS', 'Superusuario Postgres', default='postgres',

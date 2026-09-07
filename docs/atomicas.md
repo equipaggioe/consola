@@ -57,7 +57,7 @@ Si la respuesta es sí, es una atómica. Los ejemplos reales que motivaron esto:
 |---|---|---|
 | `android_emulator.py` — un `run()` que bajaba la system image, creaba el AVD, parcheaba `config.ini` y arrancaba, con tres wrappers que solo cambiaban una constante | Para arrancar un emulador ya creado había que volver a entrar a la lógica de descarga y creación; y las tres constantes escondían los 88 dispositivos y 317 imágenes que publica el SDK | `install_system_image` · `create_avd` · `launch_emulator` · `await_emulator` · `stop_emulator` ([emuladores.md](emuladores.md)) |
 | `rebuild_db.py` — un archivo que borraba tablas, reseteaba Alembic, regeneraba la migración inicial, aseguraba particiones y corría dos tandas de seeders | Volver a correr solo los seeders mock obligaba a destruir el esquema | `drop_tables` · `reset_migrations` · `generate_migration` · `apply_migrations` · `ensure_partitions` · `run_seeders` · `run_mock_seeders` |
-| `update_remote.py` — 607 líneas en un `main()` | "Solo recopiar los certificados" implicaba rehacer `git pull` + venv + `pip install` | `sync_repository` · `ensure_remote_venv` · `install_remote_deps` · `upload_secret_files` · `restart_service` |
+| `update_remote.py` — 607 líneas en un `main()` | "Solo recopiar los certificados" implicaba rehacer `git pull` + venv + `pip install` | `sync_repository` · `install_remote_deps` · `upload_secret_files` · `restart_service` |
 | `setup_ssh_key.py` — un comando shell de 40 líneas encadenadas con `&&` | Si fallaba el login había que rehacer la creación del usuario que ya existía | `ensure_deploy_access` · `configure_sudo` (+ la verificación, que es plomería: §4.6) |
 | `build_apk.py` / `build_vite.py` / `build_binary.py` | Cada uno traía su propia copia del bump y del scp | `bump_version` (uno solo, tres manifiestos) · `upload_artifact` (uno solo) + el paso de compilación propio de cada builder |
 
@@ -155,7 +155,8 @@ con un número que nunca se publicó.
 
 ### `core/tasks/vps_server.py`
 
-`push_repository` · `sync_repository` (clona o actualiza segun el estado del VPS; pregunta si
+`push_repository` (sin botón propio: es el primer paso de `publish_code`) · `sync_repository`
+(clona o actualiza segun el estado del VPS; pregunta si
 tiene cambios sin commitear) · `install_remote_deps` (crea el venv adentro) · `upload_secret_files` ·
 `restart_service` (avisa y sigue si el servicio no existe) · `write_systemd_unit` · `systemd_action` ·
 `view_logs`.
@@ -582,9 +583,29 @@ hacer. `update_remote` pasó a ser `publish_code` más migrar y reiniciar, reenv
 banderas enteras: su panel sigue mostrando las seis casillas planas, la compuesta de adentro no se
 ve desde afuera.
 
-`bootstrap_vps` la llama tal cual y ganó el eje `files`, que es lo que le faltaba para cumplir lo
-que su descripción promete («de VPS recién creado a servicio corriendo»): sin `.env` el servicio
-arranca y muere, así que el último paso instalaba un systemd condenado y el botón anunciaba éxito.
+`bootstrap_vps` la llama tal cual, y con eso cumple lo que su descripción promete («de VPS recién
+creado a servicio corriendo»): sin `.env` el servicio arranca y muere, así que el último paso
+instalaba un systemd condenado y el botón anunciaba éxito.
+
+**La lista de secretos dejó de ser un parámetro.** Era el eje `files`, declarado en los cuatro
+botones que la usan, con un valor guardado por botón en `params.json`: cambiarla obligaba a
+escribirla cuatro veces y nada avisaba cuando dos discrepaban. Pero qué archivos secretos tiene un
+repo no es una decisión de quien aprieta el botón — es una propiedad de la carpeta, o sea
+configuración. Ahora es la clave `SECRET_FILES` (grupo VPS), que `upload_secret_files` lee sola;
+`publish_code`, `update_remote` y `bootstrap_vps` ya ni la transportan, y 'Copiar secretos' quedó
+sin ejes.
+
+Es el mismo movimiento del §4.6 —de parámetro repetido a fuente única— una capa más afuera: allá lo
+compartido bajó a `core/`, acá subió a Configuración. `Setting` ganó `kind='list'` y `EnvRow` un
+campo multilínea (una ruta por renglón, guardadas separadas por comas, que es lo único que entra en
+un renglón de `.env`).
+
+**Y `push_repository` perdió su botón.** Arrancaba desmarcado «porque publica hacia afuera», lo que
+dejaba el default del despliegue en el caso equivocado: el VPS clona de GitHub y no de esta máquina,
+así que desplegar sin empujar publica el commit de otro — justamente el agujero que esta atómica se
+había agregado para tapar. Ahora es el primer paso de `publish_code` y viene marcado. Empujar sin
+desplegar ya lo hace cualquier cliente de git; la función sigue existiendo, lo que sobraba era el
+botón.
 
 Y un rótulo que mentía: el paso `git_pull` se llamaba «Pull en el VPS», pero `sync_repository`
 decide sola —con `_remote_state`, sin ninguna bandera— si clona o actualiza, y en la primera

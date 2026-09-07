@@ -1,5 +1,5 @@
 from __future__ import annotations
-from .. import ssh, vps
+from .. import envfile, ssh, vps
 from ..errors import TaskError
 from ..process import which_any
 from ..registry import registry
@@ -216,23 +216,27 @@ def install_remote_deps(ctx) -> None:
     ctx.ok('Dependencias del VPS instaladas.')
 
 
-def upload_secret_files(ctx, files: list[str] | None = None) -> list[str]:
+def upload_secret_files(ctx) -> list[str]:
     """Sube los archivos que nunca viajan por git: `.env`, certificados, credenciales.
 
-    Las rutas se escriben en el campo "Archivos a copiar" del panel, relativas
-    a la raiz del repo y separadas por comas. No hay lista por defecto: que
-    archivos secretos tiene un proyecto lo sabe quien lo configura, y el script
-    original se equivocaba en las dos puntas — tres nombres fijos en la cabecera
-    mas un `rglob('.env')` que barria el repo entero y mandaba a produccion el
-    `.env.example` y el de los tests.
+    Las rutas salen de `SECRET_FILES`, en Configuracion, relativas a la raiz del
+    repo. Vivian en un campo del panel repetido en los cuatro botones del
+    deploy, cada uno con su copia guardada; que archivos secretos tiene un
+    proyecto no es una decision de quien aprieta el boton, es una propiedad de
+    la carpeta.
+
+    No hay lista por defecto: el script original se equivocaba en las dos puntas
+    — tres nombres fijos en la cabecera mas un `rglob('.env')` que barria el
+    repo entero y mandaba a produccion el `.env.example` y el de los tests.
 
     Es el paso que mas se pide suelto ("solo recopiar los certificados"), y por
     eso tiene boton propio en vez de vivir dentro de la actualizacion completa.
     """
     remote = _remote(ctx)
-    elegidos = [f.strip() for f in (files or []) if f.strip()]
+    elegidos = envfile.split_list(ctx.config.get('SECRET_FILES'))
     if not elegidos:
-        ctx.warn('No hay archivos que copiar: escribe sus rutas en "Archivos a copiar".')
+        ctx.warn('No hay archivos que copiar: escribe sus rutas en '
+                 '"Archivos a copiar", en Configuracion.')
         return []
 
     subidos: list[str] = []
@@ -333,7 +337,6 @@ def install_systemd(ctx, host: str = '0.0.0.0', port: int = 443, *,
 
 def publish_code(
     ctx,
-    files: list[str] | None = None,
     *,
     push: bool = False,
     pull: bool = True,
@@ -353,8 +356,9 @@ def publish_code(
     `update_remote`: la usan los dos, `update_remote` agregandole esos dos
     pasos y `bootstrap_vps` tal cual.
 
-    `push` arranca desmarcado porque publica hacia afuera: es el unico paso que
-    sale de esta maquina antes de tocar el VPS. No commitea nada — si hay
+    `push` arranca marcado: el VPS clona de GitHub y no de esta maquina, asi
+    que desplegar sin empujar publica el commit de otro. Es el unico paso que
+    sale de esta maquina antes de tocar el VPS, y no commitea nada — si hay
     cambios sin commitear, avisa y sigue.
 
     `deps` es condicional a proposito: si el repo no cambio, reinstalar es
@@ -371,12 +375,11 @@ def publish_code(
         install_remote_deps(ctx)
     if upload:
         ctx.step('Archivos que no viajan por git')
-        upload_secret_files(ctx, files)
+        upload_secret_files(ctx)
 
 
 def update_remote(
     ctx,
-    files: list[str] | None = None,
     *,
     push: bool = False,
     pull: bool = True,
@@ -406,7 +409,7 @@ def update_remote(
     """
     from . import database as db_tasks
 
-    publish_code(ctx, files, push=push, pull=pull, deps=deps, upload=upload,
+    publish_code(ctx, push=push, pull=pull, deps=deps, upload=upload,
                  discard_changes=discard_changes)
     if migrate:
         ctx.step('Aplicar migraciones')
@@ -418,7 +421,6 @@ def update_remote(
 
 
 def bind_all() -> None:
-    registry.bind('push_repository', push_repository)
     registry.bind('upload_secret_files', upload_secret_files)
     registry.bind('systemd_action', systemd_action)
     registry.bind('view_logs', view_logs)

@@ -135,11 +135,10 @@ Puros atómicos: ninguno encadena a otro (el módulo no declara compuestas).
 
 | Función | Nivel | Botón | Usada por |
 |---|---|---|---|
-| `clone_repository` | A | — | `update_remote` (primera corrida) |
-| `sync_repository` | A | — | `update_remote` (corridas siguientes) |
-| `ensure_remote_venv` | A | — | `update_remote` |
-| `install_remote_deps` | A | — | `update_remote` |
-| `upload_secret_files` | A | — | `update_remote` |
+| `push_repository` | A | — | `publish_code` (primer paso, marcado) |
+| `sync_repository` | A | — | `publish_code` (clona o actualiza según el estado del VPS) |
+| `install_remote_deps` | A | — | `publish_code` (crea el venv adentro) |
+| `upload_secret_files` | A | `upload_secret_files` | `publish_code` |
 | `restart_service` | A | — | `update_remote`, `install_systemd` |
 | `write_systemd_unit` | A | — | `install_systemd` |
 | `systemd_action` | A | `systemd_action` | `install_systemd` (y solo) |

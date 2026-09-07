@@ -7,17 +7,10 @@ from . import android, cache, targets, vps
 from .errors import TaskError
 from .registry import registry, Capability, AxisDef, Step
 
-# Marca de agua del campo "Archivos a copiar". Es un ejemplo del formato, no un
-# default: que archivos secretos tiene un repo lo sabe quien lo configura, y
-# dejar una lista puesta haria que el primer deploy intentara copiar rutas que
-# quiza no existen en este proyecto.
-UPLOAD_FILES_HINT = 'server/.env\nserver/certs/cert.pem\nserver/certs/key.pem'
-
-# Multilinea: una ruta por renglon. Una lista de secretos son tres o cuatro
-# rutas largas, y en una sola linea no se ve donde termina una y empieza otra.
-# Las comas se siguen aceptando al leerlo (`envfile.split_list`).
-_FILES_AXIS = lambda: AxisDef('files', [''], 'field', label='Archivos a copiar',
-                              placeholder=UPLOAD_FILES_HINT, multiline=True)
+# La lista de archivos a copiar era un eje repetido en los cuatro botones del
+# deploy, con un valor guardado por boton. Ahora es la clave `SECRET_FILES`
+# (`core/settings.py`, grupo VPS): una sola fuente que los cuatro leen, y una
+# propiedad del repo en vez de un parametro de la corrida.
 
 # Ocho grupos, cinco marcados. Un solo eje y no dos ("base" / "opcionales")
 # porque abajo hay un solo parametro (`install_base_software(groups)`): partirlo
@@ -221,15 +214,16 @@ BUILD_BINARY_STEPS = [
 # `required_by` de la capacidad (§4.2 de docs/atomicas.md): "solo recopiar los
 # certificados" no tiene por qué quedar bloqueado por GIT_REPO_URL.
 #
-# 'push_repo' arranca desmarcado porque publica hacia afuera; el resto son
-# operaciones sobre el servidor del proyecto y van marcadas.
+# 'push_repo' arranca marcado como el resto: el VPS clona de GitHub y no de
+# esta maquina, asi que desplegar sin empujar publica el commit de otro. Es
+# el paso que hacia falta que estuviera puesto, no el que habia que esconder.
 #
-# 'Codigo en el VPS' y no 'Pull en el VPS': `sync_repository` decide sola si
+# 'Actualizar el repo en el VPS' y no 'Pull': `sync_repository` decide sola si
 # clona o actualiza mirando el estado del servidor, y en la primera corrida —la
 # del bootstrap— lo que hace es clonar. El rotulo viejo mentia justo ahi.
 PUBLISH_CODE_STEPS = [
-    Step('push_repo', 'Push del repo local', default=False),
-    Step('git_pull', 'Código en el VPS', requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
+    Step('push_repo', 'Push del repo local'),
+    Step('git_pull', 'Actualizar el repo en el VPS', requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
     Step('install_deps', 'Dependencias', requires_env={'VPS_PYTHON', 'SERVER_DIR'}),
     Step('upload_secrets', 'Archivos que no viajan por git'),
 ]
@@ -471,16 +465,11 @@ def load_catalog() -> None:
     registry.register(Capability(id='systemd_action', name='Acción systemd', group='VPS · server', section='Servicio', kind='once', icon='⚙️', description='Manda una acción al servicio systemd del repo en el VPS.', axes=[AxisDef('action', ['start', 'stop', 'restart', 'status'], 'buttons', danger={'stop'}), AxisDef('action_ext', ['enable', 'disable', 'reload', 'is-active', 'is-enabled'], 'menu')], stub=True))
     registry.register(Capability(id='view_logs', name='Ver logs', group='VPS · server', section='Logs', kind='live', icon='📋', description='Muestra el journal del servicio, de una o siguiéndolo en vivo.', axes=[AxisDef('follow', ['sí', 'no'], 'field')], stub=True))
     registry.register(Capability(id='install_systemd', name='Instalar servicio', group='VPS · server', section='Servicio', kind='once', icon='📥', description='Escribe la unidad systemd del repo y la deja corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], stub=True))
-    # La mitad local del despliegue: el VPS hace pull de GitHub, no de esta
-    # maquina. Tiene boton propio porque empujar sin desplegar se pide solo.
-    # Sin ejes: empuja la rama de la carpeta abierta a su remoto y se acabo. No
-    # commitea (eso es trabajo, no despliegue) ni declara `required_by` de
-    # ninguna clave: git ya sabe cual es su remoto.
-    registry.register(Capability(
-        id='push_repository', name='Push del repo', group='VPS · server', section='Deploy',
-        kind='once', icon='⬆️',
-        description='Empuja la rama local a su remoto. No commitea: si hay cambios pendientes, avisa y sigue.',
-        stub=True))
+    # `push_repository` tuvo boton suelto y lo perdio: empujar sin desplegar ya
+    # lo hace cualquier cliente de git, y el caso que de verdad importaba —que
+    # el VPS no clone el commit de otro— lo cubre el primer paso de
+    # `publish_code`, ahora marcado por default. Sigue siendo una atomica; lo
+    # que sobraba era el boton.
     # La mitad del despliegue que no toca lo que ya esta corriendo: codigo,
     # dependencias y secretos. Tiene boton propio porque la piden dos —el deploy
     # del dia a dia y el bootstrap de un VPS de cero— y porque en un servidor
@@ -491,8 +480,7 @@ def load_catalog() -> None:
         id='publish_code', name='Publicar código', group='VPS · server', section='Deploy',
         kind='live', icon='🛫',
         description='Deja el código, sus dependencias y los secretos en el VPS, sin tocar base ni servicio.',
-        axes=[_FILES_AXIS(),
-              AxisDef('vps_dirty', ['preguntar', 'descartar'], 'scope',
+        axes=[AxisDef('vps_dirty', ['preguntar', 'descartar'], 'scope',
                       label='Si el VPS tiene cambios sin commitear',
                       danger={'descartar'})],
         steps=PUBLISH_CODE_STEPS, stub=True))
@@ -505,7 +493,7 @@ def load_catalog() -> None:
         id='update_remote', name='Actualizar remoto', group='VPS · server', section='Deploy',
         kind='live', icon='🔄',
         description='Despliega: publica el código, lo trae al VPS, instala, sube secretos y reinicia.',
-        axes=[_FILES_AXIS(),
+        axes=[
               # El `git reset --hard` del VPS es la unica parte destructiva del
               # despliegue, y hay dos formas legitimas de tratarla: 'preguntar'
               # abre el dialogo con la lista de archivos a la vista, 'descartar'
@@ -544,12 +532,7 @@ def load_catalog() -> None:
         description='De VPS recién creado a servicio corriendo: SSH, software, deploy, base y systemd.',
         axes=[AxisDef('sudo_mode', ['all', 'specific', 'none'], 'scope',
                       label='Sudo sin contraseña', default='all'),
-              _PACKAGES_AXIS(),
-              # El bootstrap promete "servicio corriendo", y un servicio sin su
-              # .env arranca y muere. Sin este eje el paso de deploy corria
-              # `upload_secret_files` con la lista vacia: un paso que avisaba
-              # "no hay archivos que copiar" y no podia hacer otra cosa.
-              _FILES_AXIS()],
+              _PACKAGES_AXIS()],
         steps=BOOTSTRAP_VPS_STEPS, stub=True))
 
     # Base de datos group
@@ -631,4 +614,4 @@ def load_catalog() -> None:
         id='upload_secret_files', name='Copiar secretos', group='VPS · server',
         section='Deploy', kind='once', icon='🔐',
         description='Copia al VPS los archivos que nunca viajan por git.',
-        axes=[_FILES_AXIS()], stub=True))
+        stub=True))
