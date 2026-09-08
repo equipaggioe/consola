@@ -94,13 +94,13 @@ Y las compuestas son igual de cortas — cada paso es un `ctx.step()` más una l
 casilla booleana por paso:
 
 ```python
-def rebuild_db(ctx, scope=db.LOCAL, *, drop=True, reset=True, generate=True,
+def rebuild_db(ctx, scope=db.LOCAL, *, drop=True, migrate=True,
                partitions=True, seeders=True, mock_seeders=True):
     if not ctx.confirm(f'Escribe {name} para reconstruir la base ({scope}).',
                        danger=True, expect=name):
         return
-    if drop:      ctx.step('Vaciar esquema');  drop_tables(ctx, scope)
-    if reset:     ctx.step('Resetear historial'); reset_migrations(ctx)
+    if drop:      ctx.step('Vaciar esquema'); drop_tables(ctx, scope)
+    if migrate:   ctx.step('Migraciones');    apply_migrations(ctx, scope)
     ...
 ```
 
@@ -141,7 +141,36 @@ en una casilla cuando gana su propio catálogo. Ver [emuladores.md](emuladores.m
 | `open_db_tunnel` | Servicio de fondo |
 | `inspect_database` | Diagnóstico de solo lectura |
 
-**Compuestas:** `bootstrap_db`, `rebuild_db`, `teardown_db`, `migrate_db`.
+**Compuestas:** `populate_db`, `bootstrap_db`, `rebuild_db`, `reinit_migrations`, `teardown_db`,
+`migrate_db`.
+
+Las tres del ciclo de vida se reparten por lo que dejan detrás, no por cuánto destruyen:
+
+| | Qué deja | Pasos |
+|---|---|---|
+| `bootstrap_db` | Una base **usable** donde no había nada | rol → base → permisos → extensiones → `populate_db` |
+| `rebuild_db` | La misma base, **vaciada y vuelta a sembrar**, con el historial que ya existe | borrar tablas → `populate_db` |
+| `reinit_migrations` | La base **vacía** y el historial del repo **en cero**, con una inicial nueva | borrar tablas → borrar `alembic/versions/` → migración inicial |
+
+`populate_db` (migrar → particiones → seeders) es el destino común de las dos primeras, extraído
+porque estaba copiado tal cual en las dos, etiquetas incluidas. Es una compuesta **sin botón**: lo
+que se elige en el rail es por cuál de los dos caminos se llega —crear de cero o reconstruir—, y
+"llenar una base que ya está ahí" no es una intención que se pida suelta. Una compuesta puede
+encadenar a otra; es lo mismo que hace `bootstrap_vps` cuando llama a `bootstrap_db`.
+
+Lo que **no** se hizo fue anidar `rebuild_db` dentro de `bootstrap_db`: arrastraría su confirmación
+tipeada a un camino que no destruye nada, y un `drop_tables` sobre una base recién creada. Eso ya
+existió dentro de `bootstrap_vps` y se quitó por esa misma razón.
+
+Eran menos botones y por eso cada uno mentía. `bootstrap_db` terminaba en un esquema vacío, así que
+para dejar una base lista había que apretar además la destructiva; y `rebuild_db` reescribía el
+historial del proyecto de paso, así que no se podía rehacer una base sin rehacer su historia.
+
+`reinit_migrations` vacía la base ella misma, y eso no es exceso de alcance: `alembic revision
+--autogenerate` compara los modelos contra la base viva, así que sobre una base con tablas no ve
+diferencias y la «inicial» sale vacía. Un paso que la compuesta necesita sí o sí no puede quedar
+como una precondición que el que aprieta el botón tiene que recordar. No aplica la migración
+—`rebuild_db` es el que aplica, particiona y siembra—, y por eso los dos botones se usan en fila.
 
 ### `core/tasks/builders.py`
 
@@ -176,8 +205,9 @@ Eran cuatro donde ahora hay dos: la revisión del §4.6 fusionó `ensure_remote_
 `install_public_key` y bajó `test_ssh_login` a `core/ssh.py::reachable`.
 
 **Compuestas:** `setup_ssh_key`, `setup_github_ssh`, y `bootstrap_vps` — la compuesta de compuestas
-(PLAN.md §7, caso 8): encadena `setup_ssh_key`, `publish_code`, `bootstrap_db` y `rebuild_db`, que
-ya son compuestas con botón propio. Encadenaba `update_remote` y por qué dejó de hacerlo está en el
+(PLAN.md §7, caso 8): encadena `setup_ssh_key`, `publish_code` y `bootstrap_db`, que ya son
+compuestas con botón propio. Llamaba también a `rebuild_db` porque el bootstrap no sembraba; desde
+que llega hasta los seeders, ese paso solo agregaba un `drop_tables` sobre una base recién creada. Encadenaba `update_remote` y por qué dejó de hacerlo está en el
 §4.7.
 
 ### `core/tasks/vps_ops.py`
@@ -570,7 +600,7 @@ casillas de una compuesta interna no se dibujan en el panel del botón externo. 
 
 | Paso heredado | Qué pasaba en un VPS de cero |
 |---|---|
-| `migrate=True` | `alembic upgrade` contra una base que **el paso siguiente todavía no creó**. Y `bootstrap_db` ya termina con `apply_migrations`, así que aun en orden sobraba |
+| `migrate=True` | `alembic upgrade` contra una base que **el paso siguiente todavía no creó**. Y `bootstrap_db` ya corre `apply_migrations`, así que aun en orden sobraba |
 | `upload=True` con `files=None` | `upload_secret_files` avisaba «no hay archivos que copiar» y no hacía nada. El botón Bootstrap no declaraba el eje `files`, así que ese paso **nunca** pudo hacer otra cosa |
 
 La regla que sale, hermana de la del §4.6:

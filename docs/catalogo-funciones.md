@@ -50,21 +50,23 @@ Tres columnas en las tablas de abajo:
 | `create_database` | A | — | `bootstrap_db` |
 | `grant_privileges` | A | — | `bootstrap_db` |
 | `enable_extensions` | A | — | `bootstrap_db` |
-| `drop_tables` | A | — | `rebuild_db` |
+| `drop_tables` | A | — | `rebuild_db`, `reinit_migrations` |
 | `drop_database` | A | — | `teardown_db` |
 | `drop_role` | A | — | `teardown_db` |
-| `reset_migrations` | A | — | `rebuild_db` |
-| `generate_migration` | A | — | `rebuild_db`, `migrate_db` |
-| `apply_migrations` | A | — | `rebuild_db`, `migrate_db` |
-| `ensure_partitions` | A | — | `rebuild_db` |
-| `run_seeders` | A | `run_seeders` | `rebuild_db` (y solo) |
-| `run_mock_seeders` | A | `run_mock_seeders` | `rebuild_db` (y solo) |
+| `reset_migrations` | A | — | `reinit_migrations` |
+| `generate_migration` | A | — | `reinit_migrations`, `migrate_db` |
+| `apply_migrations` | A | — | `populate_db`, `migrate_db`, `update_remote` |
+| `ensure_partitions` | A | — | `populate_db` |
+| `run_seeders` | A | `run_seeders` | `populate_db` (y solo) |
+| `run_mock_seeders` | A | `run_mock_seeders` | `populate_db` (y solo) |
 | `backup_database` | A | `backup_db` | — |
 | `rotate_backups` | A | — | `backup_database` |
 | `open_db_tunnel` | A | `ssh_tunnel` | — |
 | `inspect_database` | A | `inspect_db` | — |
+| `populate_db` | C | — | `bootstrap_db`, `rebuild_db` |
 | `bootstrap_db` | C | `bootstrap_db` | `bootstrap_vps` |
-| `rebuild_db` | C | `rebuild_db` | `bootstrap_vps` |
+| `rebuild_db` | C | `rebuild_db` | — |
+| `reinit_migrations` | C | `reinit_migrations` | — |
 | `teardown_db` | C | `teardown_db` | `clean_vps` |
 | `migrate_db` | C | `migrate_db` | — |
 
@@ -292,9 +294,8 @@ usa para decir lo mismo sin abrir el markdown.
 | `level` / `is_composite` — atómica o compuesta | Marca al final de cada fila del rail: `◈` compuesta, `◦` atómica; y `◈ compuesta` / `◦ atómica` en la cabecera del panel derecho. El tooltip lo dice con palabras. |
 
 `is_composite` se deduce sola cuando la capacidad declara `steps` o `composed_of`. Las compuestas
-que no publican sus pasos en el panel (`bootstrap_db`, `teardown_db`, `migrate_db`)
-lo declaran a mano con `level='C'` — si alguna de
-ellas gana `composed_of` de verdad, el `level` se puede borrar y sigue saliendo bien.
+que no publican sus pasos en el panel (`teardown_db`) lo declaran a mano con `level='C'` — si
+ganan `composed_of` o `steps` de verdad, el `level` se puede borrar y sigue saliendo bien.
 
 ---
 

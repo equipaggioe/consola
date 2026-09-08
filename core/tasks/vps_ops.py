@@ -205,22 +205,22 @@ def clean_vps(
         return
 
     if service:
-        ctx.step('Servicio systemd')
+        ctx.step('Borrar el servicio systemd')
         remove_systemd_service(ctx)
     if database:
-        ctx.step('Base de datos')
+        ctx.step('Borrar la base de datos y su rol')
         db_tasks.teardown_db(ctx, scope='remoto')
     if repo:
-        ctx.step('Repositorio desplegado')
+        ctx.step('Borrar el repo desplegado')
         remove_deployed_repo(ctx)
     if github_key:
-        ctx.step('Llave de GitHub')
+        ctx.step('Revocar la llave de GitHub')
         revoke_github_ssh(ctx)
     if packages:
-        ctx.step('Paquetes')
+        ctx.step('Purgar los paquetes apt')
         uninstall_packages(ctx)
     if user:
-        ctx.step('Usuario')
+        ctx.step('Borrar el usuario de despliegue')
         remove_vps_user(ctx)
     ctx.note(f'Limpieza completa del VPS {host}.')
 

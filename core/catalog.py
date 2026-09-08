@@ -180,7 +180,7 @@ _SEMVER_AXIS = lambda: AxisDef('bump_mode', SEMVER_MODES, 'scope', label='Bump',
 # activaba con BUILD_APK=false, y la razon es economica — retomar un scp
 # cortado no deberia costar diez minutos de build.
 BUILD_APK_STEPS = [
-    Step('bump_version', 'Bump versión'),
+    Step('bump_version', 'Subir número de versión'),
     Step('apk_build', 'Compilar APK', requires_env={'API_URL'}),
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
@@ -190,8 +190,8 @@ BUILD_APK_STEPS = [
 # del script original), y ahi el `npm install` que abre el paso de compilacion
 # es justo lo que no se quiere repetir para retomar un scp cortado.
 BUILD_VITE_STEPS = [
-    Step('bump_version', 'Bump versión'),
-    Step('vite_build', 'Build Vite'),
+    Step('bump_version', 'Subir número de versión'),
+    Step('vite_build', 'Compilar SPA'),
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
@@ -203,9 +203,9 @@ BUILD_VITE_STEPS = [
 # que alguien descarga no se puede mirar por dentro, y el hash es lo unico que
 # deja comprobar que lo bajado es lo que se publico.
 BUILD_BINARY_STEPS = [
-    Step('bump_version', 'Bump versión'),
+    Step('bump_version', 'Subir número de versión'),
     Step('binary_build', 'Compilar binario'),
-    Step('binary_checksum', 'Checksum SHA-256'),
+    Step('binary_checksum', 'Calcular checksum'),
     Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
@@ -222,18 +222,21 @@ BUILD_BINARY_STEPS = [
 # clona o actualiza mirando el estado del servidor, y en la primera corrida —la
 # del bootstrap— lo que hace es clonar. El rotulo viejo mentia justo ahi.
 PUBLISH_CODE_STEPS = [
-    Step('push_repo', 'Push del repo local'),
-    Step('git_pull', 'Actualizar el repo en el VPS', requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
-    Step('install_deps', 'Dependencias', requires_env={'VPS_PYTHON', 'SERVER_DIR'}),
-    Step('upload_secrets', 'Archivos que no viajan por git'),
+    Step('push_repo', 'Empujar local a GitHub'),
+    Step('git_pull', 'Actualizar VPS',
+         requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
+    Step('install_deps', 'Instalar dependencias',
+         requires_env={'VPS_PYTHON', 'SERVER_DIR'}),
+    Step('upload_secrets', 'Copiar archivos ignorados'),
 ]
 
 # Los seis del despliegue completo son los cuatro de arriba mas los dos que
 # tocan lo que ya esta corriendo. Se derivan y no se copian: si un paso de
 # `publish_code` cambia de etiqueta o de claves, los dos paneles cambian juntos.
 UPDATE_REMOTE_STEPS = PUBLISH_CODE_STEPS + [
-    Step('apply_migrations', 'Aplicar migraciones', requires_env={'DB_NAME', 'DB_PASSWORD'}),
-    Step('restart_service', 'Reiniciar servicio'),
+    Step('apply_migrations', 'Ejecutar migraciones',
+         requires_env={'DB_NAME', 'DB_PASSWORD'}),
+    Step('restart_service', 'Reiniciar systemd'),
 ]
 
 
@@ -243,12 +246,15 @@ UPDATE_REMOTE_STEPS = PUBLISH_CODE_STEPS + [
 # arranca un VPS de cero. Siete pasos, siete booleanos.
 BOOTSTRAP_VPS_STEPS = [
     Step('known_host', 'Refrescar known_hosts', requires_env={'VPS_IP'}),
-    Step('ssh_key', 'Acceso SSH', requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
-    Step('software', 'Software base'),
-    Step('github_ssh', 'GitHub SSH', requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
-    Step('deploy', 'Código en el VPS', requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
-    Step('database', 'Base de datos', requires_env={'DB_NAME', 'DB_PASSWORD'}),
-    Step('service', 'Servicio systemd'),
+    Step('ssh_key', 'Configurar acceso SSH', requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
+    Step('software', 'Instalar software base'),
+    Step('github_ssh', 'Configurar SSH de GitHub',
+         requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
+    Step('deploy', 'Actualizar VPS',
+         requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
+    Step('database', 'Crear base de datos',
+         requires_env={'DB_NAME', 'DB_PASSWORD'}),
+    Step('service', 'Instalar systemd'),
 ]
 
 
@@ -261,12 +267,75 @@ BOOTSTRAP_VPS_STEPS = [
 # El orden es el de la funcion y no es cosmetico: los paquetes se purgan con el
 # sudo del usuario de despliegue, asi que borrar el usuario va ultimo.
 CLEAN_VPS_STEPS = [
-    Step('service', 'Servicio systemd'),
-    Step('database', 'Base de datos y rol', requires_env={'DB_NAME'}),
-    Step('repo', 'Repo desplegado', requires_env={'VPS_DEPLOY_DIR'}),
-    Step('github_key', 'Llave de GitHub', requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
-    Step('packages', 'Paquetes apt'),
-    Step('user', 'Usuario de despliegue', requires_env={'ROOT_USER'}),
+    Step('service', 'Borrar systemd'),
+    Step('database', 'Borrar base de datos', requires_env={'DB_NAME'}),
+    Step('repo', 'Borrar repo desplegado', requires_env={'VPS_DEPLOY_DIR'}),
+    Step('github_key', 'Revocar llave de GitHub', requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
+    Step('packages', 'Purgar paquetes apt'),
+    Step('user', 'Borrar usuario de despliegue', requires_env={'ROOT_USER'}),
+]
+
+
+# Los ocho pasos de `database.bootstrap_db` son sus ocho booleanos: termina
+# en una base usable, con particiones y datos, no solo en el esquema creado.
+#
+# 'Extensiones' arranca desmarcado por la misma razon por la que `postgis` no
+# esta en `vps.DEFAULT_GROUPS`: el paquete de sistema no se instala salvo que se
+# pida, asi que marcarlo por default prometia una extension que el VPS no tenia.
+# Antes ni siquiera era una casilla y `enable_extensions` corria siempre.
+#
+# Cuales extensiones son ya no lo decide Consola: `enable_extensions` las saca de
+# los `CREATE EXTENSION` de las migraciones del repo. La casilla solo elige si el
+# paso corre.
+#
+# Las etiquetas son verbos y dicen sobre qué actúan: una casilla que dice
+# 'Migraciones' no distingue entre generarlas y ejecutarlas, y en una compuesta
+# destructiva 'Base de datos' no dice si la crea o la borra. El sustantivo
+# nombra el objeto; la casilla tiene que nombrar el acto.
+BOOTSTRAP_DB_STEPS = [
+    Step('role', 'Crear rol de la aplicación'),
+    Step('database', 'Crear base de datos'),
+    Step('privileges', 'Otorgar permisos al rol'),
+    Step('extensions', 'Habilitar extensiones', default=False),
+    Step('migrate', 'Ejecutar migraciones'),
+    Step('partitions', 'Crear particiones'),
+    Step('seeders', 'Cargar seeders'),
+    Step('mock_seeders', 'Cargar datos mock', default=False),
+]
+
+
+# Los cinco de `database.rebuild_db`, en el orden de la funcion. Reemplazan al
+# `composed_of` que derivaba solo dos casillas (los seeders) para una compuesta
+# de varios parametros: lo destructivo — vaciar el esquema — no se elegia, y es
+# justo lo que uno quiere poder desmarcar.
+#
+# Reconstruir ya no reescribe el historial de migraciones: aplica el que hay.
+# Borrarlo y escribir una inicial nueva es `reinit_migrations`, su propio boton.
+REBUILD_DB_STEPS = [
+    Step('drop', 'Borrar tablas'),
+    Step('migrate', 'Ejecutar migraciones'),
+    Step('partitions', 'Crear particiones'),
+    Step('seeders', 'Cargar seeders'),
+    Step('mock_seeders', 'Cargar datos mock'),
+]
+
+
+# Los tres de `database.reinit_migrations`. 'Vaciar esquema' es un paso suyo y
+# no una precondicion que haya que recordar: el autogenerate compara contra la
+# base viva, y sobre una base con tablas la "inicial" sale vacia.
+REINIT_MIGRATIONS_STEPS = [
+    Step('drop', 'Borrar tablas'),
+    Step('reset', 'Borrar migraciones'),
+    Step('generate', 'Generar migración inicial'),
+]
+
+
+# Los dos pasos de `database.migrate_db`. Antes no eran casillas y `migrate_db`
+# generaba y aplicaba siempre: no habia forma de generar la revision para
+# mirarla antes de aplicar, ni de poner al dia una base atrasada sin autogenerar.
+MIGRATE_DB_STEPS = [
+    Step('generate', 'Generar migración'),
+    Step('apply', 'Ejecutar migraciones'),
 ]
 
 
@@ -280,10 +349,11 @@ CLEAN_VPS_STEPS = [
 # 'Prueba de login' es desmarcable porque hay un caso real: preparar un VPS al
 # que todavia no se llega desde esta maquina (firewall, VPN pendiente).
 SETUP_SSH_STEPS = [
-    Step('deploy_access', 'Cuenta de despliegue y llave',
+    Step('deploy_access', 'Crear cuenta de despliegue',
          requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
-    Step('sudo_rules', 'Sudo sin contraseña', requires_env={'VPS_IP'}),
-    Step('verify_login', 'Prueba de login', requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
+    Step('sudo_rules', 'Configurar sudo sin contraseña', requires_env={'VPS_IP'}),
+    Step('verify_login', 'Verificar login por SSH',
+         requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
 ]
 
 
@@ -304,7 +374,7 @@ def load_catalog() -> None:
     `description` es la linea que la UI muestra en el tooltip del rail y bajo el
     nombre de la accion: que hace, en presente y en una oracion. `level` solo se
     escribe cuando no se deduce solo: una compuesta que no publica sus pasos
-    (`bootstrap_db`, `teardown_db`) tiene que declararse `level='C'` a mano,
+    (`teardown_db`, `migrate_db`) tiene que declararse `level='C'` a mano,
     porque sin `steps` ni `composed_of` la UI la tomaria por atomica.
     """
     # Launchers group
@@ -536,10 +606,31 @@ def load_catalog() -> None:
         steps=BOOTSTRAP_VPS_STEPS, stub=True))
 
     # Base de datos group
-    registry.register(Capability(id='bootstrap_db', name='Bootstrap DB', group='Base de datos', section='Ciclo de vida', kind='once', icon='🏗️', description='Crea rol, base, privilegios y extensiones desde cero.', level='C', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
+    registry.register(Capability(
+        id='bootstrap_db', name='Bootstrap DB', group='Base de datos',
+        section='Ciclo de vida', kind='once', icon='🏗️',
+        description='Crea rol, base, privilegios y extensiones desde cero.',
+        axes=[AxisDef('scope', ['local', 'remoto'], 'scope')],
+        steps=BOOTSTRAP_DB_STEPS, stub=True))
     registry.register(Capability(id='teardown_db', name='Teardown DB', group='Base de datos', section='Ciclo de vida', kind='destructive', icon='💥', description='Borra la base y su rol: deshace lo que hizo Bootstrap DB.', level='C', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
-    registry.register(Capability(id='migrate_db', name='Migrar', group='Base de datos', section='Migraciones', kind='once', icon='📐', description='Genera la migración pendiente y la aplica.', level='C', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
-    registry.register(Capability(id='rebuild_db', name='Reconstruir DB', group='Base de datos', section='Ciclo de vida', kind='destructive', icon='🔁', description='Vacía las tablas, rehace migraciones y particiones, y vuelve a sembrar.', composed_of=['run_seeders', 'run_mock_seeders'], axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
+    registry.register(Capability(
+        id='migrate_db', name='Migrar', group='Base de datos', section='Migraciones',
+        kind='once', icon='📐',
+        description='Genera la migración pendiente y la aplica.',
+        axes=[AxisDef('scope', ['local', 'remoto'], 'scope')],
+        steps=MIGRATE_DB_STEPS, stub=True))
+    registry.register(Capability(
+        id='rebuild_db', name='Reconstruir DB', group='Base de datos',
+        section='Ciclo de vida', kind='destructive', icon='🔁',
+        description='Vacía las tablas, aplica las migraciones y las particiones, y vuelve a sembrar.',
+        axes=[AxisDef('scope', ['local', 'remoto'], 'scope')],
+        steps=REBUILD_DB_STEPS, stub=True))
+    registry.register(Capability(
+        id='reinit_migrations', name='Reiniciar migraciones', group='Base de datos',
+        section='Migraciones', kind='destructive', icon='🧨',
+        description='Vacía la base, borra las migraciones del repo y escribe una inicial nueva.',
+        axes=[AxisDef('scope', ['local', 'remoto'], 'scope')],
+        steps=REINIT_MIGRATIONS_STEPS, stub=True))
     registry.register(Capability(id='run_seeders', name='Seeders base', group='Base de datos', section='Datos', kind='once', icon='🌱', description='Carga los datos mínimos que la app necesita para arrancar.', stub=True))
     registry.register(Capability(id='run_mock_seeders', name='Seeders mock', group='Base de datos', section='Datos', kind='once', icon='🎭', description='Carga datos de prueba encima de los datos base.', stub=True))
     registry.register(Capability(id='backup_db', name='Backup DB', group='Base de datos', section='Backup', kind='once', icon='💾', description='Vuelca la base a un archivo y rota los respaldos viejos.', stub=True))

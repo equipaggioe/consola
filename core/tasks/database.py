@@ -1,4 +1,5 @@
 from __future__ import annotations
+import re
 from datetime import datetime
 from pathlib import Path
 
@@ -92,10 +93,35 @@ def grant_privileges(ctx, scope: str = db.LOCAL) -> None:
     ctx.ok(f'Permisos otorgados a {user} sobre {name}.')
 
 
+_EXTENSION_RE = re.compile(
+    r'create\s+extension\s+(?:if\s+not\s+exists\s+)?["\']?([a-z0-9_]+)["\']?',
+    re.IGNORECASE)
+
+
+def _declared_extensions(ctx) -> list[str]:
+    """Las extensiones que el repo del servidor realmente usa, sacadas de los
+    `CREATE EXTENSION` de sus migraciones de Alembic.
+
+    Antes esto era la lista fija `['postgis']`: el bootstrap intentaba habilitar
+    PostGIS aunque el repo abierto no lo tocara, y no veia una segunda extension
+    (`pg_trgm`, `unaccent`) por mas que una migracion la pidiera. La fuente de
+    verdad es el propio repo, no una constante de Consola.
+    """
+    versiones = _server_root(ctx) / 'alembic' / 'versions'
+    encontradas: list[str] = []
+    vistas: set[str] = set()
+    for archivo in sorted(versiones.glob('*.py')):
+        for nombre in _EXTENSION_RE.findall(archivo.read_text(encoding='utf-8', errors='ignore')):
+            if nombre.lower() not in vistas:
+                vistas.add(nombre.lower())
+                encontradas.append(nombre)
+    return encontradas
+
+
 def enable_extensions(ctx, scope: str = db.LOCAL, extensions: list[str] | None = None) -> list[str]:
-    """Habilita extensiones ya instaladas en el sistema. Se separa porque cambia
-    con el tiempo: agregar PostGIS a un proyecto ya desplegado no deberia
-    obligar a recrear nada.
+    """Habilita las extensiones que declara el repo (`_declared_extensions`), o
+    las que se le pasen. Se separa porque cambia con el tiempo: agregar PostGIS a
+    un proyecto ya desplegado no deberia obligar a recrear nada.
 
     Antes de crear cada extension se chequea `pg_available_extensions`: no todo
     VPS tiene el paquete de sistema instalado (postgis no esta en
@@ -104,7 +130,10 @@ def enable_extensions(ctx, scope: str = db.LOCAL, extensions: list[str] | None =
     """
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
-    pedidas = extensions or ['postgis']
+    pedidas = extensions if extensions is not None else _declared_extensions(ctx)
+    if not pedidas:
+        ctx.info('El repo no declara ninguna extension en sus migraciones.')
+        return []
     habilitadas = []
     for extension in pedidas:
         disponible = admin.query(
@@ -304,6 +333,46 @@ def inspect_database(ctx, scope: str = db.LOCAL) -> list[str]:
 
 # --- compuestas ------------------------------------------------------------
 
+def populate_db(
+    ctx,
+    scope: str = db.LOCAL,
+    *,
+    migrate: bool = True,
+    partitions: bool = True,
+    seeders: bool = True,
+    mock_seeders: bool = False,
+) -> None:
+    """Compuesta: migrar -> particiones -> seeders. Deja USABLE una base que ya
+    existe, sin importar como llego a existir.
+
+    La llaman `bootstrap_db` (que antes la creo) y `rebuild_db` (que antes la
+    vacio), por lo mismo que `bootstrap_vps` llama a `bootstrap_db`: una
+    compuesta puede encadenar a otra. Antes estos cuatro pasos estaban copiados
+    tal cual en las dos, etiquetas incluidas.
+
+    No tiene boton propio y no es un olvido: lo que se elige en el rail es por
+    cual de los dos caminos se llega —crear de cero o reconstruir—, y "llenar una
+    base que ya esta ahi" sin decir cual de los dos no es una intencion que
+    alguien tenga suelta.
+
+    Las particiones van entre las migraciones y los seeders y no es cosmetico:
+    `alembic revision --autogenerate` no las escribe, y sin ellas el primer
+    INSERT de un seeder revienta con "no partition of relation found for row".
+    """
+    if migrate:
+        ctx.step('Ejecutar migraciones')
+        apply_migrations(ctx, scope)
+    if partitions:
+        ctx.step('Crear particiones')
+        ensure_partitions(ctx, scope)
+    if seeders:
+        ctx.step('Cargar seeders base')
+        run_seeders(ctx, scope)
+    if mock_seeders:
+        ctx.step('Cargar seeders mock')
+        run_mock_seeders(ctx, scope)
+
+
 def bootstrap_db(
     ctx,
     scope: str = db.LOCAL,
@@ -313,23 +382,32 @@ def bootstrap_db(
     privileges: bool = True,
     extensions: bool = True,
     migrate: bool = True,
+    partitions: bool = True,
+    seeders: bool = True,
+    mock_seeders: bool = False,
 ) -> None:
-    """Compuesta: rol -> base -> permisos -> extensiones -> migraciones."""
+    """Compuesta: crea el continente —rol, base, permisos, extensiones— y lo
+    llena con `populate_db`.
+
+    Termina en una base USABLE, no en una base vacia: un bootstrap que deja el
+    esquema creado pero sin los datos minimos obliga a apretar Reconstruir DB
+    —una destructiva, con confirmacion tipeada— para completar algo que no tiene
+    nada de destructivo la primera vez.
+    """
     if role:
-        ctx.step('Rol de la aplicacion')
+        ctx.step('Crear el rol de la aplicacion')
         create_role(ctx, scope)
     if database:
-        ctx.step('Base de datos')
+        ctx.step('Crear la base de datos')
         create_database(ctx, scope)
     if privileges:
-        ctx.step('Permisos')
+        ctx.step('Otorgar permisos al rol')
         grant_privileges(ctx, scope)
     if extensions:
-        ctx.step('Extensiones')
+        ctx.step('Habilitar las extensiones del repo')
         enable_extensions(ctx, scope)
-    if migrate:
-        ctx.step('Migraciones')
-        apply_migrations(ctx, scope)
+    populate_db(ctx, scope, migrate=migrate, partitions=partitions,
+                seeders=seeders, mock_seeders=mock_seeders)
     ctx.note(f'Bootstrap de base ({scope}) completado.')
 
 
@@ -338,13 +416,19 @@ def rebuild_db(
     scope: str = db.LOCAL,
     *,
     drop: bool = True,
-    reset: bool = True,
-    generate: bool = True,
+    migrate: bool = True,
     partitions: bool = True,
     seeders: bool = True,
     mock_seeders: bool = True,
 ) -> None:
-    """Compuesta destructiva: vaciar -> resetear historial -> migrar -> sembrar.
+    """Compuesta destructiva: borra las tablas y vuelve a llenar con
+    `populate_db`. Mismo destino que `bootstrap_db`, otro punto de partida: una
+    base que ya existe.
+
+    Reconstruye con el historial de migraciones que ya existe en el repo; no lo
+    toca. Borrar `alembic/versions/` y escribir una inicial nueva es otra
+    intencion —cambiar la historia del proyecto, no el estado de una base— y
+    tiene su propio boton (`reinit_migrations`).
 
     Cada paso es una casilla porque cada uno se pide suelto en la vida real:
     volver a correr los seeders mock sin destruir el esquema es lo mas comun.
@@ -356,25 +440,48 @@ def rebuild_db(
         return
 
     if drop:
-        ctx.step('Vaciar esquema')
+        ctx.step('Borrar todas las tablas')
+        drop_tables(ctx, scope)
+    populate_db(ctx, scope, migrate=migrate, partitions=partitions,
+                seeders=seeders, mock_seeders=mock_seeders)
+    ctx.note(f'Reconstruccion de {name} ({scope}) completada.')
+
+
+def reinit_migrations(
+    ctx,
+    scope: str = db.LOCAL,
+    *,
+    drop: bool = True,
+    reset: bool = True,
+    generate: bool = True,
+) -> None:
+    """Compuesta destructiva: vaciar la base, borrar `alembic/versions/` y
+    escribir la migracion inicial.
+
+    Vacia el esquema ella misma, y no es un exceso de alcance: el autogenerate
+    compara los modelos contra la base viva, asi que sobre una base con tablas
+    Alembic no ve diferencias y la "inicial" sale vacia. Sin este paso adentro,
+    el boton solo funcionaba si te acordabas de vaciar antes por tu cuenta.
+
+    No aplica la migracion: deja la base vacia y el historial en cero, que es
+    exactamente el estado del que parte `rebuild_db` — el que aplica, hace las
+    particiones y siembra.
+    """
+    _, _, name = db.credentials(ctx.config)
+    if not ctx.confirm(f'Escribe {name} para vaciar la base y rehacer el historial ({scope}).',
+                       danger=True, expect=name):
+        ctx.warn('Cancelado: no se toco nada.')
+        return
+    if drop:
+        ctx.step('Borrar todas las tablas')
         drop_tables(ctx, scope)
     if reset:
-        ctx.step('Resetear historial de migraciones')
+        ctx.step('Borrar el historial de migraciones')
         reset_migrations(ctx)
     if generate:
-        ctx.step('Migracion inicial')
+        ctx.step('Generar la migracion inicial')
         generate_migration(ctx, scope, message='initial_migration')
-        apply_migrations(ctx, scope)
-    if partitions:
-        ctx.step('Particiones')
-        ensure_partitions(ctx, scope)
-    if seeders:
-        ctx.step('Seeders base')
-        run_seeders(ctx, scope)
-    if mock_seeders:
-        ctx.step('Seeders mock')
-        run_mock_seeders(ctx, scope)
-    ctx.note(f'Reconstruccion de {name} ({scope}) completada.')
+    ctx.note(f'Historial de migraciones reiniciado; {name} quedo vacia.')
 
 
 def teardown_db(ctx, scope: str = db.LOCAL, *, database: bool = True, role: bool = True) -> None:
@@ -385,20 +492,27 @@ def teardown_db(ctx, scope: str = db.LOCAL, *, database: bool = True, role: bool
         ctx.warn('Cancelado: no se elimino nada.')
         return
     if database:
-        ctx.step('Base de datos')
+        ctx.step('Borrar la base de datos')
         drop_database(ctx, scope)
     if role:
-        ctx.step('Rol')
+        ctx.step('Borrar el rol')
         drop_role(ctx, scope)
     ctx.note(f'Teardown de {name} ({scope}).')
 
 
-def migrate_db(ctx, scope: str = db.LOCAL, message: str = 'auto', *, apply: bool = True) -> None:
-    """Compuesta corta: generar la revision y aplicarla."""
-    ctx.step('Generar migracion')
-    generada = generate_migration(ctx, scope, message=message)
-    if apply and generada is not None:
-        ctx.step('Aplicar migracion')
+def migrate_db(ctx, scope: str = db.LOCAL, message: str = 'auto', *,
+               generate: bool = True, apply: bool = True) -> None:
+    """Compuesta corta: generar la revision pendiente y/o aplicar lo que haya.
+
+    Los dos pasos son casillas sueltas porque se piden sueltos: 'Generar' para
+    revisar el diff antes de tocar nada, 'Aplicar' para poner al dia una base
+    que quedo atras con migraciones que ya estan en el repo.
+    """
+    if generate:
+        ctx.step('Generar la migracion pendiente')
+        generate_migration(ctx, scope, message=message)
+    if apply:
+        ctx.step('Ejecutar migraciones')
         apply_migrations(ctx, scope)
 
 
@@ -407,6 +521,7 @@ def bind_all() -> None:
     registry.bind('teardown_db', teardown_db)
     registry.bind('migrate_db', migrate_db)
     registry.bind('rebuild_db', rebuild_db)
+    registry.bind('reinit_migrations', reinit_migrations)
     registry.bind('run_seeders', run_seeders)
     registry.bind('run_mock_seeders', run_mock_seeders)
     registry.bind('backup_db', backup_database)

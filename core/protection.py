@@ -101,6 +101,11 @@ RULES: dict[str, Rule] = {
     'teardown_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
     'rebuild_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
 
+    # Toca dos objetivos: vacia el esquema de la base que diga `scope` y borra
+    # los archivos de `alembic/versions/` del repo abierto.
+    'reinit_migrations': Rule(always=('db', 'local'),
+                              when={'scope': {'remoto': ('vps',)}}),
+
     'promote_app': Rule(always=('publicacion',)),
 
     'clean_artifacts': Rule(always=('local',), dry_run={'dry_run': ('simulacro',)}),

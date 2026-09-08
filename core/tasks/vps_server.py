@@ -365,16 +365,16 @@ def publish_code(
     tiempo perdido, pero se pide igual tras tocar `requirements.txt`.
     """
     if push:
-        ctx.step('Push del repo local')
+        ctx.step('Empujar el repo local a GitHub')
         push_repository(ctx)
     if pull:
-        ctx.step('Codigo en el VPS')
+        ctx.step('Actualizar el repo en el VPS')
         sync_repository(ctx, discard_changes)
     if deps:
-        ctx.step('Dependencias')
+        ctx.step('Instalar dependencias en el VPS')
         install_remote_deps(ctx)
     if upload:
-        ctx.step('Archivos que no viajan por git')
+        ctx.step('Copiar los archivos que no viajan por git')
         upload_secret_files(ctx)
 
 
@@ -412,10 +412,10 @@ def update_remote(
     publish_code(ctx, push=push, pull=pull, deps=deps, upload=upload,
                  discard_changes=discard_changes)
     if migrate:
-        ctx.step('Aplicar migraciones')
+        ctx.step('Ejecutar migraciones')
         db_tasks.apply_migrations(ctx, scope='remoto')
     if restart:
-        ctx.step('Servicio')
+        ctx.step('Reiniciar el servicio')
         restart_service(ctx)
     ctx.note('Actualizacion del remoto completada.')
 

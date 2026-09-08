@@ -218,6 +218,51 @@ def _backend_kwargs(payload: dict) -> dict:
     return {'scope': _option(payload, 'scope') or 'local'}
 
 
+_BOOTSTRAP_DB_STEPS = ('role', 'database', 'privileges', 'extensions', 'migrate',
+                       'partitions', 'seeders', 'mock_seeders')
+_REBUILD_DB_STEPS = ('drop', 'migrate', 'partitions', 'seeders', 'mock_seeders')
+_REINIT_MIGRATIONS_STEPS = ('drop', 'reset', 'generate')
+_MIGRATE_DB_STEPS = ('generate', 'apply')
+
+
+def _bootstrap_db_kwargs(payload: dict) -> dict:
+    """El ambito mas un booleano por casilla, con los mismos ids que declara
+    `BOOTSTRAP_DB_STEPS`. 'Extensiones' desmarcado viaja como `extensions=False`
+    y no como "no hagas nada": es el modo normal en un VPS sin el paquete de la
+    extension instalado. Cuales extensiones son las decide `enable_extensions`
+    mirando las migraciones del repo, no este adaptador."""
+    steps = set(payload.get('steps') or [])
+    return {**_backend_kwargs(payload),
+            **{nombre: nombre in steps for nombre in _BOOTSTRAP_DB_STEPS}}
+
+
+def _migrate_db_kwargs(payload: dict) -> dict:
+    """El ambito mas las dos casillas de `MIGRATE_DB_STEPS`. Desmarcar 'Generar'
+    deja solo el `alembic upgrade`; desmarcar 'Aplicar' genera la revision para
+    revisarla sin tocar la base."""
+    steps = set(payload.get('steps') or [])
+    return {**_backend_kwargs(payload),
+            **{nombre: nombre in steps for nombre in _MIGRATE_DB_STEPS}}
+
+
+def _rebuild_db_kwargs(payload: dict) -> dict:
+    """Homologo del anterior sobre los cinco pasos de la reconstruccion. La
+    confirmacion tipeada del nombre de la base vive dentro de `rebuild_db`, no
+    aca, igual que la de la IP en `clean_vps`."""
+    steps = set(payload.get('steps') or [])
+    return {**_backend_kwargs(payload),
+            **{nombre: nombre in steps for nombre in _REBUILD_DB_STEPS}}
+
+
+def _reinit_migrations_kwargs(payload: dict) -> dict:
+    """Los tres pasos del reinicio del historial. Lleva `scope` porque el
+    autogenerate compara los modelos contra una base concreta, y esa misma es la
+    que el primer paso vacia."""
+    steps = set(payload.get('steps') or [])
+    return {**_backend_kwargs(payload),
+            **{nombre: nombre in steps for nombre in _REINIT_MIGRATIONS_STEPS}}
+
+
 def _serve_vite_kwargs(payload: dict) -> dict:
     """Una SPA por pestana. Vacio significa "la unica que haya" (`targets.pick`)."""
     return {'target': _variant(payload, 'target')}
@@ -367,11 +412,12 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'install_software': _install_software_kwargs,
     'install_coturn': lambda payload: {},
     'bootstrap_vps': _bootstrap_vps_kwargs,
-    # Base de datos. Ninguna declara `steps=` en el catalogo (solo el eje
-    # `scope`), asi que el mismo adaptador de `backend` alcanza: el resto de
-    # los booleanos de cada funcion se quedan en su default (`True`).
-    'bootstrap_db': _backend_kwargs,
-    'rebuild_db': _backend_kwargs,
+    # Base de datos. Las dos compuestas publican sus pasos en el catalogo, asi
+    # que el adaptador traduce el eje `scope` mas una casilla por booleano.
+    'bootstrap_db': _bootstrap_db_kwargs,
+    'rebuild_db': _rebuild_db_kwargs,
+    'reinit_migrations': _reinit_migrations_kwargs,
+    'migrate_db': _migrate_db_kwargs,
     # VPS - ops. La compuesta destructiva: seis casillas, seis booleanos.
     'clean_vps': _clean_vps_kwargs,
     'clean_artifacts': _clean_artifacts_kwargs,

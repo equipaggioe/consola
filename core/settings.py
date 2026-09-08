@@ -41,7 +41,7 @@ _VPS_REACH = ('ssh_login', 'health_check', 'run_command', 'run_setup_scripts',
               'systemd_action', 'install_systemd', 'clean_vps', 'revoke_ssh')
 
 _DB_REMOTE = ('bootstrap_db', 'teardown_db', 'migrate_db', 'rebuild_db',
-              'backup_db', 'ssh_tunnel', 'inspect_db')
+              'reinit_migrations', 'backup_db', 'ssh_tunnel', 'inspect_db')
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---

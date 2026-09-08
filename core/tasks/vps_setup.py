@@ -258,13 +258,13 @@ def setup_ssh_key(
     verifica el final del setup es lo que `health_check` informa despues.
     """
     if access:
-        ctx.step('Acceso de despliegue')
+        ctx.step('Crear la cuenta de despliegue con su llave')
         ensure_deploy_access(ctx)
     if sudo:
-        ctx.step('Sudo sin contrasena')
+        ctx.step('Configurar sudo sin contrasena')
         configure_sudo(ctx, sudo_mode)
     if verify:
-        ctx.step('Prueba de login')
+        ctx.step('Verificar el login por SSH')
         remote = ssh.resolve_remote(ctx.config)
         if ssh.reachable(remote):
             ctx.ok(f'Login sin contrasena funcionando: {remote.target}')
@@ -276,13 +276,13 @@ def setup_github_ssh(ctx, *, generate: bool = True, register: bool = True,
                      verify: bool = True) -> None:
     """Compuesta: llave del VPS -> registro en GitHub -> prueba."""
     if generate:
-        ctx.step('Llave del VPS')
+        ctx.step('Generar la llave en el VPS')
         generate_remote_keypair(ctx)
     if register:
-        ctx.step('Registro en GitHub')
+        ctx.step('Registrar la llave en GitHub')
         register_github_key(ctx)
     if verify:
-        ctx.step('Prueba contra GitHub')
+        ctx.step('Verificar el acceso a GitHub')
         test_github_ssh(ctx)
 
 
@@ -309,36 +309,35 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
     `migrate=True` por default, o sea `alembic upgrade` contra una base que el
     paso siguiente todavia no creo.
 
-    El paso de base pasa `migrate=False` por lo mismo, una capa mas abajo:
-    `rebuild_db` arranca borrando las tablas y reseteando el historial, asi que
-    el `alembic upgrade` de `bootstrap_db` se destruye tres lineas despues. Y si
-    `alembic/versions/` trae revisiones viejas del repo, ese upgrade contra una
-    base recien creada puede fallar y matar el bootstrap entero.
+    El paso de base es una sola llamada a `bootstrap_db`. Antes eran dos
+    —`bootstrap_db(migrate=False)` seguido de `rebuild_db`— porque el bootstrap
+    terminaba en un esquema vacio y hacia falta la destructiva para sembrarlo.
+    Ahora `bootstrap_db` llega hasta los seeders, y `rebuild_db` aca solo
+    agregaba un `drop_tables` sobre una base recien creada.
     """
     from . import database as db_tasks
     from . import vps_server
 
     if known_host:
-        ctx.step('known_hosts')
+        ctx.step('Refrescar known_hosts')
         refresh_known_host(ctx)
     if ssh_key:
-        ctx.step('Acceso SSH')
+        ctx.step('Configurar el acceso SSH')
         setup_ssh_key(ctx, sudo_mode)
     if software:
-        ctx.step('Software base')
+        ctx.step('Instalar el software base')
         install_base_software(ctx, groups)
     if github_ssh:
-        ctx.step('GitHub SSH')
+        ctx.step('Configurar el SSH de GitHub')
         setup_github_ssh(ctx)
     if deploy:
-        ctx.step('Codigo en el VPS')
+        ctx.step('Publicar el codigo en el VPS')
         vps_server.publish_code(ctx)
     if database:
-        ctx.step('Base de datos')
-        db_tasks.bootstrap_db(ctx, scope='remoto', migrate=False)
-        db_tasks.rebuild_db(ctx, scope='remoto')
+        ctx.step('Crear y sembrar la base de datos')
+        db_tasks.bootstrap_db(ctx, scope='remoto')
     if service:
-        ctx.step('Servicio systemd')
+        ctx.step('Instalar el servicio systemd')
         vps_server.install_systemd(ctx)
     ctx.note('Bootstrap completo del VPS.')
 
