@@ -16,16 +16,21 @@ casi nunca quiere los mismos pasos. Por eso se guarda **dentro del repo**, en
 ```json
 {
   "@protection": { "vps": true, "db": true, "otros_repos": true, "publicacion": true, "local": false },
+  "@tabs": { "open": ["build_apk", "update_remote"] },
   "build_apk": { "steps": ["bump", "compile_apk"], "variants": {"app": ["cliente"]} },
   "update_remote": { "steps": ["pull", "restart"], "options": {} }
 }
 ```
 
-La clave `@protection` son los seguros del repo (`docs/seguro-destructivos.md`). Comparte archivo
-con los parámetros de los botones porque comparte naturaleza —una decisión de la consola sobre este
-repo, no un dato que ninguna tarea lea— y así comparte también el cache, la escritura atómica y el
-temporizador. El `@` la mantiene fuera del espacio de nombres de los `capability_id`, que son
-identificadores de Python y no pueden llevarlo.
+La clave `@protection` son los seguros del repo (`docs/seguro-destructivos.md`). `@tabs` son las
+pestañas de acción que dejaste abiertas, en orden: al reabrir Consola cada repo recupera sus botones
+tal cual estaban (`ui/tab_panel.py::_restore_tabs`). Reabrir una pestaña no ejecuta nada. Un id que
+el catálogo ya no tiene se ignora y deja de arrastrarse en el archivo.
+
+Ambas comparten archivo con los parámetros de los botones porque comparten naturaleza —una decisión
+de la consola sobre este repo, no un dato que ninguna tarea lea— y así comparten también el cache, la
+escritura atómica y el temporizador. El `@` las mantiene fuera del espacio de nombres de los
+`capability_id`, que son identificadores de Python y no pueden llevarlo.
 
 Antes vivía en `QSettings`, bajo `params/<sha1-de-la-ruta>/<capability_id>`. Esa clave tenía tres
 problemas que el archivo resuelve solos:
@@ -49,12 +54,18 @@ puede saber que está en tu barra.
 `_is_machine()` decide mirando `registry.get_capability(id).is_machine_wide`. Ver
 `docs/catalogo-funciones.md §5`.
 
-### Migración automática
+La misma regla parte el esquema de configuración: `Setting.scope='machine'` (`core/settings.py`) son
+las claves que **no** se escriben en el `config.env` de ningún repo, porque el valor es de esta
+máquina. Hoy hay una, `PYINSTALLER_BIN`: dónde quedó instalado un ejecutable no es una propiedad del
+proyecto, y en el archivo del repo había que repetir la misma ruta en los nueve. Se edita en el
+mismo formulario de Configuración, en el grupo **Máquina**, y se guarda en `QSettings` bajo
+`machine/<CLAVE>` (`ui/params_store.py::machine_env`). `ui/task_runner.py::_config_for` las mezcla
+sobre las del repo para la corrida, que es lo que hace que `ctx.config.get('PYINSTALLER_BIN')` siga
+funcionando igual desde la tarea.
 
-La primera vez que se lee un repo que todavía no tiene `params.json`, el store barre las claves
-viejas de `QSettings` de ese repo y las adopta (`_adopt_legacy`); el primer guardado las baja al
-archivo. Las claves viejas **no se borran**: volver a una versión anterior de Consola sigue
-encontrando lo elegido.
+Un repo que todavía no tiene `params.json` simplemente arranca sin nada guardado: sin migración
+desde la `QSettings` vieja. Lo que no se lee nunca es código muerto que nadie recuerda borrar, y
+mientras existe hace más difícil saber de qué fuente vino un valor.
 
 ### Cache y escrituras agrupadas
 

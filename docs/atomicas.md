@@ -431,9 +431,11 @@ global, el binario sale sin las dependencias del proyecto y muere al primer impo
 resolvía solo por PATH, así que empaquetar bien dependía de haber activado el venv correcto antes de
 lanzarlo — algo que un botón no puede pedir. `toolchain.pyinstaller_cmd()` mira primero el mismo
 `.venv` que usa el launcher de la terminal, y cae al PATH si ahí no está. El `PYINSTALLER_BIN` del
-script sobrevive como clave de configuración (grupo Builders, `used_by` y no `required_by`: no
-bloquea el botón) — hace falta más seguido de lo que parece, porque `pip install pyinstaller` deja
-el ejecutable en un `Scripts/` de usuario que en Windows no suele estar en el PATH.
+script sobrevive como clave de configuración (`used_by` y no `required_by`: no bloquea el botón) —
+hace falta más seguido de lo que parece, porque `pip install pyinstaller` deja el ejecutable en un
+`Scripts/` de usuario que en Windows no suele estar en el PATH. Es la única clave con
+`scope='machine'`: dónde quedó instalado un ejecutable es de la máquina y no del proyecto, así que
+va a `QSettings` y no al `config.env` de cada repo (`docs/parametros-persistentes.md §2`).
 
 **No hay eje `app` descubierto, a diferencia de los otros dos builders.** Un eje descubierto vacío
 deja el botón en ámbar (§4.3), y el repo que se empaqueta desde su raíz —el caso de la propia

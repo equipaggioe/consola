@@ -2,7 +2,8 @@ from __future__ import annotations
 import os
 
 from .errors import MissingConfig, TaskError
-from .settings import SETTINGS, GROUP_ORDER, get_setting, settings_by_group
+from .settings import (SETTINGS, GROUP_ORDER, get_setting, repo_settings,
+                       settings_by_group)
 
 CONSOLA_DIR = '.consola'
 CONFIG_NAME = 'config.env'
@@ -92,11 +93,17 @@ def describe(setting) -> str:
 
 
 def render_config(values: dict[str, str]) -> str:
-    """Regenera el archivo agrupado por categoria; las claves ajenas se conservan al final."""
+    """Regenera el archivo agrupado por categoria; las claves ajenas se conservan al final.
+
+    Solo las `scope='repo'`: lo que es de la maquina y no del proyecto no se
+    escribe aca aunque venga en `values` (`core/settings.py`).
+    """
+    # Las de maquina cuentan como conocidas para NO caer en «Otras claves»:
+    # el archivo no las escribe, ni en su grupo ni al final.
     known = {s.key for s in SETTINGS}
     out = [HEADER]
     for group in GROUP_ORDER:
-        items = settings_by_group().get(group, [])
+        items = [s for s in settings_by_group().get(group, []) if s.scope == 'repo']
         if not items:
             continue
         out.append(f"\n# --- {group} ---\n")
@@ -149,7 +156,7 @@ def import_from(path: str) -> dict[str, str]:
     """Lee un archivo .env arbitrario (elegido por el usuario) y devuelve
     solo las claves que sobreviven al esquema."""
     legacy = load_env(path)
-    known = {s.key for s in SETTINGS}
+    known = {s.key for s in repo_settings()}
     return {k: v for k, v in legacy.items() if k in known and v}
 
 

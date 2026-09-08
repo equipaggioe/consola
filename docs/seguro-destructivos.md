@@ -84,10 +84,9 @@ Eso arregla además algo visible: la sección Seguridad **no tiene botón Guarda
 casilla la guarda, igual que en el panel de parámetros. Antes dependía del Guardar de *otra* sección
 —la de Configuración—, que es lo que hacía creer que los seguros no se estaban guardando.
 
-**Migración:** un repo que todavía tenga sus `PROTECT_*` en `config.env` los adopta la primera vez
-que se abre y los baja al json en ese momento. Las claves viejas del `.env` desaparecen solas en el
-siguiente Guardar de Configuración, porque el archivo se regenera desde un esquema que ya no las
-tiene.
+No hay código de migración: un repo que todavía tuviera las claves viejas en su `.env` arranca con
+los defaults —protegido en todo menos `local`— y se corrige tocando las casillas una vez. Un puente
+para cinco booleanos con default seguro es código muerto en dos semanas.
 
 Se dibujan como **casillas** y no como campos de texto: escribir `1` a mano en un seguro es pedir que
 se escriba mal. Sin texto explicativo al lado — la etiqueta ya dice qué protege y el detalle vive en
@@ -154,7 +153,7 @@ que despliega la sección.
 |---|---|
 | `core/protection.py` | los objetivos, qué rompe cada acción, cómo lo modulan sus ejes, `state_from()` y `repo_protections()` |
 | `ui/security_panel.py` | las cinco casillas de la sección Seguridad; guarda al tocarlas |
-| `ui/params_store.py` | `load_protection()` / `save_protection()`: la clave `@protection` de `params.json` y la adopción de los `PROTECT_*` viejos |
+| `ui/params_store.py` | `load_protection()` / `save_protection()`: la clave `@protection` de `params.json` |
 | `ui/widgets/accordion.py` | la sección plegable con su cabecera y su resumen |
 | `ui/guard_dialog.py` | la confirmación escrita |
 | `ui/tab_panel.py` | `TabPanel._guard_ok` en el punto único de ejecución; el acordeón del panel derecho; `WorkspaceStatusBar` lleva el indicador |

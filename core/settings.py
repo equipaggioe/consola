@@ -16,6 +16,11 @@ class Setting:
     placeholder: str = ''
     kind: str = 'text'  # 'text' | 'list'. 'list' es un campo multilinea: una
                         # entrada por renglon, guardadas separadas por comas.
+    scope: str = 'repo'  # 'repo' = va a `.consola/config.env`, porque el valor
+                        # es del proyecto. 'machine' = va a QSettings, porque el
+                        # valor es de ESTA maquina y escribirlo en cada repo
+                        # seria escribir nueve veces lo mismo
+                        # (`ui/params_store.py::machine_env`).
     required_by: tuple[str, ...] = field(default_factory=tuple)
     # Acciones que USAN la clave pero corren igual sin ella. Aparece en el panel
     # de configuracion filtrado de esas acciones, y no bloquea su boton. La
@@ -104,22 +109,37 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
             required_by=('install_systemd', 'backend')),
 
-    # --- Builders ---
+    # --- Maquina ---
     # El `PYINSTALLER_BIN` del script original, y por el mismo motivo: `pip
     # install pyinstaller` deja el ejecutable en el Scripts del usuario, que en
     # Windows no siempre esta en el PATH. No bloquea el boton — vacio, se busca
     # primero en el venv de la app y despues en el PATH.
-    Setting('PYINSTALLER_BIN', 'Builders', 'Ruta de PyInstaller',
+    #
+    # `scope='machine'`: donde quedo instalado un ejecutable es de la maquina,
+    # no del proyecto. En `config.env` habia que escribir la misma ruta en cada
+    # repo, y nueve copias de un dato son ocho oportunidades de que discrepen.
+    Setting('PYINSTALLER_BIN', 'Máquina', 'Ruta de PyInstaller', scope='machine',
             placeholder='se busca en el venv de la app y en el PATH',
             used_by=('build_binary',)),
 )
 
-GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd', 'Builders')
+GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd', 'Máquina')
 
 # Los seguros del repo (`PROTECT_*`) NO estan aca y no son un `Setting`: no son
 # un dato que una tarea consuma —ningun paso lee uno— sino una decision de la
 # consola sobre este repo, y viven con las demas en `.consola/params.json`
 # (`ui/security_panel.py`, `ui/params_store.py::load_protection`).
+
+
+def repo_settings() -> tuple[Setting, ...]:
+    """Las que se escriben en `.consola/config.env`. Es lo que regenera el
+    archivo (`core/envfile.py`): una clave de maquina ahi seria un dato del
+    proyecto que no es del proyecto."""
+    return tuple(s for s in SETTINGS if s.scope == 'repo')
+
+
+def machine_settings() -> tuple[Setting, ...]:
+    return tuple(s for s in SETTINGS if s.scope == 'machine')
 
 
 def settings_by_group() -> dict[str, list[Setting]]:

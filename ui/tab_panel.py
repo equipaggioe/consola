@@ -23,6 +23,7 @@ from ui.widgets.led import LedIndicator
 from ui.widgets import (ReorderableTab, ReorderableBar,
                         AccordionSection, SectionResizeGrip)
 from ui.guard_dialog import GuardDialog
+from ui import params_store
 from ui.task_adapters import ADAPTERS
 from ui.task_runner import TaskRunner
 
@@ -543,9 +544,41 @@ class TabPanel(ReorderableBar, QWidget):
         self._params: dict[SubTabButton, ParamsPanel] = {}
         self._runners: set[TaskRunner] = set()  # referencias vivas: sin esto Qt las recolecta a mitad de hilo
         self._busy: dict[SubTabButton, TaskRunner] = {}  # que pestana tiene tarea corriendo
+        # Mientras se reabren las pestanas guardadas no hay que volver a
+        # guardarlas paso a paso: se guarda una vez al terminar el bucle.
+        self._restoring = False
 
         self._refresh_security_summary(self.security_panel.state())
+        self._restore_tabs()
         QTimer.singleShot(0, self._relayout_right)
+
+    def _restore_tabs(self) -> None:
+        """Reabre las pestanas de accion que quedaron abiertas la vez anterior
+        (`ui/params_store.py`), en su orden. Ninguna corre nada: abrir una
+        pestana es solo eso."""
+        self._restoring = True
+        try:
+            for cap_id in params_store.load_tabs(self.project.path):
+                capability = registry.get_capability(cap_id)
+                if capability is not None:
+                    self.open_tab(capability)
+        finally:
+            self._restoring = False
+        # Reescribe la lista ya limpia: si el catalogo perdio un boton, su id
+        # guardado no vuelve a arrastrarse.
+        self._persist_tabs()
+
+    def _persist_tabs(self) -> None:
+        """Anota que pestanas quedan abiertas, en orden, para el proximo
+        arranque. Una pestana sin panel (a medio cerrar) se salta."""
+        if self._restoring:
+            return
+        ids = [self._params[t].capability.id
+               for t in self.tabs if t in self._params]
+        params_store.save_tabs(self.project.path, ids)
+
+    def tabs_reordered(self) -> None:
+        self._persist_tabs()
 
     # --- construccion ------------------------------------------------
     def _build_right_header(self) -> QWidget:
@@ -728,6 +761,7 @@ class TabPanel(ReorderableBar, QWidget):
 
         self.empty_hint.setVisible(False)
         self._activate(tab)
+        self._persist_tabs()
         return tab, view
 
     def _retitle(self, tab: SubTabButton, title: str) -> None:
@@ -802,6 +836,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.tabs_layout.removeWidget(tab)
         tab.setParent(None)
         tab.deleteLater()
+        self._persist_tabs()
 
         if self.tabs:
             if was_active:

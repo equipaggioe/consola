@@ -48,27 +48,21 @@ class Target:
     id: str             # como se guarda en `.consola/params.json`
     label: str          # como se lee en el dialogo: "el VPS", "la base de datos"
     chip: str           # etiqueta corta para la barra de estado: "VPS", "BD"
-    legacy_key: str     # la clave que tenia en `config.env` antes de mudarse al
-                        # json. Solo la mira la adopcion de
-                        # `ui/params_store.py::load_protection`; no se escribe.
     setting_label: str  # como se lee el interruptor en la seccion Seguridad
     protected_by_default: bool
     why: str            # por que ese default, para el tooltip del interruptor
 
 
 TARGETS: tuple[Target, ...] = (
-    Target('vps', 'el VPS', 'VPS', 'PROTECT_VPS', 'Proteger el VPS', True,
+    Target('vps', 'el VPS', 'VPS', 'Proteger el VPS', True,
            'alcanza a una maquina remota y no hay deshacer'),
-    Target('db', 'la base de datos', 'BD', 'PROTECT_DB', 'Proteger la base de datos', True,
+    Target('db', 'la base de datos', 'BD', 'Proteger la base de datos', True,
            'los datos borrados no vuelven sin un backup'),
-    Target('otros_repos', 'otros repositorios', 'otros repos', 'PROTECT_OTHER_REPOS',
-           'Proteger otros repos', True,
+    Target('otros_repos', 'otros repositorios', 'otros repos', 'Proteger otros repos', True,
            'escribe fuera de este repo, en carpetas que no estas mirando'),
-    Target('publicacion', 'el canal de publicacion', 'publicacion', 'PROTECT_RELEASE',
-           'Proteger publicacion', True,
+    Target('publicacion', 'el canal de publicacion', 'publicacion', 'Proteger publicacion', True,
            'lo que se promueve queda a la vista de los usuarios'),
-    Target('local', 'archivos de este repo', 'local', 'PROTECT_LOCAL',
-           'Proteger archivos locales', False,
+    Target('local', 'archivos de este repo', 'local', 'Proteger archivos locales', False,
            'apagado por defecto: un artefacto borrado se rehace con un build'),
 )
 

@@ -9,6 +9,7 @@ from PySide6.QtCore import Qt, Signal
 from ui.theme import Colors, Fonts
 from core.projects import Project
 from core import envfile
+from ui import params_store
 from core.settings import settings_by_group, Setting
 
 
@@ -176,6 +177,12 @@ class EnvPanel(QWidget):
     seguros del repo estuvieron un tiempo en este formulario y se fueron a
     `ui/security_panel.py`: no los lee ninguna tarea, asi que no son un dato de
     este archivo (`core/settings.py`, al final).
+
+    Un grupo no va al archivo: «Máquina» (`Setting.scope='machine'`). Es dato
+    igual —`build_binary` lo lee— pero de ESTA maquina y no del proyecto, asi
+    que se guarda en QSettings (`ui/params_store.py::machine_env`). Se edita
+    aca porque es donde uno busca un valor con nombre de clave; que no sea del
+    repo lo dice el nombre del grupo.
     """
     saved = Signal(dict)
     values_changed = Signal(dict)
@@ -322,7 +329,8 @@ class EnvPanel(QWidget):
         return {key: row.value() for key, row in self.rows.items()}
 
     def reload(self) -> None:
-        values = envfile.load_config(self.project.path)
+        values = {**envfile.load_config(self.project.path),
+                  **params_store.machine_env()}
         for key, row in self.rows.items():
             row.blockSignals(True)
             row.set_value(values.get(key, ''))
@@ -398,6 +406,12 @@ class EnvPanel(QWidget):
         self.banner.setVisible(True)
 
     def save(self) -> None:
+        """Cada valor a su sitio: el archivo del repo o QSettings.
+
+        `save_config` ya descarta las claves de maquina, asi que las dos
+        escrituras no se pisan (`core/envfile.render_config`).
+        """
+        params_store.save_machine_env(self.values())
         envfile.save_config(self.project.path, self.values())
         self.banner.setVisible(False)
         self.saved.emit(self.values())

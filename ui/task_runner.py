@@ -8,6 +8,20 @@ from core.context import TaskContext
 from core.envfile import Config
 from core.errors import Cancelled, MissingConfig, TaskError
 from core.projects import Project
+from ui import params_store
+
+
+
+def _config_for(repo_path: str) -> Config:
+    """La configuracion con la que corre una tarea: la del repo, mas las claves
+    de maquina (`ui/params_store.py::machine_env`).
+
+    Las de maquina van encima porque no hay un valor del repo que pueda
+    competir: `core/envfile.render_config` no las escribe en el archivo.
+    """
+    config = Config.for_project(repo_path)
+    config.values.update({k: v for k, v in params_store.machine_env().items() if v})
+    return config
 
 
 class TaskRunner(QThread):
@@ -91,7 +105,7 @@ class TaskRunner(QThread):
         ctx = TaskContext(
             capability_id=self._capability_id,
             project=self._project,
-            config=Config.for_project(self._project.path),
+            config=_config_for(self._project.path),
             log_sink=lambda msg, level: self.logged.emit(msg, level),
             ask_sink=self._ask,
             note_sink=lambda entry: self.noted.emit(entry),

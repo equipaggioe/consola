@@ -1,5 +1,4 @@
 from __future__ import annotations
-import hashlib
 import json
 import os
 import tempfile
@@ -11,14 +10,10 @@ from core.envfile import CONSOLA_DIR, ensure_gitignored
 """
 Parametros elegidos en el panel de una accion: por repositorio Y por boton.
 
-**Viven en el repo**, en `.consola/params.json`, al lado de `config.env`. Antes
-estaban en QSettings —una tabla global de la maquina indexada por un sha1 de la
-ruta—, y eso tenia tres problemas que el archivo resuelve solos:
-
-- Mover o renombrar la carpeta del repo perdia todo lo elegido, porque la clave
-  era la ruta vieja. Ahora los parametros viajan con la carpeta.
-- Borrar el repo dejaba su basura en el registro para siempre.
-- No habia forma de mirar ni de editar a mano lo guardado.
+**Viven en el repo**, en `.consola/params.json`, al lado de `config.env`. No en
+QSettings: una tabla global de la maquina indexada por la ruta se rompe si
+mueves o renombras la carpeta, deja basura cuando borras el repo y no se puede
+mirar ni editar a mano.
 
 `.consola/` esta en el `.gitignore` (`core/envfile.py`), asi que el archivo no
 se commitea: sigue siendo preferencia de esta maquina, solo que guardada donde
@@ -50,7 +45,12 @@ _FILE_NAME = 'params.json'
 # datos que las tareas consuman— y asi comparten tambien el cache, la escritura
 # atomica y el temporizador.
 _PROTECTION_KEY = '@protection'
-_LEGACY_PREFIX = 'params'
+# Las pestanas de accion abiertas de un repo son otra decision de la consola
+# sobre ESTE repo —que botones dejaste a mano para volver a ellos— asi que van
+# al mismo archivo, bajo otra clave con '@' fuera del espacio de los ids.
+_TABS_KEY = '@tabs'
+_QSETTINGS_PREFIX = 'params'  # namespace de lo que SI sigue en QSettings: las
+                              # capacidades `scope='machine'` (`_machine_key`)
 _FLUSH_MS = 500
 
 # repo normalizado -> {capability_id: estado}. La ruta normalizada sirve de
@@ -65,12 +65,6 @@ def _norm(repo_path: str) -> str:
     return os.path.normcase(os.path.normpath(repo_path or ''))
 
 
-def _repo_key(repo_path: str) -> str:
-    """Huella sha1 de la ruta: solo para leer lo que quedo en QSettings de
-    antes de que los parametros vivieran en el repo."""
-    return hashlib.sha1(_norm(repo_path).encode('utf-8')).hexdigest()[:12]
-
-
 def _file(repo_norm: str) -> str:
     return os.path.join(repo_norm, CONSOLA_DIR, _FILE_NAME)
 
@@ -83,7 +77,31 @@ def _is_machine(capability_id: str) -> bool:
 
 
 def _machine_key(capability_id: str) -> str:
-    return f'{_LEGACY_PREFIX}/machine/{capability_id}'
+    return f'{_QSETTINGS_PREFIX}/machine/{capability_id}'
+
+
+# --- claves de configuracion que son de la maquina -------------------------
+# `Setting.scope='machine'` (`core/settings.py`): donde quedo instalado un
+# ejecutable no es del repo abierto, asi que no va a su `config.env`. Misma
+# regla que las capacidades `scope='machine'`, mismo sitio: QSettings.
+
+def machine_env() -> dict:
+    """Los valores de maquina, para mezclarlos con los del repo."""
+    from core.settings import machine_settings
+
+    settings = QSettings()
+    return {s.key: str(settings.value(f'machine/{s.key}', '') or '')
+            for s in machine_settings()}
+
+
+def save_machine_env(values: dict) -> None:
+    """Escribe las claves de maquina que vengan en `values`; ignora el resto."""
+    from core.settings import machine_settings
+
+    settings = QSettings()
+    for s in machine_settings():
+        if s.key in values:
+            settings.setValue(f'machine/{s.key}', values[s.key])
 
 
 # --- lectura ---------------------------------------------------------------
@@ -105,40 +123,8 @@ def _read(repo_path: str) -> dict:
     except (OSError, ValueError, UnicodeDecodeError):
         data = {}
 
-    if not data:
-        data = _adopt_legacy(repo_path)
-
     _cache[key] = data
     return data
-
-
-def _adopt_legacy(repo_path: str) -> dict:
-    """Rescata lo que este repo tenia en QSettings de la version anterior.
-
-    Se hace una sola vez, cuando todavia no hay archivo: se copia al cache y el
-    primer guardado lo baja al repo. Las claves viejas NO se borran — si se
-    vuelve a la version anterior, lo elegido sigue ahi.
-    """
-    settings = QSettings()
-    group = f'{_LEGACY_PREFIX}/{_repo_key(repo_path)}'
-    settings.beginGroup(group)
-    try:
-        ids = settings.childKeys()
-    finally:
-        settings.endGroup()
-
-    rescatado: dict = {}
-    for capability_id in ids:
-        raw = settings.value(f'{group}/{capability_id}', '')
-        if not raw:
-            continue
-        try:
-            state = json.loads(raw)
-        except (TypeError, ValueError):
-            continue
-        if isinstance(state, dict):
-            rescatado[capability_id] = state
-    return rescatado
 
 
 def load(repo_path: str, capability_id: str) -> dict | None:
@@ -158,28 +144,14 @@ def load(repo_path: str, capability_id: str) -> dict | None:
 
 
 def load_protection(repo_path: str) -> dict:
-    """Los seguros del repo, ya completados con sus defaults.
+    """Los seguros del repo, completados con sus defaults.
 
-    Si el archivo todavia no tiene la seccion, se adopta lo que el repo tenga
-    escrito en `config.env` de cuando los seguros vivian ahi: un repo que ya
-    habia decidido no vuelve a arrancar con los defaults. Las claves viejas no
-    se borran a mano — `config.env` se regenera desde el esquema, que ya no las
-    tiene, asi que desaparecen solas en el proximo Guardar.
+    Un repo que nunca los toco arranca protegido en todo menos en `local`
+    (`core/protection.py`), asi que no hace falta que el archivo diga nada.
     """
-    from core import envfile, protection
+    from core import protection
 
-    guardado = _read(repo_path).get(_PROTECTION_KEY)
-    if not isinstance(guardado, dict):
-        valores = envfile.load_config(repo_path)
-        guardado = {t.id: _truthy(valores[t.legacy_key])
-                    for t in protection.TARGETS
-                    if valores.get(t.legacy_key, '').strip()}
-        if guardado:
-            # Se baja al json en cuanto se adopta, sin esperar a que se toque
-            # una casilla: la fuente vieja se borra sola en el proximo Guardar
-            # de config.env, y para entonces lo decidido ya tiene que estar aca.
-            save_protection(repo_path, protection.state_from(guardado))
-    return protection.state_from(guardado)
+    return protection.state_from(_read(repo_path).get(_PROTECTION_KEY))
 
 
 def save_protection(repo_path: str, state: dict) -> None:
@@ -199,8 +171,27 @@ def save_protection(repo_path: str, state: dict) -> None:
     _schedule()
 
 
-def _truthy(value: str) -> bool:
-    return (value or '').strip().lower() in {'1', 'true', 'yes', 'y', 'on', 'si'}
+def load_tabs(repo_path: str) -> list[str]:
+    """Los `capability_id` de las pestanas de accion que estaban abiertas, en su
+    orden. Vacia si el repo nunca abrio ninguna o si el archivo no lo dice."""
+    raw = _read(repo_path).get(_TABS_KEY)
+    if not isinstance(raw, dict):
+        return []
+    abiertas = raw.get('open')
+    return [str(x) for x in abiertas] if isinstance(abiertas, list) else []
+
+
+def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
+    """Guarda que pestanas de accion quedan abiertas, en orden, para reabrirlas
+    tal cual al proximo arranque (`ui/tab_panel.py`)."""
+    key = _norm(repo_path)
+    data = _read(repo_path)
+    limpio = {'open': [str(x) for x in capability_ids]}
+    if data.get(_TABS_KEY) == limpio:
+        return
+    data[_TABS_KEY] = limpio
+    _dirty.add(key)
+    _schedule()
 
 
 def stored_steps(repo_path: str, capability_id: str) -> list[str] | None:
