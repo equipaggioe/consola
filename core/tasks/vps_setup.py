@@ -308,6 +308,12 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
     los dos que tocan lo que ya esta corriendo. `update_remote` traia
     `migrate=True` por default, o sea `alembic upgrade` contra una base que el
     paso siguiente todavia no creo.
+
+    El paso de base pasa `migrate=False` por lo mismo, una capa mas abajo:
+    `rebuild_db` arranca borrando las tablas y reseteando el historial, asi que
+    el `alembic upgrade` de `bootstrap_db` se destruye tres lineas despues. Y si
+    `alembic/versions/` trae revisiones viejas del repo, ese upgrade contra una
+    base recien creada puede fallar y matar el bootstrap entero.
     """
     from . import database as db_tasks
     from . import vps_server
@@ -329,7 +335,7 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
         vps_server.publish_code(ctx)
     if database:
         ctx.step('Base de datos')
-        db_tasks.bootstrap_db(ctx, scope='remoto')
+        db_tasks.bootstrap_db(ctx, scope='remoto', migrate=False)
         db_tasks.rebuild_db(ctx, scope='remoto')
     if service:
         ctx.step('Servicio systemd')

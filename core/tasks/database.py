@@ -93,15 +93,30 @@ def grant_privileges(ctx, scope: str = db.LOCAL) -> None:
 
 
 def enable_extensions(ctx, scope: str = db.LOCAL, extensions: list[str] | None = None) -> list[str]:
-    """Habilita extensiones en la base. Se separa porque cambia con el tiempo:
-    agregar PostGIS a un proyecto ya desplegado no deberia obligar a recrear nada."""
+    """Habilita extensiones ya instaladas en el sistema. Se separa porque cambia
+    con el tiempo: agregar PostGIS a un proyecto ya desplegado no deberia
+    obligar a recrear nada.
+
+    Antes de crear cada extension se chequea `pg_available_extensions`: no todo
+    VPS tiene el paquete de sistema instalado (postgis no esta en
+    `vps.DEFAULT_GROUPS`), y sin este chequeo el bootstrap entero fallaba con
+    "extension is not available" en vez de avisar y seguir.
+    """
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
     pedidas = extensions or ['postgis']
+    habilitadas = []
     for extension in pedidas:
+        disponible = admin.query(
+            ctx, f'SELECT 1 FROM pg_available_extensions WHERE name = {db.quote_literal(extension)};',
+            database=name)
+        if not disponible:
+            ctx.warn(f'Extension no instalada en el sistema, se salta: {extension}')
+            continue
         admin.execute(ctx, f'CREATE EXTENSION IF NOT EXISTS {db.quote_ident(extension)};', database=name)
         ctx.ok(f'Extension habilitada: {extension}')
-    return pedidas
+        habilitadas.append(extension)
+    return habilitadas
 
 
 def drop_tables(ctx, scope: str = db.LOCAL) -> list[str]:

@@ -367,6 +367,11 @@ ADAPTERS: dict[str, Callable[[dict], dict]] = {
     'install_software': _install_software_kwargs,
     'install_coturn': lambda payload: {},
     'bootstrap_vps': _bootstrap_vps_kwargs,
+    # Base de datos. Ninguna declara `steps=` en el catalogo (solo el eje
+    # `scope`), asi que el mismo adaptador de `backend` alcanza: el resto de
+    # los booleanos de cada funcion se quedan en su default (`True`).
+    'bootstrap_db': _backend_kwargs,
+    'rebuild_db': _backend_kwargs,
     # VPS - ops. La compuesta destructiva: seis casillas, seis booleanos.
     'clean_vps': _clean_vps_kwargs,
     'clean_artifacts': _clean_artifacts_kwargs,
