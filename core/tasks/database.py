@@ -391,8 +391,8 @@ def bootstrap_db(
 
     Termina en una base USABLE, no en una base vacia: un bootstrap que deja el
     esquema creado pero sin los datos minimos obliga a apretar Reconstruir DB
-    —una destructiva, con confirmacion tipeada— para completar algo que no tiene
-    nada de destructivo la primera vez.
+    —una destructiva, que la consola frena o avisa segun el seguro del repo—
+    para completar algo que no tiene nada de destructivo la primera vez.
     """
     if role:
         ctx.step('role')
@@ -434,11 +434,6 @@ def rebuild_db(
     volver a correr los seeders mock sin destruir el esquema es lo mas comun.
     """
     _, _, name = db.credentials(ctx.config)
-    if not ctx.confirm(f'Escribe {name} para reconstruir la base ({scope}).',
-                       danger=True, expect=name):
-        ctx.warn('Cancelado: no se toco la base.')
-        return
-
     if drop:
         ctx.step('drop')
         drop_tables(ctx, scope)
@@ -468,10 +463,6 @@ def reinit_migrations(
     particiones y siembra.
     """
     _, _, name = db.credentials(ctx.config)
-    if not ctx.confirm(f'Escribe {name} para vaciar la base y rehacer el historial ({scope}).',
-                       danger=True, expect=name):
-        ctx.warn('Cancelado: no se toco nada.')
-        return
     if drop:
         ctx.step('drop')
         drop_tables(ctx, scope)
@@ -487,10 +478,6 @@ def reinit_migrations(
 def teardown_db(ctx, scope: str = db.LOCAL, *, database: bool = True, role: bool = True) -> None:
     """Compuesta destructiva: borrar la base y el rol."""
     _, _, name = db.credentials(ctx.config)
-    if not ctx.confirm(f'Escribe {name} para ELIMINAR la base y su rol ({scope}).',
-                       danger=True, expect=name):
-        ctx.warn('Cancelado: no se elimino nada.')
-        return
     if database:
         ctx.step('database')
         drop_database(ctx, scope)

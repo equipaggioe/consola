@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import (
-    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton, QWidget
+    QDialog, QVBoxLayout, QHBoxLayout, QLabel, QPushButton, QWidget
 )
 from PySide6.QtCore import Qt
 
@@ -10,116 +10,57 @@ from core.projects import Project
 from core.protection import Target
 
 """
-El dialogo del seguro: la unica puerta por la que pasa un destructivo cuyo
-objetivo esta protegido en este repo (`core/protection.py`).
+Los dos avisos del seguro por tipo de objetivo (`core/protection.py`). Ninguno
+pide escribir nada: ni una palabra, ni el nombre del repo.
 
-Pide escribir el NOMBRE DEL REPO, no una palabra magica. La diferencia es todo
-el diseno: teclear `BORRAR` es correcto en cualquier repositorio, asi que el
-automatismo siempre acierta y no se comprueba nada. Teclear `navetta` solo es
-correcto en navetta — si te confundiste de pestana, tus dedos escriben el
-nombre del repo que CREES tener abierto y la accion no corre. El reflejo no
-degrada esta comprobacion: el reflejo ES la comprobacion.
+- `BlockedDialog` — un objetivo del radio de dano esta protegido en este repo.
+  La accion NO corre y este dialogo no tiene forma de dejarla correr: su unico
+  boton cierra. El seguro se quita en Configuracion, seccion Seguridad, una vez.
+  Un seguro que se puede saltar en el mismo gesto con el que se aprieta Ejecutar
+  no es un seguro.
 
-Por eso el campo arranca vacio, sin autocompletado y sin repetir el nombre que
-hay que escribir: si estuviera ahi para copiarlo, volveria a ser una palabra
-magica.
+- `ReminderDialog` — la accion destruye algo pero este repo no protege ese
+  objetivo. No hay nada que comprobar, solo algo que recordar: sobre que repo se
+  esta trabajando. Cancelar y Continuar, y Continuar nunca es el predeterminado
+  —un Enter de mas no destruye nada—.
+
+El error que los dos atajan es el mismo: apretar el boton correcto en el repo
+equivocado. Por eso los dos muestran la identidad del repo en grande, con su
+color, su icono y su ruta completa — el dato que se da por sabido cuando uno se
+confunde de pestana.
 """
 
 
-class GuardDialog(QDialog):
-    """Confirmacion escrita para un destructivo sobre un objetivo protegido."""
+class _GuardDialog(QDialog):
+    """Base de los dos avisos: el encabezado, la tarjeta del repo y la nota."""
 
-    def __init__(self, project: Project, action: str, targets: list[Target],
-                 parent=None):
+    def __init__(self, project: Project, titulo_ventana: str, encabezado: str,
+                 nota: str, parent=None):
         super().__init__(parent)
         self.project = project
-        self.setWindowTitle('Confirmar accion destructiva')
+        self.setWindowTitle(titulo_ventana)
         self.setMinimumWidth(460)
         self.setStyleSheet(f"QDialog {{ background: {Colors.SURFACE}; }}")
 
-        lay = QVBoxLayout(self)
-        lay.setContentsMargins(22, 20, 22, 18)
-        lay.setSpacing(14)
+        self._lay = QVBoxLayout(self)
+        self._lay.setContentsMargins(22, 20, 22, 18)
+        self._lay.setSpacing(14)
 
-        titulo = QLabel(f'{action} va a destruir '
-                        + _enumerar([t.label for t in targets]))
-        titulo.setWordWrap(True)
-        titulo.setStyleSheet(
+        cabecera = QLabel(encabezado)
+        cabecera.setWordWrap(True)
+        cabecera.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;")
-        lay.addWidget(titulo)
+        self._lay.addWidget(cabecera)
 
-        # La identidad del repo, en grande y con su color: es exactamente el
-        # dato que se da por sabido cuando uno se equivoca de pestana.
-        lay.addWidget(self._tarjeta_repo())
+        self._lay.addWidget(self._tarjeta_repo())
 
-        pide = QLabel('Escribe el nombre del repositorio para continuar:')
-        pide.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; "
-            f"font-size: {Fonts.SIZE_SM}px;")
-        lay.addWidget(pide)
-
-        self.field = QLineEdit()
-        self.field.setFixedHeight(34)
-        self.field.setPlaceholderText('nombre del repositorio')
-        self.field.textChanged.connect(self._revisar)
-        self.field.setStyleSheet(f"""
-            QLineEdit {{
-                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
-                border: 1px solid {Colors.BORDER}; border-radius: 5px;
-                padding: 0 10px; font-size: {Fonts.SIZE_SM}px;
-            }}
-            QLineEdit:focus {{ border: 1px solid {Colors.ERROR}; }}
-        """)
-        lay.addWidget(self.field)
-
-        self.aviso = QLabel('')
-        self.aviso.setWordWrap(True)
-        self.aviso.setStyleSheet(
-            f"background: transparent; color: {Colors.WARNING}; "
-            f"font-size: {Fonts.SIZE_XS}px;")
-        self.aviso.setVisible(False)
-        lay.addWidget(self.aviso)
-
-        nota = QLabel('Este seguro se quita en Configuracion, seccion Seguridad: '
-                      'por tipo de objetivo y solo para este repositorio.')
-        nota.setWordWrap(True)
-        nota.setStyleSheet(
+        pie = QLabel(nota)
+        pie.setWordWrap(True)
+        pie.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; "
             f"font-size: {Fonts.SIZE_XS}px;")
-        lay.addWidget(nota)
-
-        botones = QHBoxLayout()
-        botones.addStretch()
-        cancelar = QPushButton('Cancelar')
-        cancelar.setCursor(Qt.CursorShape.PointingHandCursor)
-        cancelar.setFixedHeight(32)
-        cancelar.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {Colors.BORDER};
-                color: {Colors.TEXT_DIM}; border-radius: 5px; padding: 0 16px;
-                font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
-        """)
-        cancelar.clicked.connect(self.reject)
-
-        self.ok_btn = QPushButton('Destruir')
-        self.ok_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.ok_btn.setFixedHeight(32)
-        self.ok_btn.setEnabled(False)
-        # Nunca es el boton por defecto: un Enter de mas no debe destruir nada.
-        self.ok_btn.setAutoDefault(False)
-        self.ok_btn.setDefault(False)
-        cancelar.setDefault(True)
-        self.ok_btn.clicked.connect(self.accept)
-
-        botones.addWidget(cancelar)
-        botones.addWidget(self.ok_btn)
-        lay.addLayout(botones)
-
-        self._restyle_ok()
-        self.field.setFocus()
+        self._lay.addWidget(pie)
 
     def _tarjeta_repo(self) -> QWidget:
         caja = QWidget()
@@ -142,57 +83,103 @@ class GuardDialog(QDialog):
         lay.addWidget(ruta)
         return caja
 
-    def _revisar(self, texto: str) -> None:
-        escrito = texto.strip()
-        coincide = escrito.casefold() == self.project.name.casefold()
-        self.ok_btn.setEnabled(coincide)
-        # El caso que justifica todo el dialogo: escribiste bien el nombre de
-        # OTRO repo abierto. Decirlo es mas util que un campo en rojo.
-        otro = _otro_repo(self, escrito)
-        if otro and not coincide:
-            self.aviso.setText(
-                f'{otro} es otra pestana. Esta accion corre sobre '
-                f'{self.project.name}.')
-            self.aviso.setVisible(True)
-        else:
-            self.aviso.setVisible(False)
-        self._restyle_ok()
+    def _boton(self, texto: str) -> QPushButton:
+        boton = QPushButton(texto)
+        boton.setCursor(Qt.CursorShape.PointingHandCursor)
+        boton.setFixedHeight(32)
+        return boton
 
-    def _restyle_ok(self) -> None:
-        activo = self.ok_btn.isEnabled()
-        self.ok_btn.setStyleSheet(f"""
+
+class BlockedDialog(_GuardDialog):
+    """La accion toca un objetivo protegido: se informa y no corre.
+
+    No hereda de nadie que tenga boton de aceptar: aca no hay 'continuar igual'.
+    """
+
+    def __init__(self, project: Project, action: str, targets: list[Target],
+                 parent=None):
+        cuales = _enumerar([t.label for t in targets])
+        super().__init__(
+            project,
+            'Accion bloqueada',
+            f'{action} toca {cuales}, y este repositorio lo tiene protegido.',
+            'El seguro se quita en Configuracion, seccion Seguridad: por tipo '
+            'de objetivo y solo para este repositorio.',
+            parent)
+
+        razones = QLabel('\n'.join(
+            f'•  {t.setting_label} — {t.why}' for t in targets))
+        razones.setWordWrap(True)
+        razones.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; "
+            f"font-size: {Fonts.SIZE_XS}px;")
+        self._lay.insertWidget(2, razones)
+
+        botones = QHBoxLayout()
+        botones.addStretch()
+        entendido = self._boton('Entendido')
+        entendido.setDefault(True)
+        entendido.setStyleSheet(f"""
             QPushButton {{
-                background: {Colors.ERROR if activo else Colors.SURFACE_ALT};
-                color: {Colors.BG if activo else Colors.TEXT_MUTED};
+                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
+                border: 1px solid {Colors.BORDER}; border-radius: 5px;
+                padding: 0 18px; font-size: {Fonts.SIZE_XS}px;
+            }}
+            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; }}
+        """)
+        entendido.clicked.connect(self.reject)
+        botones.addWidget(entendido)
+        self._lay.addLayout(botones)
+
+
+class ReminderDialog(_GuardDialog):
+    """La accion destruye algo no protegido: recordatorio del repo, sin mas."""
+
+    def __init__(self, project: Project, action: str, targets: list[Target],
+                 parent=None):
+        cuales = _enumerar([t.label for t in targets])
+        super().__init__(
+            project,
+            'Confirmar accion',
+            f'{action} va a destruir {cuales}.',
+            'Este objetivo no esta protegido en este repositorio. Se protege '
+            'en Configuracion, seccion Seguridad.',
+            parent)
+
+        botones = QHBoxLayout()
+        botones.addStretch()
+
+        cancelar = self._boton('Cancelar')
+        cancelar.setDefault(True)
+        cancelar.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: 1px solid {Colors.BORDER};
+                color: {Colors.TEXT_DIM}; border-radius: 5px; padding: 0 16px;
+                font-size: {Fonts.SIZE_XS}px;
+            }}
+            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
+        """)
+        cancelar.clicked.connect(self.reject)
+
+        continuar = self._boton('Continuar')
+        # Nunca es el boton por defecto: un Enter de mas no destruye nada.
+        continuar.setAutoDefault(False)
+        continuar.setDefault(False)
+        continuar.setStyleSheet(f"""
+            QPushButton {{
+                background: {Colors.ERROR}; color: {Colors.BG};
                 border: none; border-radius: 5px; padding: 0 18px;
                 font-size: {Fonts.SIZE_XS}px; font-weight: 600;
             }}
         """)
+        continuar.clicked.connect(self.accept)
+
+        botones.addWidget(cancelar)
+        botones.addWidget(continuar)
+        self._lay.addLayout(botones)
 
 
 def _enumerar(cosas: list[str]) -> str:
     if len(cosas) <= 1:
         return cosas[0] if cosas else 'algo'
     return ', '.join(cosas[:-1]) + ' y ' + cosas[-1]
-
-
-def _otro_repo(widget, escrito: str) -> str:
-    """Si lo escrito es el nombre de otra pestana abierta, cual.
-
-    Es el aviso mas util del dialogo: no dice "te equivocaste de palabra", dice
-    "te equivocaste de repositorio", que es el error real que se busca atajar.
-    """
-    if not escrito:
-        return ''
-    # Subiendo por los padres, no por `window()`: un QDialog ES una ventana,
-    # asi que `window()` se devuelve a si mismo y nunca llega a MainWindow.
-    nodo, barra = widget.parent(), None
-    while nodo is not None and barra is None:
-        barra = getattr(nodo, 'project_tabs', None)
-        nodo = nodo.parent()
-    if barra is None:
-        return ''
-    for tab in getattr(barra, 'tabs', []):
-        if tab.project.name.casefold() == escrito.casefold():
-            return tab.project.name
-    return ''

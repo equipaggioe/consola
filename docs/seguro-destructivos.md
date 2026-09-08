@@ -6,33 +6,27 @@ No es "apreté un botón sin querer". Es **apreté el botón correcto en el repo
 
 La interfaz se ve igual en todos los repos. La identidad del repositorio activo vive en una pestaña
 pequeña arriba y en un nombre en la barra de estado, y cuando estás metido en el trabajo no vuelves
-a leer ninguna de las dos. Ese es el fallo real, y define qué tiene que hacer el seguro: **no
-frenarte, sino comprobar que sabes dónde estás.**
+a leer ninguna de las dos. Ese es el fallo real.
 
-## 2. Por qué una palabra mágica no sirve
+## 2. Dos respuestas, según el seguro del repo
 
-Consola ya pedía confirmación escrita en tres sitios, de dos maneras distintas, y solo una funciona:
+El seguro no pide escribir nada — ni una palabra mágica, ni el nombre del repo. Hace una de dos
+cosas, y cuál depende de si el objetivo que la acción va a tocar está protegido **en este repo**:
 
-```python
-# core/tasks/emulators.py — no comprueba NADA
-ctx.confirm('Escribe BORRAR para eliminar...', expect='BORRAR')
+| Estado del objetivo | Qué pasa | Diálogo |
+|---|---|---|
+| **Protegido** | La acción **no corre**. Se explica qué objetivo la frena y por qué. No hay botón para continuar igual. | `BlockedDialog` |
+| **No protegido** | Recordatorio de sobre qué repo se está trabajando. `Cancelar` / `Continuar`, y `Continuar` no es el predeterminado. | `ReminderDialog` |
+| **Simulacro / nada que romper** | Corre sin preguntar. | — |
 
-# core/tasks/database.py — sí comprueba
-ctx.confirm(f'Escribe {name} para reconstruir la base', expect=name)
-```
+> Un seguro que se puede quitar en el mismo gesto con el que se aprieta Ejecutar no es un seguro. Por
+> eso, cuando el objetivo está protegido, el diálogo **informa y cierra** — para levantarlo hay que
+> ir a la sección Seguridad, una vez, con la cabeza fría.
 
-La diferencia:
-
-> Un seguro cuya respuesta correcta **es la misma siempre** entrena un reflejo que siempre acierta.
-> Un seguro cuya respuesta correcta **depende de dónde estás** entrena un reflejo que solo acierta si
-> estás donde crees.
-
-Teclear `BORRAR` es correcto en cualquier repositorio: el automatismo nunca falla, así que la
-comprobación no comprueba nada. Teclear `navetta` solo es correcto en navetta — si te confundiste de
-pestaña, tus dedos escriben el nombre del repo que **crees** tener abierto y la acción no corre.
-
-**El reflejo no degrada esta comprobación: el reflejo es lo que la hace funcionar.** Es la respuesta
-al miedo razonable de que todo seguro acaba siendo mecánico.
+La versión anterior pedía teclear el nombre del repo para continuar. Se descartó: cualquier
+confirmación escrita que se repite entrena un reflejo, y un reflejo que se puede ejecutar sin pensar
+no comprueba nada. Si el objetivo importa lo bastante como para pedir permiso, importa lo bastante
+como para bloquearlo hasta que se desactive el seguro aparte.
 
 ## 3. Qué se protege: el objetivo, no el botón
 
@@ -54,10 +48,11 @@ Dos cosas que un seguro por botón no podría expresar:
   máquina; contra `remoto` alcanza al VPS. El mismo botón, dos radios de daño.
 
 **Un simulacro no dispara nada.** `clean_artifacts` en modo `simulacro` y `sync_common_files` en modo
-`simulacro` no destruyen. Preguntarles sería justo el ruido que gasta la señal del aviso de verdad.
+`simulacro` no destruyen. `targets_of()` devuelve vacío y la acción corre sin diálogo.
 
 `purge_emulators` queda fuera: es `scope='machine'` (borra AVDs e imágenes del SDK, que no son de
 ningún repo), así que un interruptor por repositorio no tendría a qué repositorio pertenecer.
+Conserva su propia confirmación escrita (`ctx.confirm(expect='BORRAR')`).
 
 ## 4. Dónde vive el interruptor, y por qué ahí
 
@@ -65,10 +60,7 @@ En su **propia sección del panel derecho**, **no** en el panel de parámetros d
 
 Es la decisión de diseño que sostiene todo lo demás. Un seguro que se quita con el mismo gesto con el
 que se aprieta Ejecutar —una casilla "desbloquear" al lado del botón— se vuelve parte del gesto, y a
-las dos semanas se quita sin leerlo. Un reflejo necesita repetición para formarse.
-
-Aquí se decide **una vez**, cuando das de alta el repo. Un interruptor que se toca cada varios meses
-no llega a ser reflejo. Lo que **sí** se repite es la confirmación escrita, y esa verifica identidad.
+las dos semanas se quita sin leerlo. Aquí se decide **una vez**, cuando das de alta el repo.
 
 ### Y en qué archivo: `params.json`, no `config.env`
 
@@ -81,12 +73,7 @@ ellos: `.consola/params.json`, bajo la clave `@protection` (`ui/params_store.py:
 `docs/parametros-persistentes.md §2`).
 
 Eso arregla además algo visible: la sección Seguridad **no tiene botón Guardar**, porque tocar una
-casilla la guarda, igual que en el panel de parámetros. Antes dependía del Guardar de *otra* sección
-—la de Configuración—, que es lo que hacía creer que los seguros no se estaban guardando.
-
-No hay código de migración: un repo que todavía tuviera las claves viejas en su `.env` arranca con
-los defaults —protegido en todo menos `local`— y se corrige tocando las casillas una vez. Un puente
-para cinco booleanos con default seguro es código muerto en dos semanas.
+casilla la guarda, igual que en el panel de parámetros.
 
 Se dibujan como **casillas** y no como campos de texto: escribir `1` a mano en un seguro es pedir que
 se escriba mal. Sin texto explicativo al lado — la etiqueta ya dice qué protege y el detalle vive en
@@ -98,67 +85,58 @@ En `TabPanel._guard_ok`, llamado desde `TabPanel._run`. Ese es el **único** pun
 las dos formas de ejecutar: el botón Ejecutar del panel y el botón ▶ del rail (`quick_run`). Ponerlo
 en `ParamsPanel` habría dejado el segundo camino sin red.
 
-La pregunta que se hace no es "¿es destructivo?" sino "¿qué rompe **con estos parámetros**, y está
-protegido **en este repo**?":
+La decisión la toma `core/protection.py`:
 
 ```python
-targets = protection.protected(self.security_panel.state(), capability.id, payload)
-if targets:
-    # GuardDialog: pide el nombre del repo
+decision, targets = protection.decide(security_panel.state(), capability.id, payload)
+if decision == protection.Decision.BLOCK:
+    BlockedDialog(project, capability.name, targets).exec()   # informa y cierra
+    return False
+if decision == protection.Decision.REMIND:
+    return ReminderDialog(project, capability.name, targets).exec() == Accepted
+return True   # ALLOW
 ```
 
-## 6. El diálogo
+Las compuestas destructivas (`rebuild_db`, `teardown_db`, `reinit_migrations`, `clean_vps`,
+`promote_app`, `revoke_ssh`, `sync_common_files`) **ya no llevan su propia** `ctx.confirm(expect=...)`:
+la única puerta es el guard de la consola. Correrlas sin UI (un test, un `TaskContext` sin
+`ask_sink`) ya no las frena — frenarlas es trabajo de quien las lanza.
 
-- Dice **qué** se destruye ("Limpiar VPS va a destruir el VPS y la base de datos").
-- Muestra el repo con su color, su icono y **su ruta completa** — el dato exacto que se da por sabido
-  cuando uno se equivoca de pestaña.
-- El campo arranca vacío, sin autocompletado, y **no repite el nombre que hay que escribir**: si se
-  pudiera copiar de la propia caja, volvería a ser una palabra mágica.
-- El botón destructivo **nunca es el predeterminado**: un Enter de más no destruye nada.
-- Si escribes el nombre de **otra pestaña abierta**, lo dice: *«navetta es otra pestaña. Esta acción
-  corre sobre vettore.»* Es el aviso más útil del diálogo — no dice "te equivocaste de palabra", dice
-  "te equivocaste de repositorio", que es el error que todo esto existe para atajar.
+## 6. Los diálogos
+
+Los dos muestran la identidad del repo en grande, con su color, su icono y **su ruta completa** — el
+dato exacto que se da por sabido cuando uno se equivoca de pestaña.
+
+- **`BlockedDialog`** — dice qué se iba a destruir, lista cada objetivo protegido con el motivo de su
+  default, y termina en un solo botón `Entendido` que cierra. No hay forma de continuar. La nota al
+  pie dice dónde se quita el seguro.
+- **`ReminderDialog`** — dice qué se va a destruir y sobre qué repo. `Cancelar` es el botón
+  predeterminado; `Continuar` nunca lo es, para que un Enter de más no destruya nada.
 
 ## 7. Encontrar los interruptores: el indicador de la barra de estado
 
-Los cinco seguros viven en la sección Seguridad del panel derecho (§4). Cuando eran claves del
-formulario de Configuración quedaban enterrados: `EnvPanel.filter_for()` sólo muestra las claves que
-la acción abierta reclama, así que con cualquier acción no destructiva —o sin ninguna pestaña
-abierta— desaparecían.
-
-Tres cambios, ninguno vuelve al modelo de "un interruptor junto al botón Ejecutar" que ya se
-descartó en el §4:
+Los cinco seguros viven en la sección Seguridad del panel derecho (§4).
 
 - **Seguridad es una sección propia del acordeón del panel derecho** (`ui/widgets/accordion.py`),
-  hermana de Parámetros y de Configuración y no un grupo dentro de esta última. Por eso ya no
-  necesita la exención al filtro que tenía: ningún filtro de acción la alcanza, porque no vive en el
-  formulario que se filtra. Sigue siendo *un* control — no hay un segundo lugar que la duplique y se
-  pueda desincronizar. Se puede plegar como las otras dos, y plegada sigue diciendo lo suyo: su
+  hermana de Parámetros y de Configuración. Se puede plegar, y plegada sigue diciendo lo suyo: su
   cabecera lleva el resumen «*n* de 5 protegidos».
-- **La barra de estado inferior** —siempre visible, a lo ancho de toda la ventana— lleva un
-  indicador con lo que el repo activo tiene protegido ahora mismo: `🔒 VPS · BD · otros repos` o,
-  si no protege nada, `🔓 sin seguros` en ámbar. No es un dato oculto detrás de un menú: un repo sin
-  ningún seguro es tan digno de verse de un vistazo como uno que sí los tiene.
-- **Un widget propio, `ui/security_panel.py`**, con su propio archivo detrás: ya no es un grupo del
-  formulario de Configuración, así que ningún filtro de acción lo alcanza y `PINNED_GROUP` dejó de
-  hacer falta.
+- **La barra de estado inferior** lleva un indicador con lo que el repo activo tiene protegido ahora
+  mismo: `🔒 VPS · BD · otros repos` o, si no protege nada, `🔓 sin seguros` en ámbar.
+- **Un widget propio, `ui/security_panel.py`**, con su propio archivo detrás.
 
-El indicador y el guard leen **la misma fuente**, `SecurityPanel.state()`, vía la señal `changed`: no
-pueden decir una cosa y aplicar otra. Un clic en el indicador llama a `TabPanel.reveal_security()`,
-que despliega la sección.
+El indicador y el guard leen **la misma fuente**, `SecurityPanel.state()`, vía la señal `changed`. Un
+clic en el indicador llama a `TabPanel.reveal_security()`, que despliega la sección.
 
 ## 8. Archivos
 
 | Archivo | Qué hace |
 |---|---|
-| `core/protection.py` | los objetivos, qué rompe cada acción, cómo lo modulan sus ejes, `state_from()` y `repo_protections()` |
+| `core/protection.py` | los objetivos, qué rompe cada acción, cómo lo modulan sus ejes, `decide()`, `state_from()` y `repo_protections()` |
 | `ui/security_panel.py` | las cinco casillas de la sección Seguridad; guarda al tocarlas |
 | `ui/params_store.py` | `load_protection()` / `save_protection()`: la clave `@protection` de `params.json` |
 | `ui/widgets/accordion.py` | la sección plegable con su cabecera y su resumen |
-| `ui/guard_dialog.py` | la confirmación escrita |
+| `ui/guard_dialog.py` | `BlockedDialog` (informa y cierra) y `ReminderDialog` (Cancelar / Continuar) |
 | `ui/tab_panel.py` | `TabPanel._guard_ok` en el punto único de ejecución; el acordeón del panel derecho; `WorkspaceStatusBar` lleva el indicador |
 | `ui/main_window.py` | conecta el indicador al repo activo y al clic (`_refresh_protection`, `_on_security_clicked`) |
 
-Añadir un objetivo nuevo es una fila en `TARGETS` y una en `RULES`: la clave de configuración, su
-etiqueta corta para la barra de estado, su valor por defecto y qué acciones lo tocan salen todos de
-la misma tabla.
+Añadir un objetivo nuevo es una fila en `TARGETS` y una en `RULES`.

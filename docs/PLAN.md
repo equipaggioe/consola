@@ -405,7 +405,7 @@ que se repiten en todos los scripts originales:
 | `print("[INFO] …")` | `ctx.log(msg, level)` | Va a la consola de su pestaña, coloreado, con timestamp |
 | `subprocess.run(cmd)` | `ctx.run(cmd, cwd=, env=)` | Streaming línea a línea, cancelable, PID registrado |
 | `raise SystemExit(1)` | `raise TaskError(msg)` | Marca la pestaña en rojo sin tumbar la app |
-| `input("¿seguro? ")` | `ctx.confirm(msg, danger=)` | Diálogo modal; destructivos exigen escribir el nombre |
+| `input("¿seguro? ")` | `ctx.confirm(msg, danger=)` | Diálogo modal; el seguro por objetivo lo aplica la consola (`docs/seguro-destructivos.md`) |
 | `os.environ[k] = v` | `ctx.project.env` | Entorno aislado por tarea, no el del proceso global |
 
 ```python
@@ -482,7 +482,9 @@ en §7, caso 7). "🧩" marca una capacidad compuesta.
 
 - **en vivo** — la pestaña queda abierta con LED verde y botón Detener mientras el proceso corre.
 - **una vez** — la pestaña se cierra sola al terminar; la entrada queda en el historial.
-- **destructivo** — pide confirmación escrita del nombre del objetivo antes de habilitar el botón.
+- **destructivo** — la consola aplica el seguro por tipo de objetivo antes de dejar correr: bloquea
+  si el objetivo está protegido en el repo, o abre un recordatorio si no lo está
+  (`docs/seguro-destructivos.md`).
 - **interactivo** — no se embebe en la app; abre una terminal externa con la sesión ya armada.
 - **vista** — no corre en una pestaña de consola; abre su propia vista (como Base de datos, §6).
 
@@ -581,9 +583,12 @@ de diseño explícitas:
 5. **Destructivos que hoy no preguntan** (`purge_avds.py` borra AVDs, `purge_system_images.py`
    borra imágenes descargadas, `revoke_ssh_key.py` saca una llave del VPS). A un clic de distancia,
    eso es un accidente esperando. Simulacro obligatorio: se muestra la lista exacta de lo que se va
-   a borrar o revocar **antes** de habilitar Aplicar, y recién ahí se pide la confirmación escrita.
-   Mismo patrón para `rebuild_db`, para **Sync · archivos comunes** (`NEW`/`DIFF` por proyecto antes
-   de sobrescribir, igual que hacía `sync_projects.py`) y para la importación de configuración (§9).
+   a borrar o revocar **antes** de tocar nada. El permiso para correr lo aplica la consola con el
+   seguro por tipo de objetivo (`docs/seguro-destructivos.md`): bloquea si el objetivo está protegido
+   en el repo, o recuerda sobre qué repo se trabaja si no lo está. `purge_avds` / `purge_system_images`
+   son `scope='machine'` y conservan su `ctx.confirm(expect='BORRAR')`. Misma lista previa para
+   `rebuild_db`, para **Sync · archivos comunes** (`NEW`/`DIFF` por proyecto) y para la importación
+   de configuración (§9).
 
 6. **El launcher que se reinicia solo** (`run_terminal.py` vigila archivos y mata/relanza a su
    hijo). Como función eso son dos niveles de proceso: cancelar la tarea debe matar al hijo actual

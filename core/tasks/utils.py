@@ -178,11 +178,6 @@ def sync_common_files(ctx, targets: list[str] | None = None,
         ctx.info('Simulacro: no se copio nada.')
         return diferencias
 
-    if not ctx.confirm(f'Sobrescribir {len(diferencias)} archivo(s) en {len(targets)} repo(s)?',
-                       danger=True):
-        ctx.warn('Cancelado: no se copio nada.')
-        return []
-
     for raiz, rel, _ in diferencias:
         files.copy(ctx.path(rel), raiz / rel)
         ctx.ok(f'{raiz.name}/{rel}')

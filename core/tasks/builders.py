@@ -394,7 +394,8 @@ def _publish_binary(ctx, artifact: Path, manifest: Path, checksum: Path | None) 
 
 def promote_app(ctx, source: str = 'app_web_ultima', target: str = 'app_web_estable') -> None:
     """Copia la version recien publicada sobre la estable. Destructivo: pisa
-    la carpeta anterior entera, asi que muestra el cambio antes de aplicar."""
+    la carpeta anterior entera, asi que muestra el cambio antes de aplicar. El
+    seguro `publicacion` lo frena o lo avisa desde la consola (`core/protection.py`)."""
     origen, destino = ctx.path(source), ctx.path(target)
     if not origen.is_dir():
         raise TaskError(f'No existe la carpeta de origen: {origen}')
@@ -405,10 +406,6 @@ def promote_app(ctx, source: str = 'app_web_ultima', target: str = 'app_web_esta
         return
 
     ctx.warn(f'{destino} va a ser reemplazada por {origen} ({estado}).')
-    if not ctx.confirm(f'Escribe {destino.name} para promover.', danger=True, expect=destino.name):
-        ctx.warn('Cancelado: no se promovio nada.')
-        return
-
     files.remove(destino)
     files.copy(origen, destino)
     ctx.ok(f'Promovido: {origen.name} -> {destino.name}')

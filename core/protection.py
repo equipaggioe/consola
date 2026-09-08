@@ -165,12 +165,34 @@ def state_from(stored: dict | None) -> dict:
     return estado
 
 
-def protected(state: dict, capability_id: str, payload: dict | None = None) -> list[Target]:
-    """Los objetivos que esta corrida toca Y que este repo tiene protegidos.
+class Decision:
+    """Que hace la consola con una corrida, antes de dejarla arrancar."""
+    ALLOW = 'allow'    # no rompe nada (o es un simulacro): corre sin preguntar
+    REMIND = 'remind'  # rompe algo, pero nada protegido: recordatorio del repo
+    BLOCK = 'block'    # toca un objetivo protegido en este repo: no corre
+
+
+def decide(state: dict, capability_id: str,
+           payload: dict | None = None) -> tuple[str, list[Target]]:
+    """Clasifica una corrida. Devuelve la decision y los objetivos que la explican.
+
+    - `BLOCK`: algun objetivo del radio de dano esta protegido en este repo. La
+      accion no corre, y el aviso no ofrece forma de saltarlo — el seguro se
+      quita en la seccion Seguridad, una vez, con la cabeza fria.
+    - `REMIND`: la accion destruye algo pero este repo no protege ninguno de
+      esos objetivos. Un recordatorio de sobre que repo se esta trabajando, con
+      Cancelar y Continuar, y nada mas: ni palabra escrita ni nombre de repo.
+    - `ALLOW`: no hay nada que destruir con estos parametros, o es un simulacro.
 
     `state` es lo que devuelve `state_from`: `{target_id: bool}`.
     """
-    return [t for t in targets_of(capability_id, payload) if is_protected(state, t)]
+    objetivos = targets_of(capability_id, payload)
+    if not objetivos:
+        return Decision.ALLOW, []
+    bloqueados = [t for t in objetivos if is_protected(state, t)]
+    if bloqueados:
+        return Decision.BLOCK, bloqueados
+    return Decision.REMIND, objetivos
 
 
 def is_protected(state: dict, target: Target) -> bool:

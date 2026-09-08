@@ -22,7 +22,7 @@ from ui.security_panel import SecurityPanel
 from ui.widgets.led import LedIndicator
 from ui.widgets import (ReorderableTab, ReorderableBar,
                         AccordionSection, SectionResizeGrip)
-from ui.guard_dialog import GuardDialog
+from ui.guard_dialog import BlockedDialog, ReminderDialog
 from ui import params_store
 from ui.task_runner import TaskRunner
 
@@ -1117,20 +1117,30 @@ class TabPanel(ReorderableBar, QWidget):
     # --- seguro por tipo de objetivo ----------------------------------
     def _guard_ok(self, capability: Capability, payload: dict,
                   console: ConsoleView) -> bool:
-        """Deja pasar, salvo que esta corrida toque un objetivo protegido.
+        """Deja pasar, avisa, o bloquea — segun `core/protection.decide`.
 
         Lo que decide no es "es destructivo" sino "que rompe, con ESTOS
-        parametros, y esta protegido en ESTE repo" (`core/protection.py`): un
-        simulacro de `clean_artifacts` no pregunta nada, y `teardown_db` contra
-        `local` no pregunta lo mismo que contra `remoto`.
+        parametros, y esta protegido en ESTE repo": un simulacro de
+        `clean_artifacts` no pregunta nada, `teardown_db` contra `local` no
+        decide lo mismo que contra `remoto`, y un objetivo protegido no abre una
+        puerta para saltarse el seguro — la cierra.
         """
-        targets = protection.protected(self.security_panel.state(),
-                                       capability.id, payload)
-        if not targets:
+        decision, targets = protection.decide(self.security_panel.state(),
+                                              capability.id, payload)
+        if decision == protection.Decision.ALLOW:
             return True
 
-        dialog = GuardDialog(self.project, capability.name, targets, self)
-        if dialog.exec() == GuardDialog.DialogCode.Accepted:
+        if decision == protection.Decision.BLOCK:
+            BlockedDialog(self.project, capability.name, targets, self).exec()
+            cuales = ', '.join(t.label for t in targets)
+            console.append_log(
+                f'Bloqueado: {capability.name} toca {cuales} y este repo lo '
+                f'tiene protegido. El seguro se quita en Configuracion, '
+                f'seccion Seguridad.', 'error')
+            return False
+
+        dialog = ReminderDialog(self.project, capability.name, targets, self)
+        if dialog.exec() == ReminderDialog.DialogCode.Accepted:
             return True
         console.append_log(
             f'Cancelado: {capability.name} no llego a correr sobre '

@@ -78,10 +78,6 @@ def revoke_ssh_key(ctx, *, remote_side: bool = True, local_side: bool = True) ->
     publica = ssh.public_key(privada)
 
     ctx.warn(f'Se va a revocar: {publica[:60]}...')
-    if not ctx.confirm(f'Escribe {key_name} para revocar la llave.', danger=True, expect=key_name):
-        ctx.warn('Cancelado: no se revoco nada.')
-        return
-
     if remote_side:
         remote = _remote(ctx)
         ssh.run(ctx, remote, (
@@ -197,12 +193,6 @@ def clean_vps(
     esta operacion casi siempre se pide entera (PLAN.md 7, caso 7).
     """
     from . import database as db_tasks
-
-    host = ctx.config.require('VPS_IP')
-    if not ctx.confirm(f'Escribe {host} para BORRAR todo lo instalado en ese servidor.',
-                       danger=True, expect=host):
-        ctx.warn('Cancelado: no se toco el VPS.')
-        return
 
     if service:
         ctx.step('service')

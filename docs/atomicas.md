@@ -87,8 +87,11 @@ Tres reglas comunes a todas:
    Correr la compuesta dos veces no rompe nada.
 2. **Los secretos se marcan** con `ctx.guard()` apenas se leen, para que no aparezcan en la consola
    ni en el log guardado.
-3. **Los destructivos hacen simulacro primero**: muestran la lista exacta y piden confirmación
-   escrita (`ctx.confirm(expect=...)`) antes de tocar nada.
+3. **Los destructivos muestran la lista exacta antes de tocar nada.** El permiso para correr no lo
+   pide la tarea: lo decide la consola en `TabPanel._guard_ok` según el seguro del repo
+   (`docs/seguro-destructivos.md`). Un objetivo protegido bloquea la acción; uno libre abre un
+   recordatorio de sobre qué repo se trabaja. `purge_emulators` es la excepción —`scope='machine'`,
+   sin repo al que pertenecer— y conserva su `ctx.confirm(expect='BORRAR')`.
 
 Y las compuestas son igual de cortas — cada paso es un `ctx.step()` más una llamada, con una
 casilla booleana por paso:
@@ -96,9 +99,6 @@ casilla booleana por paso:
 ```python
 def rebuild_db(ctx, scope=db.LOCAL, *, drop=True, migrate=True,
                partitions=True, seeders=True, mock_seeders=True):
-    if not ctx.confirm(f'Escribe {name} para reconstruir la base ({scope}).',
-                       danger=True, expect=name):
-        return
     if drop:      ctx.step('Vaciar esquema'); drop_tables(ctx, scope)
     if migrate:   ctx.step('Migraciones');    apply_migrations(ctx, scope)
     ...
