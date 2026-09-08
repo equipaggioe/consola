@@ -96,7 +96,7 @@ con catálogos propios, no tres pasos de una secuencia. El porqué, en [emulador
 | `compile_spa` | A | — | `build_vite` |
 | `compile_binary` | A | — | `build_binary` |
 | `resolve_entrypoint` | A | — | `build_binary` (deduce `src/main.py` cuando el campo va vacío) |
-| `checksum_artifact` | A | — | `build_binary` (paso `binary_checksum`) |
+| `checksum_artifact` | A | — | `build_binary` (paso `checksum`) |
 | `promote_app` | A | `promote_app` | — |
 | `build_apk` | C | `build_apk` | — |
 | `build_vite` | C | `build_vite` | — |
@@ -308,8 +308,8 @@ resto uno por uno:
 | Pieza | Qué hace |
 |---|---|
 | `ui/task_runner.py` — `TaskRunner(QThread)` | Arma un `TaskContext` real y llama a la función de la capacidad en un hilo aparte; traduce `log_sink` a señales Qt (`logged`, `finished_ok`) que la consola pinta. Sirve para cualquier capacidad simple (sin pasos, sin `ctx.confirm()`/`ctx.ask()`) — una compuesta con dialogo real todavía necesita puentear `ask_sink` con una señal bloqueante. |
-| `ui/task_adapters.py` — `ADAPTERS` | Un `capability_id` → función que traduce el `payload` del panel (etiquetas que ve el usuario, ej. `'Gradle/Android'`) a los kwargs que espera la función real (`families=['gradle']`). Es la traducción entre "cómo se llama esto para quien lo lee" y "cómo se llama esto para quien programa". |
-| `TabPanel._run` | Si la capacidad tiene `func` (no es stub) y tiene adaptador registrado, corre `_run_real`; si no, sigue en `_run_stub` — el camino de siempre. Conectar el próximo botón es agregar su entrada en `ADAPTERS`. |
+| `Capability.kwargs_from()` — `core/registry.py` | Lee el `payload` del panel y devuelve los kwargs de la función, sin tabla por capacidad: el `name` de cada eje y el `id` de cada paso YA son el nombre del parámetro, y lo que ve el usuario vive en `label`/`labels`. Reemplaza a `ui/task_adapters.py`, que mantenía ese mismo nombre escrito por tercera vez (ver `docs/contrato-de-nombres.md`). |
+| `TabPanel._run` | Si la capacidad tiene `func` (no es stub), corre `_run_real`; si no, `_run_stub`. Es la única condición: antes hacían falta dos —cuerpo y una entrada en `ADAPTERS`— y ese diccionario dejaba veinte capacidades escritas corriendo como simulación. Conectar un botón nuevo es escribir su función y bindearla. |
 
 `find_artifacts`/`clean_artifacts` ([core/tasks/utils.py](../core/tasks/utils.py)) ganaron dos
 parámetros para esto: `families` (qué cachés livianas listar — Python, Gradle/Android, Flutter,

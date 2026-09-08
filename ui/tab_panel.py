@@ -24,7 +24,6 @@ from ui.widgets import (ReorderableTab, ReorderableBar,
                         AccordionSection, SectionResizeGrip)
 from ui.guard_dialog import GuardDialog
 from ui import params_store
-from ui.task_adapters import ADAPTERS
 from ui.task_runner import TaskRunner
 
 
@@ -1075,9 +1074,14 @@ class TabPanel(ReorderableBar, QWidget):
 
     def _run(self, tab: SubTabButton, payload: dict) -> None:
         """Punto unico de 'Ejecutar': corre de verdad lo que ya tiene cuerpo
-        (`func`) y adaptador (`ui/task_adapters.py`); el resto sigue
-        simulado, para que el rail y el panel funcionen igual mientras se
-        conecta boton por boton (PLAN.md §10)."""
+        (`func`); lo que todavia no lo tiene sigue simulado, para que el rail y
+        el panel funcionen igual mientras se escribe (PLAN.md §10).
+
+        Tener cuerpo es la unica condicion. Antes hacian falta dos —cuerpo y una
+        entrada en `ADAPTERS`— y ese diccionario terminaba siendo una compuerta:
+        veinte capacidades escritas y probadas se simulaban porque les faltaba
+        una linea ahi (docs/contrato-de-nombres.md §1). Los kwargs los arma
+        ahora la propia capacidad desde su declaracion."""
         console = self._consoles.get(tab)
         if console is None:
             return
@@ -1100,16 +1104,15 @@ class TabPanel(ReorderableBar, QWidget):
             self._run_concurrent(tab, capability, payload)
             return
 
-        adapter = ADAPTERS.get(capability.id)
-        if capability.func is None or adapter is None:
+        if capability.func is None:
             self._run_stub(console, payload)
             return
 
         valores = self._fanout_values(capability, payload)
         if valores:
-            self._run_fanout(tab, capability, adapter, payload, valores)
+            self._run_fanout(tab, capability, payload, valores)
         else:
-            self._run_real(tab, console, capability, adapter(payload))
+            self._run_real(tab, console, capability, capability.kwargs_from(payload))
 
     # --- seguro por tipo de objetivo ----------------------------------
     def _guard_ok(self, capability: Capability, payload: dict,
@@ -1148,7 +1151,7 @@ class TabPanel(ReorderableBar, QWidget):
         return list((payload.get('variants') or {}).get(capability.fanout) or [])
 
     def _run_fanout(self, tab: SubTabButton, capability: Capability,
-                    adapter, payload: dict, valores: list[str]) -> None:
+                    payload: dict, valores: list[str]) -> None:
         """Una pestana por valor marcado, cada una con su proceso vivo.
 
         El primero se queda en la pestana desde la que se apreto Ejecutar (solo
@@ -1166,11 +1169,13 @@ class TabPanel(ReorderableBar, QWidget):
             self._consoles[tab].append_log(
                 f'{len(valores)} apps marcadas: una pestaña por cada una '
                 f'({", ".join(valores)}).', 'info')
-        self._run_real(tab, self._consoles[tab], capability, adapter(_para(primero)))
+        self._run_real(tab, self._consoles[tab], capability,
+                       capability.kwargs_from(_para(primero)))
 
         for valor in resto:
             otro, vista = self._open(capability, valor)
-            self._run_real(otro, vista.console, capability, adapter(_para(valor)))
+            self._run_real(otro, vista.console, capability,
+                           capability.kwargs_from(_para(valor)))
         self._activate(tab)
 
     def _run_concurrent(self, tab: SubTabButton, capability: Capability,

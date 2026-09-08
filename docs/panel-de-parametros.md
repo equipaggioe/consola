@@ -77,10 +77,10 @@ declara si se puede desmarcar:
 Capability(
     id='build_binary', name='Build binario',
     steps=[
-        Step('bump_version',    'Bump versión',      optional=True, default=True),
-        Step('binary_build',    'Compilar binario',  optional=True, default=True),
-        Step('binary_checksum', 'Checksum SHA-256',  optional=True, default=True),
-        Step('upload_to_vps',   'Subir al VPS',      optional=True, default=False,
+        Step('bump',     'Subir número de versión', optional=True, default=True),
+        Step('build',    'Compilar binario',        optional=True, default=True),
+        Step('checksum', 'Calcular checksum',       optional=True, default=True),
+        Step('upload',   'Subir al VPS',            optional=True, default=False,
              requires_env={'VPS_IP','VPS_USER','VPS_KEY_NAME'}),
     ],
 )
@@ -90,7 +90,7 @@ Capability(
 capacidad sin significado. Y un paso puede tener sus propios requisitos de config — de ahí sale la
 advertencia contextual del §5.
 
-**`binary_build` era ese caso y dejó de serlo** (ver `atomicas.md §4.5`). Se declaraba
+**El paso `build` era ese caso y dejó de serlo** (ver `atomicas.md §4.5`). Se declaraba
 `optional=False` con el argumento de que «PyInstaller no deja nada re-subible sin volver a
 empaquetar», y eso era falso: `dist/` conserva el ejecutable, y el script original traía un flag
 `BUILD_BINARY=false` para subirlo sin recompilar. Los tres builders comparten hoy la misma economía:
@@ -205,7 +205,7 @@ su contenido previsto.
 | `ui/params_panel.py` | ✅ variantes, pasos, opciones, campos de texto (`expand='field'`), aviso de faltantes, resumen, Ejecutar |
 | `ui/env_panel.py` | ✅ formulario agrupado, secretos enmascarados, importar, guardar |
 | `ui/widgets/segmented.py` | ✅ control segmentado para ejes `select='one'` |
-| `ui/tab_panel.py` | ✅ splitters, panel por pestaña; ejecuta de verdad las capacidades con adaptador (`ui/task_adapters.py`), simula el resto |
+| `ui/tab_panel.py` | ✅ splitters, panel por pestaña; ejecuta de verdad toda capacidad con cuerpo (`func`), simula solo las que todavía no lo tienen |
 | `ui/rail.py` | ✅ un botón por capacidad (48 implementadas hoy) |
 | `ui/params_store.py` | ✅ persistir la selección por repo y por botón en `.consola/params.json` **dentro del repo**, con cache y escrituras agrupadas; `scope='machine'` se queda en `QSettings`, una sola vez para todos los repos — ver `docs/parametros-persistentes.md` |
 | ejecución real | ⏳ conectada capacidad por capacidad vía `ui/task_runner.py` + `ADAPTERS`; ver `docs/catalogo-funciones.md §7` |

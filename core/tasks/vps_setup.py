@@ -258,13 +258,13 @@ def setup_ssh_key(
     verifica el final del setup es lo que `health_check` informa despues.
     """
     if access:
-        ctx.step('Crear la cuenta de despliegue con su llave')
+        ctx.step('access')
         ensure_deploy_access(ctx)
     if sudo:
-        ctx.step('Configurar sudo sin contrasena')
+        ctx.step('sudo')
         configure_sudo(ctx, sudo_mode)
     if verify:
-        ctx.step('Verificar el login por SSH')
+        ctx.step('verify')
         remote = ssh.resolve_remote(ctx.config)
         if ssh.reachable(remote):
             ctx.ok(f'Login sin contrasena funcionando: {remote.target}')
@@ -276,13 +276,13 @@ def setup_github_ssh(ctx, *, generate: bool = True, register: bool = True,
                      verify: bool = True) -> None:
     """Compuesta: llave del VPS -> registro en GitHub -> prueba."""
     if generate:
-        ctx.step('Generar la llave en el VPS')
+        ctx.step('generate')
         generate_remote_keypair(ctx)
     if register:
-        ctx.step('Registrar la llave en GitHub')
+        ctx.step('register')
         register_github_key(ctx)
     if verify:
-        ctx.step('Verificar el acceso a GitHub')
+        ctx.step('verify')
         test_github_ssh(ctx)
 
 
@@ -319,26 +319,26 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
     from . import vps_server
 
     if known_host:
-        ctx.step('Refrescar known_hosts')
+        ctx.step('known_host')
         refresh_known_host(ctx)
     if ssh_key:
-        ctx.step('Configurar el acceso SSH')
-        setup_ssh_key(ctx, sudo_mode)
+        ctx.step('ssh_key')
+        setup_ssh_key(ctx.child('setup_ssh_key'), sudo_mode)
     if software:
-        ctx.step('Instalar el software base')
+        ctx.step('software')
         install_base_software(ctx, groups)
     if github_ssh:
-        ctx.step('Configurar el SSH de GitHub')
-        setup_github_ssh(ctx)
+        ctx.step('github_ssh')
+        setup_github_ssh(ctx.child('setup_github_ssh'))
     if deploy:
-        ctx.step('Publicar el codigo en el VPS')
-        vps_server.publish_code(ctx)
+        ctx.step('deploy')
+        vps_server.publish_code(ctx.child('publish_code'))
     if database:
-        ctx.step('Crear y sembrar la base de datos')
-        db_tasks.bootstrap_db(ctx, scope='remoto')
+        ctx.step('database')
+        db_tasks.bootstrap_db(ctx.child('bootstrap_db'), scope='remoto')
     if service:
-        ctx.step('Instalar el servicio systemd')
-        vps_server.install_systemd(ctx)
+        ctx.step('service')
+        vps_server.install_systemd(ctx.child('install_systemd'))
     ctx.note('Bootstrap completo del VPS.')
 
 

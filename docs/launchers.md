@@ -5,8 +5,9 @@ Cómo quedó organizado el grupo **Launchers** y por qué. Continúa
 (un paso deja de caber en una casilla cuando gana su propio catálogo), y agrega al modelo de
 [PLAN.md §2](PLAN.md) una forma de compuesta que ahí no existía: la **concurrente**.
 
-Estado: los cinco botones del grupo están conectados (adaptador real en
-[`ui/task_adapters.py`](../ui/task_adapters.py)), incluida la compuesta.
+Estado: los cinco botones del grupo están conectados, incluida la compuesta. Sus kwargs los arma
+`Capability.kwargs_from()` desde la declaración del catálogo (ver
+[`contrato-de-nombres.md`](contrato-de-nombres.md)).
 
 ---
 
@@ -226,7 +227,7 @@ esa pestaña abierta: por eso `relevant_keys_for()` (el filtro del panel) suma l
 | **`ui/tab_view.py`** | **nuevo** — barra de endpoint + conmutador consola/vista |
 | `ui/task_runner.py` | señal `serve_requested`; `_done()` suelta los endpoints |
 | `ui/tab_panel.py` | pestaña = `TabView`; `_open()`, `_retitle()`, `_run_fanout()`, `_run_concurrent()`; `current_console()` por pestaña y no por widget visible |
-| `ui/task_adapters.py` | adaptadores de `backend`, `serve_vite`, `run_mobile`, `terminal` |
+| `core/registry.py` | `Capability.kwargs_from()`: los kwargs de `backend`, `serve_vite`, `run_mobile` y `terminal` salen de su propia declaración |
 
 **Un arreglo que vino de arriba:** `current_console()` resolvía la consola por el widget visible del
 stack (`isinstance(w, ConsoleView)`). Con el navegador arriba habría devuelto `None` y el rail

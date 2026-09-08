@@ -360,16 +360,16 @@ def populate_db(
     INSERT de un seeder revienta con "no partition of relation found for row".
     """
     if migrate:
-        ctx.step('Ejecutar migraciones')
+        ctx.step('migrate')
         apply_migrations(ctx, scope)
     if partitions:
-        ctx.step('Crear particiones')
+        ctx.step('partitions')
         ensure_partitions(ctx, scope)
     if seeders:
-        ctx.step('Cargar seeders base')
+        ctx.step('seeders')
         run_seeders(ctx, scope)
     if mock_seeders:
-        ctx.step('Cargar seeders mock')
+        ctx.step('mock_seeders')
         run_mock_seeders(ctx, scope)
 
 
@@ -395,16 +395,16 @@ def bootstrap_db(
     nada de destructivo la primera vez.
     """
     if role:
-        ctx.step('Crear el rol de la aplicacion')
+        ctx.step('role')
         create_role(ctx, scope)
     if database:
-        ctx.step('Crear la base de datos')
+        ctx.step('database')
         create_database(ctx, scope)
     if privileges:
-        ctx.step('Otorgar permisos al rol')
+        ctx.step('privileges')
         grant_privileges(ctx, scope)
     if extensions:
-        ctx.step('Habilitar las extensiones del repo')
+        ctx.step('extensions')
         enable_extensions(ctx, scope)
     populate_db(ctx, scope, migrate=migrate, partitions=partitions,
                 seeders=seeders, mock_seeders=mock_seeders)
@@ -440,7 +440,7 @@ def rebuild_db(
         return
 
     if drop:
-        ctx.step('Borrar todas las tablas')
+        ctx.step('drop')
         drop_tables(ctx, scope)
     populate_db(ctx, scope, migrate=migrate, partitions=partitions,
                 seeders=seeders, mock_seeders=mock_seeders)
@@ -473,13 +473,13 @@ def reinit_migrations(
         ctx.warn('Cancelado: no se toco nada.')
         return
     if drop:
-        ctx.step('Borrar todas las tablas')
+        ctx.step('drop')
         drop_tables(ctx, scope)
     if reset:
-        ctx.step('Borrar el historial de migraciones')
+        ctx.step('reset')
         reset_migrations(ctx)
     if generate:
-        ctx.step('Generar la migracion inicial')
+        ctx.step('generate')
         generate_migration(ctx, scope, message='initial_migration')
     ctx.note(f'Historial de migraciones reiniciado; {name} quedo vacia.')
 
@@ -492,10 +492,10 @@ def teardown_db(ctx, scope: str = db.LOCAL, *, database: bool = True, role: bool
         ctx.warn('Cancelado: no se elimino nada.')
         return
     if database:
-        ctx.step('Borrar la base de datos')
+        ctx.step('database')
         drop_database(ctx, scope)
     if role:
-        ctx.step('Borrar el rol')
+        ctx.step('role')
         drop_role(ctx, scope)
     ctx.note(f'Teardown de {name} ({scope}).')
 
@@ -509,10 +509,10 @@ def migrate_db(ctx, scope: str = db.LOCAL, message: str = 'auto', *,
     que quedo atras con migraciones que ya estan en el repo.
     """
     if generate:
-        ctx.step('Generar la migracion pendiente')
+        ctx.step('generate')
         generate_migration(ctx, scope, message=message)
     if apply:
-        ctx.step('Ejecutar migraciones')
+        ctx.step('apply')
         apply_migrations(ctx, scope)
 
 

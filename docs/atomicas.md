@@ -396,7 +396,7 @@ default: str = ''                                # cual arranca marcado; vacio =
 `['major', 'minor', 'patch', 'build', 'none']` — ese es el orden de lectura pedido, con `build` entre
 `patch` y `none` en vez de aislado en su propia sección. El panel dibuja los cuatro excluyentes en un
 `QButtonGroup` y `build` como casilla suelta al lado; el payload de un eje con `combine` viaja como
-lista (`['patch', 'build']`) en vez de un string, y `ui/task_adapters.py::_bump_mode()` la arma de
+lista (`['patch', 'build']`) en vez de un string, y `AxisDef.join='+'` la arma de
 vuelta a lo que entiende `versioning.bump()`: `'patch+build'`, `'build'` (= el viejo `build_only`),
 `'major+build'`... `core/versioning.py::bump()` interpreta esa cadena con `_parse_mode()` — separa el
 componente SemVer del `+build` y los aplica por separado.
@@ -487,7 +487,7 @@ traer manifiesto — pero lo crea donde corresponde y lo avisa.
 
 | Novedad | Por qué |
 |---|---|
-| Paso `binary_checksum` | Un ejecutable descargado no se puede mirar por dentro: el `<binario>.sha256` (formato `sha256sum -c`) es lo único que deja comprobar que lo bajado es lo publicado. Se sube junto al binario. Con empaquetado en carpeta no aplica y se saltea con aviso, sin tirar el build. |
+| Paso `checksum` | Un ejecutable descargado no se puede mirar por dentro: el `<binario>.sha256` (formato `sha256sum -c`) es lo único que deja comprobar que lo bajado es lo publicado. Se sube junto al binario. Con empaquetado en carpeta no aplica y se saltea con aviso, sin tirar el build. |
 | Ejes `packaging` y `window` | `ONEFILE` era una constante del script y ahora es un segmentado; `--windowed` es su hermano que faltaba — en Windows, una app de ventana empaquetada sin eso arrastra una consola negra detrás. |
 | Campo `icon` | `--icon`, para que el ejecutable no se distribuya con el ícono por defecto de PyInstaller. Es lo que PLAN.md §7 pide para `Consola.exe`. |
 
@@ -639,7 +639,7 @@ había agregado para tapar. Ahora es el primer paso de `publish_code` y viene ma
 desplegar ya lo hace cualquier cliente de git; la función sigue existiendo, lo que sobraba era el
 botón.
 
-Y un rótulo que mentía: el paso `git_pull` se llamaba «Pull en el VPS», pero `sync_repository`
+Y un rótulo que mentía: el paso `pull` se llamaba «Pull en el VPS», pero `sync_repository`
 decide sola —con `_remote_state`, sin ninguna bandera— si clona o actualiza, y en la primera
 corrida clona. Ahora es «Código en el VPS».
 
@@ -693,8 +693,11 @@ escribir el registro/perfil de verdad) todavía no se corrió de punta a punta.
 
 - ✅ `ui/task_runner.py` — `TaskRunner(QThread)` corre una capacidad en un hilo aparte (reemplaza
   al pendiente `core/runner.py` de esta lista). Ver `docs/catalogo-funciones.md §6`.
-- ✅ El puente ejes/pasos del panel → kwargs de la función real: `ui/task_adapters.py`, un
-  adaptador por capacidad conectada. Conectadas hoy: `clean_artifacts`, `install_android_tools`,
+- ✅ El puente ejes/pasos del panel → kwargs de la función real: `Capability.kwargs_from()` en
+  `core/registry.py`, uno solo para todas. Ya no hay un adaptador por capacidad: el `name` de un eje
+  y el `id` de un paso SON el nombre del keyword-argument (ver `docs/contrato-de-nombres.md`).
+  Conectadas hoy: todas las que tienen cuerpo. Restos de la lista vieja: `clean_artifacts`,
+  `install_android_tools`,
   `install_android_packages`, `install_android_hypervisor`, `install_android_sdk`,
   `install_flutter_sdk`, `build_apk` (§4.2), `build_vite`, `build_binary` (§4.5),
   `push_repository`, `upload_secret_files`,

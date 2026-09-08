@@ -91,13 +91,30 @@ class TaskContext:
     def error(self, msg: str) -> None:
         self.log(msg, Level.ERROR)
 
-    def step(self, title: str) -> None:
+    def step(self, step_id: str) -> None:
         """Encabezado de un paso dentro de una compuesta.
 
         El log de una receta queda plano, con un encabezado por paso y sin
         sub-pestanas (PLAN.md 7, caso 8).
+
+        Recibe el ID del paso y la etiqueta la resuelve del catalogo, que es
+        donde ya estaba escrita para la casilla del panel. Antes se pasaba el
+        texto suelto y quedaba escrito dos veces, en dos archivos: la casilla
+        decia 'Crear rol de la aplicación' y el log 'Crear el rol de la
+        aplicacion'. Un paso que no es casilla de nadie (los internos de
+        `install_systemd`) se imprime tal cual: no todo paso del log tiene por
+        que ser una decision del panel.
         """
-        self.log(f'--- {title}', Level.INFO)
+        self.log(f'--- {self._step_label(step_id)}', Level.INFO)
+
+    def _step_label(self, step_id: str) -> str:
+        from .registry import registry
+        cap = registry.get_capability(self.capability_id)
+        if cap is not None:
+            for paso in cap.steps:
+                if paso.id == step_id:
+                    return paso.label
+        return step_id
 
     # --- secretos ----------------------------------------------------------
 

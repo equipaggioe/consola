@@ -25,8 +25,9 @@ despues el borrado (PLAN.md 7, caso 5).
 """
 
 # Familias de artefactos livianos: se recorren y se listan archivo por
-# archivo. Cada clave es lo que entiende `find_artifacts(families=...)`;
-# `ui/task_adapters.py` traduce las etiquetas del panel a estas claves.
+# archivo. Cada clave es lo que entiende `find_artifacts(families=...)`, y es
+# tambien el valor del eje del catalogo: lo que se lee en la casilla
+# ('Gradle/Android') va en `labels`, no en el valor.
 FAMILIES: dict[str, dict[str, tuple[str, ...]]] = {
     'python': {'dirs': ('__pycache__',), 'suffixes': ('.pyc', '.pyo')},
     'gradle': {'dirs': ('.gradle', '.kotlin', '.cxx')},
@@ -328,9 +329,6 @@ def _verify(ctx, archive: Path, expected: str, algorithm: str) -> None:
 
 ANDROID_COMPONENTS = ('platform-tools', 'emulator', 'build-tools', 'platform')
 
-ANDROID_STEPS = ('install_android_tools', 'install_android_packages',
-                 'install_android_hypervisor')
-
 
 def _android_root(install_dir: str = '') -> Path:
     return Path(install_dir or ANDROID_DIR_DEFAULT).expanduser()
@@ -578,27 +576,33 @@ def _run_elevated(ctx, program: Path) -> None:
 
 
 def install_android_sdk(ctx, install_dir: str = '', components: list[str] | None = None,
-                        api_level: str = '', build_tools: str = '',
-                        steps: list[str] | None = None) -> Path:
+                        api_level: str = '', build_tools: str = '', *,
+                        tools: bool = True, packages: bool = True,
+                        hypervisor: bool = True) -> Path:
     """Instalacion completa del SDK de Android, de punta a punta.
 
     Compuesta: encadena las tres atomicas en el unico orden que funciona, y
     cada una sigue estando disponible sola desde su propio boton.
+
+    Un booleano por paso, como las otras doce compuestas. Antes recibia la
+    lista de ids (`steps=['install_android_tools', ...]`) y era la unica que lo
+    hacia: eso obligaba al catalogo a nombrar sus casillas con ids de capacidad
+    en vez de con nombres de parametro, que es justo lo que el contrato de
+    nombres saca (docs/contrato-de-nombres.md §5, causa D).
     """
-    activos = set(ANDROID_STEPS if steps is None else steps)
     root = _android_root(install_dir)
 
-    if 'install_android_tools' in activos:
-        ctx.step('Herramientas de linea de comandos')
+    if tools:
+        ctx.step('tools')
         root = install_android_tools(ctx.child('install_android_tools'), install_dir)
 
-    if 'install_android_packages' in activos:
-        ctx.step('Paquetes del SDK')
+    if packages:
+        ctx.step('packages')
         install_android_packages(ctx.child('install_android_packages'),
                                  components, api_level, build_tools)
 
-    if 'install_android_hypervisor' in activos:
-        ctx.step('Aceleracion del emulador')
+    if hypervisor:
+        ctx.step('hypervisor')
         install_android_hypervisor(ctx.child('install_android_hypervisor'))
 
     ctx.ok(f'SDK de Android listo en {root}.')

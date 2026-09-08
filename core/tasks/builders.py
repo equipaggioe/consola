@@ -456,20 +456,20 @@ def build_apk(
                      'version que ya tiene el manifiesto, y subirla cambiada lo '
                      'anunciaria como otra cosa.')
         apk = _last_apk(app.path)
-        ctx.step('Subida al VPS')
+        ctx.step('upload')
         _publish(ctx, apk, manifiesto)
         ctx.note(f'Re-subida APK {app.name} {versioning.read_version(manifiesto)}')
         return apk
 
     with files.reversible(manifiesto):
         if bump:
-            ctx.step('Version')
+            ctx.step('bump')
             bump_version(ctx, app.name, bump_mode)
-        ctx.step('Compilacion')
+        ctx.step('build')
         apk = compile_apk(ctx, app.name)
 
     if upload:
-        ctx.step('Subida al VPS')
+        ctx.step('upload')
         _publish(ctx, apk, manifiesto)
 
     ctx.note(f'Build APK {app.name} {versioning.read_version(manifiesto)}')
@@ -546,7 +546,7 @@ def _build_spa(
                      'version que ya tiene el manifiesto, y subirla cambiada la '
                      'anunciaria como otra cosa.')
         salida = _spa_output(spa)
-        ctx.step('Subida al VPS')
+        ctx.step('upload')
         _publish_spa(ctx, salida, manifiesto)
         ctx.note(f'Re-subida SPA {spa.name} {versioning.read_version(manifiesto)}')
         return salida
@@ -555,13 +555,13 @@ def _build_spa(
         ctx.step('Dependencias')
         install_node_modules(ctx, spa.name)
         if bump:
-            ctx.step('Version')
+            ctx.step('bump')
             bump_version(ctx, spa.name, bump_mode)
-        ctx.step('Compilacion')
+        ctx.step('build')
         salida = compile_spa(ctx, spa.name)
 
     if upload:
-        ctx.step('Subida al VPS')
+        ctx.step('upload')
         _publish_spa(ctx, salida, manifiesto)
 
     ctx.note(f'Build Vite {spa.name} {versioning.read_version(manifiesto)}')
@@ -609,26 +609,26 @@ def build_binary(
         if not artefacto.exists():
             raise TaskError(f'No hay ningun binario compilado en {artefacto}.')
         firma = _maybe_checksum(ctx, artefacto) if checksum else None
-        ctx.step('Subida al VPS')
+        ctx.step('upload')
         _publish_binary(ctx, artefacto, manifiesto, firma)
         ctx.note(f'Re-subida binario {artefacto.name} {versioning.read_version(manifiesto)}')
         return artefacto
 
     with files.reversible(manifiesto):
         if bump:
-            ctx.step('Version')
+            ctx.step('bump')
             bump_version(ctx, rel, bump_mode)
-        ctx.step('Empaquetado')
+        ctx.step('build')
         artefacto = compile_binary(ctx, str(fuente), name, onefile=onefile,
                                    windowed=windowed, icon=icon)
 
     firma = None
     if checksum:
-        ctx.step('Checksum')
+        ctx.step('checksum')
         firma = _maybe_checksum(ctx, artefacto)
 
     if upload:
-        ctx.step('Subida al VPS')
+        ctx.step('upload')
         _publish_binary(ctx, artefacto, manifiesto, firma)
 
     ctx.note(f'Build binario {artefacto.name} {versioning.read_version(manifiesto)}')

@@ -165,7 +165,7 @@ Los pasos actuales de `build_binary` ya son correctos por el criterio de atómic
 tocan**:
 
 ```
-bump_version · binary_build · binary_checksum · upload_to_vps
+bump · build · checksum · upload
 ```
 
 Lo único que cambia es cómo se elige qué compilar:

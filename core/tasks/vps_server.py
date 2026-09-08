@@ -324,13 +324,13 @@ def install_systemd(ctx, host: str = '0.0.0.0', port: int = 443, *,
     su propio boton (PLAN.md 7, caso 7).
     """
     if write:
-        ctx.step('Unidad systemd')
+        ctx.step('write')
         write_systemd_unit(ctx, host, port)
     if enable:
-        ctx.step('Habilitar al arranque')
+        ctx.step('enable')
         systemd_action(ctx, 'enable')
     if start:
-        ctx.step('Arrancar')
+        ctx.step('start')
         systemd_action(ctx, 'restart')
     ctx.note(f'Servicio {vps.service_name(ctx.config)} instalado.')
 
@@ -365,16 +365,16 @@ def publish_code(
     tiempo perdido, pero se pide igual tras tocar `requirements.txt`.
     """
     if push:
-        ctx.step('Empujar el repo local a GitHub')
+        ctx.step('push')
         push_repository(ctx)
     if pull:
-        ctx.step('Actualizar el repo en el VPS')
+        ctx.step('pull')
         sync_repository(ctx, discard_changes)
     if deps:
-        ctx.step('Instalar dependencias en el VPS')
+        ctx.step('deps')
         install_remote_deps(ctx)
     if upload:
-        ctx.step('Copiar los archivos que no viajan por git')
+        ctx.step('upload')
         upload_secret_files(ctx)
 
 
@@ -412,10 +412,10 @@ def update_remote(
     publish_code(ctx, push=push, pull=pull, deps=deps, upload=upload,
                  discard_changes=discard_changes)
     if migrate:
-        ctx.step('Ejecutar migraciones')
+        ctx.step('migrate')
         db_tasks.apply_migrations(ctx, scope='remoto')
     if restart:
-        ctx.step('Reiniciar el servicio')
+        ctx.step('restart')
         restart_service(ctx)
     ctx.note('Actualizacion del remoto completada.')
 

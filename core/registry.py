@@ -50,6 +50,14 @@ class AxisDef:
                                 # bump_mode: patch|minor|major|none son excluyentes, 'build' suma)
     default: str = ''           # solo select='one': valor excluyente marcado al inicio;
                                 # vacio = el primero que no este en `combine`
+    truthy: str = ''            # solo select='one' de dos valores: cual significa True.
+                                # Un segmentado de dos ('simulacro'/'borrar') es un booleano
+                                # con dos rotulos legibles: sin esto, quien lee el payload
+                                # tiene que comparar la cadena a mano y el catalogo pierde el
+                                # control de como se lee su propio eje.
+    join: str = ''              # solo con `combine`: como se unen el valor excluyente y los
+                                # combinados en la cadena que espera la funcion
+                                # ('patch' + 'build' -> 'patch+build')
 
     @property
     def exclusive_values(self) -> list[str]:
@@ -204,6 +212,66 @@ class Capability:
     def level_label(self) -> str:
         return 'Compuesta' if self.is_composite else 'Atómica'
 
+    def kwargs_from(self, payload: dict) -> dict:
+        """Los keyword-arguments de la funcion, leidos de lo que marco el panel.
+
+        Es el reemplazo generico de `ui/task_adapters.py`: no hay una tabla por
+        capacidad porque no hace falta, la capacidad ya se declara a si misma.
+        El contrato que lo permite (docs/contrato-de-nombres.md) es que el `name`
+        de un eje y el `id` de un paso SEAN el nombre del parametro; la etiqueta
+        que lee el humano vive aparte, en `label`/`labels`.
+
+        Los pasos derivados de `composed_of` no entran: son documentacion de que
+        botones encadena este boton, no casillas con un booleano detras. Quien
+        quiere una casilla por paso declara `steps=`.
+        """
+        marcados = set(payload.get('steps') or ())
+        kwargs = {axis.name: self._axis_value(axis, payload) for axis in self.axes}
+        kwargs.update({step.id: step.id in marcados for step in self.steps})
+        return kwargs
+
+    def _axis_value(self, axis: AxisDef, payload: dict):
+        """El valor de un eje, buscado en el balde donde el panel lo dejo.
+
+        `ParamsPanel.payload()` agrupa por tipo de control y no por significado
+        (`variants` las casillas, `options` lo excluyente, `fields` lo escrito,
+        `picks` las listas largas), asi que hay que saber en cual cayo cada eje
+        — y eso es justo lo que dicen su `expand` y su `select`.
+        """
+        if axis.expand == 'field':
+            # Vacio es una eleccion valida: quien borro el campo pide el valor
+            # por defecto de la funcion, no el del catalogo.
+            escrito = (payload.get('fields') or {}).get(axis.name, '')
+            # Una caja de varios renglones ES una lista: un valor por linea. Lo
+            # que la separa es el salto de linea, no una coma que despues haya
+            # que explicar en un placeholder.
+            if axis.multiline:
+                return [ln.strip() for ln in escrito.splitlines() if ln.strip()]
+            return escrito
+        if axis.expand == 'pick':
+            return (payload.get('picks') or {}).get(axis.name, '')
+        if axis.is_multi:
+            marcados = list((payload.get('variants') or {}).get(axis.name) or ())
+            # El eje de `fanout` ya viene repartido: `TabPanel._run_fanout` abre
+            # una pestana por valor, asi que aca llega uno solo, no la lista.
+            if axis.name and axis.name == self.fanout:
+                return marcados[0] if marcados else ''
+            return marcados
+        crudo = (payload.get('options') or {}).get(axis.name)
+        if axis.combine:
+            # Un eje con `combine` puede traer dos marcas (`['patch', 'build']`).
+            # El orden de la cadena lo fija el catalogo, no el orden en que el
+            # panel las devolvio: primero el excluyente, despues los combinados.
+            marcados = [crudo] if isinstance(crudo, str) else list(crudo or ())
+            base = next((v for v in marcados if v not in axis.combine), axis.initial)
+            extra = [v for v in axis.values if v in axis.combine and v in marcados]
+            return axis.join.join([base, *extra]) if axis.join else base
+        # Ausente o vacio = el eje no se dibujo (un preset guardado antes de que
+        # existiera, o un repo con un solo valor que descubrir): vale el default
+        # declarado, que es lo que el panel habria mostrado.
+        valor = crudo or axis.initial
+        return valor == axis.truthy if axis.truthy else valor
+
     @property
     def is_machine_wide(self) -> bool:
         """Si la accion le pasa a la maquina y no al repo abierto.
@@ -226,10 +294,6 @@ GROUP_ICONS = {
     'Base de datos': '🗄️',
     'Utils': '🧰',
 }
-
-
-def _prettify(cap_id: str) -> str:
-    return cap_id.replace('_', ' ').capitalize()
 
 
 class Registry:
@@ -279,23 +343,19 @@ class Registry:
         return GROUP_ICONS.get(group, '')
 
     def resolve_steps(self, cap: Capability) -> list[Step]:
-        """Pasos efectivos de una capacidad.
+        """Pasos efectivos de una capacidad: los que declara, o ella misma.
 
-        Si los declara, se usan tal cual (permite poner el paso nucleo en su
-        orden real: bump -> build -> subida). Si no, se derivan de
-        `composed_of`, con el nucleo primero y el resto opcional.
+        `composed_of` NO deriva pasos. Es documentacion —de que botones esta
+        hecho este boton— y sus entradas son ids de CAPACIDAD, que jamas van a
+        coincidir con el nombre de un parametro (`generate_remote_keypair`
+        contra `generate`). Derivar de ahi producia casillas cuyo id no le
+        correspondia a nada, y por eso once capacidades ya declaraban `steps=`
+        a mano para taparlo (docs/contrato-de-nombres.md §2, causa C).
+
+        Quien quiere una casilla por paso la declara. Sin `steps`, la capacidad
+        es un solo paso obligatorio y el panel no dibuja la seccion.
         """
-        if cap.steps:
-            return cap.steps
-        if not cap.composed_of:
-            return [Step(cap.id, cap.name, optional=False)]
-        # Un orquestador puro no tiene nucleo aparte: la composicion es la
-        # capacidad. Sus pasos son exactamente lo que encadena.
-        derived = []
-        for sub_id in cap.composed_of:
-            sub = self._capabilities.get(sub_id)
-            derived.append(Step(sub_id, sub.name if sub else _prettify(sub_id)))
-        return derived
+        return cap.steps or [Step(cap.id, cap.name, optional=False)]
 
 
 # Singleton a nivel de modulo

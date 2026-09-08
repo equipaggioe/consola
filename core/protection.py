@@ -108,8 +108,8 @@ RULES: dict[str, Rule] = {
 
     'promote_app': Rule(always=('publicacion',)),
 
-    'clean_artifacts': Rule(always=('local',), dry_run={'dry_run': ('simulacro',)}),
-    'sync_common_files': Rule(always=('otros_repos',), dry_run={'mode': ('simulacro',)}),
+    'clean_artifacts': Rule(always=('local',), dry_run={'apply': ('simulacro',)}),
+    'sync_common_files': Rule(always=('otros_repos',), dry_run={'apply': ('simulacro',)}),
 }
 
 

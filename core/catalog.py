@@ -153,17 +153,24 @@ ANDROID_PACKAGE_AXES = [
     AxisDef('build_tools', [BUILD_TOOLS_DEFAULT], 'field', label='Build-tools'),
 ]
 
-# Etiquetas visibles de los ejes de 'clean_artifacts'; `ui/task_adapters.py`
-# las traduce de vuelta a las claves que entiende `core/tasks/utils.py`.
-FAMILY_AXIS_VALUES = ['Python', 'Gradle/Android', 'Flutter', 'Volcados de crash']
-HEAVY_AXIS_VALUES = ['node_modules', '.venv', 'build/dist', '.dart_tool']
+# Los ejes de 'clean_artifacts'. Los valores son las claves que entiende
+# `core/tasks/utils.py::find_artifacts` y las etiquetas van aparte, en `labels`:
+# antes los valores ERAN el texto visible y `ui/task_adapters.py` mantenia dos
+# tablas para traducirlos de vuelta, que es exactamente la duplicacion que el
+# contrato de nombres saca (docs/contrato-de-nombres.md).
+FAMILY_AXIS_VALUES = ['python', 'gradle', 'flutter', 'crash']
+FAMILY_AXIS_LABELS = {'python': 'Python', 'gradle': 'Gradle/Android',
+                      'flutter': 'Flutter', 'crash': 'Volcados de crash'}
+HEAVY_AXIS_VALUES = ['node_modules', 'venv', 'build', 'dart_tool']
+HEAVY_AXIS_LABELS = {'node_modules': 'node_modules', 'venv': '.venv',
+                     'build': 'build/dist', 'dart_tool': '.dart_tool'}
 
 # Orden de lectura: primero el componente SemVer de menos a mas peso... salvo
 # que la costumbre es al reves. Se muestran mayor->menor y `build` (que stackea
 # con cualquiera) queda antes de `none`. El default real es `patch`.
 BUMP_MODES = ['major', 'minor', 'patch', 'build', 'none']
 _BUMP_AXIS = lambda: AxisDef('bump_mode', BUMP_MODES, 'scope', label='Bump',
-                             combine={'build'}, default='patch')
+                             combine={'build'}, default='patch', join='+')
 
 # El `+N` del build number solo existe en `pubspec.yaml`. Una SPA versiona en
 # `package.json`, que es SemVer pelado: ofrecer ahi la casilla `build` seria
@@ -180,9 +187,9 @@ _SEMVER_AXIS = lambda: AxisDef('bump_mode', SEMVER_MODES, 'scope', label='Bump',
 # activaba con BUILD_APK=false, y la razon es economica — retomar un scp
 # cortado no deberia costar diez minutos de build.
 BUILD_APK_STEPS = [
-    Step('bump_version', 'Subir número de versión'),
-    Step('apk_build', 'Compilar APK', requires_env={'API_URL'}),
-    Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
+    Step('bump', 'Subir número de versión'),
+    Step('build', 'Compilar APK', requires_env={'API_URL'}),
+    Step('upload', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
 # Los mismos tres pasos del APK, con la misma semantica: 'Build Vite'
@@ -190,9 +197,9 @@ BUILD_APK_STEPS = [
 # del script original), y ahi el `npm install` que abre el paso de compilacion
 # es justo lo que no se quiere repetir para retomar un scp cortado.
 BUILD_VITE_STEPS = [
-    Step('bump_version', 'Subir número de versión'),
-    Step('vite_build', 'Compilar SPA'),
-    Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
+    Step('bump', 'Subir número de versión'),
+    Step('build', 'Compilar SPA'),
+    Step('upload', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
 # Los mismos pasos de los otros dos builders, con uno propio. 'Compilar
@@ -203,10 +210,10 @@ BUILD_VITE_STEPS = [
 # que alguien descarga no se puede mirar por dentro, y el hash es lo unico que
 # deja comprobar que lo bajado es lo que se publico.
 BUILD_BINARY_STEPS = [
-    Step('bump_version', 'Subir número de versión'),
-    Step('binary_build', 'Compilar binario'),
-    Step('binary_checksum', 'Calcular checksum'),
-    Step('upload_to_vps', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
+    Step('bump', 'Subir número de versión'),
+    Step('build', 'Compilar binario'),
+    Step('checksum', 'Calcular checksum'),
+    Step('upload', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
 # Los seis pasos del despliegue, en el orden en que ocurren: primero se publica
@@ -222,21 +229,21 @@ BUILD_BINARY_STEPS = [
 # clona o actualiza mirando el estado del servidor, y en la primera corrida —la
 # del bootstrap— lo que hace es clonar. El rotulo viejo mentia justo ahi.
 PUBLISH_CODE_STEPS = [
-    Step('push_repo', 'Empujar local a GitHub'),
-    Step('git_pull', 'Actualizar VPS',
+    Step('push', 'Empujar local a GitHub'),
+    Step('pull', 'Actualizar VPS',
          requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
-    Step('install_deps', 'Instalar dependencias',
+    Step('deps', 'Instalar dependencias',
          requires_env={'VPS_PYTHON', 'SERVER_DIR'}),
-    Step('upload_secrets', 'Copiar archivos ignorados'),
+    Step('upload', 'Copiar archivos ignorados'),
 ]
 
 # Los seis del despliegue completo son los cuatro de arriba mas los dos que
 # tocan lo que ya esta corriendo. Se derivan y no se copian: si un paso de
 # `publish_code` cambia de etiqueta o de claves, los dos paneles cambian juntos.
 UPDATE_REMOTE_STEPS = PUBLISH_CODE_STEPS + [
-    Step('apply_migrations', 'Ejecutar migraciones',
+    Step('migrate', 'Ejecutar migraciones',
          requires_env={'DB_NAME', 'DB_PASSWORD'}),
-    Step('restart_service', 'Reiniciar systemd'),
+    Step('restart', 'Reiniciar systemd'),
 ]
 
 
@@ -349,10 +356,10 @@ MIGRATE_DB_STEPS = [
 # 'Prueba de login' es desmarcable porque hay un caso real: preparar un VPS al
 # que todavia no se llega desde esta maquina (firewall, VPN pendiente).
 SETUP_SSH_STEPS = [
-    Step('deploy_access', 'Crear cuenta de despliegue',
+    Step('access', 'Crear cuenta de despliegue',
          requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
-    Step('sudo_rules', 'Configurar sudo sin contraseña', requires_env={'VPS_IP'}),
-    Step('verify_login', 'Verificar login por SSH',
+    Step('sudo', 'Configurar sudo sin contraseña', requires_env={'VPS_IP'}),
+    Step('verify', 'Verificar login por SSH',
          requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
 ]
 
@@ -361,6 +368,65 @@ SETUP_SSH_STEPS = [
 # una secuencia: se lanzan a la vez, cada uno en su pestana, y ninguno termina
 # (docs/launchers.md 2.5). El orden de esta lista es el de despacho, y el unico
 # que importa es que el backend salga primero: los otros dos esperan su endpoint.
+# Los pasos de abajo existian como parametros de su funcion y no como casillas:
+# el catalogo dejaba que `composed_of` los derivara, y `composed_of` nombra
+# CAPACIDADES (`generate_remote_keypair`), no parametros (`generate`). El panel
+# dibujaba casillas cuyo id no le correspondia a nada y la funcion corria
+# siempre con sus defaults (docs/contrato-de-nombres.md §2, causa C).
+
+SETUP_GITHUB_SSH_STEPS = [
+    Step('generate', 'Generar llave en el VPS'),
+    Step('register', 'Registrar llave en GitHub',
+         requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
+    Step('verify', 'Verificar acceso a GitHub'),
+]
+
+# El reverso del anterior, y los dos lados son desmarcables por separado: una
+# llave puede quedar dada de baja en GitHub y seguir en el disco del VPS.
+REVOKE_GITHUB_SSH_STEPS = [
+    Step('remote_files', 'Borrar llave del VPS'),
+    Step('github_side', 'Dar de baja llave en GitHub',
+         requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
+]
+
+# Los dos lados de la clave con la que entra ESTA maquina. Desmarcar el local
+# es el caso de revocar el acceso de una maquina que ya no se tiene enfrente.
+REVOKE_SSH_STEPS = [
+    Step('remote_side', 'Borrar clave del VPS'),
+    Step('local_side', 'Borrar clave de esta máquina'),
+]
+
+INSTALL_SYSTEMD_STEPS = [
+    Step('write', 'Escribir unidad systemd'),
+    Step('enable', 'Habilitar al arranque'),
+    Step('start', 'Arrancar servicio'),
+]
+
+# Los tres pasos de `utils.install_android_sdk`. Era la unica compuesta que
+# recibia la lista de ids en vez de un booleano por paso: ahora recibe los tres
+# booleanos como las otras doce (docs/contrato-de-nombres.md §5, causa D).
+INSTALL_ANDROID_SDK_STEPS = [
+    Step('tools', 'Instalar herramientas de línea de comandos'),
+    Step('packages', 'Instalar paquetes del SDK'),
+    Step('hypervisor', 'Instalar aceleración del emulador'),
+]
+
+# `teardown_db` era `level='C'` sin pasos: sus dos booleanos no tenian casilla y
+# borraba siempre las dos cosas. Borrar la base y dejar el rol es lo que se
+# quiere antes de un bootstrap: el rol lo usan otras bases del mismo servidor.
+TEARDOWN_DB_STEPS = [
+    Step('database', 'Borrar base de datos'),
+    Step('role', 'Borrar rol de la aplicación'),
+]
+
+# Los dos de `vps_ops.run_setup_scripts`. Reconstruir arranca desmarcado porque
+# es destructivo y el caso normal de "correr el setup" es el bootstrap.
+RUN_SETUP_SCRIPTS_STEPS = [
+    Step('bootstrap', 'Crear base desde cero'),
+    Step('rebuild', 'Reconstruir base', default=False),
+]
+
+
 DEV_ENV_STEPS = [
     Step('backend', 'Backend', optional=False),
     Step('serve_vite', 'SPA Vite'),
@@ -409,7 +475,7 @@ def load_catalog() -> None:
         id='run_mobile', name='App móvil', group='Launchers', section='Dispositivo',
         kind='live', icon='📲',
         description='Corre la app móvil en el emulador o dispositivo conectado.',
-        axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP)],
+        axes=[AxisDef('target', [], 'scope', label='App móvil', discover=targets.MOBILE_APP)],
         stub=True))
     # La carpeta dejo de estar fija en el codigo: `python-app` es un tipo mas de
     # `core/targets.py`, descubierto como las SPA (PLAN.md 2.4).
@@ -417,8 +483,9 @@ def load_catalog() -> None:
         id='terminal', name='Terminal', group='Launchers', section='Escritorio',
         kind='live', icon='⌨️',
         description='Arranca la app de terminal del repo, con recarga al cambiar sus fuentes.',
-        axes=[AxisDef('app', [], 'scope', label='App', discover=(targets.PYTHON_APP,)),
-              AxisDef('auto_login', ['no', 'sí'], 'scope', label='Auto-login de dev')],
+        axes=[AxisDef('target', [], 'scope', label='App', discover=(targets.PYTHON_APP,)),
+              AxisDef('auto_login', ['no', 'sí'], 'scope', label='Auto-login de dev',
+                      truthy='sí')],
         stub=True))
     # La compuesta concurrente del grupo. No tiene `func` ni adaptador: su
     # cuerpo es el despachador de `ui/tab_panel.py`, porque "una pestana por
@@ -436,12 +503,12 @@ def load_catalog() -> None:
     # framework no se pregunta aparte porque viaja dentro del target elegido.
     # `bump_mode` es una lista cerrada, no un texto: va como opción excluyente
     # (igual que `dry_run` en clean_artifacts) y no como campo escrito.
-    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', description='Sube la versión, compila el APK y opcionalmente lo publica en el VPS.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('app', [], 'scope', label='App móvil', discover=targets.MOBILE_APP), _BUMP_AXIS()], steps=BUILD_APK_STEPS, stub=True))
+    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', description='Sube la versión, compila el APK y opcionalmente lo publica en el VPS.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('directory', [], 'scope', label='App móvil', discover=targets.MOBILE_APP), _BUMP_AXIS()], steps=BUILD_APK_STEPS, stub=True))
     # Homologo de `build_apk`: mismas atomicas compuestas, mismos tres pasos.
     # Lo unico propio es que su eje es `many` — un repo tiene una app móvil y
     # tres SPA — y como es una capacidad que termina, las marcadas se recorren
     # en un bucle dentro de `build_vite`, no en una pestaña por cada una.
-    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('target', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _SEMVER_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
+    registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Sube la versión, compila las SPA elegidas y opcionalmente las publica.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('directories', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _SEMVER_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
     # El tercer builder, con los mismos pasos y el mismo `bump` SemVer que Vite
     # (`pyproject.toml` tampoco tiene build number). Lo propio es que sus ejes
     # son campos y no una lista descubierta: el script original empaquetaba
@@ -463,10 +530,10 @@ def load_catalog() -> None:
                       placeholder='assets/icon.ico'),
               # Las dos decisiones de PyInstaller que cambian *que* se entrega:
               # un archivo suelto o una carpeta, y con o sin consola detras.
-              AxisDef('packaging', ['un archivo', 'carpeta'], 'scope',
-                      label='Empaquetado'),
-              AxisDef('window', ['consola', 'ventana'], 'scope',
-                      label='Al ejecutarse'),
+              AxisDef('onefile', ['un archivo', 'carpeta'], 'scope',
+                      label='Empaquetado', truthy='un archivo'),
+              AxisDef('windowed', ['consola', 'ventana'], 'scope',
+                      label='Al ejecutarse', truthy='ventana'),
               _SEMVER_AXIS()],
         steps=BUILD_BINARY_STEPS, stub=True))
     registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', description='Promueve el último artefacto subido al canal de producción.', stub=True))
@@ -503,8 +570,8 @@ def load_catalog() -> None:
         section='Emulador', kind='live', icon='📲', scope='machine',
         description='Arranca uno de los AVD ya creados. Se puede lanzar otro con uno corriendo.',
         axes=[AxisDef('avd', [], 'pick', label='AVD', source=ANDROID_AVDS),
-              AxisDef('boot', ['normal', 'borrar datos'], 'scope', label='Arranque',
-                      danger={'borrar datos'})],
+              AxisDef('wipe', ['normal', 'borrar datos'], 'scope', label='Arranque',
+                      truthy='borrar datos', danger={'borrar datos'})],
         live_state=ANDROID_RUNNING,
         stub=True))
     # Un solo boton de limpieza para las dos cosas que ocupan disco: el AVD
@@ -519,22 +586,31 @@ def load_catalog() -> None:
               AxisDef('images', [], 'checks', select='many', label='Máquinas virtuales',
                       source=ANDROID_IMAGES_INSTALLED, checked_by_default=False,
                       allow_empty=True),
-              AxisDef('dry_run', ['simulacro', 'borrar'], 'scope')],
+              AxisDef('apply', ['simulacro', 'borrar'], 'scope', label='Modo',
+                      truthy='borrar')],
         stub=True))
 
     # VPS · ops group
     registry.register(Capability(id='ssh_login', name='Sesión SSH', group='VPS · ops', section='Conexión', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
     registry.register(Capability(id='health_check', name='Health check', group='VPS · ops', section='Diagnóstico', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))
-    registry.register(Capability(id='run_command', name='Comando remoto', group='VPS · ops', section='Diagnóstico', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', stub=True))
-    registry.register(Capability(id='run_setup_scripts', name='Correr setup remoto', group='VPS · ops', section='Setup', kind='once', icon='📜', description='Ejecuta los scripts de setup del repo, en la máquina local o en el VPS.', composed_of=['run_remote_script'], axes=[AxisDef('where', ['local', 'remoto'], 'scope')], stub=True))
-    registry.register(Capability(id='revoke_ssh', name='Revocar SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Quita del VPS la clave pública con la que entra esta máquina.', stub=True))
-    registry.register(Capability(id='revoke_github_ssh', name='Revocar GitHub SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Borra la deploy key del VPS y la da de baja en GitHub.', composed_of=['remove_remote_ssh_key_files', 'revoke_github_key'], stub=True))
+    registry.register(Capability(id='run_command', name='Comando remoto', group='VPS · ops', section='Diagnóstico', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', axes=[AxisDef('command', [''], 'field', label='Comando', placeholder='systemctl status … · df -h · journalctl -n 50')], stub=True))
+    registry.register(Capability(id='run_setup_scripts', name='Correr setup remoto', group='VPS · ops', section='Setup', kind='once', icon='📜', description='Ejecuta los scripts de setup del repo, en la máquina local o en el VPS.', composed_of=['bootstrap_db', 'rebuild_db'], axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], steps=RUN_SETUP_SCRIPTS_STEPS, stub=True))
+    registry.register(Capability(id='revoke_ssh', name='Revocar SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Quita del VPS la clave pública con la que entra esta máquina.', steps=REVOKE_SSH_STEPS, stub=True))
+    registry.register(Capability(id='revoke_github_ssh', name='Revocar GitHub SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Borra la deploy key del VPS y la da de baja en GitHub.', composed_of=['remove_remote_ssh_key_files', 'revoke_github_key'], steps=REVOKE_GITHUB_SSH_STEPS, stub=True))
     registry.register(Capability(id='clean_vps', name='Limpiar VPS', group='VPS · ops', section='Limpieza', kind='destructive', icon='💣', description='Deja el VPS como estaba: servicio, base, repo, claves, paquetes y usuario.', composed_of=['remove_systemd_service', 'drop_database', 'remove_deployed_repo', 'revoke_github_key', 'uninstall_packages', 'remove_vps_user'], steps=CLEAN_VPS_STEPS, stub=True))
 
     # VPS · server group
-    registry.register(Capability(id='systemd_action', name='Acción systemd', group='VPS · server', section='Servicio', kind='once', icon='⚙️', description='Manda una acción al servicio systemd del repo en el VPS.', axes=[AxisDef('action', ['start', 'stop', 'restart', 'status'], 'buttons', danger={'stop'}), AxisDef('action_ext', ['enable', 'disable', 'reload', 'is-active', 'is-enabled'], 'menu')], stub=True))
-    registry.register(Capability(id='view_logs', name='Ver logs', group='VPS · server', section='Logs', kind='live', icon='📋', description='Muestra el journal del servicio, de una o siguiéndolo en vivo.', axes=[AxisDef('follow', ['sí', 'no'], 'field')], stub=True))
-    registry.register(Capability(id='install_systemd', name='Instalar servicio', group='VPS · server', section='Servicio', kind='once', icon='📥', description='Escribe la unidad systemd del repo y la deja corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], stub=True))
+    # Un solo eje y no dos: `systemd_action` recibe UN parametro, y el catalogo
+    # lo partia en 'buttons' (start/stop/restart/status) y 'menu' (el resto).
+    # La particion no existia ni siquiera en el panel, que dibuja igual los dos
+    # `expand`; lo unico que lograba era que el segundo eje no llegara a la
+    # funcion. El default es 'status' —el de la firma— y no 'start': el valor
+    # que arranca marcado es el que corre si alguien aprieta Ejecutar sin mirar.
+    registry.register(Capability(id='systemd_action', name='Acción systemd', group='VPS · server', section='Servicio', kind='once', icon='⚙️', description='Manda una acción al servicio systemd del repo en el VPS.', axes=[AxisDef('action', ['status', 'start', 'stop', 'restart', 'enable', 'disable', 'reload', 'is-active', 'is-enabled'], 'buttons', label='Acción', default='status', danger={'stop'})], stub=True))
+    # `follow` era un `expand='field'` con valores ['sí','no']: un booleano
+    # dibujado como campo de texto libre, que ademas nunca llegaba a la funcion.
+    registry.register(Capability(id='view_logs', name='Ver logs', group='VPS · server', section='Logs', kind='live', icon='📋', description='Muestra el journal del servicio, de una o siguiéndolo en vivo.', axes=[AxisDef('follow', ['seguir en vivo', 'de una'], 'scope', label='Modo', truthy='seguir en vivo')], stub=True))
+    registry.register(Capability(id='install_systemd', name='Instalar servicio', group='VPS · server', section='Servicio', kind='once', icon='📥', description='Escribe la unidad systemd del repo y la deja corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], steps=INSTALL_SYSTEMD_STEPS, stub=True))
     # `push_repository` tuvo boton suelto y lo perdio: empujar sin desplegar ya
     # lo hace cualquier cliente de git, y el caso que de verdad importaba —que
     # el VPS no clone el commit de otro— lo cubre el primer paso de
@@ -550,9 +626,9 @@ def load_catalog() -> None:
         id='publish_code', name='Publicar código', group='VPS · server', section='Deploy',
         kind='live', icon='🛫',
         description='Deja el código, sus dependencias y los secretos en el VPS, sin tocar base ni servicio.',
-        axes=[AxisDef('vps_dirty', ['preguntar', 'descartar'], 'scope',
+        axes=[AxisDef('discard_changes', ['preguntar', 'descartar'], 'scope',
                       label='Si el VPS tiene cambios sin commitear',
-                      danger={'descartar'})],
+                      truthy='descartar', danger={'descartar'})],
         steps=PUBLISH_CODE_STEPS, stub=True))
     # `composed_of` declaraba seis ids que no eran capacidades de nadie
     # (`git_sync_remote`, `upload_files`, `generate_migration`): nombres sueltos
@@ -570,9 +646,9 @@ def load_catalog() -> None:
               # no pregunta. Lo segundo es lo que se quiere cuando el VPS es
               # descartable y el ruido lo genera el propio servicio; lo primero,
               # cuando alguien pudo haber tocado algo a mano ahi.
-              AxisDef('vps_dirty', ['preguntar', 'descartar'], 'scope',
+              AxisDef('discard_changes', ['preguntar', 'descartar'], 'scope',
                       label='Si el VPS tiene cambios sin commitear',
-                      danger={'descartar'})],
+                      truthy='descartar', danger={'descartar'})],
         steps=UPDATE_REMOTE_STEPS, stub=True))
 
     # VPS · setup group
@@ -594,7 +670,7 @@ def load_catalog() -> None:
         axes=[AxisDef('sudo_mode', ['all', 'specific', 'none'], 'scope',
                       label='Sudo sin contraseña', default='all')],
         steps=SETUP_SSH_STEPS, stub=True))
-    registry.register(Capability(id='setup_github_ssh', name='Configurar GitHub SSH', group='VPS · setup', section='GitHub', kind='once', icon='🐙', description='Genera la deploy key en el VPS y la registra en GitHub.', composed_of=['generate_remote_keypair', 'register_github_key', 'test_github_ssh'], stub=True))
+    registry.register(Capability(id='setup_github_ssh', name='Configurar GitHub SSH', group='VPS · setup', section='GitHub', kind='once', icon='🐙', description='Genera la deploy key en el VPS y la registra en GitHub.', composed_of=['generate_remote_keypair', 'register_github_key', 'test_github_ssh'], steps=SETUP_GITHUB_SSH_STEPS, stub=True))
     registry.register(Capability(id='install_coturn', name='Instalar coturn', group='VPS · setup', section='Comunicaciones', kind='once', icon='📡', description='Instala y configura el servidor TURN para las llamadas.', stub=True))
     registry.register(Capability(
         id='bootstrap_vps', name='Bootstrap VPS', group='VPS · setup', section='Bootstrap',
@@ -612,7 +688,7 @@ def load_catalog() -> None:
         description='Crea rol, base, privilegios y extensiones desde cero.',
         axes=[AxisDef('scope', ['local', 'remoto'], 'scope')],
         steps=BOOTSTRAP_DB_STEPS, stub=True))
-    registry.register(Capability(id='teardown_db', name='Teardown DB', group='Base de datos', section='Ciclo de vida', kind='destructive', icon='💥', description='Borra la base y su rol: deshace lo que hizo Bootstrap DB.', level='C', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
+    registry.register(Capability(id='teardown_db', name='Teardown DB', group='Base de datos', section='Ciclo de vida', kind='destructive', icon='💥', description='Borra la base y su rol: deshace lo que hizo Bootstrap DB.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], steps=TEARDOWN_DB_STEPS, stub=True))
     registry.register(Capability(
         id='migrate_db', name='Migrar', group='Base de datos', section='Migraciones',
         kind='once', icon='📐',
@@ -631,11 +707,17 @@ def load_catalog() -> None:
         description='Vacía la base, borra las migraciones del repo y escribe una inicial nueva.',
         axes=[AxisDef('scope', ['local', 'remoto'], 'scope')],
         steps=REINIT_MIGRATIONS_STEPS, stub=True))
-    registry.register(Capability(id='run_seeders', name='Seeders base', group='Base de datos', section='Datos', kind='once', icon='🌱', description='Carga los datos mínimos que la app necesita para arrancar.', stub=True))
-    registry.register(Capability(id='run_mock_seeders', name='Seeders mock', group='Base de datos', section='Datos', kind='once', icon='🎭', description='Carga datos de prueba encima de los datos base.', stub=True))
-    registry.register(Capability(id='backup_db', name='Backup DB', group='Base de datos', section='Backup', kind='once', icon='💾', description='Vuelca la base a un archivo y rota los respaldos viejos.', stub=True))
+    # Las cuatro reciben `scope` en su funcion y el catalogo nunca les dio el
+    # eje: corrian clavadas contra `local`, que es el default de la firma.
+    registry.register(Capability(id='run_seeders', name='Seeders base', group='Base de datos', section='Datos', kind='once', icon='🌱', description='Carga los datos mínimos que la app necesita para arrancar.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
+    registry.register(Capability(id='run_mock_seeders', name='Seeders mock', group='Base de datos', section='Datos', kind='once', icon='🎭', description='Carga datos de prueba encima de los datos base.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
+    # Sin eje `scope`: `backup_database` vuelca la base DEL VPS a un archivo
+    # local. No es una omision del catalogo, es lo que la funcion hace.
+    registry.register(Capability(id='backup_db', name='Backup DB', group='Base de datos', section='Backup', kind='once', icon='💾', description='Vuelca la base del VPS a un archivo local y rota los respaldos viejos.', stub=True))
+    # El tunel no tiene parametros: el puerto remoto sale del VPS y el local lo
+    # elige `core/ports.py` si el de enfrente esta ocupado.
     registry.register(Capability(id='ssh_tunnel', name='Túnel Postgres', group='Base de datos', section='Conexión', kind='background', icon='🔗', description='Abre un túnel SSH al Postgres del VPS para conectarse en local.', stub=True))
-    registry.register(Capability(id='inspect_db', name='Inspeccionar', group='Base de datos', section='Diagnóstico', kind='once', icon='🔍', description='Muestra tablas, filas y tamaño de la base, sin modificarla.', stub=True))
+    registry.register(Capability(id='inspect_db', name='Inspeccionar', group='Base de datos', section='Diagnóstico', kind='once', icon='🔍', description='Muestra tablas, filas y tamaño de la base, sin modificarla.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
 
     # Utils group
     registry.register(Capability(
@@ -643,10 +725,12 @@ def load_catalog() -> None:
         kind='destructive', icon='🧹',
         description='Borra cachés y basura de build del repo; en simulacro solo los lista.',
         axes=[
-            AxisDef('families', FAMILY_AXIS_VALUES, 'checks', select='many', label='Qué borrar'),
+            AxisDef('families', FAMILY_AXIS_VALUES, 'checks', select='many', label='Qué borrar',
+                    labels=FAMILY_AXIS_LABELS),
             AxisDef('heavy', HEAVY_AXIS_VALUES, 'checks', select='many', label='Pesados',
-                    checked_by_default=False, allow_empty=True),
-            AxisDef('dry_run', ['simulacro', 'borrar'], 'scope'),
+                    labels=HEAVY_AXIS_LABELS, checked_by_default=False, allow_empty=True),
+            AxisDef('apply', ['simulacro', 'borrar'], 'scope', label='Modo',
+                    truthy='borrar'),
         ],
         stub=True))
     # Los SDK son de la maquina, no del repo abierto: `scope='machine'`. La
@@ -677,7 +761,7 @@ def load_catalog() -> None:
                      'install_android_hypervisor'],
         axes=[AxisDef('install_dir', [ANDROID_DIR_DEFAULT], 'field', label='Directorio'),
               *ANDROID_PACKAGE_AXES],
-        stub=True))
+        steps=INSTALL_ANDROID_SDK_STEPS, stub=True))
     registry.register(Capability(
         id='install_flutter_sdk', name='SDK Flutter', group='Utils', section='SDKs',
         kind='once', icon='🦋', scope='machine',
@@ -685,7 +769,7 @@ def load_catalog() -> None:
         axes=[AxisDef('install_dir', [FLUTTER_DIR_DEFAULT], 'field', label='Directorio')],
         stub=True))
     registry.register(Capability(id='update_cloudflare', name='Actualizar Cloudflare', group='Utils', section='DNS', kind='once', icon='☁️', description='Apunta el registro DNS de Cloudflare a la IP pública actual.', stub=True))
-    registry.register(Capability(id='sync_common_files', name='Sync archivos comunes', group='Utils', section='Sync', kind='destructive', icon='🔄', description='Copia los archivos compartidos a los otros repos; en simulacro solo compara.', axes=[AxisDef('mode', ['simulacro', 'aplicar'], 'scope')], stub=True))
+    registry.register(Capability(id='sync_common_files', name='Sync archivos comunes', group='Utils', section='Sync', kind='destructive', icon='🔄', description='Copia los archivos compartidos a los otros repos; en simulacro solo compara.', axes=[AxisDef('targets', [''], 'field', label='Repos destino', multiline=True, placeholder='una ruta de repo por línea'), AxisDef('paths', [''], 'field', label='Archivos a copiar', multiline=True, placeholder='vacío = los archivos comunes del catálogo'), AxisDef('apply', ['simulacro', 'aplicar'], 'scope', label='Modo', truthy='aplicar')], stub=True))
 
     # Hidden atomic capabilities
     # Apagar no es un boton del rail: cerrar la pestana del emulador ya lo
@@ -696,7 +780,12 @@ def load_catalog() -> None:
     registry.register(Capability(
         id='stop_emulator', name='Apagar emulador', group='Emulators',
         section='Emulador', kind='once', icon='⏹', scope='machine',
-        description='Apaga por adb el emulador indicado.', hidden=True, stub=True))
+        description='Apaga por adb el emulador indicado.',
+        # No se dibuja ningun panel para esta capacidad, pero el eje se declara
+        # igual: es la unica forma de que el serial que le pasa el ✕ llegue a la
+        # funcion. La declaracion es el contrato, la haya dibujado alguien o no.
+        axes=[AxisDef('serial', [], 'pick', label='Emulador', source=ANDROID_RUNNING)],
+        hidden=True, stub=True))
     registry.register(Capability(id='bump_version', name='Bump versión', group='Builders', section='Versión', kind='once', icon='🏷️', description='Sube el número de versión del repo.', hidden=True, stub=True))
     registry.register(Capability(id='upload_to_vps', name='Subir al VPS', group='VPS · ops', section='Subir artefacto', kind='once', icon='📤', description='Copia el artefacto compilado al VPS.', hidden=True, stub=True))
     # Visible, no oculta: "solo recopiar los certificados" es el paso que mas se

@@ -56,11 +56,11 @@ def run_setup_scripts(ctx, scope: str = 'remoto', *, bootstrap: bool = True,
     from . import database as db_tasks
 
     if bootstrap:
-        ctx.step('Bootstrap de base')
-        db_tasks.bootstrap_db(ctx, scope)
+        ctx.step('bootstrap')
+        db_tasks.bootstrap_db(ctx.child('bootstrap_db'), scope)
     if rebuild:
-        ctx.step('Reconstruccion de base')
-        db_tasks.rebuild_db(ctx, scope)
+        ctx.step('rebuild')
+        db_tasks.rebuild_db(ctx.child('rebuild_db'), scope)
 
 
 # --- revocacion ------------------------------------------------------------
@@ -113,10 +113,10 @@ def revoke_github_key(ctx) -> bool:
 def revoke_github_ssh(ctx, *, remote_files: bool = True, github_side: bool = True) -> None:
     """Compuesta: borrar la llave del VPS y darla de baja en GitHub."""
     if remote_files:
-        ctx.step('Llave en el VPS')
+        ctx.step('remote_files')
         remove_remote_key_files(ctx)
     if github_side:
-        ctx.step('Llave en GitHub')
+        ctx.step('github_side')
         revoke_github_key(ctx)
 
 
@@ -205,22 +205,22 @@ def clean_vps(
         return
 
     if service:
-        ctx.step('Borrar el servicio systemd')
+        ctx.step('service')
         remove_systemd_service(ctx)
     if database:
-        ctx.step('Borrar la base de datos y su rol')
-        db_tasks.teardown_db(ctx, scope='remoto')
+        ctx.step('database')
+        db_tasks.teardown_db(ctx.child('teardown_db'), scope='remoto')
     if repo:
-        ctx.step('Borrar el repo desplegado')
+        ctx.step('repo')
         remove_deployed_repo(ctx)
     if github_key:
-        ctx.step('Revocar la llave de GitHub')
+        ctx.step('github_key')
         revoke_github_ssh(ctx)
     if packages:
-        ctx.step('Purgar los paquetes apt')
+        ctx.step('packages')
         uninstall_packages(ctx)
     if user:
-        ctx.step('Borrar el usuario de despliegue')
+        ctx.step('user')
         remove_vps_user(ctx)
     ctx.note(f'Limpieza completa del VPS {host}.')
 
