@@ -1,5 +1,4 @@
 from __future__ import annotations
-import re
 from datetime import datetime
 from pathlib import Path
 
@@ -71,47 +70,44 @@ def grant_privileges(ctx, scope: str = db.LOCAL) -> None:
     ctx.ok(f'Permisos otorgados a {user} sobre {name}.')
 
 
-_EXTENSION_RE = re.compile(
-    r'create\s+extension\s+(?:if\s+not\s+exists\s+)?["\']?([a-z0-9_]+)["\']?',
-    re.IGNORECASE)
+def enable_extensions(ctx, scope: str = db.LOCAL,
+                      extension_names: list[str] | None = None) -> list[str]:
+    """Habilita las extensiones que se le declaren, como superusuario.
 
+    Existe separada de las migraciones porque `CREATE EXTENSION` de una
+    extension *untrusted* —PostGIS es la que importa aca— exige superusuario, y
+    Alembic corre como el rol de la app (`runner.resolve` arma la URL con
+    `db.credentials`). Una migracion que la pidiera moriria con "permission
+    denied to create extension". Este es el unico canal con superusuario:
+    `db.resolve_admin`, que con ambito remoto entra por SSH como `postgres`.
 
-def _declared_extensions(ctx) -> list[str]:
-    """Las extensiones que el repo del servidor realmente usa, sacadas de los
-    `CREATE EXTENSION` de sus migraciones de Alembic.
-
-    Antes esto era la lista fija `['postgis']`: el bootstrap intentaba habilitar
-    PostGIS aunque el repo abierto no lo tocara, y no veia una segunda extension
-    (`pg_trgm`, `unaccent`) por mas que una migracion la pidiera. La fuente de
-    verdad es el propio repo, no una constante de Consola.
-    """
-    versiones = runner.server_root(ctx) / 'alembic' / 'versions'
-    encontradas: list[str] = []
-    vistas: set[str] = set()
-    for archivo in sorted(versiones.glob('*.py')):
-        for nombre in _EXTENSION_RE.findall(archivo.read_text(encoding='utf-8', errors='ignore')):
-            if nombre.lower() not in vistas:
-                vistas.add(nombre.lower())
-                encontradas.append(nombre)
-    return encontradas
-
-
-def enable_extensions(ctx, scope: str = db.LOCAL, extensions: list[str] | None = None) -> list[str]:
-    """Habilita las extensiones que declara el repo (`_declared_extensions`), o
-    las que se le pasen. Se separa porque cambia con el tiempo: agregar PostGIS a
-    un proyecto ya desplegado no deberia obligar a recrear nada.
+    La lista se declara, no se deduce. Antes salia de los `CREATE EXTENSION` de
+    las migraciones del repo, y eso no podia funcionar en ninguna de las dos
+    direcciones: `alembic revision --autogenerate` nunca escribe uno (un modelo
+    con columnas `Geometry` de geoalchemy2 no deja rastro), asi que la lista
+    salia vacia justo cuando hacia falta; y si una migracion si lo declaraba, era
+    la que necesitaba la extension *ya creada* para poder aplicarse. Ni
+    `pg_available_extensions` (lo que se puede crear: cientos con contrib) ni
+    `pg_extension` (lo que ya esta creado) dicen que necesita el proyecto: ese
+    dato no existe en ningun catalogo hasta que alguien lo escribe.
 
     Antes de crear cada extension se chequea `pg_available_extensions`: no todo
     VPS tiene el paquete de sistema instalado (postgis no esta en
     `vps.DEFAULT_GROUPS`), y sin este chequeo el bootstrap entero fallaba con
     "extension is not available" en vez de avisar y seguir.
     """
+    # El campo llega como lista de renglones: los vacios son el enter de mas.
+    # Se resuelve antes que el canal de superusuario para no pedir credenciales
+    # de administrador cuando no hay nada que crear.
+    vistas: set[str] = set()
+    pedidas = [e.strip() for e in (extension_names or []) if e.strip()]
+    pedidas = [e for e in pedidas if not (e.lower() in vistas or vistas.add(e.lower()))]
+    if not pedidas:
+        ctx.info('No se declaro ninguna extension: no hay nada que habilitar.')
+        return []
+
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
-    pedidas = extensions if extensions is not None else _declared_extensions(ctx)
-    if not pedidas:
-        ctx.info('El repo no declara ninguna extension en sus migraciones.')
-        return []
     habilitadas = []
     for extension in pedidas:
         disponible = admin.query(
@@ -366,6 +362,7 @@ def bootstrap_db(
     database: bool = True,
     privileges: bool = True,
     extensions: bool = True,
+    extension_names: list[str] | None = None,
     migrate: bool = True,
     partitions: bool = True,
     seeders: bool = True,
@@ -390,7 +387,7 @@ def bootstrap_db(
         grant_privileges(ctx, scope)
     if extensions:
         ctx.step('extensions')
-        enable_extensions(ctx, scope)
+        enable_extensions(ctx, scope, extension_names)
     populate_db(ctx, scope, migrate=migrate, partitions=partitions,
                 seeders=seeders, mock_seeders=mock_seeders)
     ctx.note(f'Bootstrap de base ({scope}) completado.')
@@ -494,6 +491,7 @@ def bind_all() -> None:
     registry.bind('migrate_db', migrate_db)
     registry.bind('rebuild_db', rebuild_db)
     registry.bind('reinit_migrations', reinit_migrations)
+    registry.bind('enable_extensions', enable_extensions)
     registry.bind('run_seeders', run_seeders)
     registry.bind('run_mock_seeders', run_mock_seeders)
     registry.bind('backup_db', backup_database)

@@ -49,7 +49,7 @@ Tres columnas en las tablas de abajo:
 | `create_role` | A | — | `bootstrap_db` |
 | `create_database` | A | — | `bootstrap_db` |
 | `grant_privileges` | A | — | `bootstrap_db` |
-| `enable_extensions` | A | — | `bootstrap_db` |
+| `enable_extensions` | A | `enable_extensions` | `bootstrap_db` |
 | `drop_tables` | A | — | `rebuild_db`, `reinit_migrations` |
 | `drop_database` | A | — | `teardown_db` |
 | `drop_role` | A | — | `teardown_db` |
