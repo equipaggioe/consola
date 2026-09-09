@@ -4,7 +4,7 @@ from pathlib import Path
 
 from . import payloads
 from .. import database as db
-from .. import files, runner, ssh, vps
+from .. import envfile, files, runner, ssh, vps
 from ..errors import TaskError
 from ..registry import registry
 
@@ -70,9 +70,8 @@ def grant_privileges(ctx, scope: str = db.LOCAL) -> None:
     ctx.ok(f'Permisos otorgados a {user} sobre {name}.')
 
 
-def enable_extensions(ctx, scope: str = db.LOCAL,
-                      extension_names: list[str] | None = None) -> list[str]:
-    """Habilita las extensiones que se le declaren, como superusuario.
+def enable_extensions(ctx, scope: str = db.LOCAL) -> list[str]:
+    """Habilita las extensiones que declara `DB_EXTENSIONS`, como superusuario.
 
     Existe separada de las migraciones porque `CREATE EXTENSION` de una
     extension *untrusted* —PostGIS es la que importa aca— exige superusuario, y
@@ -81,29 +80,34 @@ def enable_extensions(ctx, scope: str = db.LOCAL,
     denied to create extension". Este es el unico canal con superusuario:
     `db.resolve_admin`, que con ambito remoto entra por SSH como `postgres`.
 
-    La lista se declara, no se deduce. Antes salia de los `CREATE EXTENSION` de
-    las migraciones del repo, y eso no podia funcionar en ninguna de las dos
-    direcciones: `alembic revision --autogenerate` nunca escribe uno (un modelo
-    con columnas `Geometry` de geoalchemy2 no deja rastro), asi que la lista
-    salia vacia justo cuando hacia falta; y si una migracion si lo declaraba, era
-    la que necesitaba la extension *ya creada* para poder aplicarse. Ni
-    `pg_available_extensions` (lo que se puede crear: cientos con contrib) ni
-    `pg_extension` (lo que ya esta creado) dicen que necesita el proyecto: ese
-    dato no existe en ningun catalogo hasta que alguien lo escribe.
+    La lista se declara en la configuracion del repo, no se deduce. Antes salia
+    de los `CREATE EXTENSION` de las migraciones, y eso no podia funcionar en
+    ninguna de las dos direcciones: `alembic revision --autogenerate` nunca
+    escribe uno (un modelo con columnas `Geometry` de geoalchemy2 no deja
+    rastro), asi que la lista salia vacia justo cuando hacia falta; y si una
+    migracion si lo declaraba, era la que necesitaba la extension *ya creada*
+    para poder aplicarse. Ni `pg_available_extensions` (lo que se puede crear:
+    cientos con contrib) ni `pg_extension` (lo que ya esta creado) dicen que
+    necesita el proyecto: ese dato no existe en ningun catalogo hasta que
+    alguien lo escribe.
+
+    Va en `DB_EXTENSIONS` y no en un eje del panel porque es un dato que la
+    tarea lee, no una decision de la corrida: no cambia entre dos veces que se
+    aprieta el boton. Es el mismo caso que `SECRET_FILES`, y como el se edita
+    multilinea y se guarda separada por comas.
 
     Antes de crear cada extension se chequea `pg_available_extensions`: no todo
     VPS tiene el paquete de sistema instalado (postgis no esta en
     `vps.DEFAULT_GROUPS`), y sin este chequeo el bootstrap entero fallaba con
     "extension is not available" en vez de avisar y seguir.
     """
-    # El campo llega como lista de renglones: los vacios son el enter de mas.
     # Se resuelve antes que el canal de superusuario para no pedir credenciales
     # de administrador cuando no hay nada que crear.
     vistas: set[str] = set()
-    pedidas = [e.strip() for e in (extension_names or []) if e.strip()]
-    pedidas = [e for e in pedidas if not (e.lower() in vistas or vistas.add(e.lower()))]
+    pedidas = [e for e in envfile.split_list(ctx.config.get('DB_EXTENSIONS'))
+               if not (e.lower() in vistas or vistas.add(e.lower()))]
     if not pedidas:
-        ctx.info('No se declaro ninguna extension: no hay nada que habilitar.')
+        ctx.info('DB_EXTENSIONS esta vacia: no hay nada que habilitar.')
         return []
 
     admin = db.resolve_admin(ctx, scope)
@@ -362,7 +366,6 @@ def bootstrap_db(
     database: bool = True,
     privileges: bool = True,
     extensions: bool = True,
-    extension_names: list[str] | None = None,
     migrate: bool = True,
     partitions: bool = True,
     seeders: bool = True,
@@ -387,7 +390,7 @@ def bootstrap_db(
         grant_privileges(ctx, scope)
     if extensions:
         ctx.step('extensions')
-        enable_extensions(ctx, scope, extension_names)
+        enable_extensions(ctx, scope)
     populate_db(ctx, scope, migrate=migrate, partitions=partitions,
                 seeders=seeders, mock_seeders=mock_seeders)
     ctx.note(f'Bootstrap de base ({scope}) completado.')

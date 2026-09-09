@@ -32,15 +32,6 @@ _PACKAGES_AXIS = lambda: AxisDef('groups', list(vps.PACKAGE_GROUPS), 'checks',
                                  defaults=set(vps.DEFAULT_GROUPS),
                                  labels=_PACKAGE_LABELS)
 
-# Campo y no casillas: cual extension necesita el esquema es un dato del repo que
-# Consola no tiene de donde sacar —ningun catalogo de Postgres lo dice— y una
-# lista cerrada de opciones dejaria afuera la que este proyecto use. Se escribe
-# una vez y queda en `params.json`. Comparten el eje `bootstrap_db` y el boton
-# suelto: es la misma lista, la elige el mismo repo.
-_EXTENSIONS_AXIS = lambda: AxisDef('extension_names', [''], 'field',
-                                   label='Extensiones', multiline=True,
-                                   placeholder='una por línea (ej. postgis); vacío = ninguna')
-
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
 
 # `host` es un parametro de dos funciones que no se parecen en nada mas —el
@@ -310,13 +301,13 @@ CLEAN_VPS_STEPS = [
 # pida, asi que marcarlo por default prometia una extension que el VPS no tenia.
 # Antes ni siquiera era una casilla y `enable_extensions` corria siempre.
 #
-# Cuales extensiones son se declara en el campo `extension_names`, no se deduce.
-# Salian de los `CREATE EXTENSION` de las migraciones del repo y eso no podia
-# funcionar: `alembic revision --autogenerate` nunca escribe uno, asi que la
-# lista salia vacia; y una migracion que si lo declarara es la que necesita la
-# extension ya creada para poder aplicarse. La casilla elige si el paso corre,
-# el campo dice cuales — igual que `migrate_db`, donde `message` es un campo al
-# lado de las casillas de sus dos pasos.
+# Cuales extensiones son sale de `DB_EXTENSIONS`, no se deduce. Salian de los
+# `CREATE EXTENSION` de las migraciones del repo y eso no podia funcionar:
+# `alembic revision --autogenerate` nunca escribe uno, asi que la lista salia
+# vacia; y una migracion que si lo declarara es la que necesita la extension ya
+# creada para poder aplicarse. La casilla sigue eligiendo si el paso corre; el
+# QUE no es un parametro de la corrida sino configuracion del repo, y por eso no
+# tiene eje: no cambia entre dos veces que se aprieta el boton.
 #
 # Las etiquetas son verbos y dicen sobre qué actúan: una casilla que dice
 # 'Migraciones' no distingue entre generarlas y ejecutarlas, y en una compuesta
@@ -751,14 +742,13 @@ def load_catalog() -> None:
         id='bootstrap_db', name='Bootstrap DB', group='Base de datos',
         section='Ciclo de vida', kind='once', icon='🏗️',
         description='Crea rol, base, privilegios y extensiones desde cero.',
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope'), _EXTENSIONS_AXIS()],
+        axes=[AxisDef('scope', ['local', 'remoto'], 'scope')],
         steps=BOOTSTRAP_DB_STEPS, stub=True))
     registry.register(Capability(
         id='enable_extensions', name='Habilitar extensiones', group='Base de datos',
         section='Ciclo de vida', kind='once', icon='🧩',
         description='Crea las extensiones de Postgres como superusuario, sin tocar el esquema.',
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope'), _EXTENSIONS_AXIS()],
-        stub=True))
+        axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
     registry.register(Capability(id='teardown_db', name='Teardown DB', group='Base de datos', section='Ciclo de vida', kind='destructive', icon='💥', description='Borra la base y su rol: deshace lo que hizo Bootstrap DB.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], steps=TEARDOWN_DB_STEPS, stub=True))
     registry.register(Capability(
         id='migrate_db', name='Migrar', group='Base de datos', section='Migraciones',

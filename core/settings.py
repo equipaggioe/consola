@@ -89,6 +89,20 @@ SETTINGS: tuple[Setting, ...] = (
             required_by=('bootstrap_db', 'teardown_db', 'rebuild_db')),
     Setting('PG_PASSWORD', 'VPS', 'Password del superusuario', secret=True,
             required_by=('bootstrap_db', 'teardown_db', 'rebuild_db')),
+    # Configuracion y no parametro de la corrida: que extensiones necesita el
+    # esquema es una propiedad del proyecto, igual que `SECRET_FILES`. No sale
+    # de ningun catalogo de Postgres —`pg_available_extensions` dice lo que se
+    # PUEDE crear (cientos con contrib) y `pg_extension` lo que YA esta creado—
+    # ni de las migraciones, que con `--autogenerate` nunca escriben un
+    # `CREATE EXTENSION`. Se declara.
+    #
+    # El default es `postgis` porque es el unico grupo de `vps.PACKAGE_GROUPS`
+    # que es una extension y no un servicio: instalar el paquete la deja
+    # disponible, y crearla en la base es este paso aparte. Si el paquete no
+    # esta, `enable_extensions` avisa y sigue en vez de romper el bootstrap.
+    Setting('DB_EXTENSIONS', 'VPS', 'Extensiones de Postgres', kind='list',
+            default='postgis', placeholder='postgis, pg_trgm, unaccent',
+            used_by=('bootstrap_db', 'enable_extensions', 'bootstrap_vps')),
 
     # --- GitHub ---
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
