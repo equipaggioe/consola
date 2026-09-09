@@ -100,8 +100,10 @@ def user_exists(remote: Remote, user: str) -> bool:
 def install_packages(ctx, remote: Remote, packages: list[str]) -> None:
     """Instala paquetes con apt, sin preguntas y sin reinstalar lo que ya esta."""
     faltan = [p for p in packages if not succeeds(remote, f'dpkg -s {quote(p)}')]
+    ya_estaban = [p for p in packages if p not in faltan]
+    if ya_estaban:
+        ctx.ok(f'Ya estaban instalados: {", ".join(ya_estaban)}')
     if not faltan:
-        ctx.ok('Todos los paquetes ya estaban instalados.')
         return
 
     ctx.info(f'Instalando: {", ".join(faltan)}')

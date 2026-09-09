@@ -34,6 +34,16 @@ _PACKAGES_AXIS = lambda: AxisDef('groups', list(vps.PACKAGE_GROUPS), 'checks',
 
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
 
+# `host` es un parametro de dos funciones que no se parecen en nada mas —el
+# uvicorn que se levanta aca y la unidad systemd que se escribe en el VPS— y en
+# las dos la eleccion es la misma: escuchar en todas las interfaces o solo en
+# loopback. Los valores son los que entiende uvicorn; lo que se lee va en
+# `labels`, porque `0.0.0.0` no es una frase.
+_HOST_AXIS = lambda: AxisDef('host', ['0.0.0.0', '127.0.0.1'], 'scope',
+                             label='Escucha en',
+                             labels={'0.0.0.0': 'toda la red',
+                                     '127.0.0.1': 'solo esta máquina'})
+
 
 def for_project(cap: Capability, root: Path | str | None) -> Capability:
     """La capacidad tal como se ve con este repo abierto.
@@ -456,7 +466,19 @@ def load_catalog() -> None:
         id='backend', name='Backend', group='Launchers', section='Servidor',
         kind='live', icon='▶', view='web',
         description='Levanta el servidor FastAPI del repo, local o contra el VPS.',
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope')], stub=True))
+        # Los tres parametros que la funcion ya recibia y el catalogo no
+        # ofrecia: corria clavada en 0.0.0.0:8000 con --reload. El puerto es
+        # solo el preferido — `core/ports.py` busca el siguiente libre — y por
+        # eso se puede dejar como esta sin miedo a chocar con otra pestana.
+        axes=[AxisDef('scope', ['local', 'remoto'], 'scope'),
+              _HOST_AXIS(),
+              AxisDef('preferred_port', ['8000'], 'field', label='Puerto', cast='int'),
+              # Sin recarga es el modo en que se prueba lo que va a correr en el
+              # VPS: `--reload` cambia como arranca la app y esconde los errores
+              # que solo pasan una vez.
+              AxisDef('reload', ['con recarga', 'sin recarga'], 'scope',
+                      label='Al cambiar el código', truthy='con recarga')],
+        stub=True))
     # `fanout='target'`: marcar panel + backoffice son dos dev servers vivos a la
     # vez, no dos pasos en fila. Un eje `many` se recorre en bucle cuando la
     # capacidad termina (`build_vite`) y se reparte en pestanas cuando no
@@ -466,7 +488,12 @@ def load_catalog() -> None:
         kind='live', icon='🌐', view='web', fanout='target',
         description='Arranca el dev server de Vite para las apps elegidas.',
         axes=[AxisDef('target', [], 'checks', select='many', label='Apps',
-                      discover=(targets.SPA_VITE,))], stub=True))
+                      discover=(targets.SPA_VITE,)),
+              # El puerto preferido, no el definitivo: con dos SPA marcadas la
+              # segunda pestana toma el siguiente libre sola.
+              AxisDef('preferred_port', ['5173'], 'field', label='Puerto',
+                      cast='int')],
+        stub=True))
     # No hay eje `framework`: elegir "Flutter o Flet" seria pedir que confirmen
     # algo que la carpeta ya contesta. Se elige la app; el framework viene con ella.
     # Tampoco tiene `view`: lo que entrega no es una URL, es una app en un
@@ -475,7 +502,14 @@ def load_catalog() -> None:
         id='run_mobile', name='App móvil', group='Launchers', section='Dispositivo',
         kind='live', icon='📲',
         description='Corre la app móvil en el emulador o dispositivo conectado.',
-        axes=[AxisDef('target', [], 'scope', label='App móvil', discover=targets.MOBILE_APP)],
+        # `device` admite vacio y arranca vacio: la funcion ya elige sola —el
+        # emulador que lanzo esta sesion, y si no el primero que conteste— y
+        # solo hace falta decirlo cuando hay dos vivos. Un eje que obligara a
+        # elegir dejaria el boton en ambar justo cuando no hay ninguno, que es
+        # cuando el mensaje util es el de la funcion ("arranca uno primero").
+        axes=[AxisDef('target', [], 'scope', label='App móvil', discover=targets.MOBILE_APP),
+              AxisDef('device', [], 'pick', label='Emulador', source=ANDROID_RUNNING,
+                      allow_empty=True, labels={'': 'el que esté corriendo'})],
         stub=True))
     # La carpeta dejo de estar fija en el codigo: `python-app` es un tipo mas de
     # `core/targets.py`, descubierto como las SPA (PLAN.md 2.4).
@@ -536,7 +570,17 @@ def load_catalog() -> None:
                       label='Al ejecutarse', truthy='ventana'),
               _SEMVER_AXIS()],
         steps=BUILD_BINARY_STEPS, stub=True))
-    registry.register(Capability(id='promote_app', name='Promote app', group='Builders', section='Promote', kind='destructive', icon='⬆️', description='Promueve el último artefacto subido al canal de producción.', stub=True))
+    # Las dos carpetas eran los defaults de la firma y ningun eje las ofrecia:
+    # el boton solo sabia promover `app_web_ultima` sobre `app_web_estable`, que
+    # es la convencion de UN repo. Son campos y no una lista descubierta porque
+    # el destino puede no existir todavia — la primera promocion lo crea.
+    registry.register(Capability(
+        id='promote_app', name='Promote app', group='Builders', section='Promote',
+        kind='destructive', icon='⬆️',
+        description='Promueve el último artefacto subido al canal de producción.',
+        axes=[AxisDef('source', ['app_web_ultima'], 'field', label='Carpeta de origen'),
+              AxisDef('target', ['app_web_estable'], 'field', label='Carpeta estable')],
+        stub=True))
 
     # Emulators group
     # Los cuatro botones son de la maquina, no del repo: un AVD sirve para
@@ -571,7 +615,15 @@ def load_catalog() -> None:
         description='Arranca uno de los AVD ya creados. Se puede lanzar otro con uno corriendo.',
         axes=[AxisDef('avd', [], 'pick', label='AVD', source=ANDROID_AVDS),
               AxisDef('wipe', ['normal', 'borrar datos'], 'scope', label='Arranque',
-                      truthy='borrar datos', danger={'borrar datos'})],
+                      truthy='borrar datos', danger={'borrar datos'}),
+              # Los flags sueltos del emulador. Se suman a los que
+              # `core/android.py` pone siempre (`-no-boot-anim`, `-netdelay
+              # none`...): esto es para el caso raro —forzar la GPU, saltarse el
+              # snapshot— y no para rehacer la linea entera. Una sola linea
+              # porque es una linea de comandos: se parte en tokens como la
+              # partiria una shell, y `-gpu host` son dos.
+              AxisDef('flags', [''], 'field', label='Flags extra del emulador',
+                      placeholder='-gpu host -no-snapshot-load')],
         live_state=ANDROID_RUNNING,
         stub=True))
     # Un solo boton de limpieza para las dos cosas que ocupan disco: el AVD

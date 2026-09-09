@@ -25,8 +25,12 @@ class AxisDef:
                                 # eje en dos secciones solo para expresarlo: la division
                                 # base/opcional no es una propiedad del dominio (`postgis` es
                                 # base en un repo con datos geograficos), es este default.
-    allow_empty: bool = False  # solo para select='many': ninguna marcada es una eleccion valida,
-                                # no "olvidaste elegir" (ej. 'Pesados' en clean_artifacts)
+    allow_empty: bool = False  # no elegir nada es una eleccion valida, no "olvidaste elegir".
+                                # En select='many', ninguna casilla marcada (ej. 'Pesados' en
+                                # clean_artifacts). En expand='pick', la lista trae una primera
+                                # entrada vacia y elegirla significa "que lo decida la funcion":
+                                # el emulador de 'App movil' no se elige salvo que haya dos vivos,
+                                # y exigirlo dejaria el boton en ambar cuando no hay ninguno.
     discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
     source: str = ''            # catalogo de la MAQUINA que llena este eje
                                 # (`core/catalog.py::machine_values`): el
@@ -45,6 +49,12 @@ class AxisDef:
     multiline: bool = False     # solo expand='field': caja de varios renglones, un valor por
                                 # linea. Para listas cortas que se escriben a mano (las rutas
                                 # a copiar): en una sola linea no se ve donde termina cada una.
+    cast: str = ''              # solo expand='field': 'int' cuando lo escrito es un numero. Un
+                                # campo devuelve texto y hay seis parametros que son enteros (el
+                                # puerto del backend, las lineas del journal, el TTL de
+                                # Cloudflare): sin esto el panel le pasaba '8000' a una funcion
+                                # que hace aritmetica con el. El tipo es parte de la forma del
+                                # eje, asi que se declara con ella y no se arregla en la funcion.
     combine: set[str] = field(default_factory=set)  # solo select='one': valores que se marcan
                                 # aparte del grupo excluyente y stackean con el (ej. 'build' en
                                 # bump_mode: patch|minor|major|none son excluyentes, 'build' suma)
@@ -247,6 +257,11 @@ class Capability:
             # que explicar en un placeholder.
             if axis.multiline:
                 return [ln.strip() for ln in escrito.splitlines() if ln.strip()]
+            if axis.cast == 'int':
+                # Un campo vacio pide el default declarado, igual que arriba:
+                # borrar el puerto es "el de siempre", no "el puerto cero".
+                texto = escrito.strip()
+                return int(texto) if texto.lstrip('-').isdigit() else int(axis.values[0] or 0)
             return escrito
         if axis.expand == 'pick':
             return (payload.get('picks') or {}).get(axis.name, '')

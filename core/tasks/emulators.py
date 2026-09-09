@@ -1,4 +1,5 @@
 from __future__ import annotations
+import shlex
 
 from .. import android, cache, files, session
 from ..errors import TaskError
@@ -77,8 +78,7 @@ def create_avd(ctx, device: str = '', image: str = '', name: str = '') -> str:
 
 # --- uso -------------------------------------------------------------------
 
-def launch_emulator(ctx, avd: str = '', wipe: bool = False,
-                    flags: list[str] | None = None) -> str:
+def launch_emulator(ctx, avd: str = '', wipe: bool = False, flags: str = '') -> str:
     """Arranca un AVD ya creado y sigue su salida hasta que se cierra.
 
     Tres cosas que el script original no hacia:
@@ -90,6 +90,11 @@ def launch_emulator(ctx, avd: str = '', wipe: bool = False,
       lo unico que permite tener dos abiertos a la vez.
     - Detener la pestana le pide al emulador que se cierre por adb en vez de
       matarle el proceso (PLAN.md 7, caso 3).
+
+    `flags` es una linea de comandos y no una lista: es lo que se escribe en el
+    campo del panel, y ahi `-gpu host` son dos tokens escritos juntos. Se suma a
+    los flags de siempre en vez de reemplazarlos — quien escribe uno pide *ese
+    ademas*, no quedarse sin la animacion de arranque desactivada.
     """
     if not avd:
         raise TaskError('Elige un AVD. Si no hay ninguno, crealo con "Crear AVD".')
@@ -111,7 +116,8 @@ def launch_emulator(ctx, avd: str = '', wipe: bool = False,
     session.publish(session.MACHINE, EMULATOR_SERIAL, serial)
     ctx.on_cancel(lambda: android.stop_quiet(sdk, serial))
     try:
-        android.start(ctx, sdk, avd, port=puerto, flags=flags,
+        android.start(ctx, sdk, avd, port=puerto,
+                      flags=[*android.DEFAULT_FLAGS, *shlex.split(flags)],
                       read_only=duplicado, wipe=wipe)
     finally:
         if session.read(session.MACHINE, EMULATOR_SERIAL) == serial:

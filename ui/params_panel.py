@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
     QCompleter
 )
 from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtGui import QIntValidator
 
 from ui.theme import Colors, Fonts
 from core import envfile
@@ -265,6 +266,11 @@ class ParamsPanel(QWidget):
         anterior = self.pick_value(axis.name)
         combo.blockSignals(True)
         combo.clear()
+        if axis.allow_empty:
+            # Primera entrada y valor vacio: "no elijo, que decida la funcion".
+            # No es un valor mas del catalogo, asi que se pone aca y no en
+            # `values` — el catalogo de la maquina lo pisa en cada refresco.
+            combo.addItem(axis.text_of('') or 'automático', '')
         for value in axis.values:
             combo.addItem(axis.text_of(value), value)
         if not axis.values:
@@ -374,6 +380,11 @@ class ParamsPanel(QWidget):
             else:
                 field = QLineEdit(default)
                 field.setFixedHeight(30)
+                if axis.cast == 'int':
+                    # Un eje que declara `cast='int'` no acepta que se escriba
+                    # otra cosa: es mas barato no dejar teclear la letra que
+                    # explicar despues por que el puerto volvio a 8000.
+                    field.setValidator(QIntValidator(0, 2_147_483_647, field))
                 field.textChanged.connect(self._refresh_summary)
             field.setPlaceholderText(axis.placeholder or default)
             field.setStyleSheet(f"""
@@ -459,7 +470,11 @@ class ParamsPanel(QWidget):
             # Un eje con un solo valor excluyente no se elige: se muestra fijo.
             locked = len(axis.exclusive_values) <= 1 and not axis.combine
             for value in axis.values:
-                check = QCheckBox(value)
+                # `text_of` y no el valor pelado: un eje excluyente tambien
+                # puede tener un valor que no se lee (`0.0.0.0`, el `''` de
+                # "todas las prioridades"). La etiqueta es de la misma clase
+                # que la de una lista larga, y se declara en el mismo lugar.
+                check = QCheckBox(axis.text_of(value))
                 check.setCursor(Qt.CursorShape.PointingHandCursor)
                 if value in axis.danger:
                     check.setStyleSheet(f"QCheckBox {{ color: {Colors.ERROR}; }}")
@@ -761,11 +776,11 @@ class ParamsPanel(QWidget):
             # Un eje opcional que ademas admite estar vacio (las dos listas de
             # "Liberar disco") no bloquea: que no haya AVD creados no impide
             # borrar una imagen.
-            if axis.is_multi and axis.allow_empty:
+            if axis.allow_empty:
                 continue
             reasons.append(f"no hay {axis.display.lower()} {donde}")
         for axis in self.capability.pick_axes:
-            if axis.values and not self.pick_value(axis.name):
+            if axis.values and not axis.allow_empty and not self.pick_value(axis.name):
                 reasons.append(f"elige {axis.display.lower()}")
         for axis in self.capability.multi_axes:
             if axis.name in vacios:
