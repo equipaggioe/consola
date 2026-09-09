@@ -17,6 +17,7 @@ por el `TaskContext` que recibe y levanta `TaskError` cuando no puede seguir
     ssh         Remote, comandos remotos, scp, tuneles, llaves
     vps         rutas del despliegue, systemd, journal, paquetes
     database    resolver la base local o la remota por tunel (eje scope)
+    runner      donde corre el codigo del proyecto: venv de aca o venv del VPS
     versioning  leer y subir la version de un manifiesto
     github      llaves SSH de la cuenta de GitHub
     toolchain   flutter, flet, npm, venv y deteccion de framework

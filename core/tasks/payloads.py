@@ -1,9 +1,7 @@
 from __future__ import annotations
-import tempfile
-from pathlib import Path
 
 from ..errors import TaskError
-from ..toolchain import venv_python
+from ..runner import Runner
 
 """
 La unica excepcion deliberada a "nada de subprocesos a codigo Python".
@@ -12,11 +10,12 @@ Los seeders y el mantenimiento de particiones no son operaciones sobre la base:
 son *codigo del proyecto* (`seeders/`, `mock_data/`, `app.services.maintenance`)
 que solo se puede importar desde el venv del servidor, con sus dependencias y
 sus modelos. Consola no puede importarlos con su propio interprete, asi que
-lanza estos programas cortos con el Python del venv del proyecto.
+lanza estos programas cortos con el Python del proyecto (`core/runner.py`).
 
-No son scripts del repo gestionado: viven aca, hay una sola copia, y se escriben
-a un archivo temporal en cada corrida para que sigan funcionando cuando Consola
-este empaquetada con PyInstaller y no exista como archivos sueltos en disco.
+No son scripts del repo gestionado: viven aca, hay una sola copia, y entran como
+`python -c <fuente>`. Nunca tocan el disco: ni el de aca —Consola empaquetada
+con PyInstaller no existe como archivos sueltos— ni el del VPS, que no tiene por
+que recibir un archivo para correr algo que su propio venv ya sabe ejecutar.
 """
 
 SEED = '''
@@ -109,19 +108,20 @@ asyncio.run(main())
 SOURCES = {'seed': SEED, 'partitions': PARTITIONS}
 
 
-def run(ctx, source: str, *args: str, server_root: Path, database_url: str) -> int:
-    """Ejecuta un payload con el Python del venv del servidor.
+def run(ctx, runner: Runner, source: str, *args: str) -> int:
+    """Ejecuta un payload con el Python del proyecto, del lado que diga el runner.
 
-    `cwd` es la carpeta del servidor y `DATABASE_URL` viaja por el entorno del
-    subproceso, nunca escrito a un archivo: es el mismo dato que ya resolvio
-    la tarea que llama, no una segunda resolucion (ni un segundo tunel).
+    Los payloads no necesitan saber donde corren: lo unico que toman del entorno
+    es el directorio de trabajo —de ahi sale el `sys.path` que les deja importar
+    `app.` y `seeders.`— y `DATABASE_URL`, y las dos cosas las pone el `Runner`.
+    Por eso el mismo texto sirve igual aca y en el VPS.
+
+    El log muestra un resumen y no el argv real: `-c` lleva el programa entero
+    como un solo argumento, y volcarlo tal cual serian cincuenta lineas de codigo
+    tapando la salida del seeder.
     """
     if source not in SOURCES:
         raise TaskError(f'Payload desconocido: {source!r}')
 
-    interprete = venv_python(server_root / '.venv')
-    with tempfile.TemporaryDirectory(prefix='consola_') as tmp:
-        archivo = Path(tmp) / f'{source}.py'
-        archivo.write_text(SOURCES[source], encoding='utf-8', newline='\n')
-        return ctx.run([str(interprete), str(archivo), *args],
-                       cwd=server_root, env={'DATABASE_URL': database_url})
+    runner.log_command(ctx, ' '.join(['-c', f'<{source}>', *args]))
+    return runner.run(ctx, '-c', SOURCES[source], *args, echo=False)

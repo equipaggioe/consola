@@ -124,6 +124,20 @@ def connect(ctx, scope: str = LOCAL) -> Connection:
     return Connection(url, REMOTE, tunnel)
 
 
+def vps_url(ctx, remote: ssh.Remote) -> str:
+    """La base del VPS vista DESDE el VPS: `127.0.0.1` y su puerto real, sin tunel.
+
+    `connect(REMOTE)` devuelve la misma base vista desde aca, y para eso abre un
+    tunel. El tunel existe para que un proceso de esta maquina alcance esa base;
+    cuando el proceso corre del otro lado (`core/runner.py`) sobra, y su puerto
+    local no significaria nada alli.
+    """
+    user, password, name = credentials(ctx.config)
+    ctx.guard(password)
+    return build_url(user=user, password=password, host='127.0.0.1',
+                     port=vps.postgres_port(remote), name=name)
+
+
 # ---------------------------------------------------------------------------
 # Canal de superusuario
 # ---------------------------------------------------------------------------

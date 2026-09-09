@@ -159,9 +159,10 @@ def capture(remote: Remote, command: str, *, timeout: float | None = 30.0,
     return process.capture(remote.argv(command, extra=BATCH), timeout=timeout, check=check)
 
 
-def run(ctx, remote: Remote, command: str, *, check: bool = True) -> int:
+def run(ctx, remote: Remote, command: str, *, check: bool = True,
+        echo: bool = True) -> int:
     """Comando remoto con streaming en vivo hacia la consola de la pestana."""
-    return ctx.run(remote.argv(command), check=check, cwd=None)
+    return ctx.run(remote.argv(command), check=check, cwd=None, echo=echo)
 
 
 def succeeds(remote: Remote, command: str) -> bool:

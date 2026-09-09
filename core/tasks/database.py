@@ -5,10 +5,9 @@ from pathlib import Path
 
 from . import payloads
 from .. import database as db
-from .. import files, ssh, vps
+from .. import files, runner, ssh, vps
 from ..errors import TaskError
 from ..registry import registry
-from ..toolchain import venv_python
 
 """
 Grupo Base de datos (operaciones).
@@ -23,28 +22,7 @@ la compuesta que los encadena. Lo mismo con `bootstrap_db` (crear rol, crear
 base, permisos, extensiones, migrar) y `teardown_db` (borrar base, borrar rol).
 """
 
-SERVER_DIR = 'SERVER_DIR'
 BACKUP_DIR = '.backups'
-
-
-def _server_root(ctx) -> Path:
-    root = ctx.root / ctx.config.get(SERVER_DIR, 'server')
-    if not root.is_dir():
-        raise TaskError(f'No existe la carpeta del servidor: {root}')
-    return root
-
-
-def _alembic(ctx, conn: db.Connection, *args: str) -> int:
-    """Corre Alembic con el Python del venv del servidor.
-
-    Alembic necesita importar los modelos del proyecto para el autogenerate, y
-    esos modelos solo existen en el venv del servidor: no hay forma de correrlo
-    con el interprete de Consola.
-    """
-    server = _server_root(ctx)
-    interprete = venv_python(server / '.venv')
-    return ctx.run([str(interprete), '-m', 'alembic', *args],
-                   cwd=server, env={'DATABASE_URL': conn.url})
 
 
 # --- ciclo de vida del esquema ---------------------------------------------
@@ -107,7 +85,7 @@ def _declared_extensions(ctx) -> list[str]:
     (`pg_trgm`, `unaccent`) por mas que una migracion la pidiera. La fuente de
     verdad es el propio repo, no una constante de Consola.
     """
-    versiones = _server_root(ctx) / 'alembic' / 'versions'
+    versiones = runner.server_root(ctx) / 'alembic' / 'versions'
     encontradas: list[str] = []
     vistas: set[str] = set()
     for archivo in sorted(versiones.glob('*.py')):
@@ -202,7 +180,7 @@ def reset_migrations(ctx) -> int:
     cero, generar agrega una revision encima del historial existente. Son dos
     intenciones distintas que el script original mezclaba en una sola funcion.
     """
-    versiones = _server_root(ctx) / 'alembic' / 'versions'
+    versiones = runner.server_root(ctx) / 'alembic' / 'versions'
     versiones.mkdir(parents=True, exist_ok=True)
     archivos = sorted(versiones.glob('*.py'))
     for archivo in archivos:
@@ -213,12 +191,20 @@ def reset_migrations(ctx) -> int:
 
 
 def generate_migration(ctx, scope: str = db.LOCAL, message: str = 'auto') -> Path | None:
-    """Autogenera una revision de Alembic. Devuelve None si no habia cambios."""
-    versiones = _server_root(ctx) / 'alembic' / 'versions'
+    """Autogenera una revision de Alembic. Devuelve None si no habia cambios.
+
+    Es la unica del grupo que corre siempre en esta maquina, aunque el ambito
+    sea remoto: deja un archivo en `alembic/versions/` que hay que revisar y
+    comitear, y generado en el VPS caeria en el repo desplegado, donde el
+    `git reset --hard` del proximo despliegue se lo lleva puesto. La base remota
+    la alcanza por el tunel, como cualquier otro proceso local (`runner.here`).
+    """
+    versiones = runner.server_root(ctx) / 'alembic' / 'versions'
     antes = {p.name for p in versiones.glob('*.py')}
 
     with db.connect(ctx, scope) as conn:
-        _alembic(ctx, conn, 'revision', '--autogenerate', '-m', message)
+        runner.here(ctx, conn).run(
+            ctx, '-m', 'alembic', 'revision', '--autogenerate', '-m', message)
 
     nuevas = {p.name for p in versiones.glob('*.py')} - antes
     if not nuevas:
@@ -230,8 +216,12 @@ def generate_migration(ctx, scope: str = db.LOCAL, message: str = 'auto') -> Pat
 
 
 def apply_migrations(ctx, scope: str = db.LOCAL, revision: str = 'head') -> None:
-    with db.connect(ctx, scope) as conn:
-        _alembic(ctx, conn, 'upgrade', revision)
+    """Lleva la base al dia con las revisiones que ya estan escritas.
+
+    No toca archivos, asi que corre del lado que diga el ambito: con `remoto`,
+    en el VPS, con las revisiones que el despliegue ya trajo y sin tunel.
+    """
+    runner.resolve(ctx, scope).run(ctx, '-m', 'alembic', 'upgrade', revision)
     ctx.ok(f'Migraciones aplicadas hasta {revision}.')
 
 
@@ -242,24 +232,19 @@ def ensure_partitions(ctx, scope: str = db.LOCAL) -> None:
     asi que sin este paso el primer INSERT revienta con "no partition of
     relation found for row".
     """
-    with db.connect(ctx, scope) as conn:
-        payloads.run(ctx, 'partitions', server_root=_server_root(ctx), database_url=conn.url)
+    payloads.run(ctx, runner.resolve(ctx, scope), 'partitions')
 
 
 # --- datos -----------------------------------------------------------------
 
 def run_seeders(ctx, scope: str = db.LOCAL) -> None:
     """Seeders base: el paquete `seeders/` del proyecto."""
-    with db.connect(ctx, scope) as conn:
-        payloads.run(ctx, 'seed', 'seeders',
-                     server_root=_server_root(ctx), database_url=conn.url)
+    payloads.run(ctx, runner.resolve(ctx, scope), 'seed', 'seeders')
 
 
 def run_mock_seeders(ctx, scope: str = db.LOCAL) -> None:
     """Seeders de prueba: el paquete `mock_data/` del proyecto."""
-    with db.connect(ctx, scope) as conn:
-        payloads.run(ctx, 'seed', 'mock_data',
-                     server_root=_server_root(ctx), database_url=conn.url)
+    payloads.run(ctx, runner.resolve(ctx, scope), 'seed', 'mock_data')
 
 
 # --- respaldo y diagnostico ------------------------------------------------
