@@ -4,16 +4,14 @@ from PySide6.QtCore import Qt, Signal, QPoint
 from PySide6.QtGui import QPainter, QColor
 
 from ui.theme import Colors, Fonts, tint
-from ui.widgets import ToggleSwitch
-from ui import favorites
+from ui.project_tabs import ProjectTab
 
 
 class BrandMark(QWidget):
     """Marca de la aplicacion: `◇ CONSOLA`, tenida por el repo activo.
 
-    Vivia en la barra de repos, ocupando la columna del rail. Ahora abre la
-    barra de titulo: es lo primero de la ventana, arriba de todo, y la barra
-    de repos empieza directamente con las pestanas.
+    Abre la barra de titulo, a la izquierda de las pestanas de repos — el
+    lugar donde un navegador pone su boton de menu o su logo.
     """
 
     def __init__(self, parent=None):
@@ -47,9 +45,9 @@ class BrandMark(QWidget):
 class WindowButton(QPushButton):
     """Minimizar / maximizar / cerrar, dibujados por nosotros.
 
-    La ventana es sin marco (`Qt.FramelessWindowHint`) para que la barra de
-    menu, la marca y el interruptor de favoritos compartan fila con estos tres
-    botones; a cambio, hay que ponerlos.
+    La ventana es sin marco (`Qt.FramelessWindowHint`) para que las pestanas
+    de repos y la marca compartan fila con estos tres botones; a cambio, hay
+    que ponerlos.
     """
 
     WIDTH = 44
@@ -73,26 +71,31 @@ class WindowButton(QPushButton):
 
 
 class TitleBar(QWidget):
-    """Fila de titulo de la ventana: marca, catalogo de acciones, el modo
-    «solo favoritos» y los botones de la ventana.
+    """Fila de titulo de la ventana, al modo de un navegador: la marca, las
+    pestanas de repos y los botones de ventana, todo en el borde superior.
 
-    Todo lo que antes estaba repartido —la marca en la barra de repos, la
-    barra de menu como `menuBar()` de la ventana, el interruptor de favoritos
-    dentro del rail— cabe en esta unica fila. El menu queda a la altura de los
-    botones de ventana, que es donde se espera en una app de escritorio.
+    Un repositorio abierto es lo que una pestana del navegador: el contexto
+    entero de lo que se ve debajo. Ponerlas aca —y no en una franja propia—
+    dice justamente eso, y ademas devuelve una fila de alto a la ventana.
+
+    El hueco que dejan las pestanas es zona de arrastre: `ProjectTabBar` no
+    atiende el raton fuera de sus pestanas, asi que el evento sube hasta aca.
     """
 
-    HEIGHT = 40
+    HEIGHT = ProjectTab.HEIGHT
 
     minimize_requested = Signal()
     maximize_requested = Signal()
     close_requested = Signal()
-    only_favorites_changed = Signal(bool)
 
-    def __init__(self, menu_bar: QWidget, parent=None):
+    def __init__(self, tabs: QWidget, parent=None):
         super().__init__(parent)
         self.setFixedHeight(self.HEIGHT)
         self.accent = Colors.ACCENT
+        # Color de la linea que cierra la fila. La barra de pestanas pinta la
+        # suya en su tramo (el color del repo activo, roto por la pestana
+        # abierta); esta es la del resto del ancho, y tiene que ser la misma.
+        self.rule = Colors.BORDER
         self._press_pos: QPoint | None = None
 
         layout = QHBoxLayout(self)
@@ -102,17 +105,8 @@ class TitleBar(QWidget):
         self.brand = BrandMark()
         layout.addWidget(self.brand)
 
-        # El menu se lleva el ancho sobrante: con once grupos, es lo unico que
-        # de verdad lo necesita, y `QMenuBar` sabe plegar en `»` lo que no
-        # entre cuando la ventana esta en su minimo.
-        self.menu_bar = menu_bar
-        layout.addWidget(self.menu_bar, 1)
-
-        self.fav_switch = ToggleSwitch("solo favoritos", favorites.only_favorites())
-        self.fav_switch.toggled.connect(self.only_favorites_changed.emit)
-        layout.addSpacing(10)
-        layout.addWidget(self.fav_switch, 0, Qt.AlignmentFlag.AlignVCenter)
-        layout.addSpacing(12)
+        self.tabs = tabs
+        layout.addWidget(self.tabs, 1)
 
         self.min_btn = WindowButton("─")
         self.max_btn = WindowButton("□")
@@ -130,7 +124,12 @@ class TitleBar(QWidget):
     def set_accent(self, accent: str) -> None:
         self.accent = accent
         self.brand.set_accent(accent)
-        self.fav_switch.set_accent(accent)
+        self.update()
+
+    def set_rule(self, color: str) -> None:
+        """La misma linea inferior que pinta la barra de pestanas, para que
+        no se corte de color a mitad de la fila."""
+        self.rule = color
         self.update()
 
     def set_maximized(self, value: bool) -> None:
@@ -173,5 +172,5 @@ class TitleBar(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.fillRect(self.rect(), QColor(Colors.CHROME))
-        p.fillRect(0, self.height() - 1, self.width(), 1, QColor(Colors.BORDER))
+        p.fillRect(0, self.height() - 2, self.width(), 2, QColor(self.rule))
         p.end()

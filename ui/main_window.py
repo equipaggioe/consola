@@ -10,9 +10,10 @@ from ui.rail import ActionRail
 from ui.menu_bar import ActionMenuBar
 from ui.title_bar import TitleBar
 from ui.tab_panel import TabPanel, WorkspaceStatusBar
-from ui.project_tabs import ProjectTabBar, ProjectTab
+from ui.project_tabs import ProjectTabBar
 from ui import project_store, params_store, readiness, favorites
 from ui.theme import Colors, Fonts
+from ui.widgets import ToggleSwitch
 from core.registry import registry
 from core.projects import Project
 
@@ -46,9 +47,8 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(_brand_icon())
         self.resize(1500, 950)
         self.setMinimumSize(1000, 650)
-        # Sin marco del sistema: la marca, el catalogo de acciones y el modo
-        # «solo favoritos» comparten fila con minimizar/maximizar/cerrar
-        # (`ui/title_bar.py`). El precio es poner nosotros el arrastre y el
+        # Sin marco del sistema: la marca y las pestanas de repos comparten
+        # fila con minimizar/maximizar/cerrar (`ui/title_bar.py`). El precio es poner nosotros el arrastre y el
         # redimensionado por los bordes — `_edge_at` y el filtro de eventos
         # del widget central, apoyados en `startSystemMove/Resize` para que
         # Windows siga dando su encaje a los lados.
@@ -56,12 +56,20 @@ class MainWindow(QMainWindow):
 
         # Barra de menu: el catalogo entero de acciones, sin ocupar ancho.
         # Convive con el rail, no lo reemplaza — las dos superficies emiten
-        # las mismas senales y caen en los mismos manejadores. Ya no es el
-        # `menuBar()` de la ventana: es un tramo de la barra de titulo.
+        # las mismas senales y caen en los mismos manejadores. No es el
+        # `menuBar()` de la ventana (eso la pondria por encima de la barra de
+        # titulo, que tiene que quedar arriba de todo por los botones de
+        # ventana): es una franja mas dentro del layout central.
         self.action_menu = ActionMenuBar(self)
 
         self.central_widget = QWidget()
-        self.central_widget.setStyleSheet(f"background: {Colors.CHROME};")
+        # Selector por nombre y no `QWidget` a secas: una hoja sin selector
+        # cascadea a todo hijo sin la suya propia, y el borde de contorno
+        # (`_apply_window_border`) terminaba dibujado alrededor de cada campo
+        # de texto y cada boton, no solo del borde de la ventana.
+        self.central_widget.setObjectName("centralWidget")
+        self._accent = Colors.ACCENT  # lo retoma `_apply_window_border` antes de tener repo
+        self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.CHROME}; }}")
         self.central_widget.setMouseTracking(True)
         self.central_widget.installEventFilter(self)
         self.setCentralWidget(self.central_widget)
@@ -74,30 +82,31 @@ class MainWindow(QMainWindow):
         self.main_layout.setContentsMargins(m, m, m, m)
         self.main_layout.setSpacing(0)
 
-        # --- Nivel 0: barra de titulo (marca, menus, favoritos, ventana) ---
-        self.title_bar = TitleBar(self.action_menu)
+        # --- Nivel 1: barra de titulo con las pestanas de repos ---------
+        # Como un navegador: marca, pestanas y botones de ventana en el borde
+        # de arriba. Un repo abierto es el contexto de todo lo que se ve
+        # debajo, igual que la pestana de un navegador — y asi la ventana se
+        # ahorra una fila entera de alto.
+        self.rail = ActionRail()
+        self.project_tabs = ProjectTabBar()
+
+        self.title_bar = TitleBar(self.project_tabs)
         self.title_bar.minimize_requested.connect(self.showMinimized)
         self.title_bar.maximize_requested.connect(self._toggle_maximized)
         self.title_bar.close_requested.connect(self.close)
-        self.title_bar.only_favorites_changed.connect(self._on_only_favorites)
+        # Cursor propio y no heredado: sin esto, cuando el borde de arriba
+        # pone en `central_widget` el cursor de redimensionar (`_edge_at`),
+        # cualquier hijo sin cursor propio —esta fila entera— se lo queda
+        # aunque el puntero ya este bien adentro, porque Qt solo repone el
+        # heredado al recibir un Leave, y aca eso no siempre llega a tiempo.
+        # Fijar la flecha corta la herencia de raiz.
+        self.title_bar.setCursor(Qt.CursorShape.ArrowCursor)
         self.main_layout.addWidget(self.title_bar)
 
-        # --- Nivel 1: barra superior con las pestanas de repos ----------
-        # La marca se fue de aqui: ahora abre la barra de titulo, y esta fila
-        # es solo repos.
-        self.rail = ActionRail()
-
-        self.top_chrome = QWidget()
-        self.top_chrome.setFixedHeight(ProjectTab.HEIGHT)
-        self.top_chrome.setStyleSheet(f"background: {Colors.CHROME};")
-        top_layout = QHBoxLayout(self.top_chrome)
-        top_layout.setContentsMargins(0, 0, 0, 0)
-        top_layout.setSpacing(0)
-
-        self.project_tabs = ProjectTabBar()
-        top_layout.addWidget(self.project_tabs, 1)
-
-        self.main_layout.addWidget(self.top_chrome)
+        # --- Nivel 2: barra de menu + el modo «solo favoritos» ----------
+        menu_row = self._build_menu_row()
+        menu_row.setCursor(Qt.CursorShape.ArrowCursor)  # ver comentario arriba
+        self.main_layout.addWidget(menu_row)
 
         # --- Cuerpo: rail + espacio de trabajo del repo activo ----------
         body_layout = QHBoxLayout()
@@ -124,6 +133,12 @@ class MainWindow(QMainWindow):
         self.body_splitter = QSplitter(Qt.Orientation.Horizontal)
         self.body_splitter.setChildrenCollapsible(False)
         self.body_splitter.setHandleWidth(4)
+        # Flecha propia en las dos mitades del cuerpo: los bordes izquierdo y
+        # derecho de la ventana las atraviesan de punta a punta (ver
+        # comentario junto a `self.title_bar.setCursor` mas arriba). El
+        # separador del medio no se toca — `QSplitter` ya le pone el suyo.
+        self.rail.setCursor(Qt.CursorShape.ArrowCursor)
+        self.workspace_stack.setCursor(Qt.CursorShape.ArrowCursor)
         self.body_splitter.addWidget(self.rail)
         self.body_splitter.addWidget(self.workspace_stack)
         self.body_splitter.setStretchFactor(0, 0)
@@ -143,6 +158,7 @@ class MainWindow(QMainWindow):
         # maquina toca el entorno (`TabPanel.machine_changed`).
         self.status_bar = WorkspaceStatusBar(Colors.ACCENT)
         self.status_bar.security_clicked.connect(self._on_security_clicked)
+        self.status_bar.setCursor(Qt.CursorShape.ArrowCursor)  # ver TitleBar arriba
         self.main_layout.addWidget(self.status_bar)
 
         # --- Conexiones ---------------------------------------------------
@@ -176,6 +192,34 @@ class MainWindow(QMainWindow):
             self._show_empty_state()
 
         self._install_shortcuts()
+
+    # --- fila del menu ----------------------------------------------------
+    def _build_menu_row(self) -> QWidget:
+        """El catalogo de acciones y, a la derecha, el modo «solo favoritos».
+
+        El interruptor no es una accion sino un modo de ver: poda a la vez
+        esta barra y el rail, asi que va en la misma fila que lo primero que
+        recorta, no dentro del rail (donde vivia) ni en la barra de titulo
+        (donde solo hay chrome de ventana).
+        """
+        row = QWidget()
+        # Selector por nombre y no `QWidget` a secas: una hoja sin selector se
+        # hereda a los hijos, y el rotulo del interruptor salia subrayado con
+        # el mismo `border-bottom` que cierra la fila.
+        row.setObjectName("menuRow")
+        row.setStyleSheet(
+            f"QWidget#menuRow {{ background: {Colors.CHROME}; "
+            f"border-bottom: 1px solid {Colors.BORDER}; }}")
+        lay = QHBoxLayout(row)
+        lay.setContentsMargins(0, 0, 14, 0)
+        lay.setSpacing(0)
+
+        lay.addWidget(self.action_menu, 1)
+
+        self.fav_switch = ToggleSwitch("solo favoritos", favorites.only_favorites())
+        self.fav_switch.toggled.connect(self._on_only_favorites)
+        lay.addWidget(self.fav_switch, 0, Qt.AlignmentFlag.AlignVCenter)
+        return row
 
     # --- estado vacio: sin ningun repositorio en pestanas -----------------
     def _build_empty_state(self) -> QWidget:
@@ -223,7 +267,7 @@ class MainWindow(QMainWindow):
         self.rail.clear_project()
         self.action_menu.set_project_active(False)
         self._refresh_readiness()
-        self.title_bar.set_accent(Colors.ACCENT)
+        self._apply_accent(Colors.ACCENT)
         self.status_bar.clear()
         self.setWindowTitle("Consola")
 
@@ -300,13 +344,31 @@ class MainWindow(QMainWindow):
 
     def changeEvent(self, event):
         """Maximizada, la ventana pega contra los bordes de la pantalla: ni
-        marco de agarre ni glifo de maximizar."""
+        marco de agarre, ni glifo de maximizar, ni borde de contorno."""
         if event.type() == QEvent.Type.WindowStateChange:
             maximized = self.isMaximized()
             self.title_bar.set_maximized(maximized)
             m = 0 if maximized else self.RESIZE_MARGIN
             self.main_layout.setContentsMargins(m, m, m, m)
+            self._apply_window_border()
         super().changeEvent(event)
+
+    def _apply_window_border(self) -> None:
+        """Sin marco del sistema, Windows no le dibuja ninguna silueta a la
+        ventana: sin esto, restaurada se confunde contra un fondo oscuro de
+        escritorio. El borde toma el color del repo activo —lo pone
+        `_apply_accent`, la misma fuente que la linea de la barra de titulo—
+        y no el del sistema: no hay tema de Windows que combine con esta
+        paleta, y ya se usa el acento del repo para lo mismo en otro lado.
+        Maximizada no hace falta: la ventana pega contra los bordes de la
+        pantalla, como el marco de agarre."""
+        if self.isMaximized():
+            self.central_widget.setStyleSheet(
+                f"QWidget#centralWidget {{ background: {Colors.CHROME}; }}")
+        else:
+            self.central_widget.setStyleSheet(
+                f"QWidget#centralWidget {{ background: {Colors.CHROME}; "
+                f"border: 1px solid {self._accent}; }}")
 
     def _edge_at(self, pos) -> Qt.Edge:
         """Que borde toca el puntero, o `Qt.Edge(0)` si esta adentro."""
@@ -364,6 +426,17 @@ class MainWindow(QMainWindow):
             self.rail.clear_user_width()
             return True
         return super().eventFilter(obj, event)
+
+    # --- acento del repo activo --------------------------------------------
+    def _apply_accent(self, color: str) -> None:
+        """Un solo color para todo el chrome: la marca y la linea de la barra
+        de titulo, el interruptor de favoritos y el borde de contorno de la
+        ventana (`_apply_window_border`)."""
+        self.title_bar.set_accent(color)
+        self.title_bar.set_rule(color)
+        self.fav_switch.set_accent(color)
+        self._accent = color
+        self._apply_window_border()
 
     # --- solo favoritos: un modo, tres superficies ------------------------
     def _on_only_favorites(self, value: bool, save: bool = True) -> None:
@@ -432,7 +505,7 @@ class MainWindow(QMainWindow):
         self.action_menu.set_project_active(True)
         self._refresh_readiness()
         self._sync_repo_menu()
-        self.title_bar.set_accent(project.color)
+        self._apply_accent(project.color)
         self.status_bar.set_project(project.name, project.icon)
         self.status_bar.set_accent(project.color)
         self._refresh_protection(workspace)

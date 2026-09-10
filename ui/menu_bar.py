@@ -42,17 +42,19 @@ class ActionMenuBar(QMenuBar):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # Sin `border-bottom`: la barra ya no es la franja de arriba de la
-        # ventana sino un tramo de la barra de titulo (`ui/title_bar.py`), que
-        # es quien dibuja el fondo y la linea que la cierra por abajo.
+        # Su propia franja, debajo de la barra de titulo — no un tramo
+        # compartido con la marca y los botones de ventana (`ui/title_bar.py`):
+        # ahi quedaba demasiado apretada. El fondo y la linea de abajo los
+        # pinta la fila que la contiene, que llega mas a la derecha que el
+        # menu (ahi va el interruptor de favoritos).
         self.setStyleSheet(f"""
             QMenuBar {{
                 background: transparent; color: {Colors.TEXT};
-                font-size: {Fonts.SIZE_SM}px;
+                font-size: {Fonts.SIZE_BASE}px;
                 min-height: 20px;
-                padding: 0px 2px;
+                padding: 3px 2px;
             }}
-            QMenuBar::item {{ background: transparent; padding: 7px 10px; }}
+            QMenuBar::item {{ background: transparent; padding: 9px 13px; }}
             QMenuBar::item:selected {{ background: {Colors.SURFACE_HOVER}; }}
             QMenuBar::item:pressed {{ background: {Colors.SURFACE_ALT}; }}
         """)
