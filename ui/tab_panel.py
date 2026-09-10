@@ -21,9 +21,9 @@ from ui.env_panel import EnvPanel
 from ui.security_panel import SecurityPanel
 from ui.widgets.led import LedIndicator
 from ui.widgets import (ReorderableTab, ReorderableBar,
-                        AccordionSection, SectionResizeGrip)
+                        AccordionSection, SectionResizeGrip, FavoriteStar)
 from ui.guard_dialog import BlockedDialog, ReminderDialog
-from ui import params_store
+from ui import params_store, favorites
 from ui.task_runner import TaskRunner
 
 
@@ -371,6 +371,7 @@ class TabPanel(ReorderableBar, QWidget):
     """
     params_changed = Signal()   # algun panel guardo parametros nuevos
     machine_changed = Signal()  # una tarea de maquina cambio el entorno (SDK instalado, AVD creado)
+    favorite_changed = Signal()  # se marco/desmarco una favorita desde la estrella
 
     # Piso del cuerpo de una seccion del acordeon al arrastrarla a mano.
     MIN_BODY = 48
@@ -500,6 +501,7 @@ class TabPanel(ReorderableBar, QWidget):
         # secciones y las barras ya armadas.
         self.right_column.installEventFilter(self)   # ver `eventFilter`
 
+        self._header_cap_id = ''   # accion que muestra la cabecera, para la estrella
         self.right_header = self._build_right_header()
 
         # Pie fijo con Ejecutar / Simulacro: fuera del acordeon, para que el
@@ -605,9 +607,31 @@ class TabPanel(ReorderableBar, QWidget):
         # acordeon, que la muestra entera con sus pasos. Aca solo el nombre.
         titles.addWidget(self.right_header_name)
 
+        # Marcar favorita la accion abierta, al lado de su nombre: el otro
+        # lugar donde se marca es el filete de la fila del rail, que hay que ir
+        # a buscar. Sin accion abierta la cabecera muestra el repo, y entonces
+        # no hay nada que marcar.
+        self.fav_star = FavoriteStar(self.accent)
+        self.fav_star.setEnabled(False)
+        self.fav_star.marked.connect(self._on_star_marked)
+
         lay.addWidget(self.right_header_icon, 0, Qt.AlignmentFlag.AlignTop)
         lay.addLayout(titles, 1)
+        lay.addWidget(self.fav_star, 0, Qt.AlignmentFlag.AlignVCenter)
         return head
+
+    def _on_star_marked(self, value: bool) -> None:
+        cap_id = self._header_cap_id
+        if not cap_id:
+            return
+        favorites.set_favorite(cap_id, value)
+        self.favorite_changed.emit()
+
+    def refresh_favorite_star(self) -> None:
+        """Se marco la misma accion desde el rail: la estrella se pone al dia
+        sin volver a guardar nada."""
+        if self._header_cap_id:
+            self.fav_star.set_favorite(favorites.is_favorite(self._header_cap_id))
 
     def _set_right_header(self, icon: str, name: str,
                           capability: Capability | None = None) -> None:
@@ -616,6 +640,10 @@ class TabPanel(ReorderableBar, QWidget):
         # tooltip de la fila del rail y en la sección «Acción».
         self.right_header_icon.setText(icon or "◇")
         self.right_header_name.setText(name)
+        self._header_cap_id = capability.id if capability is not None else ''
+        self.fav_star.setEnabled(bool(self._header_cap_id))
+        self.fav_star.set_favorite(
+            bool(self._header_cap_id) and favorites.is_favorite(self._header_cap_id))
 
     def _build_welcome(self) -> QWidget:
         w = QWidget()
@@ -881,6 +909,7 @@ class TabPanel(ReorderableBar, QWidget):
         for panel in self._params.values():
             panel.set_accent(accent)
         self.env_panel.set_accent(accent)
+        self.fav_star.set_accent(accent)
 
     def reveal_security(self) -> None:
         """Despliega la seccion Seguridad de este repo. La llama el indicador

@@ -5,6 +5,7 @@ from PySide6.QtGui import QAction, QActionGroup, QKeySequence
 from PySide6.QtCore import Signal, Qt
 
 from ui.theme import Colors, Fonts
+from ui import favorites
 from core.registry import registry
 from core.projects import Project
 
@@ -41,15 +42,17 @@ class ActionMenuBar(QMenuBar):
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        # Sin `border-bottom`: la barra ya no es la franja de arriba de la
+        # ventana sino un tramo de la barra de titulo (`ui/title_bar.py`), que
+        # es quien dibuja el fondo y la linea que la cierra por abajo.
         self.setStyleSheet(f"""
             QMenuBar {{
-                background: {Colors.CHROME}; color: {Colors.TEXT};
-                border-bottom: 1px solid {Colors.BORDER};
-                font-size: {Fonts.SIZE_BASE}px;
+                background: transparent; color: {Colors.TEXT};
+                font-size: {Fonts.SIZE_SM}px;
                 min-height: 20px;
-                padding: 3px 2px;
+                padding: 0px 2px;
             }}
-            QMenuBar::item {{ background: transparent; padding: 9px 13px; }}
+            QMenuBar::item {{ background: transparent; padding: 7px 10px; }}
             QMenuBar::item:selected {{ background: {Colors.SURFACE_HOVER}; }}
             QMenuBar::item:pressed {{ background: {Colors.SURFACE_ALT}; }}
         """)
@@ -58,6 +61,13 @@ class ActionMenuBar(QMenuBar):
         self._labels: dict[str, str] = {}        # capability_id -> texto sin marca
         self._ready: set[str] = set()
         self._group_menus: list[QMenu] = []
+        # Por menu de grupo, sus bloques de seccion: cada uno con el separador
+        # y el encabezado que lo abren (si los tiene) y sus acciones. Es lo que
+        # necesita `_apply_favorites` para podar un menu sin dejar rayas ni
+        # encabezados sueltos sobre una seccion que quedo vacia.
+        self._blocks: dict[QMenu, list[tuple[QAction | None, QAction | None, list[str]]]] = {}
+        self._favorites: set[str] = favorites.favorite_ids()
+        self._only_favorites = favorites.only_favorites()
 
         self._repo_menu = self.addMenu('Repositorio')
         self._repo_group = QActionGroup(self)    # el repo activo, como radio
@@ -68,6 +78,7 @@ class ActionMenuBar(QMenuBar):
 
         self.set_projects([], None)
         self.set_project_active(False)
+        self._apply_favorites()
 
     # --- construccion ----------------------------------------------------
     def _build_action_menus(self) -> None:
@@ -97,15 +108,19 @@ class ActionMenuBar(QMenuBar):
                 f"font-size: {Fonts.SIZE_XS}px; }}")
             sections = _by_section(capabilities)
             titled = len(sections) > 1
+            blocks: list[tuple[QAction | None, QAction | None, list[str]]] = []
             for i, (section, caps) in enumerate(sections.items()):
+                separator = header = None
                 if titled and section:
                     if i:
-                        menu.addSeparator()
+                        separator = menu.addSeparator()
                     header = QAction(section, menu)
                     header.setEnabled(False)
                     menu.addAction(header)
                 for cap in caps:
                     menu.addAction(self._make_action(menu, cap))
+                blocks.append((separator, header, [c.id for c in caps]))
+            self._blocks[menu] = blocks
             self._group_menus.append(menu)
 
     def _make_action(self, menu: QMenu, cap) -> QAction:
@@ -189,6 +204,43 @@ class ActionMenuBar(QMenuBar):
         (`ActionRail.clear_project`)."""
         for menu in self._group_menus:
             menu.setEnabled(active)
+
+    # --- solo favoritos ---------------------------------------------------
+    def set_only_favorites(self, value: bool) -> None:
+        """El interruptor de la barra de titulo: con el puesto, los menus de
+        grupo muestran solo las acciones marcadas — y el grupo que no tenga
+        ninguna desaparece de la barra, no queda como un menu vacio."""
+        if value == self._only_favorites:
+            return
+        self._only_favorites = value
+        self._apply_favorites()
+
+    def set_favorites(self, ids: set[str]) -> None:
+        """Se marco o desmarco una favorita en otra superficie (el filete del
+        rail, la estrella de la cabecera de parametros)."""
+        if ids == self._favorites:
+            return
+        self._favorites = set(ids)
+        self._apply_favorites()
+
+    def _apply_favorites(self) -> None:
+        for menu in self._group_menus:
+            vivos = 0
+            for separator, header, cap_ids in self._blocks.get(menu, []):
+                visibles = 0
+                for cap_id in cap_ids:
+                    action = self._actions[cap_id]
+                    ver = not self._only_favorites or cap_id in self._favorites
+                    action.setVisible(ver)
+                    visibles += int(ver)
+                # El encabezado (y la raya que lo precede) solo tienen sentido
+                # si quedo algo debajo.
+                if header is not None:
+                    header.setVisible(visibles > 0)
+                if separator is not None:
+                    separator.setVisible(visibles > 0 and vivos > 0)
+                vivos += visibles
+            menu.menuAction().setVisible(vivos > 0)
 
     def set_ready(self, ready: set[str]) -> None:
         """Marca con `▸` las acciones que pueden correr de una con lo que hay

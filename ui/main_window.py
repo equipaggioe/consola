@@ -8,18 +8,20 @@ from PySide6.QtCore import Qt, QEvent, QTimer
 
 from ui.rail import ActionRail
 from ui.menu_bar import ActionMenuBar
+from ui.title_bar import TitleBar
 from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar, ProjectTab
-from ui import project_store, params_store, readiness
+from ui import project_store, params_store, readiness, favorites
 from ui.theme import Colors, Fonts
 from core.registry import registry
 from core.projects import Project
 
 
 def _brand_icon() -> QIcon:
-    """El mismo rombo de la marca (BrandMark), como icono de ventana — para
-    que la barra de titulo del sistema (junto a minimizar/maximizar) lo
-    muestre tambien, no solo la esquina superior izquierda del contenido."""
+    """El mismo rombo de la marca (`ui/title_bar.py`), como icono de ventana —
+    para que la barra de tareas y el conmutador de ventanas de Windows lo
+    muestren tambien, no solo
+    la esquina superior izquierda del contenido."""
     size = 64
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
@@ -35,53 +37,6 @@ def _brand_icon() -> QIcon:
     return QIcon(pixmap)
 
 
-class BrandMark(QWidget):
-    """Marca de la aplicacion, alineada con el rail y tenida por el repo activo."""
-
-    def __init__(self, width: int, parent=None):
-        super().__init__(parent)
-        self.setFixedSize(width, ProjectTab.HEIGHT)
-        self.accent = Colors.ACCENT
-
-        layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 0, 12, 0)
-        layout.setSpacing(9)
-
-        self.diamond = QLabel("◇")
-        self.diamond.setStyleSheet(f"background: transparent; color: {self.accent}; font-size: {Fonts.SIZE_XL}px;")
-
-        self.title = QLabel("CONSOLA")
-        self.title.setStyleSheet(f"""
-            background: transparent;
-            color: {Colors.TEXT};
-            font-size: {Fonts.SIZE_LG}px;
-            font-weight: 700;
-            letter-spacing: 4px;
-        """)
-
-        layout.addWidget(self.diamond)
-        layout.addWidget(self.title)
-        layout.addStretch()
-
-    def set_accent(self, accent: str) -> None:
-        self.accent = accent
-        self.diamond.setStyleSheet(
-            f"background: transparent; color: {accent}; font-size: {Fonts.SIZE_XL}px;"
-        )
-        self.update()
-
-    def set_width(self, width: int) -> None:
-        """La marca ocupa la columna del rail: sigue su ancho para que el borde
-        inferior coincida con el separador."""
-        self.setFixedSize(width, ProjectTab.HEIGHT)
-
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.fillRect(self.rect(), QColor(Colors.CHROME))
-        p.fillRect(0, self.height() - 2, self.width(), 2, QColor(self.accent))
-        p.end()
-
-
 class MainWindow(QMainWindow):
     """Ventana principal: repos (nivel 1) › ejecuciones (nivel 2) › vistas."""
 
@@ -91,21 +46,45 @@ class MainWindow(QMainWindow):
         self.setWindowIcon(_brand_icon())
         self.resize(1500, 950)
         self.setMinimumSize(1000, 650)
+        # Sin marco del sistema: la marca, el catalogo de acciones y el modo
+        # «solo favoritos» comparten fila con minimizar/maximizar/cerrar
+        # (`ui/title_bar.py`). El precio es poner nosotros el arrastre y el
+        # redimensionado por los bordes — `_edge_at` y el filtro de eventos
+        # del widget central, apoyados en `startSystemMove/Resize` para que
+        # Windows siga dando su encaje a los lados.
+        self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
 
         # Barra de menu: el catalogo entero de acciones, sin ocupar ancho.
         # Convive con el rail, no lo reemplaza — las dos superficies emiten
-        # las mismas senales y caen en los mismos manejadores.
+        # las mismas senales y caen en los mismos manejadores. Ya no es el
+        # `menuBar()` de la ventana: es un tramo de la barra de titulo.
         self.action_menu = ActionMenuBar(self)
-        self.setMenuBar(self.action_menu)
 
         self.central_widget = QWidget()
+        self.central_widget.setStyleSheet(f"background: {Colors.CHROME};")
+        self.central_widget.setMouseTracking(True)
+        self.central_widget.installEventFilter(self)
         self.setCentralWidget(self.central_widget)
 
         self.main_layout = QVBoxLayout(self.central_widget)
-        self.main_layout.setContentsMargins(0, 0, 0, 0)
+        # Los margenes son el marco de agarre para redimensionar: dejan una
+        # franja del widget central sin tapar por sus hijos, que es donde
+        # `eventFilter` puede ver el puntero. Maximizada valen 0 (`changeEvent`).
+        m = self.RESIZE_MARGIN
+        self.main_layout.setContentsMargins(m, m, m, m)
         self.main_layout.setSpacing(0)
 
-        # --- Nivel 1: barra superior con marca + pestanas de repos ------
+        # --- Nivel 0: barra de titulo (marca, menus, favoritos, ventana) ---
+        self.title_bar = TitleBar(self.action_menu)
+        self.title_bar.minimize_requested.connect(self.showMinimized)
+        self.title_bar.maximize_requested.connect(self._toggle_maximized)
+        self.title_bar.close_requested.connect(self.close)
+        self.title_bar.only_favorites_changed.connect(self._on_only_favorites)
+        self.main_layout.addWidget(self.title_bar)
+
+        # --- Nivel 1: barra superior con las pestanas de repos ----------
+        # La marca se fue de aqui: ahora abre la barra de titulo, y esta fila
+        # es solo repos.
         self.rail = ActionRail()
 
         self.top_chrome = QWidget()
@@ -115,10 +94,7 @@ class MainWindow(QMainWindow):
         top_layout.setContentsMargins(0, 0, 0, 0)
         top_layout.setSpacing(0)
 
-        self.brand = BrandMark(self.rail.preferred_width())
         self.project_tabs = ProjectTabBar()
-
-        top_layout.addWidget(self.brand)
         top_layout.addWidget(self.project_tabs, 1)
 
         self.main_layout.addWidget(self.top_chrome)
@@ -185,6 +161,12 @@ class MainWindow(QMainWindow):
         self.action_menu.focus_filter_requested.connect(self.rail.filter_box.setFocus)
         self.action_menu.rail_auto_width_requested.connect(self.rail.clear_user_width)
 
+        # Favoritas: tres superficies para el mismo conjunto —el filete de la
+        # fila del rail, la estrella de la cabecera de parametros y el podado
+        # de los menus—. Quien marca lo guarda, y desde aca se avisa al resto.
+        self.rail.favorites_changed.connect(self._on_favorites_changed)
+        self._on_only_favorites(favorites.only_favorites(), save=False)
+
         proyectos = project_store.load()
         for project in proyectos:
             self._ensure_workspace(project)
@@ -241,7 +223,7 @@ class MainWindow(QMainWindow):
         self.rail.clear_project()
         self.action_menu.set_project_active(False)
         self._refresh_readiness()
-        self.brand.set_accent(Colors.ACCENT)
+        self.title_bar.set_accent(Colors.ACCENT)
         self.status_bar.clear()
         self.setWindowTitle("Consola")
 
@@ -296,6 +278,7 @@ class MainWindow(QMainWindow):
                 lambda _state, w=workspace: self._on_protection_changed(w))
             workspace.params_changed.connect(self._on_params_changed)
             workspace.machine_changed.connect(self.status_bar.refresh_tools)
+            workspace.favorite_changed.connect(self._on_favorites_changed)
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -305,27 +288,116 @@ class MainWindow(QMainWindow):
         w = self.workspace_stack.currentWidget()
         return w if isinstance(w, TabPanel) else None
 
-    # --- ancho del rail -------------------------------------------------
+    # --- ventana sin marco: mover, maximizar, redimensionar --------------
+    # Franja de borde que agarra el redimensionado. Los hijos de
+    # `central_widget` estan metidos hacia adentro por los margenes del layout,
+    # asi que los eventos de esta franja llegan al widget central — que es
+    # donde los espera `eventFilter`.
+    RESIZE_MARGIN = 5
+
+    def _toggle_maximized(self) -> None:
+        self.showNormal() if self.isMaximized() else self.showMaximized()
+
+    def changeEvent(self, event):
+        """Maximizada, la ventana pega contra los bordes de la pantalla: ni
+        marco de agarre ni glifo de maximizar."""
+        if event.type() == QEvent.Type.WindowStateChange:
+            maximized = self.isMaximized()
+            self.title_bar.set_maximized(maximized)
+            m = 0 if maximized else self.RESIZE_MARGIN
+            self.main_layout.setContentsMargins(m, m, m, m)
+        super().changeEvent(event)
+
+    def _edge_at(self, pos) -> Qt.Edge:
+        """Que borde toca el puntero, o `Qt.Edge(0)` si esta adentro."""
+        if self.isMaximized():
+            return Qt.Edge(0)
+        m = self.RESIZE_MARGIN
+        w, h = self.central_widget.width(), self.central_widget.height()
+        edges = Qt.Edge(0)
+        if pos.x() <= m:
+            edges |= Qt.Edge.LeftEdge
+        elif pos.x() >= w - m:
+            edges |= Qt.Edge.RightEdge
+        if pos.y() <= m:
+            edges |= Qt.Edge.TopEdge
+        elif pos.y() >= h - m:
+            edges |= Qt.Edge.BottomEdge
+        return edges
+
+    _CURSORS = {
+        Qt.Edge.LeftEdge: Qt.CursorShape.SizeHorCursor,
+        Qt.Edge.RightEdge: Qt.CursorShape.SizeHorCursor,
+        Qt.Edge.TopEdge: Qt.CursorShape.SizeVerCursor,
+        Qt.Edge.BottomEdge: Qt.CursorShape.SizeVerCursor,
+        Qt.Edge.LeftEdge | Qt.Edge.TopEdge: Qt.CursorShape.SizeFDiagCursor,
+        Qt.Edge.RightEdge | Qt.Edge.BottomEdge: Qt.CursorShape.SizeFDiagCursor,
+        Qt.Edge.RightEdge | Qt.Edge.TopEdge: Qt.CursorShape.SizeBDiagCursor,
+        Qt.Edge.LeftEdge | Qt.Edge.BottomEdge: Qt.CursorShape.SizeBDiagCursor,
+    }
+
+    # --- ancho del rail y bordes de la ventana ---------------------------
     def eventFilter(self, obj, event):
-        """Doble clic en el separador del rail = volver al ancho automatico."""
-        if obj is self.body_splitter.handle(1) and event.type() == QEvent.Type.MouseButtonDblClick:
+        """Doble clic en el separador del rail = volver al ancho automatico.
+        Sobre el widget central, los bordes redimensionan la ventana."""
+        if obj is self.central_widget:
+            kind = event.type()
+            if kind == QEvent.Type.MouseMove:
+                edges = self._edge_at(event.position().toPoint())
+                self.central_widget.setCursor(
+                    self._CURSORS.get(edges, Qt.CursorShape.ArrowCursor))
+            elif kind == QEvent.Type.MouseButtonPress:
+                edges = self._edge_at(event.position().toPoint())
+                handle = self.windowHandle()
+                if edges and handle is not None:
+                    handle.startSystemResize(edges)
+                    return True
+            elif kind == QEvent.Type.Leave:
+                self.central_widget.unsetCursor()
+            return super().eventFilter(obj, event)
+        # El filtro del widget central se instala en pleno `__init__`, antes de
+        # que exista el splitter: por eso su rama va primero y esta consulta
+        # solo se hace cuando el evento no es suyo.
+        splitter = getattr(self, 'body_splitter', None)
+        if (splitter is not None and obj is splitter.handle(1)
+                and event.type() == QEvent.Type.MouseButtonDblClick):
             self.rail.clear_user_width()
             return True
         return super().eventFilter(obj, event)
 
+    # --- solo favoritos: un modo, tres superficies ------------------------
+    def _on_only_favorites(self, value: bool, save: bool = True) -> None:
+        """El interruptor de la barra de titulo. Poda a la vez el rail y los
+        menus de grupo: es el mismo conjunto de acciones visto de dos maneras,
+        y que una superficie mostrara todo y la otra no seria confuso."""
+        if save:
+            favorites.set_only_favorites(value)
+        self.rail.set_only_favorites(value)
+        self.action_menu.set_only_favorites(value)
+        self.action_menu.set_favorites(favorites.favorite_ids())
+
+    def _on_favorites_changed(self, *_args) -> None:
+        """Se marco o desmarco una favorita en cualquiera de las superficies:
+        las otras se ponen al dia. Guardar ya lo hizo quien la marco."""
+        ids = favorites.favorite_ids()
+        self.action_menu.set_favorites(ids)
+        self.rail.refresh_favorites()
+        workspace = self.current_workspace
+        if workspace is not None:
+            workspace.refresh_favorite_star()
+
     def _on_rail_dragged(self, pos: int, index: int) -> None:
-        # `pos` es la posicion del separador = ancho del rail. El rail se clampa
-        # solo en `set_user_width`; la marca copia el resultado ya clampado.
-        self.brand.set_width(self.rail.set_user_width(pos))
+        # `pos` es la posicion del separador = ancho del rail. El rail se
+        # clampa solo en `set_user_width`.
+        self.rail.set_user_width(pos)
 
     def _sync_rail_width(self) -> None:
         """Aplica el ancho preferido del rail (fijado por el usuario, o el que
-        pide el contenido) al splitter y a la marca."""
+        pide el contenido) al splitter."""
         sizes = self.body_splitter.sizes()
         total = sum(sizes) or self.width()
         target = self.rail.preferred_width()
         self.body_splitter.setSizes([target, max(1, total - target)])
-        self.brand.set_width(target)
 
     # --- reacciones -------------------------------------------------------
     def _on_project_added(self, project: Project) -> None:
@@ -360,7 +432,7 @@ class MainWindow(QMainWindow):
         self.action_menu.set_project_active(True)
         self._refresh_readiness()
         self._sync_repo_menu()
-        self.brand.set_accent(project.color)
+        self.title_bar.set_accent(project.color)
         self.status_bar.set_project(project.name, project.icon)
         self.status_bar.set_accent(project.color)
         self._refresh_protection(workspace)

@@ -8,7 +8,7 @@ from PySide6.QtCore import Qt, Signal, QSize, QTimer, QSettings
 from ui.theme import Colors, Fonts
 from core.registry import registry
 from core.projects import Project
-from ui.widgets import GroupCard, ToggleSwitch
+from ui.widgets import GroupCard
 from ui import favorites, readiness
 
 
@@ -78,6 +78,7 @@ class ActionRail(QWidget):
     action_requested = Signal(str)  # capability_id
     run_requested = Signal(str)     # capability_id: correr sin abrir la pestana
     width_hint_changed = Signal()   # el ancho natural del contenido cambio
+    favorites_changed = Signal(set)  # el conjunto de favoritas, ya guardado
 
     # El rail deja de tener un ancho fijo: se ajusta al contenido (un nombre de
     # repo largo, una caja abierta con acciones de titulo largo) entre estos dos
@@ -95,6 +96,7 @@ class ActionRail(QWidget):
         self.setMinimumWidth(self.MIN_WIDTH)
         self.setMaximumWidth(self.MAX_WIDTH)
         self._user_width = self._load_user_width()
+        self._only_favorites = favorites.only_favorites()
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -136,16 +138,10 @@ class ActionRail(QWidget):
         self.filter_box.textChanged.connect(self._apply_filter)
         filter_layout.addWidget(self.filter_box)
 
-        # Interruptor global: un solo estado que recordar. El escape por
-        # caja vive en el contador de cada GroupCard.
-        switch_row = QHBoxLayout()
-        switch_row.setContentsMargins(2, 6, 2, 0)
-        switch_row.addStretch()
-        self.fav_switch = ToggleSwitch("solo favoritos", favorites.only_favorites())
-        self.fav_switch.toggled.connect(self._on_only_favorites)
-        switch_row.addWidget(self.fav_switch)
-        filter_layout.addLayout(switch_row)
-
+        # El interruptor «solo favoritos» ya no vive aca: es global a la app,
+        # no del rail —tambien poda los menus—, asi que subio a la barra de
+        # titulo (`ui/title_bar.py`). El rail solo obedece el modo. El escape
+        # por caja sigue en el contador de cada GroupCard.
         self.layout.addWidget(filter_container)
 
         # 3. Cajas de grupo
@@ -264,7 +260,6 @@ class ActionRail(QWidget):
     def set_project(self, project: Project) -> None:
         self.project = project
         self.project_header.set_project(project)
-        self.fav_switch.set_accent(project.color)
         self.filter_box.setStyleSheet(self.filter_box.styleSheet().replace(
             f"border: 1px solid {Colors.ACCENT};", f"border: 1px solid {project.color};"
         ))
@@ -305,7 +300,7 @@ class ActionRail(QWidget):
         for group_name, capabilities in groups.items():
             card = GroupCard(group_name, registry.get_group_icon(group_name), capabilities)
             card.set_favorites(marked)
-            card.set_only_favorites(self.fav_switch.is_checked())
+            card.set_only_favorites(self._only_favorites)
             card.action_triggered.connect(self._emit_action)
             card.favorite_toggled.connect(self._on_favorite_toggled)
             card.run_requested.connect(self.run_requested.emit)
@@ -319,7 +314,7 @@ class ActionRail(QWidget):
 
         No aplica mientras se ven solo las favoritas: ahi las cajas ya estan
         podadas y caben todas abiertas."""
-        if self.fav_switch.is_checked() or self.filter_box.text().strip():
+        if self._only_favorites or self.filter_box.text().strip():
             self._schedule_width_hint()
             return
         for card in self._cards:
@@ -331,10 +326,21 @@ class ActionRail(QWidget):
     def _apply_filter(self, text: str) -> None:
         self._refresh()
 
-    def _on_only_favorites(self, value: bool) -> None:
-        favorites.set_only_favorites(value)
+    def set_only_favorites(self, value: bool) -> None:
+        """Lo manda el interruptor de la barra de titulo. Guardar el modo es
+        cosa de quien lo manda: el rail es una de las dos superficies que lo
+        obedecen, no su dueño."""
+        self._only_favorites = value
         for card in self._cards:
             card.set_only_favorites(value)
+        self._refresh()
+
+    def refresh_favorites(self) -> None:
+        """Se marco una favorita desde otra superficie (la estrella de la
+        cabecera de parametros): las cajas releen el conjunto guardado."""
+        marked = favorites.favorite_ids()
+        for card in self._cards:
+            card.set_favorites(marked)
         self._refresh()
 
     def _refresh(self) -> None:
@@ -344,7 +350,7 @@ class ActionRail(QWidget):
         gracia del modo es llegar a la accion en un clic, no en dos.
         """
         needle = self.filter_box.text().strip().lower()
-        only_fav = self.fav_switch.is_checked()
+        only_fav = self._only_favorites
         for card in self._cards:
             hits = card.filter(needle)
             card.setVisible(hits > 0)
@@ -358,9 +364,10 @@ class ActionRail(QWidget):
         self.action_requested.emit(cap_id)
 
     def _on_favorite_toggled(self, cap_id: str, value: bool) -> None:
-        favorites.set_favorite(cap_id, value)
-        if self.fav_switch.is_checked():
+        ids = favorites.set_favorite(cap_id, value)
+        if self._only_favorites:
             self._refresh()
+        self.favorites_changed.emit(ids)
 
     def set_active_action(self, cap_id: str) -> None:
         pass
