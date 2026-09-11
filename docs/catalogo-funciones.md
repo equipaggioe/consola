@@ -125,7 +125,8 @@ Puros atómicos: ninguno encadena a otro (el módulo no declara compuestas).
 | `ensure_deploy_access` | A | — | `setup_ssh_key` |
 | `configure_sudo` | A | — | `setup_ssh_key` |
 | `install_base_software` | A | `install_software` | `bootstrap_vps` (y solo) |
-| `install_coturn` | A | `install_coturn` | — |
+| `configure_coturn` | A | `configure_coturn` | — |
+| `configure_caddy` | A | `configure_caddy` | — |
 | `generate_remote_keypair` | A | — | `setup_github_ssh` |
 | `register_github_key` | A | — | `setup_github_ssh` |
 | `test_github_ssh` | A | — | `setup_github_ssh` |

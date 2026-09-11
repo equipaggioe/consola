@@ -19,9 +19,10 @@ from .registry import registry, Capability, AxisDef, Step
 # falsa — `postgis` es tan base como `postgresql` en un repo con datos
 # geograficos — y `allow_empty=False` dejaria de poder decir lo unico que hay
 # que validar aca: al menos un paquete.
-# `coturn` esta en la lista por lo mismo que `postgresql`: el paquete se instala
-# aca y se configura despues (`install_coturn` / `bootstrap_db`). Marcarlo solo
-# deja el servicio inerte, que es un estado legitimo — no uno roto.
+# `coturn` y `caddy` estan en la lista por lo mismo que `postgresql`: el paquete
+# se instala aca y se configura despues (`configure_coturn`, `configure_caddy`,
+# `bootstrap_db`). Marcarlo solo deja el servicio inerte, que es un estado
+# legitimo — no uno roto.
 _PACKAGE_LABELS = {
     'python': 'Python', 'git': 'Git', 'postgresql': 'PostgreSQL',
     'postgis': 'PostGIS', 'caddy': 'Caddy', 'ufw': 'UFW',
@@ -33,6 +34,16 @@ _PACKAGES_AXIS = lambda: AxisDef('groups', list(vps.PACKAGE_GROUPS), 'checks',
                                  labels=_PACKAGE_LABELS)
 
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
+
+# Que unidad systemd toca la accion. Nace de que Consola pasa a configurar tres
+# servicios en el mismo VPS —el del repo, coturn y Caddy— y los tres se
+# reinician, se paran y se leen igual. Es un eje y no tres botones nuevos por lo
+# mismo que `action` es un eje y no nueve botones: lo unico que cambia entre
+# ellos es un nombre.
+_SERVICE_AXIS = lambda: AxisDef('service', list(vps.MANAGED_SERVICES), 'scope',
+                                label='Servicio', default='proyecto',
+                                labels={'proyecto': 'Del repo', 'coturn': 'Coturn',
+                                        'caddy': 'Caddy'})
 
 # `host` es un parametro de dos funciones que no se parecen en nada mas —el
 # uvicorn que se levanta aca y la unidad systemd que se escribe en el VPS— y en
@@ -662,10 +673,12 @@ def load_catalog() -> None:
     # `expand`; lo unico que lograba era que el segundo eje no llegara a la
     # funcion. El default es 'status' —el de la firma— y no 'start': el valor
     # que arranca marcado es el que corre si alguien aprieta Ejecutar sin mirar.
-    registry.register(Capability(id='systemd_action', name='Acción systemd', group='VPS · server', section='Servicio', kind='once', icon='⚙️', description='Manda una acción al servicio systemd del repo en el VPS.', axes=[AxisDef('action', ['status', 'start', 'stop', 'restart', 'enable', 'disable', 'reload', 'is-active', 'is-enabled'], 'buttons', label='Acción', default='status', danger={'stop'})], stub=True))
+    registry.register(Capability(id='systemd_action', name='Acción systemd', group='VPS · server', section='Servicio', kind='once', icon='⚙️', description='Manda una acción al servicio systemd elegido en el VPS.', axes=[_SERVICE_AXIS(),
+                                 AxisDef('action', ['status', 'start', 'stop', 'restart', 'enable', 'disable', 'reload', 'is-active', 'is-enabled'], 'buttons', label='Acción', default='status', danger={'stop'})], stub=True))
     # `follow` era un `expand='field'` con valores ['sí','no']: un booleano
     # dibujado como campo de texto libre, que ademas nunca llegaba a la funcion.
-    registry.register(Capability(id='view_logs', name='Ver logs', group='VPS · server', section='Logs', kind='live', icon='📋', description='Muestra el journal del servicio, de una o siguiéndolo en vivo.', axes=[AxisDef('follow', ['seguir en vivo', 'de una'], 'scope', label='Modo', truthy='seguir en vivo')], stub=True))
+    registry.register(Capability(id='view_logs', name='Ver logs', group='VPS · server', section='Logs', kind='live', icon='📋', description='Muestra el journal del servicio elegido, de una o siguiéndolo en vivo.', axes=[_SERVICE_AXIS(),
+                                 AxisDef('follow', ['seguir en vivo', 'de una'], 'scope', label='Modo', truthy='seguir en vivo')], stub=True))
     registry.register(Capability(id='install_systemd', name='Instalar servicio', group='VPS · server', section='Servicio', kind='once', icon='📥', description='Escribe la unidad systemd del repo y la deja corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], steps=INSTALL_SYSTEMD_STEPS, stub=True))
     # `push_repository` tuvo boton suelto y lo perdio: empujar sin desplegar ya
     # lo hace cualquier cliente de git, y el caso que de verdad importaba —que
@@ -727,7 +740,44 @@ def load_catalog() -> None:
                       label='Sudo sin contraseña', default='all')],
         steps=SETUP_SSH_STEPS, stub=True))
     registry.register(Capability(id='setup_github_ssh', name='Configurar GitHub SSH', group='VPS · setup', section='GitHub', kind='once', icon='🐙', description='Genera la deploy key en el VPS y la registra en GitHub.', composed_of=['generate_remote_keypair', 'register_github_key', 'test_github_ssh'], steps=SETUP_GITHUB_SSH_STEPS, stub=True))
-    registry.register(Capability(id='install_coturn', name='Instalar coturn', group='VPS · setup', section='Comunicaciones', kind='once', icon='📡', description='Instala y configura el servidor TURN para las llamadas.', stub=True))
+    # Se llamaba "Instalar coturn" y corria su propio `apt-get install`, que ya
+    # hace `install_base_software` con el grupo `coturn` marcado. Instalar el
+    # paquete y escribir su configuracion son dos acciones distintas y la
+    # segunda se repite (cambiar el realm, abrir TLS) mientras la primera pasa
+    # una sola vez: son dos botones, como `postgresql` y `bootstrap_db`.
+    #
+    # Los cuatro ejes eran constantes del modulo, y `realm` era un parametro de
+    # la funcion que ningun eje ofrecia: estaba clavado en CF_DOMAIN_NAME sin
+    # que nada lo dijera.
+    registry.register(Capability(
+        id='configure_coturn', name='Configurar coturn', group='VPS · setup',
+        section='Comunicaciones', kind='once', icon='📡',
+        description='Escribe la configuración del servidor TURN y deja el servicio corriendo.',
+        axes=[AxisDef('realm', [''], 'field', label='Realm',
+                      placeholder='vacío = CF_DOMAIN_NAME, o la IP del VPS'),
+              AxisDef('port', ['3478'], 'field', label='Puerto', cast='int'),
+              AxisDef('relay_min', ['49160'], 'field', label='Relay desde', cast='int'),
+              AxisDef('relay_max', ['49360'], 'field', label='Relay hasta', cast='int'),
+              AxisDef('tls', ['sin TLS', 'turns en 5349'], 'scope', label='TLS',
+                      truthy='turns en 5349')],
+        stub=True))
+    # El unico paquete de `PACKAGE_GROUPS` que se instalaba y no se configuraba
+    # desde ningun lado: un Caddy instalado sin Caddyfile no sirve nada. Los
+    # ejes son los que cambian entre repos —cuantas SPA hay y como se llega a
+    # cada una— y no constantes del modulo: hay repos con tres SPA.
+    registry.register(Capability(
+        id='configure_caddy', name='Configurar Caddy', group='VPS · setup',
+        section='Web', kind='once', icon='🌐',
+        description='Escribe el Caddyfile: sirve las SPA compiladas, hace de proxy a la API y saca el HTTPS solo.',
+        axes=[AxisDef('apps', [], 'checks', select='many', label='Apps',
+                      discover=(targets.SPA_VITE,), allow_empty=True),
+              AxisDef('routing', ['subruta', 'subdominio'], 'scope', label='Cómo se llega'),
+              AxisDef('domain', [''], 'field', label='Dominio',
+                      placeholder='vacío = CF_DOMAIN_NAME'),
+              AxisDef('upstream', ['127.0.0.1:8000'], 'field', label='Backend'),
+              AxisDef('api_path', ['/api'], 'field', label='API en',
+                      placeholder='/api · vacío = sin proxy a la API')],
+        stub=True))
     registry.register(Capability(
         id='bootstrap_vps', name='Bootstrap VPS', group='VPS · setup', section='Bootstrap',
         kind='once', icon='🚀',

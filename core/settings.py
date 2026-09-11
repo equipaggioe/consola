@@ -37,7 +37,8 @@ class Setting:
 # Claves VPS que necesita cualquier operacion que alcance el servidor.
 _VPS_REACH = ('ssh_login', 'health_check', 'run_command', 'run_setup_scripts',
               'update_remote', 'upload_to_vps', 'install_software', 'setup_ssh_key',
-              'setup_github_ssh', 'install_coturn', 'bootstrap_vps', 'view_logs',
+              'setup_github_ssh', 'configure_coturn', 'configure_caddy',
+              'bootstrap_vps', 'view_logs',
               'systemd_action', 'install_systemd', 'clean_vps', 'revoke_ssh')
 
 _DB_REMOTE = ('bootstrap_db', 'teardown_db', 'migrate_db', 'rebuild_db',
@@ -55,7 +56,8 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('CF_API_TOKEN', 'Cloudflare', 'API token', secret=True,
             required_by=('update_cloudflare',)),
     Setting('CF_DOMAIN_NAME', 'Cloudflare', 'Dominio',
-            required_by=('update_cloudflare',)),
+            required_by=('update_cloudflare',),
+            used_by=('configure_coturn', 'configure_caddy')),
     Setting('CF_RECORD_NAME', 'Cloudflare', 'Registro DNS',
             required_by=('update_cloudflare',)),
 
@@ -85,6 +87,16 @@ SETTINGS: tuple[Setting, ...] = (
                      'bootstrap_vps')),
     Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_REMOTE),
     Setting('DB_PASSWORD', 'VPS', 'Password de la base', secret=True, required_by=_DB_REMOTE),
+    # El secreto con el que el backend firma las credenciales efimeras de TURN.
+    # No lo escribe una persona: `configure_coturn` lo genera la primera vez y
+    # lo deja aca. Esta declarado igual porque el backend tiene que leer EL
+    # MISMO valor que quedo en /etc/turnserver.conf, y sin una casa el boton lo
+    # regeneraba en cada corrida — cada reconfiguracion tiraba abajo las
+    # llamadas sin decir por que. `used_by` y no `required_by`: vacio significa
+    # "todavia no se genero", no "falta un dato".
+    Setting('TURN_SECRET', 'VPS', 'Secreto TURN', secret=True,
+            placeholder='se genera solo al configurar coturn',
+            used_by=('configure_coturn',)),
     Setting('PG_SUPERUSER', 'VPS', 'Superusuario Postgres', default='postgres',
             required_by=('bootstrap_db', 'teardown_db', 'rebuild_db')),
     Setting('PG_PASSWORD', 'VPS', 'Password del superusuario', secret=True,

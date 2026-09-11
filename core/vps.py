@@ -122,8 +122,41 @@ def unit_path(service: str) -> str:
     return f'/etc/systemd/system/{service}.service'
 
 
+# Los servicios systemd que Consola administra en el VPS. `proyecto` es el
+# unico cuyo nombre sale del repo abierto; los otros dos son paquetes con
+# nombre fijo, y son servicios de Consola porque Consola los configura
+# (`configure_coturn`, `configure_caddy`). Reiniciarlos o leerles el journal no
+# pide botones nuevos: pide que los que ya existen sepan a cual apuntar.
+MANAGED_SERVICES = ('proyecto', 'coturn', 'caddy')
+
+
+def resolve_service(config: Config, which: str = 'proyecto') -> str:
+    """El nombre real de la unidad detras del valor del eje `service`."""
+    if not which or which == 'proyecto':
+        return service_name(config)
+    if which not in MANAGED_SERVICES:
+        raise TaskError(f'Servicio desconocido: {which}')
+    return which
+
+
 def service_exists(remote: Remote, service: str) -> bool:
+    """Si el archivo de unidad que escribe Consola esta en su lugar.
+
+    Es la pregunta que se hacen escribir y borrar la unidad del proyecto, no la
+    de "systemd conoce este servicio": para eso esta `unit_installed`.
+    """
     return succeeds(remote, f'test -f {quote(unit_path(service))}')
+
+
+def unit_installed(remote: Remote, service: str) -> bool:
+    """Si systemd conoce la unidad, este donde este su archivo.
+
+    `service_exists` mira /etc/systemd/system, que es donde Consola escribe la
+    del proyecto. Las de un paquete apt —coturn, caddy— viven en
+    /lib/systemd/system, y con aquella pregunta daban `missing` estando
+    instaladas y corriendo.
+    """
+    return succeeds(remote, f'systemctl cat {quote(service)}')
 
 
 def service_state(remote: Remote, service: str) -> str:
@@ -132,7 +165,7 @@ def service_state(remote: Remote, service: str) -> str:
     Los scripts asumian que el servicio existia y morian con un error de
     systemctl; aca la distincion permite saltear el paso con un aviso.
     """
-    if not service_exists(remote, service):
+    if not unit_installed(remote, service):
         return 'missing'
     return capture(remote, f'systemctl is-active {quote(service)}', check=False).strip() or 'inactive'
 

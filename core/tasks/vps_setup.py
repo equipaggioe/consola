@@ -1,7 +1,7 @@
 from __future__ import annotations
 import secrets
 
-from .. import github, ssh, vps
+from .. import envfile, github, ssh, targets, vps
 from ..errors import TaskError
 from ..registry import registry
 
@@ -48,7 +48,9 @@ SUDO_SPECIFIC = (
 
 REMOTE_KEY = '~/.ssh/id_ed25519'
 TURN_PORT = 3478
+TURN_TLS_PORT = 5349
 RELAY_RANGE = (49160, 49360)
+CADDYFILE = '/etc/caddy/Caddyfile'
 
 
 def _root_run(ctx, command: str, *, check: bool = True) -> int:
@@ -170,39 +172,246 @@ def install_base_software(ctx, groups: list[str] | None = None) -> list[str]:
     return paquetes
 
 
-def install_coturn(ctx, realm: str = '') -> str:
-    """Aprovisiona un servidor TURN para llamadas detras de NAT simetrico."""
-    remote = ssh.resolve_remote(ctx.config)
-    dominio = realm or ctx.config.get('CF_DOMAIN_NAME') or remote.host
+def _require_package(remote: ssh.Remote, package: str, group: str) -> None:
+    """Corta si el paquete no esta, en vez de instalarlo por su cuenta.
+
+    Instalar es `install_base_software` y el paquete es uno de sus grupos, igual
+    que `postgresql`: estos botones son el `bootstrap_db` de su servicio — la
+    configuracion, no la instalacion. Que un boton de configurar corriera su
+    propio `apt-get install` era la unica parte del catalogo donde la misma
+    accion vivia en dos lugares (docs/atomicas.md 4.6).
+    """
+    if ssh.succeeds(remote, f'dpkg -s {ssh.quote(package)}'):
+        return
+    raise TaskError(f'{package} no esta instalado en el VPS. '
+                    f'Corre "Software base" con el grupo "{group}" marcado.')
+
+
+def _open_ports(ctx, remote: ssh.Remote, ports: list[str]) -> None:
+    """Abre puertos en ufw si ufw manda; si no, los dice.
+
+    Callar cuando ufw no esta activo no es "no hacer nada": el firewall puede
+    estar en el panel del proveedor, y ahi los puertos siguen cerrados.
+    """
+    if not ssh.succeeds(remote, 'sudo -n ufw status | grep -q active'):
+        ctx.warn(f'ufw no esta activo: abre {", ".join(ports)} donde corresponda.')
+        return
+    for puerto in ports:
+        ssh.run(ctx, remote, f'sudo -n ufw allow {puerto}', check=False)
+    ctx.ok(f'Puertos abiertos en ufw: {", ".join(ports)}')
+
+
+# --- atomicas de comunicaciones --------------------------------------------
+
+def _turn_secret(ctx) -> str:
+    """El secreto con el que el backend firma las credenciales efimeras.
+
+    Se genera una vez y queda en `.consola/config.env`. Antes salia de
+    `secrets.token_hex` en cada corrida y solo se avisaba "guardalo": cada vez
+    que alguien reconfiguraba coturn, el servidor pasaba a exigir un secreto que
+    el backend ya no tenia, y las llamadas se caian sin que nada lo dijera.
+    """
+    secreto = ctx.config.get('TURN_SECRET')
+    if secreto:
+        ctx.info('Se reusa el TURN_SECRET de la configuracion del repo.')
+        return secreto
     secreto = secrets.token_hex(24)
+    envfile.upsert_value(envfile.config_path(str(ctx.root)), 'TURN_SECRET', secreto)
+    ctx.ok('TURN_SECRET generado y guardado en .consola/config.env.')
+    return secreto
+
+
+def configure_coturn(ctx, realm: str = '', port: int = TURN_PORT,
+                     relay_min: int = RELAY_RANGE[0], relay_max: int = RELAY_RANGE[1],
+                     tls: bool = False) -> str:
+    """Configura el servidor TURN para llamadas detras de NAT simetrico.
+
+    Reiniciar el servicio o mirar su estado no son parametros de este boton: son
+    `systemd_action` y `view_logs` con el eje `service` puesto en coturn, que
+    son los mismos botones que ya existian para el servicio del proyecto.
+    """
+    remote = ssh.resolve_remote(ctx.config)
+    _require_package(remote, 'coturn', 'Coturn')
+
+    dominio = realm or ctx.config.get('CF_DOMAIN_NAME') or remote.host
+    if relay_min >= relay_max:
+        raise TaskError(f'El rango de relay esta invertido: {relay_min}-{relay_max}.')
+    secreto = _turn_secret(ctx)
     ctx.guard(secreto)
 
-    vps.install_packages(ctx, remote, ['coturn'])
-    conf = '\n'.join([
-        f'listening-port={TURN_PORT}',
+    lineas = [
+        f'listening-port={port}',
         'fingerprint',
         'use-auth-secret',
         f'static-auth-secret={secreto}',
         f'realm={dominio}',
-        f'min-port={RELAY_RANGE[0]}',
-        f'max-port={RELAY_RANGE[1]}',
+        f'min-port={relay_min}',
+        f'max-port={relay_max}',
         f'external-ip={remote.host}',
         'no-cli',
-    ]) + '\n'
+    ]
 
+    # El certificado es el mismo que ya sube el despliegue, no uno propio de
+    # coturn: pedir un segundo par para el mismo dominio seria pedir dos veces
+    # lo mismo. Si todavia no esta en el VPS se sigue sin TLS y se dice — dejar
+    # `cert=` apuntando a un archivo que no existe deja el servicio sin arrancar.
+    if tls:
+        cert = vps.remote_path(ctx.config, ctx.config.get('CERT_FILE_PATH', 'server/certs/cert.pem'))
+        key = vps.remote_path(ctx.config, ctx.config.get('KEY_FILE_PATH', 'server/certs/key.pem'))
+        if ssh.path_exists(remote, cert) and ssh.path_exists(remote, key):
+            lineas += [f'tls-listening-port={TURN_TLS_PORT}', f'cert={cert}', f'pkey={key}']
+        else:
+            ctx.warn(f'No hay certificado en el VPS ({cert}): coturn queda sin TLS.')
+            tls = False
+
+    conf = '\n'.join(lineas) + '\n'
     ssh.run(ctx, remote, f'sudo -n tee /etc/turnserver.conf > /dev/null <<"TURN_CONF"\n{conf}TURN_CONF')
     ssh.run(ctx, remote, 'sudo -n sed -i "s/^#TURNSERVER_ENABLED=1/TURNSERVER_ENABLED=1/" /etc/default/coturn',
             check=False)
 
-    if ssh.succeeds(remote, 'sudo -n ufw status | grep -q active'):
-        ssh.run(ctx, remote, f'sudo -n ufw allow {TURN_PORT}/tcp && sudo -n ufw allow {TURN_PORT}/udp')
-        ssh.run(ctx, remote, f'sudo -n ufw allow {RELAY_RANGE[0]}:{RELAY_RANGE[1]}/udp')
+    puertos = [f'{port}/tcp', f'{port}/udp', f'{relay_min}:{relay_max}/udp']
+    if tls:
+        puertos.append(f'{TURN_TLS_PORT}/tcp')
+    _open_ports(ctx, remote, puertos)
 
     vps.systemctl(ctx, remote, 'enable', 'coturn')
     vps.systemctl(ctx, remote, 'restart', 'coturn')
-    ctx.ok(f'coturn escuchando en {remote.host}:{TURN_PORT} (realm {dominio}).')
-    ctx.warn('Guarda el TURN_SECRET en la configuracion del servidor: no se persiste solo.')
+    estado = vps.service_state(remote, 'coturn')
+    if estado != 'active':
+        raise TaskError(f'coturn quedo en estado {estado}. Mira sus logs con Ver logs → Coturn.')
+
+    ctx.ok(f'coturn escuchando en {remote.host}:{port} (realm {dominio}).')
+    esquema = 'turns' if tls else 'turn'
+    publicado = TURN_TLS_PORT if tls else port
+    ctx.info(f'URLs para el backend: {esquema}:{dominio}:{publicado}?transport=udp, '
+             f'{esquema}:{dominio}:{publicado}?transport=tcp')
     return secreto
+
+
+# --- atomicas de web -------------------------------------------------------
+
+def _spa_root(ctx, name: str) -> str:
+    """La carpeta que Caddy sirve para esa SPA, del lado del VPS.
+
+    Sale de la misma ruta relativa que usa la subida del build
+    (`upload_to_vps`), asi que no hay una segunda convencion que mantener
+    sincronizada con la primera.
+    """
+    spa = targets.find(ctx.root, targets.SPA_VITE, name)
+    rel = spa.path.relative_to(ctx.root).as_posix()
+    salida = next((c for c in ('dist', 'build') if (spa.path / c).is_dir()), 'dist')
+    return vps.remote_path(ctx.config, rel, salida)
+
+
+def _spa_lines(root: str, indent: str) -> str:
+    cuerpo = [f'root * {root}', 'try_files {path} /index.html', 'file_server']
+    return '\n'.join(f'{indent}{linea}' for linea in cuerpo)
+
+
+def _caddyfile(*, domain: str, apps: list[tuple[str, str]], upstream: str, api: str,
+               routing: str) -> str:
+    """El Caddyfile entero, en una funcion sin efectos: es lo unico que se prueba.
+
+    Una sola SPA se sirve en la raiz —del dominio o del subdominio, segun el
+    ruteo— porque un repo con una sola app no tiene de que distinguirla. Con dos
+    o mas, cada una lleva su nombre: el mismo que ya la identifica en el eje de
+    Build Vite.
+    """
+    if not apps and not api:
+        raise TaskError('Sin apps y sin ruta de API no hay nada que servir.')
+
+    if routing == 'subdominio':
+        if not apps:
+            return (f'{domain} {{\n    encode zstd gzip\n'
+                    f'    reverse_proxy {upstream}\n}}\n')
+        bloques = []
+        if api:
+            bloques.append(f'{api}.{domain} {{\n    encode zstd gzip\n'
+                           f'    reverse_proxy {upstream}\n}}')
+        for nombre, root in apps:
+            host = domain if len(apps) == 1 else f'{nombre}.{domain}'
+            bloques.append(f'{host} {{\n    encode zstd gzip\n{_spa_lines(root, "    ")}\n}}')
+        return '\n\n'.join(bloques) + '\n'
+
+    if not apps:
+        return (f'{domain} {{\n    encode zstd gzip\n'
+                f'    reverse_proxy {upstream}\n}}\n')
+
+    cuerpo = ['    encode zstd gzip']
+    if api:
+        cuerpo.append(f'    handle /{api}/* {{\n        reverse_proxy {upstream}\n    }}')
+    for nombre, root in apps:
+        if len(apps) == 1:
+            cuerpo.append(f'    handle {{\n{_spa_lines(root, "        ")}\n    }}')
+        else:
+            cuerpo.append(f'    handle_path /{nombre}/* {{\n{_spa_lines(root, "        ")}\n    }}')
+    return f'{domain} {{\n' + '\n\n'.join(cuerpo) + '\n}\n'
+
+
+def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta',
+                    domain: str = '', upstream: str = '127.0.0.1:8000',
+                    api_path: str = '/api') -> str:
+    """Escribe el Caddyfile del VPS y deja Caddy sirviendo.
+
+    Caddy queda adelante de todo: toma el 80 y el 443, saca y renueva el
+    certificado solo y reparte entre las SPA compiladas y el backend. Eso pide
+    que el backend NO ocupe el 443 — la unidad que escribe `install_systemd` lo
+    hace por defecto, asi que hay que reescribirla apuntando a `upstream`. Este
+    boton lo dice y no lo toca: reescribir el servicio de otro boton a espaldas
+    de quien aprieta este seria peor que el choque de puertos.
+
+    La lista vacia de apps significa "las SPA que tenga el repo"; ninguna SPA es
+    tambien valido: es el VPS que solo publica la API.
+    """
+    remote = ssh.resolve_remote(ctx.config)
+    _require_package(remote, 'caddy', 'Caddy')
+
+    dominio = domain or ctx.config.get('CF_DOMAIN_NAME')
+    if not dominio:
+        raise TaskError('Falta el dominio: escribilo en el boton o carga CF_DOMAIN_NAME.')
+    if routing not in ('subruta', 'subdominio'):
+        raise TaskError(f'Ruteo desconocido: {routing}')
+
+    elegidas = list(apps or targets.names(ctx.root, targets.SPA_VITE))
+    api = api_path.strip('/')
+    servidas = [(nombre, _spa_root(ctx, nombre)) for nombre in elegidas]
+
+    conf = _caddyfile(domain=dominio, apps=servidas, upstream=upstream, api=api, routing=routing)
+    ssh.run(ctx, remote, 'sudo -n mkdir -p /etc/caddy && '
+                         f'sudo -n tee {CADDYFILE} > /dev/null <<"CADDY_CONF"\n{conf}CADDY_CONF')
+    # `caddy validate` antes de recargar: un Caddyfile con un error de sintaxis
+    # deja el servicio caido, y con el se cae todo lo que publica el VPS.
+    ssh.run(ctx, remote, f'caddy validate --adapter caddyfile --config {CADDYFILE}')
+
+    _open_ports(ctx, remote, ['80/tcp', '443/tcp', '443/udp'])
+    vps.systemctl(ctx, remote, 'enable', 'caddy')
+    vps.systemctl(ctx, remote, 'restart', 'caddy')
+    estado = vps.service_state(remote, 'caddy')
+    if estado != 'active':
+        raise TaskError(f'Caddy quedo en estado {estado}. Mira sus logs con Ver logs → Caddy.')
+
+    for nombre, _ in servidas:
+        if routing == 'subdominio':
+            destino = f'https://{dominio}' if len(servidas) == 1 else f'https://{nombre}.{dominio}'
+        else:
+            destino = f'https://{dominio}' if len(servidas) == 1 else f'https://{dominio}/{nombre}/'
+        ctx.ok(f'{nombre}: {destino}')
+    if api and servidas:
+        ctx.ok(f'API: https://{api}.{dominio}' if routing == 'subdominio'
+               else f'API: https://{dominio}/{api}/')
+        if routing == 'subruta':
+            ctx.info(f'El prefijo /{api} llega al backend tal cual: las rutas del '
+                     f'servidor tienen que empezar con /{api}.')
+    elif not servidas:
+        ctx.ok(f'Todo el dominio va al backend: https://{dominio}')
+    if routing == 'subdominio' and len(servidas) > 1:
+        ctx.warn('Cada subdominio necesita su propio registro DNS en Cloudflare.')
+    if routing == 'subruta' and len(servidas) > 1:
+        ctx.warn('Cada SPA se sirve bajo su nombre: su vite.config necesita '
+                 "base: '/<nombre>/' o los assets van a dar a la raiz.")
+    ctx.warn(f'El backend tiene que escuchar en {upstream} sin TLS propio: si la unidad '
+             'systemd sigue en 0.0.0.0:443, Caddy no puede tomar el 443.')
+    return CADDYFILE
 
 
 # --- atomicas de GitHub ----------------------------------------------------
@@ -347,5 +556,6 @@ def bind_all() -> None:
     registry.bind('setup_ssh_key', setup_ssh_key)
     registry.bind('setup_github_ssh', setup_github_ssh)
     registry.bind('install_software', install_base_software)
-    registry.bind('install_coturn', install_coturn)
+    registry.bind('configure_coturn', configure_coturn)
+    registry.bind('configure_caddy', configure_caddy)
     registry.bind('bootstrap_vps', bootstrap_vps)

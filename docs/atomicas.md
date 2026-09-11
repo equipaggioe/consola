@@ -199,7 +199,15 @@ reimplementa), `publish_code` y `update_remote` (§4.7).
 ### `core/tasks/vps_setup.py`
 
 `refresh_known_host` · `ensure_deploy_access` · `configure_sudo` · `install_base_software` ·
-`install_coturn` · `generate_remote_keypair` · `register_github_key` · `test_github_ssh`.
+`configure_coturn` · `configure_caddy` · `generate_remote_keypair` · `register_github_key` ·
+`test_github_ssh`.
+
+`configure_coturn` se llamaba `install_coturn` y arrancaba con su propio `apt-get install`, que
+es lo que ya hace `install_base_software` con el grupo `coturn` marcado: la misma acción en dos
+lugares. Ahora las dos capacidades de configuración —coturn y Caddy— cortan si el paquete falta
+en vez de instalarlo, igual que `bootstrap_db` da por instalado el `postgresql` que puso el otro
+botón. Operarlos después (reiniciar, ver el journal) tampoco son botones nuevos: es el eje
+`service` de `systemd_action` y `view_logs`.
 
 Eran cuatro donde ahora hay dos: la revisión del §4.6 fusionó `ensure_remote_user` con
 `install_public_key` y bajó `test_ssh_login` a `core/ssh.py::reachable`.
