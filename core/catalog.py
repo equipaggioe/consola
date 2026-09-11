@@ -461,8 +461,8 @@ REVOKE_SSH_STEPS = [
 # Es una funcion y no una lista global porque la comparten tres capacidades: una
 # lista suelta seria el mismo objeto en las tres.
 def _SERVICE_STEPS() -> list[Step]:
-    return [Step('enable', 'Habilitar al arranque'),
-            Step('start', 'Arrancar y comprobar')]
+    return [Step('enable', 'Habilitar'),
+            Step('start', 'Arrancar')]
 
 # Los tres pasos de `utils.install_android_sdk`. Era la unica compuesta que
 # recibia la lista de ids en vez de un booleano por paso: ahora recibe los tres

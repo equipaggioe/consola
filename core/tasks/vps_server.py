@@ -270,8 +270,11 @@ def restart_service(ctx) -> str:
 
 # --- systemd ---------------------------------------------------------------
 
-def write_systemd_unit(ctx) -> str:
+def write_systemd_unit(ctx) -> bool:
     """Escribe el archivo `.service` en el VPS y recarga systemd. No lo arranca.
+
+    Devuelve si la unidad quedo distinta de la que ya estaba: es lo que decide
+    si hay que reiniciar (`bring_up_service`).
 
     Donde escucha sale de `BACKEND_HOST`/`BACKEND_PORT` y no de parametros de la
     funcion: eran dos argumentos que ningun eje ofrecia —o sea, `0.0.0.0:443`
@@ -321,7 +324,7 @@ def systemd_action(ctx, action: str = 'status', service: str = 'proyecto') -> in
 
 
 def bring_up_service(ctx, service: str = 'proyecto', *, enable: bool = True,
-                     start: bool = True) -> str:
+                     start: bool = True, changed: bool = True) -> str:
     """El cierre comun de los tres botones que escriben la config de un servicio.
 
     `configure_service`, `configure_coturn` y `configure_caddy` terminaban los
@@ -340,6 +343,12 @@ def bring_up_service(ctx, service: str = 'proyecto', *, enable: bool = True,
     servicio sigue con el viejo, que es un estado que nadie mas reporta. Y se
     mira igual como esta, porque enterarse aca de que ya estaba caido es mejor
     que enterarse la proxima vez.
+
+    `changed` es lo que devuelve la escritura (`vps.write_config`), y separa
+    `restart` de `start`: con configuracion nueva hay que reiniciar para que
+    entre, y sin cambios alcanza con asegurarse de que este corriendo — `start`
+    sobre un servicio vivo no hace nada. Recargar Caddy corta el 80 y el 443 de
+    TODO el VPS, asi que ese reinicio de mas se paga en cada corrida.
     """
     remote = _remote(ctx)
     servicio = vps.resolve_service(ctx.config, service)
@@ -348,17 +357,18 @@ def bring_up_service(ctx, service: str = 'proyecto', *, enable: bool = True,
         systemd_action(ctx, 'enable', service)
     if start:
         ctx.step('start')
-        systemd_action(ctx, 'restart', service)
+        systemd_action(ctx, 'restart' if changed else 'start', service)
 
     estado = vps.service_state(remote, servicio)
     if start and estado != 'active':
         raise TaskError(f'{servicio} quedo en estado {estado}. Mira sus logs con '
                         f'Ver logs -> {vps.SERVICE_LABELS.get(service, servicio)}.')
     if not start:
-        ctx.warn(f'{servicio} sigue con la configuracion anterior: la nueva entra '
-                 f'cuando lo reinicies con Accion systemd -> {servicio}.')
+        if changed:
+            ctx.warn(f'{servicio} sigue con la configuracion anterior: la nueva entra '
+                     f'cuando lo reinicies con Accion systemd -> {servicio}.')
         if estado != 'active':
-            ctx.warn(f'Ademas esta en estado {estado} desde antes de esta corrida.')
+            ctx.warn(f'{servicio} esta en estado {estado} desde antes de esta corrida.')
     return estado
 
 
@@ -410,7 +420,7 @@ def configure_service(ctx, *, enable: bool = True, start: bool = True) -> None:
     """
     remote = _remote(ctx)
     _require_deployment(ctx, remote)
-    write_systemd_unit(ctx)
+    cambio = write_systemd_unit(ctx)
 
     # El puerto solo se abre cuando el backend da la cara a internet. Detras de
     # Caddy quien contesta afuera es Caddy, y abrir el del backend seria
@@ -421,7 +431,7 @@ def configure_service(ctx, *, enable: bool = True, start: bool = True) -> None:
     if publico:
         vps.open_ports(ctx, remote, [f'{port}/tcp'])
 
-    bring_up_service(ctx, 'proyecto', enable=enable, start=start)
+    bring_up_service(ctx, 'proyecto', enable=enable, start=start, changed=cambio)
 
     if publico:
         ctx.ok(f'Backend escuchando en {remote.host}:{port}.')

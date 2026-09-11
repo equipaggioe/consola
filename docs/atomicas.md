@@ -252,6 +252,13 @@ Convergen en **dos pasos y un cierre compartido**:
 - **`bring_up_service`** (en `vps_server.py`, al lado de `systemd_action`) es ese cierre: habilita,
   reinicia y comprueba, siempre a través de la atómica que ya tiene botón. Dos caminos al mismo
   `systemctl` es la clase de duplicado que un día se corrige en uno solo.
+- **Y no reinicia si no hay nada nuevo.** Los tres eran los únicos escritores de Consola que
+  sobrescribían a ciegas: escribían el archivo y reiniciaban siempre, aunque saliera idéntico al
+  que ya estaba — el mismo corte del 80 y el 443 de arriba, cobrado en cada corrida. Ahora escriben
+  con `vps.write_config`, que trae el archivo del VPS, muestra el diff y dice si lo tocó; con eso
+  `bring_up_service` elige `restart` (hay configuración nueva que tiene que entrar) o `start`
+  (asegurarse de que esté vivo, que sobre un servicio corriendo no hace nada). Es la regla de
+  `files.compare()` —PLAN.md §7.5, nunca sobrescribir a ciegas— que el resto ya cumplía.
 - `require_package` y `open_ports` subieron de `vps_setup.py` a **`core/vps.py`**: la pregunta
   «¿está puesto lo que este botón da por dado?» se la hacen los tres, y uno vive en el otro módulo.
 - `configure_service` gana además lo que los otros dos ya tenían: corta si en el VPS no hay código

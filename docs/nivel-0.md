@@ -122,7 +122,12 @@ Todo lo que opera sobre el VPS ya conectado, construido sobre `core/ssh.py`:
   `BUTTON_ACTIONS` (`start/stop/restart/status`) de `MENU_ACTIONS`
   (`enable/disable/reload/is-active/is-enabled/daemon-reload`), listas para los dos `expand` del
   eje `action` en PLAN.md §2.4.
-- `render_unit(...)` / `write_unit(...)` — arma y sube el archivo `.service`.
+- `write_config(ctx, remote, path, content)` — sube un archivo de configuración **solo si cambia**:
+  trae el que está, muestra el diff y devuelve si lo tocó. Es la regla de `files.compare()`
+  (PLAN.md §7.5, nunca sobrescribir a ciegas) del lado del VPS, y lo que decide si hay que
+  reiniciar el servicio: los tres botones de configurar escribían y reiniciaban siempre.
+- `render_unit(...)` / `write_unit(...)` — arma y sube el archivo `.service` (con `write_config`,
+  y el `daemon-reload` solo si la unidad cambió).
 - `journal_command(service, lines, follow, since, priority, grep)` — reemplaza a
   `view_logs.py`, capacidad hermana de `systemctl` (§1: dejó de ser un valor de `action`).
 - `postgres_port(remote)` — consulta `SHOW port` al Postgres del VPS.

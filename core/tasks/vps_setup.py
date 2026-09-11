@@ -261,7 +261,7 @@ def configure_coturn(ctx, tls: bool = False, *, enable: bool = True,
             tls = False
 
     conf = '\n'.join(lineas) + '\n'
-    ssh.run(ctx, remote, f'sudo -n tee /etc/turnserver.conf > /dev/null <<"TURN_CONF"\n{conf}TURN_CONF')
+    cambio = vps.write_config(ctx, remote, '/etc/turnserver.conf', conf)
     ssh.run(ctx, remote, 'sudo -n sed -i "s/^#TURNSERVER_ENABLED=1/TURNSERVER_ENABLED=1/" /etc/default/coturn',
             check=False)
 
@@ -274,7 +274,7 @@ def configure_coturn(ctx, tls: bool = False, *, enable: bool = True,
     # dos botones de configurar un servicio, y pasa por `systemd_action` — la
     # atomica que ya tiene boton propio — en vez de repetir aca su `systemctl`.
     from . import vps_server
-    vps_server.bring_up_service(ctx, 'coturn', enable=enable, start=start)
+    vps_server.bring_up_service(ctx, 'coturn', enable=enable, start=start, changed=cambio)
 
     ctx.ok(f'coturn escuchando en {remote.host}:{port} (realm {dominio}).')
     esquema = 'turns' if tls else 'turn'
@@ -379,15 +379,17 @@ def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta'
     servidas = [(nombre, _spa_root(ctx, nombre)) for nombre in elegidas]
 
     conf = _caddyfile(domain=dominio, apps=servidas, upstream=upstream, api=api, routing=routing)
-    ssh.run(ctx, remote, 'sudo -n mkdir -p /etc/caddy && '
-                         f'sudo -n tee {CADDYFILE} > /dev/null <<"CADDY_CONF"\n{conf}CADDY_CONF')
+    ssh.run(ctx, remote, 'sudo -n mkdir -p /etc/caddy')
+    cambio = vps.write_config(ctx, remote, CADDYFILE, conf)
     # `caddy validate` antes de recargar: un Caddyfile con un error de sintaxis
-    # deja el servicio caido, y con el se cae todo lo que publica el VPS.
-    ssh.run(ctx, remote, f'caddy validate --adapter caddyfile --config {CADDYFILE}')
+    # deja el servicio caido, y con el se cae todo lo que publica el VPS. El que
+    # no cambio ya paso por aca cuando se escribio.
+    if cambio:
+        ssh.run(ctx, remote, f'caddy validate --adapter caddyfile --config {CADDYFILE}')
 
     vps.open_ports(ctx, remote, ['80/tcp', '443/tcp', '443/udp'])
     from . import vps_server
-    vps_server.bring_up_service(ctx, 'caddy', enable=enable, start=start)
+    vps_server.bring_up_service(ctx, 'caddy', enable=enable, start=start, changed=cambio)
 
     for nombre, _ in servidas:
         if routing == 'subdominio':

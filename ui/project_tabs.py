@@ -29,7 +29,7 @@ class ProjectTab(ReorderableTab, QWidget):
     clicked = Signal()
     close_requested = Signal()
 
-    HEIGHT = 32
+    HEIGHT = 38
     BORDER_WIDTH = 2.0
 
     def __init__(self, project: Project, parent=None):

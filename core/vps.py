@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import difflib
+
 from .envfile import Config
 from .errors import TaskError
 from .ssh import Remote, capture, quote, reachable, run, succeeds
@@ -182,7 +184,7 @@ def unit_path(service: str) -> str:
 # (`configure_coturn`, `configure_caddy`). Reiniciarlos o leerles el journal no
 # pide botones nuevos: pide que los que ya existen sepan a cual apuntar.
 MANAGED_SERVICES = ('proyecto', 'coturn', 'caddy')
-SERVICE_LABELS = {'proyecto': 'Del repo', 'coturn': 'Coturn', 'caddy': 'Caddy'}
+SERVICE_LABELS = {'proyecto': 'Servidor', 'coturn': 'Coturn', 'caddy': 'Caddy'}
 
 
 def resolve_service(config: Config, which: str = 'proyecto') -> str:
@@ -297,14 +299,43 @@ def render_unit(
     )
 
 
-def write_unit(ctx, remote: Remote, service: str, content: str) -> str:
-    """Escribe la unidad en el VPS y recarga systemd. No la habilita ni la arranca."""
-    path = unit_path(service)
-    heredoc = f'{SUDO} tee {quote(path)} > /dev/null <<"CONSOLA_UNIT"\n{content}CONSOLA_UNIT'
+def write_config(ctx, remote: Remote, path: str, content: str) -> bool:
+    """Escribe un archivo de configuracion del VPS solo si cambia. Dice si cambio.
+
+    Los tres botones que configuran un servicio eran los unicos escritores de
+    Consola que sobrescribian a ciegas: escribian siempre y reiniciaban siempre,
+    aunque el archivo saliera identico al que ya estaba. El resto ya cumple la
+    regla (`core/files.py::compare`, PLAN.md 7.5): se muestra que va a cambiar
+    antes de tocar nada.
+
+    El `cat` va sin sudo porque los tres archivos son legibles, y no por sudo:
+    `SUDO_SPECIFIC` no lista `cat`. Si no se pudiera leer vuelve vacio y el
+    archivo se escribe igual, que es lo que pasaba siempre.
+    """
+    # `ssh.capture` devuelve la salida ya sin bordes, asi que el lado nuevo se
+    # compara igual: si no, el `\n` final lo daria siempre por distinto.
+    actual = capture(remote, f'cat {quote(path)}', check=False)
+    nuevo = content.strip()
+    if actual == nuevo:
+        ctx.info(f'Sin cambios: {path}')
+        return False
+
+    for linea in difflib.unified_diff(actual.splitlines(), nuevo.splitlines(),
+                                      fromfile=f'{path} (ahora)',
+                                      tofile=f'{path} (nuevo)', lineterm=''):
+        ctx.info(linea)
+    heredoc = f'{SUDO} tee {quote(path)} > /dev/null <<"CONSOLA_CONF"\n{content}CONSOLA_CONF'
     run(ctx, remote, heredoc)
-    run(ctx, remote, f'{SUDO} systemctl daemon-reload')
-    ctx.ok(f'Unidad escrita: {path}')
-    return path
+    ctx.ok(f'Escrito: {path}')
+    return True
+
+
+def write_unit(ctx, remote: Remote, service: str, content: str) -> bool:
+    """Escribe la unidad en el VPS y recarga systemd si cambio. No la habilita ni la arranca."""
+    cambio = write_config(ctx, remote, unit_path(service), content)
+    if cambio:
+        run(ctx, remote, f'{SUDO} systemctl daemon-reload')
+    return cambio
 
 
 def journal_command(
