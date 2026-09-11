@@ -31,7 +31,7 @@ CONSOLA = 'Consola'
 
 
 class TabView(QWidget):
-    """Barra de endpoint + conmutador de vistas + (consola | navegador)."""
+    """Barra de herramientas + conmutador de vistas + (consola | navegador)."""
 
     def __init__(self, capability: Capability, parent=None):
         super().__init__(parent)
@@ -44,18 +44,28 @@ class TabView(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        self.endpoint_bar = self._build_endpoint_bar()
-        self.endpoint_bar.setVisible(False)
+        self.tool_bar = self._build_tool_bar()
 
         self.console = ConsoleView(self)
         self.stack = QStackedWidget(self)
         self.stack.addWidget(self.console)
 
-        root.addWidget(self.endpoint_bar)
+        root.addWidget(self.tool_bar)
         root.addWidget(self.stack, 1)
 
     # --- construccion --------------------------------------------------
-    def _build_endpoint_bar(self) -> QWidget:
+    def _build_tool_bar(self) -> QWidget:
+        """La franja de arriba de la pestana.
+
+        Nacio como barra del endpoint y aparecia sola cuando una tarea
+        publicaba una URL. Ahora esta siempre, porque hay algo que toda pestana
+        necesita y ninguna tenia a mano: vaciar su log. Estaba solo en el menu
+        del boton derecho de la consola, que es donde no se busca.
+
+        Las dos mitades son independientes: a la izquierda el endpoint, que
+        sigue apareciendo y desapareciendo con la URL; a la derecha Limpiar,
+        que no depende de nada.
+        """
         bar = QWidget()
         bar.setFixedHeight(36)
         bar.setStyleSheet(
@@ -83,6 +93,14 @@ class TabView(QWidget):
                                    self._toggle_view)
         self.view_btn.setVisible(False)
 
+        self.clear_btn = self._chip('Limpiar', 'Vaciar el log de esta pestaña',
+                                    self.clear_console)
+
+        # Todo lo del endpoint se muestra y se esconde junto: sin URL publicada
+        # la barra queda con Limpiar solo, que es lo que corresponde.
+        self._endpoint_widgets = [self.led, self.state_label, self.url_label,
+                                  self.copy_btn, self.external_btn, self.view_btn]
+
         lay.addWidget(self.led)
         lay.addWidget(self.state_label)
         lay.addWidget(self.url_label)
@@ -90,7 +108,27 @@ class TabView(QWidget):
         lay.addWidget(self.copy_btn)
         lay.addWidget(self.external_btn)
         lay.addWidget(self.view_btn)
+        lay.addWidget(self.clear_btn)
+        self._show_endpoint(False)
         return bar
+
+    def _show_endpoint(self, visible: bool) -> None:
+        for w in self._endpoint_widgets:
+            # `view_btn` tiene su propia regla (solo con vista web), asi que
+            # esconderlo aca no alcanza para mostrarlo despues: lo decide
+            # `set_endpoint`.
+            w.setVisible(visible and (w is not self.view_btn or self._web))
+
+    def clear_console(self) -> None:
+        """Vacia el log y vuelve a poner la cabecera de la accion.
+
+        Vaciar del todo dejaria una pestana sin nombre, indistinguible de otra
+        recien abierta; estas tres lineas son las mismas con las que nacio.
+        """
+        self.console.clear_console()
+        self.console.append_log(f'─── {self.capability.name} ───', 'info')
+        if self.capability.description:
+            self.console.append_log(self.capability.description, 'info')
 
     def _chip(self, text: str, tip: str, slot) -> QPushButton:
         btn = QPushButton(text)
@@ -118,9 +156,8 @@ class TabView(QWidget):
         """
         self._url = url
         self._web = web and self.capability.has_web_view
-        self.endpoint_bar.setVisible(True)
         self.url_label.setText(url)
-        self.view_btn.setVisible(self._web)
+        self._show_endpoint(True)
         self._set_state(state, label)
 
         if state == session.READY:

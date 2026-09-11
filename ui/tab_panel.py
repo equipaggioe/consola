@@ -428,6 +428,7 @@ class TabPanel(ReorderableBar, QWidget):
 
         self.env_panel = EnvPanel(project)
         self.env_panel.values_changed.connect(self._on_env_changed)
+        self.env_panel.reloaded.connect(self._on_env_reloaded)
 
         # Los seguros no salen de `config.env`: viven en `.consola/params.json`
         # y se guardan al tocarlos, sin pasar por el boton Guardar de
@@ -927,6 +928,12 @@ class TabPanel(ReorderableBar, QWidget):
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
             self.run_footer.setCurrentWidget(panel.footer)
+            # Mostrar la pestana ES el pedido de ver la lista al dia: los ejes
+            # que se consultan (los AVD del SDK, los servicios del VPS) se
+            # releen aca y no contra un boton de recargar. Va sin `refresh`, asi
+            # que lo que caduca rapido se vuelve a preguntar y los catalogos
+            # grandes del SDK siguen saliendo de la cache.
+            panel.reload_catalogs()
             self.env_panel.filter_for(panel.relevant_keys())
             self._set_right_header(panel.capability.icon, panel.capability.name,
                                    panel.capability)
@@ -1100,6 +1107,18 @@ class TabPanel(ReorderableBar, QWidget):
     def _on_env_changed(self, values: dict) -> None:
         for panel in self._params.values():
             panel.set_env(values)
+
+    def _on_env_reloaded(self) -> None:
+        """Recargar `config.env` recarga tambien los parametros.
+
+        No es cortesia: los ejes consultados salen de preguntarle al VPS del
+        repo, y a que VPS se le pregunta lo dice `config.env`. Releer el
+        archivo sin releer los ejes dejaria la lista contestada por la maquina
+        anterior. Va forzado —salteando la cache— porque justamente esto es el
+        camino de "quiero el estado de ahora".
+        """
+        for panel in self._params.values():
+            panel.refresh_machine()
 
     def _run(self, tab: SubTabButton, payload: dict) -> None:
         """Punto unico de 'Ejecutar': corre de verdad lo que ya tiene cuerpo

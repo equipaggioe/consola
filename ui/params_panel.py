@@ -94,9 +94,14 @@ class ParamsPanel(QWidget):
         self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}  # axis -> valor escrito
         self._picks: dict[str, QComboBox] = {}   # axis -> lista larga con busqueda
         self._multi_layouts: dict[str, QVBoxLayout] = {}  # axis -> donde van sus casillas
+        self._option_layouts: dict[str, QVBoxLayout] = {}  # axis -> donde van sus excluyentes
+        self._empty_notes: dict[str, QLabel] = {}  # axis -> rotulo de "no hay ninguno aca"
         self._loader: AxesLoader | None = None
         self._loading = any(a.is_queried for a in self.capability.axes)
-        self._option_groups: list[QButtonGroup] = []
+        self._option_groups: dict[str, QButtonGroup] = {}  # axis -> su grupo excluyente
+                               # vivo. Es dict y no lista porque un eje consultado se
+                               # rellena de nuevo cada vez que se muestra la pestana, y
+                               # hay que soltar el grupo que reemplaza.
         self._step_checks: dict[str, QCheckBox] = {}
         self._restoring = True   # mientras se arma, ningun cambio se guarda
 
@@ -121,7 +126,7 @@ class ParamsPanel(QWidget):
         self.apply_state(params_store.load(self.project.path, self.capability.id))
         self._restoring = False
         self._refresh_summary()
-        if self._loading or self.capability.live_state:
+        if any(a.is_queried for a in self.capability.axes) or self.capability.live_state:
             self._load_machine()
 
     # --- catalogos consultados ----------------------------------------
@@ -149,6 +154,8 @@ class ParamsPanel(QWidget):
                     self._fill_pick(axis)
                 elif axis.name in self._multi_layouts:
                     self._fill_multi(axis)
+                elif axis.name in self._option_layouts:
+                    self._fill_options(axis)
             self._fill_live(resuelto.get(_LIVE, ([], {})))
         finally:
             self._restoring = False
@@ -157,8 +164,26 @@ class ParamsPanel(QWidget):
         self._refresh_summary()
 
     def refresh_machine(self) -> None:
-        """Vuelve a preguntarle al SDK, salteando la cache. Es el boton ↻."""
+        """Vuelve a preguntar salteando la cache.
+
+        Es el camino forzado: lo usa el boton Recargar de Configuracion (que
+        ademas de releer `config.env` puede haber cambiado A QUE VPS se
+        pregunta) y el final de una tarea que acaba de tocar la maquina.
+        """
         self._load_machine(refresh=True)
+
+    def reload_catalogs(self) -> None:
+        """Releer lo consultado al mostrar la pestana.
+
+        Abrir la pestana es el momento en que se mira la lista, asi que es
+        cuando tiene que estar al dia — pedir ademas un clic en un boton de
+        recargar es pedir dos veces lo mismo. Respeta la cache a proposito:
+        lo que caduca en un minuto (los AVD, los servicios del VPS) se vuelve a
+        preguntar de verdad, y los dos catalogos grandes del SDK —que solo
+        cambian cuando se actualiza el SDK— no se releen en cada clic.
+        """
+        if any(a.is_queried for a in self.capability.axes) or self.capability.live_state:
+            self._load_machine()
 
     # --- construccion -------------------------------------------------
     def _build_body(self) -> QWidget:
@@ -197,15 +222,13 @@ class ParamsPanel(QWidget):
         # Un eje de un solo valor tampoco se elige, pero se muestra igual:
         # marcado y deshabilitado, para que se vea CUAL es (que app móvil, que
         # target) sin dejar quitarlo. `_build_options` lo dibuja asi.
-        singles = [a for a in self.capability.single_axes if a.values]
+        #
+        # Un eje CONSULTADO entra aunque este vacio: cuando se arma el panel
+        # todavia no se le pregunto a nadie, y descartarlo aca lo dejaba sin
+        # lugar donde aparecer cuando la respuesta llegaba.
+        singles = [a for a in self.capability.single_axes if a.values or a.is_queried]
         if singles:
             lay.addWidget(self._build_options(singles))
-
-        # ↻ Catálogo va junto a los ejes que llena (los del SDK), no en el pie:
-        # ahi solo va Ejecutar. Recargar/Guardar del .env se fueron a su propia
-        # seccion (`ui/env_panel.py`).
-        if any(a.is_queried for a in self.capability.axes) or self.capability.live_state:
-            lay.addWidget(self._build_catalog_bar())
 
         self._content = content
         scroll.setWidget(content)
@@ -471,65 +494,85 @@ class ParamsPanel(QWidget):
             )
             row.addWidget(label)
 
-            group = QButtonGroup(self)
-            group.setExclusive(True)
-            self._option_groups.append(group)
-            self._options[axis.name] = {}
-            # Un eje con un solo valor excluyente no se elige: se muestra fijo.
-            locked = len(axis.exclusive_values) <= 1 and not axis.combine
-            for value in axis.values:
-                # `text_of` y no el valor pelado: un eje excluyente tambien
-                # puede tener un valor que no se lee (`0.0.0.0`, el `''` de
-                # "todas las prioridades"). La etiqueta es de la misma clase
-                # que la de una lista larga, y se declara en el mismo lugar.
-                check = QCheckBox(axis.text_of(value))
-                check.setCursor(Qt.CursorShape.PointingHandCursor)
-                if value in axis.danger:
-                    check.setStyleSheet(f"QCheckBox {{ color: {Colors.ERROR}; }}")
-                if value in axis.combine:
-                    # Toggle independiente: fuera del grupo, arranca apagado.
-                    check.setChecked(False)
-                else:
-                    group.addButton(check)
-                    check.setChecked(value == axis.initial)
-                    if locked:
-                        # Única opción: se muestra marcada y con el color de
-                        # seleccionada, pero no se puede desmarcar — el grupo
-                        # exclusivo ya impide soltar el único botón, y no hay
-                        # otro al que saltar. Queda habilitada (no en gris)
-                        # para que se lea como una elección viva, no muerta.
-                        check.setChecked(True)
-                        check.setToolTip("Única opción disponible")
-                check.toggled.connect(self._refresh_summary)
-                self._options[axis.name][value] = check
-                row.addWidget(check)
+            # Las casillas no se cuelgan de `row` sino de un contenedor propio,
+            # porque un eje consultado se dibuja DOS veces: vacio mientras se
+            # pregunta, y otra vez con los valores que llegaron. Sin este
+            # contenedor no habria donde volver a ponerlas — que es exactamente
+            # por lo que el eje de servicios del VPS no aparecia nunca.
+            holder = QWidget()
+            holder.setStyleSheet("background: transparent;")
+            hlay = QVBoxLayout(holder)
+            hlay.setContentsMargins(0, 0, 0, 0)
+            hlay.setSpacing(4)
+            self._option_layouts[axis.name] = hlay
+            self._fill_options(axis)
+            row.addWidget(holder)
             lay.addLayout(row)
         return box
 
-    def _build_catalog_bar(self) -> QWidget:
-        """El boton ↻ Catálogo: releer los catálogos del SDK salteando la caché
-        (se cachea por semanas). Es el unico modo de enterarse de una API nueva
-        sin reiniciar Consola."""
-        bar = QWidget()
-        bar.setStyleSheet("background: transparent;")
-        lay = QHBoxLayout(bar)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(0)
-        btn = QPushButton("↻ Catálogo")
-        btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setFixedHeight(28)
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {Colors.BORDER};
-                color: {Colors.TEXT_DIM}; border-radius: 5px;
-                padding: 0 12px; font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
-        """)
-        btn.clicked.connect(self.refresh_machine)
-        lay.addWidget(btn)
-        lay.addStretch()
-        return bar
+    def _fill_options(self, axis: AxisDef) -> None:
+        """(Re)crea las casillas excluyentes de un eje. Sirve para los dos
+        casos: dibujarlo la primera vez, y rehacerlo cuando el catalogo que lo
+        llena termino de contestar."""
+        lay = self._option_layouts.get(axis.name)
+        if lay is None:
+            return
+        for check in self._options.get(axis.name, {}).values():
+            lay.removeWidget(check)
+            check.deleteLater()
+        nota = self._empty_notes.pop(axis.name, None)
+        if nota is not None:
+            lay.removeWidget(nota)
+            nota.deleteLater()
+        # El grupo anterior se va con sus botones: un eje consultado se rellena
+        # cada vez que se muestra la pestana, y dejarlos apilados es un grupo
+        # muerto por clic.
+        previo = self._option_groups.pop(axis.name, None)
+        if previo is not None:
+            previo.deleteLater()
+
+        group = QButtonGroup(self)
+        group.setExclusive(True)
+        self._option_groups[axis.name] = group
+        self._options[axis.name] = {}
+        # Un eje con un solo valor excluyente no se elige: se muestra fijo.
+        locked = len(axis.exclusive_values) <= 1 and not axis.combine
+        for value in axis.values:
+            # `text_of` y no el valor pelado: un eje excluyente tambien
+            # puede tener un valor que no se lee (`0.0.0.0`, el `''` de
+            # "todas las prioridades"). La etiqueta es de la misma clase
+            # que la de una lista larga, y se declara en el mismo lugar.
+            check = QCheckBox(axis.text_of(value))
+            check.setCursor(Qt.CursorShape.PointingHandCursor)
+            if value in axis.danger:
+                check.setStyleSheet(f"QCheckBox {{ color: {Colors.ERROR}; }}")
+            if value in axis.combine:
+                # Toggle independiente: fuera del grupo, arranca apagado.
+                check.setChecked(False)
+            else:
+                group.addButton(check)
+                check.setChecked(value == axis.initial)
+                if locked:
+                    # Única opción: se muestra marcada y con el color de
+                    # seleccionada, pero no se puede desmarcar — el grupo
+                    # exclusivo ya impide soltar el único botón, y no hay
+                    # otro al que saltar. Queda habilitada (no en gris)
+                    # para que se lea como una elección viva, no muerta.
+                    check.setChecked(True)
+                    check.setToolTip("Única opción disponible")
+            check.toggled.connect(self._refresh_summary)
+            self._options[axis.name][value] = check
+            lay.addWidget(check)
+
+        if not axis.values:
+            # El mismo texto que la marca de agua de una lista larga vacia: el
+            # hueco tiene que decir por que esta vacio, no quedarse mudo.
+            nota = QLabel('leyendo el catálogo…' if self._loading
+                          else f'no hay ninguno {axis.query_place}')
+            nota.setStyleSheet(f"background: transparent; color: {Colors.TEXT_MUTED}; "
+                               f"font-size: {Fonts.SIZE_XS}px;")
+            self._empty_notes[axis.name] = nota
+            lay.addWidget(nota)
 
     @property
     def _dry_run_axis(self) -> AxisDef | None:

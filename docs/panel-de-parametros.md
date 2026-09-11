@@ -137,6 +137,32 @@ configuración del repo apilado debajo en un `QSplitter` vertical. Izquierda = *
 centro = *qué está pasando*, derecha = *con qué parámetros y con qué configuración*. Ambos divisores
 se arrastran y se colapsan, así que la repartición 460/420 es solo el punto de partida.
 
+### Un eje que hay que ir a preguntar
+
+Los valores de un eje salen de tres lados: el catálogo (escritos en `core/catalog.py`), el repo
+abierto (`discover`) o **una consulta** (`source`) — al SDK qué AVD existen, al VPS del repo qué
+servicios systemd tiene. Los consultados se dibujan vacíos y se llenan desde un hilo aparte
+(`AxesLoader`), así que cada forma del panel tiene que saber **rehacerse**, no solo construirse: un
+eje excluyente que se construía una vez, con los valores que había en ese momento, es un eje que
+nunca aparece — que fue exactamente lo que pasó con el de servicios del VPS.
+
+Vacío, el hueco dice por qué lo está: *"leyendo el catálogo…"* mientras se pregunta, y después *"no
+hay ninguno en este VPS"* — dónde mirar, no solo que no hay.
+
+**Se reconsultan al mostrar la pestaña.** Abrirla es el pedido de ver la lista al día; un botón de
+recargar al lado cobraba el mismo clic dos veces. Respeta la caché, así que lo que caduca rápido se
+vuelve a preguntar y los catálogos grandes del SDK no. Forzar la relectura tiene dos caminos, los
+dos ya existentes: terminar una tarea que tocó la máquina, y el botón **Recargar** de Configuración
+del repo — que además es el correcto, porque a qué VPS se le pregunta lo dice `config.env`.
+
+### La barra de la pestaña
+
+Arriba de la consola hay una franja fina con dos mitades independientes: a la izquierda el endpoint
+que publicó la tarea (LED, URL, Copiar, Abrir ↗, Navegador), que aparece y desaparece con la URL; a
+la derecha **Limpiar**, que vacía el log de esa pestaña y vuelve a escribir su cabecera — vaciarla
+del todo dejaría una pestaña sin nombre, indistinguible de una recién abierta. Estaba solo en el
+menú del botón derecho de la consola, que es donde no se busca.
+
 ---
 
 ## 5. El gesto: la pestaña ES la instancia de la acción

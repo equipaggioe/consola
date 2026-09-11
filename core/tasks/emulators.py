@@ -78,7 +78,8 @@ def create_avd(ctx, device: str = '', image: str = '', name: str = '') -> str:
 
 # --- uso -------------------------------------------------------------------
 
-def launch_emulator(ctx, avd: str = '', wipe: bool = False, flags: str = '') -> str:
+def launch_emulator(ctx, avd: str = '', wipe: bool = False, boot_flags: list[str] | None = None,
+                    gpu: str = 'host', flags: str = '') -> str:
     """Arranca un AVD ya creado y sigue su salida hasta que se cierra.
 
     Tres cosas que el script original no hacia:
@@ -91,10 +92,15 @@ def launch_emulator(ctx, avd: str = '', wipe: bool = False, flags: str = '') -> 
     - Detener la pestana le pide al emulador que se cierre por adb en vez de
       matarle el proceso (PLAN.md 7, caso 3).
 
-    `flags` es una linea de comandos y no una lista: es lo que se escribe en el
-    campo del panel, y ahi `-gpu host` son dos tokens escritos juntos. Se suma a
-    los flags de siempre en vez de reemplazarlos — quien escribe uno pide *ese
-    ademas*, no quedarse sin la animacion de arranque desactivada.
+    Los flags llegan por tres caminos que se suman, nunca se reemplazan:
+    `android.DEFAULT_FLAGS` (los de siempre), `boot_flags` y `gpu` (las casillas
+    del panel, cuyo valor ES el flag), y `flags` (lo que quedo por escribir).
+    Quien marca una casilla pide *ese ademas*, no quedarse sin la animacion de
+    arranque desactivada.
+
+    `flags` es una linea de comandos y no una lista, porque es lo que se
+    escribe en un campo: ahi `-memory 4096` son dos tokens escritos juntos, y
+    se parten como los partiria una shell.
     """
     if not avd:
         raise TaskError('Elige un AVD. Si no hay ninguno, crealo con "Crear AVD".')
@@ -109,6 +115,11 @@ def launch_emulator(ctx, avd: str = '', wipe: bool = False, flags: str = '') -> 
         ctx.info(f'"{avd}" ya esta corriendo: esta copia arranca en solo lectura '
                  '(no guarda cambios en el disco del AVD).')
 
+    # `-gpu` siempre va, porque el eje no ofrece "que decida el emulador": las
+    # dos opciones del panel son las dos que se eligen a mano.
+    elegidos = [*(boot_flags or []), '-gpu',
+                'swiftshader_indirect' if gpu == 'software' else 'host']
+
     puerto = android.free_port(sdk)
     serial = f'emulator-{puerto}'
     ctx.info(f'Arrancando {avd} como {serial}.')
@@ -117,7 +128,7 @@ def launch_emulator(ctx, avd: str = '', wipe: bool = False, flags: str = '') -> 
     ctx.on_cancel(lambda: android.stop_quiet(sdk, serial))
     try:
         android.start(ctx, sdk, avd, port=puerto,
-                      flags=[*android.DEFAULT_FLAGS, *shlex.split(flags)],
+                      flags=[*android.DEFAULT_FLAGS, *elegidos, *shlex.split(flags)],
                       read_only=duplicado, wipe=wipe)
     finally:
         if session.read(session.MACHINE, EMULATOR_SERIAL) == serial:

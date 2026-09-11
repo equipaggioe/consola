@@ -187,6 +187,9 @@ class EnvPanel(QWidget):
     saved = Signal(dict)
     values_changed = Signal(dict)
     file_status_changed = Signal(str)  # estado de config.env: va al rotulo de la seccion
+    reloaded = Signal()        # se releyo el archivo entero (boton Recargar), no una tecla
+                               # suelta. Lo escucha `ui/tab_panel.py` para releer tambien los
+                               # ejes consultados: a que VPS se le pregunta sale de este archivo.
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
@@ -258,7 +261,8 @@ class EnvPanel(QWidget):
 
         self.reload_btn = QPushButton("Recargar")
         self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.reload_btn.setToolTip("Descarta los cambios sin guardar y relee el archivo")
+        self.reload_btn.setToolTip("Descarta los cambios sin guardar, relee el archivo\n"
+                                   "y vuelve a consultar los catálogos de los parámetros")
         self.reload_btn.clicked.connect(self.reload)
 
         self.save_btn = QPushButton("Guardar")
@@ -348,6 +352,7 @@ class EnvPanel(QWidget):
 
         self._sync_file_bar(exists)
         self.values_changed.emit(self.values())
+        self.reloaded.emit()
 
     def _sync_file_bar(self, exists: bool) -> None:
         rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, '/')

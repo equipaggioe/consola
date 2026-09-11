@@ -36,7 +36,7 @@ Por eso `start_emulator` desaparece y quedan **tres actividades separadas**, má
 |---|---|---|---|
 | **Instalar máquina** (`install_system_image`) | A | once · machine | `image` — catálogo completo de system images |
 | **Crear AVD** (`create_avd`) | A | once · machine | `device` — catálogo de dispositivos · `image` — solo las instaladas · `name` — campo opcional |
-| **Emulador** (`launch_emulator`) | A | live · machine | `avd` — los ya creados · `boot` — normal \| borrar datos |
+| **Emulador** (`launch_emulator`) | A | live · machine | `avd` — los ya creados · `wipe` — normal \| borrar datos · `boot_flags` · `gpu` · `flags` |
 | **Liberar disco** (`purge_emulators`) | A | destructive · machine | `avds` · `images` (casillas) · `dry_run` |
 
 Las cuatro son **`scope='machine'`**: un AVD no es de un repositorio, sirve para cualquiera. Igual
@@ -46,6 +46,29 @@ del proyecto abierto.
 
 Ninguna es compuesta. El grupo entero es de nivel 1 sobre la plomería de `core/android.py`, que es
 donde vive el trabajo real — cada atómica son entre 5 y 20 líneas.
+
+### Los flags del emulador
+
+Eran un campo de texto y nada más: para arrancar en frío había que acordarse de que el flag se
+llama `-no-snapshot-load` y escribirlo bien. Pero "arranco en frío o no" es una elección de sí o no,
+que es exactamente una casilla — el campo libre estaba cobrando el precio de escribir una línea de
+comandos por algo que se marca.
+
+Ahora son tres niveles que se **suman**, nunca se reemplazan:
+
+| De dónde | Qué |
+|---|---|
+| `android.DEFAULT_FLAGS` | Los de siempre: `-no-boot-anim`, `-netdelay none`, `-netspeed full`. |
+| `boot_flags` (casillas) | `-no-snapshot-load` (arranque en frío) · `-no-snapshot-save` · `-no-window` (headless). |
+| `gpu` (segmentado) | `host` o `software` (`swiftshader_indirect`). |
+| `flags` (campo) | Lo que quedó: `-memory 4096`, `-http-proxy …`. Se parte en tokens como lo haría una shell. |
+
+El valor de cada casilla **es** el flag (`-no-snapshot-load`, no `cold_boot`): así no hay una tabla
+que traduzca entre lo que se marca y lo que se ejecuta, y agregar uno es agregar un renglón al eje.
+
+`gpu` es un segmentado y no dos casillas porque pedir host y software a la vez no significa nada. No
+tiene opción "automático": las dos que ofrece son las dos que se eligen a mano, así que `-gpu`
+siempre viaja — antes no se pasaba nunca y el emulador resolvía solo.
 
 ### Lo que no es botón
 
@@ -74,8 +97,9 @@ arquitectura de la máquina antes que la emulada (`Image.order`).
 
 **Caché.** Las dos consultas tardan unos 6 segundos cada una y el catálogo cambia cuando se
 actualiza el SDK, no durante una sesión de trabajo: se guardan en
-`%LOCALAPPDATA%\Consola\cache` por un mes (`core/cache.py`). La segunda lectura tarda 9 ms. El
-botón **↻ Catálogo** del pie del panel es el único modo de enterarse de una API nueva sin reiniciar.
+`%LOCALAPPDATA%\Consola\cache` por un mes (`core/cache.py`). La segunda lectura tarda 9 ms. Para
+enterarse de una API nueva sin reiniciar está **Recargar** en Configuración del repo, que además de
+releer `config.env` vuelve a consultar los catálogos salteando la caché.
 
 Lo que **no** se cachea igual: las imágenes instaladas y los AVD creados duran un minuto (cambian
 cuando alguien instala o borra, y el panel los relee solo al terminar cualquier tarea del grupo), y
@@ -83,8 +107,15 @@ los emuladores vivos no se cachean nunca — eso es estado, no catálogo, y una 
 ofrecería apagar algo que ya no existe.
 
 **Nada de esto corre en el hilo de la interfaz.** El panel se dibuja con las listas vacías
-("leyendo el catálogo del SDK…", con Ejecutar deshabilitado) y `MachineAxesLoader` las completa
-desde un hilo aparte.
+("leyendo el catálogo…", con Ejecutar deshabilitado) y `AxesLoader` las completa desde un hilo
+aparte.
+
+**Cuándo se relee.** Al mostrar la pestaña. Mirar la lista es justo lo que se va a hacer al abrirla,
+así que es cuando tiene que estar al día — un botón de recargar al lado pedía el mismo clic dos
+veces. Va respetando la caché: lo que caduca en un minuto (AVD, imágenes instaladas, servicios del
+VPS) se vuelve a preguntar de verdad, y los dos catálogos grandes de arriba siguen saliendo del
+disco. La relectura **forzada** tiene dos disparadores, los dos a propósito: terminar una tarea que
+tocó la máquina, y el botón Recargar de Configuración.
 
 ---
 
@@ -100,8 +131,11 @@ etiqueta, vía `AxisDef.labels`.
 
 Y una fuente nueva de valores, hermana de `discover`: **`source`**. `discover` llena un eje mirando
 el repo abierto (`core/targets.py`, PLAN.md §2.4); `source` lo llena preguntándole al SDK
-(`core/catalog.py::machine_values`). Misma mecánica, otra fuente — el dispositivo no está en el
-repo, está en la máquina.
+(`core/catalog.py::queried_values`). Misma mecánica, otra fuente — el dispositivo no está en el
+repo, está en la máquina. Después llegó una tercera fuente por el mismo camino: el VPS del repo,
+que es a quien se le pregunta qué servicios systemd existen (`source='vps_services'`). Por eso el
+nombre dejó de hablar de "la máquina": lo que tienen en común no es dónde viven los valores, sino
+que hay que ir a preguntarlos.
 
 ---
 
@@ -154,9 +188,9 @@ un repo: el emulador no es de ningún proyecto en particular.
 | `core/cache.py` | **Nuevo.** Caché en disco para catálogos caros, con TTL e invalidación. |
 | `core/android.py` | `Preset`/`PRESETS` → `Device`, `Image`, `AvdSpec` + los dos catálogos, `running()`, `free_port()`, `stop_quiet()`; `start()` toma `port`, `read_only` y `wipe`. |
 | `core/context.py` | `on_cancel()` — apagado limpio antes de matar el proceso. |
-| `core/catalog.py` | `machine_values()`, `for_machine()`, `forget_machine_cache()` + el grupo Emulators. |
+| `core/catalog.py` | `queried_values()`, `for_machine()`, `forget_machine_cache()` + el grupo Emulators. |
 | `core/registry.py` | `AxisDef.source`, `AxisDef.labels`, `expand='pick'`, `Capability.live_state`. |
-| `ui/params_panel.py` | Widget `pick` con búsqueda, `MachineAxesLoader`, cabecera *Corriendo ahora*, botón ↻. |
+| `ui/params_panel.py` | Widget `pick` con búsqueda, `AxesLoader`, cabecera *Corriendo ahora*. |
 | `ui/tab_panel.py` | Cerrar la pestaña detiene su tarea; segunda pestaña para lo que corre en vivo; relectura de catálogos al terminar una tarea de máquina. |
 | `ui/task_runner.py` | `cancel()` corre los ganchos en un hilo: apagar un emulador no congela la ventana. |
 | `core/tasks/launchers.py` | `run_mobile` prefiere el emulador que arrancó esta sesión. |
