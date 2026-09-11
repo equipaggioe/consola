@@ -23,7 +23,9 @@ class BrandMark(QWidget):
         layout.setSpacing(8)
 
         self.diamond = QLabel("◇")
+        self.diamond.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title = QLabel("CONSOLA")
+        self.title.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
         self.title.setStyleSheet(f"""
             background: transparent;
             color: {Colors.TEXT};
@@ -61,7 +63,8 @@ class WindowButton(QPushButton):
         text_hover = Colors.TEXT if danger else Colors.TEXT
         self.setStyleSheet(f"""
             QPushButton {{
-                background: transparent; border: none;
+                background: transparent; border: none; padding: 0;
+                text-align: center;
                 color: {Colors.TEXT_DIM};
                 font-size: {Fonts.SIZE_SM}px;
             }}

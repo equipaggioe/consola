@@ -2,9 +2,10 @@ from __future__ import annotations
 import os
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QFrame, QToolButton, QFileDialog, QPlainTextEdit
+    QScrollArea, QFrame, QFileDialog, QPlainTextEdit
 )
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtGui import QFont, QFontMetrics
 
 from ui.theme import Colors, Fonts
 from core.projects import Project
@@ -25,11 +26,29 @@ LIST_MIN_ROWS = 3
 LIST_MAX_ROWS = 5
 
 
+class _ClickToSelectLabel(QLabel):
+    """Etiqueta que, al hacer click, enfoca su campo y selecciona todo lo
+    escrito — lista para que la primera tecla lo reemplace entero, como en
+    la mayoria de los formularios."""
+
+    def __init__(self, text: str, field, parent=None):
+        super().__init__(text, parent)
+        self._field = field
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._field.setFocus()
+            self._field.selectAll()
+        super().mousePressEvent(event)
+
+
 class EnvRow(QWidget):
-    """Una clave del esquema: etiqueta, campo y, si es secreta, ojo para revelar."""
+    """Una clave del esquema: etiqueta y campo."""
     changed = Signal()
 
-    def __init__(self, setting: Setting, value: str, accent: str, default_display: str = '', parent=None):
+    def __init__(self, setting: Setting, value: str, accent: str, default_display: str = '',
+                 label_width: int = 118, parent=None):
         super().__init__(parent)
         self.setting = setting
         self.accent = accent
@@ -39,13 +58,6 @@ class EnvRow(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
 
-        self.label = QLabel(setting.display)
-        self.label.setFixedWidth(118)
-        self.label.setToolTip(setting.key)
-        self.label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
-        )
-
         # Una lista se escribe en varios renglones: tres rutas de certificados
         # en un QLineEdit no dejan ver donde termina una y empieza la otra.
         # Guarda separado por comas — ver `Setting.kind`.
@@ -53,11 +65,18 @@ class EnvRow(QWidget):
             self.field = QPlainTextEdit(_to_lines(value))
             self.field.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self.field.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-            self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
         else:
             self.field = QLineEdit(value)
-            if setting.secret:
-                self.field.setEchoMode(QLineEdit.EchoMode.Password)
+
+        self.label = _ClickToSelectLabel(setting.display, self.field)
+        self.label.setFixedWidth(label_width)
+        self.label.setToolTip(setting.key)
+        self.label.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
+        )
+        if setting.kind == 'list':
+            self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
+
         # `default_display` es el default ya resuelto para ESTE repo (fijo o
         # dinamico, ej. VPS_USER -> nombre de carpeta): dejar el campo vacio
         # no es un error, corre con lo que se ve de marca de agua aca.
@@ -67,24 +86,15 @@ class EnvRow(QWidget):
         lay.addWidget(self.label)
         lay.addWidget(self.field, 1)
 
-        if setting.secret:
-            self.eye = QToolButton()
-            self.eye.setText("👁")
-            self.eye.setCheckable(True)
-            self.eye.setCursor(Qt.CursorShape.PointingHandCursor)
-            self.eye.setStyleSheet(f"""
-                QToolButton {{
-                    background: transparent; border: none;
-                    color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px; padding: 2px;
-                }}
-                QToolButton:hover {{ color: {Colors.TEXT}; }}
-            """)
-            self.eye.toggled.connect(self._toggle_echo)
-            lay.addWidget(self.eye)
-
         self._restyle()
         if self._is_list:
             self._fit_list_height()
+
+    def set_default_display(self, default_display: str) -> None:
+        """Actualiza la marca de agua con el default recalculado — el de
+        `PUBLIC_HOST` o `DB_NAME` cambia con lo que se escriba en otras
+        claves, asi que no queda fijo desde que se construyo la fila."""
+        self.field.setPlaceholderText(self.setting.placeholder or default_display or self.setting.key)
 
     @property
     def _is_list(self) -> bool:
@@ -105,11 +115,6 @@ class EnvRow(QWidget):
     def set_accent(self, accent: str) -> None:
         self.accent = accent
         self._restyle()
-
-    def _toggle_echo(self, revealed: bool) -> None:
-        self.field.setEchoMode(
-            QLineEdit.EchoMode.Normal if revealed else QLineEdit.EchoMode.Password
-        )
 
     # `textChanged` de QLineEdit manda el texto y el de QPlainTextEdit no manda
     # nada: sin el default, el campo multilinea nunca emitia `changed` y lo
@@ -198,10 +203,6 @@ class EnvPanel(QWidget):
         self.rows: dict[str, EnvRow] = {}
         self._row_group: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
-        # Config vacio (sin valores, solo el repo): sirve para preguntarle
-        # "que usarias vos" y que conteste con el default fijo o dinamico
-        # (VPS_USER, DB_NAME) sin mezclarlo con lo que haya escrito el usuario.
-        self._defaults = envfile.Config(repo_name=envfile.repo_name_of(project.path))
         self.file_status = ''
 
         self.setStyleSheet(f"EnvPanel {{ background: {Colors.SURFACE}; }}")
@@ -292,6 +293,20 @@ class EnvPanel(QWidget):
         self.reload_btn.setStyleSheet(button_css)
         self.save_btn.setStyleSheet(button_css)
 
+    def _label_width(self) -> int:
+        """Ancho que necesita la etiqueta mas larga del esquema, con margen.
+
+        Con el tamano en pixeles del stylesheet de la etiqueta
+        (`Fonts.SIZE_XS`) y no con `self.font()`: ese es el que trae la
+        fuente por defecto de la ventana, no el que se ve de verdad.
+        """
+        font = QFont()
+        font.setPixelSize(Fonts.SIZE_XS)
+        metrics = QFontMetrics(font)
+        mas_larga = max((s.display for group in settings_by_group().values() for s in group),
+                        key=len, default='')
+        return metrics.horizontalAdvance(mas_larga) + 12
+
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
@@ -304,6 +319,11 @@ class EnvPanel(QWidget):
         lay.setContentsMargins(16, 12, 16, 12)
         lay.setSpacing(14)
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
+
+        # Ancho de la columna de etiquetas: el que pida la mas larga de TODO el
+        # esquema, no un numero fijo — una etiqueta como "Password del
+        # superusuario" no entraba en los 118px de antes y se cortaba.
+        label_width = self._label_width()
 
         for group, settings in settings_by_group().items():
             block_widget = QWidget()
@@ -318,7 +338,7 @@ class EnvPanel(QWidget):
             )
             block.addWidget(header)
             for setting in settings:
-                row = EnvRow(setting, '', self.accent, default_display=self._defaults.get(setting.key))
+                row = EnvRow(setting, '', self.accent, label_width=label_width)
                 row.changed.connect(self._on_row_changed)
                 self.rows[setting.key] = row
                 self._row_group[setting.key] = block_widget
@@ -351,8 +371,30 @@ class EnvPanel(QWidget):
             self.banner.setVisible(False)
 
         self._sync_file_bar(exists)
+        self._refresh_defaults()
         self.values_changed.emit(self.values())
         self.reloaded.emit()
+
+    def _refresh_defaults(self) -> None:
+        """Recalcula la marca de agua de cada campo con el default que le
+        tocaria si quedara vacio.
+
+        No alcanza con resolverlo una vez al abrir: `PUBLIC_HOST` sale de
+        `CF_RECORD_NAME`/`CF_DOMAIN_NAME`/`VPS_IP` y `DB_NAME` de `VPS_USER`,
+        asi que su default cambia con lo que se escriba en esas otras claves.
+        Por eso antes se veia vacio (`PUBLIC_HOST` se resolvia contra un
+        `Config` en blanco) en vez de mostrar, como el resto, lo que de verdad
+        se va a usar.
+
+        Se calcula sin el valor propio de la clave: `Config.get` devuelve lo
+        ya escrito antes que el default, y lo que se quiere aca es "que
+        pasaria si esto quedara vacio", no lo que ya tiene.
+        """
+        actuales = self.values()
+        for key, row in self.rows.items():
+            sin_esta = {k: v for k, v in actuales.items() if k != key}
+            cfg = envfile.Config(sin_esta, repo_name=envfile.repo_name_of(self.project.path))
+            row.set_default_display(cfg.get(key))
 
     def _sync_file_bar(self, exists: bool) -> None:
         rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, '/')
@@ -449,4 +491,5 @@ class EnvPanel(QWidget):
 
     # --- interno ------------------------------------------------------------
     def _on_row_changed(self) -> None:
+        self._refresh_defaults()
         self.values_changed.emit(self.values())

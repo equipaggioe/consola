@@ -29,7 +29,7 @@ class ProjectTab(ReorderableTab, QWidget):
     clicked = Signal()
     close_requested = Signal()
 
-    HEIGHT = 44
+    HEIGHT = 32
     BORDER_WIDTH = 2.0
 
     def __init__(self, project: Project, parent=None):
@@ -50,6 +50,7 @@ class ProjectTab(ReorderableTab, QWidget):
         layout.setSpacing(8)
 
         self.name_label = QLabel(project.name)
+        self.name_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         self.close_btn = QPushButton("×")
         self.close_btn.setFixedSize(20, 20)
@@ -58,7 +59,8 @@ class ProjectTab(ReorderableTab, QWidget):
             QPushButton {{
                 color: {Colors.TEXT_MUTED};
                 background: transparent;
-                border: none;
+                border: none; padding: 0;
+                text-align: center;
                 border-radius: 4px;
                 font-size: {Fonts.SIZE_LG}px;
             }}
