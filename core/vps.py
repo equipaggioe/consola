@@ -91,6 +91,27 @@ def remote_python(config: Config) -> str:
     return remote_path(config, config.require('VPS_PYTHON'))
 
 
+def backend_listen(config: Config) -> tuple[str, int]:
+    """Donde escucha el backend DENTRO del VPS.
+
+    Una sola fuente para los dos lados del mismo hecho: `write_systemd_unit` lo
+    pone a escuchar ahi y `configure_caddy` manda el trafico ahi. Estaba clavado
+    en la firma de la primera (`host='0.0.0.0', port=443`) sin eje que lo
+    ofreciera, asi que no habia forma de moverlo ni de que el otro lado lo
+    supiera.
+    """
+    return config.get('BACKEND_HOST', '127.0.0.1'), config.port('BACKEND_PORT', 8000)
+
+
+def backend_address(config: Config) -> str:
+    host, port = backend_listen(config)
+    return f'{host}:{port}'
+
+
+def is_loopback(host: str) -> bool:
+    return host in ('127.0.0.1', 'localhost', '::1')
+
+
 # --- cuentas y paquetes ----------------------------------------------------
 
 def user_exists(remote: Remote, user: str) -> bool:
@@ -128,6 +149,7 @@ def unit_path(service: str) -> str:
 # (`configure_coturn`, `configure_caddy`). Reiniciarlos o leerles el journal no
 # pide botones nuevos: pide que los que ya existen sepan a cual apuntar.
 MANAGED_SERVICES = ('proyecto', 'coturn', 'caddy')
+SERVICE_LABELS = {'proyecto': 'Del repo', 'coturn': 'Coturn', 'caddy': 'Caddy'}
 
 
 def resolve_service(config: Config, which: str = 'proyecto') -> str:
@@ -137,6 +159,27 @@ def resolve_service(config: Config, which: str = 'proyecto') -> str:
     if which not in MANAGED_SERVICES:
         raise TaskError(f'Servicio desconocido: {which}')
     return which
+
+
+def installed_services(remote: Remote, config: Config) -> list[str]:
+    """Cuales de los tres servicios existen en ESTE VPS, en una sola consulta.
+
+    El eje de `systemd_action` ofrecia los tres siempre, y en un VPS sin coturn
+    elegirlo terminaba en un error que se podia haber evitado antes de apretar.
+    Preguntar es una vuelta de SSH, asi que se pregunta por los tres juntos y el
+    resultado se cachea (`core/catalog.py`), no una consulta por servicio.
+
+    Devuelve la lista entera si no se puede preguntar: un VPS todavia sin llave
+    o apagado no deberia dejar el boton sin valores que ofrecer.
+    """
+    nombres = {resolve_service(config, s): s for s in MANAGED_SERVICES}
+    if not reachable(remote):
+        return list(MANAGED_SERVICES)
+    lista = ' '.join(quote(n) for n in nombres)
+    salida = capture(
+        remote, f'for s in {lista}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done',
+        check=False)
+    return [nombres[linea] for linea in salida.split() if linea in nombres]
 
 
 def service_exists(remote: Remote, service: str) -> bool:

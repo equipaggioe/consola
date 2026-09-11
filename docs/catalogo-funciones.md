@@ -219,7 +219,7 @@ de que se confirme con uso que alguien las pide sueltas (PLAN.md §11.3):
 |---|---|
 | `rotate_backups` | "Limpiar respaldos viejos sin volver a volcar la base" — el docstring ya lo dice explícito. |
 | `sync_repository` | Traer los últimos commits al VPS sin tocar venv, deps ni certificados. |
-| `write_systemd_unit` | Regenerar la unidad después de cambiar host/puerto, sin reinstalar el servicio. |
+| `write_systemd_unit` | Regenerar la unidad después de cambiar `BACKEND_HOST`/`BACKEND_PORT`, sin reinstalar el servicio. |
 | `test_github_ssh` | Verificar una conexión ya configurada, sin rehacer el setup. (`test_ssh_login` era su hermana y dejó de existir: ver [atomicas.md §4.6](atomicas.md).) |
 
 ### 4.2 — Compuestas que no existen todavía

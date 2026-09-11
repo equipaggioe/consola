@@ -69,6 +69,7 @@ _DYNAMIC_DEFAULT_HINTS = {
     'VPS_USER': 'nombre del repo',
     'DB_NAME': '<VPS_USER>_db',
     'GITHUB_KEY_TITLE': '<nombre del repo>-vps',
+    'PUBLIC_HOST': '<CF_RECORD_NAME>, si no <CF_DOMAIN_NAME>, si no <VPS_IP>',
 }
 
 
@@ -263,6 +264,14 @@ class Config:
             return f'{user}_db' if user else ''
         if key == 'GITHUB_KEY_TITLE':
             return f'{self.repo_name}-vps' if self.repo_name else ''
+        if key == 'PUBLIC_HOST':
+            # El nombre con el que se llega al VPS ya esta escrito en otra
+            # clave casi siempre: el registro DNS de Cloudflare es el FQDN que
+            # apunta a la maquina, el dominio sirve cuando el registro es la
+            # raiz, y sin Cloudflare queda la IP. Derivarlo evita escribir el
+            # mismo nombre dos veces, y el panel lo muestra ya resuelto en vez
+            # de explicar de donde saldria.
+            return self.get('CF_RECORD_NAME') or self.get('CF_DOMAIN_NAME') or self.get('VPS_IP')
         return ''
 
     def require(self, key: str) -> str:

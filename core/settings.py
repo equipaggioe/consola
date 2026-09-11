@@ -51,13 +51,17 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('API_URL', 'Server', 'URL publica de la API',
             placeholder='https://ejemplo.net:443',
             used_by=('backend', 'run_mobile', 'build_apk')),
+    # Bajo que ruta publica Caddy el backend. Es el prefijo de la URL de arriba
+    # visto del lado del servidor, y llega al backend sin recortar: las rutas
+    # del server tienen que empezar con el.
+    Setting('API_PATH', 'Server', 'Ruta publica de la API', default='/api',
+            used_by=('configure_caddy',)),
 
     # --- Cloudflare ---
     Setting('CF_API_TOKEN', 'Cloudflare', 'API token', secret=True,
             required_by=('update_cloudflare',)),
     Setting('CF_DOMAIN_NAME', 'Cloudflare', 'Dominio',
-            required_by=('update_cloudflare',),
-            used_by=('configure_coturn', 'configure_caddy')),
+            required_by=('update_cloudflare',)),
     Setting('CF_RECORD_NAME', 'Cloudflare', 'Registro DNS',
             required_by=('update_cloudflare',)),
 
@@ -71,6 +75,13 @@ SETTINGS: tuple[Setting, ...] = (
             required_by=('update_remote', 'install_systemd')),
     Setting('VPS_DEPLOY_DIR', 'VPS', 'Directorio de despliegue',
             required_by=('update_remote', 'upload_to_vps')),
+    # El nombre con el que se llega al VPS desde afuera: el realm de coturn y la
+    # direccion del sitio de Caddy son el mismo dato, no dos. Su default sale de
+    # lo que ya esta cargado —el registro DNS de Cloudflare, si no el dominio, si
+    # no la IP— y el panel lo muestra resuelto, igual que el usuario de
+    # despliegue muestra el nombre del repo.
+    Setting('PUBLIC_HOST', 'VPS', 'Nombre publico del VPS',
+            used_by=('configure_coturn', 'configure_caddy')),
     # Los archivos que nunca viajan por git. Era un eje repetido en los cuatro
     # botones del deploy, con su propio valor guardado en cada uno: cambiar la
     # lista obligaba a escribirla cuatro veces y nada avisaba cuando dos
@@ -96,6 +107,15 @@ SETTINGS: tuple[Setting, ...] = (
     # "todavia no se genero", no "falta un dato".
     Setting('TURN_SECRET', 'VPS', 'Secreto TURN', secret=True,
             placeholder='se genera solo al configurar coturn',
+            used_by=('configure_coturn',)),
+    # Los puertos del TURN son datos y no parametros por la misma razon que el
+    # secreto: el backend tiene que anunciar en sus `turn:` URLs exactamente los
+    # que quedaron en /etc/turnserver.conf. El rango de relay va en una sola
+    # clave porque es un solo dato —coturn pide un puerto por sesion de medios
+    # viva— y partirlo en dos claves permitiria guardarlas cruzadas.
+    Setting('TURN_PORT', 'VPS', 'Puerto TURN', default='3478',
+            used_by=('configure_coturn',)),
+    Setting('TURN_RELAY_RANGE', 'VPS', 'Rango de relay', default='49160-49360',
             used_by=('configure_coturn',)),
     Setting('PG_SUPERUSER', 'VPS', 'Superusuario Postgres', default='postgres',
             required_by=('bootstrap_db', 'teardown_db', 'rebuild_db')),
@@ -128,6 +148,18 @@ SETTINGS: tuple[Setting, ...] = (
     # --- Systemd ---
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
             required_by=('install_systemd',)),
+    # Donde escucha el backend DENTRO del VPS. Lo escribe `write_systemd_unit` y
+    # lo lee `configure_caddy` para saber a donde mandar el trafico: es un dato
+    # de a dos, como `SECRET_FILES`, y tenerlo en cada boton por separado seria
+    # dejar que un lado quede apuntando a donde el otro ya no escucha.
+    #
+    # El default es loopback y no 0.0.0.0:443 —lo que estaba clavado en la
+    # funcion— porque Caddy viene en `DEFAULT_GROUPS`: el backend de este
+    # catalogo corre detras de Caddy, y ahi el 443 lo toma Caddy.
+    Setting('BACKEND_HOST', 'Systemd', 'Escucha del backend', default='127.0.0.1',
+            used_by=('install_systemd', 'configure_caddy')),
+    Setting('BACKEND_PORT', 'Systemd', 'Puerto del backend', default='8000',
+            used_by=('install_systemd', 'configure_caddy')),
     Setting('CERT_FILE_PATH', 'Systemd', 'Certificado', default='server/certs/cert.pem',
             required_by=('install_systemd', 'backend')),
     Setting('KEY_FILE_PATH', 'Systemd', 'Llave privada', default='server/certs/key.pem',

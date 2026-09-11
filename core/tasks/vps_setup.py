@@ -221,21 +221,42 @@ def _turn_secret(ctx) -> str:
     return secreto
 
 
-def configure_coturn(ctx, realm: str = '', port: int = TURN_PORT,
-                     relay_min: int = RELAY_RANGE[0], relay_max: int = RELAY_RANGE[1],
-                     tls: bool = False) -> str:
+def _relay_range(config) -> tuple[int, int]:
+    """El rango de relay de `TURN_RELAY_RANGE`, en una clave y no en dos.
+
+    Se valida aca y no en el eje porque ya no es un eje: el panel de
+    configuracion guarda texto, y `49360-49160` tiene que fallar diciendo que
+    esta invertido y no dejar a coturn sin arrancar.
+    """
+    crudo = config.get('TURN_RELAY_RANGE', f'{RELAY_RANGE[0]}-{RELAY_RANGE[1]}')
+    partes = crudo.replace(':', '-').split('-')
+    if len(partes) != 2 or not all(p.strip().isdigit() for p in partes):
+        raise TaskError(f'TURN_RELAY_RANGE no es un rango: {crudo} (se espera 49160-49360).')
+    desde, hasta = int(partes[0]), int(partes[1])
+    if desde >= hasta:
+        raise TaskError(f'El rango de relay esta invertido: {crudo}.')
+    return desde, hasta
+
+
+def configure_coturn(ctx, tls: bool = False) -> str:
     """Configura el servidor TURN para llamadas detras de NAT simetrico.
 
-    Reiniciar el servicio o mirar su estado no son parametros de este boton: son
-    `systemd_action` y `view_logs` con el eje `service` puesto en coturn, que
-    son los mismos botones que ya existian para el servicio del proyecto.
+    El realm y los puertos salen de `config.env` y no del panel de parametros:
+    el backend tiene que anunciar en sus `turn:` URLs exactamente lo que quedo
+    en /etc/turnserver.conf, asi que son datos del despliegue y no una eleccion
+    de la corrida.
+
+    Reiniciar el servicio o mirar su estado tampoco son parametros de este
+    boton: son `systemd_action` y `view_logs` con el eje `service` puesto en
+    coturn, que son los mismos botones que ya existian para el servicio del
+    proyecto.
     """
     remote = ssh.resolve_remote(ctx.config)
     _require_package(remote, 'coturn', 'Coturn')
 
-    dominio = realm or ctx.config.get('CF_DOMAIN_NAME') or remote.host
-    if relay_min >= relay_max:
-        raise TaskError(f'El rango de relay esta invertido: {relay_min}-{relay_max}.')
+    dominio = ctx.config.get('PUBLIC_HOST') or remote.host
+    port = ctx.config.port('TURN_PORT', TURN_PORT)
+    relay_min, relay_max = _relay_range(ctx.config)
     secreto = _turn_secret(ctx)
     ctx.guard(secreto)
 
@@ -348,17 +369,15 @@ def _caddyfile(*, domain: str, apps: list[tuple[str, str]], upstream: str, api: 
     return f'{domain} {{\n' + '\n\n'.join(cuerpo) + '\n}\n'
 
 
-def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta',
-                    domain: str = '', upstream: str = '127.0.0.1:8000',
-                    api_path: str = '/api') -> str:
+def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta') -> str:
     """Escribe el Caddyfile del VPS y deja Caddy sirviendo.
 
     Caddy queda adelante de todo: toma el 80 y el 443, saca y renueva el
-    certificado solo y reparte entre las SPA compiladas y el backend. Eso pide
-    que el backend NO ocupe el 443 — la unidad que escribe `install_systemd` lo
-    hace por defecto, asi que hay que reescribirla apuntando a `upstream`. Este
-    boton lo dice y no lo toca: reescribir el servicio de otro boton a espaldas
-    de quien aprieta este seria peor que el choque de puertos.
+    certificado solo y reparte entre las SPA compiladas y el backend. A donde
+    manda ese trafico no es un parametro de este boton: es
+    `BACKEND_HOST`/`BACKEND_PORT`, el mismo dato con el que `write_systemd_unit`
+    levanta el backend — dos copias de esa direccion es la forma segura de que
+    un dia Caddy apunte a donde el backend ya no escucha.
 
     La lista vacia de apps significa "las SPA que tenga el repo"; ninguna SPA es
     tambien valido: es el VPS que solo publica la API.
@@ -366,14 +385,16 @@ def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta'
     remote = ssh.resolve_remote(ctx.config)
     _require_package(remote, 'caddy', 'Caddy')
 
-    dominio = domain or ctx.config.get('CF_DOMAIN_NAME')
+    dominio = ctx.config.get('PUBLIC_HOST')
     if not dominio:
-        raise TaskError('Falta el dominio: escribilo en el boton o carga CF_DOMAIN_NAME.')
+        raise TaskError('Falta PUBLIC_HOST: cargalo en Configuración, o el dominio '
+                        'de Cloudflare del que se deriva.')
     if routing not in ('subruta', 'subdominio'):
         raise TaskError(f'Ruteo desconocido: {routing}')
 
     elegidas = list(apps or targets.names(ctx.root, targets.SPA_VITE))
-    api = api_path.strip('/')
+    api = ctx.config.get('API_PATH', '/api').strip('/')
+    upstream = vps.backend_address(ctx.config)
     servidas = [(nombre, _spa_root(ctx, nombre)) for nombre in elegidas]
 
     conf = _caddyfile(domain=dominio, apps=servidas, upstream=upstream, api=api, routing=routing)
@@ -409,8 +430,18 @@ def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta'
     if routing == 'subruta' and len(servidas) > 1:
         ctx.warn('Cada SPA se sirve bajo su nombre: su vite.config necesita '
                  "base: '/<nombre>/' o los assets van a dar a la raiz.")
-    ctx.warn(f'El backend tiene que escuchar en {upstream} sin TLS propio: si la unidad '
-             'systemd sigue en 0.0.0.0:443, Caddy no puede tomar el 443.')
+    # La unidad systemd se escribe una vez y no se relee sola: un VPS armado
+    # antes de que existiera `BACKEND_HOST` sigue con el backend en 0.0.0.0:443,
+    # y ahi Caddy no puede tomar el 443. Se mira la unidad y se avisa solo si de
+    # verdad discrepa, en vez de reescribir el servicio de otro boton o repetir
+    # un aviso generico cuando ya esta bien.
+    servicio = vps.service_name(ctx.config)
+    host, port = vps.backend_listen(ctx.config)
+    if vps.unit_installed(remote, servicio):
+        unidad = ssh.capture(remote, f'cat {ssh.quote(vps.unit_path(servicio))}', check=False)
+        if unidad and f'--host {host} --port {port}' not in unidad:
+            ctx.warn(f'La unidad de {servicio} no escucha en {upstream}, que es a donde '
+                     'manda Caddy: reescribila con Instalar servicio.')
     return CADDYFILE
 
 

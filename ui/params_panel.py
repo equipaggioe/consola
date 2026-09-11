@@ -11,7 +11,7 @@ from PySide6.QtGui import QIntValidator
 
 from ui.theme import Colors, Fonts
 from core import envfile
-from core.catalog import for_project, machine_values
+from core.catalog import for_project, queried_values
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
 from core.settings import relevant_keys_for, required_keys_for
@@ -27,29 +27,36 @@ class SectionLabel(QLabel):
         )
 
 
-class MachineAxesLoader(QThread):
-    """Lee en segundo plano los catalogos de la maquina que pide una capacidad.
+class AxesLoader(QThread):
+    """Lee en segundo plano los catalogos que pide una capacidad.
 
     Preguntarle al SDK que dispositivos y que system images existen tarda de
     segundos a un minuto la primera vez (despues queda cacheado en
     `core/cache.py`). Hacerlo en el hilo de la interfaz congelaria la ventana
     cada vez que se abre la pestana del emulador, asi que el panel se dibuja
     con las listas vacias y se completa solo cuando esto termina.
+
+    Lo mismo vale, y mas todavia, para el VPS del repo: preguntarle que
+    servicios tiene es una vuelta de SSH contra una maquina que puede estar
+    apagada. Por eso el loader recibe la config del proyecto — es lo que dice a
+    que VPS preguntarle — y no solo la capacidad.
     """
     ready = Signal(dict)
 
-    def __init__(self, capability: Capability, refresh: bool = False, parent=None):
+    def __init__(self, capability: Capability, config, refresh: bool = False, parent=None):
         super().__init__(parent)
         self._capability = capability
+        self._config = config
         self._refresh = refresh
 
     def run(self) -> None:
         resuelto = {}
         for axis in self._capability.axes:
-            if axis.is_from_machine:
-                resuelto[axis.name] = machine_values(axis.source, refresh=self._refresh)
+            if axis.is_queried:
+                resuelto[axis.name] = queried_values(axis.source, refresh=self._refresh,
+                                                     config=self._config)
         if self._capability.live_state:
-            resuelto[_LIVE] = machine_values(self._capability.live_state)
+            resuelto[_LIVE] = queried_values(self._capability.live_state, config=self._config)
         self.ready.emit(resuelto)
 
 
@@ -87,8 +94,8 @@ class ParamsPanel(QWidget):
         self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}  # axis -> valor escrito
         self._picks: dict[str, QComboBox] = {}   # axis -> lista larga con busqueda
         self._multi_layouts: dict[str, QVBoxLayout] = {}  # axis -> donde van sus casillas
-        self._loader: MachineAxesLoader | None = None
-        self._loading = any(a.is_from_machine for a in self.capability.axes)
+        self._loader: AxesLoader | None = None
+        self._loading = any(a.is_queried for a in self.capability.axes)
         self._option_groups: list[QButtonGroup] = []
         self._step_checks: dict[str, QCheckBox] = {}
         self._restoring = True   # mientras se arma, ningun cambio se guarda
@@ -117,19 +124,20 @@ class ParamsPanel(QWidget):
         if self._loading or self.capability.live_state:
             self._load_machine()
 
-    # --- catalogos de la maquina --------------------------------------
+    # --- catalogos consultados ----------------------------------------
     def _load_machine(self, refresh: bool = False) -> None:
-        """Pide los catalogos del SDK sin bloquear la ventana."""
+        """Pide los catalogos del SDK y del VPS sin bloquear la ventana."""
         if self._loader is not None and self._loader.isRunning():
             return
-        self._loading = any(a.is_from_machine for a in self.capability.axes)
+        self._loading = any(a.is_queried for a in self.capability.axes)
         self._refresh_summary()
-        self._loader = MachineAxesLoader(self.capability, refresh, self)
+        self._loader = AxesLoader(self.capability, envfile.Config.for_project(self.project.path),
+                                  refresh, self)
         self._loader.ready.connect(self._on_machine_ready)
         self._loader.start()
 
     def _on_machine_ready(self, resuelto: dict) -> None:
-        """Llena las listas que dependian del SDK y repone lo que estaba elegido."""
+        """Llena las listas que dependian de la consulta y repone lo elegido."""
         guardado = params_store.load(self.project.path, self.capability.id)
         self._restoring = True
         try:
@@ -196,7 +204,7 @@ class ParamsPanel(QWidget):
         # ↻ Catálogo va junto a los ejes que llena (los del SDK), no en el pie:
         # ahi solo va Ejecutar. Recargar/Guardar del .env se fueron a su propia
         # seccion (`ui/env_panel.py`).
-        if any(a.is_from_machine for a in self.capability.axes) or self.capability.live_state:
+        if any(a.is_queried for a in self.capability.axes) or self.capability.live_state:
             lay.addWidget(self._build_catalog_bar())
 
         self._content = content
@@ -275,7 +283,7 @@ class ParamsPanel(QWidget):
             combo.addItem(axis.text_of(value), value)
         if not axis.values:
             combo.lineEdit().setPlaceholderText(
-                'leyendo el catálogo del SDK…' if self._loading else 'no hay ninguno en esta máquina')
+                'leyendo el catálogo…' if self._loading else f'no hay ninguno {axis.query_place}')
         indice = combo.findData(anterior)
         combo.setCurrentIndex(indice if indice >= 0 else 0)
         combo.blockSignals(False)
@@ -767,12 +775,12 @@ class ParamsPanel(QWidget):
         # repo no tiene eso. Se dice asi, y no se pide ademas que elija de una
         # lista vacia.
         if self._loading:
-            return ["leyendo el catálogo del SDK…"]
+            return ["leyendo el catálogo…"]
         vacios = {a.name for a in self.capability.axes if a.is_discovered and not a.values}
         for axis in self.capability.axes:
             if axis.name not in vacios:
                 continue
-            donde = 'en esta máquina' if axis.is_from_machine else 'en este repo'
+            donde = axis.query_place if axis.is_queried else 'en este repo'
             # Un eje opcional que ademas admite estar vacio (las dos listas de
             # "Liberar disco") no bloquea: que no haya AVD creados no impide
             # borrar una imagen.

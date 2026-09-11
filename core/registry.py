@@ -32,12 +32,13 @@ class AxisDef:
                                 # el emulador de 'App movil' no se elige salvo que haya dos vivos,
                                 # y exigirlo dejaria el boton en ambar cuando no hay ninguno.
     discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
-    source: str = ''            # catalogo de la MAQUINA que llena este eje
-                                # (`core/catalog.py::machine_values`): el
+    source: str = ''            # catalogo CONSULTADO que llena este eje
+                                # (`core/catalog.py::queried_values`): el
                                 # dispositivo o la maquina virtual no salen de
                                 # mirar el repo abierto, salen de preguntarle al
-                                # SDK. Se resuelve igual que `discover`, pero
-                                # contra la maquina y no contra la carpeta.
+                                # SDK; los servicios systemd, de preguntarle al
+                                # VPS del repo. Se resuelve igual que `discover`,
+                                # pero contra esa fuente y no contra la carpeta.
     labels: dict = field(default_factory=dict)  # valor -> como se lee. Para las
                                 # listas largas de `expand='pick'`, donde el
                                 # valor real es un id feo
@@ -92,9 +93,16 @@ class AxisDef:
         return self.checked_by_default
 
     @property
-    def is_from_machine(self) -> bool:
-        """Sus valores salen de preguntarle al SDK, no del catalogo ni del repo."""
+    def is_queried(self) -> bool:
+        """Sus valores salen de preguntar —al SDK o al VPS—, no del catalogo ni del repo."""
         return bool(self.source)
+
+    @property
+    def query_place(self) -> str:
+        """Donde vive lo que este eje lista. Es la frase con la que el panel
+        explica un eje vacio: "no hay servicio en este VPS" dice que mirar, y
+        "en esta maquina" mandaria a buscar al lado equivocado."""
+        return 'en este VPS' if self.source.startswith('vps') else 'en esta máquina'
 
     @property
     def is_discovered(self) -> bool:
@@ -165,7 +173,7 @@ class Capability:
                            # significa nada en `core/` (docs/launchers.md 2.5).
     live_state: str = ''   # inventario que el panel muestra como cabecera de
                            # estado, con su boton de apagar por fila
-                           # (`core/catalog.py::machine_values`). Es lo que
+                           # (`core/catalog.py::queried_values`). Es lo que
                            # reemplaza al boton "Apagar emulador": lo que corre
                            # se ve donde se elige, y se apaga desde ahi.
     stub: bool = True

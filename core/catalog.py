@@ -3,7 +3,8 @@ import os
 from dataclasses import replace
 from pathlib import Path
 
-from . import android, cache, targets, vps
+from . import android, cache, ssh, targets, vps
+from .envfile import Config
 from .errors import TaskError
 from .registry import registry, Capability, AxisDef, Step
 
@@ -40,16 +41,21 @@ _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
 # reinician, se paran y se leen igual. Es un eje y no tres botones nuevos por lo
 # mismo que `action` es un eje y no nueve botones: lo unico que cambia entre
 # ellos es un nombre.
-_SERVICE_AXIS = lambda: AxisDef('service', list(vps.MANAGED_SERVICES), 'scope',
-                                label='Servicio', default='proyecto',
-                                labels={'proyecto': 'Del repo', 'coturn': 'Coturn',
-                                        'caddy': 'Caddy'})
+#
+# Los valores no se enumeran: salen de preguntarle al VPS de ESTE repo cuales de
+# los tres existen (`VPS_SERVICES`). Ofrecer los tres siempre era ofrecer
+# reiniciar un coturn que no esta instalado, y enterarse recien al apretar.
+_SERVICE_AXIS = lambda: AxisDef('service', [], 'scope', label='Servicio',
+                                default='proyecto', source=VPS_SERVICES)
 
-# `host` es un parametro de dos funciones que no se parecen en nada mas —el
-# uvicorn que se levanta aca y la unidad systemd que se escribe en el VPS— y en
-# las dos la eleccion es la misma: escuchar en todas las interfaces o solo en
-# loopback. Los valores son los que entiende uvicorn; lo que se lee va en
-# `labels`, porque `0.0.0.0` no es una frase.
+# `host` es del uvicorn que se levanta en ESTA maquina: escuchar en todas las
+# interfaces (para probar desde el telefono) o solo en loopback. Los valores son
+# los que entiende uvicorn; lo que se lee va en `labels`, porque `0.0.0.0` no es
+# una frase.
+#
+# El mismo dato del lado del VPS ya no es un eje: donde escucha el backend alla
+# es `BACKEND_HOST`/`BACKEND_PORT`, porque ahi no lo elige quien aprieta el
+# boton — lo tiene que saber tambien Caddy (`core/vps.py::backend_listen`).
 _HOST_AXIS = lambda: AxisDef('host', ['0.0.0.0', '127.0.0.1'], 'scope',
                              label='Escucha en',
                              labels={'0.0.0.0': 'toda la red',
@@ -79,18 +85,25 @@ def for_project(cap: Capability, root: Path | str | None) -> Capability:
     return replace(cap, axes=resueltos)
 
 
-# --- catalogos de la maquina ----------------------------------------------
+# --- catalogos que se consultan -------------------------------------------
 # Un eje `discover` se llena mirando el repo abierto (`core/targets.py`). Estos
-# se llenan preguntandole al SDK: que dispositivos existen, que maquinas
-# virtuales hay publicadas, cuales estan instaladas, que AVD hay creados. Son la
-# misma idea de PLAN.md 2.4 aplicada a la maquina en vez de a la carpeta — y por
-# eso viven aca, al lado de `for_project`, y no en el catalogo de botones.
+# se llenan preguntandole a algo: al SDK, que dispositivos y que maquinas
+# virtuales hay; al VPS del repo, cuales de los servicios que Consola administra
+# existen ahi. Son la misma idea de PLAN.md 2.4 contra una fuente que no es la
+# carpeta — y por eso viven aca, al lado de `for_project`, y no en el catalogo
+# de botones.
+#
+# La diferencia entre las dos familias es a quien se le pregunta, y con ella
+# cuanto tarda: el SDK es local, el VPS es una vuelta de SSH. Por eso las dos se
+# resuelven fuera del hilo de la interfaz (`ui/params_panel.py::AxesLoader`) y
+# las dos se cachean.
 
 ANDROID_DEVICES = 'android_devices'            # catalogo de dispositivos
 ANDROID_IMAGES = 'android_images'              # catalogo de maquinas publicadas
 ANDROID_IMAGES_INSTALLED = 'android_installed'  # maquinas ya instaladas
 ANDROID_AVDS = 'android_avds'                  # AVD ya creados
 ANDROID_RUNNING = 'android_running'            # emuladores vivos ahora mismo
+VPS_SERVICES = 'vps_services'                  # servicios systemd que existen en el VPS
 
 # Lo instalado y lo creado cambian mientras Consola esta abierta, asi que se
 # cachean por un minuto y nada mas: alcanza para no repetir la consulta al abrir
@@ -99,13 +112,16 @@ ANDROID_RUNNING = 'android_running'            # emuladores vivos ahora mismo
 _FRESCO = 60.0
 
 
-def machine_values(source: str, *, refresh: bool = False) -> tuple[list[str], dict[str, str]]:
-    """Los valores de un eje de maquina, con sus etiquetas legibles.
+def queried_values(source: str, *, refresh: bool = False,
+                   config: Config | None = None) -> tuple[list[str], dict[str, str]]:
+    """Los valores de un eje consultado, con sus etiquetas legibles.
 
     Devuelve `([], {})` cuando el SDK no esta instalado en vez de fallar: un eje
     vacio ya se explica solo en el panel ("no hay ... en esta maquina"), y una
     excepcion aca dejaria sin dibujar toda la pestana.
     """
+    if source == VPS_SERVICES:
+        return _vps_services(config, refresh=refresh)
     try:
         sdk = android.resolve_sdk()
         if source == ANDROID_DEVICES:
@@ -133,29 +149,34 @@ def machine_values(source: str, *, refresh: bool = False) -> tuple[list[str], di
     return [], {}
 
 
+def _vps_services(config: Config | None, *, refresh: bool = False) -> tuple[list[str], dict[str, str]]:
+    """Los servicios que existen en el VPS de ESTE repo.
+
+    Sin configuracion no hay a quien preguntarle, y devolver los tres seria
+    ofrecer coturn en un repo que todavia no tiene ni IP: el eje queda vacio y
+    el panel lo dice, igual que cuando no hay AVD creados.
+
+    La cache es por host y no global: dos repos abiertos son casi siempre dos
+    VPS, y compartir la respuesta le mostraria a uno los servicios del otro.
+    """
+    if config is None or not config.get('VPS_IP'):
+        return [], {}
+    try:
+        remote = ssh.resolve_remote(config)
+        clave = ''.join(c if c.isalnum() else '-' for c in remote.target)
+        valores = cache.cached(f'vps-services-{clave}',
+                               lambda: vps.installed_services(remote, config),
+                               max_age=_FRESCO, refresh=refresh)
+    except TaskError:
+        return [], {}
+    return list(valores), dict(vps.SERVICE_LABELS)
+
+
 def forget_machine_cache() -> None:
     """Olvida lo que cambia al instalar, crear o borrar. La llama la UI cuando
     termina una tarea de maquina: el proximo panel ve el estado nuevo."""
     cache.forget('android-installed')
     cache.forget('android-avds')
-
-
-def for_machine(cap: Capability, *, refresh: bool = False) -> Capability:
-    """La capacidad tal como se ve en ESTA maquina.
-
-    Hermana de `for_project`: misma mecanica, otra fuente. Se llama despues,
-    asi una capacidad puede tener ejes de las dos clases.
-    """
-    if not any(a.is_from_machine for a in cap.axes):
-        return cap
-    resueltos = []
-    for eje in cap.axes:
-        if not eje.is_from_machine:
-            resueltos.append(eje)
-            continue
-        values, labels = machine_values(eje.source, refresh=refresh)
-        resueltos.append(replace(eje, values=values, labels=labels))
-    return replace(cap, axes=resueltos)
 
 # Valores por defecto de los SDK. Viven aca, con el resto de la forma de los
 # botones, y `core/tasks/utils.py` los importa para usar el mismo cuando se le
@@ -746,37 +767,35 @@ def load_catalog() -> None:
     # segunda se repite (cambiar el realm, abrir TLS) mientras la primera pasa
     # una sola vez: son dos botones, como `postgresql` y `bootstrap_db`.
     #
-    # Los cuatro ejes eran constantes del modulo, y `realm` era un parametro de
-    # la funcion que ningun eje ofrecia: estaba clavado en CF_DOMAIN_NAME sin
-    # que nada lo dijera.
+    # El realm y los puertos empezaron siendo ejes de campo y no lo son: el
+    # realm es el nombre con el que se llega al VPS (`PUBLIC_HOST`) y los
+    # puertos son los que el backend tiene que anunciar en sus `turn:` URLs.
+    # Los tres son datos del despliegue que la tarea lee, o sea configuracion
+    # (`core/settings.py`), no una eleccion de la corrida. Lo unico que se
+    # decide al apretar es si el TURN sale por TLS.
     registry.register(Capability(
         id='configure_coturn', name='Configurar coturn', group='VPS · setup',
         section='Comunicaciones', kind='once', icon='📡',
         description='Escribe la configuración del servidor TURN y deja el servicio corriendo.',
-        axes=[AxisDef('realm', [''], 'field', label='Realm',
-                      placeholder='vacío = CF_DOMAIN_NAME, o la IP del VPS'),
-              AxisDef('port', ['3478'], 'field', label='Puerto', cast='int'),
-              AxisDef('relay_min', ['49160'], 'field', label='Relay desde', cast='int'),
-              AxisDef('relay_max', ['49360'], 'field', label='Relay hasta', cast='int'),
-              AxisDef('tls', ['sin TLS', 'turns en 5349'], 'scope', label='TLS',
+        axes=[AxisDef('tls', ['sin TLS', 'turns en 5349'], 'scope', label='TLS',
                       truthy='turns en 5349')],
         stub=True))
     # El unico paquete de `PACKAGE_GROUPS` que se instalaba y no se configuraba
-    # desde ningun lado: un Caddy instalado sin Caddyfile no sirve nada. Los
-    # ejes son los que cambian entre repos —cuantas SPA hay y como se llega a
-    # cada una— y no constantes del modulo: hay repos con tres SPA.
+    # desde ningun lado: un Caddy instalado sin Caddyfile no sirve nada.
+    #
+    # Mismo reparto que arriba: el dominio, donde escucha el backend y bajo que
+    # ruta se publica la API son datos del despliegue y viven en `config.env`
+    # —`BACKEND_HOST`/`BACKEND_PORT` los comparte con `write_systemd_unit`, que
+    # es quien pone al backend justamente ahi—. Quedan de ejes las dos cosas que
+    # si se eligen: cuales de las SPA del repo se publican y como se llega a
+    # cada una.
     registry.register(Capability(
         id='configure_caddy', name='Configurar Caddy', group='VPS · setup',
         section='Web', kind='once', icon='🌐',
         description='Escribe el Caddyfile: sirve las SPA compiladas, hace de proxy a la API y saca el HTTPS solo.',
         axes=[AxisDef('apps', [], 'checks', select='many', label='Apps',
                       discover=(targets.SPA_VITE,), allow_empty=True),
-              AxisDef('routing', ['subruta', 'subdominio'], 'scope', label='Cómo se llega'),
-              AxisDef('domain', [''], 'field', label='Dominio',
-                      placeholder='vacío = CF_DOMAIN_NAME'),
-              AxisDef('upstream', ['127.0.0.1:8000'], 'field', label='Backend'),
-              AxisDef('api_path', ['/api'], 'field', label='API en',
-                      placeholder='/api · vacío = sin proxy a la API')],
+              AxisDef('routing', ['subruta', 'subdominio'], 'scope', label='Cómo se llega')],
         stub=True))
     registry.register(Capability(
         id='bootstrap_vps', name='Bootstrap VPS', group='VPS · setup', section='Bootstrap',

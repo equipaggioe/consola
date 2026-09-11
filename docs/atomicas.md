@@ -207,7 +207,16 @@ es lo que ya hace `install_base_software` con el grupo `coturn` marcado: la mism
 lugares. Ahora las dos capacidades de configuración —coturn y Caddy— cortan si el paquete falta
 en vez de instalarlo, igual que `bootstrap_db` da por instalado el `postgresql` que puso el otro
 botón. Operarlos después (reiniciar, ver el journal) tampoco son botones nuevos: es el eje
-`service` de `systemd_action` y `view_logs`.
+`service` de `systemd_action` y `view_logs`, cuyos valores salen de preguntarle al VPS del repo
+cuáles de los tres existen ahí (`core/catalog.py::VPS_SERVICES`) en vez de ofrecer los tres
+siempre.
+
+Lo que estos dos botones NO preguntan en el panel son sus datos: el realm y la dirección del sitio
+son `PUBLIC_HOST`, los puertos del TURN son `TURN_PORT`/`TURN_RELAY_RANGE`, y a dónde manda Caddy
+es `BACKEND_HOST`/`BACKEND_PORT` — la misma clave con la que `write_systemd_unit` pone al backend
+justamente ahí. Son datos del despliegue que las tareas leen, o sea `config.env`; lo que queda de
+eje es lo que se elige al apretar (el TLS del TURN, qué SPA publica Caddy y cómo se llega a cada
+una).
 
 Eran cuatro donde ahora hay dos: la revisión del §4.6 fusionó `ensure_remote_user` con
 `install_public_key` y bajó `test_ssh_login` a `core/ssh.py::reachable`.

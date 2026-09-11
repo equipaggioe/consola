@@ -270,17 +270,30 @@ def restart_service(ctx) -> str:
 
 # --- systemd ---------------------------------------------------------------
 
-def write_systemd_unit(ctx, host: str = '0.0.0.0', port: int = 443) -> str:
-    """Escribe el archivo `.service` en el VPS y recarga systemd. No lo arranca."""
+def write_systemd_unit(ctx) -> str:
+    """Escribe el archivo `.service` en el VPS y recarga systemd. No lo arranca.
+
+    Donde escucha sale de `BACKEND_HOST`/`BACKEND_PORT` y no de parametros de la
+    funcion: eran dos argumentos que ningun eje ofrecia —o sea, `0.0.0.0:443`
+    clavado— y son el mismo dato que `configure_caddy` necesita para saber a
+    donde mandar el trafico (`core/vps.py::backend_listen`).
+    """
     remote = _remote(ctx)
     servicio = vps.service_name(ctx.config)
     server = _server_rel(ctx)
     python = f'{_venv_path(ctx)}/bin/python'
     app = ctx.config.get('UVICORN_APP', 'app.main:app')
+    host, port = vps.backend_listen(ctx.config)
 
+    # TLS solo cuando el backend da la cara a internet. Escuchando en loopback
+    # el unico que lo alcanza es Caddy, que habla HTTP contra el upstream y ya
+    # puso el HTTPS de afuera: cifrar ese tramo pediria ademas que Caddy
+    # confiara en este certificado.
     cert = vps.remote_path(ctx.config, ctx.config.get('CERT_FILE_PATH', f'{server}/certs/cert.pem'))
     key = vps.remote_path(ctx.config, ctx.config.get('KEY_FILE_PATH', f'{server}/certs/key.pem'))
-    tls = f' --ssl-certfile {cert} --ssl-keyfile {key}' if ssh.path_exists(remote, cert) else ''
+    publico = not vps.is_loopback(host)
+    tls = (f' --ssl-certfile {cert} --ssl-keyfile {key}'
+           if publico and ssh.path_exists(remote, cert) else '')
 
     unidad = vps.render_unit(
         description=f'Servidor de {servicio}',
@@ -324,8 +337,8 @@ def view_logs(ctx, lines: int = 200, follow: bool = True, since: str = '',
 
 # --- compuestas ------------------------------------------------------------
 
-def install_systemd(ctx, host: str = '0.0.0.0', port: int = 443, *,
-                    write: bool = True, enable: bool = True, start: bool = True) -> None:
+def install_systemd(ctx, *, write: bool = True, enable: bool = True,
+                    start: bool = True) -> None:
     """Compuesta: escribir la unidad y reusar `systemd_action` para habilitarla.
 
     No reimplementa `enable` ni `start`: llama a la misma atomica que ya tiene
@@ -333,7 +346,7 @@ def install_systemd(ctx, host: str = '0.0.0.0', port: int = 443, *,
     """
     if write:
         ctx.step('write')
-        write_systemd_unit(ctx, host, port)
+        write_systemd_unit(ctx)
     if enable:
         ctx.step('enable')
         systemd_action(ctx, 'enable')
