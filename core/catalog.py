@@ -308,7 +308,7 @@ BOOTSTRAP_VPS_STEPS = [
          requires_env={'GIT_REPO_URL', 'VPS_DEPLOY_DIR'}),
     Step('database', 'Crear base de datos',
          requires_env={'DB_NAME', 'DB_PASSWORD'}),
-    Step('service', 'Instalar systemd'),
+    Step('service', 'Configurar servicio'),
 ]
 
 
@@ -447,11 +447,22 @@ REVOKE_SSH_STEPS = [
     Step('local_side', 'Borrar clave de esta máquina'),
 ]
 
-INSTALL_SYSTEMD_STEPS = [
-    Step('write', 'Escribir unidad systemd'),
-    Step('enable', 'Habilitar al arranque'),
-    Step('start', 'Arrancar servicio'),
-]
+# Los dos pasos de los TRES botones que escriben la configuracion de un
+# servicio del VPS: el del repo, coturn y Caddy. Los tres hacen lo mismo
+# —escribir su configuracion y dejar el servicio andando— asi que se dibujan
+# igual (docs/atomicas.md 4.6).
+#
+# Escribir no es casilla: es lo que el boton ES, y desmarcarlo lo dejaba
+# haciendo exactamente lo que hace `systemd_action`. Las dos que quedan son las
+# dos cosas que se le hacen al servicio, y desmarcar "arrancar" es la ventana de
+# mantenimiento: la configuracion nueva queda escrita y el servicio sigue con la
+# vieja hasta que se lo reinicie a mano (el boton lo dice al terminar).
+#
+# Es una funcion y no una lista global porque la comparten tres capacidades: una
+# lista suelta seria el mismo objeto en las tres.
+def _SERVICE_STEPS() -> list[Step]:
+    return [Step('enable', 'Habilitar al arranque'),
+            Step('start', 'Arrancar y comprobar')]
 
 # Los tres pasos de `utils.install_android_sdk`. Era la unica compuesta que
 # recibia la lista de ids en vez de un booleano por paso: ahora recibe los tres
@@ -725,7 +736,14 @@ def load_catalog() -> None:
     # dibujado como campo de texto libre, que ademas nunca llegaba a la funcion.
     registry.register(Capability(id='view_logs', name='Ver logs', group='VPS · server', section='Logs', kind='live', icon='📋', description='Muestra el journal del servicio elegido, de una o siguiéndolo en vivo.', axes=[_SERVICE_AXIS(),
                                  AxisDef('follow', ['seguir en vivo', 'de una'], 'scope', label='Modo', truthy='seguir en vivo', labels={'seguir en vivo': 'Seguir en vivo', 'de una': 'De una'})], stub=True))
-    registry.register(Capability(id='install_systemd', name='Instalar servicio', group='VPS · server', section='Servicio', kind='once', icon='📥', description='Escribe la unidad systemd del repo y la deja corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], steps=INSTALL_SYSTEMD_STEPS, stub=True))
+    # Se llamaba "Instalar servicio" y tenia tres casillas. Ahora se llama y se
+    # dibuja como sus dos hermanos —`configure_coturn` y `configure_caddy`—:
+    # los tres escriben la configuracion de un servicio del VPS y lo dejan
+    # corriendo, y lo unico que cambiaba era cual. Ademas comprueba que el
+    # servicio haya quedado vivo, que es lo que los otros dos ya hacian: la
+    # unidad es `Type=simple` con `Restart=always`, asi que un `restart` con
+    # exito no significa que el backend este arriba.
+    registry.register(Capability(id='configure_service', name='Configurar servicio', group='VPS · server', section='Servicio', kind='once', icon='📥', description='Escribe la unidad systemd del repo y deja el servicio corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], steps=_SERVICE_STEPS(), stub=True))
     # `push_repository` tuvo boton suelto y lo perdio: empujar sin desplegar ya
     # lo hace cualquier cliente de git, y el caso que de verdad importaba —que
     # el VPS no clone el commit de otro— lo cubre el primer paso de
@@ -807,7 +825,7 @@ def load_catalog() -> None:
         axes=[AxisDef('tls', ['sin TLS', 'turns en 5349'], 'scope', label='TLS',
                       truthy='turns en 5349',
                       labels={'sin TLS': 'Sin TLS', 'turns en 5349': 'Turns en 5349'})],
-        stub=True))
+        steps=_SERVICE_STEPS(), stub=True))
     # El unico paquete de `PACKAGE_GROUPS` que se instalaba y no se configuraba
     # desde ningun lado: un Caddy instalado sin Caddyfile no sirve nada.
     #
@@ -825,7 +843,7 @@ def load_catalog() -> None:
                       discover=(targets.SPA_VITE,), allow_empty=True),
               AxisDef('routing', ['subruta', 'subdominio'], 'scope', label='Cómo se llega',
                       labels={'subruta': 'Subruta', 'subdominio': 'Subdominio'})],
-        stub=True))
+        steps=_SERVICE_STEPS(), stub=True))
     registry.register(Capability(
         id='bootstrap_vps', name='Bootstrap VPS', group='VPS · setup', section='Bootstrap',
         kind='once', icon='🚀',

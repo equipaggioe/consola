@@ -101,8 +101,7 @@ class TaskContext:
         donde ya estaba escrita para la casilla del panel. Antes se pasaba el
         texto suelto y quedaba escrito dos veces, en dos archivos: la casilla
         decia 'Crear rol de la aplicación' y el log 'Crear el rol de la
-        aplicacion'. Un paso que no es casilla de nadie (los internos de
-        `install_systemd`) se imprime tal cual: no todo paso del log tiene por
+        aplicacion'. Un paso que no es casilla de nadie se imprime tal cual: no todo paso del log tiene por
         que ser una decision del panel.
         """
         self.log(f'--- {self._step_label(step_id)}', Level.INFO)

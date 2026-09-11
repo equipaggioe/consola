@@ -193,8 +193,9 @@ tiene cambios sin commitear) · `install_remote_deps` (crea el venv adentro) · 
 `clone_repository` y `ensure_remote_venv` ya no están sueltas: nadie pide «solo clonar» ni «solo
 crear el venv», así que son el primer tramo de `sync_repository` y de `install_remote_deps` (§1).
 
-**Compuestas:** `install_systemd` (reusa `systemd_action` para `enable`/`restart`, no lo
-reimplementa), `publish_code` y `update_remote` (§4.7).
+**Compuestas:** `configure_service` (reusa `systemd_action` para `enable`/`restart`, no lo
+reimplementa), `publish_code` y `update_remote` (§4.7). `bring_up_service` es el cierre que
+comparten los tres botones de configurar un servicio — ver §4.6.
 
 ### `core/tasks/vps_setup.py`
 
@@ -217,6 +218,49 @@ es `BACKEND_HOST`/`BACKEND_PORT` — la misma clave con la que `write_systemd_un
 justamente ahí. Son datos del despliegue que las tareas leen, o sea `config.env`; lo que queda de
 eje es lo que se elige al apretar (el TLS del TURN, qué SPA publica Caddy y cómo se llega a cada
 una).
+
+#### Los tres botones que configuran un servicio son el mismo botón
+
+`configure_service`, `configure_coturn` y `configure_caddy` hacen lo mismo sobre tres servicios
+distintos: escriben su configuración en el VPS y lo dejan corriendo. No se parecían en nada.
+
+| | antes `install_systemd` | antes coturn / Caddy |
+|---|---|---|
+| Forma | compuesta, 3 casillas (escribir / habilitar / arrancar) | atómicas monolíticas, sin pasos |
+| Exige lo que da por dado | nada | `_require_package` |
+| Abre puertos | no | `_open_ports` |
+| `enable`/`restart` | vía `systemd_action` | `vps.systemctl` directo |
+| Comprueba que quedó vivo | **no** | sí |
+| Dice a dónde se llega | no | sí |
+
+El hueco que importaba es el de la penúltima fila. La unidad del proyecto es `Type=simple` con
+`Restart=always`: `systemctl restart` devuelve 0 en cuanto el proceso arranca, aunque uvicorn muera
+al segundo siguiente por un import roto y systemd lo reintente cada 3 s para siempre. El botón
+imprimía «Servicio instalado» con el backend caído.
+
+Convergen en **dos pasos y un cierre compartido**:
+
+- **Escribir no es casilla.** Es lo que el botón *es*, y desmarcarlo lo dejaba haciendo exactamente
+  lo que hace `systemd_action`. Las dos que quedan —*Habilitar al arranque* y *Arrancar y
+  comprobar*— son las dos cosas que se le hacen al servicio.
+- **Desmarcar «arrancar» es la ventana de mantenimiento**, que es el caso real: recargar Caddy corta
+  el 80 y el 443 de *todo* el VPS, no de una app. La configuración queda escrita —validada, en el
+  caso de Caddy, porque `caddy validate` corre antes— y el servicio sigue con la vieja. Eso es un
+  estado desincronizado que nadie más reporta, así que el botón lo dice al cerrar y nombra cómo
+  aplicarla; y mira igual cómo está el servicio, porque enterarse ahí de que ya estaba caído es
+  mejor que enterarse la próxima vez.
+- **`bring_up_service`** (en `vps_server.py`, al lado de `systemd_action`) es ese cierre: habilita,
+  reinicia y comprueba, siempre a través de la atómica que ya tiene botón. Dos caminos al mismo
+  `systemctl` es la clase de duplicado que un día se corrige en uno solo.
+- `require_package` y `open_ports` subieron de `vps_setup.py` a **`core/vps.py`**: la pregunta
+  «¿está puesto lo que este botón da por dado?» se la hacen los tres, y uno vive en el otro módulo.
+- `configure_service` gana además lo que los otros dos ya tenían: corta si en el VPS no hay código
+  ni venv (su `require_package`), abre el puerto del backend en ufw **solo si no escucha en
+  loopback** —detrás de Caddy, abrirlo sería publicarlo de más, la misma razón por la que
+  `write_systemd_unit` no le pone TLS ahí— y cierra diciendo en qué dirección quedó escuchando.
+
+El nombre siguió a la forma: `install_systemd` → `configure_service`, y en el rail los tres se leen
+«Configurar …». El id cambió con él, sin puente al viejo.
 
 Eran cuatro donde ahora hay dos: la revisión del §4.6 fusionó `ensure_remote_user` con
 `install_public_key` y bajó `test_ssh_login` a `core/ssh.py::reachable`.

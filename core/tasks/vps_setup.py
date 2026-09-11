@@ -172,35 +172,6 @@ def install_base_software(ctx, groups: list[str] | None = None) -> list[str]:
     return paquetes
 
 
-def _require_package(remote: ssh.Remote, package: str, group: str) -> None:
-    """Corta si el paquete no esta, en vez de instalarlo por su cuenta.
-
-    Instalar es `install_base_software` y el paquete es uno de sus grupos, igual
-    que `postgresql`: estos botones son el `bootstrap_db` de su servicio — la
-    configuracion, no la instalacion. Que un boton de configurar corriera su
-    propio `apt-get install` era la unica parte del catalogo donde la misma
-    accion vivia en dos lugares (docs/atomicas.md 4.6).
-    """
-    if ssh.succeeds(remote, f'dpkg -s {ssh.quote(package)}'):
-        return
-    raise TaskError(f'{package} no esta instalado en el VPS. '
-                    f'Corre "Software base" con el grupo "{group}" marcado.')
-
-
-def _open_ports(ctx, remote: ssh.Remote, ports: list[str]) -> None:
-    """Abre puertos en ufw si ufw manda; si no, los dice.
-
-    Callar cuando ufw no esta activo no es "no hacer nada": el firewall puede
-    estar en el panel del proveedor, y ahi los puertos siguen cerrados.
-    """
-    if not ssh.succeeds(remote, 'sudo -n ufw status | grep -q active'):
-        ctx.warn(f'ufw no esta activo: abre {", ".join(ports)} donde corresponda.')
-        return
-    for puerto in ports:
-        ssh.run(ctx, remote, f'sudo -n ufw allow {puerto}', check=False)
-    ctx.ok(f'Puertos abiertos en ufw: {", ".join(ports)}')
-
-
 # --- atomicas de comunicaciones --------------------------------------------
 
 def _turn_secret(ctx) -> str:
@@ -238,7 +209,8 @@ def _relay_range(config) -> tuple[int, int]:
     return desde, hasta
 
 
-def configure_coturn(ctx, tls: bool = False) -> str:
+def configure_coturn(ctx, tls: bool = False, *, enable: bool = True,
+                     start: bool = True) -> str:
     """Configura el servidor TURN para llamadas detras de NAT simetrico.
 
     El realm y los puertos salen de `config.env` y no del panel de parametros:
@@ -246,13 +218,16 @@ def configure_coturn(ctx, tls: bool = False) -> str:
     en /etc/turnserver.conf, asi que son datos del despliegue y no una eleccion
     de la corrida.
 
-    Reiniciar el servicio o mirar su estado tampoco son parametros de este
-    boton: son `systemd_action` y `view_logs` con el eje `service` puesto en
-    coturn, que son los mismos botones que ya existian para el servicio del
-    proyecto.
+    Reiniciar el servicio con la configuracion que ya tiene, o mirar su estado,
+    tampoco son parametros de este boton: son `systemd_action` y `view_logs` con
+    el eje `service` puesto en coturn, que son los mismos botones que ya
+    existian para el servicio del proyecto. Lo que si es casilla es dejar la
+    configuracion escrita SIN aplicarla, que es la ventana de mantenimiento:
+    `start=False` la deja en /etc/turnserver.conf y avisa que coturn sigue con
+    la vieja (`vps_server.bring_up_service`).
     """
     remote = ssh.resolve_remote(ctx.config)
-    _require_package(remote, 'coturn', 'Coturn')
+    vps.require_package(remote, 'coturn', 'Coturn')
 
     dominio = ctx.config.get('PUBLIC_HOST') or remote.host
     port = ctx.config.port('TURN_PORT', TURN_PORT)
@@ -293,13 +268,13 @@ def configure_coturn(ctx, tls: bool = False) -> str:
     puertos = [f'{port}/tcp', f'{port}/udp', f'{relay_min}:{relay_max}/udp']
     if tls:
         puertos.append(f'{TURN_TLS_PORT}/tcp')
-    _open_ports(ctx, remote, puertos)
+    vps.open_ports(ctx, remote, puertos)
 
-    vps.systemctl(ctx, remote, 'enable', 'coturn')
-    vps.systemctl(ctx, remote, 'restart', 'coturn')
-    estado = vps.service_state(remote, 'coturn')
-    if estado != 'active':
-        raise TaskError(f'coturn quedo en estado {estado}. Mira sus logs con Ver logs → Coturn.')
+    # Habilitar, reiniciar y comprobar es el mismo cierre que el de los otros
+    # dos botones de configurar un servicio, y pasa por `systemd_action` — la
+    # atomica que ya tiene boton propio — en vez de repetir aca su `systemctl`.
+    from . import vps_server
+    vps_server.bring_up_service(ctx, 'coturn', enable=enable, start=start)
 
     ctx.ok(f'coturn escuchando en {remote.host}:{port} (realm {dominio}).')
     esquema = 'turns' if tls else 'turn'
@@ -369,7 +344,8 @@ def _caddyfile(*, domain: str, apps: list[tuple[str, str]], upstream: str, api: 
     return f'{domain} {{\n' + '\n\n'.join(cuerpo) + '\n}\n'
 
 
-def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta') -> str:
+def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta',
+                    *, enable: bool = True, start: bool = True) -> str:
     """Escribe el Caddyfile del VPS y deja Caddy sirviendo.
 
     Caddy queda adelante de todo: toma el 80 y el 443, saca y renueva el
@@ -381,9 +357,14 @@ def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta'
 
     La lista vacia de apps significa "las SPA que tenga el repo"; ninguna SPA es
     tambien valido: es el VPS que solo publica la API.
+
+    `start=False` escribe el Caddyfile y no lo aplica. Aca es donde mas se pide:
+    recargar Caddy corta el 80 y el 443 de TODO el VPS por un instante, no solo
+    de una app. El archivo que queda ya paso por `caddy validate`, asi que lo
+    que espera a la ventana de mantenimiento es una configuracion valida.
     """
     remote = ssh.resolve_remote(ctx.config)
-    _require_package(remote, 'caddy', 'Caddy')
+    vps.require_package(remote, 'caddy', 'Caddy')
 
     dominio = ctx.config.get('PUBLIC_HOST')
     if not dominio:
@@ -404,12 +385,9 @@ def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta'
     # deja el servicio caido, y con el se cae todo lo que publica el VPS.
     ssh.run(ctx, remote, f'caddy validate --adapter caddyfile --config {CADDYFILE}')
 
-    _open_ports(ctx, remote, ['80/tcp', '443/tcp', '443/udp'])
-    vps.systemctl(ctx, remote, 'enable', 'caddy')
-    vps.systemctl(ctx, remote, 'restart', 'caddy')
-    estado = vps.service_state(remote, 'caddy')
-    if estado != 'active':
-        raise TaskError(f'Caddy quedo en estado {estado}. Mira sus logs con Ver logs → Caddy.')
+    vps.open_ports(ctx, remote, ['80/tcp', '443/tcp', '443/udp'])
+    from . import vps_server
+    vps_server.bring_up_service(ctx, 'caddy', enable=enable, start=start)
 
     for nombre, _ in servidas:
         if routing == 'subdominio':
@@ -578,7 +556,7 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
         db_tasks.bootstrap_db(ctx.child('bootstrap_db'), scope='remoto')
     if service:
         ctx.step('service')
-        vps_server.install_systemd(ctx.child('install_systemd'))
+        vps_server.configure_service(ctx.child('configure_service'))
     ctx.note('Bootstrap completo del VPS.')
 
 

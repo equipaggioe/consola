@@ -39,7 +39,7 @@ _VPS_REACH = ('ssh_login', 'health_check', 'run_command', 'run_setup_scripts',
               'update_remote', 'upload_to_vps', 'install_software', 'setup_ssh_key',
               'setup_github_ssh', 'configure_coturn', 'configure_caddy',
               'bootstrap_vps', 'view_logs',
-              'systemd_action', 'install_systemd', 'clean_vps', 'revoke_ssh')
+              'systemd_action', 'configure_service', 'clean_vps', 'revoke_ssh')
 
 _DB_REMOTE = ('bootstrap_db', 'teardown_db', 'migrate_db', 'rebuild_db',
               'reinit_migrations', 'backup_db', 'ssh_tunnel', 'inspect_db')
@@ -72,7 +72,7 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('VPS_USER', 'VPS', 'Usuario de despliegue', required_by=_VPS_REACH),
     Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
     Setting('VPS_PYTHON', 'VPS', 'Python del VPS', default='server/.venv/bin/python',
-            required_by=('update_remote', 'install_systemd')),
+            required_by=('update_remote', 'configure_service')),
     Setting('VPS_DEPLOY_DIR', 'VPS', 'Directorio de despliegue',
             required_by=('update_remote', 'upload_to_vps')),
     # El nombre con el que se llega al VPS desde afuera: el realm de coturn y la
@@ -147,7 +147,7 @@ SETTINGS: tuple[Setting, ...] = (
 
     # --- Systemd ---
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
-            required_by=('install_systemd',)),
+            required_by=('configure_service',)),
     # Donde escucha el backend DENTRO del VPS. Lo escribe `write_systemd_unit` y
     # lo lee `configure_caddy` para saber a donde mandar el trafico: es un dato
     # de a dos, como `SECRET_FILES`, y tenerlo en cada boton por separado seria
@@ -157,15 +157,15 @@ SETTINGS: tuple[Setting, ...] = (
     # funcion— porque Caddy viene en `DEFAULT_GROUPS`: el backend de este
     # catalogo corre detras de Caddy, y ahi el 443 lo toma Caddy.
     Setting('BACKEND_HOST', 'Systemd', 'Escucha del backend', default='127.0.0.1',
-            used_by=('install_systemd', 'configure_caddy')),
+            used_by=('configure_service', 'configure_caddy')),
     Setting('BACKEND_PORT', 'Systemd', 'Puerto del backend', default='8000',
-            used_by=('install_systemd', 'configure_caddy')),
+            used_by=('configure_service', 'configure_caddy')),
     Setting('CERT_FILE_PATH', 'Systemd', 'Certificado', default='server/certs/cert.pem',
-            required_by=('install_systemd', 'backend')),
+            required_by=('configure_service', 'backend')),
     Setting('KEY_FILE_PATH', 'Systemd', 'Llave privada', default='server/certs/key.pem',
-            required_by=('install_systemd', 'backend')),
+            required_by=('configure_service', 'backend')),
     Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
-            required_by=('install_systemd', 'backend')),
+            required_by=('configure_service', 'backend')),
 
     # --- Maquina ---
     # El `PYINSTALLER_BIN` del script original, y por el mismo motivo: `pip

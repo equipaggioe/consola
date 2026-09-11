@@ -320,6 +320,48 @@ def systemd_action(ctx, action: str = 'status', service: str = 'proyecto') -> in
     return vps.systemctl(ctx, remote, action, servicio, check=action not in ('status', 'is-active', 'is-enabled'))
 
 
+def bring_up_service(ctx, service: str = 'proyecto', *, enable: bool = True,
+                     start: bool = True) -> str:
+    """El cierre comun de los tres botones que escriben la config de un servicio.
+
+    `configure_service`, `configure_coturn` y `configure_caddy` terminaban los
+    tres igual —habilitar, reiniciar— pero por caminos distintos: el primero
+    reusando `systemd_action` y los otros dos llamando `vps.systemctl` derecho.
+    Dos caminos al mismo `systemctl` es la clase de duplicado que un dia se
+    corrige en uno solo.
+
+    Comprobar que quedo vivo es la mitad que faltaba, y la que importa: la
+    unidad del proyecto es `Type=simple` con `Restart=always`, asi que
+    `systemctl restart` devuelve 0 en cuanto el proceso arranca — aunque muera
+    un segundo despues y systemd lo reintente para siempre. Sin esta
+    comprobacion, "servicio instalado" se imprimia con el backend caido.
+
+    Sin arrancar no se falla, se avisa: el archivo nuevo esta en disco y el
+    servicio sigue con el viejo, que es un estado que nadie mas reporta. Y se
+    mira igual como esta, porque enterarse aca de que ya estaba caido es mejor
+    que enterarse la proxima vez.
+    """
+    remote = _remote(ctx)
+    servicio = vps.resolve_service(ctx.config, service)
+    if enable:
+        ctx.step('enable')
+        systemd_action(ctx, 'enable', service)
+    if start:
+        ctx.step('start')
+        systemd_action(ctx, 'restart', service)
+
+    estado = vps.service_state(remote, servicio)
+    if start and estado != 'active':
+        raise TaskError(f'{servicio} quedo en estado {estado}. Mira sus logs con '
+                        f'Ver logs -> {vps.SERVICE_LABELS.get(service, servicio)}.')
+    if not start:
+        ctx.warn(f'{servicio} sigue con la configuracion anterior: la nueva entra '
+                 f'cuando lo reinicies con Accion systemd -> {servicio}.')
+        if estado != 'active':
+            ctx.warn(f'Ademas esta en estado {estado} desde antes de esta corrida.')
+    return estado
+
+
 def view_logs(ctx, lines: int = 200, follow: bool = True, since: str = '',
               priority: str = '', grep: str = '', service: str = 'proyecto') -> int:
     """Sigue el journal del servicio con los filtros pedidos.
@@ -337,23 +379,56 @@ def view_logs(ctx, lines: int = 200, follow: bool = True, since: str = '',
 
 # --- compuestas ------------------------------------------------------------
 
-def install_systemd(ctx, *, write: bool = True, enable: bool = True,
-                    start: bool = True) -> None:
-    """Compuesta: escribir la unidad y reusar `systemd_action` para habilitarla.
+def _require_deployment(ctx, remote: ssh.Remote) -> None:
+    """Corta si en el VPS no hay codigo ni venv que arrancar.
 
-    No reimplementa `enable` ni `start`: llama a la misma atomica que ya tiene
-    su propio boton (PLAN.md 7, caso 7).
+    Es el `vps.require_package` de este boton: lo que la configuracion da por
+    dado y otro boton pone. Sin esto la unidad se escribia igual, systemd la
+    arrancaba, uvicorn moria por falta de interprete y `Restart=always` lo
+    reintentaba cada 3 segundos — todo despues de un mensaje de exito.
     """
-    if write:
-        ctx.step('write')
-        write_systemd_unit(ctx)
-    if enable:
-        ctx.step('enable')
-        systemd_action(ctx, 'enable')
-    if start:
-        ctx.step('start')
-        systemd_action(ctx, 'restart')
-    ctx.note(f'Servicio {vps.service_name(ctx.config)} instalado.')
+    server = vps.remote_path(ctx.config, _server_rel(ctx))
+    python = f'{_venv_path(ctx)}/bin/python'
+    if not ssh.path_exists(remote, server):
+        raise TaskError(f'No hay codigo en el VPS ({server}). '
+                        'Corre "Publicar codigo" antes de instalar el servicio.')
+    if not ssh.path_exists(remote, python):
+        raise TaskError(f'No hay venv en el VPS ({python}). '
+                        'Corre "Publicar codigo" con el paso de dependencias marcado.')
+
+
+def configure_service(ctx, *, enable: bool = True, start: bool = True) -> None:
+    """Escribe la unidad systemd del repo y deja el servicio corriendo.
+
+    Escribir no es casilla: es lo que el boton ES. Las dos que quedan son las
+    dos cosas que se le hacen al servicio, y son las mismas que en
+    `configure_coturn` y `configure_caddy` — los tres botones escriben la
+    configuracion de un servicio y despues lo dejan andando.
+
+    Arrancar sin escribir tampoco es una casilla de aca: eso es `systemd_action`
+    con `restart`, que ya tiene su propio boton y sirve para los tres servicios.
+    """
+    remote = _remote(ctx)
+    _require_deployment(ctx, remote)
+    write_systemd_unit(ctx)
+
+    # El puerto solo se abre cuando el backend da la cara a internet. Detras de
+    # Caddy quien contesta afuera es Caddy, y abrir el del backend seria
+    # publicarlo de mas — la misma razon por la que `write_systemd_unit` no le
+    # pone TLS cuando escucha en loopback.
+    host, port = vps.backend_listen(ctx.config)
+    publico = not vps.is_loopback(host)
+    if publico:
+        vps.open_ports(ctx, remote, [f'{port}/tcp'])
+
+    bring_up_service(ctx, 'proyecto', enable=enable, start=start)
+
+    if publico:
+        ctx.ok(f'Backend escuchando en {remote.host}:{port}.')
+    else:
+        dominio = ctx.config.get('PUBLIC_HOST')
+        detras = f' — afuera se llega por https://{dominio}' if dominio else ''
+        ctx.ok(f'Backend escuchando en {host}:{port}, solo desde el VPS{detras}.')
 
 
 def publish_code(
@@ -445,6 +520,6 @@ def bind_all() -> None:
     registry.bind('upload_secret_files', upload_secret_files)
     registry.bind('systemd_action', systemd_action)
     registry.bind('view_logs', view_logs)
-    registry.bind('install_systemd', install_systemd)
+    registry.bind('configure_service', configure_service)
     registry.bind('publish_code', publish_code)
     registry.bind('update_remote', update_remote)

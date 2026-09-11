@@ -142,11 +142,12 @@ Puros atómicos: ninguno encadena a otro (el módulo no declara compuestas).
 | `sync_repository` | A | — | `publish_code` (clona o actualiza según el estado del VPS) |
 | `install_remote_deps` | A | — | `publish_code` (crea el venv adentro) |
 | `upload_secret_files` | A | `upload_secret_files` | `publish_code` |
-| `restart_service` | A | — | `update_remote`, `install_systemd` |
-| `write_systemd_unit` | A | — | `install_systemd` |
-| `systemd_action` | A | `systemd_action` | `install_systemd` (y solo) |
+| `restart_service` | A | — | `update_remote`, `configure_service` |
+| `write_systemd_unit` | A | — | `configure_service` |
+| `systemd_action` | A | `systemd_action` | `bring_up_service`, y con él los tres botones de configurar un servicio |
 | `view_logs` | A | `view_logs` | — |
-| `install_systemd` | C | `install_systemd` | `bootstrap_vps` |
+| `bring_up_service` | A | — | `configure_service`, `configure_coturn`, `configure_caddy` |
+| `configure_service` | C | `configure_service` | `bootstrap_vps` |
 | `update_remote` | C | `update_remote` | `bootstrap_vps` |
 
 ### `core/tasks/vps_ops.py`

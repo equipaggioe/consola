@@ -133,6 +133,39 @@ def install_packages(ctx, remote: Remote, packages: list[str]) -> None:
     run(ctx, remote, f'{SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y {lista}')
 
 
+def require_package(remote: Remote, package: str, group: str) -> None:
+    """Corta si el paquete no esta, en vez de instalarlo por su cuenta.
+
+    Instalar es `install_base_software` y el paquete es uno de sus grupos, igual
+    que `postgresql`: los botones de configurar son el `bootstrap_db` de su
+    servicio — la configuracion, no la instalacion. Que un boton de configurar
+    corriera su propio `apt-get install` era la unica parte del catalogo donde
+    la misma accion vivia en dos lugares (docs/atomicas.md 4.6).
+
+    Vive aca y no en `core/tasks/vps_setup.py`, donde nacio, porque la misma
+    pregunta —¿esta puesto lo que este boton da por dado?— se la hacen los tres
+    botones de configurar un servicio, y uno de ellos esta en el otro modulo.
+    """
+    if succeeds(remote, f'dpkg -s {quote(package)}'):
+        return
+    raise TaskError(f'{package} no esta instalado en el VPS. '
+                    f'Corre "Software base" con el grupo "{group}" marcado.')
+
+
+def open_ports(ctx, remote: Remote, ports: list[str]) -> None:
+    """Abre puertos en ufw si ufw manda; si no, los dice.
+
+    Callar cuando ufw no esta activo no es "no hacer nada": el firewall puede
+    estar en el panel del proveedor, y ahi los puertos siguen cerrados.
+    """
+    if not succeeds(remote, f'{SUDO} ufw status | grep -q active'):
+        ctx.warn(f'ufw no esta activo: abre {", ".join(ports)} donde corresponda.')
+        return
+    for puerto in ports:
+        run(ctx, remote, f'{SUDO} ufw allow {puerto}', check=False)
+    ctx.ok(f'Puertos abiertos en ufw: {", ".join(ports)}')
+
+
 # --- systemd ---------------------------------------------------------------
 
 def service_name(config: Config) -> str:
@@ -216,8 +249,10 @@ def service_state(remote: Remote, service: str) -> str:
 def systemctl(ctx, remote: Remote, action: str, service: str, *, check: bool = True) -> int:
     """Una accion de systemd sobre el servicio del proyecto.
 
-    Es la atomica que reusan `install_systemd` y `update_remote` en vez de
+    Es la atomica que reusan `configure_service` y `update_remote` en vez de
     reimplementar `enable`/`start` cada uno por su lado (PLAN.md 7, caso 7).
+    `configure_coturn` y `configure_caddy` tambien, desde que los tres cierran
+    por `vps_server.bring_up_service`.
     """
     if action not in ALL_ACTIONS:
         raise TaskError(f'Accion de systemd desconocida: {action}')
