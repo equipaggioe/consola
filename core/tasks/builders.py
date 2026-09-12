@@ -149,25 +149,49 @@ def install_node_modules(ctx, directory: str = '') -> None:
     ctx.run([*toolchain.npm_cmd(), 'install'], cwd=spa.path)
 
 
+BASE_FILE = 'base.generated.js'
+
+
+def _write_base(ctx, spa: targets.Target, base: str) -> None:
+    """Deja en la SPA el modulo con su ruta publica, para que su config lo importe.
+
+    La fuente de verdad de bajo que ruta vive cada SPA es `CADDY_ROUTES`, la
+    misma tabla con la que `configure_caddy` escribe el proxy. Pero el repo tiene
+    que poder compilarse sin Consola, asi que el valor no viaja por el entorno
+    del build: se escribe como un literal en un archivo que se commitea. Consola
+    lo genera igual que generaria cualquier otro archivo — despues es del repo, y
+    editarlo a mano funciona.
+
+    Es un archivo propio y no un parche sobre `svelte.config.js` o
+    `vite.config.*`: Consola no edita codigo que no escribio ella.
+    """
+    contenido = ('// Generado por Consola desde CADDY_ROUTES. Se sobrescribe al compilar.\n'
+                 '// Ruta bajo la que el reverse proxy publica esta app.\n'
+                 f'export const base = "{base}";\n')
+    destino = spa.path / BASE_FILE
+    if destino.is_file() and destino.read_text(encoding='utf-8') == contenido:
+        return
+    destino.write_text(contenido, encoding='utf-8', newline='\n')
+    ctx.ok(f'{spa.name}/{BASE_FILE}: base = {base or "/"}')
+
+
 def compile_spa(ctx, directory: str = '') -> Path:
-    """`npm run build`, y comprueba que el build quedo bajo la ruta que lo publica.
+    """`npm run build`, con la ruta publica escrita antes y comprobada despues.
 
     Bajo que ruta vive cada SPA lo dice `CADDY_ROUTES`, la misma tabla que lee
-    `configure_caddy` para escribir el proxy. El repo lo declara aparte, en su
-    `svelte.config.js` o su `vite.config.*`, y esta bien que asi sea: sin eso el
-    repo no podria compilarse solo. Lo que Consola no puede permitir es que las
-    dos declaraciones discrepen, porque ese fallo no da error — el proxy sirve
-    la app y el navegador pide sus assets en la raiz del dominio, donde vive la
-    OTRA app, y lo que se ve es una pagina en blanco.
+    `configure_caddy`. Los dos lados tienen que decir lo mismo, y el desacuerdo
+    no da error: el proxy sirve la app, el navegador pide sus assets en la raiz
+    del dominio —donde vive la OTRA app— y lo que se ve es una pagina en blanco.
 
-    `BASE_PATH` se ofrece por si el repo prefiere delegar el valor en vez de
-    escribirlo; el que no la lee no se entera. La garantia no la da esa
-    variable, la da la comprobacion de abajo.
+    Por eso hay dos pasos y no uno. Escribir `base.generated.js` pone el valor
+    donde el repo lo va a leer; comprobar el HTML confirma que de verdad lo leyo,
+    que es lo unico que no se puede dar por hecho — una config con la ruta
+    escrita a mano ignora el archivo y el build sale apuntando a otro lado.
     """
     spa = _target(ctx, targets.SPA_VITE, directory)
     base = vps.spa_base(ctx.config, spa.name)
-    ctx.run([*toolchain.npm_cmd(), 'run', 'build'], cwd=spa.path,
-            env={'BASE_PATH': base} if base else None)
+    _write_base(ctx, spa, base)
+    ctx.run([*toolchain.npm_cmd(), 'run', 'build'], cwd=spa.path)
     salida = _spa_output(spa)
     _check_base(ctx, spa.name, salida, base)
     ctx.ok(f'Build de {spa.name}: {salida} ({files.human_size(files.size_of(salida))})')
@@ -178,9 +202,8 @@ def _check_base(ctx, name: str, salida: Path, base: str) -> None:
     """Compara la ruta que publica la SPA contra la que quedo en su HTML.
 
     Se mira el resultado y no la config del repo: como resuelve cada uno su base
-    —una constante, `NODE_ENV`, una variable de entorno— es asunto suyo, y
-    parsear JS para averiguarlo seria adivinar. El HTML compilado, en cambio,
-    dice sin ambiguedad donde va a pedir los assets.
+    es asunto suyo, y parsear JS para averiguarlo seria adivinar. El HTML
+    compilado, en cambio, dice sin ambiguedad donde va a pedir los assets.
     """
     index = salida / 'index.html'
     if not index.is_file():
@@ -194,7 +217,7 @@ def _check_base(ctx, name: str, salida: Path, base: str) -> None:
         raise TaskError(
             f'{name} se publica en {base} pero su build pide {fuera[0]}, en la raiz del '
             f'dominio: ahi vive otra app y lo que se ve es una pagina en blanco. '
-            f'La tabla de rutas y la config de {name} tienen que decir lo mismo.')
+            f'Su config tiene que importar la base de {BASE_FILE}.')
     if base:
         ctx.ok(f'{name} compilado para {base}.')
 

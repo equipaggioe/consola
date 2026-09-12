@@ -11,9 +11,14 @@ a la basura sin que nada deje de funcionar.
 
 De ahí salen tres reglas que no se negocian:
 
-1. **El repo no depende de Consola.** Un repo se clona, se compila y se despliega a mano sin ella.
-   Consola no deja archivos dentro del árbol versionado, no exige que el repo traiga archivos que
-   solo ella entiende, y no le inyecta valores sin los cuales el repo no se compila bien.
+1. **El repo no depende de Consola.** Un repo se clona, se compila y se despliega a mano sin
+   ella. Consola no exige que el repo traiga archivos que solo ella entiende, ni le inyecta por
+   entorno valores sin los cuales el build sale mal.
+
+   Esto **no** le prohíbe editar el repo. Puede escribir archivos ahí igual que los escribiría una
+   persona —o yo, ayudándote a programar—: lo que deja tiene que ser un literal committeado que
+   siga funcionando cuando Consola no esté. La línea no está en *quién escribe*, está en *qué
+   queda*: un valor en un archivo, sí; una lectura en tiempo de build, no.
 2. **El VPS no depende de Consola.** Lo que Consola escribe en el servidor son archivos estándar
    de ese servicio —una unidad systemd, un `turnserver.conf`, un `Caddyfile`—, legibles y
    editables a mano. Si Consola desaparece, el servidor sigue andando y cualquiera puede seguir
@@ -116,30 +121,77 @@ raíz y esta otra en `/admin`».
 
 Aparece en dos lados y tiene que decir lo mismo:
 
-- en la tabla de rutas, para que el proxy sirva la app bajo `/admin`;
-- en el repo (`svelte.config.js`, `vite.config.*`), para que el build pida sus assets bajo
-  `/admin/` y no en la raíz del dominio.
+- en la tabla de rutas, para que el proxy sirva la app bajo `/backoffice`;
+- en el repo, para que el build pida sus assets bajo `/backoffice/` y no en la raíz del dominio.
 
-**El repo es el dueño de su base**, por la regla 1: tiene que poder compilarse solo. Consola no la
-inyecta. Lo que hace es **verificar**: después de `npm run build` mira el `index.html` generado y,
-si los assets no cuelgan de la ruta que dice la tabla, corta. Ese desacuerdo no da error por sí
-solo —el proxy sirve la app y el navegador pide los assets donde vive la otra— y lo que se ve es
-una página en blanco.
+La fuente de verdad es `CADDY_ROUTES`. Pero el valor no puede viajar por el entorno del build,
+porque entonces el repo no se compilaría bien sin Consola (regla 1). Así que Consola lo **escribe
+como literal** en un archivo que se commitea, y después ese archivo es del repo:
 
-Se mira el resultado y no la config del repo: cómo resuelve cada uno su base es asunto suyo, y
-parsear JS para averiguarlo sería adivinar.
+```js
+// <spa>/base.generated.js  — lo escribe compile_spa antes de compilar
+export const base = "/backoffice";
+```
+
+```js
+// svelte.config.js (o vite.config.*) del repo
+import { base as deployedBase } from './base.generated.js';
+// Solo en el build: `vite dev` sirve la SPA sola, en la raíz de su propio puerto, y ahí no hay
+// proxy ni prefijo del que colgar. El archivo generado lleva la ruta DESPLEGADA, no la de dev.
+const base = process.env.NODE_ENV === 'production' ? deployedBase : '';
+```
+
+Es un archivo propio y no un parche sobre la config del repo: **Consola no edita código que no
+escribió ella**. Y se escribe en el repo local, que es donde se compila antes de copiar al VPS.
+
+Que Consola *edite* un archivo del repo no viola la regla 1; lo que la violaba era que el repo
+*dependiera* de Consola en tiempo de build. Con un literal committeado, quien clona el repo
+compila igual, y editar el archivo a mano funciona.
+
+Queda además la comprobación posterior: después de `npm run build`, Consola mira el `index.html`
+generado y corta si los assets no cuelgan de la ruta que dice la tabla. Es lo único que no se
+puede dar por hecho — una config con la ruta escrita a mano ignora el archivo generado y el build
+sale apuntando a otro lado. Ese desacuerdo no da error por sí solo: da una página en blanco.
+
+## 6.1. La copia de referencia del Caddyfile
+
+El Caddyfile vivo es `/etc/caddy/Caddyfile` en el VPS y no hay otro. Pero poder leer la
+configuración del proxy sin entrar por SSH es razonable, así que `configure_caddy` deja una copia
+en `.consola/Caddyfile.generado` del repo local.
+
+En `.consola/` y no en la raíz ni en `docs/`, por dos motivos: está gitignorado, así que la
+referencia no entra al árbol versionado; y nadie la puede confundir con el archivo vivo. Un
+Caddyfile en la raíz del repo termina, tarde o temprano, en que alguien lo enlaza desde `/etc` y
+el proxy pasa a depender del árbol de git.
+
+**Copia, nunca symlink.** Un symlink en cualquiera de las dos direcciones reintroduce el fallo:
+`sudo tee` escribe a través del enlace, y así se perdió el Caddyfile versionado del clon de
+producción de concordia.
 
 ## 7. Qué falta hacer
 
+**Consola**
+
 1. `configure_caddy`: generar el `Caddyfile` desde `CADDY_ROUTES` a `/etc/caddy/Caddyfile`,
-   rompiendo el symlink si lo hubiera. **Hecho en el árbol de trabajo, sin commitear.**
-2. `compile_spa`: verificar la base contra la tabla en vez de inyectarla. **Hecho, sin commitear.**
-3. Revisar que `configure_coturn` y `configure_service` cumplan las mismas reglas de §3 (hoy sí:
-   los dos generan a `/etc` y no tocan el repo).
-4. Restaurar el `Caddyfile` de producción de concordia, que este botón pisó:
+   rompiendo el symlink si lo hubiera, y dejar la copia en `.consola/Caddyfile.generado`. Hecho.
+2. `compile_spa`: escribir `<spa>/base.generated.js` antes de compilar y verificar el HTML
+   después. Hecho.
+3. Revisar que `configure_coturn` y `configure_service` cumplan las reglas de §3. Hoy sí: los dos
+   generan a `/etc` y no tocan el repo.
+
+**Concordia**
+
+4. Renombrar `/admin` a `/backoffice`. No hay razón buena para `/admin`: todo lo demás en el repo
+   —la carpeta, la cookie, los routers, los tags de OpenAPI— se llama backoffice, y `/admin` es el
+   único alias, además de estar en la wordlist de cualquier escáner. Toca 6 prefijos de router,
+   `backoffice_cookie_path`, los tests y `verify_backoffice.py`.
+5. Borrar el `Caddyfile` de la raíz: manda el que Consola escribe en `/etc`.
+6. `backoffice/svelte.config.js` importa la base de `base.generated.js` en vez de tenerla escrita.
+7. Restaurar el `Caddyfile` de producción que el botón viejo pisó, si todavía hace falta:
    `cd <deploy>/concordia && git checkout -- Caddyfile`.
-5. **Decisión pendiente, de concordia y no de Consola**: hoy concordia mantiene su `Caddyfile`
-   versionado en la raíz más un `scripts/vps_setup/setup_caddy.py` que lo enlaza. Con Consola
-   generando `/etc/caddy/Caddyfile` desde `CADDY_ROUTES`, hay dos fuentes para lo mismo. O se
-   deja el del repo y Consola no toca Caddy en ese repo, o se borra el del repo y manda la tabla.
-   No se puede tener las dos.
+
+**Pendiente, sin decidir**
+
+8. `scripts/vps_setup/setup_caddy.py` queda muerto (su trabajo era el symlink y el drop-in), y
+   `scripts/vps_server/update_remote.py:544` recarga un Caddy que ya no depende del `git pull`.
+   Se limpian aparte, cuando el botón esté probado contra el VPS real.

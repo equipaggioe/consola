@@ -41,7 +41,12 @@ def parse_env(text: str) -> dict[str, str]:
             continue
         key, _, value = line.partition('=')
         key = key.strip()
-        value = value.strip().strip('"').strip("'")
+        value = value.strip()
+        # Un par de comillas que envuelve al valor, no cualquier comilla del
+        # borde: `strip("'")` se comia la ultima de `... frame-ancestors 'none'`
+        # y dejaba una CSP invalida en el Caddyfile.
+        if len(value) > 1 and value[0] == value[-1] and value[0] in ('"', "'"):
+            value = value[1:-1]
         if key:
             values[key] = value
     return values

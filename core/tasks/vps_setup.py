@@ -355,6 +355,29 @@ def _caddyfile(*, domain: str, routes: list[vps.Route], roots: dict[str, str],
     return f'{domain} {{\n' + '\n\n'.join(cuerpo) + '\n}\n'
 
 
+CADDY_REFERENCE = 'Caddyfile.generado'
+
+
+def _save_reference(ctx, conf: str) -> None:
+    """Deja en el repo local una copia legible del Caddyfile que se acaba de escribir.
+
+    El vivo es `/etc/caddy/Caddyfile` en el VPS y no hay otro: tener un Caddyfile
+    en la raiz del repo termina en que alguien lo enlaza y el proxy pasa a
+    depender del arbol de git. Pero mirar la configuracion del proxy sin entrar
+    por SSH es razonable, asi que la copia va a `.consola/`, que esta gitignorado
+    — es una referencia, no una fuente, y nadie la puede confundir con la otra.
+
+    Se escribe local porque el build tambien se hace local y despues se copia al
+    VPS: lo que Consola le deja al repo tiene que estar de este lado.
+    """
+    destino = ctx.root / envfile.CONSOLA_DIR / CADDY_REFERENCE
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    encabezado = (f'# Copia de referencia. El que usa Caddy es {CADDYFILE} en el VPS.\n'
+                  f'# Lo genera Consola desde CADDY_ROUTES: editar esto no cambia nada.\n\n')
+    destino.write_text(encabezado + conf, encoding='utf-8', newline='\n')
+    ctx.info(f'Copia de referencia: {destino}')
+
+
 def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
     """Escribe el Caddyfile del VPS a partir de `CADDY_ROUTES` y deja Caddy sirviendo.
 
@@ -392,6 +415,7 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
     conf = _caddyfile(domain=dominio, routes=rutas, roots=roots,
                       upstream=vps.backend_address(ctx.config),
                       csp=ctx.config.get('CSP').strip())
+    _save_reference(ctx, conf)
 
     ssh.run(ctx, remote, f'{vps.SUDO} mkdir -p /etc/caddy')
     # Si /etc/caddy/Caddyfile es un symlink, `tee` escribe A TRAVES de el: asi se
