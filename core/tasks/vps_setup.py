@@ -40,6 +40,7 @@ SUDO_SPECIFIC = (
     '/usr/bin/tee',         # escribir la unidad systemd y turnserver.conf
     '/usr/bin/sed',         # habilitar coturn en /etc/default/coturn
     '/usr/sbin/ufw',        # abrir los puertos de coturn
+    '/bin/ln',              # symlink de /etc/caddy/Caddyfile al del repo
     '/bin/mkdir',           # crear las carpetas del despliegue
     '/bin/chown',           # dueno de archivos y carpetas
     '/bin/chmod',           # permisos
@@ -51,6 +52,8 @@ TURN_PORT = 3478
 TURN_TLS_PORT = 5349
 RELAY_RANGE = (49160, 49360)
 CADDYFILE = '/etc/caddy/Caddyfile'
+CADDY_DROPIN_DIR = '/etc/systemd/system/caddy.service.d'
+CADDY_DROPIN = f'{CADDY_DROPIN_DIR}/override.conf'
 
 
 def _root_run(ctx, command: str, *, check: bool = True) -> int:
@@ -286,6 +289,16 @@ def configure_coturn(ctx, tls: bool = False, *, enable: bool = True,
 
 # --- atomicas de web -------------------------------------------------------
 
+# Las tres cabeceras que `configure_caddy` escribe siempre. No son un dato del
+# repo: cada una tiene un solo valor sensato para un sitio HTTPS, y son
+# justamente de las que uno se olvida. La cuarta —la CSP— si cambia entre
+# proyectos y sale de `config.env`.
+SECURITY_HEADERS = (
+    ('Strict-Transport-Security', 'max-age=31536000; includeSubDomains'),
+    ('X-Content-Type-Options', 'nosniff'),
+    ('Referrer-Policy', 'strict-origin-when-cross-origin'),
+)
+
 def _spa_root(ctx, name: str) -> str:
     """La carpeta que Caddy sirve para esa SPA, del lado del VPS.
 
@@ -299,67 +312,61 @@ def _spa_root(ctx, name: str) -> str:
     return vps.remote_path(ctx.config, rel, salida)
 
 
-def _spa_lines(root: str, indent: str) -> str:
-    cuerpo = [f'root * {root}', 'try_files {path} /index.html', 'file_server']
-    return '\n'.join(f'{indent}{linea}' for linea in cuerpo)
+def _route_root(ctx, route: vps.Route) -> str:
+    """La carpeta del VPS que sirve una regla `spa` o `static`."""
+    if route.kind == 'spa':
+        return _spa_root(ctx, route.target)
+    return vps.static_root(ctx.config, route)
 
 
-def _caddyfile(*, domain: str, apps: list[tuple[str, str]], upstream: str, api: str,
-               routing: str) -> str:
+def _caddyfile(*, domain: str, routes: list[vps.Route], roots: dict[str, str],
+               upstream: str, csp: str) -> str:
     """El Caddyfile entero, en una funcion sin efectos: es lo unico que se prueba.
 
-    Una sola SPA se sirve en la raiz —del dominio o del subdominio, segun el
-    ruteo— porque un repo con una sola app no tiene de que distinguirla. Con dos
-    o mas, cada una lleva su nombre: el mismo que ya la identifica en el eje de
-    Build Vite.
+    Cada regla es un `handle`, en el orden en que vino: gana la primera que
+    matchea, que es la semantica de Caddy y la razon por la que el orden de
+    `CADDY_ROUTES` es informacion y no presentacion.
     """
-    if not apps and not api:
-        raise TaskError('Sin apps y sin ruta de API no hay nada que servir.')
+    cuerpo = ['\tencode zstd gzip']
 
-    if routing == 'subdominio':
-        if not apps:
-            return (f'{domain} {{\n    encode zstd gzip\n'
-                    f'    reverse_proxy {upstream}\n}}\n')
-        bloques = []
-        if api:
-            bloques.append(f'{api}.{domain} {{\n    encode zstd gzip\n'
-                           f'    reverse_proxy {upstream}\n}}')
-        for nombre, root in apps:
-            host = domain if len(apps) == 1 else f'{nombre}.{domain}'
-            bloques.append(f'{host} {{\n    encode zstd gzip\n{_spa_lines(root, "    ")}\n}}')
-        return '\n\n'.join(bloques) + '\n'
+    cabeceras = [f'\t\t{nombre} "{valor}"' for nombre, valor in SECURITY_HEADERS]
+    if csp:
+        cabeceras.append(f'\t\tContent-Security-Policy "{csp}"')
+    cuerpo.append('\theader {\n' + '\n'.join(cabeceras) + '\n\t}')
 
-    if not apps:
-        return (f'{domain} {{\n    encode zstd gzip\n'
-                f'    reverse_proxy {upstream}\n}}\n')
-
-    cuerpo = ['    encode zstd gzip']
-    if api:
-        cuerpo.append(f'    handle /{api}/* {{\n        reverse_proxy {upstream}\n    }}')
-    for nombre, root in apps:
-        if len(apps) == 1:
-            cuerpo.append(f'    handle {{\n{_spa_lines(root, "        ")}\n    }}')
+    for route in routes:
+        # El catch-all es `handle` sin patron; el resto lleva el suyo.
+        cabeza = 'handle' if route.catch_all else f'handle {route.pattern}'
+        if route.kind == 'backend':
+            lineas = [f'\t\treverse_proxy {upstream}']
         else:
-            cuerpo.append(f'    handle_path /{nombre}/* {{\n{_spa_lines(root, "        ")}\n    }}')
+            lineas = [f'\t\troot * {roots[route.pattern]}']
+            # Recortar el prefijo es lo que hace que el build no necesite una
+            # carpeta `admin/` en disco: el prefijo vive solo en las URLs. El
+            # catch-all no tiene prefijo que recortar, y `backend` nunca recorta
+            # —las rutas del server incluyen su `/api`—.
+            if not route.catch_all:
+                lineas.append(f'\t\turi strip_prefix {route.prefix}')
+            if route.kind == 'spa':
+                lineas.append('\t\ttry_files {path} /index.html')
+            lineas.append('\t\tfile_server')
+        cuerpo.append(f'\t{cabeza} {{\n' + '\n'.join(lineas) + '\n\t}')
+
     return f'{domain} {{\n' + '\n\n'.join(cuerpo) + '\n}\n'
 
 
-def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta',
-                    *, enable: bool = True, start: bool = True) -> str:
-    """Escribe el Caddyfile del VPS y deja Caddy sirviendo.
+def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
+    """Escribe el Caddyfile del VPS a partir de `CADDY_ROUTES` y deja Caddy sirviendo.
 
     Caddy queda adelante de todo: toma el 80 y el 443, saca y renueva el
-    certificado solo y reparte entre las SPA compiladas y el backend. A donde
-    manda ese trafico no es un parametro de este boton: es
-    `BACKEND_HOST`/`BACKEND_PORT`, el mismo dato con el que `write_systemd_unit`
-    levanta el backend — dos copias de esa direccion es la forma segura de que
-    un dia Caddy apunte a donde el backend ya no escucha.
-
-    La lista vacia de apps significa "las SPA que tenga el repo"; ninguna SPA es
-    tambien valido: es el VPS que solo publica la API.
+    certificado solo y reparte segun la tabla de ruteo. Esa tabla es un dato del
+    despliegue —las mismas rutas existirian si el archivo se escribiera a mano—
+    asi que vive en `config.env` y no en los parametros del boton. Antes se
+    deducia de la forma del repo, con el nombre de cada carpeta como prefijo de
+    URL, y no habia forma de decir «esta va en la raiz y esta otra en /admin».
 
     `start=False` escribe el Caddyfile y no lo aplica. Aca es donde mas se pide:
-    recargar Caddy corta el 80 y el 443 de TODO el VPS por un instante, no solo
+    reiniciar Caddy corta el 80 y el 443 de TODO el VPS por un instante, no solo
     de una app. El archivo que queda ya paso por `caddy validate`, asi que lo
     que espera a la ventana de mantenimiento es una configuracion valida.
     """
@@ -370,16 +377,34 @@ def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta'
     if not dominio:
         raise TaskError('Falta PUBLIC_HOST: cargalo en Configuración, o el dominio '
                         'de Cloudflare del que se deriva.')
-    if routing not in ('subruta', 'subdominio'):
-        raise TaskError(f'Ruteo desconocido: {routing}')
 
-    elegidas = list(apps or targets.names(ctx.root, targets.SPA_VITE))
-    api = ctx.config.get('API_PATH', '/api').strip('/')
-    upstream = vps.backend_address(ctx.config)
-    servidas = [(nombre, _spa_root(ctx, nombre)) for nombre in elegidas]
+    rutas = vps.routes(ctx.config)
+    roots = {r.pattern: _route_root(ctx, r) for r in rutas if r.kind != 'backend'}
+    # Las carpetas de las SPA las crea la subida del build; las de `static` son
+    # de quien administra el VPS y Consola no las inventa. Servir una carpeta
+    # que no existe no hace fallar a Caddy: devuelve 404 y hay que ir a buscar
+    # por que.
+    for route in rutas:
+        if route.kind == 'static' and not ssh.succeeds(remote, f'test -d {ssh.quote(roots[route.pattern])}'):
+            raise TaskError(f'{roots[route.pattern]} no existe en el VPS, y la regla '
+                            f'«{route.pattern}» lo sirve. Crealo antes de correr esto.')
 
-    conf = _caddyfile(domain=dominio, apps=servidas, upstream=upstream, api=api, routing=routing)
-    ssh.run(ctx, remote, 'sudo -n mkdir -p /etc/caddy')
+    conf = _caddyfile(domain=dominio, routes=rutas, roots=roots,
+                      upstream=vps.backend_address(ctx.config),
+                      csp=ctx.config.get('CSP').strip())
+
+    ssh.run(ctx, remote, f'{vps.SUDO} mkdir -p /etc/caddy')
+    # Si /etc/caddy/Caddyfile es un symlink, `tee` escribe A TRAVES de el: asi se
+    # perdio una vez el Caddyfile versionado dentro del clon de produccion, que
+    # es a donde apuntaba. Consola es la dueña del archivo, asi que rompe el
+    # enlace y escribe uno propio — pero deja en el log lo que habia del otro
+    # lado, que es lo unico que quedaba de aquel.
+    enlace = ssh.capture(remote, f'readlink {CADDYFILE}', check=False)
+    if enlace:
+        ctx.warn(f'{CADDYFILE} era un symlink a {enlace}. Consola escribe un archivo '
+                 'propio; ese queda intacto y sin usar.')
+        ssh.run(ctx, remote, f'{vps.SUDO} rm -f {CADDYFILE}')
+
     cambio = vps.write_config(ctx, remote, CADDYFILE, conf)
     # `caddy validate` antes de recargar: un Caddyfile con un error de sintaxis
     # deja el servicio caido, y con el se cae todo lo que publica el VPS. El que
@@ -391,37 +416,10 @@ def configure_caddy(ctx, apps: list[str] | None = None, routing: str = 'subruta'
     from . import vps_server
     vps_server.bring_up_service(ctx, 'caddy', enable=enable, start=start, changed=cambio)
 
-    for nombre, _ in servidas:
-        if routing == 'subdominio':
-            destino = f'https://{dominio}' if len(servidas) == 1 else f'https://{nombre}.{dominio}'
-        else:
-            destino = f'https://{dominio}' if len(servidas) == 1 else f'https://{dominio}/{nombre}/'
-        ctx.ok(f'{nombre}: {destino}')
-    if api and servidas:
-        ctx.ok(f'API: https://{api}.{dominio}' if routing == 'subdominio'
-               else f'API: https://{dominio}/{api}/')
-        if routing == 'subruta':
-            ctx.info(f'El prefijo /{api} llega al backend tal cual: las rutas del '
-                     f'servidor tienen que empezar con /{api}.')
-    elif not servidas:
-        ctx.ok(f'Todo el dominio va al backend: https://{dominio}')
-    if routing == 'subdominio' and len(servidas) > 1:
-        ctx.warn('Cada subdominio necesita su propio registro DNS en Cloudflare.')
-    if routing == 'subruta' and len(servidas) > 1:
-        ctx.warn('Cada SPA se sirve bajo su nombre: su vite.config necesita '
-                 "base: '/<nombre>/' o los assets van a dar a la raiz.")
-    # La unidad systemd se escribe una vez y no se relee sola: un VPS armado
-    # antes de que existiera `BACKEND_HOST` sigue con el backend en 0.0.0.0:443,
-    # y ahi Caddy no puede tomar el 443. Se mira la unidad y se avisa solo si de
-    # verdad discrepa, en vez de reescribir el servicio de otro boton o repetir
-    # un aviso generico cuando ya esta bien.
-    servicio = vps.service_name(ctx.config)
-    host, port = vps.backend_listen(ctx.config)
-    if vps.unit_installed(remote, servicio):
-        unidad = ssh.capture(remote, f'cat {ssh.quote(vps.unit_path(servicio))}', check=False)
-        if unidad and f'--host {host} --port {port}' not in unidad:
-            ctx.warn(f'La unidad de {servicio} no escucha en {upstream}, que es a donde '
-                     'manda Caddy: reescribila con Instalar servicio.')
+    for route in rutas:
+        donde = f'https://{dominio}' + ('' if route.catch_all else route.prefix)
+        que = 'backend' if route.kind == 'backend' else f'{route.kind} {route.target}'
+        ctx.ok(f'{donde} -> {que}')
     return CADDYFILE
 
 

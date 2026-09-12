@@ -826,23 +826,17 @@ def load_catalog() -> None:
                       truthy='turns en 5349',
                       labels={'sin TLS': 'Sin TLS', 'turns en 5349': 'Turns en 5349'})],
         steps=_SERVICE_STEPS(), stub=True))
-    # El unico paquete de `PACKAGE_GROUPS` que se instalaba y no se configuraba
-    # desde ningun lado: un Caddy instalado sin Caddyfile no sirve nada.
-    #
-    # Mismo reparto que arriba: el dominio, donde escucha el backend y bajo que
-    # ruta se publica la API son datos del despliegue y viven en `config.env`
-    # —`BACKEND_HOST`/`BACKEND_PORT` los comparte con `write_systemd_unit`, que
-    # es quien pone al backend justamente ahi—. Quedan de ejes las dos cosas que
-    # si se eligen: cuales de las SPA del repo se publican y como se llega a
-    # cada una.
+    # Sin ejes, y esa es la correccion: los tenia —que SPA publicar y si iban por
+    # subruta o subdominio— y con esos dos deducia la topologia entera, con el
+    # nombre de cada carpeta como prefijo de URL. Una topologia de proxy real no
+    # sale de dos preguntas: es una lista ordenada de reglas, y es un dato del
+    # despliegue (existiria igual escribiendo el Caddyfile a mano), asi que vive
+    # en `CADDY_ROUTES` y no en los parametros del boton. La misma tabla la lee
+    # `compile_spa` para saber con que `base` compilar cada SPA.
     registry.register(Capability(
         id='configure_caddy', name='Configurar Caddy', group='VPS · setup',
         section='Web', kind='once', icon='🌐',
-        description='Escribe el Caddyfile: sirve las SPA compiladas, hace de proxy a la API y saca el HTTPS solo.',
-        axes=[AxisDef('apps', [], 'checks', select='many', label='Apps',
-                      discover=(targets.SPA_VITE,), allow_empty=True),
-              AxisDef('routing', ['subruta', 'subdominio'], 'scope', label='Cómo se llega',
-                      labels={'subruta': 'Subruta', 'subdominio': 'Subdominio'})],
+        description='Escribe el Caddyfile desde la tabla de rutas: SPA, API y estáticos, con HTTPS automático.',
         steps=_SERVICE_STEPS(), stub=True))
     registry.register(Capability(
         id='bootstrap_vps', name='Bootstrap VPS', group='VPS · setup', section='Bootstrap',

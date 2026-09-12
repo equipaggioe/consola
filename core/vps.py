@@ -1,12 +1,112 @@
 from __future__ import annotations
 
 import difflib
+import re
 
-from .envfile import Config
+from .envfile import Config, split_list
 from .errors import TaskError
 from .ssh import Remote, capture, quote, reachable, run, succeeds
 
 SUDO = 'sudo -n'
+
+
+# --- tabla de ruteo del proxy ----------------------------------------------
+#
+# Vive aca y no en `core/tasks/vps_setup.py`, que es quien escribe el Caddyfile,
+# porque la misma tabla la lee el build: si una SPA se publica bajo `/admin`,
+# Vite tiene que compilarla con ese `base` o sus assets se piden en la raiz.
+# Ese es todo el motivo por el que la ruta de cada SPA es un dato y no un eje —
+# dos botones distintos tienen que leer exactamente el mismo valor.
+
+# `$CLAVE` al principio de la ruta de una regla `static`, para no repetir en la
+# tabla una ruta que ya esta cargada en la configuracion.
+_ROUTE_REF = re.compile(r'^\$([A-Za-z_][A-Za-z0-9_]*)')
+
+
+class Route:
+    """Una fila de `CADDY_ROUTES` ya interpretada."""
+
+    __slots__ = ('pattern', 'kind', 'target')
+
+    def __init__(self, pattern: str, kind: str, target: str):
+        self.pattern, self.kind, self.target = pattern, kind, target
+
+    @property
+    def catch_all(self) -> bool:
+        return self.pattern == '*'
+
+    @property
+    def prefix(self) -> str:
+        """El prefijo que Caddy tiene que recortar: `/admin/*` -> `/admin`."""
+        return self.pattern[:-2] if self.pattern.endswith('/*') else self.pattern
+
+
+def parse_routes(lineas: list[str]) -> list[Route]:
+    """Interpreta la tabla. Sin efectos, para poder probarla contra un Caddyfile real.
+
+    Corta en la primera fila que no entiende en vez de saltearla: una regla que
+    se ignora en silencio no falla al escribir, falla en produccion cuando el
+    trafico que tenia que ir al backend cae en el catch-all de la SPA.
+    """
+    rutas: list[Route] = []
+    for linea in lineas:
+        partes = linea.split()
+        if len(partes) < 2:
+            raise TaskError(f'Regla incompleta: «{linea}». Va «<patron> <destino>».')
+        patron, destino, resto = partes[0], partes[1], partes[2:]
+        if not (patron == '*' or patron.startswith('/')):
+            raise TaskError(f'Patron invalido en «{linea}»: empieza con / o es *.')
+        if destino == 'backend':
+            if resto:
+                raise TaskError(f'«backend» no lleva argumento: «{linea}».')
+            rutas.append(Route(patron, 'backend', ''))
+        elif destino in ('spa', 'static'):
+            if len(resto) != 1:
+                raise TaskError(f'«{destino}» lleva exactamente un argumento: «{linea}».')
+            rutas.append(Route(patron, destino, resto[0]))
+        else:
+            raise TaskError(f'Destino desconocido «{destino}» en «{linea}». '
+                            'Los destinos son: backend, spa <nombre>, static <ruta>.')
+    if not rutas:
+        raise TaskError('CADDY_ROUTES esta vacia: sin reglas no hay nada que servir.')
+    if any(r.catch_all for r in rutas[:-1]):
+        raise TaskError('El catch-all «*» tiene que ser la ultima regla: lo que va '
+                        'despues nunca se alcanza.')
+    return rutas
+
+
+def routes(config: Config) -> list[Route]:
+    return parse_routes(split_list(config.get('CADDY_ROUTES')))
+
+
+def static_root(config: Config, route: Route) -> str:
+    """La carpeta del VPS que sirve una regla `static`, con `$CLAVE` resuelta."""
+    referencia = _ROUTE_REF.match(route.target)
+    if not referencia:
+        return route.target.rstrip('/')
+    clave = referencia.group(1)
+    base = config.get(clave).strip()
+    if not base:
+        raise TaskError(f'La regla «{route.pattern} static {route.target}» usa ${clave}, '
+                        f'y esa clave esta vacia en Configuracion.')
+    return (base.rstrip('/') + route.target[referencia.end():]).rstrip('/')
+
+
+def spa_base(config: Config, name: str) -> str:
+    """Bajo que ruta se publica esa SPA: `/admin`, o vacio si va en la raiz.
+
+    Vacio tambien cuando el repo todavia no tiene tabla: el build no es el lugar
+    donde enterarse de que falta configurar el proxy, y la raiz es lo que hacia
+    antes de que la ruta fuera configurable.
+    """
+    try:
+        tabla = routes(config)
+    except TaskError:
+        return ''
+    for route in tabla:
+        if route.kind == 'spa' and route.target == name:
+            return '' if route.catch_all else route.prefix
+    return ''
 
 # Los paquetes que el despliegue da por dados, agrupados por lo que significan
 # para quien elige (no por como se llaman en apt: `python` son tres paquetes).
@@ -96,11 +196,10 @@ def remote_python(config: Config) -> str:
 def backend_listen(config: Config) -> tuple[str, int]:
     """Donde escucha el backend DENTRO del VPS.
 
-    Una sola fuente para los dos lados del mismo hecho: `write_systemd_unit` lo
-    pone a escuchar ahi y `configure_caddy` manda el trafico ahi. Estaba clavado
-    en la firma de la primera (`host='0.0.0.0', port=443`) sin eje que lo
-    ofreciera, asi que no habia forma de moverlo ni de que el otro lado lo
-    supiera.
+    Lo usa `write_systemd_unit`, que es quien lo pone a escuchar. Estaba clavado
+    en su firma (`host='0.0.0.0', port=443`) sin eje que lo ofreciera, asi que
+    no habia forma de moverlo. El `reverse_proxy` del Caddyfile del repo tiene
+    que apuntar a esta misma direccion, pero ese archivo no lo escribe Consola.
     """
     return config.get('BACKEND_HOST', '127.0.0.1'), config.port('BACKEND_PORT', 8000)
 

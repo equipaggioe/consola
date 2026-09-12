@@ -150,12 +150,53 @@ def install_node_modules(ctx, directory: str = '') -> None:
 
 
 def compile_spa(ctx, directory: str = '') -> Path:
-    """`npm run build`. Devuelve la carpeta de salida que declara Vite."""
+    """`npm run build`, y comprueba que el build quedo bajo la ruta que lo publica.
+
+    Bajo que ruta vive cada SPA lo dice `CADDY_ROUTES`, la misma tabla que lee
+    `configure_caddy` para escribir el proxy. El repo lo declara aparte, en su
+    `svelte.config.js` o su `vite.config.*`, y esta bien que asi sea: sin eso el
+    repo no podria compilarse solo. Lo que Consola no puede permitir es que las
+    dos declaraciones discrepen, porque ese fallo no da error — el proxy sirve
+    la app y el navegador pide sus assets en la raiz del dominio, donde vive la
+    OTRA app, y lo que se ve es una pagina en blanco.
+
+    `BASE_PATH` se ofrece por si el repo prefiere delegar el valor en vez de
+    escribirlo; el que no la lee no se entera. La garantia no la da esa
+    variable, la da la comprobacion de abajo.
+    """
     spa = _target(ctx, targets.SPA_VITE, directory)
-    ctx.run([*toolchain.npm_cmd(), 'run', 'build'], cwd=spa.path)
+    base = vps.spa_base(ctx.config, spa.name)
+    ctx.run([*toolchain.npm_cmd(), 'run', 'build'], cwd=spa.path,
+            env={'BASE_PATH': base} if base else None)
     salida = _spa_output(spa)
+    _check_base(ctx, spa.name, salida, base)
     ctx.ok(f'Build de {spa.name}: {salida} ({files.human_size(files.size_of(salida))})')
     return salida
+
+
+def _check_base(ctx, name: str, salida: Path, base: str) -> None:
+    """Compara la ruta que publica la SPA contra la que quedo en su HTML.
+
+    Se mira el resultado y no la config del repo: como resuelve cada uno su base
+    —una constante, `NODE_ENV`, una variable de entorno— es asunto suyo, y
+    parsear JS para averiguarlo seria adivinar. El HTML compilado, en cambio,
+    dice sin ambiguedad donde va a pedir los assets.
+    """
+    index = salida / 'index.html'
+    if not index.is_file():
+        return
+    enlaces = re.findall(r'(?:href|src)="(/[^"]*)"',
+                         index.read_text(encoding='utf-8', errors='replace'))
+    if not enlaces:
+        return
+    fuera = [e for e in enlaces if not e.startswith(f'{base}/')] if base else []
+    if fuera:
+        raise TaskError(
+            f'{name} se publica en {base} pero su build pide {fuera[0]}, en la raiz del '
+            f'dominio: ahi vive otra app y lo que se ve es una pagina en blanco. '
+            f'La tabla de rutas y la config de {name} tienen que decir lo mismo.')
+    if base:
+        ctx.ok(f'{name} compilado para {base}.')
 
 
 def _spa_output(spa: targets.Target) -> Path:

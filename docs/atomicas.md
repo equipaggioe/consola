@@ -213,11 +213,28 @@ cuáles de los tres existen ahí (`core/catalog.py::VPS_SERVICES`) en vez de ofr
 siempre.
 
 Lo que estos dos botones NO preguntan en el panel son sus datos: el realm y la dirección del sitio
-son `PUBLIC_HOST`, los puertos del TURN son `TURN_PORT`/`TURN_RELAY_RANGE`, y a dónde manda Caddy
-es `BACKEND_HOST`/`BACKEND_PORT` — la misma clave con la que `write_systemd_unit` pone al backend
-justamente ahí. Son datos del despliegue que las tareas leen, o sea `config.env`; lo que queda de
-eje es lo que se elige al apretar (el TLS del TURN, qué SPA publica Caddy y cómo se llega a cada
-una).
+son `PUBLIC_HOST` y los puertos del TURN son `TURN_PORT`/`TURN_RELAY_RANGE`. Son datos del
+despliegue que las tareas leen, o sea `config.env`; lo que queda de eje es lo que se elige al
+apretar, que en coturn es el TLS del TURN y en Caddy no es nada.
+
+#### Caddy no genera su configuración: la enchufa
+
+`configure_caddy` escribía el Caddyfile entero desde dos ejes —qué SPA publicar y si iban por
+subruta o por subdominio— y lo mandaba con `tee` a `/etc/caddy/Caddyfile`. Los dos ejes eran el
+error. La topología de un reverse proxy real lleva cabeceras de seguridad, WebSockets, estáticos
+que no salen de ningún build y rutas de API que tienen que ir **antes** del catch-all de la SPA o
+ésta se las come; nada de eso se deduce de la forma del repo. Peor: cuando el repo ya tenía su
+Caddyfile —y `/etc/caddy/Caddyfile` era un symlink a él— el `tee` escribía **a través** del
+symlink y pisaba el archivo versionado dentro del clon de producción.
+
+Así que el Caddyfile vive en la raíz del repo, se edita a mano y llega al VPS por el mismo
+`git pull` del deploy. Al botón le quedan las dos piezas que dependen de la máquina y por eso no
+pueden estar versionadas: el drop-in de systemd con las `{$VAR}` que ese archivo referencia y el
+symlink `/etc/caddy/Caddyfile -> <repo>/Caddyfile`. Las variables no están en `core/settings.py`
+porque las elige cada Caddyfile, no Consola: se leen de `config.env` por su propio nombre y
+`REPO_DIR` se resuelve solo. Es el único botón que reinicia siempre — el archivo que manda es del
+repo y puede haber cambiado por un `git pull` del que no se entera, y las `Environment=` del
+drop-in sólo entran con un restart.
 
 #### Los tres botones que configuran un servicio son el mismo botón
 

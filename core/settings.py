@@ -51,11 +51,6 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('API_URL', 'Server', 'URL publica de la API',
             placeholder='https://ejemplo.net:443',
             used_by=('backend', 'run_mobile', 'build_apk')),
-    # Bajo que ruta publica Caddy el backend. Es el prefijo de la URL de arriba
-    # visto del lado del servidor, y llega al backend sin recortar: las rutas
-    # del server tienen que empezar con el.
-    Setting('API_PATH', 'Server', 'Ruta publica de la API', default='/api',
-            used_by=('configure_caddy',)),
 
     # --- Cloudflare ---
     Setting('CF_API_TOKEN', 'Cloudflare', 'API token', secret=True,
@@ -136,6 +131,37 @@ SETTINGS: tuple[Setting, ...] = (
             default='postgis', placeholder='postgis, pg_trgm, unaccent',
             used_by=('bootstrap_db', 'enable_extensions', 'bootstrap_vps')),
 
+    # --- Web ---
+    # La tabla de ruteo del reverse proxy: un renglon por regla, en orden, gana
+    # la primera que matchea. Es la misma forma que tienen por dentro los
+    # `handle` de Caddy, los `rewrites` de Vercel y los `paths` de un Ingress, y
+    # esta aca —y no en `params.json`— porque es estructura del despliegue: esas
+    # rutas serian las mismas si el Caddyfile se escribiera a mano.
+    #
+    # `<patron> <destino>`, con tres destinos posibles:
+    #   backend            -> al `BACKEND_HOST:BACKEND_PORT` del repo
+    #   spa <nombre>       -> el build de esa SPA (recorta el prefijo)
+    #   static <ruta>      -> una carpeta del VPS (recorta el prefijo); `$CLAVE`
+    #                         al empezar se resuelve contra esta configuracion
+    # El patron `*` es el catch-all y va ultimo. Sin comas en ningun valor: son
+    # el separador con el que se guarda la lista.
+    Setting('CADDY_ROUTES', 'Web', 'Rutas del proxy', kind='list',
+            placeholder='/api/* backend\n/admin/* spa backoffice\n* spa pwa',
+            required_by=('configure_caddy',)),
+    # La unica cabecera de seguridad que cambia entre proyectos. Las otras tres
+    # —HSTS, nosniff, Referrer-Policy— tienen un solo valor sensato y las escribe
+    # `configure_caddy` sin preguntar: son de las que se olvidan, no de las que
+    # se eligen. Vacia significa no emitir CSP, que es lo que corresponde
+    # mientras el sitio todavia no la tenga pensada.
+    Setting('CSP', 'Web', 'Content-Security-Policy',
+            placeholder="default-src 'self'", used_by=('configure_caddy',)),
+    # La raiz de los archivos que sube la gente. No viaja por git y no la crea
+    # Consola: existe antes, con el dueno y los permisos que decida quien
+    # administra el VPS. Aca solo se nombra, para que una regla `static` pueda
+    # apuntarle con `$STORAGE_ROOT/...`.
+    Setting('STORAGE_ROOT', 'Web', 'Raiz de archivos subidos',
+            placeholder='/srv/almacenamiento', used_by=('configure_caddy',)),
+
     # --- GitHub ---
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
             placeholder='git@github.com:usuario/repo.git',
@@ -149,9 +175,9 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
             required_by=('configure_service',)),
     # Donde escucha el backend DENTRO del VPS. Lo escribe `write_systemd_unit` y
-    # lo lee `configure_caddy` para saber a donde mandar el trafico: es un dato
-    # de a dos, como `SECRET_FILES`, y tenerlo en cada boton por separado seria
-    # dejar que un lado quede apuntando a donde el otro ya no escucha.
+    # lo lee `configure_caddy` para saber a donde mandan las reglas `backend`:
+    # es un dato de a dos, y tenerlo en cada boton por separado seria dejar que
+    # un lado quede apuntando a donde el otro ya no escucha.
     #
     # El default es loopback y no 0.0.0.0:443 —lo que estaba clavado en la
     # funcion— porque Caddy viene en `DEFAULT_GROUPS`: el backend de este
@@ -181,7 +207,7 @@ SETTINGS: tuple[Setting, ...] = (
             used_by=('build_binary',)),
 )
 
-GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Systemd', 'Máquina')
+GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'Web', 'GitHub', 'Systemd', 'Máquina')
 
 # Los seguros del repo (`PROTECT_*`) NO estan aca y no son un `Setting`: no son
 # un dato que una tarea consuma —ningun paso lee uno— sino una decision de la
