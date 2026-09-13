@@ -24,9 +24,12 @@ class CommandInfoPanel(QWidget):
 
     Vive en la seccion de arriba del acordeon derecho. La cabecera de esa
     seccion lleva el nombre de la accion (lo pone `TabPanel`), asi que plegada
-    no se pierde nada: sigue diciendo cual es. El texto largo sale de
+    no se pierde nada: sigue diciendo cual es. El texto sale de
     `core/command_docs.py` cuando existe, y si no de la descripcion de una
     linea de la capacidad mas las etiquetas de sus pasos.
+
+    Solo que hace el boton y en que orden: la ficha no tiene una seccion de
+    advertencias ni de casos borde.
     """
 
     def __init__(self, parent=None):
@@ -79,11 +82,6 @@ class CommandInfoPanel(QWidget):
             for i, text in enumerate(steps, 1):
                 self._lay.addWidget(self._step(i, text))
 
-        if doc and doc.notes:
-            self._lay.addWidget(_Heading("A tener en cuenta"))
-            for text in doc.notes:
-                self._lay.addWidget(self._note(text))
-
     # --- interno ---------------------------------------------------------
     def _clear(self) -> None:
         while self._lay.count():
@@ -127,27 +125,5 @@ class CommandInfoPanel(QWidget):
             f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
 
         lay.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
-        lay.addWidget(body, 1)
-        return row
-
-    def _note(self, text: str) -> QWidget:
-        row = QWidget()
-        row.setStyleSheet("background: transparent;")
-        lay = QHBoxLayout(row)
-        lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(8)
-
-        dot = QLabel("·")
-        dot.setFixedWidth(16)
-        dot.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        dot.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;")
-
-        body = QLabel(text)
-        body.setWordWrap(True)
-        body.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;")
-
-        lay.addWidget(dot, 0, Qt.AlignmentFlag.AlignTop)
         lay.addWidget(body, 1)
         return row
