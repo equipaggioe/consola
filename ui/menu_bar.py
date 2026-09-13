@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QMenuBar, QMenu, QApplication
+from PySide6.QtWidgets import QMenuBar, QMenu
 from PySide6.QtGui import QAction, QActionGroup, QKeySequence
-from PySide6.QtCore import Signal, Qt
+from PySide6.QtCore import Signal
 
 from ui.theme import Colors, Fonts
 from ui import favorites
@@ -10,11 +10,10 @@ from core.registry import registry
 from core.projects import Project
 
 
-# Marcadores de texto en vez de pintado propio: un `QMenu` no deja tenir un
-# item suelto, y estos dos leen igual de bien y no cuestan un `QWidgetAction`
-# (que seria reimplementar `ActionRow` dentro del popup).
+# Marcador de texto en vez de pintado propio: un `QMenu` no deja tenir un
+# item suelto, y se lee igual de bien sin costar un `QWidgetAction` (que
+# seria reimplementar `ActionRow` dentro del popup).
 MARK_DANGER = '⚠'   # destructiva: revisar antes de apretar
-MARK_READY = '▸'    # tiene todo lo que necesita: Ctrl+clic la corre de una
 
 
 class ActionMenuBar(QMenuBar):
@@ -23,17 +22,13 @@ class ActionMenuBar(QMenuBar):
 
     Convive con el rail (`ui/rail.py`) en vez de reemplazarlo: el rail sigue
     siendo la superficie *siempre visible* — que puede correr ya, cuales son
-    favoritas, el ▶ por fila —, y el menu es el indice completo. Las dos
-    superficies emiten exactamente las mismas dos senales, asi que
-    `MainWindow` no distingue de donde vino el clic.
-
-    Un clic abre la pestana de la accion. Ctrl+clic la corre de una, igual
-    que el ▶ del rail, y cae en abrir la pestana si le falta configuracion —
-    para que la pulsacion nunca se pierda en silencio.
+    favoritas, el ▶ por fila —, y el menu es el indice completo. Un clic
+    abre la pestana de la accion, por la misma senal que el rail, asi que
+    `MainWindow` no distingue de donde vino el clic. Correr de una queda
+    para el ▶ del rail.
     """
 
     action_requested = Signal(str)        # capability_id: abrir su pestana
-    run_requested = Signal(str)           # capability_id: correr de una
     add_project_requested = Signal()
     close_project_requested = Signal()
     project_chosen = Signal(str)          # ruta del repo a activar
@@ -60,8 +55,6 @@ class ActionMenuBar(QMenuBar):
         """)
 
         self._actions: dict[str, QAction] = {}   # capability_id -> item del menu
-        self._labels: dict[str, str] = {}        # capability_id -> texto sin marca
-        self._ready: set[str] = set()
         self._group_menus: list[QMenu] = []
         # Por menu de grupo, sus bloques de seccion: cada uno con el separador
         # y el encabezado que lo abren (si los tiene) y sus acciones. Es lo que
@@ -131,8 +124,7 @@ class ActionMenuBar(QMenuBar):
             label += f"  {MARK_DANGER}"
         action = QAction(label, menu)
         action.setToolTip(_tooltip(cap))
-        action.triggered.connect(lambda _checked=False, cid=cap.id: self._trigger(cid))
-        self._labels[cap.id] = label
+        action.triggered.connect(lambda _checked=False, cid=cap.id: self.action_requested.emit(cid))
         self._actions[cap.id] = action
         return action
 
@@ -151,15 +143,12 @@ class ActionMenuBar(QMenuBar):
         menu.addAction(auto)
 
     def _build_help_menu(self) -> None:
-        """Solo la leyenda de los marcadores: el menu no inventa funciones que
-        el rail no tenga, esta fase solo anade la superficie."""
+        """Solo la leyenda del marcador: el menu no inventa funciones que el
+        rail no tenga, esta fase solo anade la superficie."""
         menu = self.addMenu('Ayuda')
-        for text in (f'{MARK_READY}  = lista para correr con lo guardado',
-                     f'{MARK_DANGER}  = destructiva',
-                     'Ctrl+clic sobre una acción la corre de una'):
-            item = QAction(text, self)
-            item.setEnabled(False)
-            menu.addAction(item)
+        item = QAction(f'{MARK_DANGER}  = destructiva', self)
+        item.setEnabled(False)
+        menu.addAction(item)
 
     # --- estado -----------------------------------------------------------
     def set_projects(self, projects: list[Project], active_path: str | None) -> None:
@@ -244,27 +233,6 @@ class ActionMenuBar(QMenuBar):
                 vivos += visibles
             menu.menuAction().setVisible(vivos > 0)
 
-    def set_ready(self, ready: set[str]) -> None:
-        """Marca con `▸` las acciones que pueden correr de una con lo que hay
-        guardado. Misma cuenta que el ▶ del rail: `ui/readiness.py`."""
-        if ready == self._ready:
-            return
-        self._ready = set(ready)
-        for cap_id, action in self._actions.items():
-            label = self._labels[cap_id]
-            action.setText(f"{label}  {MARK_READY}" if cap_id in ready else label)
-
-    # --- disparo ----------------------------------------------------------
-    def _trigger(self, cap_id: str) -> None:
-        """Ctrl+clic corre de una; sin Ctrl —o con Ctrl pero sin la
-        configuracion que la accion necesita— abre su pestana, que es donde
-        se completan los parametros que faltan."""
-        ctrl = QApplication.keyboardModifiers() & Qt.KeyboardModifier.ControlModifier
-        if ctrl and cap_id in self._ready:
-            self.run_requested.emit(cap_id)
-        else:
-            self.action_requested.emit(cap_id)
-
 
 def _by_section(capabilities: list) -> dict[str, list]:
     sections: dict[str, list] = {}
@@ -286,5 +254,5 @@ def _tooltip(cap) -> str:
         lines.append(cap.description)
     lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>{level}</span>")
     lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>"
-                 "Clic para abrir · Ctrl+clic para correr de una</span>")
+                 "Clic para abrir</span>")
     return '<br>'.join(lines)

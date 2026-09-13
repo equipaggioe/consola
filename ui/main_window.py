@@ -171,7 +171,6 @@ class MainWindow(QMainWindow):
         self.project_tabs.order_changed.connect(self._sync_repo_menu)
 
         self.action_menu.action_requested.connect(self._on_action_requested)
-        self.action_menu.run_requested.connect(self._on_run_requested)
         self.action_menu.add_project_requested.connect(self.project_tabs._pick_repo)
         self.action_menu.close_project_requested.connect(self._close_active_project)
         self.action_menu.project_chosen.connect(self._select_project_by_path)
@@ -563,13 +562,12 @@ class MainWindow(QMainWindow):
         """Que acciones pueden correr ya sobre el repo activo.
 
         La cuenta se hace una sola vez (`ui/readiness.py`) y se reparte a las
-        dos superficies que la muestran: el ▶ de cada fila del rail y el
-        marcador ▸ del menu. Si cada una la calculara por su cuenta podrian
+        dos superficies que la muestran: el ▶ de cada fila del rail y el de
+        las filas del buscador. Si cada una la calculara por su cuenta podrian
         discrepar, y son la misma pregunta.
         """
         ready = readiness.ready_ids(self.project_tabs.active_project)
         self.rail.refresh_readiness(ready)
-        self.action_menu.set_ready(ready)
         self.action_search.set_ready(ready)
 
     def _on_params_changed(self) -> None:

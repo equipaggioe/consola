@@ -9,7 +9,7 @@ from ui import params_store
 def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
     """Que le falta a una accion para poder correr sin abrir la pestana.
 
-    Correr de una (el boton ▶ del rail, Ctrl+clic en el menu) usa los
+    Correr de una (el boton ▶ del rail y del buscador) usa los
     parametros guardados para ese boton en ese repo, asi que se mira
     exactamente lo que esos parametros van a correr: los pasos apagados no
     pueden reclamar claves. Sin nada guardado se cuentan todos los pasos, que

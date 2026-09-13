@@ -286,7 +286,7 @@ class ActionRail(QWidget):
         el `.env` y al cambiar parametros (`ui/tab_panel.py`).
 
         La ventana pasa `ready` ya calculado cuando la misma cuenta alimenta
-        tambien a la barra de menu, para no recorrer el registro dos veces.
+        tambien al buscador de la barra de menu, para no recorrer el registro dos veces.
         """
         if ready is None:
             ready = readiness.ready_ids(self.project)
