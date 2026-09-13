@@ -8,6 +8,7 @@ from PySide6.QtCore import Qt, QEvent, QTimer
 
 from ui.rail import ActionRail
 from ui.menu_bar import ActionMenuBar
+from ui.action_search import ActionSearch
 from ui.title_bar import TitleBar
 from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar
@@ -177,6 +178,10 @@ class MainWindow(QMainWindow):
         self.action_menu.focus_filter_requested.connect(self.rail.filter_box.setFocus)
         self.action_menu.rail_auto_width_requested.connect(self.rail.clear_user_width)
 
+        self.action_search.action_requested.connect(self._on_action_requested)
+        self.action_search.run_requested.connect(self._on_run_requested)
+        self.action_search.favorites_changed.connect(self._on_favorites_changed)
+
         # Favoritas: tres superficies para el mismo conjunto —el filete de la
         # fila del rail, la estrella de la cabecera de parametros y el podado
         # de los menus—. Quien marca lo guarda, y desde aca se avisa al resto.
@@ -215,6 +220,11 @@ class MainWindow(QMainWindow):
         lay.setSpacing(0)
 
         lay.addWidget(self.action_menu, 1)
+
+        # Buscador: la lista de coincidencias cae desde esta fila, con las
+        # mismas filas del rail (`ui/action_search.py`).
+        self.action_search = ActionSearch()
+        lay.addWidget(self.action_search, 0, Qt.AlignmentFlag.AlignVCenter)
 
         self.fav_switch = ToggleSwitch("solo favoritos", favorites.only_favorites())
         self.fav_switch.toggled.connect(self._on_only_favorites)
@@ -266,6 +276,7 @@ class MainWindow(QMainWindow):
         self.workspace_stack.setCurrentWidget(self.empty_state)
         self.rail.clear_project()
         self.action_menu.set_project_active(False)
+        self.action_search.set_project_active(False)
         self._refresh_readiness()
         self._apply_accent(Colors.ACCENT)
         self.status_bar.clear()
@@ -435,6 +446,7 @@ class MainWindow(QMainWindow):
         self.title_bar.set_accent(color)
         self.title_bar.set_rule(color)
         self.fav_switch.set_accent(color)
+        self.action_search.set_accent(color)
         self._accent = color
         self._apply_window_border()
 
@@ -454,6 +466,7 @@ class MainWindow(QMainWindow):
         las otras se ponen al dia. Guardar ya lo hizo quien la marco."""
         ids = favorites.favorite_ids()
         self.action_menu.set_favorites(ids)
+        self.action_search.set_favorites(ids)
         self.rail.refresh_favorites()
         workspace = self.current_workspace
         if workspace is not None:
@@ -503,6 +516,7 @@ class MainWindow(QMainWindow):
 
         self.rail.set_project(project)
         self.action_menu.set_project_active(True)
+        self.action_search.set_project_active(True)
         self._refresh_readiness()
         self._sync_repo_menu()
         self._apply_accent(project.color)
@@ -556,6 +570,7 @@ class MainWindow(QMainWindow):
         ready = readiness.ready_ids(self.project_tabs.active_project)
         self.rail.refresh_readiness(ready)
         self.action_menu.set_ready(ready)
+        self.action_search.set_ready(ready)
 
     def _on_params_changed(self) -> None:
         """Apagar un paso puede dejar de reclamar claves (y encenderlo,

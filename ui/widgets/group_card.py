@@ -153,6 +153,15 @@ class ActionRow(QWidget):
         self._ready = value
         self._restyle_run()
 
+    def set_highlighted(self, value: bool) -> None:
+        """El mismo resalte del hover, puesto desde afuera: lo usa el buscador
+        de la barra de menu para marcar la fila elegida con las flechas."""
+        if value == self._hovered:
+            return
+        self._hovered = value
+        self._restyle()
+        self.update()
+
     def _restyle_run(self) -> None:
         self.run_btn.setEnabled(self._ready)
         self.run_btn.setToolTip(
