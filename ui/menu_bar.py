@@ -20,20 +20,17 @@ class ActionMenuBar(QMenuBar):
     """Barra de menu superior: el catalogo entero de acciones a un recorrido
     de hover, sin acordeon y sin ocupar ancho.
 
-    Convive con el rail (`ui/rail.py`) en vez de reemplazarlo: el rail sigue
-    siendo la superficie *siempre visible* — que puede correr ya, cuales son
-    favoritas, el ▶ por fila —, y el menu es el indice completo. Un clic
-    abre la pestana de la accion, por la misma senal que el rail, asi que
-    `MainWindow` no distingue de donde vino el clic. Correr de una queda
-    para el ▶ del rail.
+    Un clic abre la pestana de la accion, por la misma senal que el buscador
+    de la misma fila (`ui/action_search.py`), asi que `MainWindow` no
+    distingue de donde vino el clic. Correr de una queda para el ▶ del
+    buscador.
     """
 
     action_requested = Signal(str)        # capability_id: abrir su pestana
     add_project_requested = Signal()
     close_project_requested = Signal()
     project_chosen = Signal(str)          # ruta del repo a activar
-    focus_filter_requested = Signal()
-    rail_auto_width_requested = Signal()
+    focus_search_requested = Signal()
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -80,8 +77,7 @@ class ActionMenuBar(QMenuBar):
         """Un menu por grupo del registro, en su orden; dentro, las acciones
         separadas por `Capability.section`.
 
-        `section` estaba declarado en `core/catalog.py` y no lo miraba nadie:
-        el rail agrupa solo por grupo. Aqui da el segundo nivel sin anadir un
+        `section` da el segundo nivel sin anadir un
         submenu — que para las secciones de una sola accion (Utils tiene
         varias) seria un clic de mas por nada: queda todo a un nivel, con la
         seccion como encabezado.
@@ -91,8 +87,7 @@ class ActionMenuBar(QMenuBar):
         `addSection` pero se come su texto, y «Base de datos» quedaba con
         nueve acciones partidas por seis rayas sin explicacion.
 
-        El titulo de la barra va sin el emoji del grupo aunque el rail si lo
-        use: son once menus en una fila, y a 1000px —el minimo de la ventana—
+        El titulo de la barra va sin el emoji del grupo: son once menus en una fila, y a 1000px —el minimo de la ventana—
         el emoji es lo primero que empuja los ultimos al desbordamiento.
         """
         for group, capabilities in registry.get_groups().items():
@@ -130,21 +125,13 @@ class ActionMenuBar(QMenuBar):
 
     def _build_view_menu(self) -> None:
         menu = self.addMenu('Ver')
-        menu.setToolTipsVisible(True)
-
-        filtrar = QAction('Filtrar acciones en el rail', self)
-        filtrar.setShortcut(QKeySequence('Ctrl+L'))
-        filtrar.triggered.connect(self.focus_filter_requested.emit)
-        menu.addAction(filtrar)
-
-        auto = QAction('Ancho automático del rail', self)
-        auto.setToolTip('Lo mismo que hacer doble clic en el separador del rail')
-        auto.triggered.connect(self.rail_auto_width_requested.emit)
-        menu.addAction(auto)
+        buscar = QAction('Buscar acciones', self)
+        buscar.setShortcut(QKeySequence('Ctrl+L'))
+        buscar.triggered.connect(self.focus_search_requested.emit)
+        menu.addAction(buscar)
 
     def _build_help_menu(self) -> None:
-        """Solo la leyenda del marcador: el menu no inventa funciones que el
-        rail no tenga, esta fase solo anade la superficie."""
+        """Solo la leyenda del marcador."""
         menu = self.addMenu('Ayuda')
         item = QAction(f'{MARK_DANGER}  = destructiva', self)
         item.setEnabled(False)
@@ -191,8 +178,7 @@ class ActionMenuBar(QMenuBar):
 
     def set_project_active(self, active: bool) -> None:
         """Sin repo en pestanas no hay nada sobre lo que correr: los menus de
-        acciones se deshabilitan enteros, igual que el rail apaga sus cajas
-        (`ActionRail.clear_project`)."""
+        acciones se deshabilitan enteros, igual que el buscador."""
         for menu in self._group_menus:
             menu.setEnabled(active)
 
@@ -208,7 +194,7 @@ class ActionMenuBar(QMenuBar):
 
     def set_favorites(self, ids: set[str]) -> None:
         """Se marco o desmarco una favorita en otra superficie (el filete del
-        rail, la estrella de la cabecera de parametros)."""
+        buscador, la estrella de la cabecera de parametros)."""
         if ids == self._favorites:
             return
         self._favorites = set(ids)
@@ -242,7 +228,7 @@ def _by_section(capabilities: list) -> dict[str, list]:
 
 
 def _tooltip(cap) -> str:
-    """El mismo contenido que el tooltip del rail (`ActionRow._tooltip`):
+    """El mismo contenido que el tooltip de las filas del buscador (`ActionRow._tooltip`):
     que hace, de que nivel es, y como se usa la entrada."""
     composite = bool(cap.composed_of or len(cap.steps) > 1)
     level = ('Compuesta · encadena varias atómicas' if composite

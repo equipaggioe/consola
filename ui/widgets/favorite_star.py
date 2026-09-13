@@ -8,10 +8,9 @@ from ..theme import Colors, Fonts, tint
 class FavoriteStar(QPushButton):
     """Marcar como favorita la accion que se esta mirando.
 
-    En el rail, favorita se marca en el filete de la fila — que solo existe
-    mientras la caja del grupo esta abierta. Esta estrella hace lo mismo desde
-    la cabecera de los parametros: la accion abierta se marca sin volver a
-    buscarla en el rail.
+    En el buscador de la barra de menu, favorita se marca en el filete de la
+    fila. Esta estrella hace lo mismo desde la cabecera de los parametros: la
+    accion abierta se marca sin volver a buscarla.
     """
     marked = Signal(bool)
 

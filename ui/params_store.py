@@ -27,8 +27,8 @@ repo -> archivo del repo; decision de la maquina -> QSettings".
 --- Sobre el rendimiento ---------------------------------------------------
 Dos accesos lo dominan todo y los dos son calientes:
 
-- `ui/rail.py::_missing_keys` llama a `stored_steps` una vez por capacidad cada
-  vez que se cambia de repo (decenas de lecturas seguidas).
+- `ui/readiness.py::missing_keys` llama a `stored_steps` una vez por capacidad
+  cada vez que se cambia de repo (decenas de lecturas seguidas).
 - `ui/params_panel.py::_refresh_summary` llama a `save` en cada tecla de un
   campo de texto.
 
@@ -196,7 +196,7 @@ def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
 
 def stored_steps(repo_path: str, capability_id: str) -> list[str] | None:
     """Pasos activos guardados, para calcular fuera del panel que le falta a
-    una accion para poder correr sin abrir la pestana (`ui/rail.py`)."""
+    una accion para poder correr sin abrir la pestana (`ui/readiness.py`)."""
     state = load(repo_path, capability_id)
     if not state:
         return None

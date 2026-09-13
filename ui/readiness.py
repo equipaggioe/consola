@@ -9,7 +9,7 @@ from ui import params_store
 def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
     """Que le falta a una accion para poder correr sin abrir la pestana.
 
-    Correr de una (el boton ▶ del rail y del buscador) usa los
+    Correr de una (el boton ▶ del buscador) usa los
     parametros guardados para ese boton en ese repo, asi que se mira
     exactamente lo que esos parametros van a correr: los pasos apagados no
     pueden reclamar claves. Sin nada guardado se cuentan todos los pasos, que
@@ -18,7 +18,7 @@ def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
     La pregunta final se la hace a un `Config`, igual que
     `ui/params_panel.py::_missing_keys`: una clave con default fijo
     (`SERVER_DIR='server'`) o dinamico (`VPS_USER` -> nombre del repo) se
-    resuelve sola al correr, y mirando el texto crudo del campo el rail la
+    resuelve sola al correr, y mirando el texto crudo del campo el ▶ la
     marcaba como faltante mientras el panel la daba por buena.
     """
     active = params_store.stored_steps(repo_path, capability.id)
@@ -36,8 +36,7 @@ def ready_ids(project) -> set[str]:
     """Ids de las acciones que pueden correr ya sobre `project`, con su
     `.consola/config.env` guardado y sus parametros guardados.
 
-    Una sola cuenta para los dos sitios que la muestran — el ▶ de cada fila
-    del rail y el marcador del menu — para que no puedan discrepar.
+    La muestra el ▶ de cada fila del buscador de la barra de menu.
 
     Sin repo abierto no hay nada listo, ni siquiera las acciones que no piden
     ninguna clave: no hay sobre que correrlas. Contarlas dejaba el menu con 22

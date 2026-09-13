@@ -1,12 +1,11 @@
 from __future__ import annotations
 from PySide6.QtWidgets import (
     QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
-    QSplitter, QPushButton
+    QPushButton
 )
 from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut, QIcon, QPixmap, QFont
-from PySide6.QtCore import Qt, QEvent, QTimer
+from PySide6.QtCore import Qt, QEvent
 
-from ui.rail import ActionRail
 from ui.menu_bar import ActionMenuBar
 from ui.action_search import ActionSearch
 from ui.title_bar import TitleBar
@@ -56,8 +55,8 @@ class MainWindow(QMainWindow):
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
 
         # Barra de menu: el catalogo entero de acciones, sin ocupar ancho.
-        # Convive con el rail, no lo reemplaza — las dos superficies emiten
-        # las mismas senales y caen en los mismos manejadores. No es el
+        # Junto con el buscador de la misma fila, emite las mismas senales y
+        # cae en los mismos manejadores. No es el
         # `menuBar()` de la ventana (eso la pondria por encima de la barra de
         # titulo, que tiene que quedar arriba de todo por los botones de
         # ventana): es una franja mas dentro del layout central.
@@ -88,7 +87,6 @@ class MainWindow(QMainWindow):
         # de arriba. Un repo abierto es el contexto de todo lo que se ve
         # debajo, igual que la pestana de un navegador — y asi la ventana se
         # ahorra una fila entera de alto.
-        self.rail = ActionRail()
         self.project_tabs = ProjectTabBar()
 
         self.title_bar = TitleBar(self.project_tabs)
@@ -109,11 +107,7 @@ class MainWindow(QMainWindow):
         menu_row.setCursor(Qt.CursorShape.ArrowCursor)  # ver comentario arriba
         self.main_layout.addWidget(menu_row)
 
-        # --- Cuerpo: rail + espacio de trabajo del repo activo ----------
-        body_layout = QHBoxLayout()
-        body_layout.setContentsMargins(0, 0, 0, 0)
-        body_layout.setSpacing(0)
-
+        # --- Cuerpo: espacio de trabajo del repo activo ------------------
         self.workspace_stack = QStackedWidget()
         # Indexados por la ruta normalizada del repo, no por la identidad del
         # objeto: CPython reusa la direccion de uno liberado, asi que quitar
@@ -127,35 +121,15 @@ class MainWindow(QMainWindow):
         self.empty_state = self._build_empty_state()
         self.workspace_stack.addWidget(self.empty_state)
 
-        # Rail y espacio de trabajo van en un splitter: el rail se ajusta solo
-        # al contenido y ademas se puede fijar arrastrando el separador, igual
-        # que el panel de parametros dentro de cada pestana. Doble clic en el
-        # separador vuelve al ancho automatico.
-        self.body_splitter = QSplitter(Qt.Orientation.Horizontal)
-        self.body_splitter.setChildrenCollapsible(False)
-        self.body_splitter.setHandleWidth(4)
-        # Flecha propia en las dos mitades del cuerpo: los bordes izquierdo y
-        # derecho de la ventana las atraviesan de punta a punta (ver
-        # comentario junto a `self.title_bar.setCursor` mas arriba). El
-        # separador del medio no se toca — `QSplitter` ya le pone el suyo.
-        self.rail.setCursor(Qt.CursorShape.ArrowCursor)
+        # Flecha propia: los bordes izquierdo y derecho de la ventana lo
+        # atraviesan de punta a punta (ver comentario junto a
+        # `self.title_bar.setCursor` mas arriba).
         self.workspace_stack.setCursor(Qt.CursorShape.ArrowCursor)
-        self.body_splitter.addWidget(self.rail)
-        self.body_splitter.addWidget(self.workspace_stack)
-        self.body_splitter.setStretchFactor(0, 0)
-        self.body_splitter.setStretchFactor(1, 1)
-        self.body_splitter.splitterMoved.connect(self._on_rail_dragged)
-        self.body_splitter.handle(1).installEventFilter(self)
-        self.rail.width_hint_changed.connect(self._sync_rail_width)
-
-        body_layout.addWidget(self.body_splitter, 1)
-        self.main_layout.addLayout(body_layout, 1)
-        QTimer.singleShot(0, self._sync_rail_width)
+        self.main_layout.addWidget(self.workspace_stack, 1)
 
         # --- barra de estado: una sola, a lo ancho de toda la ventana ---
-        # Vive aca y no dentro de cada TabPanel para que llegue de borde a borde,
-        # por debajo del rail y del espacio de trabajo — no arrancando despues
-        # del rail. Refleja el repo activo y se refresca cuando una tarea de
+        # Vive aca y no dentro de cada TabPanel para que llegue de borde a
+        # borde. Refleja el repo activo y se refresca cuando una tarea de
         # maquina toca el entorno (`TabPanel.machine_changed`).
         self.status_bar = WorkspaceStatusBar(Colors.ACCENT)
         self.status_bar.security_clicked.connect(self._on_security_clicked)
@@ -163,8 +137,6 @@ class MainWindow(QMainWindow):
         self.main_layout.addWidget(self.status_bar)
 
         # --- Conexiones ---------------------------------------------------
-        self.rail.action_requested.connect(self._on_action_requested)
-        self.rail.run_requested.connect(self._on_run_requested)
         self.project_tabs.project_selected.connect(self._on_project_selected)
         self.project_tabs.project_added.connect(self._on_project_added)
         self.project_tabs.project_removed.connect(self._on_project_removed)
@@ -174,17 +146,16 @@ class MainWindow(QMainWindow):
         self.action_menu.add_project_requested.connect(self.project_tabs._pick_repo)
         self.action_menu.close_project_requested.connect(self._close_active_project)
         self.action_menu.project_chosen.connect(self._select_project_by_path)
-        self.action_menu.focus_filter_requested.connect(self.rail.filter_box.setFocus)
-        self.action_menu.rail_auto_width_requested.connect(self.rail.clear_user_width)
+        self.action_menu.focus_search_requested.connect(self.action_search.box.setFocus)
 
         self.action_search.action_requested.connect(self._on_action_requested)
         self.action_search.run_requested.connect(self._on_run_requested)
-        self.action_search.favorites_changed.connect(self._on_favorites_changed)
 
         # Favoritas: tres superficies para el mismo conjunto —el filete de la
-        # fila del rail, la estrella de la cabecera de parametros y el podado
-        # de los menus—. Quien marca lo guarda, y desde aca se avisa al resto.
-        self.rail.favorites_changed.connect(self._on_favorites_changed)
+        # fila del buscador, la estrella de la cabecera de parametros y el
+        # podado de los menus—. Quien marca lo guarda, y desde aca se avisa al
+        # resto.
+        self.action_search.favorites_changed.connect(self._on_favorites_changed)
         self._on_only_favorites(favorites.only_favorites(), save=False)
 
         proyectos = project_store.load()
@@ -201,10 +172,9 @@ class MainWindow(QMainWindow):
     def _build_menu_row(self) -> QWidget:
         """El catalogo de acciones y, a la derecha, el modo «solo favoritos».
 
-        El interruptor no es una accion sino un modo de ver: poda a la vez
-        esta barra y el rail, asi que va en la misma fila que lo primero que
-        recorta, no dentro del rail (donde vivia) ni en la barra de titulo
-        (donde solo hay chrome de ventana).
+        El interruptor no es una accion sino un modo de ver: poda los menus
+        de esta barra, asi que va en la misma fila que lo que recorta, no en
+        la barra de titulo (donde solo hay chrome de ventana).
         """
         row = QWidget()
         # Selector por nombre y no `QWidget` a secas: una hoja sin selector se
@@ -220,8 +190,8 @@ class MainWindow(QMainWindow):
 
         lay.addWidget(self.action_menu, 1)
 
-        # Buscador: la lista de coincidencias cae desde esta fila, con las
-        # mismas filas del rail (`ui/action_search.py`).
+        # Buscador: la lista de coincidencias cae desde esta fila
+        # (`ui/action_search.py`).
         self.action_search = ActionSearch()
         lay.addWidget(self.action_search, 0, Qt.AlignmentFlag.AlignVCenter)
 
@@ -273,7 +243,6 @@ class MainWindow(QMainWindow):
 
     def _show_empty_state(self) -> None:
         self.workspace_stack.setCurrentWidget(self.empty_state)
-        self.rail.clear_project()
         self.action_menu.set_project_active(False)
         self.action_search.set_project_active(False)
         self._refresh_readiness()
@@ -285,7 +254,7 @@ class MainWindow(QMainWindow):
     def _install_shortcuts(self) -> None:
         """Solo los que no cuelgan de ningun item de menu.
 
-        Ctrl+T (anadir repo), Ctrl+L (filtrar) y Ctrl+1..9 (saltar a un repo)
+        Ctrl+T (anadir repo), Ctrl+L (buscar acciones) y Ctrl+1..9 (saltar a un repo)
         viven ahora en `ui/menu_bar.py`, sobre la propia `QAction`: asi el
         atajo se lee al lado de lo que dispara. Declararlos tambien aqui daria
         un atajo ambiguo y no responderia ninguno de los dos.
@@ -408,10 +377,9 @@ class MainWindow(QMainWindow):
         Qt.Edge.LeftEdge | Qt.Edge.BottomEdge: Qt.CursorShape.SizeBDiagCursor,
     }
 
-    # --- ancho del rail y bordes de la ventana ---------------------------
+    # --- bordes de la ventana ---------------------------------------------
     def eventFilter(self, obj, event):
-        """Doble clic en el separador del rail = volver al ancho automatico.
-        Sobre el widget central, los bordes redimensionan la ventana."""
+        """Sobre el widget central, los bordes redimensionan la ventana."""
         if obj is self.central_widget:
             kind = event.type()
             if kind == QEvent.Type.MouseMove:
@@ -427,14 +395,6 @@ class MainWindow(QMainWindow):
             elif kind == QEvent.Type.Leave:
                 self.central_widget.unsetCursor()
             return super().eventFilter(obj, event)
-        # El filtro del widget central se instala en pleno `__init__`, antes de
-        # que exista el splitter: por eso su rama va primero y esta consulta
-        # solo se hace cuando el evento no es suyo.
-        splitter = getattr(self, 'body_splitter', None)
-        if (splitter is not None and obj is splitter.handle(1)
-                and event.type() == QEvent.Type.MouseButtonDblClick):
-            self.rail.clear_user_width()
-            return True
         return super().eventFilter(obj, event)
 
     # --- acento del repo activo --------------------------------------------
@@ -449,14 +409,12 @@ class MainWindow(QMainWindow):
         self._accent = color
         self._apply_window_border()
 
-    # --- solo favoritos: un modo, tres superficies ------------------------
+    # --- favoritas ---------------------------------------------------------
     def _on_only_favorites(self, value: bool, save: bool = True) -> None:
-        """El interruptor de la barra de titulo. Poda a la vez el rail y los
-        menus de grupo: es el mismo conjunto de acciones visto de dos maneras,
-        y que una superficie mostrara todo y la otra no seria confuso."""
+        """El interruptor de la fila del menu: poda los menus de grupo. El
+        buscador no lo obedece — busca siempre sobre todas las acciones."""
         if save:
             favorites.set_only_favorites(value)
-        self.rail.set_only_favorites(value)
         self.action_menu.set_only_favorites(value)
         self.action_menu.set_favorites(favorites.favorite_ids())
 
@@ -466,23 +424,9 @@ class MainWindow(QMainWindow):
         ids = favorites.favorite_ids()
         self.action_menu.set_favorites(ids)
         self.action_search.set_favorites(ids)
-        self.rail.refresh_favorites()
         workspace = self.current_workspace
         if workspace is not None:
             workspace.refresh_favorite_star()
-
-    def _on_rail_dragged(self, pos: int, index: int) -> None:
-        # `pos` es la posicion del separador = ancho del rail. El rail se
-        # clampa solo en `set_user_width`.
-        self.rail.set_user_width(pos)
-
-    def _sync_rail_width(self) -> None:
-        """Aplica el ancho preferido del rail (fijado por el usuario, o el que
-        pide el contenido) al splitter."""
-        sizes = self.body_splitter.sizes()
-        total = sum(sizes) or self.width()
-        target = self.rail.preferred_width()
-        self.body_splitter.setSizes([target, max(1, total - target)])
 
     # --- reacciones -------------------------------------------------------
     def _on_project_added(self, project: Project) -> None:
@@ -513,7 +457,6 @@ class MainWindow(QMainWindow):
         workspace = self._ensure_workspace(project)
         self.workspace_stack.setCurrentWidget(workspace)
 
-        self.rail.set_project(project)
         self.action_menu.set_project_active(True)
         self.action_search.set_project_active(True)
         self._refresh_readiness()
@@ -552,7 +495,7 @@ class MainWindow(QMainWindow):
             workspace.open_tab(capability)
 
     def _on_run_requested(self, capability_id: str) -> None:
-        """Boton de correr del rail: abre la pestana y ejecuta de una."""
+        """Boton ▶ del buscador: abre la pestana y ejecuta de una."""
         capability = registry.get_capability(capability_id)
         workspace = self.current_workspace
         if capability and workspace is not None:
@@ -561,18 +504,15 @@ class MainWindow(QMainWindow):
     def _refresh_readiness(self) -> None:
         """Que acciones pueden correr ya sobre el repo activo.
 
-        La cuenta se hace una sola vez (`ui/readiness.py`) y se reparte a las
-        dos superficies que la muestran: el ▶ de cada fila del rail y el de
-        las filas del buscador. Si cada una la calculara por su cuenta podrian
-        discrepar, y son la misma pregunta.
+        La cuenta vive en `ui/readiness.py`; la muestra el ▶ de cada fila del
+        buscador.
         """
         ready = readiness.ready_ids(self.project_tabs.active_project)
-        self.rail.refresh_readiness(ready)
         self.action_search.set_ready(ready)
 
     def _on_params_changed(self) -> None:
         """Apagar un paso puede dejar de reclamar claves (y encenderlo,
-        volver a pedirlas): el boton de correr del rail se recalcula."""
+        volver a pedirlas): el ▶ del buscador se recalcula."""
         self._refresh_readiness()
 
     def _on_env_saved(self, *_args) -> None:

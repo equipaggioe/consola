@@ -529,7 +529,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.splitter.setSizes([880, 330])
 
         # La barra de estado ya no vive aca: es una sola, a lo ancho de toda la
-        # ventana, y la arma `MainWindow` debajo del rail y el espacio de trabajo
+        # ventana, y la arma `MainWindow` debajo del espacio de trabajo
         # (`ui/main_window.py`). Este panel solo le avisa, con `machine_changed`,
         # cuando una tarea de maquina toca el entorno.
 
@@ -609,8 +609,8 @@ class TabPanel(ReorderableBar, QWidget):
         titles.addWidget(self.right_header_name)
 
         # Marcar favorita la accion abierta, al lado de su nombre: el otro
-        # lugar donde se marca es el filete de la fila del rail, que hay que ir
-        # a buscar. Sin accion abierta la cabecera muestra el repo, y entonces
+        # lugar donde se marca es el filete de la fila del buscador, que hay
+        # que ir a buscar. Sin accion abierta la cabecera muestra el repo, y entonces
         # no hay nada que marcar.
         self.fav_star = FavoriteStar(self.accent)
         self.fav_star.setEnabled(False)
@@ -629,7 +629,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.favorite_changed.emit()
 
     def refresh_favorite_star(self) -> None:
-        """Se marco la misma accion desde el rail: la estrella se pone al dia
+        """Se marco la misma accion desde otra superficie: la estrella se pone al dia
         sin volver a guardar nada."""
         if self._header_cap_id:
             self.fav_star.set_favorite(favorites.is_favorite(self._header_cap_id))
@@ -638,7 +638,7 @@ class TabPanel(ReorderableBar, QWidget):
                           capability: Capability | None = None) -> None:
         # `capability` se sigue recibiendo por compatibilidad con quien llama;
         # el nivel (atómica/compuesta) ya no se muestra aquí — vive en el
-        # tooltip de la fila del rail y en la sección «Acción».
+        # tooltip de la fila del buscador y en la sección «Acción».
         self.right_header_icon.setText(icon or "◇")
         self.right_header_name.setText(name)
         self._header_cap_id = capability.id if capability is not None else ''
@@ -719,7 +719,7 @@ class TabPanel(ReorderableBar, QWidget):
 
     # --- API ---------------------------------------------------------
     def quick_run(self, capability: Capability) -> None:
-        """Boton de 'correr' del rail: abre (o reusa) la pestana y la
+        """Boton ▶ del buscador: abre (o reusa) la pestana y la
         ejecuta de una, con los parametros de esa pestana — que al abrirse
         son los guardados para este boton en este repo (`ui/params_store`),
         y los por defecto solo si nunca se tocaron."""
@@ -728,7 +728,7 @@ class TabPanel(ReorderableBar, QWidget):
         if panel is None:
             return
         if not panel.try_run():
-            # El rail creyo que podia correr: decir por que no, en la misma
+            # El buscador creyo que podia correr: decir por que no, en la misma
             # consola donde habria salido el resultado.
             for reason in panel.blockers():
                 console.append_log(f"no se puede correr: {reason}", "warn")

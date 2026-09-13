@@ -14,13 +14,13 @@ from core.registry import registry
 
 class ActionSearch(QWidget):
     """Buscador de la barra de menu: al escribir despliega debajo las acciones
-    que coinciden, con las mismas filas del rail (`ActionRow`) — filete de
-    favorita, marcas de nivel y ▶ para correr de una.
+    que coinciden, en filas `ActionRow` — filete de favorita, marcas de nivel
+    y ▶ para correr de una.
 
-    Busca sobre TODAS las acciones aunque «solo favoritos» este puesto, igual
-    que el filtro del rail (`GroupCard._sync_rows`): buscar es ir por algo
-    puntual. Emite las mismas senales que el rail y el menu, asi que
-    `MainWindow` no distingue de donde vino el clic.
+    Busca sobre TODAS las acciones aunque «solo favoritos» este puesto: buscar
+    es ir por algo puntual, y esconder justo lo que se busca por no estar
+    marcado seria un chiste cruel. Abrir emite la misma senal que el menu,
+    asi que `MainWindow` no distingue de donde vino el clic.
 
     Teclado: flechas para moverse, Enter abre la pestana, Ctrl+Enter la corre
     si esta lista, Esc cierra.
@@ -73,8 +73,8 @@ class ActionSearch(QWidget):
             row.set_favorite(row.capability_id in ids)
 
     def set_project_active(self, active: bool) -> None:
-        """Sin repo en pestanas no hay sobre que correr: igual que el rail y
-        los menus de grupo, el buscador se apaga."""
+        """Sin repo en pestanas no hay sobre que correr: igual que los menus
+        de grupo, el buscador se apaga."""
         self.box.setEnabled(active)
         if not active:
             self.box.clear()
@@ -236,7 +236,7 @@ class ActionSearch(QWidget):
 
     def _on_favorite_toggled(self, cap_id: str, value: bool) -> None:
         """Marcar desde la lista no la cierra: se guarda y se avisa al resto
-        de las superficies, igual que desde el rail."""
+        de las superficies."""
         self.favorites_changed.emit(favorites.set_favorite(cap_id, value))
 
     # --- eventos -------------------------------------------------------------

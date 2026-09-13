@@ -72,7 +72,7 @@ class ParamsPanel(QWidget):
     cambiar de pestana y volver — y desde ahi se puede volver a correr.
     """
     execute_requested = Signal(dict)
-    params_changed = Signal()   # lo guardado cambio: el rail revisa que puede correr
+    params_changed = Signal()   # lo guardado cambio: se revisa que puede correr de una
     stop_requested = Signal(str)  # apagar algo que esta corriendo (un serial de emulador)
 
     def __init__(self, capability: Capability, project: Project, env_panel, parent=None):
@@ -807,7 +807,7 @@ class ParamsPanel(QWidget):
         return sorted(k for k in needed if not cfg.get(k))
 
     def blockers(self) -> list[str]:
-        """Publico para el rail: por que no se puede correr sin abrir la
+        """Publico para `quick_run`: por que no se puede correr sin abrir la
         pestana (`ui/tab_panel.py::quick_run` lo reporta en la consola)."""
         return self._blockers()
 
@@ -886,6 +886,6 @@ class ParamsPanel(QWidget):
     def try_run(self) -> bool:
         """Ejecuta con los parametros actuales de la pestana — que al
         abrirse son los guardados para este boton en este repo, o los por
-        defecto si nunca se tocaron. Lo usa el boton de correr del rail.
+        defecto si nunca se tocaron. Lo usa el boton ▶ del buscador.
         Devuelve si corrio."""
         return self._emit_execute()
