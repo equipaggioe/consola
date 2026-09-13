@@ -4,7 +4,7 @@ from pathlib import Path
 
 from . import payloads
 from .. import database as db
-from .. import envfile, files, runner, ssh, vps
+from .. import db_explorer, envfile, files, runner, ssh, vps
 from ..errors import TaskError
 from ..registry import registry
 
@@ -316,6 +316,37 @@ def inspect_database(ctx, scope: str = db.LOCAL) -> list[str]:
     return filas
 
 
+def explore_db(ctx, scope: str = db.LOCAL) -> None:
+    """Conecta el explorador y lo mantiene conectado hasta cerrar la pestana.
+
+    Es una tarea viva, como un launcher (docs/explorador-db.md 3): lo que
+    sostiene es la conexion —y en remoto, el tunel SSH—, y lo que entrega no es
+    su log sino la vista de arbol y datos de la misma pestana. Antes de
+    publicarla prueba la conexion con el rol de la app y deja en la consola lo
+    que imprimia `inspect_db.py`: servidor, base, usuario, tamano y tablas.
+    """
+    with db.connect(ctx, scope) as conn:
+        with db_explorer.open_readonly(conn.url) as probe:
+            info = db_explorer.server_info(probe)
+            relaciones = db_explorer.list_relations(probe)
+
+        ctx.ok(f'Conectado a {info.database} como {info.user} (solo lectura).')
+        ctx.info(f'Servidor: {info.version.split(" on ")[0]}')
+        ctx.info(f'Tamaño de la base: {files.human_size(info.size_bytes)}')
+        tablas = [r for r in relaciones if r.kind in 'rpf' and not r.parent]
+        ctx.info(f'{len(tablas)} tabla(s), {len(relaciones) - len(tablas)} vista(s) o partición(es):')
+        for rel in tablas:
+            ctx.info(f'  {rel.qualified}  ~{db_explorer.human_count(rel.estimate)} filas'
+                     f'  {files.human_size(rel.size_bytes)}')
+
+        ctx.publish(db_explorer.session_key(conn.safe_url), conn.url)
+        ctx.serve(conn.safe_url, key=f'explore_db:{scope}', label=info.database, web=False)
+        while not ctx.wait_cancelled(1.0):
+            if conn.tunnel is not None and not conn.tunnel.alive:
+                raise TaskError('El túnel SSH se cerró: vuelve a conectar.')
+        ctx.raise_if_cancelled()
+
+
 # --- compuestas ------------------------------------------------------------
 
 def populate_db(
@@ -500,3 +531,4 @@ def bind_all() -> None:
     registry.bind('backup_db', backup_database)
     registry.bind('ssh_tunnel', open_db_tunnel)
     registry.bind('inspect_db', inspect_database)
+    registry.bind('explore_db', explore_db)

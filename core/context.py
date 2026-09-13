@@ -61,6 +61,7 @@ class TaskContext:
     _secrets: set = field(default_factory=set, repr=False)
     _stoppers: list = field(default_factory=list, repr=False)
     _served: list = field(default_factory=list, repr=False)
+    _published: list = field(default_factory=list, repr=False)
 
     # --- raiz del proyecto -------------------------------------------------
 
@@ -245,12 +246,29 @@ class TaskContext:
         return session.wait_for_endpoint(self.project.name, key, wait)
 
     def release_endpoints(self) -> None:
-        """Borra los endpoints que esta tarea publico. La llama quien la corre
-        cuando termina: una URL que ya no sirve nada no debe seguir ofrecida."""
+        """Borra los endpoints y valores que esta tarea publico. La llama quien
+        la corre cuando termina: una URL que ya no sirve nada no debe seguir
+        ofrecida."""
         for proyecto, clave in self._served:
             if proyecto:
                 session.forget_endpoint(proyecto, clave)
         self._served.clear()
+        for proyecto, clave in self._published:
+            session.forget(proyecto, clave)
+        self._published.clear()
+
+    def publish(self, key: str, value: object) -> None:
+        """Deja un valor en la sesion del proyecto mientras la tarea viva.
+
+        Es la otra mitad de `serve()` para lo que no se puede mostrar en la
+        barra: la URL con contrasena que el explorador necesita para abrir su
+        propia conexion (docs/explorador-db.md 4). Queda en memoria y se borra
+        sola cuando la tarea termina.
+        """
+        if self.project is None:
+            return
+        session.publish(self.project.name, key, value)
+        self._published.append((self.project.name, key))
 
     # --- interaccion -------------------------------------------------------
 
@@ -328,6 +346,12 @@ class TaskContext:
         for child in list(self._children):
             process.kill_tree(child)
 
+    def wait_cancelled(self, timeout: float | None = None) -> bool:
+        """Duerme hasta que detengan la tarea o pase `timeout`; dice si la
+        detuvieron. Lo usa lo que vive sin un proceso que lo sostenga — una
+        conexion abierta — y solo espera a que cierren la pestana."""
+        return self._cancel.wait(timeout)
+
     def raise_if_cancelled(self) -> None:
         if self._cancel.is_set():
             raise Cancelled('Detenido por el usuario.')
@@ -350,6 +374,7 @@ class TaskContext:
             _asked=self._asked,
             _cancel=self._cancel,
             _served=self._served,
+            _published=self._published,
             _children=self._children,
             _secrets=self._secrets,
             _stoppers=self._stoppers,

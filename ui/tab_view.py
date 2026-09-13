@@ -6,7 +6,8 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout, QWidget
 )
 
-from core import session
+from core import db_explorer, session
+from core.projects import Project
 from core.registry import Capability
 from ui.browser_view import BrowserView, open_external
 from ui.console_view import ConsoleView
@@ -21,24 +22,27 @@ log, entrega una URL: la consola pasa a ser la primera de dos vistas, y la
 segunda —el navegador— es la que hace falta cuando lo que se levanto es un dev
 server (docs/launchers.md 2.3).
 
-La misma caja sirve para la pestana de Base de datos de PLAN.md 6, que ya
-pedia exactamente esto: arbol y grilla en lugar de texto, compartiendo el panel
-de parametros y el pie de la pestana. Por eso el conmutador se llama "vista" y
-no "navegador".
+La misma caja sirve para «Explorar base» (docs/explorador-db.md): arbol y
+grilla en lugar de texto, compartiendo el panel de parametros y el pie de la
+pestana. Por eso el conmutador se llama "vista" y no "navegador".
 """
 
 CONSOLA = 'Consola'
+# El rotulo del chip que lleva a la segunda vista, segun `Capability.view`.
+VIEW_NAMES = {'web': 'Navegador', 'db': 'Explorador'}
 
 
 class TabView(QWidget):
-    """Barra de herramientas + conmutador de vistas + (consola | navegador)."""
+    """Barra de herramientas + conmutador de vistas + (consola | segunda vista)."""
 
-    def __init__(self, capability: Capability, parent=None):
+    def __init__(self, capability: Capability, project: Project | None = None, parent=None):
         super().__init__(parent)
         self.capability = capability
+        self.project = project
         self._url = ''
         self._web = False
         self._browser: BrowserView | None = None
+        self._explorer = None   # DbExplorerView, importada al primer uso
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -89,7 +93,8 @@ class TabView(QWidget):
                                    self._copy_url)
         self.external_btn = self._chip('Abrir ↗', 'Abrir en el navegador del sistema',
                                        lambda: open_external(self._url))
-        self.view_btn = self._chip('Navegador', 'Ver la página en esta pestaña',
+        second = VIEW_NAMES.get(self.capability.view, '')
+        self.view_btn = self._chip(second, f'Ver {second.lower()} en esta pestaña',
                                    self._toggle_view)
         self.view_btn.setVisible(False)
 
@@ -113,11 +118,18 @@ class TabView(QWidget):
         return bar
 
     def _show_endpoint(self, visible: bool) -> None:
+        db = self.capability.has_db_view
         for w in self._endpoint_widgets:
-            # `view_btn` tiene su propia regla (solo con vista web), asi que
-            # esconderlo aca no alcanza para mostrarlo despues: lo decide
-            # `set_endpoint`.
-            w.setVisible(visible and (w is not self.view_btn or self._web))
+            if w is self.view_btn:
+                # Tiene su propia regla: solo con una segunda vista que mostrar.
+                # La decide `set_endpoint`.
+                w.setVisible(visible and (self._web or (db and self._explorer is not None)))
+            elif w in (self.copy_btn, self.external_btn):
+                # La URL de una base va enmascarada: copiarla o «abrirla» en el
+                # navegador no sirve para nada.
+                w.setVisible(visible and not db)
+            else:
+                w.setVisible(visible)
 
     def clear_console(self) -> None:
         """Vacia el log y vuelve a poner la cabecera de la accion.
@@ -157,17 +169,20 @@ class TabView(QWidget):
         self._url = url
         self._web = web and self.capability.has_web_view
         self.url_label.setText(url)
-        self._show_endpoint(True)
         self._set_state(state, label)
 
         if state == session.READY:
-            # Lo que se pidio fue levantar una pagina: mostrarla es terminar el
-            # trabajo, no una sorpresa. La consola queda a un clic, y si el
-            # proceso se cae se vuelve sola (`endpoint_down`).
-            if self._web:
+            # Lo que se pidio fue levantar una pagina o conectar una base:
+            # mostrarla es terminar el trabajo, no una sorpresa. La consola
+            # queda a un clic, y si el proceso se cae se vuelve sola
+            # (`endpoint_down`).
+            if self.capability.has_db_view:
+                self._start_explorer(url)
+            elif self._web:
                 self.show_browser()
             elif self._browser is not None:
                 self._browser.load(url)
+        self._show_endpoint(True)
 
     def endpoint_down(self) -> None:
         """La tarea termino o se cayo: la URL deja de ofrecerse como viva."""
@@ -175,6 +190,8 @@ class TabView(QWidget):
             return
         self._set_state(session.DOWN, self.state_label.property('label') or '')
         self.show_console()
+        self._stop_explorer()
+        self._show_endpoint(True)
 
     def _set_state(self, state: str, label: str = '') -> None:
         textos = {
@@ -197,13 +214,16 @@ class TabView(QWidget):
     # --- vistas --------------------------------------------------------
     def _toggle_view(self) -> None:
         if self.stack.currentWidget() is self.console:
-            self.show_browser()
+            if self.capability.has_db_view:
+                self.show_explorer()
+            else:
+                self.show_browser()
         else:
             self.show_console()
 
     def show_console(self) -> None:
         self.stack.setCurrentWidget(self.console)
-        self.view_btn.setText('Navegador')
+        self.view_btn.setText(VIEW_NAMES.get(self.capability.view, ''))
 
     def show_browser(self) -> None:
         """Crea el navegador la primera vez que hace falta.
@@ -217,7 +237,47 @@ class TabView(QWidget):
         elif self._browser.url != self._url:
             self._browser.load(self._url)
         self.stack.setCurrentWidget(self._browser)
-        self.view_btn.setText('Consola')
+        self.view_btn.setText(CONSOLA)
+
+    def show_explorer(self) -> None:
+        if self._explorer is None:
+            return
+        self.stack.setCurrentWidget(self._explorer)
+        self.view_btn.setText(CONSOLA)
+
+    # --- explorador de base ----------------------------------------------
+    def _start_explorer(self, safe_url: str) -> None:
+        """La conexion que publico `explore_db`, con su contrasena, sale de la
+        sesion y no de la barra: ahi solo viaja la URL enmascarada."""
+        if self._explorer is not None or self.project is None:
+            self.show_explorer()
+            return
+        url = session.read(self.project.name, db_explorer.session_key(safe_url))
+        if not url:
+            self.console.append_log('La tarea no publicó la conexión.', 'error')
+            return
+        from ui.db_explorer_view import DbExplorerView
+        self._explorer = DbExplorerView(str(url), self)
+        self.stack.addWidget(self._explorer)
+        self.show_explorer()
+
+    def _stop_explorer(self) -> None:
+        if self._explorer is None:
+            return
+        self._explorer.shutdown()
+        self.stack.removeWidget(self._explorer)
+        self._explorer.deleteLater()
+        self._explorer = None
+
+    def on_shown(self) -> None:
+        """La pestana volvio a primer plano: lo consultado se relee al mostrarse,
+        no con un boton de recargar."""
+        if self._explorer is not None:
+            self._explorer.refresh()
+
+    def shutdown(self) -> None:
+        """La pestana se cierra: suelta lo que tenga hilos propios."""
+        self._stop_explorer()
 
     # --- consola (delegacion) ------------------------------------------
     def append_log(self, text: str, level: str = 'info') -> None:

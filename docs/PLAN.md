@@ -498,6 +498,9 @@ compuesta: ver §7, caso 7.
 
 ## 6. Explorador de base de datos (fusión de Exploratore)
 
+> **Reemplazado por [explorador-db.md](explorador-db.md).** Lo que sigue es el planteo original; qué
+> cambió y por qué está en su §9.
+
 `e:\Git\exploratore` deja de desarrollarse como app aparte y se funde en Consola. No es una migración
 forzada: es un buen encaje. Exploratore ya es PySide6, ya separa una capa de datos sin imports de Qt
 (`core/db/postgres_service.py`), y su propio documento de diseño (`docs/descripcion.md`) ya proponía
@@ -658,8 +661,8 @@ proyecto y conviene que viaje con él.
 | `runs` | acción, parámetros, inicio, fin, código de salida, ruta del log | Historial |
 | `notes` | fecha, título, markdown, etiquetas | Bitácora |
 | `presets` | combinaciones de parámetros guardadas, con `project_id` — incluye valores de eje como el último `scope` (local/remoto) usado por proyecto (§9) | Formularios |
-| `db_connections` | conexión de base por proyecto: host local, puerto, base, usuario — **nunca password** (§6) | Base de datos |
-| `db_table_folders` | organización visual de tablas en carpetas, por conexión (de Exploratore) | Base de datos |
+| ~~`db_connections`~~ | descartada: la conexión se deduce del repo y el ámbito ([explorador-db.md](explorador-db.md) §9) | — |
+| ~~`db_table_folders`~~ | descartada: fuera del alcance de solo visualizar ([explorador-db.md](explorador-db.md) §9) | — |
 
 La bitácora mezcla entradas manuales con entradas automáticas que las funciones dejan vía
 `ctx.note()` (ej.: `Build APK v1.4.22+318 ✓ 4m12s`). Búsqueda global sobre todos los proyectos

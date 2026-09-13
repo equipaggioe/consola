@@ -765,7 +765,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.tabs_layout.addWidget(tab)
         self.tabs.append(tab)
 
-        view = TabView(capability, self.content_area)
+        view = TabView(capability, self.project, self.content_area)
         console = view.console
         console.append_log(f"─── {capability.name} ───", "info")
         if capability.description:
@@ -850,6 +850,7 @@ class TabPanel(ReorderableBar, QWidget):
 
         self._consoles.pop(tab, None)
         view = self._views.pop(tab)
+        view.shutdown()
         self.content_area.removeWidget(view)
         view.deleteLater()
 
@@ -924,6 +925,7 @@ class TabPanel(ReorderableBar, QWidget):
         view = self._views.get(tab)
         if view is not None:
             self.content_area.setCurrentWidget(view)
+            view.on_shown()
         panel = self._params.get(tab)
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)

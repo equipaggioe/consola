@@ -147,7 +147,7 @@ class Capability:
     name: str
     group: str
     section: str
-    kind: str  # 'live' | 'once' | 'destructive' | 'interactive' | 'view' | 'background'
+    kind: str  # 'live' | 'once' | 'destructive' | 'interactive' | 'background'
     axes: list[AxisDef] = field(default_factory=list)
     composed_of: list[str] = field(default_factory=list)
     steps: list[Step] = field(default_factory=list)
@@ -161,6 +161,8 @@ class Capability:
                            # la tarea publica con `ctx.serve()`. El log de un
                            # launcher es el subproducto; lo que entrega es una
                            # URL (docs/launchers.md 2.3).
+                           # 'db' = explorador de base sobre la conexion que
+                           # publica `explore_db` (docs/explorador-db.md).
     fanout: str = ''       # solo kind='live': nombre del eje `select='many'`
                            # cuyos valores NO se corren en un bucle sino en una
                            # pestana cada uno. Marcar panel + backoffice son dos
@@ -212,6 +214,10 @@ class Capability:
     @property
     def has_web_view(self) -> bool:
         return self.view == 'web'
+
+    @property
+    def has_db_view(self) -> bool:
+        return self.view == 'db'
 
     @property
     def is_composite(self) -> bool:

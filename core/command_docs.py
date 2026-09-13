@@ -847,6 +847,24 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
+    'explore_db': CommandDoc(
+        summary=(
+            'Abre la base del ámbito en solo lectura y la muestra en la pestaña: '
+            'esquemas y tablas a la izquierda, datos y estructura a la derecha. '
+            'Queda conectada hasta que cierras la pestaña.'
+        ),
+        steps=[
+            'Abre la base del ámbito con el rol de la app: local contra '
+            '127.0.0.1, remoto por un túnel SSH.',
+            'Se conecta en solo lectura: el servidor rechaza cualquier escritura.',
+            'Muestra en la consola el servidor, la base, su tamaño y las tablas '
+            'con su estimado de filas.',
+            'Publica la conexión y cambia a la vista del explorador.',
+            'Espera hasta que cierres la pestaña; si el túnel se cae, termina '
+            'con error.',
+        ],
+    ),
+
     'inspect_db': CommandDoc(
         summary='Lista las tablas de la base con su cantidad de filas.',
         steps=[

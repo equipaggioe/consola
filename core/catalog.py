@@ -889,6 +889,10 @@ def load_catalog() -> None:
     # El tunel no tiene parametros: el puerto remoto sale del VPS y el local lo
     # elige `core/ports.py` si el de enfrente esta ocupado.
     registry.register(Capability(id='ssh_tunnel', name='Túnel Postgres', group='Base de datos', section='Conexión', kind='background', icon='🔗', description='Abre un túnel SSH al Postgres del VPS para conectarse en local.', stub=True))
+    # Viva como un launcher: sostiene la conexion (y en remoto el tunel) hasta
+    # cerrar la pestana, y lo que entrega es la vista de arbol y datos, no el
+    # log (docs/explorador-db.md 3).
+    registry.register(Capability(id='explore_db', name='Explorar base', group='Base de datos', section='Conexión', kind='live', view='db', icon='🗂️', description='Navega esquemas, tablas y datos de la base, en solo lectura.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], stub=True))
     registry.register(Capability(id='inspect_db', name='Inspeccionar', group='Base de datos', section='Diagnóstico', kind='once', icon='🔍', description='Lista las tablas de la base con su cantidad de filas.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], stub=True))
 
     # Utils group
