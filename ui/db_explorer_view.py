@@ -34,8 +34,6 @@ JSON_TYPES = {'json', 'jsonb'}
 _ROLE_REL = Qt.ItemDataRole.UserRole          # Relation, o ModelTable si falta en la base
 _ROLE_GROUP = Qt.ItemDataRole.UserRole + 1    # clave de un esquema o carpeta
 
-BY_SCHEMA = 'schema'
-BY_MODELS = 'models'
 # Marca y color de cada estado frente a los modelos (docs/explorador-db.md 7).
 _STATUS_MARK = {
     dbm.MISSING: ('✕ ', Colors.ERROR),
@@ -184,7 +182,6 @@ class DbExplorerView(QWidget):
         self._missing: dbm.ModelTable | None = None
         self._comparison: dbm.Comparison | None = None
         self._models_error = ''
-        self._mode = BY_SCHEMA
 
         self.worker = DbWorker(url, server_root)
         self.worker.result.connect(self._on_result)
@@ -249,19 +246,6 @@ class DbExplorerView(QWidget):
         self.filter_box.setClearButtonEnabled(True)
         self.filter_box.textChanged.connect(self._apply_tree_filter)
 
-        modes = QHBoxLayout()
-        modes.setSpacing(4)
-        self.schema_btn = self._chip('Esquemas', 'Agrupar las tablas por esquema',
-                                     lambda: self._set_mode(BY_SCHEMA))
-        self.models_btn = self._chip('Modelos', 'Agrupar las tablas como las carpetas de app/models',
-                                     lambda: self._set_mode(BY_MODELS))
-        for btn in (self.schema_btn, self.models_btn):
-            btn.setCheckable(True)
-            modes.addWidget(btn)
-        modes.addStretch()
-        self.schema_btn.setChecked(True)
-        self.models_btn.setEnabled(False)
-
         self.models_label = QLabel('')
         self.models_label.setWordWrap(True)
         self.models_label.setTextFormat(Qt.TextFormat.RichText)
@@ -280,7 +264,6 @@ class DbExplorerView(QWidget):
         self.tree.itemClicked.connect(self._on_tree_clicked)
         self.tree.currentItemChanged.connect(lambda item, _prev: self._on_tree_clicked(item))
         ll.addWidget(self.filter_box)
-        ll.addLayout(modes)
         ll.addWidget(self.models_label)
         ll.addWidget(self.tree, 1)
         splitter.addWidget(left)
@@ -348,20 +331,26 @@ class DbExplorerView(QWidget):
         self.table.doubleClicked.connect(self._on_cell_double_clicked)
         self.tabs.addTab(self.table, 'Datos')
 
-        self.structure = QWidget()
-        self.structure_layout = QVBoxLayout(self.structure)
-        self.structure_layout.setContentsMargins(12, 10, 12, 12)
-        self.structure_layout.setSpacing(4)
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        scroll.setWidget(self.structure)
-        self.tabs.addTab(scroll, 'Estructura')
+        self.columns_pane = self._add_pane('Columnas')
+        self.indexes_pane = self._add_pane('Índices')
+        self.constraints_pane = self._add_pane('Constraints')
         rl.addWidget(self.tabs, 1)
         splitter.addWidget(right)
 
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([300, 900])
+
+    def _add_pane(self, title: str) -> QVBoxLayout:
+        body = QWidget()
+        layout = QVBoxLayout(body)
+        layout.setContentsMargins(12, 10, 12, 12)
+        layout.setSpacing(4)
+        scroll = QScrollArea()
+        scroll.setWidgetResizable(True)
+        scroll.setWidget(body)
+        self.tabs.addTab(scroll, title)
+        return layout
 
     def _chip(self, text: str, tip: str, slot) -> QPushButton:
         btn = QPushButton(text)
@@ -374,8 +363,6 @@ class DbExplorerView(QWidget):
                 border: none; border-radius: 5px; padding: 0 10px; font-size: {Fonts.SIZE_XS}px;
             }}
             QPushButton:hover {{ color: {Colors.TEXT}; }}
-            QPushButton:checked {{ color: {Colors.TEXT}; background: {Colors.SURFACE_HOVER};
-                                   border: 1px solid {Colors.ACCENT}; }}
             QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; background: transparent; }}
         """)
         btn.clicked.connect(slot)
@@ -452,12 +439,8 @@ class DbExplorerView(QWidget):
     # --- modelos ---------------------------------------------------------------------
     def _set_comparison(self, comparison: dbm.Comparison | None, error: str) -> None:
         self._comparison, self._models_error = comparison, error
-        self.models_btn.setEnabled(comparison is not None)
         self._update_models_label()
-        if comparison is None and self._mode == BY_MODELS:
-            self._set_mode(BY_SCHEMA)
-        else:
-            self._fill_tree(self._relations)
+        self._fill_tree(self._relations)
         if self._missing is not None:
             status = self._status_of(self._missing.qualified)
             if status is not None and status.status == dbm.MISSING:
@@ -495,12 +478,6 @@ class DbExplorerView(QWidget):
             '≠ columnas o tipos distintos de su modelo\n'
             '+ en la base, sin modelo que la declare')
 
-    def _set_mode(self, mode: str) -> None:
-        self._mode = mode
-        self.schema_btn.setChecked(mode == BY_SCHEMA)
-        self.models_btn.setChecked(mode == BY_MODELS)
-        self._fill_tree(self._relations)
-
     def _status_of(self, qualified: str) -> dbm.TableStatus | None:
         return self._comparison.tables.get(qualified) if self._comparison else None
 
@@ -512,7 +489,9 @@ class DbExplorerView(QWidget):
         else:
             current = self._trail[-1][0].qualified if self._trail else None
         expanded = self._expanded_groups()
-        by_models = self._mode == BY_MODELS and self._comparison is not None
+        # Por modelos siempre que se pudieron leer; por esquemas es el respaldo
+        # mientras cargan o si no se pueden importar (docs/explorador-db.md 7).
+        by_models = self._comparison is not None
 
         self.tree.blockSignals(True)
         self.tree.clear()
@@ -870,26 +849,31 @@ class DbExplorerView(QWidget):
         self._open(rel, where, reset_trail=False)
 
     # --- estructura ------------------------------------------------------------------
+    def _panes(self) -> tuple[QVBoxLayout, ...]:
+        return (self.columns_pane, self.indexes_pane, self.constraints_pane)
+
     def _clear_structure(self) -> None:
-        while self.structure_layout.count():
-            item = self.structure_layout.takeAt(0)
-            if item.widget() is not None:
-                # Escondida ya: `deleteLater` sola la deja pintada debajo de la
-                # estructura nueva hasta volver al bucle de eventos.
-                item.widget().hide()
-                item.widget().deleteLater()
+        for pane in self._panes():
+            while pane.count():
+                item = pane.takeAt(0)
+                if item.widget() is not None:
+                    # Escondida ya: `deleteLater` sola la deja pintada debajo de la
+                    # estructura nueva hasta volver al bucle de eventos.
+                    item.widget().hide()
+                    item.widget().deleteLater()
 
     def _fill_structure(self, detail: dbx.TableDetail) -> None:
         self._clear_structure()
+        cols = self.columns_pane
         status = self._status_of(detail.relation.qualified)
         if status is not None and status.status == dbm.CHANGED:
-            self._section('Diferencias con el modelo', ['Columna', 'En la base', 'En el modelo'],
+            self._section(cols, 'Diferencias con el modelo', ['Columna', 'En la base', 'En el modelo'],
                           [[d.column, d.db or '— falta', d.model or '— sobra'] for d in status.diffs],
                           title_color=Colors.WARNING)
         elif status is not None and status.status == dbm.UNMODELED:
-            self._note('Ningún modelo de app/models declara esta tabla.', Colors.ACCENT_PURPLE)
+            self._note(cols, 'Ningún modelo de app/models declara esta tabla.', Colors.ACCENT_PURPLE)
         elif status is not None and status.status == dbm.OK:
-            self._note(f'Igual a su modelo: app/models/{status.model.source}', Colors.SUCCESS)
+            self._note(cols, f'Igual a su modelo: app/models/{status.model.source}', Colors.SUCCESS)
         col_rows = []
         for col in detail.columns:
             llave = '🔑 PK' if col.pk else ''
@@ -901,46 +885,60 @@ class DbExplorerView(QWidget):
                 extra = 'generada'
             col_rows.append([col.name, col.type, '' if col.nullable else 'NOT NULL',
                              col.default or extra, llave, col.comment or ''])
-        self._section('Columnas', ['Nombre', 'Tipo', 'Nulo', 'Default', 'Llave', 'Comentario'], col_rows)
+        self._section(cols, 'Columnas', ['Nombre', 'Tipo', 'Nulo', 'Default', 'Llave', 'Comentario'],
+                      col_rows)
 
         if detail.indexes:
-            self._section('Índices', ['Nombre', 'Definición'],
+            self._section(self.indexes_pane, 'Índices', ['Nombre', 'Definición'],
                           [[ix.name, ix.definition] for ix in detail.indexes])
+        else:
+            self._note(self.indexes_pane, 'La tabla no tiene índices.', Colors.TEXT_MUTED)
+
+        # «Referenciada por» son las FK de otras tablas hacia esta: constraints
+        # tambien, vistas desde el otro lado.
         kinds = {'p': 'PRIMARY KEY', 'f': 'FOREIGN KEY', 'u': 'UNIQUE', 'c': 'CHECK', 'x': 'EXCLUDE'}
         if detail.constraints:
-            self._section('Constraints', ['Nombre', 'Tipo', 'Definición'],
+            self._section(self.constraints_pane, 'Constraints', ['Nombre', 'Tipo', 'Definición'],
                           [[c.name, kinds.get(c.kind, c.kind), c.definition] for c in detail.constraints])
+        else:
+            self._note(self.constraints_pane, 'La tabla no tiene constraints.', Colors.TEXT_MUTED)
         if detail.incoming:
             rows = [[f'{fk.ref_schema}.{fk.ref_table}', ', '.join(fk.ref_columns),
                      ', '.join(fk.columns), fk.name] for fk in detail.incoming]
-            table = self._section('Referenciada por', ['Tabla', 'Columnas', '→ de esta tabla', 'Constraint'], rows)
+            table = self._section(self.constraints_pane, 'Referenciada por',
+                                  ['Tabla', 'Columnas', '→ de esta tabla', 'Constraint'], rows)
             table.setToolTip('Doble clic para abrir esa tabla')
             table.cellDoubleClicked.connect(
                 lambda r, _c, fks=detail.incoming: self._follow(fks[r].ref_schema, fks[r].ref_table, dbx.Filter()))
-        self.structure_layout.addStretch()
+        for pane in self._panes():
+            pane.addStretch()
 
     def _fill_model_structure(self, model: dbm.ModelTable) -> None:
         self._clear_structure()
-        self._note(f'Declarada en app/models/{model.source}. Todavía no existe en la base.', Colors.ERROR)
-        self._section('Columnas del modelo', ['Nombre', 'Tipo', 'Nulo', 'Llave'],
+        self._note(self.columns_pane,
+                   f'Declarada en app/models/{model.source}. Todavía no existe en la base.', Colors.ERROR)
+        self._section(self.columns_pane, 'Columnas del modelo', ['Nombre', 'Tipo', 'Nulo', 'Llave'],
                       [[c.name, dbm.normalize_type(c.type), '' if c.nullable else 'NOT NULL',
                         '🔑 PK' if c.pk else ''] for c in model.columns])
-        self.structure_layout.addStretch()
+        for pane in (self.indexes_pane, self.constraints_pane):
+            self._note(pane, 'La tabla todavía no existe en la base.', Colors.ERROR)
+        for pane in self._panes():
+            pane.addStretch()
 
-    def _note(self, text: str, color: str) -> None:
+    def _note(self, pane: QVBoxLayout, text: str, color: str) -> None:
         label = QLabel(text)
         label.setWordWrap(True)
         label.setStyleSheet(f'background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px; '
                             f'padding-top: 6px;')
-        self.structure_layout.addWidget(label)
+        pane.addWidget(label)
 
-    def _section(self, title: str, headers: list[str], rows: list[list[str]],
+    def _section(self, pane: QVBoxLayout, title: str, headers: list[str], rows: list[list[str]],
                  title_color: str = Colors.TEXT_MUTED) -> QTableWidget:
         label = QLabel(title.upper())
         label.setStyleSheet(
             f'background: transparent; color: {title_color}; font-size: {Fonts.SIZE_XS}px; '
             f'font-weight: 700; padding-top: 10px;')
-        self.structure_layout.addWidget(label)
+        pane.addWidget(label)
 
         table = QTableWidget(len(rows), len(headers))
         table.setHorizontalHeaderLabels(headers)
@@ -969,7 +967,7 @@ class DbExplorerView(QWidget):
         row_h = 26
         table.verticalHeader().setDefaultSectionSize(row_h)
         table.setFixedHeight(header.sizeHint().height() + row_h * len(rows) + 18)
-        self.structure_layout.addWidget(table)
+        pane.addWidget(table)
         return table
 
 

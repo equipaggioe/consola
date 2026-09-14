@@ -99,6 +99,10 @@ class TaskRunner(QThread):
         self._ctx._cancel.set()   # inmediato: los bucles largos ya lo ven
         threading.Thread(target=self._ctx.cancel, daemon=True).start()
 
+    @property
+    def has_tunnel(self) -> bool:
+        return self._ctx is not None and self._ctx.has_tunnel
+
     # --- ejecucion ----------------------------------------------------------
 
     def run(self) -> None:

@@ -1,7 +1,7 @@
 from __future__ import annotations
 from pathlib import Path
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout, QWidget
@@ -36,6 +36,7 @@ VIEW_NAMES = {'web': 'Navegador', 'db': 'Explorador'}
 
 class TabView(QWidget):
     """Barra de herramientas + conmutador de vistas + (consola | segunda vista)."""
+    cleared = Signal()   # Limpiar: la pestana decide si ademas detiene su tarea
 
     def __init__(self, capability: Capability, project: Project | None = None, parent=None):
         super().__init__(parent)
@@ -100,7 +101,8 @@ class TabView(QWidget):
                                    self._toggle_view)
         self.view_btn.setVisible(False)
 
-        self.clear_btn = self._chip('Limpiar', 'Vaciar el log de esta pestaña',
+        self.clear_btn = self._chip('Limpiar',
+                                    'Vaciar el log de esta pestaña y cerrar sus túneles SSH',
                                     self.clear_console)
 
         # Todo lo del endpoint se muestra y se esconde junto: sin URL publicada
@@ -143,6 +145,7 @@ class TabView(QWidget):
         self.console.append_log(f'─── {self.capability.name} ───', 'info')
         if self.capability.description:
             self.console.append_log(self.capability.description, 'info')
+        self.cleared.emit()
 
     def _chip(self, text: str, tip: str, slot) -> QPushButton:
         btn = QPushButton(text)

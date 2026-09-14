@@ -449,8 +449,13 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event):
         """Los parametros se escriben en rafagas de medio segundo
         (`ui/params_store.py`): al cerrar hay que bajar lo pendiente, o el
-        ultimo cambio se pierde por marcar una casilla y cerrar enseguida."""
+        ultimo cambio se pierde por marcar una casilla y cerrar enseguida.
+
+        Tambien detiene las tareas vivas de todos los repos: sin esto un tunel
+        SSH o un backend quedaban corriendo sin Consola."""
         params_store.flush()
+        for workspace in self.workspaces.values():
+            workspace.shutdown()
         super().closeEvent(event)
 
     def _on_project_selected(self, project: Project) -> None:

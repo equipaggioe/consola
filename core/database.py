@@ -118,6 +118,7 @@ def connect(ctx, scope: str = LOCAL) -> Connection:
 
     ctx.warn(f'Base de datos REMOTA del VPS: los cambios afectan a {remote.host}.')
     tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=remoto)
+    ctx.hold_tunnel(tunnel)
     ctx.info(f'Tunel SSH abierto: {tunnel.endpoint} -> {remote.host}:{remoto}')
 
     url = build_url(user=user, password=password, host='127.0.0.1', port=local, name=name)

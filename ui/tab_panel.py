@@ -1,4 +1,6 @@
 from __future__ import annotations
+import time
+
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
     QPushButton, QSizePolicy, QSplitter, QInputDialog, QLineEdit, QMessageBox,
@@ -774,6 +776,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.content_area.addWidget(view)
         self._views[tab] = view
         self._consoles[tab] = console
+        view.cleared.connect(lambda t=tab: self._on_cleared(t))
 
         panel = ParamsPanel(capability, self.project, self.env_panel)
         panel.set_env(self.env_panel.values())
@@ -825,6 +828,28 @@ class TabPanel(ReorderableBar, QWidget):
         if capability is None or capability.func is None or console is None:
             return
         self._run_real(tab, console, capability, {'serial': serial}, track=False)
+
+    def _on_cleared(self, tab: SubTabButton) -> None:
+        """Limpiar cierra los tuneles SSH de la pestana. Un tunel es de su tarea
+        —el explorador o el backend conectan por el— asi que se detiene la tarea,
+        y es ella la que lo cierra. Lo que no tiene tunel sigue corriendo."""
+        runner = self._busy.get(tab)
+        if runner is not None and runner.has_tunnel:
+            runner.cancel()
+
+    def shutdown(self, timeout_ms: int = 5000) -> None:
+        """Consola se cierra: detiene cada tarea como lo haria cerrar su pestana,
+        y espera a que terminen sus apagados limpios (el tunel, `adb emu kill`).
+        Lo que no alcance a cerrar en ese tiempo lo mata el Job Object
+        (`core/process.py::bind_to_app`)."""
+        runners = list(self._runners)
+        for runner in runners:
+            runner.cancel()
+        for tab in list(self._views):
+            self._views[tab].shutdown()
+        deadline = time.monotonic() + timeout_ms / 1000
+        for runner in runners:
+            runner.wait(max(0, int((deadline - time.monotonic()) * 1000)))
 
     def close_tab(self, tab: SubTabButton) -> None:
         if tab not in self.tabs:

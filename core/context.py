@@ -62,6 +62,7 @@ class TaskContext:
     _stoppers: list = field(default_factory=list, repr=False)
     _served: list = field(default_factory=list, repr=False)
     _published: list = field(default_factory=list, repr=False)
+    _tunnels: list = field(default_factory=list, repr=False)
 
     # --- raiz del proyecto -------------------------------------------------
 
@@ -346,6 +347,15 @@ class TaskContext:
         for child in list(self._children):
             process.kill_tree(child)
 
+    def hold_tunnel(self, tunnel) -> None:
+        """Anota un tunel SSH de esta tarea: Limpiar la pestana la detiene si
+        tiene alguno vivo (`ui/tab_panel.py::_on_cleared`)."""
+        self._tunnels.append(tunnel)
+
+    @property
+    def has_tunnel(self) -> bool:
+        return any(t.alive for t in self._tunnels)
+
     def wait_cancelled(self, timeout: float | None = None) -> bool:
         """Duerme hasta que detengan la tarea o pase `timeout`; dice si la
         detuvieron. Lo usa lo que vive sin un proceso que lo sostenga — una
@@ -378,6 +388,7 @@ class TaskContext:
             _children=self._children,
             _secrets=self._secrets,
             _stoppers=self._stoppers,
+            _tunnels=self._tunnels,
         )
 
 

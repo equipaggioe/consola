@@ -94,7 +94,7 @@ pasa por la barra de la pestaña.
 ```
 core/db_explorer.py     sin Qt. Funciones puras sobre una conexión psycopg.
 ui/db_worker.py         un QThread dueño de la conexión; pedidos por señal, respuestas por señal.
-ui/db_explorer_view.py  árbol + (Datos | Estructura). Solo habla con el worker.
+ui/db_explorer_view.py  árbol + (Datos | Columnas | Índices | Constraints). Solo habla con el worker.
 ui/tab_view.py          segunda vista de la pestaña, según capability.view: navegador o explorador.
 ```
 
@@ -188,7 +188,7 @@ responden «¿quién apunta a esta tabla?», que en un visor es tan útil como l
 ```
 ┌ Explorar base · local ─ ● concordia_db · listo ─ postgresql://concordia@127.0.0.1:5432/… ─ [Consola] ┐
 │ [filtrar tablas…]           │  usuarios   public · tabla · ~12.408 filas · 3,1 MB        [Contar] │
-│ ▾ public                    │  ┌ Datos ┬ Estructura ┐                                            │
+│ ▾ public                    │  ┌ Datos ┬ Columnas ┬ Índices ┬ Constraints ┐                     │
 │   ▸ mensajes   ~1,2M  (12)  │  │ id ▲ │ email          │ creado_en           │ empresa_id → │     │
 │     usuarios   ~12k         │  │ 1    │ ana@…          │ 2026-01-04 10:22    │ 7 ↗          │     │
 │     empresas   ~300         │  │ 2    │ luis@…         │ 2026-01-04 10:31    │ 7 ↗          │     │
@@ -199,8 +199,9 @@ responden «¿quién apunta a esta tabla?», que en un visor es tan útil como l
 
 **Árbol.** Esquema → tablas, vistas, vistas materializadas y foráneas, cada una con su estimado de
 filas (`reltuples`, gratis). Las particionadas muestran cuántas particiones tienen. El filtro de
-arriba filtra en el cliente, porque el catálogo ya está en memoria. [Esquemas | Modelos] cambia la
-agrupación (§7).
+arriba filtra en el cliente, porque el catálogo ya está en memoria. No hay selector de agrupación:
+el árbol va por modelos (§7) en cuanto se leen, y por esquema mientras cargan o si no se pueden
+importar.
 
 El lado del árbol tiene un ancho mínimo (240 px) y el título de la derecha se recorta. Sin eso, en
 la pestaña real —que comparte el ancho con el panel de parámetros— la cabecera de la derecha pedía
@@ -233,8 +234,14 @@ más se usa al revisar datos relacionados.
 Una tabla vacía lo dice («La tabla no tiene filas») en vez de mostrar solo las cabeceras, que se
 confundía con una carga que no terminó.
 
-**Estructura.** Tres tablas chicas: columnas (nombre, tipo, nulo, default, PK/FK/identity), índices
-y constraints. Debajo, «Referenciada por» con las FKs entrantes: doble clic abre la tabla que apunta.
+**Columnas, Índices y Constraints.** Una pestaña cada uno, al lado de Datos. Columnas: nombre,
+tipo, nulo, default, PK/FK/identity. Constraints lleva debajo «Referenciada por», con las FKs
+entrantes (constraints de otras tablas hacia esta): doble clic abre la tabla que apunta.
+
+**Túneles.** Limpiar vacía el log y, si la tarea de la pestaña tiene un túnel SSH vivo, la detiene:
+el túnel es de la tarea y se cierra con ella. Cerrar Consola detiene todas las tareas; y cada `ssh`
+del túnel va en un Job Object de Windows (`process.bind_to_app`), así que muere con Consola aunque
+se cierre de golpe.
 
 **Conteo exacto.** `~12.408` es el estimado. [Contar] corre `COUNT(*)` en el worker, con el timeout
 de sesión, y reemplaza el número. No es un «recargar»: es otra pregunta.
@@ -251,7 +258,7 @@ navegador.
 
 ## 7. Comparar con los modelos
 
-La base se compara contra los modelos del repo abierto, y el árbol se puede agrupar como están
+La base se compara contra los modelos del repo abierto, y el árbol se agrupa como están
 organizados en `app/models/`.
 
 **Qué se compara: lo que ve Alembic.** `alembic/env.py` hace `from app.models import Base` en los
@@ -288,13 +295,15 @@ de comparar (`normalize_type`): `VARCHAR(7)` ≡ `character varying(7)`, `NUMERI
 
 **En la vista.** Debajo del filtro, el resumen: «47 modelos: ✕ 29 faltan en la base · ≠ 4
 difieren», o «✓ Al día con los 47 modelos». Si los modelos no se pudieron importar, el motivo va
-ahí y el explorador sigue funcionando sin comparar. En Estructura, una tabla `changed` abre con
+ahí y el árbol queda por esquema, sin comparar. En Columnas, una tabla `changed` abre con
 «Diferencias con el modelo» (columna, en la base, en el modelo); una `missing` muestra las columnas
 del modelo, porque no hay datos que pedir.
 
 **Por modelos.** Carpetas de `app/models/` → tablas, con los modelos de la raíz después de las
 carpetas, como en el disco, y al final «sin modelo» con lo que no declara ningún modelo. Las
-carpetas no se guardan ni se configuran: salen del `__module__` de cada clase.
+carpetas no se guardan ni se configuran: salen del `__module__` de cada clase. Es la única
+agrupación mientras haya modelos: ya incluye todas las tablas de la base, así que un selector
+[Esquemas | Modelos] mostraba lo mismo dos veces.
 
 No compara índices, FKs ni defaults: eso ya lo hace `alembic revision --autogenerate` (Generar
 migración). Esto responde lo que se ve de un vistazo: qué tablas y columnas no coinciden.

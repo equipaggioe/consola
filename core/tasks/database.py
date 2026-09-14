@@ -299,6 +299,7 @@ def open_db_tunnel(ctx):
     from .. import ports
     local = ports.resolve_port(remoto, label='puerto del tunel')
     tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=remoto)
+    ctx.hold_tunnel(tunnel)
     ctx.ok(f'Tunel abierto en {tunnel.endpoint} -> {remote.host}:{remoto}')
     return tunnel
 

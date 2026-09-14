@@ -269,7 +269,9 @@ def open_tunnel(remote: Remote, *, local_port: int, remote_port: int) -> Tunnel:
     # reenviar nada y la conexion cae en lo que ya escuchaba ahi.
     argv = ['ssh', *CONNECT_TIMEOUT, '-o', 'ExitOnForwardFailure=yes',
             '-i', str(remote.identity), '-N', '-L', forward, remote.target]
-    return Tunnel(remote, local_port, remote_port, process.spawn(argv, detached=True))
+    proc = process.spawn(argv, detached=True)
+    process.bind_to_app(proc)
+    return Tunnel(remote, local_port, remote_port, proc)
 
 
 # --- llaves y known_hosts --------------------------------------------------
