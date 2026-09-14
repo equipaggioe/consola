@@ -72,6 +72,7 @@ def has_config(repo_path: str) -> bool:
 # es de ningun repo en particular y no puede resolverlo a un valor concreto).
 _DYNAMIC_DEFAULT_HINTS = {
     'VPS_USER': 'nombre del repo',
+    'DB_USER': '<VPS_USER>',
     'DB_NAME': '<VPS_USER>_db',
     'GITHUB_KEY_TITLE': '<nombre del repo>-vps',
     'PUBLIC_HOST': '<CF_RECORD_NAME>, si no <CF_DOMAIN_NAME>, si no <VPS_IP>',
@@ -266,6 +267,8 @@ class Config:
         """
         if key == 'VPS_USER':
             return self.repo_name
+        if key == 'DB_USER':
+            return self.get('VPS_USER')
         if key == 'DB_NAME':
             user = self.get('VPS_USER')
             return f'{user}_db' if user else ''

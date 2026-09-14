@@ -43,10 +43,10 @@ _SCOPE_LABELS = {'local': 'Local', 'remoto': 'Remoto'}
 
 # Todo boton con este eje conecta a la base (`db.credentials`): usuario, base y
 # contrasena en los dos ambitos, y en remoto ademas lo que abre el SSH.
-_DB_KEYS = {'VPS_USER', 'DB_NAME', 'DB_PASSWORD'}
+_DB_KEYS = {'DB_USER', 'DB_NAME', 'DB_PASSWORD'}
 _SCOPE_AXIS = lambda: AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS,
                               requires_env={'local': _DB_KEYS,
-                                            'remoto': _DB_KEYS | {'VPS_IP', 'VPS_KEY_NAME'}})
+                                            'remoto': _DB_KEYS | {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME'}})
 
 # Que unidad systemd toca la accion. Nace de que Consola pasa a configurar tres
 # servicios en el mismo VPS —el del repo, coturn y Caddy— y los tres se

@@ -86,9 +86,9 @@ class Connection:
 
 
 def credentials(config: Config) -> tuple[str, str, str]:
-    # Los defaults de VPS_USER (nombre del repo) y DB_NAME (`{user}_db`) los
-    # resuelve `Config.get` solo; no hay que repetirlos aca.
-    user = config.get('VPS_USER')
+    # Los defaults de DB_USER (el usuario de despliegue) y DB_NAME (`{VPS_USER}_db`)
+    # los resuelve `Config.get` solo; no hay que repetirlos aca.
+    user = config.get('DB_USER')
     password = config.require('DB_PASSWORD')
     name = config.get('DB_NAME')
     return user, password, name

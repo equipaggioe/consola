@@ -28,7 +28,7 @@ Medido en el repo antes de proponer:
 | Pieza | Dónde | Cómo se usa aquí |
 |---|---|---|
 | Conexión por ámbito, con túnel si es remota | `core/database.py::connect` | Tal cual: da la URL a `127.0.0.1`, local o por túnel. Nunca a la IP pública. |
-| Credenciales | `config.env`: `VPS_USER`, `DB_PASSWORD`, `DB_NAME` (`db.credentials`) | Las mismas de todos los botones de Base de datos. Sin formulario ni contraseña pedida al conectar. |
+| Credenciales | `config.env`: `DB_USER` (vacío, el usuario de despliegue), `DB_PASSWORD`, `DB_NAME` (`db.credentials`) | Las mismas de todos los botones de Base de datos. Sin formulario ni contraseña pedida al conectar. |
 | Eje `scope` local/remoto | `AxisDef('scope', …)` en `core/catalog.py` | El mismo eje, en el panel de parámetros. |
 | Tarea viva que publica un endpoint | `kind='live'` + `ctx.serve()` + `session` | La conexión es una tarea viva: vive lo que vive la pestaña (§3). |
 | Segunda vista de la pestaña | `ui/tab_view.py` (consola ⇄ navegador) | Su docstring ya reservaba el lugar: «la misma caja sirve para la pestaña de Base de datos». |

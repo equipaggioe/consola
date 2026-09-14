@@ -65,7 +65,7 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('VPS_IP', 'VPS', 'IP del servidor', required_by=_VPS_REACH),
     Setting('ROOT_USER', 'VPS', 'Usuario root', default='root',
             required_by=('setup_ssh_key', 'install_software', 'bootstrap_vps')),
-    Setting('VPS_USER', 'VPS', 'Usuario de despliegue y rol de la base',
+    Setting('VPS_USER', 'VPS', 'Usuario de despliegue',
             required_by=_VPS_REACH + ('backup_db',)),
     Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
     Setting('VPS_PYTHON', 'VPS', 'Python del VPS', default='server/.venv/bin/python',
@@ -93,6 +93,8 @@ SETTINGS: tuple[Setting, ...] = (
             placeholder='server/.env, server/certs/cert.pem, server/certs/key.pem',
             used_by=('publish_code', 'update_remote', 'upload_secret_files',
                      'bootstrap_vps')),
+    # Vacio, el rol es el mismo usuario de despliegue (`Config._dynamic_default`).
+    Setting('DB_USER', 'VPS', 'Rol de la base', required_by=_DB_REMOTE),
     Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_REMOTE),
     Setting('DB_PASSWORD', 'VPS', 'Password de la base', secret=True, required_by=_DB_REMOTE),
     # El secreto con el que el backend firma las credenciales efimeras de TURN.

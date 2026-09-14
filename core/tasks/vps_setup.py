@@ -398,7 +398,7 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
 
     dominio = ctx.config.get('PUBLIC_HOST')
     if not dominio:
-        raise TaskError('Falta PUBLIC_HOST: cargalo en Configuración, o el dominio '
+        raise TaskError('Falta PUBLIC_HOST: cárgalo en Configuración, o el dominio '
                         'de Cloudflare del que se deriva.')
 
     rutas = vps.routes(ctx.config)
@@ -410,7 +410,7 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
     for route in rutas:
         if route.kind == 'static' and not ssh.succeeds(remote, f'test -d {ssh.quote(destinos[route.pattern])}'):
             raise TaskError(f'{destinos[route.pattern]} no existe en el VPS, y la regla '
-                            f'«{route.pattern}» lo sirve. Crealo antes de correr esto.')
+                            f'«{route.pattern}» lo sirve. Créalo antes de correr esto.')
 
     conf = _caddyfile(domain=dominio, routes=rutas, destinos=destinos,
                       csp=ctx.config.get('CSP').strip())
