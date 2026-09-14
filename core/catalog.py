@@ -41,6 +41,13 @@ _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
 # los valores crudos en minúscula.
 _SCOPE_LABELS = {'local': 'Local', 'remoto': 'Remoto'}
 
+# Todo boton con este eje conecta a la base (`db.credentials`): usuario, base y
+# contrasena en los dos ambitos, y en remoto ademas lo que abre el SSH.
+_DB_KEYS = {'VPS_USER', 'DB_NAME', 'DB_PASSWORD'}
+_SCOPE_AXIS = lambda: AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS,
+                              requires_env={'local': _DB_KEYS,
+                                            'remoto': _DB_KEYS | {'VPS_IP', 'VPS_KEY_NAME'}})
+
 # Que unidad systemd toca la accion. Nace de que Consola pasa a configurar tres
 # servicios en el mismo VPS —el del repo, coturn y Caddy— y los tres se
 # reinician, se paran y se leen igual. Es un eje y no tres botones nuevos por lo
@@ -522,7 +529,7 @@ def load_catalog() -> None:
         # ofrecia: corria clavada en 0.0.0.0:8000 con --reload. El puerto es
         # solo el preferido — `core/ports.py` busca el siguiente libre — y por
         # eso se puede dejar como esta sin miedo a chocar con otra pestana.
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS),
+        axes=[_SCOPE_AXIS(),
               _HOST_AXIS(),
               AxisDef('preferred_port', ['8000'], 'field', label='Puerto', cast='int'),
               # Sin recarga es el modo en que se prueba lo que va a correr en el
@@ -718,7 +725,7 @@ def load_catalog() -> None:
     registry.register(Capability(id='ssh_login', name='Sesión SSH', group='VPS · ops', section='Conexión', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
     registry.register(Capability(id='health_check', name='Health check', group='VPS · ops', section='Diagnóstico', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))
     registry.register(Capability(id='run_command', name='Comando remoto', group='VPS · ops', section='Diagnóstico', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', axes=[AxisDef('command', [''], 'field', label='Comando', placeholder='systemctl status … · df -h · journalctl -n 50')], stub=True))
-    registry.register(Capability(id='run_setup_scripts', name='Correr setup remoto', group='VPS · ops', section='Setup', kind='once', icon='📜', description='Prepara la base del ámbito elegido encadenando los botones de Base de datos.', composed_of=['bootstrap_db', 'rebuild_db'], axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], steps=RUN_SETUP_SCRIPTS_STEPS, stub=True))
+    registry.register(Capability(id='run_setup_scripts', name='Correr setup remoto', group='VPS · ops', section='Setup', kind='once', icon='📜', description='Prepara la base del ámbito elegido encadenando los botones de Base de datos.', composed_of=['bootstrap_db', 'rebuild_db'], axes=[_SCOPE_AXIS()], steps=RUN_SETUP_SCRIPTS_STEPS, stub=True))
     registry.register(Capability(id='revoke_ssh', name='Revocar SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Quita del VPS la clave pública con la que entra esta máquina.', steps=REVOKE_SSH_STEPS, stub=True))
     registry.register(Capability(id='revoke_github_ssh', name='Revocar GitHub SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Borra la deploy key del VPS y la da de baja en GitHub.', composed_of=['remove_remote_ssh_key_files', 'revoke_github_key'], steps=REVOKE_GITHUB_SSH_STEPS, stub=True))
     registry.register(Capability(id='clean_vps', name='Limpiar VPS', group='VPS · ops', section='Limpieza', kind='destructive', icon='💣', description='Deja el VPS como recién formateado: deshace todo lo que Consola puso ahí.', composed_of=['remove_systemd_service', 'drop_database', 'remove_deployed_repo', 'revoke_github_key', 'uninstall_packages', 'remove_vps_user'], steps=CLEAN_VPS_STEPS, stub=True))
@@ -853,36 +860,36 @@ def load_catalog() -> None:
         id='bootstrap_db', name='Bootstrap DB', group='Base de datos',
         section='Ciclo de vida', kind='once', icon='🏗️',
         description='Deja una base usable desde cero: creada, migrada y con sus datos mínimos.',
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)],
+        axes=[_SCOPE_AXIS()],
         steps=BOOTSTRAP_DB_STEPS, stub=True))
     registry.register(Capability(
         id='enable_extensions', name='Habilitar extensiones', group='Base de datos',
         section='Ciclo de vida', kind='once', icon='🧩',
         description='Crea en la base las extensiones de Postgres que declara el repo.',
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], stub=True))
-    registry.register(Capability(id='teardown_db', name='Teardown DB', group='Base de datos', section='Ciclo de vida', kind='destructive', icon='💥', description='Borra la base de la aplicación y su rol.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], steps=TEARDOWN_DB_STEPS, stub=True))
+        axes=[_SCOPE_AXIS()], stub=True))
+    registry.register(Capability(id='teardown_db', name='Teardown DB', group='Base de datos', section='Ciclo de vida', kind='destructive', icon='💥', description='Borra la base de la aplicación y su rol.', axes=[_SCOPE_AXIS()], steps=TEARDOWN_DB_STEPS, stub=True))
     registry.register(Capability(
         id='migrate_db', name='Migrar', group='Base de datos', section='Migraciones',
         kind='once', icon='📐',
         description='Genera la migración pendiente y la aplica.',
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)],
+        axes=[_SCOPE_AXIS()],
         steps=MIGRATE_DB_STEPS, stub=True))
     registry.register(Capability(
         id='rebuild_db', name='Reconstruir DB', group='Base de datos',
         section='Ciclo de vida', kind='destructive', icon='🔁',
         description='Vacía las tablas y vuelve a llenar la base: migraciones, particiones y seeders.',
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)],
+        axes=[_SCOPE_AXIS()],
         steps=REBUILD_DB_STEPS, stub=True))
     registry.register(Capability(
         id='reinit_migrations', name='Reiniciar migraciones', group='Base de datos',
         section='Migraciones', kind='destructive', icon='🧨',
         description='Reinicia el historial de migraciones: deja una sola inicial con los modelos de hoy.',
-        axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)],
+        axes=[_SCOPE_AXIS()],
         steps=REINIT_MIGRATIONS_STEPS, stub=True))
     # Las cuatro reciben `scope` en su funcion y el catalogo nunca les dio el
     # eje: corrian clavadas contra `local`, que es el default de la firma.
-    registry.register(Capability(id='run_seeders', name='Seeders base', group='Base de datos', section='Datos', kind='once', icon='🌱', description='Carga los datos mínimos que la app necesita para arrancar.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], stub=True))
-    registry.register(Capability(id='run_mock_seeders', name='Seeders mock', group='Base de datos', section='Datos', kind='once', icon='🎭', description='Carga datos de prueba encima de los datos base.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], stub=True))
+    registry.register(Capability(id='run_seeders', name='Seeders base', group='Base de datos', section='Datos', kind='once', icon='🌱', description='Carga los datos mínimos que la app necesita para arrancar.', axes=[_SCOPE_AXIS()], stub=True))
+    registry.register(Capability(id='run_mock_seeders', name='Seeders mock', group='Base de datos', section='Datos', kind='once', icon='🎭', description='Carga datos de prueba encima de los datos base.', axes=[_SCOPE_AXIS()], stub=True))
     # Sin eje `scope`: `backup_database` vuelca la base DEL VPS a un archivo
     # local. No es una omision del catalogo, es lo que la funcion hace.
     registry.register(Capability(id='backup_db', name='Backup DB', group='Base de datos', section='Backup', kind='once', icon='💾', description='Vuelca la base del VPS a un archivo local y rota los respaldos viejos.', stub=True))
@@ -892,8 +899,8 @@ def load_catalog() -> None:
     # Viva como un launcher: sostiene la conexion (y en remoto el tunel) hasta
     # cerrar la pestana, y lo que entrega es la vista de arbol y datos, no el
     # log (docs/explorador-db.md 3).
-    registry.register(Capability(id='explore_db', name='Explorar base', group='Base de datos', section='Conexión', kind='live', view='db', icon='🗂️', description='Navega esquemas, tablas y datos de la base, en solo lectura.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], stub=True))
-    registry.register(Capability(id='inspect_db', name='Inspeccionar', group='Base de datos', section='Diagnóstico', kind='once', icon='🔍', description='Lista las tablas de la base con su cantidad de filas.', axes=[AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCOPE_LABELS)], stub=True))
+    registry.register(Capability(id='explore_db', name='Explorar base', group='Base de datos', section='Conexión', kind='live', view='db', icon='🗂️', description='Navega esquemas, tablas y datos de la base, en solo lectura.', axes=[_SCOPE_AXIS()], stub=True))
+    registry.register(Capability(id='inspect_db', name='Inspeccionar', group='Base de datos', section='Diagnóstico', kind='once', icon='🔍', description='Lista las tablas de la base con su cantidad de filas.', axes=[_SCOPE_AXIS()], stub=True))
 
     # Utils group
     registry.register(Capability(

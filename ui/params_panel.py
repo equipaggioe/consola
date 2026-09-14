@@ -782,6 +782,8 @@ class ParamsPanel(QWidget):
         """Claves de `.env` que esta accion puede llegar a necesitar (todos los
         pasos, no solo los activos) — para filtrar el panel de configuracion."""
         needed = set(relevant_keys_for(self.capability.id))
+        for axis in self.capability.axes:
+            needed |= axis.all_keys
         for step in self.steps:
             needed |= step.requires_env
             needed |= set(relevant_keys_for(step.id))
@@ -800,6 +802,8 @@ class ParamsPanel(QWidget):
         la misma pregunta que se hace en tiempo de ejecucion.
         """
         needed = set(required_keys_for(self.capability.id))
+        for axis in self.capability.axes:
+            needed |= axis.keys_for(self.selection(axis.name) + self.option_values(axis.name))
         for step in self.active_steps():
             needed |= step.requires_env
             needed |= set(required_keys_for(step.id))

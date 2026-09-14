@@ -265,8 +265,10 @@ class Tunnel:
 
 def open_tunnel(remote: Remote, *, local_port: int, remote_port: int) -> Tunnel:
     forward = f'127.0.0.1:{local_port}:127.0.0.1:{remote_port}'
-    argv = ['ssh', *CONNECT_TIMEOUT, '-i', str(remote.identity),
-            '-N', '-L', forward, remote.target]
+    # Sin ExitOnForwardFailure, un puerto local ocupado deja a ssh vivo sin
+    # reenviar nada y la conexion cae en lo que ya escuchaba ahi.
+    argv = ['ssh', *CONNECT_TIMEOUT, '-o', 'ExitOnForwardFailure=yes',
+            '-i', str(remote.identity), '-N', '-L', forward, remote.target]
     return Tunnel(remote, local_port, remote_port, process.spawn(argv, detached=True))
 
 

@@ -69,6 +69,17 @@ class AxisDef:
     join: str = ''              # solo con `combine`: como se unen el valor excluyente y los
                                 # combinados en la cadena que espera la funcion
                                 # ('patch' + 'build' -> 'patch+build')
+    requires_env: dict = field(default_factory=dict)  # valor -> claves de config.env que
+                                # exige elegirlo. El ambito `remoto` pide la IP y la llave
+                                # del VPS y `local` no: exigirlas en la capacidad dejaba
+                                # en ambar la base local de un repo sin VPS.
+
+    def keys_for(self, chosen) -> set[str]:
+        return set().union(*(self.requires_env.get(v, set()) for v in chosen))
+
+    @property
+    def all_keys(self) -> set[str]:
+        return self.keys_for(self.values)
 
     @property
     def exclusive_values(self) -> list[str]:

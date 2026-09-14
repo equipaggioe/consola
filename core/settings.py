@@ -41,9 +41,9 @@ _VPS_REACH = ('ssh_login', 'health_check', 'run_command', 'run_setup_scripts',
               'bootstrap_vps', 'view_logs',
               'systemd_action', 'configure_service', 'clean_vps', 'revoke_ssh')
 
-_DB_REMOTE = ('bootstrap_db', 'teardown_db', 'migrate_db', 'rebuild_db',
-              'reinit_migrations', 'backup_db', 'ssh_tunnel', 'inspect_db',
-              'explore_db')
+# Solo las de base sin eje `scope`: las que lo tienen declaran sus claves en el
+# eje (`core/catalog.py::_SCOPE_AXIS`), porque dependen del ambito elegido.
+_DB_REMOTE = ('backup_db', 'ssh_tunnel')
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---
@@ -65,7 +65,8 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('VPS_IP', 'VPS', 'IP del servidor', required_by=_VPS_REACH),
     Setting('ROOT_USER', 'VPS', 'Usuario root', default='root',
             required_by=('setup_ssh_key', 'install_software', 'bootstrap_vps')),
-    Setting('VPS_USER', 'VPS', 'Usuario de despliegue', required_by=_VPS_REACH),
+    Setting('VPS_USER', 'VPS', 'Usuario de despliegue y rol de la base',
+            required_by=_VPS_REACH + ('backup_db',)),
     Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
     Setting('VPS_PYTHON', 'VPS', 'Python del VPS', default='server/.venv/bin/python',
             required_by=('update_remote', 'configure_service')),

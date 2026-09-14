@@ -23,6 +23,10 @@ def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
     """
     active = params_store.stored_steps(repo_path, capability.id)
     needed = set(required_keys_for(capability.id))
+    state = params_store.load(repo_path, capability.id) or {}
+    for axis in capability.axes:
+        if axis.requires_env:
+            needed |= axis.keys_for(_chosen(axis, state))
     for step in registry.resolve_steps(capability):
         if active is not None and step.optional and step.id not in active:
             continue
@@ -30,6 +34,16 @@ def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
         needed |= set(required_keys_for(step.id))
     config = envfile.Config(env, repo_name=envfile.repo_name_of(repo_path))
     return [k for k in needed if not config.get(k)]
+
+
+def _chosen(axis, state: dict) -> list[str]:
+    """Los valores del eje que correrian: los guardados o, sin nada, los de por defecto."""
+    saved = (state.get('variants' if axis.is_multi else 'options') or {}).get(axis.name)
+    if saved is not None:
+        return list(saved) if isinstance(saved, list) else [saved]
+    if axis.is_multi:
+        return [v for v in axis.values if axis.starts_checked(v)]
+    return [axis.initial]
 
 
 def ready_ids(project) -> set[str]:

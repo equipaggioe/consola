@@ -6,13 +6,17 @@ from urllib.parse import urlsplit
 from .errors import TaskError
 
 
-def is_free(port: int, *, host: str = '0.0.0.0') -> bool:
-    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
-        try:
-            sock.bind((host, port))
-        except OSError:
-            return False
-        return True
+def is_free(port: int, *, host: str = '') -> bool:
+    """Sin `host`, libre en las dos: Windows deja escuchar en `0.0.0.0` un puerto
+    que otro ya tiene en `127.0.0.1` (un tunel `ssh -L`), y quien entra por
+    `127.0.0.1` llega al de antes."""
+    for addr in ([host] if host else ['0.0.0.0', '127.0.0.1']):
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            try:
+                sock.bind((addr, port))
+            except OSError:
+                return False
+    return True
 
 
 def resolve_port(preferred: int, *, search: bool = True, label: str = 'puerto') -> int:
