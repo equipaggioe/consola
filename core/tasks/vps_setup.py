@@ -312,15 +312,15 @@ def _spa_root(ctx, name: str) -> str:
     return vps.remote_path(ctx.config, rel, salida)
 
 
-def _route_root(ctx, route: vps.Route) -> str:
-    """La carpeta del VPS que sirve una regla `spa` o `static`."""
+def _route_target(ctx, route: vps.Route) -> str:
+    """A donde manda una regla: la direccion de un `proxy`, la carpeta del VPS de las otras dos."""
     if route.kind == 'spa':
         return _spa_root(ctx, route.target)
-    return vps.static_root(ctx.config, route)
+    return vps.resolve_target(ctx.config, route)
 
 
-def _caddyfile(*, domain: str, routes: list[vps.Route], roots: dict[str, str],
-               upstream: str, csp: str) -> str:
+def _caddyfile(*, domain: str, routes: list[vps.Route], destinos: dict[str, str],
+               csp: str) -> str:
     """El Caddyfile entero, en una funcion sin efectos: es lo unico que se prueba.
 
     Cada regla es un `handle`, en el orden en que vino: gana la primera que
@@ -337,13 +337,13 @@ def _caddyfile(*, domain: str, routes: list[vps.Route], roots: dict[str, str],
     for route in routes:
         # El catch-all es `handle` sin patron; el resto lleva el suyo.
         cabeza = 'handle' if route.catch_all else f'handle {route.pattern}'
-        if route.kind == 'backend':
-            lineas = [f'\t\treverse_proxy {upstream}']
+        if route.kind == 'proxy':
+            lineas = [f'\t\treverse_proxy {destinos[route.pattern]}']
         else:
-            lineas = [f'\t\troot * {roots[route.pattern]}']
+            lineas = [f'\t\troot * {destinos[route.pattern]}']
             # Recortar el prefijo es lo que hace que el build no necesite una
             # carpeta `admin/` en disco: el prefijo vive solo en las URLs. El
-            # catch-all no tiene prefijo que recortar, y `backend` nunca recorta
+            # catch-all no tiene prefijo que recortar, y `proxy` nunca recorta
             # —las rutas del server incluyen su `/api`—.
             if not route.catch_all:
                 lineas.append(f'\t\turi strip_prefix {route.prefix}')
@@ -402,18 +402,17 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
                         'de Cloudflare del que se deriva.')
 
     rutas = vps.routes(ctx.config)
-    roots = {r.pattern: _route_root(ctx, r) for r in rutas if r.kind != 'backend'}
+    destinos = {r.pattern: _route_target(ctx, r) for r in rutas}
     # Las carpetas de las SPA las crea la subida del build; las de `static` son
     # de quien administra el VPS y Consola no las inventa. Servir una carpeta
     # que no existe no hace fallar a Caddy: devuelve 404 y hay que ir a buscar
     # por que.
     for route in rutas:
-        if route.kind == 'static' and not ssh.succeeds(remote, f'test -d {ssh.quote(roots[route.pattern])}'):
-            raise TaskError(f'{roots[route.pattern]} no existe en el VPS, y la regla '
+        if route.kind == 'static' and not ssh.succeeds(remote, f'test -d {ssh.quote(destinos[route.pattern])}'):
+            raise TaskError(f'{destinos[route.pattern]} no existe en el VPS, y la regla '
                             f'«{route.pattern}» lo sirve. Crealo antes de correr esto.')
 
-    conf = _caddyfile(domain=dominio, routes=rutas, roots=roots,
-                      upstream=vps.backend_address(ctx.config),
+    conf = _caddyfile(domain=dominio, routes=rutas, destinos=destinos,
                       csp=ctx.config.get('CSP').strip())
     _save_reference(ctx, conf)
 
@@ -442,8 +441,7 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
 
     for route in rutas:
         donde = f'https://{dominio}' + ('' if route.catch_all else route.prefix)
-        que = 'backend' if route.kind == 'backend' else f'{route.kind} {route.target}'
-        ctx.ok(f'{donde} -> {que}')
+        ctx.ok(f'{donde} -> {route.kind} {destinos[route.pattern]}')
     return CADDYFILE
 
 

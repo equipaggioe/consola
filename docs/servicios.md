@@ -102,16 +102,17 @@ Va en `CADDY_ROUTES`, un `Setting(kind='list')`: el panel lo edita con un rengl�
 conserva el orden. Se guarda separado por comas, así que **ningún valor puede contener una coma**.
 
 ```
-<patrón> <destino>
+<patrón> <tipo> <destino>
 
-  /api/*      backend              -> reverse_proxy a BACKEND_HOST:BACKEND_PORT
-  /admin/*    spa backoffice       -> el build de esa SPA del repo
-  /media/*    static $STORAGE_ROOT/public   -> una carpeta del VPS
-  *           spa pwa              -> el catch-all, siempre último
+  /api/*      proxy $BACKEND_HOST:$BACKEND_PORT  -> reverse_proxy a esa dirección
+  /admin/*    spa backoffice                     -> el build de esa SPA del repo
+  /media/*    static $STORAGE_ROOT/public        -> una carpeta del VPS
+  *           spa pwa                            -> el catch-all, siempre último
 ```
 
-`spa` y `static` recortan el prefijo; `backend` no (las rutas del server incluyen su `/api`). El
-`$CLAVE` inicial de un `static` se resuelve contra `config.env`.
+Las tres reglas tienen la misma forma: un tipo y un destino. `spa` y `static` recortan el prefijo;
+`proxy` no (las rutas del server incluyen su `/api`). Cada `$CLAVE` del destino se resuelve contra
+`config.env`, así que el proxy apunta a la misma clave que usa la unidad systemd para escuchar.
 
 Esto reemplaza a los dos ejes que tenía el botón (*qué SPA* y *subruta o subdominio*), con los que
 la topología se deducía de los nombres de las carpetas y no había forma de decir «ésta va en la

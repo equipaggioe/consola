@@ -140,15 +140,15 @@ SETTINGS: tuple[Setting, ...] = (
     # esta aca —y no en `params.json`— porque es estructura del despliegue: esas
     # rutas serian las mismas si el Caddyfile se escribiera a mano.
     #
-    # `<patron> <destino>`, con tres destinos posibles:
-    #   backend            -> al `BACKEND_HOST:BACKEND_PORT` del repo
-    #   spa <nombre>       -> el build de esa SPA (recorta el prefijo)
-    #   static <ruta>      -> una carpeta del VPS (recorta el prefijo); `$CLAVE`
-    #                         al empezar se resuelve contra esta configuracion
-    # El patron `*` es el catch-all y va ultimo. Sin comas en ningun valor: son
-    # el separador con el que se guarda la lista.
+    # `<patron> <tipo> <destino>`, siempre los tres:
+    #   proxy <host:puerto> -> reverse_proxy a esa direccion (no recorta)
+    #   spa <carpeta>       -> el build de esa SPA del repo (recorta el prefijo)
+    #   static <ruta>       -> una carpeta del VPS (recorta el prefijo)
+    # Cada `$CLAVE` del destino se resuelve contra esta configuracion. El patron
+    # `*` es el catch-all y va ultimo. Sin comas en ningun valor: son el
+    # separador con el que se guarda la lista.
     Setting('CADDY_ROUTES', 'Web', 'Rutas del proxy', kind='list',
-            placeholder='/api/* backend\n/admin/* spa backoffice\n* spa pwa',
+            placeholder='/api/* proxy $BACKEND_HOST:$BACKEND_PORT\n/admin/* spa backoffice\n* spa pwa',
             required_by=('configure_caddy',)),
     # La unica cabecera de seguridad que cambia entre proyectos. Las otras tres
     # —HSTS, nosniff, Referrer-Policy— tienen un solo valor sensato y las escribe
@@ -177,7 +177,7 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
             required_by=('configure_service',)),
     # Donde escucha el backend DENTRO del VPS. Lo escribe `write_systemd_unit` y
-    # lo lee `configure_caddy` para saber a donde mandan las reglas `backend`:
+    # lo leen las reglas `proxy $BACKEND_HOST:$BACKEND_PORT` de `configure_caddy`:
     # es un dato de a dos, y tenerlo en cada boton por separado seria dejar que
     # un lado quede apuntando a donde el otro ya no escucha.
     #

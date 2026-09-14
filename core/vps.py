@@ -18,9 +18,10 @@ SUDO = 'sudo -n'
 # Ese es todo el motivo por el que la ruta de cada SPA es un dato y no un eje —
 # dos botones distintos tienen que leer exactamente el mismo valor.
 
-# `$CLAVE` al principio de la ruta de una regla `static`, para no repetir en la
-# tabla una ruta que ya esta cargada en la configuracion.
-_ROUTE_REF = re.compile(r'^\$([A-Za-z_][A-Za-z0-9_]*)')
+# `$CLAVE` en el destino de una regla, para no repetir en la tabla un valor que
+# ya esta cargado en la configuracion (`$STORAGE_ROOT`, `$BACKEND_PORT`).
+_ROUTE_REF = re.compile(r'\$([A-Za-z_][A-Za-z0-9_]*)')
+ROUTE_KINDS = ('proxy', 'spa', 'static')
 
 
 class Route:
@@ -51,22 +52,15 @@ def parse_routes(lineas: list[str]) -> list[Route]:
     rutas: list[Route] = []
     for linea in lineas:
         partes = linea.split()
-        if len(partes) < 2:
-            raise TaskError(f'Regla incompleta: «{linea}». Va «<patron> <destino>».')
-        patron, destino, resto = partes[0], partes[1], partes[2:]
+        if len(partes) != 3:
+            raise TaskError(f'Regla mal formada: «{linea}». Va «<patron> <tipo> <destino>».')
+        patron, tipo, destino = partes
         if not (patron == '*' or patron.startswith('/')):
             raise TaskError(f'Patron invalido en «{linea}»: empieza con / o es *.')
-        if destino == 'backend':
-            if resto:
-                raise TaskError(f'«backend» no lleva argumento: «{linea}».')
-            rutas.append(Route(patron, 'backend', ''))
-        elif destino in ('spa', 'static'):
-            if len(resto) != 1:
-                raise TaskError(f'«{destino}» lleva exactamente un argumento: «{linea}».')
-            rutas.append(Route(patron, destino, resto[0]))
-        else:
-            raise TaskError(f'Destino desconocido «{destino}» en «{linea}». '
-                            'Los destinos son: backend, spa <nombre>, static <ruta>.')
+        if tipo not in ROUTE_KINDS:
+            raise TaskError(f'Tipo desconocido «{tipo}» en «{linea}». Los tipos son: '
+                            'proxy <host:puerto>, spa <carpeta>, static <ruta>.')
+        rutas.append(Route(patron, tipo, destino))
     if not rutas:
         raise TaskError('CADDY_ROUTES esta vacia: sin reglas no hay nada que servir.')
     if any(r.catch_all for r in rutas[:-1]):
@@ -79,17 +73,16 @@ def routes(config: Config) -> list[Route]:
     return parse_routes(split_list(config.get('CADDY_ROUTES')))
 
 
-def static_root(config: Config, route: Route) -> str:
-    """La carpeta del VPS que sirve una regla `static`, con `$CLAVE` resuelta."""
-    referencia = _ROUTE_REF.match(route.target)
-    if not referencia:
-        return route.target.rstrip('/')
-    clave = referencia.group(1)
-    base = config.get(clave).strip()
-    if not base:
-        raise TaskError(f'La regla «{route.pattern} static {route.target}» usa ${clave}, '
-                        f'y esa clave esta vacia en Configuracion.')
-    return (base.rstrip('/') + route.target[referencia.end():]).rstrip('/')
+def resolve_target(config: Config, route: Route) -> str:
+    """El destino de una regla con cada `$CLAVE` reemplazada por su valor."""
+    def valor(ref: re.Match) -> str:
+        clave = ref.group(1)
+        resuelto = config.get(clave).strip()
+        if not resuelto:
+            raise TaskError(f'La regla «{route.pattern} {route.kind} {route.target}» usa '
+                            f'${clave}, y esa clave esta vacia en Configuracion.')
+        return resuelto.rstrip('/')
+    return _ROUTE_REF.sub(valor, route.target).rstrip('/')
 
 
 def spa_base(config: Config, name: str) -> str:
@@ -198,15 +191,10 @@ def backend_listen(config: Config) -> tuple[str, int]:
 
     Lo usa `write_systemd_unit`, que es quien lo pone a escuchar. Estaba clavado
     en su firma (`host='0.0.0.0', port=443`) sin eje que lo ofreciera, asi que
-    no habia forma de moverlo. El `reverse_proxy` del Caddyfile del repo tiene
-    que apuntar a esta misma direccion, pero ese archivo no lo escribe Consola.
+    no habia forma de moverlo. Las reglas `proxy` de `CADDY_ROUTES` apuntan aca
+    con `$BACKEND_HOST:$BACKEND_PORT`.
     """
     return config.get('BACKEND_HOST', '127.0.0.1'), config.port('BACKEND_PORT', 8000)
-
-
-def backend_address(config: Config) -> str:
-    host, port = backend_listen(config)
-    return f'{host}:{port}'
 
 
 def is_loopback(host: str) -> bool:

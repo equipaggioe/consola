@@ -640,9 +640,9 @@ DOCS: dict[str, CommandDoc] = {
         steps=[
             'Comprueba que el paquete caddy esté instalado en el VPS y que haya '
             'PUBLIC_HOST.',
-            'Lee CADDY_ROUTES y resuelve la carpeta del VPS que sirve cada '
-            'regla: la ruta de subida del build para una SPA, la declarada para '
-            'un estático.',
+            'Lee CADDY_ROUTES y resuelve el destino de cada regla: la dirección '
+            'de un proxy, la ruta de subida del build para una SPA, la carpeta '
+            'declarada para un estático. Cada $CLAVE se reemplaza por su valor.',
             'Comprueba que existan en el VPS las carpetas de las reglas '
             'estáticas y corta si falta alguna.',
             'Arma el Caddyfile con la compresión, las cabeceras de seguridad, la '
