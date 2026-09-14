@@ -1,4 +1,5 @@
 from __future__ import annotations
+from pathlib import Path
 
 from PySide6.QtCore import Qt
 from PySide6.QtGui import QGuiApplication
@@ -7,6 +8,7 @@ from PySide6.QtWidgets import (
 )
 
 from core import db_explorer, session
+from core.envfile import Config
 from core.projects import Project
 from core.registry import Capability
 from ui.browser_view import BrowserView, open_external
@@ -257,7 +259,8 @@ class TabView(QWidget):
             self.console.append_log('La tarea no publicó la conexión.', 'error')
             return
         from ui.db_explorer_view import DbExplorerView
-        self._explorer = DbExplorerView(str(url), self)
+        server_root = Path(self.project.path) /             Config.for_project(self.project.path).get('SERVER_DIR', 'server')
+        self._explorer = DbExplorerView(str(url), server_root, self)
         self.stack.addWidget(self._explorer)
         self.show_explorer()
 

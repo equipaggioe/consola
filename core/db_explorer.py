@@ -60,6 +60,7 @@ class Relation:
     comment: str | None
     parent: str | None     # tabla madre, si es una particion
     readable: bool         # el rol tiene SELECT
+    extension: bool = False   # la creo una extension (spatial_ref_sys de PostGIS)
 
     @property
     def qualified(self) -> str:
@@ -192,7 +193,9 @@ SELECT n.nspname, c.relname, c.relkind,
        pg_total_relation_size(c.oid),
        obj_description(c.oid, 'pg_class'),
        CASE WHEN c.relispartition THEN p.relname END,
-       has_table_privilege(c.oid, 'SELECT')
+       has_table_privilege(c.oid, 'SELECT'),
+       EXISTS (SELECT 1 FROM pg_depend d WHERE d.classid = 'pg_class'::regclass
+               AND d.objid = c.oid AND d.deptype = 'e')
 FROM pg_class c
 JOIN pg_namespace n ON n.oid = c.relnamespace
 LEFT JOIN pg_inherits i ON i.inhrelid = c.oid AND c.relispartition
@@ -209,8 +212,34 @@ ORDER BY n.nspname, c.relname
 def list_relations(conn) -> list[Relation]:
     """El arbol entero en una consulta: el catalogo es chico y ya ordenado."""
     return [Relation(schema=r[0], name=r[1], kind=r[2], estimate=r[3],
-                     size_bytes=r[4] or 0, comment=r[5], parent=r[6], readable=bool(r[7]))
+                     size_bytes=r[4] or 0, comment=r[5], parent=r[6], readable=bool(r[7]),
+                     extension=bool(r[8]))
             for r in conn.execute(_RELATIONS).fetchall()]
+
+
+_ALL_COLUMNS = """
+SELECT n.nspname, c.relname, a.attname, format_type(a.atttypid, a.atttypmod), NOT a.attnotnull
+FROM pg_attribute a
+JOIN pg_class c ON c.oid = a.attrelid
+JOIN pg_namespace n ON n.oid = c.relnamespace
+WHERE c.relkind IN ('r', 'p') AND NOT c.relispartition
+  AND a.attnum > 0 AND NOT a.attisdropped
+  AND n.nspname NOT IN ('pg_catalog', 'information_schema')
+  AND n.nspname NOT LIKE 'pg_toast%'
+  AND n.nspname NOT LIKE 'pg_temp%'
+ORDER BY n.nspname, c.relname, a.attnum
+"""
+
+
+def all_columns(conn) -> dict[str, list[tuple[str, str, bool]]]:
+    """Columnas de todas las tablas (nombre, tipo, nulo), por `esquema.tabla`.
+
+    Una sola consulta para comparar la base entera contra los modelos
+    (`core/db_models.py`) sin un `describe` por tabla."""
+    found: dict[str, list[tuple[str, str, bool]]] = {}
+    for schema, table, name, type_, nullable in conn.execute(_ALL_COLUMNS).fetchall():
+        found.setdefault(f'{schema}.{table}', []).append((name, type_, bool(nullable)))
+    return found
 
 
 _OID = """

@@ -6,7 +6,7 @@ la introspección del catálogo de Postgres; no hay nada que configurar por tabl
 
 Reemplaza a PLAN.md §6 («fusión de Exploratore»), que se escribió antes de que existieran
 `config.env`, `core/database.py`, las vistas de pestaña y los launchers. Lo que §6 decía y ya no
-aplica está en §9.
+aplica está en §10.
 
 ## 1. Qué es y qué no
 
@@ -199,7 +199,12 @@ responden «¿quién apunta a esta tabla?», que en un visor es tan útil como l
 
 **Árbol.** Esquema → tablas, vistas, vistas materializadas y foráneas, cada una con su estimado de
 filas (`reltuples`, gratis). Las particionadas muestran cuántas particiones tienen. El filtro de
-arriba filtra en el cliente, porque el catálogo ya está en memoria.
+arriba filtra en el cliente, porque el catálogo ya está en memoria. [Esquemas | Modelos] cambia la
+agrupación (§7).
+
+El lado del árbol tiene un ancho mínimo (240 px) y el título de la derecha se recorta. Sin eso, en
+la pestaña real —que comparte el ancho con el panel de parámetros— la cabecera de la derecha pedía
+~780 px y el árbol se quedaba en 50: no se veía ninguna tabla.
 
 **Datos.** Un `QTableView` sobre un `QAbstractTableModel` con `canFetchMore`/`fetchMore`: 200 filas
 por página, `LIMIT/OFFSET`, y al llegar al fondo se cargan más. Clic en una cabecera ordena **en el
@@ -225,6 +230,9 @@ tabla. El valor va como literal sin tipo, así que Postgres lo infiere de la col
 comparar `col::text = valor` recorrería la tabla entera. Es el único filtro de la fase 1, y es el que
 más se usa al revisar datos relacionados.
 
+Una tabla vacía lo dice («La tabla no tiene filas») en vez de mostrar solo las cabeceras, que se
+confundía con una carga que no terminó.
+
 **Estructura.** Tres tablas chicas: columnas (nombre, tipo, nulo, default, PK/FK/identity), índices
 y constraints. Debajo, «Referenciada por» con las FKs entrantes: doble clic abre la tabla que apunta.
 
@@ -241,7 +249,57 @@ recargar.
 pestaña queda en la consola, con el error del intento. Es lo mismo que hace `endpoint_down` con el
 navegador.
 
-## 7. Qué se toca
+## 7. Comparar con los modelos
+
+La base se compara contra los modelos del repo abierto, y el árbol se puede agrupar como están
+organizados en `app/models/`.
+
+**Qué se compara: lo que ve Alembic.** `alembic/env.py` hace `from app.models import Base` en los
+cinco repos, así que la fuente es `Base.metadata` y no los archivos leídos a mano. Los tipos salen
+de `type_annotation_map`, de alias `Annotated` en `base.py` (`PkUuid`, `Money`) y de enums
+`native_enum=False` cuyo largo solo se sabe ejecutando. Un parser daría diferencias que no existen.
+Un modelo que no se importa en `app/models/__init__.py` (el `table_config.py` de concordia) tampoco
+existe para las migraciones, y aquí tampoco.
+
+**Cómo se lee.** `core/db_models.py::read_models` corre un programa corto con `-c` en el Python del
+proyecto: el venv de `server/` o, si el repo no tiene (concordia), el Python del PATH. Es el mismo
+mecanismo que los payloads de seeders y particiones. Devuelve por tabla: esquema, nombre, carpeta y
+archivo del modelo (del `__module__` de su clase), y cada columna con el tipo compilado por el
+dialecto de Postgres, nulo y PK. Tarda ~1,5 s. El worker lo guarda con la firma de los `.py` de
+`app/models/` (ruta + mtime), así que al volver a la pestaña solo se relanza si tocaste un modelo.
+
+Siempre son los modelos **de esta máquina**, también con ámbito remoto: la pregunta es «¿la base
+del VPS está al día con lo que tengo en el repo?».
+
+**La comparación** (`compare`) usa `list_relations` y una sola consulta de columnas de toda la base
+(`all_columns`). Estados:
+
+| Marca | Estado | Qué quiere decir |
+|---|---|---|
+| `✕` rojo | `missing` | Está en los modelos y no en la base: falta migrar. Sale en el árbol igual, en su lugar. |
+| `≠` ámbar | `changed` | Columnas que faltan o sobran, o con otro tipo o nulabilidad. |
+| `+` violeta | `unmodeled` | Está en la base y ningún modelo la declara. |
+| — | `system` | `alembic_version` y las tablas de una extensión (`pg_depend` `deptype='e'`: `spatial_ref_sys`). No cuentan. |
+
+Las particiones siguen a su tabla madre y las vistas no se comparan. Los tipos se normalizan antes
+de comparar (`normalize_type`): `VARCHAR(7)` ≡ `character varying(7)`, `NUMERIC(14, 2)` ≡
+`numeric(14,2)`. Probado contra concordia local (47 modelos, 0 diferencias) y vettore local
+(29 tablas faltan, 4 difieren, todas reales).
+
+**En la vista.** Debajo del filtro, el resumen: «47 modelos: ✕ 29 faltan en la base · ≠ 4
+difieren», o «✓ Al día con los 47 modelos». Si los modelos no se pudieron importar, el motivo va
+ahí y el explorador sigue funcionando sin comparar. En Estructura, una tabla `changed` abre con
+«Diferencias con el modelo» (columna, en la base, en el modelo); una `missing` muestra las columnas
+del modelo, porque no hay datos que pedir.
+
+**Por modelos.** Carpetas de `app/models/` → tablas, con los modelos de la raíz después de las
+carpetas, como en el disco, y al final «sin modelo» con lo que no declara ningún modelo. Las
+carpetas no se guardan ni se configuran: salen del `__module__` de cada clase.
+
+No compara índices, FKs ni defaults: eso ya lo hace `alembic revision --autogenerate` (Generar
+migración). Esto responde lo que se ve de un vistazo: qué tablas y columnas no coinciden.
+
+## 8. Qué se toca
 
 | Archivo | Cambio |
 |---|---|
@@ -255,6 +313,7 @@ navegador.
 | `core/registry.py` | quitar `'view'` del comentario de `kind`; documentar `view='db'` junto a `'web'` |
 | `ui/db_worker.py` | **nuevo** |
 | `ui/db_explorer_view.py` | **nuevo** — árbol, modelo de datos paginado, estructura |
+| `core/db_models.py` | **nuevo** — leer los modelos del repo y compararlos con la base (§7) |
 | `ui/tab_view.py` | segunda vista según `capability.view` (`VIEW_NAMES`); recibe el proyecto para leer la sesión; con `view='db'` esconde Copiar y Abrir ↗, que sobre una URL enmascarada no sirven |
 | `ui/tab_panel.py` | `_activate` llama a `view.on_shown()`; `close_tab` llama a `view.shutdown()` antes de destruirla |
 | `docs/PLAN.md` | §6 y las filas `db_connections`/`db_table_folders` de §8 apuntan aquí |
@@ -262,7 +321,7 @@ navegador.
 `import psycopg` es perezoso (`db_explorer._psycopg`): sin el paquete, la app arranca igual, la
 capacidad sale en el menú y Ejecutar explica qué instalar.
 
-## 8. Etapas
+## 9. Etapas
 
 Las cuatro están hechas. Se probaron contra el Postgres 17 local: vettore con el rol de la app
 (camino completo: tarea, pestaña, cierre) y concordia con datos (particiones, FKs, jsonb, bytea,
@@ -279,18 +338,18 @@ túnel contra un VPS real.**
 
 Cada etapa se puede usar sola: la 1 ya reemplaza la salida de `inspect_db` con más datos.
 
-## 9. Lo que cambia respecto de PLAN.md §6
+## 10. Lo que cambia respecto de PLAN.md §6
 
 | §6 decía | Ahora | Por qué |
 |---|---|---|
 | Formulario de conexión, contraseña pedida al conectar | Credenciales de `config.env` | Ya están ahí, y todos los botones de Base de datos las usan. Un segundo lugar para la misma contraseña es cómo terminan desincronizadas. |
 | Tablas `db_connections`/`db_table_folders` en un SQLite | Nada persistido | El SQLite de §8 no existe. La conexión se deduce del repo y el ámbito, así que no hay «conexiones» que guardar. |
-| Carpetas para organizar tablas | Fuera | Es organizar, no mirar. Si hace falta, sería una decisión de la app y no un dato: `params.json`, no `config.env`. |
+| Carpetas para organizar tablas | Las carpetas de `app/models/` (§7) | No se arman a mano ni se guardan: salen del repo, que ya organiza los modelos así. |
 | Consultas de lectura y escritura | Fuera | Pedido explícito: solo visualizar. |
 | Asegurar que el servicio de fondo Túnel Postgres esté corriendo | La tarea abre su propio túnel | `ssh_tunnel` es un stub y `kind='background'` no tiene maquinaria en la interfaz. `generate_migration` ya abre el suyo con `db.connect`; el explorador hace lo mismo. |
 | `core/db.py`, `core/models.py` | `core/db_explorer.py` | `core/database.py` ya existe y es el ciclo de vida. Explorar es otra cosa y va en su propio módulo. |
 
-## 10. Pendiente, sin decidir
+## 11. Pendiente, sin decidir
 
 1. **Rol de la app o superusuario.** El plan conecta como el rol de la app, que es lo que la app ve
    de verdad. Una tabla sin `GRANT` aparece en el árbol (§5), pero sus datos darán «permission

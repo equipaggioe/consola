@@ -4,7 +4,9 @@ import queue
 from PySide6.QtCore import QThread, Signal
 from PySide6.QtWidgets import QApplication
 
-from core import db_explorer
+from pathlib import Path
+
+from core import db_explorer, db_models
 from core.errors import TaskError
 
 """
@@ -32,9 +34,14 @@ class DbWorker(QThread):
     result = Signal(int, str, object)   # id del pedido, tipo, resultado
     failed = Signal(int, str, str)      # id del pedido, tipo, mensaje
 
-    def __init__(self, url: str, parent=None):
+    def __init__(self, url: str, server_root: Path | None = None, parent=None):
         super().__init__(parent)
         self._url = url
+        self._server_root = server_root
+        # Los modelos se releen solo si cambio algun .py (`db_models.signature`):
+        # importarlos lanza un Python, y la comparacion se pide cada vez que se
+        # muestra la pestana.
+        self._models: tuple[tuple, list[db_models.ModelTable]] | None = None
         self._queue: queue.Queue = queue.Queue()
         self._next_id = 0
         self._conn = None
@@ -105,7 +112,19 @@ class DbWorker(QThread):
             return db_explorer.fetch_rows(conn, **kwargs)
         if kind == 'count':
             return db_explorer.count_exact(conn, **kwargs)
+        if kind == 'models':
+            return self._compare(conn)
         raise TaskError(f'Pedido desconocido: {kind}')
+
+
+    def _compare(self, conn) -> db_models.Comparison:
+        if self._server_root is None:
+            raise TaskError('La pestaña no tiene repo: no hay modelos con qué comparar.')
+        firma = db_models.signature(self._server_root)
+        if self._models is None or self._models[0] != firma:
+            self._models = (firma, db_models.read_models(self._server_root))
+        return db_models.compare(db_explorer.list_relations(conn),
+                                 db_explorer.all_columns(conn), self._models[1])
 
 
 def _message(exc: Exception) -> str:
