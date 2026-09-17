@@ -94,6 +94,7 @@ con catálogos propios, no tres pasos de una secuencia. El porqué, en [emulador
 | `compile_apk` | A | — | `build_apk` |
 | `install_node_modules` | A | — | `build_vite` |
 | `compile_spa` | A | — | `build_vite` |
+| `create_spa` | A | `create_spa` | — (SvelteKit + runes + UnoCSS en blanco, vía `sv create`) |
 | `compile_binary` | A | — | `build_binary` |
 | `resolve_entrypoint` | A | — | `build_binary` (deduce `src/main.py` cuando el campo va vacío) |
 | `checksum_artifact` | A | — | `build_binary` (paso `checksum`) |

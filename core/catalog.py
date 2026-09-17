@@ -602,6 +602,15 @@ def load_catalog() -> None:
     # Lo unico propio es que su eje es `many` — un repo tiene una app móvil y
     # tres SPA — y como es una capacidad que termina, las marcadas se recorren
     # en un bucle dentro de `build_vite`, no en una pestaña por cada una.
+    # El nombre es un campo y no un eje descubierto: la carpeta todavia no
+    # existe. Vacio no tiene default que deducir, asi que la funcion lo rechaza.
+    registry.register(Capability(
+        id='create_spa', name='Nueva SPA', group='Builders', section='Build Vite',
+        kind='once', icon='✨',
+        description='Crea en el repo una SPA en blanco con SvelteKit, runes y UnoCSS.',
+        axes=[AxisDef('name', [''], 'field', label='Carpeta',
+                      placeholder='panel · backoffice · landing')],
+        stub=True))
     registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Deja compiladas las SPA del repo, listas para que el proxy las sirva.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('directories', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _SEMVER_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
     # El tercer builder, con los mismos pasos y el mismo `bump` SemVer que Vite
     # (`pyproject.toml` tampoco tiene build number). Lo propio es que sus ejes

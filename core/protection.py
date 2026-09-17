@@ -64,6 +64,9 @@ TARGETS: tuple[Target, ...] = (
            'lo que se promueve queda a la vista de los usuarios'),
     Target('local', 'archivos de este repo', 'local', 'Proteger archivos locales', False,
            'apagado por defecto: un artefacto borrado se rehace con un build'),
+    Target('origin', 'origin en GitHub', 'origin', 'Proteger origin (GitHub)', False,
+           'apagado por defecto: reescribe el historial que ven quienes clonaron o '
+           'hicieron fork de este repo, pero no toca esta maquina ni el VPS'),
 )
 
 _BY_ID = {t.id: t for t in TARGETS}
@@ -111,16 +114,15 @@ RULES: dict[str, Rule] = {
     'clean_artifacts': Rule(always=('local',), dry_run={'apply': ('simulacro',)}),
     'sync_common_files': Rule(always=('otros_repos',), dry_run={'apply': ('simulacro',)}),
 
-    # Los dos forzados de Git no salen de esta maquina ni de este repo de
-    # GitHub -- mismo objetivo que `clean_artifacts`, no `otros_repos` (eso es
-    # sobre carpetas de OTROS proyectos en disco).
-    'git_force_push': Rule(always=('local',)),
+    # `git_force_push` y `git_force_origin_from_vps` reescriben origin -- no
+    # tocan ni esta maquina ni el VPS -- asi que van con 'origin', no con
+    # 'local' ni 'vps'. `git_force_reset` si descarta commits y archivos DE
+    # ESTA maquina: 'local' es correcto ahi. `git_force_vps` si descarta lo
+    # que el VPS tenga sin commitear: 'vps' es correcto ahi.
+    'git_force_push': Rule(always=('origin',)),
     'git_force_reset': Rule(always=('local',)),
-
-    # Mismo par, contra el VPS: los dos alcanzan una maquina remota por SSH,
-    # asi que van con 'vps' y no con 'local', a diferencia de arriba.
     'git_force_vps': Rule(always=('vps',)),
-    'git_force_origin_from_vps': Rule(always=('vps',)),
+    'git_force_origin_from_vps': Rule(always=('origin',)),
 }
 
 

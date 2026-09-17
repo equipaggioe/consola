@@ -249,6 +249,106 @@ def _publish_spa(ctx, salida: Path, manifest: Path) -> None:
     upload_artifact(ctx, manifest)
 
 
+# El esqueleto lo pone `sv create`, que es el generador oficial de Svelte: trae
+# TypeScript, runes forzadas y el adaptador estatico instalado. UnoCSS no es un
+# add-on oficial de `sv`, asi que lo que falta para dejarla lista para Consola
+# se escribe encima: el plugin, la base leida de `base.generated.js` (la que
+# `compile_spa` comprueba) y el `ssr = false` de una SPA servida por el proxy.
+# Son archivos que Consola acaba de generar, no codigo del repo que se parchea.
+_SPA_NAME = re.compile(r'[a-z0-9][a-z0-9._-]*')
+
+_SPA_FILES = {
+    'vite.config.ts': """\
+import adapter from '@sveltejs/adapter-static';
+import { sveltekit } from '@sveltejs/kit/vite';
+import UnoCSS from 'unocss/vite';
+import { defineConfig } from 'vite';
+import { base as deployedBase } from './base.generated.js';
+
+export default defineConfig(({ command }) => ({
+	plugins: [
+		UnoCSS(),
+		sveltekit({
+			compilerOptions: {
+				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
+				runes: ({ filename }) => (filename.split(/[/\\\\]/).includes('node_modules') ? undefined : true)
+			},
+			// SPA estatica: la sirve el reverse proxy y el enrutamiento es del cliente.
+			adapter: adapter({ fallback: 'index.html' }),
+			// La base la escribe Consola desde CADDY_ROUTES; en `vite dev` la app va en la raiz.
+			paths: { base: command === 'build' ? deployedBase : '' }
+		})
+	]
+}));
+""",
+    'uno.config.ts': """\
+import { defineConfig, presetWind3 } from 'unocss';
+
+// presetUno (el que usan las demas SPA del monorepo) esta deprecado y es un
+// alias de este: mismo motor, nombre vigente. presetWind4 es la migracion a
+// Tailwind 4 que ningun otro repo hizo todavia, y divergiria de las demas.
+export default defineConfig({
+	presets: [presetWind3()]
+});
+""",
+    'src/routes/+layout.ts': """\
+export const ssr = false;
+""",
+    'src/routes/+layout.svelte': """\
+<script lang="ts">
+	import '@unocss/reset/tailwind.css';
+	import 'virtual:uno.css';
+	import favicon from '$lib/assets/favicon.svg';
+
+	let { children } = $props();
+</script>
+
+<svelte:head>
+	<link rel="icon" href={favicon} />
+</svelte:head>
+
+{@render children()}
+""",
+    'src/routes/+page.svelte': """\
+<main class="min-h-screen grid place-items-center">
+	<h1 class="text-2xl font-semibold">{NAME}</h1>
+</main>
+""",
+}
+
+
+def create_spa(ctx, name: str = '') -> Path:
+    """Crea en el repo una SPA en blanco: SvelteKit + TypeScript + runes + UnoCSS.
+
+    Queda lista para los otros botones de Vite: `serve_vite` y `build_vite` la
+    descubren por su `vite.config.ts`, y su config ya lee la base publica.
+    """
+    nombre = name.strip()
+    if not _SPA_NAME.fullmatch(nombre):
+        raise TaskError('El nombre de la carpeta va en minusculas, sin espacios '
+                        '(letras, numeros, ".", "_" o "-").')
+    destino = ctx.path(nombre)
+    if destino.exists():
+        raise TaskError(f'Ya existe {destino}.')
+    npm = toolchain.npm_cmd()
+
+    ctx.run([*npm, 'exec', '--yes', '--', 'sv@latest', 'create', nombre,
+             '--template', 'minimal', '--types', 'ts',
+             '--add', 'sveltekit-adapter=adapter:static', '--install', 'npm'],
+            cwd=ctx.root)
+    ctx.run([*npm, 'install', '--save-dev', 'unocss', '@unocss/reset'], cwd=destino)
+
+    for rel, contenido in _SPA_FILES.items():
+        (destino / rel).write_text(contenido.replace('{NAME}', nombre),
+                                   encoding='utf-8', newline='\n')
+    _write_base(ctx, targets.Target(nombre, targets.SPA_VITE, destino),
+                vps.spa_base(ctx.config, nombre))
+
+    ctx.ok(f'SPA creada en {destino}')
+    ctx.note(f'Nueva SPA {nombre}')
+    return destino
+
+
 # --- pasos de binario ------------------------------------------------------
 
 # Entrypoints que se prueban cuando el campo queda vacio, en orden. `src/main.py`
@@ -699,6 +799,7 @@ def build_binary(
 def bind_all() -> None:
     registry.bind('build_apk', build_apk)
     registry.bind('build_vite', build_vite)
+    registry.bind('create_spa', create_spa)
     registry.bind('build_binary', build_binary)
     registry.bind('promote_app', promote_app)
     registry.bind('bump_version', bump_version)

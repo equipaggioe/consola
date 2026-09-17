@@ -175,7 +175,7 @@ como una precondición que el que aprieta el botón tiene que recordar. No aplic
 ### `core/tasks/builders.py`
 
 `bump_version` (sirve para los tres manifiestos) · `upload_artifact` (re-subir sin recompilar) ·
-`compile_apk` · `install_node_modules` · `compile_spa` · `compile_binary` · `resolve_entrypoint` ·
+`compile_apk` · `install_node_modules` · `compile_spa` · `create_spa` · `compile_binary` · `resolve_entrypoint` ·
 `checksum_artifact` · `promote_app`.
 
 **Compuestas:** `build_apk`, `build_vite`, `build_binary` — las tres envuelven el manifiesto en
