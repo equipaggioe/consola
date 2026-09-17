@@ -184,6 +184,28 @@ def sync_repository(ctx, discard_changes: bool = False) -> None:
     ctx.ok('Repo del VPS actualizado.')
 
 
+def force_push_from_vps(ctx) -> str:
+    """Fuerza a que origin quede igual al repo del VPS, aunque haya divergido.
+
+    Simetrico a `force_push` (`core/tasks/git.py`), pero corriendo el
+    `push --force` DENTRO del VPS, con la deploy key que ya tenga configurada
+    (`setup_github_ssh`). Esa key suele ser de solo lectura -- `setup_github_ssh`
+    no pide permiso de escritura -- asi que este boton puede fallar con el error
+    de git sin que haya forma de saberlo antes de intentarlo.
+    """
+    remote = _remote(ctx)
+    destino = vps.deploy_root(ctx.config)
+    rama = ssh.capture(remote, f'cd {ssh.quote(destino)} && git rev-parse --abbrev-ref HEAD')
+    if rama == 'HEAD':
+        raise TaskError('El repo del VPS esta en HEAD desacoplado: no hay rama que forzar.')
+    ssh.run(ctx, remote,
+            f'cd {ssh.quote(destino)} && git fetch --quiet && '
+            f'git push --force origin {ssh.quote(rama)}')
+    revision = ssh.capture(remote, f'cd {ssh.quote(destino)} && git rev-parse --short HEAD')
+    ctx.ok(f'origin/{rama} ahora es {revision}, igual que el VPS.')
+    return revision
+
+
 def _ensure_venv(ctx) -> str:
     """Crea el virtualenv del servidor en el VPS si falta.
 
@@ -536,3 +558,5 @@ def bind_all() -> None:
     registry.bind('configure_service', configure_service)
     registry.bind('publish_code', publish_code)
     registry.bind('update_remote', update_remote)
+    registry.bind('git_force_vps', sync_repository)
+    registry.bind('git_force_origin_from_vps', force_push_from_vps)

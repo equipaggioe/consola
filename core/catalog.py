@@ -721,6 +721,45 @@ def load_catalog() -> None:
                       truthy='borrar', labels={'simulacro': 'Simulacro', 'borrar': 'Borrar'})],
         stub=True))
 
+    # Git group
+    # Los dos de abajo son el forzado que `push_repository`/`sync_repository`
+    # (`VPS · server`) deliberadamente no hacen: esos avisan y frenan ante
+    # cualquier divergencia, estos existen justo para el caso en que alguien ya
+    # decidio que un lado gana igual. Objetivo de proteccion 'local' en los dos
+    # (docs/seguro-destructivos.md): no salen de esta maquina ni de este repo
+    # de GitHub, a diferencia de un forzado contra el VPS.
+    registry.register(Capability(
+        id='git_force_push', name='Forzar: origin = local', group='Git', section='Local ↔ GitHub',
+        kind='destructive', icon='⏫',
+        description='Empuja la rama local a origin con --force, aunque haya divergido.',
+        stub=True))
+    registry.register(Capability(
+        id='git_force_reset', name='Forzar: local = origin', group='Git', section='Local ↔ GitHub',
+        kind='destructive', icon='⏬',
+        description='Descarta commits y cambios locales para igualar la rama a origin.',
+        stub=True))
+    # Los dos de abajo son la misma pareja contra el VPS en vez de esta
+    # maquina. `git_force_vps` reusa `sync_repository` (ya escrita para
+    # `update_remote`, nunca tuvo boton propio): siempre termina en
+    # `git reset --hard "@{u}"`, asi que YA es un forzado VPS=origin completo,
+    # solo le faltaba salir de adentro de `update_remote`. Objetivo 'vps'
+    # (no 'local'): a diferencia del par de arriba, este SI alcanza una
+    # maquina remota.
+    registry.register(Capability(
+        id='git_force_vps', name='Forzar: VPS = origin', group='Git', section='VPS ↔ GitHub',
+        kind='destructive', icon='⏬',
+        description='Descarta lo que el VPS tenga sin commitear y lo deja igual a origin.',
+        axes=[AxisDef('discard_changes', ['preguntar', 'descartar'], 'scope',
+                      label='Si el VPS tiene cambios sin commitear',
+                      truthy='descartar', danger={'descartar'},
+                      labels={'preguntar': 'Preguntar', 'descartar': 'Descartar'})],
+        stub=True))
+    registry.register(Capability(
+        id='git_force_origin_from_vps', name='Forzar: origin = VPS', group='Git', section='VPS ↔ GitHub',
+        kind='destructive', icon='⏫',
+        description='Empuja lo que corre en el VPS a origin con --force, aunque haya divergido.',
+        stub=True))
+
     # VPS · ops group
     registry.register(Capability(id='ssh_login', name='Sesión SSH', group='VPS · ops', section='Conexión', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
     registry.register(Capability(id='health_check', name='Health check', group='VPS · ops', section='Diagnóstico', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))

@@ -11,11 +11,11 @@ Nada de aca reimplementa plomeria: todo se apoya en `core/` (nivel 0). Por eso
 la mayoria de las atomicas son de tres a diez lineas.
 """
 
-from . import builders, database, emulators, launchers, utils, vps_ops, vps_server, vps_setup
+from . import builders, database, emulators, git, launchers, utils, vps_ops, vps_server, vps_setup
 
-MODULES = (launchers, builders, emulators, vps_ops, vps_server, vps_setup, database, utils)
+MODULES = (launchers, builders, emulators, git, vps_ops, vps_server, vps_setup, database, utils)
 
-__all__ = ['MODULES', 'bind_all', 'builders', 'database', 'emulators', 'launchers',
+__all__ = ['MODULES', 'bind_all', 'builders', 'database', 'emulators', 'git', 'launchers',
            'utils', 'vps_ops', 'vps_server', 'vps_setup']
 
 
