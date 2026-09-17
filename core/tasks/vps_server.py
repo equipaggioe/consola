@@ -420,6 +420,9 @@ def configure_service(ctx, *, enable: bool = True, start: bool = True) -> None:
     """
     remote = _remote(ctx)
     _require_deployment(ctx, remote)
+    # Antes que la unidad: el servicio no tiene que arrancar sin sus carpetas.
+    vps.write_service_dirs(ctx, remote, vps.service_name(ctx.config), remote.user,
+                           vps.service_dirs(ctx.config))
     cambio = write_systemd_unit(ctx)
 
     # El puerto solo se abre cuando el backend da la cara a internet. Detras de

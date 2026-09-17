@@ -159,12 +159,6 @@ SETTINGS: tuple[Setting, ...] = (
     # mientras el sitio todavia no la tenga pensada.
     Setting('CSP', 'Web', 'Content-Security-Policy',
             placeholder="default-src 'self'", used_by=('configure_caddy',)),
-    # La raiz de los archivos que sube la gente. No viaja por git y no la crea
-    # Consola: existe antes, con el dueno y los permisos que decida quien
-    # administra el VPS. Aca solo se nombra, para que una regla `static` pueda
-    # apuntarle con `$STORAGE_ROOT/...`.
-    Setting('STORAGE_ROOT', 'Web', 'Raiz de archivos subidos',
-            placeholder='/srv/almacenamiento', used_by=('configure_caddy',)),
 
     # --- GitHub ---
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
@@ -196,6 +190,13 @@ SETTINGS: tuple[Setting, ...] = (
             required_by=('configure_service', 'backend')),
     Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
             required_by=('configure_service', 'backend')),
+    # Las carpetas que el servicio necesita fuera del repo, `<ruta> <modo>` por
+    # renglon, a nombre del usuario del servicio. Las crea `configure_service`
+    # con un `tmpfiles.d`, que systemd vuelve a aplicar en cada arranque. Vacia
+    # si el repo no guarda nada fuera del codigo.
+    Setting('SERVICE_DIRS', 'Systemd', 'Carpetas del servicio', kind='list',
+            placeholder='/srv/datos 755\n/srv/datos/public 755\n/srv/datos/private 750',
+            used_by=('configure_service',)),
 
     # --- Maquina ---
     # El `PYINSTALLER_BIN` del script original, y por el mismo motivo: `pip

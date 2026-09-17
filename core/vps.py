@@ -18,9 +18,22 @@ SUDO = 'sudo -n'
 # Ese es todo el motivo por el que la ruta de cada SPA es un dato y no un eje —
 # dos botones distintos tienen que leer exactamente el mismo valor.
 
-# `$CLAVE` en el destino de una regla, para no repetir en la tabla un valor que
-# ya esta cargado en la configuracion (`$STORAGE_ROOT`, `$BACKEND_PORT`).
-_ROUTE_REF = re.compile(r'\$([A-Za-z_][A-Za-z0-9_]*)')
+# `$CLAVE` en una tabla de la configuracion, para no repetir un valor que ya
+# esta cargado en otra clave (`$BACKEND_HOST:$BACKEND_PORT`).
+_REF = re.compile(r'\$([A-Za-z_][A-Za-z0-9_]*)')
+
+
+def expand_refs(config: Config, texto: str, donde: str) -> str:
+    """`texto` con cada `$CLAVE` reemplazada por su valor; `donde` nombra la fila en el error."""
+    def valor(ref: re.Match) -> str:
+        clave = ref.group(1)
+        resuelto = config.get(clave).strip()
+        if not resuelto:
+            raise TaskError(f'«{donde}» usa ${clave}, y esa clave esta vacia en Configuracion.')
+        return resuelto.rstrip('/')
+    return _REF.sub(valor, texto)
+
+
 ROUTE_KINDS = ('proxy', 'spa', 'static')
 
 
@@ -75,14 +88,47 @@ def routes(config: Config) -> list[Route]:
 
 def resolve_target(config: Config, route: Route) -> str:
     """El destino de una regla con cada `$CLAVE` reemplazada por su valor."""
-    def valor(ref: re.Match) -> str:
-        clave = ref.group(1)
-        resuelto = config.get(clave).strip()
-        if not resuelto:
-            raise TaskError(f'La regla «{route.pattern} {route.kind} {route.target}» usa '
-                            f'${clave}, y esa clave esta vacia en Configuracion.')
-        return resuelto.rstrip('/')
-    return _ROUTE_REF.sub(valor, route.target).rstrip('/')
+    fila = f'{route.pattern} {route.kind} {route.target}'
+    return expand_refs(config, route.target, fila).rstrip('/')
+
+
+# --- carpetas del servicio -------------------------------------------------
+#
+# Las que el servicio necesita fuera del repo —datos que suben los usuarios,
+# exportaciones— con el permiso de cada una. Fuera del repo porque el deploy
+# corre `git clean`, y lo que viva adentro esta a un flag de borrarse.
+
+_MODE = re.compile(r'^[0-7]{3,4}$')
+
+
+def service_dirs(config: Config) -> list[tuple[str, str]]:
+    """`SERVICE_DIRS` interpretada: `(ruta, modo)` por fila, con `$CLAVE` resuelta."""
+    carpetas = []
+    for linea in split_list(config.get('SERVICE_DIRS')):
+        partes = linea.split()
+        if len(partes) != 2:
+            raise TaskError(f'Carpeta mal formada: «{linea}». Va «<ruta> <modo>».')
+        ruta = expand_refs(config, partes[0], linea).rstrip('/')
+        modo = partes[1]
+        if not ruta.startswith('/'):
+            raise TaskError(f'«{linea}»: la ruta tiene que ser absoluta.')
+        if not _MODE.match(modo):
+            raise TaskError(f'«{linea}»: el modo va en octal, como 755 o 750.')
+        carpetas.append((ruta, modo))
+    return carpetas
+
+
+def tmpfiles_path(service: str) -> str:
+    return f'/etc/tmpfiles.d/{service}.conf'
+
+
+def render_tmpfiles(carpetas: list[tuple[str, str]], user: str) -> str:
+    """El `tmpfiles.d` que crea las carpetas y les deja dueno y modo.
+
+    `d` crea lo que falta y corrige dueno y modo de lo que ya esta, sin tocar el
+    contenido; el `-` final es sin limpieza por antiguedad.
+    """
+    return ''.join(f'd {ruta} {modo} {user} {user} -\n' for ruta, modo in carpetas)
 
 
 def spa_base(config: Config, name: str) -> str:
@@ -415,6 +461,26 @@ def write_config(ctx, remote: Remote, path: str, content: str) -> bool:
     run(ctx, remote, heredoc)
     ctx.ok(f'Escrito: {path}')
     return True
+
+
+def write_service_dirs(ctx, remote: Remote, service: str, user: str,
+                       carpetas: list[tuple[str, str]]) -> bool:
+    """Escribe el `tmpfiles.d` del servicio y lo aplica. Dice si el archivo cambio.
+
+    Se aplica aunque no cambie: `systemd-tmpfiles --create` es idempotente, y
+    asi tambien repone una carpeta que alguien borro a mano.
+    """
+    conf = tmpfiles_path(service)
+    if not carpetas:
+        if succeeds(remote, f'test -f {quote(conf)}'):
+            run(ctx, remote, f'{SUDO} rm -f {quote(conf)}')
+            ctx.warn(f'SERVICE_DIRS esta vacia: se borro {conf}. Las carpetas quedan donde estaban.')
+        return False
+    cambio = write_config(ctx, remote, conf, render_tmpfiles(carpetas, user))
+    run(ctx, remote, f'{SUDO} systemd-tmpfiles --create {quote(conf)}')
+    for ruta, modo in carpetas:
+        ctx.ok(f'Carpeta lista: {ruta} ({modo}, dueno {user})')
+    return cambio
 
 
 def write_unit(ctx, remote: Remote, service: str, content: str) -> bool:

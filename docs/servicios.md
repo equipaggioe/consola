@@ -51,7 +51,7 @@ repo, ni en el VPS ni en local.
 
 | Servicio | Archivo que genera Consola | Dueño |
 |---|---|---|
-| Backend del repo | `/etc/systemd/system/<repo>.service` | Consola |
+| Backend del repo | `/etc/systemd/system/<repo>.service` (+ `/etc/tmpfiles.d/<repo>.conf` si hay `SERVICE_DIRS`) | Consola |
 | coturn | `/etc/turnserver.conf` (+ el `TURNSERVER_ENABLED` de `/etc/default/coturn`) | Consola |
 | Caddy | `/etc/caddy/Caddyfile` | Consola |
 
@@ -84,9 +84,9 @@ Los datos de cada servicio, hoy:
 
 | Servicio | Claves de `config.env` |
 |---|---|
-| Backend | `SERVER_DIR`, `UVICORN_APP`, `BACKEND_HOST`, `BACKEND_PORT`, `CERT_FILE_PATH`, `KEY_FILE_PATH` |
+| Backend | `SERVER_DIR`, `UVICORN_APP`, `BACKEND_HOST`, `BACKEND_PORT`, `CERT_FILE_PATH`, `KEY_FILE_PATH`, `SERVICE_DIRS` |
 | coturn | `PUBLIC_HOST`, `TURN_PORT`, `TURN_RELAY_RANGE`, `TURN_SECRET`, `CERT_FILE_PATH`, `KEY_FILE_PATH` |
-| Caddy | `PUBLIC_HOST`, `CADDY_ROUTES`, `CSP`, `STORAGE_ROOT`, `BACKEND_HOST`, `BACKEND_PORT` |
+| Caddy | `PUBLIC_HOST`, `CADDY_ROUTES`, `CSP`, `BACKEND_HOST`, `BACKEND_PORT` |
 
 `BACKEND_HOST`/`BACKEND_PORT` aparecen dos veces a propósito: es una sola clave leída por los dos
 lados del mismo hecho —dónde escucha el backend y a dónde manda el proxy—, que es la forma de que
@@ -106,7 +106,7 @@ conserva el orden. Se guarda separado por comas, así que **ningún valor puede 
 
   /api/*      proxy $BACKEND_HOST:$BACKEND_PORT  -> reverse_proxy a esa dirección
   /admin/*    spa backoffice                     -> el build de esa SPA del repo
-  /media/*    static $STORAGE_ROOT/public        -> una carpeta del VPS
+  /media/*    static /srv/datos/public           -> una carpeta del VPS
   *           spa pwa                            -> el catch-all, siempre último
 ```
 

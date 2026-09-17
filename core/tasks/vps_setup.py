@@ -45,6 +45,7 @@ SUDO_SPECIFIC = (
     '/bin/chown',           # dueno de archivos y carpetas
     '/bin/chmod',           # permisos
     '/bin/rm',              # borrar la unidad al limpiar el VPS
+    '/usr/bin/systemd-tmpfiles',  # crear las carpetas del servicio
 )
 
 REMOTE_KEY = '~/.ssh/id_ed25519'
@@ -410,7 +411,8 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
     for route in rutas:
         if route.kind == 'static' and not ssh.succeeds(remote, f'test -d {ssh.quote(destinos[route.pattern])}'):
             raise TaskError(f'{destinos[route.pattern]} no existe en el VPS, y la regla '
-                            f'«{route.pattern}» lo sirve. Créalo antes de correr esto.')
+                            f'«{route.pattern}» lo sirve. Agrégalo a "Carpetas del servicio" y corre '
+                            f'Configurar servicio.')
 
     conf = _caddyfile(domain=dominio, routes=rutas, destinos=destinos,
                       csp=ctx.config.get('CSP').strip())

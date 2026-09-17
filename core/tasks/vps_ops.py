@@ -119,9 +119,13 @@ def revoke_github_ssh(ctx, *, remote_files: bool = True, github_side: bool = Tru
 # --- limpieza del VPS ------------------------------------------------------
 
 def remove_systemd_service(ctx) -> bool:
-    """Para, deshabilita y borra la unidad del servicio. Detecta antes de actuar."""
+    """Para, deshabilita y borra la unidad del servicio. Detecta antes de actuar.
+
+    Borra tambien su `tmpfiles.d`, pero no las carpetas: tienen datos de usuarios.
+    """
     remote = _remote(ctx)
     servicio = vps.service_name(ctx.config)
+    ssh.run(ctx, remote, f'sudo -n rm -f {ssh.quote(vps.tmpfiles_path(servicio))}', check=False)
     if vps.service_state(remote, servicio) == 'missing':
         ctx.info(f'No hay servicio {servicio} para borrar.')
         return False

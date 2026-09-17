@@ -401,7 +401,8 @@ DOCS: dict[str, CommandDoc] = {
             'despliegue.'
         ),
         steps=[
-            'Servicio: comprueba que la unidad exista, corre systemctl stop y '
+            'Servicio: borra /etc/tmpfiles.d/<servicio>.conf (las carpetas se '
+            'quedan), comprueba que la unidad exista, corre systemctl stop y '
             'disable, borra el archivo .service y corre daemon-reload.',
             'Base: corta las conexiones vivas y corre DROP DATABASE y DROP ROLE '
             'contra el Postgres del VPS.',
@@ -455,6 +456,9 @@ DOCS: dict[str, CommandDoc] = {
         steps=[
             'Comprueba que en el VPS existan la carpeta del servidor y el python '
             'de su venv, y corta si falta alguno.',
+            'Si SERVICE_DIRS tiene carpetas, escribe /etc/tmpfiles.d/<servicio>.conf '
+            '(mostrando el diff) y corre systemd-tmpfiles --create: crea las que '
+            'faltan y corrige dueño y modo. Si está vacía, borra ese archivo.',
             'Lee BACKEND_HOST y BACKEND_PORT, y comprueba si el certificado está '
             'en el VPS cuando el backend escucha fuera de loopback.',
             'Arma la unidad con el usuario de despliegue, WorkingDirectory en la '
