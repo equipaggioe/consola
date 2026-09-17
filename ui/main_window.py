@@ -38,6 +38,39 @@ def _brand_icon() -> QIcon:
     return QIcon(pixmap)
 
 
+class _EdgeGrip(QWidget):
+    """Franja invisible sobre una orilla o esquina de la ventana sin marco:
+    redimensiona con `startSystemResize`. Va por encima del contenido en vez
+    de dejarle un margen propio, asi la barra de titulo toca la orilla."""
+
+    THICKNESS = 5
+    CORNER = 10
+
+    def __init__(self, window: QWidget, edges: Qt.Edge, cursor: Qt.CursorShape):
+        super().__init__(window)
+        self._edges = edges
+        self.setCursor(cursor)
+        self.setStyleSheet("background: transparent;")
+
+    def place(self, w: int, h: int) -> None:
+        t, c = self.THICKNESS, self.CORNER
+        e = self._edges
+        left, right = bool(e & Qt.Edge.LeftEdge), bool(e & Qt.Edge.RightEdge)
+        top, bottom = bool(e & Qt.Edge.TopEdge), bool(e & Qt.Edge.BottomEdge)
+        if (left or right) and (top or bottom):
+            self.setGeometry(0 if left else w - c, 0 if top else h - c, c, c)
+        elif left or right:
+            self.setGeometry(0 if left else w - t, c, t, h - 2 * c)
+        else:
+            self.setGeometry(c, 0 if top else h - t, w - 2 * c, t)
+        self.raise_()
+
+    def mousePressEvent(self, event):
+        handle = self.window().windowHandle()
+        if event.button() == Qt.MouseButton.LeftButton and handle is not None:
+            handle.startSystemResize(self._edges)
+
+
 class MainWindow(QMainWindow):
     """Ventana principal: repos (nivel 1) › ejecuciones (nivel 2) › vistas."""
 
@@ -49,9 +82,8 @@ class MainWindow(QMainWindow):
         self.setMinimumSize(1000, 650)
         # Sin marco del sistema: la marca y las pestanas de repos comparten
         # fila con minimizar/maximizar/cerrar (`ui/title_bar.py`). El precio es poner nosotros el arrastre y el
-        # redimensionado por los bordes — `_edge_at` y el filtro de eventos
-        # del widget central, apoyados en `startSystemMove/Resize` para que
-        # Windows siga dando su encaje a los lados.
+        # redimensionado por los bordes — `_EdgeGrip`, apoyado en
+        # `startSystemMove/Resize` para que Windows siga dando su encaje a los lados.
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
 
         # Barra de menu: el catalogo entero de acciones, sin ocupar ancho.
@@ -70,16 +102,12 @@ class MainWindow(QMainWindow):
         self.central_widget.setObjectName("centralWidget")
         self._accent = Colors.ACCENT  # lo retoma `_apply_window_border` antes de tener repo
         self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.CHROME}; }}")
-        self.central_widget.setMouseTracking(True)
-        self.central_widget.installEventFilter(self)
         self.setCentralWidget(self.central_widget)
 
         self.main_layout = QVBoxLayout(self.central_widget)
-        # Los margenes son el marco de agarre para redimensionar: dejan una
-        # franja del widget central sin tapar por sus hijos, que es donde
-        # `eventFilter` puede ver el puntero. Maximizada valen 0 (`changeEvent`).
-        m = self.RESIZE_MARGIN
-        self.main_layout.setContentsMargins(m, m, m, m)
+        # Solo el pixel del borde de contorno: el contenido toca la orilla de la
+        # ventana. Maximizada vale 0 (`changeEvent`).
+        self.main_layout.setContentsMargins(1, 1, 1, 1)
         self.main_layout.setSpacing(0)
 
         # --- Nivel 1: barra de titulo con las pestanas de repos ---------
@@ -93,19 +121,10 @@ class MainWindow(QMainWindow):
         self.title_bar.minimize_requested.connect(self.showMinimized)
         self.title_bar.maximize_requested.connect(self._toggle_maximized)
         self.title_bar.close_requested.connect(self.close)
-        # Cursor propio y no heredado: sin esto, cuando el borde de arriba
-        # pone en `central_widget` el cursor de redimensionar (`_edge_at`),
-        # cualquier hijo sin cursor propio —esta fila entera— se lo queda
-        # aunque el puntero ya este bien adentro, porque Qt solo repone el
-        # heredado al recibir un Leave, y aca eso no siempre llega a tiempo.
-        # Fijar la flecha corta la herencia de raiz.
-        self.title_bar.setCursor(Qt.CursorShape.ArrowCursor)
         self.main_layout.addWidget(self.title_bar)
 
         # --- Nivel 2: barra de menu + el modo «solo favoritos» ----------
-        menu_row = self._build_menu_row()
-        menu_row.setCursor(Qt.CursorShape.ArrowCursor)  # ver comentario arriba
-        self.main_layout.addWidget(menu_row)
+        self.main_layout.addWidget(self._build_menu_row())
 
         # --- Cuerpo: espacio de trabajo del repo activo ------------------
         self.workspace_stack = QStackedWidget()
@@ -121,10 +140,6 @@ class MainWindow(QMainWindow):
         self.empty_state = self._build_empty_state()
         self.workspace_stack.addWidget(self.empty_state)
 
-        # Flecha propia: los bordes izquierdo y derecho de la ventana lo
-        # atraviesan de punta a punta (ver comentario junto a
-        # `self.title_bar.setCursor` mas arriba).
-        self.workspace_stack.setCursor(Qt.CursorShape.ArrowCursor)
         self.main_layout.addWidget(self.workspace_stack, 1)
 
         # --- barra de estado: una sola, a lo ancho de toda la ventana ---
@@ -133,19 +148,26 @@ class MainWindow(QMainWindow):
         # maquina toca el entorno (`TabPanel.machine_changed`).
         self.status_bar = WorkspaceStatusBar(Colors.ACCENT)
         self.status_bar.security_clicked.connect(self._on_security_clicked)
-        self.status_bar.setCursor(Qt.CursorShape.ArrowCursor)  # ver TitleBar arriba
         self.main_layout.addWidget(self.status_bar)
+
+        # Encima de todo el contenido, asi que se crean al final.
+        E = Qt.Edge
+        C = Qt.CursorShape
+        self._grips = [_EdgeGrip(self, edges, cursor) for edges, cursor in (
+            (E.LeftEdge, C.SizeHorCursor), (E.RightEdge, C.SizeHorCursor),
+            (E.TopEdge, C.SizeVerCursor), (E.BottomEdge, C.SizeVerCursor),
+            (E.LeftEdge | E.TopEdge, C.SizeFDiagCursor),
+            (E.RightEdge | E.BottomEdge, C.SizeFDiagCursor),
+            (E.RightEdge | E.TopEdge, C.SizeBDiagCursor),
+            (E.LeftEdge | E.BottomEdge, C.SizeBDiagCursor),
+        )]
 
         # --- Conexiones ---------------------------------------------------
         self.project_tabs.project_selected.connect(self._on_project_selected)
         self.project_tabs.project_added.connect(self._on_project_added)
         self.project_tabs.project_removed.connect(self._on_project_removed)
-        self.project_tabs.order_changed.connect(self._sync_repo_menu)
 
         self.action_menu.action_requested.connect(self._on_action_requested)
-        self.action_menu.add_project_requested.connect(self.project_tabs._pick_repo)
-        self.action_menu.close_project_requested.connect(self._close_active_project)
-        self.action_menu.project_chosen.connect(self._select_project_by_path)
         self.action_menu.focus_search_requested.connect(self.action_search.box.setFocus)
 
         self.action_search.action_requested.connect(self._on_action_requested)
@@ -162,7 +184,6 @@ class MainWindow(QMainWindow):
         for project in proyectos:
             self._ensure_workspace(project)
         self.project_tabs.load_projects(proyectos)
-        self._sync_repo_menu()
         if not proyectos:
             self._show_empty_state()
 
@@ -252,35 +273,21 @@ class MainWindow(QMainWindow):
 
     # --- atajos ----------------------------------------------------------
     def _install_shortcuts(self) -> None:
-        """Solo los que no cuelgan de ningun item de menu.
-
-        Ctrl+T (anadir repo), Ctrl+L (buscar acciones) y Ctrl+1..9 (saltar a un repo)
-        viven ahora en `ui/menu_bar.py`, sobre la propia `QAction`: asi el
-        atajo se lee al lado de lo que dispara. Declararlos tambien aqui daria
-        un atajo ambiguo y no responderia ninguno de los dos.
-        """
+        """Los que no cuelgan de ningun item de menu. Ctrl+L vive en
+        `ui/menu_bar.py`, sobre su `QAction`: declararlo tambien aqui daria un
+        atajo ambiguo y no responderia ninguno de los dos."""
         QShortcut(QKeySequence("Ctrl+Tab"), self).activated.connect(lambda: self._cycle(1))
         QShortcut(QKeySequence("Ctrl+Shift+Tab"), self).activated.connect(lambda: self._cycle(-1))
+        QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(self.project_tabs._pick_repo)
+        # Por posicion al momento de apretar: reordenar pestanas renumera solo.
+        for i in range(9):
+            QShortcut(QKeySequence(f"Ctrl+{i + 1}"), self).activated.connect(
+                lambda i=i: self._select_nth(i))
 
-    def _select_project_by_path(self, path: str) -> None:
-        """Item del menu Repositorio: activa ese repo. Va por ruta y no por
-        indice porque la lista se puede reordenar arrastrando pestanas."""
-        tab = self.project_tabs.find_tab(path)
-        if tab is not None:
-            self.project_tabs.select_tab(tab)
-
-    def _close_active_project(self) -> None:
-        tab = self.project_tabs._active
-        if tab is not None:
-            self.project_tabs.remove_tab(tab)
-
-    def _sync_repo_menu(self) -> None:
-        """El menu Repositorio refleja las pestanas: cuales hay, en que orden
-        (de ahi salen los Ctrl+1..9) y cual esta activa."""
-        active = self.project_tabs.active_project
-        self.action_menu.set_projects(
-            [t.project for t in self.project_tabs.tabs],
-            active.path if active else None)
+    def _select_nth(self, i: int) -> None:
+        tabs = self.project_tabs.tabs
+        if i < len(tabs):
+            self.project_tabs.select_tab(tabs[i])
 
     def _cycle(self, delta: int) -> None:
         tabs = self.project_tabs.tabs
@@ -302,6 +309,7 @@ class MainWindow(QMainWindow):
             workspace.params_changed.connect(self._on_params_changed)
             workspace.machine_changed.connect(self.status_bar.refresh_tools)
             workspace.favorite_changed.connect(self._on_favorites_changed)
+            workspace.sections_changed.connect(self._on_sections_changed)
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -312,23 +320,26 @@ class MainWindow(QMainWindow):
         return w if isinstance(w, TabPanel) else None
 
     # --- ventana sin marco: mover, maximizar, redimensionar --------------
-    # Franja de borde que agarra el redimensionado. Los hijos de
-    # `central_widget` estan metidos hacia adentro por los margenes del layout,
-    # asi que los eventos de esta franja llegan al widget central — que es
-    # donde los espera `eventFilter`.
-    RESIZE_MARGIN = 5
-
     def _toggle_maximized(self) -> None:
         self.showNormal() if self.isMaximized() else self.showMaximized()
 
+    def resizeEvent(self, event):
+        super().resizeEvent(event)
+        for grip in self._grips:
+            grip.place(self.width(), self.height())
+
     def changeEvent(self, event):
         """Maximizada, la ventana pega contra los bordes de la pantalla: ni
-        marco de agarre, ni glifo de maximizar, ni borde de contorno."""
+        agarre, ni glifo de maximizar, ni borde de contorno."""
         if event.type() == QEvent.Type.WindowStateChange:
             maximized = self.isMaximized()
             self.title_bar.set_maximized(maximized)
-            m = 0 if maximized else self.RESIZE_MARGIN
+            m = 0 if maximized else 1
             self.main_layout.setContentsMargins(m, m, m, m)
+            for grip in self._grips:
+                grip.setVisible(not maximized)
+            self._apply_window_border()
+        elif event.type() == QEvent.Type.ActivationChange:
             self._apply_window_border()
         super().changeEvent(event)
 
@@ -336,74 +347,27 @@ class MainWindow(QMainWindow):
         """Sin marco del sistema, Windows no le dibuja ninguna silueta a la
         ventana: sin esto, restaurada se confunde contra un fondo oscuro de
         escritorio. El borde toma el color del repo activo —lo pone
-        `_apply_accent`, la misma fuente que la linea de la barra de titulo—
-        y no el del sistema: no hay tema de Windows que combine con esta
-        paleta, y ya se usa el acento del repo para lo mismo en otro lado.
+        `_apply_accent`, la misma fuente que el fondo de la barra de titulo—
+        y solo mientras la ventana tiene el foco, como hace Windows con su
+        propio marco. Sin foco se pinta del color del fondo y no desaparece:
+        asi el contenido no se corre un pixel al activar/desactivar.
         Maximizada no hace falta: la ventana pega contra los bordes de la
         pantalla, como el marco de agarre."""
         if self.isMaximized():
             self.central_widget.setStyleSheet(
                 f"QWidget#centralWidget {{ background: {Colors.CHROME}; }}")
         else:
+            color = self._accent if self.isActiveWindow() else Colors.CHROME
             self.central_widget.setStyleSheet(
                 f"QWidget#centralWidget {{ background: {Colors.CHROME}; "
-                f"border: 1px solid {self._accent}; }}")
-
-    def _edge_at(self, pos) -> Qt.Edge:
-        """Que borde toca el puntero, o `Qt.Edge(0)` si esta adentro."""
-        if self.isMaximized():
-            return Qt.Edge(0)
-        m = self.RESIZE_MARGIN
-        w, h = self.central_widget.width(), self.central_widget.height()
-        edges = Qt.Edge(0)
-        if pos.x() <= m:
-            edges |= Qt.Edge.LeftEdge
-        elif pos.x() >= w - m:
-            edges |= Qt.Edge.RightEdge
-        if pos.y() <= m:
-            edges |= Qt.Edge.TopEdge
-        elif pos.y() >= h - m:
-            edges |= Qt.Edge.BottomEdge
-        return edges
-
-    _CURSORS = {
-        Qt.Edge.LeftEdge: Qt.CursorShape.SizeHorCursor,
-        Qt.Edge.RightEdge: Qt.CursorShape.SizeHorCursor,
-        Qt.Edge.TopEdge: Qt.CursorShape.SizeVerCursor,
-        Qt.Edge.BottomEdge: Qt.CursorShape.SizeVerCursor,
-        Qt.Edge.LeftEdge | Qt.Edge.TopEdge: Qt.CursorShape.SizeFDiagCursor,
-        Qt.Edge.RightEdge | Qt.Edge.BottomEdge: Qt.CursorShape.SizeFDiagCursor,
-        Qt.Edge.RightEdge | Qt.Edge.TopEdge: Qt.CursorShape.SizeBDiagCursor,
-        Qt.Edge.LeftEdge | Qt.Edge.BottomEdge: Qt.CursorShape.SizeBDiagCursor,
-    }
-
-    # --- bordes de la ventana ---------------------------------------------
-    def eventFilter(self, obj, event):
-        """Sobre el widget central, los bordes redimensionan la ventana."""
-        if obj is self.central_widget:
-            kind = event.type()
-            if kind == QEvent.Type.MouseMove:
-                edges = self._edge_at(event.position().toPoint())
-                self.central_widget.setCursor(
-                    self._CURSORS.get(edges, Qt.CursorShape.ArrowCursor))
-            elif kind == QEvent.Type.MouseButtonPress:
-                edges = self._edge_at(event.position().toPoint())
-                handle = self.windowHandle()
-                if edges and handle is not None:
-                    handle.startSystemResize(edges)
-                    return True
-            elif kind == QEvent.Type.Leave:
-                self.central_widget.unsetCursor()
-            return super().eventFilter(obj, event)
-        return super().eventFilter(obj, event)
+                f"border: 1px solid {color}; }}")
 
     # --- acento del repo activo --------------------------------------------
     def _apply_accent(self, color: str) -> None:
-        """Un solo color para todo el chrome: la marca y la linea de la barra
-        de titulo, el interruptor de favoritos y el borde de contorno de la
+        """Un solo color para todo el chrome: el fondo de la barra de titulo,
+        el interruptor de favoritos y el borde de contorno de la
         ventana (`_apply_window_border`)."""
         self.title_bar.set_accent(color)
-        self.title_bar.set_rule(color)
         self.fav_switch.set_accent(color)
         self.action_search.set_accent(color)
         self._accent = color
@@ -432,7 +396,6 @@ class MainWindow(QMainWindow):
     def _on_project_added(self, project: Project) -> None:
         self._ensure_workspace(project)
         self._on_project_selected(project)
-        self._sync_repo_menu()
 
     def _on_project_removed(self, project: Project) -> None:
         workspace = self.workspaces.pop(project_store.identity(project.path), None)
@@ -442,7 +405,6 @@ class MainWindow(QMainWindow):
         # Lo elegido en sus paneles ya no se va a volver a mirar en esta sesion:
         # se baja al repo lo que quedara pendiente y se suelta el cache.
         params_store.forget(project.path)
-        self._sync_repo_menu()
         if not self.project_tabs.tabs:
             self._show_empty_state()
 
@@ -465,9 +427,7 @@ class MainWindow(QMainWindow):
         self.action_menu.set_project_active(True)
         self.action_search.set_project_active(True)
         self._refresh_readiness()
-        self._sync_repo_menu()
         self._apply_accent(project.color)
-        self.status_bar.set_project(project.name, project.icon)
         self.status_bar.set_accent(project.color)
         self._refresh_protection(workspace)
         self.setWindowTitle(f"Consola — {project.name}")
@@ -514,6 +474,12 @@ class MainWindow(QMainWindow):
         """
         ready = readiness.ready_ids(self.project_tabs.active_project)
         self.action_search.set_ready(ready)
+
+    def _on_sections_changed(self) -> None:
+        """La visibilidad de las secciones es global: se elige desde un repo y
+        vale para todos."""
+        for workspace in self.workspaces.values():
+            workspace.apply_section_visibility()
 
     def _on_params_changed(self) -> None:
         """Apagar un paso puede dejar de reclamar claves (y encenderlo,

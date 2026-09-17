@@ -1,13 +1,12 @@
 from __future__ import annotations
 
 from PySide6.QtWidgets import QMenuBar, QMenu
-from PySide6.QtGui import QAction, QActionGroup, QKeySequence
+from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtCore import Signal
 
 from ui.theme import Colors, Fonts
 from ui import favorites
 from core.registry import registry
-from core.projects import Project
 
 
 # Marcador de texto en vez de pintado propio: un `QMenu` no deja tenir un
@@ -27,9 +26,6 @@ class ActionMenuBar(QMenuBar):
     """
 
     action_requested = Signal(str)        # capability_id: abrir su pestana
-    add_project_requested = Signal()
-    close_project_requested = Signal()
-    project_chosen = Signal(str)          # ruta del repo a activar
     focus_search_requested = Signal()
 
     def __init__(self, parent=None):
@@ -61,14 +57,10 @@ class ActionMenuBar(QMenuBar):
         self._favorites: set[str] = favorites.favorite_ids()
         self._only_favorites = favorites.only_favorites()
 
-        self._repo_menu = self.addMenu('Repositorio')
-        self._repo_group = QActionGroup(self)    # el repo activo, como radio
-        self._repo_group.setExclusive(True)
         self._build_action_menus()
         self._build_view_menu()
         self._build_help_menu()
 
-        self.set_projects([], None)
         self.set_project_active(False)
         self._apply_favorites()
 
@@ -138,44 +130,6 @@ class ActionMenuBar(QMenuBar):
         menu.addAction(item)
 
     # --- estado -----------------------------------------------------------
-    def set_projects(self, projects: list[Project], active_path: str | None) -> None:
-        """Rehace el menu Repositorio: los repos abiertos son sus items, el
-        activo va marcado, y Ctrl+1..9 vive aqui (no como `QShortcut` suelto)
-        para que el atajo se lea junto a la accion que dispara."""
-        # Sacar los items del grupo ANTES de vaciar el menu: `clear()` los
-        # destruye, y el `QActionGroup` se quedaria apuntando a objetos
-        # muertos. Por lo mismo cuelgan del menu y no de la barra — asi
-        # `clear()` es quien de verdad los libera, y no se acumulan en la
-        # barra una copia por cada vez que se rehace la lista.
-        for action in self._repo_group.actions():
-            self._repo_group.removeAction(action)
-        self._repo_menu.clear()
-
-        add = QAction('Añadir repositorio…', self._repo_menu)
-        add.setShortcut(QKeySequence('Ctrl+T'))
-        add.triggered.connect(self.add_project_requested.emit)
-        self._repo_menu.addAction(add)
-
-        if projects:
-            self._repo_menu.addSection('Abiertos')
-        for i, project in enumerate(projects):
-            item = QAction(f"{project.icon}  {project.name}", self._repo_menu)
-            item.setCheckable(True)
-            item.setChecked(project.path == active_path)
-            item.setToolTip(project.path)
-            if i < 9:
-                item.setShortcut(QKeySequence(f'Ctrl+{i + 1}'))
-            item.triggered.connect(lambda _c=False, p=project.path: self.project_chosen.emit(p))
-            self._repo_group.addAction(item)
-            self._repo_menu.addAction(item)
-
-        self._repo_menu.addSeparator()
-        close = QAction('Cerrar repositorio actual', self._repo_menu)
-        close.setEnabled(bool(projects))
-        close.triggered.connect(self.close_project_requested.emit)
-        self._repo_menu.addAction(close)
-        self._repo_menu.setToolTipsVisible(True)
-
     def set_project_active(self, active: bool) -> None:
         """Sin repo en pestanas no hay nada sobre lo que correr: los menus de
         acciones se deshabilitan enteros, igual que el buscador."""

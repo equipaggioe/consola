@@ -3,11 +3,10 @@ import os
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFileDialog, QMenu, QSizePolicy, QPushButton
 from PySide6.QtCore import Qt, Signal, QRectF, QPointF
 from PySide6.QtGui import (
-    QPainter, QColor, QPainterPath, QLinearGradient,
-    QFont, QAction, QPen, QBrush
+    QPainter, QColor, QPainterPath, QFont, QAction, QPen
 )
 
-from ui.theme import Colors, Fonts
+from ui.theme import Colors, Fonts, on_color
 from ui.widgets import ReorderableTab, ReorderableBar
 from ui import project_store
 from core.projects import Project
@@ -20,17 +19,17 @@ PALETTE = ['#58a6ff', '#bc8cff', '#3fb950', '#d29922', '#f47067',
 class ProjectTab(ReorderableTab, QWidget):
     """Pestana de nivel superior: un repositorio.
 
-    El estado activo se hace evidente con tres senales simultaneas: un
-    contorno del color del repo que envuelve la pestana por arriba y por
-    los lados (abierto por abajo, para fundirse con la linea separadora
-    de la barra), fondo degradado que se funde con el lienzo de abajo, y
-    texto brillante en negrita.
+    La barra de titulo se pinta entera del color del repo activo
+    (`ui/title_bar.py`), y la pestana activa se funde con ella: sin fondo
+    propio, texto en negrita del color legible sobre ese fondo (`on_color`).
+    Las demas son una placa oscura con el nombre en el color de SU repo: cada
+    una se reconoce por su color sin competir con la barra, y sin un mosaico
+    de fondos saturados que le quitaria protagonismo a la activa.
     """
     clicked = Signal()
     close_requested = Signal()
 
     HEIGHT = 38
-    BORDER_WIDTH = 2.0
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
@@ -55,20 +54,6 @@ class ProjectTab(ReorderableTab, QWidget):
         self.close_btn = QPushButton("×")
         self.close_btn.setFixedSize(20, 20)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.close_btn.setStyleSheet(f"""
-            QPushButton {{
-                color: {Colors.TEXT_MUTED};
-                background: transparent;
-                border: none; padding: 0;
-                text-align: center;
-                border-radius: 4px;
-                font-size: {Fonts.SIZE_LG}px;
-            }}
-            QPushButton:hover {{
-                color: {Colors.ERROR};
-                background: {Colors.SURFACE_HOVER};
-            }}
-        """)
         self.close_btn.clicked.connect(self.close_requested.emit)
 
         layout.addWidget(self.name_label)
@@ -94,8 +79,22 @@ class ProjectTab(ReorderableTab, QWidget):
         f.setBold(self.is_active)
         f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.6 if self.is_active else 0.0)
         self.name_label.setFont(f)
-        color = Colors.TEXT if self.is_active else (Colors.TEXT_DIM if self._hovered else Colors.TEXT_MUTED)
+        color = on_color(self.project.color) if self.is_active else self.project.color
         self.name_label.setStyleSheet(f"background: transparent; color: {color};")
+        self.close_btn.setStyleSheet(f"""
+            QPushButton {{
+                color: {color};
+                background: transparent;
+                border: none; padding: 0;
+                text-align: center;
+                border-radius: 4px;
+                font-size: {Fonts.SIZE_LG}px;
+            }}
+            QPushButton:hover {{
+                color: {Colors.ERROR};
+                background: {Colors.SURFACE_HOVER};
+            }}
+        """)
         self.updateGeometry()
 
     def sizeHint(self):
@@ -148,37 +147,17 @@ class ProjectTab(ReorderableTab, QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color = QColor(self.project.color)
-        bw = self.BORDER_WIDTH
-        r = QRectF(self.rect()).adjusted(bw / 2, bw / 2, -bw / 2, 0)
+        r = QRectF(self.rect()).adjusted(1, 5, -1, -5)
 
-        if self.is_active:
-            grad = QLinearGradient(QPointF(r.left(), r.top()), QPointF(r.left(), r.bottom()))
-            grad.setColorAt(0.0, QColor(color.red(), color.green(), color.blue(), 52))
-            grad.setColorAt(1.0, QColor(Colors.BG))
-            p.fillRect(r, QBrush(grad))
-
-            # Contorno recto abierto por abajo: sube por la izquierda, cruza
-            # por arriba y baja por la derecha, para conectar con la linea
-            # separadora que dibuja ProjectTabBar justo debajo — una sola
-            # figura continua alrededor de la pestana activa.
-            outline = QPainterPath()
-            outline.moveTo(r.left(), r.bottom())
-            outline.lineTo(r.left(), r.top())
-            outline.lineTo(r.right(), r.top())
-            outline.lineTo(r.right(), r.bottom())
-
-            pen = QPen(color)
-            pen.setWidthF(bw)
-            pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
-            p.setPen(pen)
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawPath(outline)
-        elif self._hovered or self.is_dragging:
-            p.fillRect(r, QColor(Colors.SURFACE_HOVER))
+        if not self.is_active:
+            chip = QColor(Colors.CHROME)
+            chip.setAlpha(245 if (self._hovered or self.is_dragging) else 200)
+            path = QPainterPath()
+            path.addRoundedRect(r, 5, 5)
+            p.fillPath(path, chip)
 
         if self.is_dragging:
-            pen = QPen(color)
+            pen = QPen(QColor(self.project.color))
             pen.setWidthF(1.4)
             pen.setStyle(Qt.PenStyle.DotLine)
             p.setPen(pen)
@@ -218,16 +197,15 @@ class AddProjectTab(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect()).adjusted(7, 8, -7, -10)
-        if self._hovered:
-            p.fillRect(r, QColor(Colors.SURFACE_HOVER))
-        else:
-            pen = QPen(QColor(Colors.BORDER))
-            pen.setWidth(1)
-            p.setPen(pen)
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawRect(r)
-        pen = QPen(QColor(Colors.TEXT if self._hovered else Colors.TEXT_MUTED))
+        r = QRectF(self.rect()).adjusted(7, 6, -7, -6)
+        # Placa oscura como las pestanas inactivas: sobre la barra pintada del
+        # color del repo, un contorno gris no se leia.
+        chip = QColor(Colors.CHROME)
+        chip.setAlpha(245 if self._hovered else 200)
+        path = QPainterPath()
+        path.addRoundedRect(r, 5, 5)
+        p.fillPath(path, chip)
+        pen = QPen(QColor(Colors.TEXT if self._hovered else Colors.TEXT_DIM))
         pen.setWidth(2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(pen)
@@ -242,7 +220,6 @@ class ProjectTabBar(ReorderableBar, QWidget):
     project_selected = Signal(object)   # Project
     project_added = Signal(object)      # Project
     project_removed = Signal(object)    # Project
-    order_changed = Signal()            # se arrastro una pestana a otro sitio
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -270,9 +247,6 @@ class ProjectTabBar(ReorderableBar, QWidget):
     def tabs_reordered(self) -> None:
         self.update()
         self._persist()
-        # El menu Repositorio lista los repos en este mismo orden, y de el
-        # cuelgan los Ctrl+1..9: reordenar aqui tiene que renumerarlos alli.
-        self.order_changed.emit()
 
     # --- conjunto persistente ----------------------------------------
     def _persist(self) -> None:
@@ -387,16 +361,3 @@ class ProjectTabBar(ReorderableBar, QWidget):
         self.add_project(project, select=True)
         self.project_added.emit(project)
 
-    # --- pintura ------------------------------------------------------
-    def paintEvent(self, event):
-        p = QPainter(self)
-        p.fillRect(self.rect(), QColor(Colors.CHROME))
-
-        # Linea inferior con el color del repo activo: la pestana activa la
-        # rompe al pintar encima su propio fondo, como una carpeta abierta.
-        if self._active:
-            color = QColor(self._active.project.color)
-        else:
-            color = QColor(Colors.BORDER)
-        p.fillRect(0, self.height() - 2, self.width(), 2, color)
-        p.end()

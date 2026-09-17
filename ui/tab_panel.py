@@ -4,7 +4,7 @@ import time
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
     QPushButton, QSizePolicy, QSplitter, QInputDialog, QLineEdit, QMessageBox,
-    QFrame
+    QFrame, QMenu
 )
 from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QEvent
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
@@ -25,7 +25,7 @@ from ui.widgets.led import LedIndicator
 from ui.widgets import (ReorderableTab, ReorderableBar,
                         AccordionSection, SectionResizeGrip, FavoriteStar)
 from ui.guard_dialog import BlockedDialog, ReminderDialog
-from ui import params_store, favorites
+from ui import params_store, favorites, section_visibility
 from ui.task_runner import TaskRunner
 
 
@@ -204,9 +204,6 @@ class WorkspaceStatusBar(QWidget):
         layout.setContentsMargins(16, 0, 16, 0)
         layout.setSpacing(12)
 
-        self.project_label = QLabel("")
-        layout.addWidget(self.project_label)
-
         self.services_layout = QHBoxLayout()
         self.services_layout.setSpacing(10)
         layout.addLayout(self.services_layout)
@@ -257,9 +254,6 @@ class WorkspaceStatusBar(QWidget):
         line.setStyleSheet(f"background: {Colors.BORDER}; border: none;")
         line.setFixedHeight(16)
         return line
-
-    def set_project(self, name: str, icon: str = "") -> None:
-        self.project_label.setText(f"{icon or '◇'} {name}")
 
     def refresh_tools(self) -> None:
         """Vuelve a mirar el disco y repinta los indicadores del entorno.
@@ -324,9 +318,8 @@ class WorkspaceStatusBar(QWidget):
         self.status_label.setText(text)
 
     def clear(self) -> None:
-        """Sin ningun repositorio abierto: nada que decir sobre repo, seguros
-        ni tareas activas (`ui/main_window.py::_show_empty_state`)."""
-        self.project_label.setText("")
+        """Sin ningun repositorio abierto: nada que decir sobre seguros ni
+        tareas activas (`ui/main_window.py::_show_empty_state`)."""
         self.security_box.setVisible(False)
         # Sin seguros que mostrar, la division que los precede sobra.
         self._sep_security.setVisible(False)
@@ -359,9 +352,6 @@ class WorkspaceStatusBar(QWidget):
                 border-top: 1px solid {Colors.BORDER};
             }}
         """)
-        self.project_label.setStyleSheet(
-            f"color: {self.accent}; font-size: {Fonts.SIZE_SM}px; font-weight: 600;"
-        )
 
 
 class TabPanel(ReorderableBar, QWidget):
@@ -374,6 +364,7 @@ class TabPanel(ReorderableBar, QWidget):
     params_changed = Signal()   # algun panel guardo parametros nuevos
     machine_changed = Signal()  # una tarea de maquina cambio el entorno (SDK instalado, AVD creado)
     favorite_changed = Signal()  # se marco/desmarco una favorita desde la estrella
+    sections_changed = Signal()  # se mostro/oculto una seccion de la columna lateral
 
     # Piso del cuerpo de una seccion del acordeon al arrastrarla a mano.
     MIN_BODY = 48
@@ -420,7 +411,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.welcome_widget = self._build_welcome()
         self.content_area.addWidget(self.welcome_widget)
 
-        # --- columna derecha: cabecera unica + acordeon de tres secciones ---
+        # --- columna derecha: cabecera unica + acordeon de secciones ---
         # Acordeon y no pestanas porque las tres se leen juntas: un bloqueo de
         # `ParamsPanel` puede decir "faltan claves de configuracion: VPS_IP" y
         # esa clave esta en la seccion de abajo. Con pestanas, el mensaje
@@ -473,14 +464,24 @@ class TabPanel(ReorderableBar, QWidget):
         # limpia sola al plegar la seccion: reabrirla vuelve a autoajustarse.
         self._manual: dict[AccordionSection, int | None] = {}
         self._grips: dict[AccordionSection, SectionResizeGrip] = {}
-        self._sections = (self.info_section, self.security_section,
-                          self.params_section, self.config_section)
+        self._all_sections = (self.info_section, self.security_section,
+                              self.params_section, self.config_section)
+        # Clave con la que se guarda cada una en `ui/section_visibility.py`.
+        self._section_ids = {
+            self.info_section: 'accion',
+            self.security_section: 'seguridad',
+            self.params_section: 'parametros',
+            self.config_section: 'configuracion',
+        }
 
         self.right_column = QWidget()
         self._column = QVBoxLayout(self.right_column)
         self._column.setContentsMargins(0, 0, 0, 0)
         self._column.setSpacing(0)
-        for section in self._sections:
+        for section in self._all_sections:
+            section.header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+            section.header.customContextMenuRequested.connect(
+                lambda pos, h=section.header: self._show_sections_menu(h.mapToGlobal(pos)))
             # Quien estira lo decide `_relayout_right` con `setStretchFactor`:
             # tiene que ser la ultima seccion abierta que no este fijada a mano,
             # que no siempre es Configuracion. Sin eso, con Configuracion plegada
@@ -506,6 +507,12 @@ class TabPanel(ReorderableBar, QWidget):
 
         self._header_cap_id = ''   # accion que muestra la cabecera, para la estrella
         self.right_header = self._build_right_header()
+        # La cabecera nunca se oculta: con todas las secciones escondidas sigue
+        # habiendo donde hacer clic derecho para traerlas de vuelta.
+        self.right_header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+        self.right_header.customContextMenuRequested.connect(
+            lambda pos: self._show_sections_menu(self.right_header.mapToGlobal(pos)))
+        self.apply_section_visibility()
 
         # Pie fijo con Ejecutar / Simulacro: fuera del acordeon, para que el
         # boton no se pliegue con la seccion de Parametros ni haya que
@@ -590,7 +597,11 @@ class TabPanel(ReorderableBar, QWidget):
         'Configuracion del repo' — muestra el repo activo sin pestana
         abierta, y el nombre de la accion en curso cuando hay una."""
         head = QWidget()
-        head.setStyleSheet(f"background: {Colors.SURFACE};")
+        # Por nombre: sin selector, la raya de abajo se heredaba a cada hijo.
+        head.setObjectName("rightHeader")
+        head.setStyleSheet(
+            f"QWidget#rightHeader {{ background: {Colors.SURFACE}; "
+            f"border-bottom: 1px solid {Colors.BORDER}; }}")
         lay = QHBoxLayout(head)
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
@@ -783,6 +794,7 @@ class TabPanel(ReorderableBar, QWidget):
         panel.execute_requested.connect(lambda payload, t=tab: self._run(t, payload))
         panel.params_changed.connect(self.params_changed.emit)
         panel.stop_requested.connect(lambda serial, t=tab: self._stop_live(t, serial))
+        panel.clear_requested.connect(view.clear_console)
         self.params_stack.addWidget(panel)
         self.run_footer.addWidget(panel.footer)
         self._params[tab] = panel
@@ -979,7 +991,7 @@ class TabPanel(ReorderableBar, QWidget):
         return super().eventFilter(obj, event)
 
     def _relayout_right(self, *_args) -> None:
-        """Le calcula el alto a cada una de las cuatro secciones.
+        """Le calcula el alto a cada una de las secciones visibles.
 
         Plegada, una seccion es solo su cabecera. Abiertas, Seguridad se queda
         con lo que sus casillas necesitan y Parametros con lo que pida su
@@ -1082,12 +1094,43 @@ class TabPanel(ReorderableBar, QWidget):
             self._manual[section] = max(self.MIN_BODY, base + delta)
         self._relayout_right()
 
+    @property
+    def _sections(self) -> tuple[AccordionSection, ...]:
+        """Las secciones que el usuario dejo a la vista, en orden: el reparto
+        de alto y las barras de arrastre solo cuentan con estas."""
+        return tuple(s for s in self._all_sections if not s.isHidden())
+
+    def apply_section_visibility(self) -> None:
+        hidden = section_visibility.hidden_sections()
+        for section in self._all_sections:
+            section.setHidden(self._section_ids[section] in hidden)
+        self._relayout_right()
+
+    def _show_sections_menu(self, global_pos) -> None:
+        menu = QMenu(self)
+        menu.addSection('Secciones visibles')
+        for section in self._all_sections:
+            sid = self._section_ids[section]
+            item = menu.addAction(section.header.title.text().capitalize())
+            item.setCheckable(True)
+            item.setChecked(not section.isHidden())
+            item.toggled.connect(
+                lambda visible, s=sid: self._set_section_visible(s, visible))
+        menu.exec(global_pos)
+
+    def _set_section_visible(self, section_id: str, visible: bool) -> None:
+        section_visibility.set_section_hidden(section_id, not visible)
+        self.sections_changed.emit()
+
     def _grip_visible(self, section: AccordionSection) -> bool:
         """Hay algo que negociar: la seccion esta abierta y hay alguna abierta
         debajo con la que intercambiar alto."""
-        i = self._sections.index(section)
+        secciones = self._sections
+        if section not in secciones:
+            return False
+        i = secciones.index(section)
         return section.is_expanded() and any(
-            s.is_expanded() for s in self._sections[i + 1:])
+            s.is_expanded() for s in secciones[i + 1:])
 
     def _sync_grips(self) -> None:
         for section, grip in self._grips.items():

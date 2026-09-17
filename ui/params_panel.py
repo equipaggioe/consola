@@ -74,6 +74,7 @@ class ParamsPanel(QWidget):
     execute_requested = Signal(dict)
     params_changed = Signal()   # lo guardado cambio: se revisa que puede correr de una
     stop_requested = Signal(str)  # apagar algo que esta corriendo (un serial de emulador)
+    clear_requested = Signal()    # Limpiar del pie: vaciar el log de la pestana
 
     def __init__(self, capability: Capability, project: Project, env_panel, parent=None):
         super().__init__(parent)
@@ -588,6 +589,22 @@ class ParamsPanel(QWidget):
         lay = QHBoxLayout(foot)
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
+
+        # A la izquierda, lejos de Ejecutar: vaciar el log no es correr nada.
+        clear_btn = QPushButton("Limpiar")
+        clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
+        clear_btn.setFixedHeight(34)
+        clear_btn.setToolTip("Vaciar el log de esta pestaña y cerrar sus túneles SSH")
+        clear_btn.clicked.connect(self.clear_requested.emit)
+        clear_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: transparent; border: 1px solid {Colors.BORDER};
+                color: {Colors.TEXT_DIM}; border-radius: 6px;
+                padding: 0 16px; font-size: {Fonts.SIZE_SM}px;
+            }}
+            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
+        """)
+        lay.addWidget(clear_btn)
         lay.addStretch()
 
         self.dry_btn: QPushButton | None = None

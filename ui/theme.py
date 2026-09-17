@@ -50,6 +50,16 @@ def tint(hex_color: str, alpha: float) -> str:
     c = QColor(hex_color)
     return f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha:.2f})"
 
+def on_color(hex_color: str) -> str:
+    """Texto legible sobre un fondo de ese color: oscuro sobre los claros y
+    claro sobre los oscuros (luminancia relativa, WCAG)."""
+    c = QColor(hex_color)
+    def lin(v: int) -> float:
+        v /= 255
+        return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+    lum = 0.2126 * lin(c.red()) + 0.7152 * lin(c.green()) + 0.0722 * lin(c.blue())
+    return Colors.CHROME if lum > 0.18 else Colors.TEXT
+
 def apply_theme(app: QApplication) -> None:
     font = QFont()
     font.setFamily("Inter")

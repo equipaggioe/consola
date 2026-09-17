@@ -3,12 +3,13 @@ from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
 from PySide6.QtCore import Qt, Signal, QPoint
 from PySide6.QtGui import QPainter, QColor
 
-from ui.theme import Colors, Fonts, tint
+from ui.theme import Colors, Fonts, tint, on_color
 from ui.project_tabs import ProjectTab
 
 
 class BrandMark(QWidget):
-    """Marca de la aplicacion: `◇ CONSOLA`, tenida por el repo activo.
+    """Marca de la aplicacion: `◇ CONSOLA`, sobre la barra de titulo pintada
+    del color del repo activo.
 
     Abre la barra de titulo, a la izquierda de las pestanas de repos — el
     lugar donde un navegador pone su boton de menu o su logo.
@@ -16,8 +17,6 @@ class BrandMark(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.accent = Colors.ACCENT
-
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 14, 0)
         layout.setSpacing(8)
@@ -26,22 +25,22 @@ class BrandMark(QWidget):
         self.diamond.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.title = QLabel("CONSOLA")
         self.title.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
-        self.title.setStyleSheet(f"""
-            background: transparent;
-            color: {Colors.TEXT};
-            font-size: {Fonts.SIZE_SM}px;
-            font-weight: 700;
-            letter-spacing: 3px;
-        """)
 
         layout.addWidget(self.diamond)
         layout.addWidget(self.title)
         self.set_accent(Colors.ACCENT)
 
     def set_accent(self, accent: str) -> None:
-        self.accent = accent
+        fg = on_color(accent)
         self.diamond.setStyleSheet(
-            f"background: transparent; color: {accent}; font-size: {Fonts.SIZE_LG}px;")
+            f"background: transparent; color: {fg}; font-size: {Fonts.SIZE_LG}px;")
+        self.title.setStyleSheet(f"""
+            background: transparent;
+            color: {fg};
+            font-size: {Fonts.SIZE_SM}px;
+            font-weight: 700;
+            letter-spacing: 3px;
+        """)
 
 
 class WindowButton(QPushButton):
@@ -59,16 +58,20 @@ class WindowButton(QPushButton):
         self.setFixedWidth(self.WIDTH)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        hover = Colors.ERROR if danger else Colors.SURFACE_HOVER
-        text_hover = Colors.TEXT if danger else Colors.TEXT
+        self._danger = danger
+        self.set_foreground(Colors.TEXT_DIM)
+
+    def set_foreground(self, color: str) -> None:
+        """El glifo toma el color legible sobre la barra (`on_color`)."""
+        hover = Colors.ERROR if self._danger else Colors.SURFACE_HOVER
         self.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: none; padding: 0;
                 text-align: center;
-                color: {Colors.TEXT_DIM};
+                color: {color};
                 font-size: {Fonts.SIZE_SM}px;
             }}
-            QPushButton:hover {{ background: {hover}; color: {text_hover}; }}
+            QPushButton:hover {{ background: {hover}; color: {Colors.TEXT}; }}
             QPushButton:pressed {{ background: {tint(hover, 0.75)}; }}
         """)
 
@@ -94,11 +97,9 @@ class TitleBar(QWidget):
     def __init__(self, tabs: QWidget, parent=None):
         super().__init__(parent)
         self.setFixedHeight(self.HEIGHT)
+        # La fila entera se pinta del color del repo activo: es la senal de que
+        # repo esta abierto, en vez de una linea bajo su pestana.
         self.accent = Colors.ACCENT
-        # Color de la linea que cierra la fila. La barra de pestanas pinta la
-        # suya en su tramo (el color del repo activo, roto por la pestana
-        # abierta); esta es la del resto del ancho, y tiene que ser la misma.
-        self.rule = Colors.BORDER
         self._press_pos: QPoint | None = None
 
         layout = QHBoxLayout(self)
@@ -122,17 +123,15 @@ class TitleBar(QWidget):
         layout.addWidget(self.min_btn)
         layout.addWidget(self.max_btn)
         layout.addWidget(self.close_btn)
+        self.set_accent(Colors.ACCENT)
 
     # --- estado -----------------------------------------------------------
     def set_accent(self, accent: str) -> None:
         self.accent = accent
         self.brand.set_accent(accent)
-        self.update()
-
-    def set_rule(self, color: str) -> None:
-        """La misma linea inferior que pinta la barra de pestanas, para que
-        no se corte de color a mitad de la fila."""
-        self.rule = color
+        fg = on_color(accent)
+        for btn in (self.min_btn, self.max_btn, self.close_btn):
+            btn.set_foreground(fg)
         self.update()
 
     def set_maximized(self, value: bool) -> None:
@@ -174,6 +173,5 @@ class TitleBar(QWidget):
     # --- pintura ----------------------------------------------------------
     def paintEvent(self, event):
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(Colors.CHROME))
-        p.fillRect(0, self.height() - 2, self.width(), 2, QColor(self.rule))
+        p.fillRect(self.rect(), QColor(self.accent))
         p.end()

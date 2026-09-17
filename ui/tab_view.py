@@ -59,20 +59,15 @@ class TabView(QWidget):
 
         root.addWidget(self.tool_bar)
         root.addWidget(self.stack, 1)
+        # Solo los launchers publican un endpoint que mostrar; «Explorar base»
+        # tambien, porque su boton es el unico camino de vuelta a la consola.
+        # Limpiar no vive aca: esta en el pie, junto a Ejecutar.
+        self.tool_bar.setVisible(capability.group == 'Launchers' or bool(capability.view))
 
     # --- construccion --------------------------------------------------
     def _build_tool_bar(self) -> QWidget:
-        """La franja de arriba de la pestana.
-
-        Nacio como barra del endpoint y aparecia sola cuando una tarea
-        publicaba una URL. Ahora esta siempre, porque hay algo que toda pestana
-        necesita y ninguna tenia a mano: vaciar su log. Estaba solo en el menu
-        del boton derecho de la consola, que es donde no se busca.
-
-        Las dos mitades son independientes: a la izquierda el endpoint, que
-        sigue apareciendo y desapareciendo con la URL; a la derecha Limpiar,
-        que no depende de nada.
-        """
+        """La franja de arriba de la pestana: el endpoint que publico la
+        tarea, que aparece y desaparece con la URL."""
         bar = QWidget()
         bar.setFixedHeight(36)
         bar.setStyleSheet(
@@ -101,12 +96,7 @@ class TabView(QWidget):
                                    self._toggle_view)
         self.view_btn.setVisible(False)
 
-        self.clear_btn = self._chip('Limpiar',
-                                    'Vaciar el log de esta pestaña y cerrar sus túneles SSH',
-                                    self.clear_console)
-
-        # Todo lo del endpoint se muestra y se esconde junto: sin URL publicada
-        # la barra queda con Limpiar solo, que es lo que corresponde.
+        # Todo lo del endpoint se muestra y se esconde junto.
         self._endpoint_widgets = [self.led, self.state_label, self.url_label,
                                   self.copy_btn, self.external_btn, self.view_btn]
 
@@ -117,7 +107,6 @@ class TabView(QWidget):
         lay.addWidget(self.copy_btn)
         lay.addWidget(self.external_btn)
         lay.addWidget(self.view_btn)
-        lay.addWidget(self.clear_btn)
         self._show_endpoint(False)
         return bar
 
