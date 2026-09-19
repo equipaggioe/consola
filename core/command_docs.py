@@ -103,9 +103,8 @@ DOCS: dict[str, CommandDoc] = {
     'run_python': CommandDoc(
         summary=(
             'Arranca una app Python del repo que no sea el servidor (PySide6, '
-            'Flet de escritorio, un bot) y la relanza cada vez que cambia '
-            'alguno de sus fuentes. Marcar varias apps abre una pestaña por '
-            'cada una.'
+            'Flet de escritorio, un bot). Marcar varias apps abre una pestaña '
+            'por cada una.'
         ),
         steps=[
             'Ubica la app elegida y su punto de entrada: src/main.py, y si no '
@@ -114,14 +113,14 @@ DOCS: dict[str, CommandDoc] = {
             'la raíz del repo; si tampoco, el Python del PATH.',
             'Espera hasta 90 segundos el endpoint del backend y, si aparece, lo '
             'pone en SERVER_URL; si no, sigue sin él.',
-            'Agrega TERMINAL_DEV_AUTO_LOGIN al entorno si el auto-login está '
-            'marcado.',
-            'Corre python main.py desde la carpeta del punto de entrada.',
-            'Mientras corre, cada medio segundo compara las fechas de '
-            'modificación de los .py y .qss de esa carpeta, sin venv ni '
-            'artefactos.',
-            'Si algún fuente cambió, mata el proceso y su árbol y vuelve al '
-            'paso de correr.',
+            'Agrega TERMINAL_DEV_AUTO_LOGIN al entorno si la casilla de '
+            'auto-login está marcada.',
+            'Sin la casilla "Relanzar al detectar cambios": corre python '
+            'main.py una sola vez, desde la carpeta del punto de entrada.',
+            'Con ella (el default): corre python main.py y, en paralelo, '
+            'compara cada medio segundo las fechas de modificación de los .py '
+            'y .qss de esa carpeta, sin venv ni artefactos.',
+            'Si algún fuente cambió, mata el proceso y su árbol y lo relanza.',
             'Si el proceso termina solo, informa el código de salida y cierra.',
         ],
     ),
@@ -136,7 +135,7 @@ DOCS: dict[str, CommandDoc] = {
             'Recorre los pasos marcados y busca cada uno como capacidad del '
             'catálogo.',
             'Lanza Backend en su propia pestaña.',
-            'Lanza App web en la suya, sin esperar al anterior.',
+            'Lanza SPA Vite en la suya, sin esperar al anterior.',
             'Lanza App Python en la suya, sin esperar al anterior.',
             'Informa en la consola cuáles quedaron lanzados.',
         ],

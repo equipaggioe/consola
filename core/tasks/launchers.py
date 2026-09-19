@@ -182,14 +182,15 @@ def run_mobile(ctx, target: str = '', device: str = '') -> None:
                 env={'API_BASE_URL': api}, check=False)
 
 
-def run_python_app(ctx, target: str = '', auto_login: bool = False,
+def run_python_app(ctx, target: str = '', auto_login: bool = False, watch: bool = True,
                    wait_backend: float = BACKEND_WAIT) -> None:
-    """Arranca una app Python del repo y la relanza al cambiar sus fuentes.
+    """Arranca una app Python del repo, con recarga al cambiar sus fuentes.
 
     Corre UNA app: marcar varias abre una pestana por cada una, igual que las
-    SPA (docs/launchers.md 2.1). Son dos niveles de proceso: el vigilante y su
-    hijo. Detener la pestana mata los dos, de abajo hacia arriba (PLAN.md 7,
-    caso 6).
+    SPA (docs/launchers.md 2.1). Con `watch` son dos niveles de proceso: el
+    vigilante y su hijo, y detener la pestana mata los dos, de abajo hacia
+    arriba (PLAN.md 7, caso 6). Sin `watch` es un solo proceso, para la app que
+    no tiene sentido relanzar sola (un bot, un script de un solo uso).
     """
     app = targets.pick(ctx.root, targets.DESKTOP_APP, target)
     entrada = targets.python_entrypoint(app.path)
@@ -208,6 +209,11 @@ def run_python_app(ctx, target: str = '', auto_login: bool = False,
         ctx.info(f'Backend detectado: {api}')
     if auto_login:
         entorno['TERMINAL_DEV_AUTO_LOGIN'] = 'true'
+
+    if not watch:
+        ctx.info(f'Lanzando {app.name}...')
+        ctx.run([*interprete, entrada.name], cwd=fuente, env=entorno or None, check=False)
+        return
 
     while not ctx.cancelled:
         ctx.info(f'Lanzando {app.name}...')

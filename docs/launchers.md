@@ -59,7 +59,7 @@ Capability(id='serve_vite', kind='live', view='web', fanout='target', ...)
 ```
 
 El primer valor se queda en la pestaña desde la que se apretó Ejecutar y **solo cambia de nombre**
-(`App web` → `App web panel`), así el caso normal —un repo con una sola SPA— se ve
+(`SPA Vite` → `SPA Vite panel`), así el caso normal —un repo con una sola SPA— se ve
 exactamente igual que antes, sin una pestaña de más. El resto abre pestaña propia.
 
 `serve_spa` no cambió: sigue tomando **un** target. El reparto es de la interfaz, que es donde
@@ -109,7 +109,7 @@ tiene parámetros — rompe la definición de botón. En cambio, el contenido de
 una consola suelta y pasó a ser una caja con dos vistas (`ui/tab_view.py`):
 
 ```
-┌─ App web panel ─────────────── ● panel · listo ─ http://localhost:5173 ─ [Copiar] [Abrir ↗] [Navegador] ─┐
+┌─ SPA Vite panel ────────────── ● panel · listo ─ http://localhost:5173 ─ [Copiar] [Abrir ↗] [Navegador] ─┐
 │                                                                                                          │
 │   (la consola, o la página — el conmutador cambia cuál se ve)                                            │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -140,9 +140,9 @@ Las secciones agrupan por eso, que es lo mismo que decide si la pestaña tiene s
 | Sección | Botón | `kind` | Ejes | Segunda vista |
 |---|---|---|---|---|
 | Servidor | **Backend** | live | `target` descubierto · `scope` local \| remoto | Navegador |
-| Web | **App web** | live | `target` descubierto, `many` → N pestañas | **Navegador** |
+| Web | **SPA Vite** | live | `target` descubierto, `many` → N pestañas | **Navegador** |
 | Dispositivo | **App móvil** | live | `app` descubierto | — (la dibuja el emulador) |
-| Escritorio | **App Python** | live | `target` descubierto, `many` → N pestañas · `auto_login` | — |
+| Escritorio | **App Python** | live | `target` descubierto, `many` → N pestañas · dos casillas (relanzar al cambiar, auto-login) | — |
 | Todo junto | **Entorno de desarrollo** 🧩 | live | los tres launchers como pasos | — (cada paso tiene la suya) |
 
 Dos correcciones que caen del mismo criterio:
@@ -207,6 +207,10 @@ tiene `requirements.txt`, `pyproject.toml` o `.venv`. Dentro de eso:
 **App Python** (`run_python`) reemplaza a Terminal y es la mitad Python de `serve_vite`: eje `many`
 con `fanout`, una pestaña por app. El intérprete es el `.venv` de la app, si no el de la raíz del
 repo, si no el Python del PATH. `SERVER_URL` dejó de ser obligatorio: se pasa si hay backend.
+
+Sus dos booleanos son `Step`, no ejes: son "sí o no" sueltos, no "uno de estos dos" (que es lo que
+`scope` dibuja). "Relanzar al detectar cambios" viene marcado — es el comportamiento de siempre — y
+"Auto-login de dev" viene vacío: hoy solo la lee una app del vivero medido, no cambia nada para las demás.
 
 **El servidor no entra en App Python** aunque se detecte igual. Tiene cuatro ejes (ámbito, host,
 puerto, recarga) que en una app de escritorio no significan nada, y es el que *publica* la URL que

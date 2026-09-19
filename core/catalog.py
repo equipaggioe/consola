@@ -507,7 +507,7 @@ RUN_SETUP_SCRIPTS_STEPS = [
 
 DEV_ENV_STEPS = [
     Step('backend', 'Backend', optional=False),
-    Step('serve_vite', 'App web'),
+    Step('serve_vite', 'SPA Vite'),
     Step('run_python', 'App Python', default=False),
 ]
 
@@ -556,7 +556,7 @@ def load_catalog() -> None:
     # capacidad termina (`build_vite`) y se reparte en pestanas cuando no
     # (docs/launchers.md 2.1).
     registry.register(Capability(
-        id='serve_vite', name='App web', group='Launchers', section='Web',
+        id='serve_vite', name='SPA Vite', group='Launchers', section='Web',
         kind='live', icon='🌐', view='web', fanout='target',
         description='Arranca el dev server de Vite para las apps elegidas.',
         axes=[AxisDef('target', [], 'checks', select='many', label='Apps',
@@ -591,9 +591,11 @@ def load_catalog() -> None:
         kind='live', icon='🐍', fanout='target',
         description='Arranca las apps Python elegidas, con recarga al cambiar sus fuentes.',
         axes=[AxisDef('target', [], 'checks', select='many', label='Apps',
-                      discover=targets.DESKTOP_APP),
-              AxisDef('auto_login', ['no', 'sí'], 'scope', label='Auto-login de dev',
-                      truthy='sí', labels={'no': 'No', 'sí': 'Sí'})],
+                      discover=targets.DESKTOP_APP)],
+        # Dos booleanos sueltos, no un paso encadenado: casilla real, no el
+        # segmentado de `scope` (que es para "uno de estos dos", no "si o no").
+        steps=[Step('watch', 'Relanzar al detectar cambios'),
+              Step('auto_login', 'Auto-login de dev', default=False)],
         stub=True))
     # La compuesta concurrente del grupo. No tiene `func` ni adaptador: su
     # cuerpo es el despachador de `ui/tab_panel.py`, porque "una pestana por
