@@ -836,8 +836,8 @@ class TabPanel(ReorderableBar, QWidget):
     def _retitle(self, tab: SubTabButton, title: str) -> None:
         """Renombra una pestana ya abierta.
 
-        Lo usa el reparto de `fanout`: la pestana generica «Servir SPA Vite»
-        pasa a llamarse «Servir SPA Vite panel» cuando se sabe cual arranco. Una
+        Lo usa el reparto de `fanout`: la pestana generica «App web»
+        pasa a llamarse «App web panel» cuando se sabe cual arranco. Una
         pestana por proceso vivo, y el nombre dice cual (docs/launchers.md 2.1).
         """
         usados = {t.title for t in self.tabs if t is not tab}

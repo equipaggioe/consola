@@ -347,6 +347,13 @@ class TaskContext:
         for child in list(self._children):
             process.kill_tree(child)
 
+    def kill_children(self) -> None:
+        """Mata los procesos vivos de la tarea sin detenerla: el `ctx.run` que
+        los esperaba vuelve con su codigo y la tarea sigue. Es el relanzar del
+        vigilante de `run_python_app`."""
+        for child in list(self._children):
+            process.kill_tree(child)
+
     def hold_tunnel(self, tunnel) -> None:
         """Anota un tunel SSH de esta tarea: Limpiar la pestana la detiene si
         tiene alguno vivo (`ui/tab_panel.py::_on_cleared`)."""

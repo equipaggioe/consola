@@ -116,12 +116,13 @@ DOCS: dict[str, CommandDoc] = {
             'pone en SERVER_URL; si no, sigue sin él.',
             'Agrega TERMINAL_DEV_AUTO_LOGIN al entorno si el auto-login está '
             'marcado.',
-            'Anota las fechas de modificación de todos los .py de la carpeta '
-            'del punto de entrada, sin venv ni artefactos.',
-            'Corre python main.py desde esa carpeta y espera a que termine.',
-            'Vuelve a anotar las fechas y las compara con las anteriores.',
-            'Si algún fuente cambió, vuelve al paso de correr; si no, informa el '
-            'código de salida y cierra.',
+            'Corre python main.py desde la carpeta del punto de entrada.',
+            'Mientras corre, cada medio segundo compara las fechas de '
+            'modificación de los .py y .qss de esa carpeta, sin venv ni '
+            'artefactos.',
+            'Si algún fuente cambió, mata el proceso y su árbol y vuelve al '
+            'paso de correr.',
+            'Si el proceso termina solo, informa el código de salida y cierra.',
         ],
     ),
 
@@ -135,7 +136,7 @@ DOCS: dict[str, CommandDoc] = {
             'Recorre los pasos marcados y busca cada uno como capacidad del '
             'catálogo.',
             'Lanza Backend en su propia pestaña.',
-            'Lanza SPA Vite en la suya, sin esperar al anterior.',
+            'Lanza App web en la suya, sin esperar al anterior.',
             'Lanza App Python en la suya, sin esperar al anterior.',
             'Informa en la consola cuáles quedaron lanzados.',
         ],

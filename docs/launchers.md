@@ -59,7 +59,7 @@ Capability(id='serve_vite', kind='live', view='web', fanout='target', ...)
 ```
 
 El primer valor se queda en la pestaña desde la que se apretó Ejecutar y **solo cambia de nombre**
-(`Servir SPA Vite` → `Servir SPA Vite panel`), así el caso normal —un repo con una sola SPA— se ve
+(`App web` → `App web panel`), así el caso normal —un repo con una sola SPA— se ve
 exactamente igual que antes, sin una pestaña de más. El resto abre pestaña propia.
 
 `serve_spa` no cambió: sigue tomando **un** target. El reparto es de la interfaz, que es donde
@@ -109,7 +109,7 @@ tiene parámetros — rompe la definición de botón. En cambio, el contenido de
 una consola suelta y pasó a ser una caja con dos vistas (`ui/tab_view.py`):
 
 ```
-┌─ Servir SPA Vite panel ─────── ● panel · listo ─ http://localhost:5173 ─ [Copiar] [Abrir ↗] [Navegador] ─┐
+┌─ App web panel ─────────────── ● panel · listo ─ http://localhost:5173 ─ [Copiar] [Abrir ↗] [Navegador] ─┐
 │                                                                                                          │
 │   (la consola, o la página — el conmutador cambia cuál se ve)                                            │
 └──────────────────────────────────────────────────────────────────────────────────────────────────────────┘
@@ -140,7 +140,7 @@ Las secciones agrupan por eso, que es lo mismo que decide si la pestaña tiene s
 | Sección | Botón | `kind` | Ejes | Segunda vista |
 |---|---|---|---|---|
 | Servidor | **Backend** | live | `target` descubierto · `scope` local \| remoto | Navegador |
-| Web | **Servir SPA Vite** | live | `target` descubierto, `many` → N pestañas | **Navegador** |
+| Web | **App web** | live | `target` descubierto, `many` → N pestañas | **Navegador** |
 | Dispositivo | **App móvil** | live | `app` descubierto | — (la dibuja el emulador) |
 | Escritorio | **App Python** | live | `target` descubierto, `many` → N pestañas · `auto_login` | — |
 | Todo junto | **Entorno de desarrollo** 🧩 | live | los tres launchers como pasos | — (cada paso tiene la suya) |

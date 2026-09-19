@@ -1,4 +1,5 @@
 from __future__ import annotations
+import threading
 from pathlib import Path
 
 from . import emulators
@@ -208,27 +209,55 @@ def run_python_app(ctx, target: str = '', auto_login: bool = False,
     if auto_login:
         entorno['TERMINAL_DEV_AUTO_LOGIN'] = 'true'
 
-    firma = _snapshot(fuente)
     while not ctx.cancelled:
         ctx.info(f'Lanzando {app.name}...')
-        codigo = ctx.run([*interprete, entrada.name], cwd=fuente, env=entorno or None,
-                         check=False, echo=False)
+        # El vigilante corre al lado del proceso y lo mata apenas cambia un
+        # fuente: `ctx.run` vuelve y la vuelta siguiente lo relanza. Si el
+        # proceso termina solo, sin cambios, la tarea termina con el.
+        cambio, fin = threading.Event(), threading.Event()
+        vigia = threading.Thread(target=_watch, args=(ctx, fuente, cambio, fin), daemon=True)
+        vigia.start()
+        try:
+            codigo = ctx.run([*interprete, entrada.name], cwd=fuente, env=entorno or None,
+                             check=False, echo=False)
+        finally:
+            fin.set()
+            vigia.join()
         if ctx.cancelled:
             return
-        nueva = _snapshot(fuente)
-        if nueva == firma:
+        if not cambio.is_set():
             ctx.info(f'{app.name} termino con codigo {codigo}.')
             return
-        firma = nueva
         ctx.info('Cambios detectados: reiniciando.')
+
+
+# Cada cuanto se miran los fuentes. El script original usaba 0.35 s; medio
+# segundo no se nota al guardar y recorre la mitad de veces.
+WATCH_INTERVAL = 0.5
+# Lo que el script original vigilaba: codigo y hojas de estilo de Qt.
+_WATCHED = {'.py', '.qss'}
+
+
+def _watch(ctx, root: Path, cambio: threading.Event, fin: threading.Event) -> None:
+    firma = _snapshot(root)
+    while not fin.wait(WATCH_INTERVAL):
+        try:
+            actual = _snapshot(root)
+        except OSError:
+            continue   # un archivo borrado a mitad del recorrido: se mira en la vuelta siguiente
+        if actual != firma:
+            cambio.set()
+            ctx.kill_children()
+            return
 
 
 def _snapshot(root: Path) -> dict[str, float]:
     # Sin el venv ni los artefactos: una app en la raiz del repo tendria que
     # recorrerlos enteros en cada vuelta.
-    return {str(p): p.stat().st_mtime for p in root.rglob('*.py')
-            if p.is_file() and not any(parte in targets.IGNORED or parte.startswith('.')
-                                       for parte in p.relative_to(root).parts[:-1])}
+    return {str(p): p.stat().st_mtime for p in root.rglob('*')
+            if p.suffix in _WATCHED and p.is_file()
+            and not any(parte in targets.IGNORED or parte.startswith('.')
+                        for parte in p.relative_to(root).parts[:-1])}
 
 
 def open_ssh_session(ctx) -> None:

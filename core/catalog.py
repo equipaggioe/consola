@@ -507,7 +507,7 @@ RUN_SETUP_SCRIPTS_STEPS = [
 
 DEV_ENV_STEPS = [
     Step('backend', 'Backend', optional=False),
-    Step('serve_vite', 'SPA Vite'),
+    Step('serve_vite', 'App web'),
     Step('run_python', 'App Python', default=False),
 ]
 
@@ -556,7 +556,7 @@ def load_catalog() -> None:
     # capacidad termina (`build_vite`) y se reparte en pestanas cuando no
     # (docs/launchers.md 2.1).
     registry.register(Capability(
-        id='serve_vite', name='Servir SPA Vite', group='Launchers', section='Web',
+        id='serve_vite', name='App web', group='Launchers', section='Web',
         kind='live', icon='🌐', view='web', fanout='target',
         description='Arranca el dev server de Vite para las apps elegidas.',
         axes=[AxisDef('target', [], 'checks', select='many', label='Apps',
