@@ -185,11 +185,11 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('BACKEND_PORT', 'Systemd', 'Puerto del backend', default='8000',
             used_by=('configure_service', 'configure_caddy')),
     Setting('CERT_FILE_PATH', 'Systemd', 'Certificado', default='server/certs/cert.pem',
-            required_by=('configure_service', 'backend')),
+            required_by=('configure_service',)),
     Setting('KEY_FILE_PATH', 'Systemd', 'Llave privada', default='server/certs/key.pem',
-            required_by=('configure_service', 'backend')),
+            required_by=('configure_service',)),
     Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
-            required_by=('configure_service', 'backend')),
+            required_by=('configure_service',)),
     # Las carpetas que el servicio necesita fuera del repo, `<ruta> <modo>` por
     # renglon, a nombre del usuario del servicio. Las crea `configure_service`
     # con un `tmpfiles.d`, que systemd vuelve a aplicar en cada arranque. Vacia

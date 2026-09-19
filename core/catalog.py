@@ -508,7 +508,7 @@ RUN_SETUP_SCRIPTS_STEPS = [
 DEV_ENV_STEPS = [
     Step('backend', 'Backend', optional=False),
     Step('serve_vite', 'SPA Vite'),
-    Step('terminal', 'Terminal', default=False),
+    Step('run_python', 'App Python', default=False),
 ]
 
 
@@ -534,11 +534,14 @@ def load_catalog() -> None:
         id='backend', name='Backend', group='Launchers', section='Servidor',
         kind='live', icon='▶', view='web',
         description='Levanta el servidor FastAPI del repo, local o contra el VPS.',
+        # El servidor se descubre como las SPA: la carpeta cuyo modulo de
+        # arranque crea `FastAPI(`, se llame `server/` o `backend/`.
         # Los tres parametros que la funcion ya recibia y el catalogo no
         # ofrecia: corria clavada en 0.0.0.0:8000 con --reload. El puerto es
         # solo el preferido — `core/ports.py` busca el siguiente libre — y por
         # eso se puede dejar como esta sin miedo a chocar con otra pestana.
-        axes=[_SCOPE_AXIS(),
+        axes=[AxisDef('target', [], 'scope', label='Servidor', discover=(targets.FASTAPI,)),
+              _SCOPE_AXIS(),
               _HOST_AXIS(),
               AxisDef('preferred_port', ['8000'], 'field', label='Puerto', cast='int'),
               # Sin recarga es el modo en que se prueba lo que va a correr en el
@@ -580,13 +583,15 @@ def load_catalog() -> None:
               AxisDef('device', [], 'pick', label='Emulador', source=ANDROID_RUNNING,
                       allow_empty=True, labels={'': 'El que esté corriendo'})],
         stub=True))
-    # La carpeta dejo de estar fija en el codigo: `python-app` es un tipo mas de
-    # `core/targets.py`, descubierto como las SPA (PLAN.md 2.4).
+    # Cualquier app Python del repo que no sea el servidor: PySide6, Flet de
+    # escritorio, un bot. Como `serve_vite`, marcar varias abre una pestana por
+    # cada una (docs/launchers.md 2.1).
     registry.register(Capability(
-        id='terminal', name='Terminal', group='Launchers', section='Escritorio',
-        kind='live', icon='⌨️',
-        description='Arranca la app de terminal del repo, con recarga al cambiar sus fuentes.',
-        axes=[AxisDef('target', [], 'scope', label='App', discover=(targets.PYTHON_APP,)),
+        id='run_python', name='App Python', group='Launchers', section='Escritorio',
+        kind='live', icon='🐍', fanout='target',
+        description='Arranca las apps Python elegidas, con recarga al cambiar sus fuentes.',
+        axes=[AxisDef('target', [], 'checks', select='many', label='Apps',
+                      discover=targets.DESKTOP_APP),
               AxisDef('auto_login', ['no', 'sí'], 'scope', label='Auto-login de dev',
                       truthy='sí', labels={'no': 'No', 'sí': 'Sí'})],
         stub=True))
@@ -597,8 +602,8 @@ def load_catalog() -> None:
     registry.register(Capability(
         id='dev_env', name='Entorno de desarrollo', group='Launchers',
         section='Todo junto', kind='live', icon='🧪', level='C', concurrent=True,
-        description='Levanta backend, SPA y terminal a la vez, cada uno en su pestaña.',
-        steps=DEV_ENV_STEPS, composed_of=['backend', 'serve_vite', 'terminal'],
+        description='Levanta backend, SPA y apps Python a la vez, cada uno en su pestaña.',
+        steps=DEV_ENV_STEPS, composed_of=['backend', 'serve_vite', 'run_python'],
         stub=False))
 
     # Builders group
@@ -628,7 +633,7 @@ def load_catalog() -> None:
     # `app` descubierto vacío dejaría en ámbar justo al repo que se empaqueta
     # desde su raíz — que es el caso de la propia Consola (PLAN.md §7).
     # Vacío no es "falta un dato": `resolve_entrypoint` deduce `src/main.py` de
-    # la única app Python del repo, igual que hace el launcher de la terminal.
+    # la única app Python del repo, igual que hace el launcher App Python.
     registry.register(Capability(
         id='build_binary', name='Build binario', group='Builders',
         section='Build binario', kind='once', icon='⚡',

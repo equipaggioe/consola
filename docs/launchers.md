@@ -139,17 +139,17 @@ Las secciones agrupan por eso, que es lo mismo que decide si la pestaña tiene s
 
 | Sección | Botón | `kind` | Ejes | Segunda vista |
 |---|---|---|---|---|
-| Servidor | **Backend** | live | `scope` local \| remoto | Navegador |
+| Servidor | **Backend** | live | `target` descubierto · `scope` local \| remoto | Navegador |
 | Web | **Servir SPA Vite** | live | `target` descubierto, `many` → N pestañas | **Navegador** |
 | Dispositivo | **App móvil** | live | `app` descubierto | — (la dibuja el emulador) |
-| Escritorio | **Terminal** | live | `app` descubierto · `auto_login` | — |
+| Escritorio | **App Python** | live | `target` descubierto, `many` → N pestañas · `auto_login` | — |
 | Todo junto | **Entorno de desarrollo** 🧩 | live | los tres launchers como pasos | — (cada paso tiene la suya) |
 
 Dos correcciones que caen del mismo criterio:
 
-- **La terminal dejó de tener su carpeta fija en el código.** `open_terminal(directory='terminal')`
-  era justo lo que [PLAN.md §2.4](PLAN.md) dice que no hay que hacer. `core/targets.py` ganó el tipo
-  `python-app` (carpeta con `src/main.py`), así que ahora es un eje descubierto como el de las SPA.
+- **Ninguna app Python tiene su carpeta fija en el código.** Ni `open_terminal(directory='terminal')`
+  ni `SERVER_DIR`: las dos cosas eran justo lo que [PLAN.md §2.4](PLAN.md) dice que no hay que
+  hacer. Ver §2.6.
 - **`ssh_login` se queda en VPS · ops.** Es `interactive` y abre terminal externa: no comparte nada
   con este grupo salvo la palabra «abrir».
 
@@ -179,14 +179,40 @@ disco. Ahora esperan el endpoint desde adentro:
 
 ```python
 api = backend_url(ctx, wait=BACKEND_WAIT, required=False)   # serve_spa
-entorno = {'SERVER_URL': backend_url(ctx, wait=BACKEND_WAIT)}  # open_terminal
+api = backend_url(ctx, wait=BACKEND_WAIT, required=False)   # run_python_app
 ```
 
 `backend_url` contesta al instante si el backend ya está arriba, espera si está arrancando en otra
 pestaña, y para la SPA devuelve vacío si no hay backend en absoluto — que no es un error, es
-arrancar con la configuración propia de la SPA. Para la terminal sí lo es. La consecuencia buena:
+arrancar con la configuración propia de la SPA o de la app Python. La consecuencia buena:
 esto funciona igual lanzando los tres botones a mano, en cualquier orden, sin pasar por la
 compuesta.
+
+### 2.6 App Python y Backend: detectados por carpeta, en dos botones
+
+El botón **Terminal** corría una sola app, la que tuviera `src/main.py`, y el **Backend** iba siempre
+a `SERVER_DIR='server'`. Midiendo los repos hermanos, eso dejaba afuera la mitad de las apps
+(`main.py` en la raíz de la carpeta, Flet con `pyproject.toml`, la propia Consola) y dos servidores
+que no viven en `server/` (`posta/backend`, `spazio/backend`).
+
+La detección (`core/targets.py`) mira la raíz del repo y sus carpetas, y una carpeta es Python si
+tiene `requirements.txt`, `pyproject.toml` o `.venv`. Dentro de eso:
+
+| Tipo | Se reconoce por | Lo corre |
+|---|---|---|
+| `fastapi-server` | `app/main.py` o `main.py` con `FastAPI(`; o `alembic.ini` + `app/main.py` | **Backend** — el módulo uvicorn sale de dónde se encontró (`app.main:app` / `main:app`) |
+| `python-app` | `src/main.py` o `main.py` | **App Python** |
+| `flet-app` | `pyproject.toml` que nombra `flet` | **App Python** en el escritorio, **App móvil** en el emulador |
+
+**App Python** (`run_python`) reemplaza a Terminal y es la mitad Python de `serve_vite`: eje `many`
+con `fanout`, una pestaña por app. El intérprete es el `.venv` de la app, si no el de la raíz del
+repo, si no el Python del PATH. `SERVER_URL` dejó de ser obligatorio: se pasa si hay backend.
+
+**El servidor no entra en App Python** aunque se detecte igual. Tiene cuatro ejes (ámbito, host,
+puerto, recarga) que en una app de escritorio no significan nada, y es el que *publica* la URL que
+las otras esperan: separado, `dev_env` lo sigue lanzando como productor. `SERVER_DIR`,
+`UVICORN_APP`, `CERT_FILE_PATH` y `KEY_FILE_PATH` quedan para el servicio del VPS; en local los
+certificados se buscan en `certs/` de la carpeta del servidor, como hacía el script original.
 
 ---
 

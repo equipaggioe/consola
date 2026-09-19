@@ -115,7 +115,7 @@ Puros atómicos: ninguno encadena a otro (el módulo no declara compuestas).
 | `serve_backend` | A | `backend` |
 | `serve_spa` | A | `serve_vite` |
 | `run_mobile` | A | `run_mobile` |
-| `open_terminal` | A | `terminal` |
+| `run_python_app` | A | `run_python` |
 | `open_ssh_session` | A | `ssh_login` |
 
 ### `core/tasks/vps_setup.py`

@@ -11,6 +11,7 @@ from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
 from core import toolstatus
+from core import sysinfo
 from core.catalog import forget_machine_cache
 from core import protection
 from core.registry import Capability, registry
@@ -223,6 +224,16 @@ class WorkspaceStatusBar(QWidget):
         self._tools: dict[str, tuple[LedIndicator, QLabel]] = {}
         self.refresh_tools()
 
+        # RAM disponible: a diferencia de los SDK, cambia todo el tiempo (no
+        # solo tras una instalacion), asi que tiene su propio timer.
+        self.ram_label = QLabel()
+        self.ram_label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+        self.tools_layout.addWidget(self.ram_label)
+        self._ram_timer = QTimer(self)
+        self._ram_timer.timeout.connect(self.refresh_ram)
+        self._ram_timer.start(5000)
+        self.refresh_ram()
+
         self._sep_security = self._divider()
         layout.addWidget(self._sep_security)
 
@@ -276,6 +287,20 @@ class WorkspaceStatusBar(QWidget):
                 f"color: {Colors.TEXT_DIM if tool.found else Colors.TEXT_MUTED}; "
                 f"font-size: {Fonts.SIZE_XS}px;"
             )
+
+    def refresh_ram(self) -> None:
+        """RAM disponible/total, redondeada al GB: alcanza para ver de un
+        vistazo si conviene cerrar algo antes de lanzar una build pesada."""
+        ram = sysinfo.available_ram()
+        if ram is None:
+            self.ram_label.setVisible(False)
+            return
+        disponible, total = ram
+        self.ram_label.setVisible(True)
+        self.ram_label.setText(f"RAM {disponible:.1f}/{total:.1f} GB")
+        umbral = total * 0.15
+        color = Colors.TEXT_DIM if disponible > umbral else Colors.WARNING
+        self.ram_label.setStyleSheet(f"color: {color}; font-size: {Fonts.SIZE_XS}px;")
 
     def _build_tool(self, tool) -> tuple[LedIndicator, QLabel]:
         container = QWidget()

@@ -39,14 +39,16 @@ DOCS: dict[str, CommandDoc] = {
             'pestaña.'
         ),
         steps=[
-            'Ubica la carpeta del servidor (SERVER_DIR) y el intérprete de su '
-            'venv.',
+            'Ubica el servidor elegido: la carpeta cuyo app/main.py o main.py '
+            'crea FastAPI(, o que tiene alembic.ini y app/main.py. Toma el '
+            'intérprete de su venv.',
             'Toma el puerto preferido, o el siguiente libre si está ocupado.',
             'Publica ese puerto en la sesión del repo.',
-            'Arma la línea de uvicorn con la app de UVICORN_APP, --host y '
-            '--port, y le agrega --reload si está marcado.',
-            'Busca CERT_FILE_PATH y KEY_FILE_PATH; si los dos existen, agrega '
-            '--ssl-certfile y --ssl-keyfile.',
+            'Arma la línea de uvicorn con el módulo donde se encontró la app '
+            '(app.main:app o main:app), --host y --port, y le agrega --reload '
+            'si está marcado.',
+            'Busca certs/cert.pem y certs/key.pem en la carpeta del servidor; '
+            'si los dos existen, agrega --ssl-certfile y --ssl-keyfile.',
             'Abre la base del ámbito: local arma la URL contra 127.0.0.1 y el '
             'puerto del Postgres de esta máquina; remoto pregunta el puerto '
             'real al Postgres del VPS, abre el túnel SSH y arma la URL contra '
@@ -98,20 +100,25 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    'terminal': CommandDoc(
+    'run_python': CommandDoc(
         summary=(
-            'Arranca la app de terminal del repo y la relanza cada vez que '
-            'cambia alguno de sus fuentes.'
+            'Arranca una app Python del repo que no sea el servidor (PySide6, '
+            'Flet de escritorio, un bot) y la relanza cada vez que cambia '
+            'alguno de sus fuentes. Marcar varias apps abre una pestaña por '
+            'cada una.'
         ),
         steps=[
-            'Ubica la app Python elegida y comprueba que exista su src/main.py.',
-            'Toma el intérprete del venv de esa app.',
-            'Espera hasta 90 segundos el endpoint del backend y lo pone en '
-            'SERVER_URL; corta si no aparece.',
+            'Ubica la app elegida y su punto de entrada: src/main.py, y si no '
+            'main.py.',
+            'Toma el intérprete del venv de la app; si no tiene, el del venv de '
+            'la raíz del repo; si tampoco, el Python del PATH.',
+            'Espera hasta 90 segundos el endpoint del backend y, si aparece, lo '
+            'pone en SERVER_URL; si no, sigue sin él.',
             'Agrega TERMINAL_DEV_AUTO_LOGIN al entorno si el auto-login está '
             'marcado.',
-            'Anota las fechas de modificación de todos los .py bajo src/.',
-            'Corre python main.py desde src/ y espera a que termine.',
+            'Anota las fechas de modificación de todos los .py de la carpeta '
+            'del punto de entrada, sin venv ni artefactos.',
+            'Corre python main.py desde esa carpeta y espera a que termine.',
             'Vuelve a anotar las fechas y las compara con las anteriores.',
             'Si algún fuente cambió, vuelve al paso de correr; si no, informa el '
             'código de salida y cierra.',
@@ -120,7 +127,7 @@ DOCS: dict[str, CommandDoc] = {
 
     'dev_env': CommandDoc(
         summary=(
-            'Lanza backend, SPA y terminal a la vez, cada uno en su propia '
+            'Lanza backend, SPA y apps Python a la vez, cada uno en su propia '
             'pestaña, con los parámetros que cada botón tiene guardados para '
             'este repo.'
         ),
@@ -129,7 +136,7 @@ DOCS: dict[str, CommandDoc] = {
             'catálogo.',
             'Lanza Backend en su propia pestaña.',
             'Lanza SPA Vite en la suya, sin esperar al anterior.',
-            'Lanza Terminal en la suya, sin esperar al anterior.',
+            'Lanza App Python en la suya, sin esperar al anterior.',
             'Informa en la consola cuáles quedaron lanzados.',
         ],
     ),

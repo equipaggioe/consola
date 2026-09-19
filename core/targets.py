@@ -10,9 +10,22 @@ SPA_VITE = 'spa-vite'
 FLUTTER_APP = 'flutter-app'
 FLET_APP = 'flet-app'
 FASTAPI = 'fastapi-server'
-# App de escritorio en Python con su propio venv (la terminal de navetta). Es
-# un tipo aparte y no `FASTAPI` porque no sirve HTTP: se lanza y abre su ventana.
+# App Python que se lanza y abre su ventana (PySide6, Flet de escritorio, un
+# bot). Es un tipo aparte y no `FASTAPI` porque no sirve HTTP.
 PYTHON_APP = 'python-app'
+
+# Lo que el boton "App Python" corre en el escritorio: una app Flet con su
+# `pyproject.toml` es `flet-app` para los ejes moviles, pero en esta maquina se
+# arranca igual que cualquier otra app Python.
+DESKTOP_APP = (PYTHON_APP, FLET_APP)
+
+# Donde arranca una app Python, en orden de preferencia.
+PYTHON_ENTRYPOINTS = ('src/main.py', 'main.py')
+# Que una carpeta sea Python lo dice su manifiesto o su venv, no un `main.py`
+# suelto: sin esto, cualquier carpeta de scripts contaria como app.
+_PYTHON_MARKERS = ('requirements.txt', 'pyproject.toml', '.venv')
+# Donde se busca el `FastAPI(` de un servidor, y el modulo uvicorn que le toca.
+_ASGI_MODULES = (('app/main.py', 'app.main:app'), ('main.py', 'main:app'))
 
 # "La app movil" es una sola cosa del dominio aunque este escrita en Flutter o
 # en Flet: se compila igual, se sube igual y se corre en el mismo emulador. El
@@ -20,8 +33,8 @@ PYTHON_APP = 'python-app'
 # boton, asi que los dos tipos viajan juntos en todos los ejes que la nombran.
 MOBILE_APP = (FLUTTER_APP, FLET_APP)
 
-_IGNORED = {'node_modules', '.git', '.venv', 'venv', 'build', 'dist', '.consola',
-            '__pycache__', '.dart_tool', 'android', 'ios', 'web'}
+IGNORED = {'node_modules', '.git', '.venv', 'venv', 'build', 'dist', '.consola',
+           '__pycache__', '.dart_tool', 'android', 'ios', 'web'}
 _DEPTH = 2
 
 
@@ -51,13 +64,40 @@ def _detect(directory: Path) -> str:
     pyproject = directory / 'pyproject.toml'
     if pyproject.is_file() and 'flet' in read_text(pyproject).lower():
         return FLET_APP
-    if (directory / 'app' / 'main.py').is_file() or (directory / 'alembic.ini').is_file():
+    if not any((directory / m).exists() for m in _PYTHON_MARKERS):
+        return ''
+    if asgi_app(directory):
         return FASTAPI
-    # Ultimo porque es el marcador mas debil: `src/main.py` lo tiene tambien
-    # algun servidor, y ese ya se reconocio arriba.
-    if (directory / 'src' / 'main.py').is_file():
+    # Ultimo porque es el marcador mas debil: un servidor tambien tiene su
+    # `main.py`, y ese ya se reconocio arriba.
+    if python_entrypoint(directory):
         return PYTHON_APP
     return ''
+
+
+def asgi_app(directory: Path) -> str:
+    """El modulo que uvicorn tiene que cargar, o vacio si la carpeta no es un servidor.
+
+    Se reconoce por el `FastAPI(` en su modulo de arranque, que es lo que la
+    hace servidor sin importar como se llame la carpeta (`server/`, `backend/`).
+    `alembic.ini` + `app/main.py` cubre el que arma su app en otro modulo.
+    """
+    for relativo, modulo in _ASGI_MODULES:
+        fuente = directory / relativo
+        if fuente.is_file() and 'FastAPI(' in read_text(fuente):
+            return modulo
+    if (directory / 'alembic.ini').is_file() and (directory / 'app' / 'main.py').is_file():
+        return 'app.main:app'
+    return ''
+
+
+def python_entrypoint(directory: Path) -> Path | None:
+    """El `main.py` con el que arranca una app Python, o None si no tiene."""
+    for relativo in PYTHON_ENTRYPOINTS:
+        fuente = directory / relativo
+        if fuente.is_file():
+            return fuente
+    return None
 
 
 def discover(root: Path) -> list[Target]:
@@ -84,7 +124,7 @@ def _walk(root: Path, depth: int):
     except OSError:
         return
     for entry in entries:
-        if entry.name in _IGNORED or entry.name.startswith('.'):
+        if entry.name in IGNORED or entry.name.startswith('.'):
             continue
         yield from _walk(entry, depth - 1)
 

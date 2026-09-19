@@ -7,6 +7,10 @@ por aplicación y rutas escritas a mano.
 Cubre los **dos casos**, que hoy están rotos de formas distintas: **correrlas** (Launchers) y
 **compilar su binario** (Builders).
 
+> **Estado:** la Pista A quedó hecha de otra forma, ver [launchers.md §2.6](launchers.md): sin
+> `[tool.consola]` (la inferencia cubre todos los repos medidos) y con el servidor en su propio
+> botón en vez de fundido en `run_python`. Siguen pendientes la Pista B y `install_python_deps`.
+
 ---
 
 ## 1. La asimetría que hay que cerrar

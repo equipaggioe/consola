@@ -398,8 +398,8 @@ def create_spa(ctx, name: str = '') -> Path:
 # --- pasos de binario ------------------------------------------------------
 
 # Entrypoints que se prueban cuando el campo queda vacio, en orden. `src/main.py`
-# va primero porque es el que ya usa el launcher de la terminal
-# (`core/tasks/launchers.py::open_terminal`): el ejecutable que se descarga es la
+# va primero porque es el que ya prefiere el launcher App Python
+# (`core/targets.py::python_entrypoint`): el ejecutable que se descarga es la
 # misma app que se lanza en desarrollo, y preguntar la ruta seria pedir que
 # confirmen lo que la carpeta ya contesta.
 _ENTRYPOINTS = ('src/main.py', 'main.py', 'app/main.py')

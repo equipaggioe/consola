@@ -100,7 +100,7 @@ def pyinstaller_cmd(app_dir: Path | None = None, override: str = '') -> list[str
     empaquetar bien dependia de haber activado el venv correcto antes de
     lanzarlo — algo que un boton no puede pedir.
 
-    Se mira el mismo `.venv` que usa el launcher de la terminal
+    Se mira el mismo `.venv` que usa el launcher App Python
     (`core/tasks/launchers.py`), y solo se prefiere si PyInstaller esta
     realmente instalado ahi; si no, se cae al PATH como antes.
     """
@@ -147,6 +147,22 @@ def venv_python(venv_dir: Path) -> Path:
     if not exe.is_file():
         raise TaskError(f'No existe el Python del venv: {exe}')
     return exe
+
+
+def app_python(app_dir: Path, repo_root: Path) -> list[str]:
+    """El interprete con que corre una app Python del repo.
+
+    El venv de la app, si no el de la raiz del repo (un repo con un solo venv
+    para todo), y si no hay ninguno el Python del PATH.
+    """
+    for venv in (app_dir / '.venv', repo_root / '.venv'):
+        exe = venv / ('Scripts' if os.name == 'nt' else 'bin') / ('python.exe' if os.name == 'nt' else 'python')
+        if exe.is_file():
+            return [str(exe)]
+    return resolve_executable(
+        ['python', 'python3', 'python.exe'], label='Python',
+        hint=f'Crea el venv de {app_dir.name} o agrega Python al PATH.',
+    )
 
 
 def detect_app_kind(project_dir: Path) -> str:

@@ -36,13 +36,6 @@ BACKEND = 'backend'          # clave del endpoint del backend en `core/session`
 BACKEND_WAIT = 90.0
 
 
-def _server_root(ctx) -> Path:
-    root = ctx.root / ctx.config.get('SERVER_DIR', 'server')
-    if not root.is_dir():
-        raise TaskError(f'No existe la carpeta del servidor: {root}')
-    return root
-
-
 # --- atomicas --------------------------------------------------------------
 
 def resolve_server_port(ctx, preferred: int = 8000, search: bool = True) -> int:
@@ -79,10 +72,15 @@ def backend_url(ctx, *, wait: float = 0.0, required: bool = True) -> str:
                     'levantalo primero, o usa "Entorno de desarrollo".')
 
 
-def resolve_tls(ctx) -> tuple[Path, Path] | None:
-    """Los certificados del backend, si estan. Sin ellos arranca en texto plano."""
-    cert = ctx.path(ctx.config.get('CERT_FILE_PATH', 'server/certs/cert.pem'))
-    key = ctx.path(ctx.config.get('KEY_FILE_PATH', 'server/certs/key.pem'))
+def resolve_tls(ctx, server: Path) -> tuple[Path, Path] | None:
+    """Los certificados del backend, si estan. Sin ellos arranca en texto plano.
+
+    Se buscan en `certs/` de la carpeta del servidor, como hacia el script
+    original: `CERT_FILE_PATH` y `KEY_FILE_PATH` son las rutas del servicio en
+    el VPS, no las de esta maquina.
+    """
+    cert = server / 'certs' / 'cert.pem'
+    key = server / 'certs' / 'key.pem'
     if cert.is_file() and key.is_file():
         return cert, key
     ctx.warn('TLS deshabilitado: faltan los certificados.')
@@ -93,6 +91,7 @@ def resolve_tls(ctx) -> tuple[Path, Path] | None:
 
 def serve_backend(
     ctx,
+    target: str = '',
     scope: str = db.LOCAL,
     host: str = '0.0.0.0',
     preferred_port: int = 8000,
@@ -103,15 +102,15 @@ def serve_backend(
     El tunel, si el ambito es remoto, vive lo que vive el servidor: se cierra
     solo cuando se detiene la pestana.
     """
-    server = _server_root(ctx)
+    server = targets.pick(ctx.root, (targets.FASTAPI,), target).path
     interprete = venv_python(server / '.venv')
     puerto = resolve_server_port(ctx, preferred_port)
-    app = ctx.config.get('UVICORN_APP', 'app.main:app')
+    app = targets.asgi_app(server)
 
     argv = [str(interprete), '-m', 'uvicorn', app, '--host', host, '--port', str(puerto)]
     if reload:
         argv.append('--reload')
-    tls = resolve_tls(ctx)
+    tls = resolve_tls(ctx, server)
     if tls:
         argv.extend(['--ssl-certfile', str(tls[0]), '--ssl-keyfile', str(tls[1])])
 
@@ -182,47 +181,54 @@ def run_mobile(ctx, target: str = '', device: str = '') -> None:
                 env={'API_BASE_URL': api}, check=False)
 
 
-def open_terminal(ctx, target: str = '', auto_login: bool = False,
-                  wait_backend: float = BACKEND_WAIT) -> None:
-    """Arranca la app de terminal con recarga automatica al cambiar sus fuentes.
+def run_python_app(ctx, target: str = '', auto_login: bool = False,
+                   wait_backend: float = BACKEND_WAIT) -> None:
+    """Arranca una app Python del repo y la relanza al cambiar sus fuentes.
 
-    Son dos niveles de proceso: el vigilante y su hijo. Detener la pestana mata
-    los dos, de abajo hacia arriba (PLAN.md 7, caso 6).
-
-    La carpeta ya no viene fija en el codigo: es un eje descubierto como el de
-    las SPA (`targets.PYTHON_APP`), que era justo lo que PLAN.md 2.4 pide no
-    escribir a mano.
+    Corre UNA app: marcar varias abre una pestana por cada una, igual que las
+    SPA (docs/launchers.md 2.1). Son dos niveles de proceso: el vigilante y su
+    hijo. Detener la pestana mata los dos, de abajo hacia arriba (PLAN.md 7,
+    caso 6).
     """
-    app = targets.pick(ctx.root, (targets.PYTHON_APP,), target)
-    fuente = app.path / 'src'
-    entrada = fuente / 'main.py'
-    if not entrada.is_file():
-        raise TaskError(f'No existe el entrypoint de la terminal: {entrada}')
+    app = targets.pick(ctx.root, targets.DESKTOP_APP, target)
+    entrada = targets.python_entrypoint(app.path)
+    if entrada is None:
+        raise TaskError(f'{app.name} no tiene punto de entrada '
+                        f'({", ".join(targets.PYTHON_ENTRYPOINTS)}).')
+    fuente = entrada.parent
+    interprete = toolchain.app_python(app.path, ctx.root)
 
-    interprete = venv_python(app.path / '.venv')
-    # La terminal si necesita backend: sin `SERVER_URL` no tiene contra que
-    # hablar. Se lo espera igual que la SPA, pero aca faltar es un error.
-    entorno = {'SERVER_URL': backend_url(ctx, wait=wait_backend)}
+    # Con backend se le pasa su URL; sin el, la app arranca igual con su propia
+    # configuracion, como la SPA. Que le haga falta o no es asunto de la app.
+    entorno = {}
+    api = backend_url(ctx, wait=wait_backend, required=False)
+    if api:
+        entorno['SERVER_URL'] = api
+        ctx.info(f'Backend detectado: {api}')
     if auto_login:
         entorno['TERMINAL_DEV_AUTO_LOGIN'] = 'true'
 
     firma = _snapshot(fuente)
     while not ctx.cancelled:
-        ctx.info('Lanzando la terminal...')
-        codigo = ctx.run([str(interprete), 'main.py'], cwd=fuente, env=entorno,
+        ctx.info(f'Lanzando {app.name}...')
+        codigo = ctx.run([*interprete, entrada.name], cwd=fuente, env=entorno or None,
                          check=False, echo=False)
         if ctx.cancelled:
             return
         nueva = _snapshot(fuente)
         if nueva == firma:
-            ctx.info(f'La terminal termino con codigo {codigo}.')
+            ctx.info(f'{app.name} termino con codigo {codigo}.')
             return
         firma = nueva
         ctx.info('Cambios detectados: reiniciando.')
 
 
 def _snapshot(root: Path) -> dict[str, float]:
-    return {str(p): p.stat().st_mtime for p in root.rglob('*.py') if p.is_file()}
+    # Sin el venv ni los artefactos: una app en la raiz del repo tendria que
+    # recorrerlos enteros en cada vuelta.
+    return {str(p): p.stat().st_mtime for p in root.rglob('*.py')
+            if p.is_file() and not any(parte in targets.IGNORED or parte.startswith('.')
+                                       for parte in p.relative_to(root).parts[:-1])}
 
 
 def open_ssh_session(ctx) -> None:
@@ -236,5 +242,5 @@ def bind_all() -> None:
     registry.bind('backend', serve_backend)
     registry.bind('serve_vite', serve_spa)
     registry.bind('run_mobile', run_mobile)
-    registry.bind('terminal', open_terminal)
+    registry.bind('run_python', run_python_app)
     registry.bind('ssh_login', open_ssh_session)
