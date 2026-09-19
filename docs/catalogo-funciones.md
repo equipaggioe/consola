@@ -89,9 +89,9 @@ con catálogos propios, no tres pasos de una secuencia. El porqué, en [emulador
 
 | Función | Nivel | Botón | Usada por |
 |---|---|---|---|
-| `bump_version` | A | `bump_version` (hidden) | `build_apk`, `build_vite`, `build_binary` |
-| `upload_artifact` | A | `upload_to_vps` (hidden) | `build_apk`, `build_vite`, `build_binary` |
-| `compile_apk` | A | — | `build_apk` |
+| `bump_version` | A | `bump_version` (hidden) | `build_flutter`, `build_vite`, `build_binary` |
+| `upload_artifact` | A | `upload_to_vps` (hidden) | `build_flutter`, `build_vite`, `build_binary` |
+| `compile_flutter` | A | — | `build_flutter` (una corrida por plataforma marcada) |
 | `install_node_modules` | A | — | `build_vite` |
 | `compile_spa` | A | — | `build_vite` |
 | `create_spa` | A | `create_spa` | — (SvelteKit + runes + UnoCSS en blanco, vía `sv create`) |
@@ -99,7 +99,7 @@ con catálogos propios, no tres pasos de una secuencia. El porqué, en [emulador
 | `resolve_entrypoint` | A | — | `build_binary` (deduce `src/main.py` cuando el campo va vacío) |
 | `checksum_artifact` | A | — | `build_binary` (paso `checksum`) |
 | `promote_app` | A | `promote_app` | — |
-| `build_apk` | C | `build_apk` | — |
+| `build_flutter` | C | `build_flutter` | — |
 | `build_vite` | C | `build_vite` | — |
 | `build_binary` | C | `build_binary` | — |
 
@@ -258,7 +258,7 @@ tenga que renombrar la mitad de las funciones.
 
 `Capability.scope` (`core/registry.py`) distingue dos cosas que hasta ahora se trataban igual:
 
-- `'repo'` (por defecto) — la selección del panel es una decisión sobre el repo abierto. `build_apk`
+- `'repo'` (por defecto) — la selección del panel es una decisión sobre el repo abierto. `build_flutter`
   en `navetta` y en `otra-app` casi nunca marca lo mismo.
 - `'machine'` — la selección vale para toda la máquina, no para el repo desde el que se abrió el
   panel. Instalar el SDK de Android en `D:\Android` no es una decisión de un proyecto.

@@ -1,6 +1,8 @@
 from __future__ import annotations
 import json
 import os
+import platform
+from dataclasses import dataclass
 from pathlib import Path
 
 from .errors import TaskError
@@ -9,6 +11,62 @@ from .process import resolve_executable
 
 FLUTTER = 'flutter'
 FLET = 'flet'
+
+
+@dataclass(frozen=True)
+class BuildPlatform:
+    """Una plataforma a la que `build_flutter` sabe compilar.
+
+    Las salidas son globs relativos a la carpeta de la app: donde deja el build
+    cada framework sin que nadie le diga nada. Flet copia lo suyo a
+    `build/<plataforma>/`, Flutter lo deja enterrado en su arbol de siempre.
+    """
+    label: str
+    flutter: str        # subcomando de `flutter build`
+    flet: str           # plataforma de `flet build`
+    flutter_out: str
+    flet_out: str
+    suffix: str = ''    # extension de un build que es una pieza (`.apk`). Vacio:
+                        # el build es una carpeta entera (web, escritorio).
+    host: str = ''      # `platform.system()` donde unicamente se puede compilar.
+                        # Ni Flutter ni Flet compilan escritorio o iOS para otro
+                        # sistema que el que corre.
+
+    def output(self, kind: str) -> str:
+        return self.flutter_out if kind == FLUTTER else self.flet_out
+
+
+BUILD_PLATFORMS: dict[str, BuildPlatform] = {
+    'apk': BuildPlatform('APK', 'apk', 'apk',
+                         'build/app/outputs/flutter-apk/app-release.apk',
+                         'build/apk/*.apk', suffix='.apk'),
+    'aab': BuildPlatform('AAB', 'appbundle', 'aab',
+                         'build/app/outputs/bundle/release/app-release.aab',
+                         'build/aab/*.aab', suffix='.aab'),
+    'web': BuildPlatform('Web', 'web', 'web', 'build/web', 'build/web'),
+    'windows': BuildPlatform('Windows', 'windows', 'windows',
+                             'build/windows/*/runner/Release', 'build/windows',
+                             host='Windows'),
+    'linux': BuildPlatform('Linux', 'linux', 'linux',
+                           'build/linux/*/release/bundle', 'build/linux', host='Linux'),
+    'macos': BuildPlatform('macOS', 'macos', 'macos',
+                           'build/macos/Build/Products/Release/*.app',
+                           'build/macos/*.app', suffix='.app', host='Darwin'),
+    # Firmar es asunto del proyecto: Flutter lo toma del equipo configurado en
+    # Xcode, Flet de `[tool.flet.ios]` en su `pyproject.toml`.
+    'ipa': BuildPlatform('iOS', 'ipa', 'ipa', 'build/ios/ipa/*.ipa', 'build/ipa/*.ipa',
+                         suffix='.ipa', host='Darwin'),
+}
+
+
+def host_platforms() -> list[str]:
+    """Las plataformas que se pueden compilar en esta maquina."""
+    return [k for k, p in BUILD_PLATFORMS.items() if not p.host or p.host == platform.system()]
+
+
+def out_key(platform_id: str) -> str:
+    """La clave de `config.env` con la carpeta donde queda el build."""
+    return f'BUILD_OUT_{platform_id.upper()}'
 
 
 def flutter_cmd(override: str = '') -> list[str]:

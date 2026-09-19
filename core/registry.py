@@ -74,6 +74,11 @@ class AxisDef:
                                 # del VPS y `local` no: exigirlas en la capacidad dejaba
                                 # en ambar la base local de un repo sin VPS.
 
+    uses_env: dict = field(default_factory=dict)  # valor -> claves de config.env que usa
+                                # elegirlo, sin exigirlas. Solo filtran el panel de
+                                # configuracion: la carpeta del build web no tiene nada que
+                                # hacer en pantalla si no se marco Web.
+
     def keys_for(self, chosen) -> set[str]:
         return set().union(*(self.requires_env.get(v, set()) for v in chosen))
 

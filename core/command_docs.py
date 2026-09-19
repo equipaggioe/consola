@@ -136,29 +136,30 @@ DOCS: dict[str, CommandDoc] = {
 
     # --- Builders ----------------------------------------------------------
 
-    'build_apk': CommandDoc(
+    'build_flutter': CommandDoc(
         summary=(
-            'Deja un APK de release de la app móvil del repo, con el número de '
-            'versión al día y publicado en el VPS junto a su manifiesto. Sirve '
-            'igual para Flutter y para Flet.'
+            'Compila la app Flutter o Flet del repo para las plataformas '
+            'marcadas (APK, AAB, web, escritorio, iOS), con el número de versión '
+            'al día y publicada en el VPS junto a su manifiesto.'
         ),
         steps=[
-            'Ubica la app móvil elegida y su manifiesto de versión '
-            '(pubspec.yaml o pyproject.toml).',
-            'Si el paso de compilar está desmarcado, toma el APK que ya está en '
-            'disco y salta directo a la subida.',
+            'Ubica la app elegida y su manifiesto de versión (pubspec.yaml o '
+            'pyproject.toml).',
+            'Si el paso de compilar está desmarcado, toma los builds que ya están '
+            'en disco y salta directo a la subida.',
             'Abre una copia reversible del manifiesto, que se restaura si algo '
-            'falla antes de terminar el build.',
-            'Escribe la versión nueva en el manifiesto, según el modo elegido: '
-            'patch, minor, major, +build o ninguno.',
+            'falla antes de terminar los builds.',
+            'Escribe la versión nueva en el manifiesto, una sola vez para todas '
+            'las plataformas: patch, minor, major, +build o ninguno.',
             'Detecta si la app es Flutter o Flet y lee API_URL de la '
             'configuración.',
-            'Corre desde la carpeta de la app flutter build apk --release, o '
-            'flet build apk, con --dart-define=API_BASE_URL.',
-            'Busca el binario en build/app/outputs/flutter-apk/app-release.apk, '
-            'o el .apk más reciente bajo build/ en Flet, y corta si no está.',
-            'Copia por scp el APK al VPS, a la misma ruta relativa que tiene en '
-            'el repo.',
+            'Por cada plataforma corre flutter build <plataforma> --release, o '
+            'flet build <plataforma>, con --dart-define=API_BASE_URL. En web '
+            'agrega la ruta bajo la que el proxy sirve la app.',
+            'Busca el build donde lo deja el framework y, si BUILD_OUT_<PLATAFORMA> '
+            'tiene una carpeta, lo copia ahí.',
+            'Copia por scp cada build al VPS, a la misma ruta relativa que tiene '
+            'en el repo.',
             'Copia por scp el manifiesto de versión a su ruta relativa.',
         ],
     ),

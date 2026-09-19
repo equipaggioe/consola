@@ -25,7 +25,7 @@ class Setting:
     # Acciones que USAN la clave pero corren igual sin ella. Aparece en el panel
     # de configuracion filtrado de esas acciones, y no bloquea su boton. La
     # distincion importa: `serve_backend` nunca lee `API_URL` —quien la lee es
-    # `compile_apk`, y ese ya la pide por paso— asi que exigirla dejaba el
+    # `compile_flutter`, y ese ya la pide por paso— asi que exigirla dejaba el
     # Backend en ambar por una clave que jamas iba a mirar (docs/launchers.md 3).
     used_by: tuple[str, ...] = field(default_factory=tuple)
 
@@ -47,11 +47,11 @@ _DB_REMOTE = ('backup_db', 'ssh_tunnel')
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---
-    # No la exige nadie: el build del APK la pide por paso (`BUILD_APK_STEPS`) y
+    # No la exige nadie: el build de Flutter la pide por paso (`BUILD_FLUTTER_STEPS`) y
     # `run_mobile` cae en la URL del backend de esta sesion si esta vacia.
     Setting('API_URL', 'Server', 'URL publica de la API',
             placeholder='https://ejemplo.net:443',
-            used_by=('backend', 'run_mobile', 'build_apk')),
+            used_by=('backend', 'run_mobile', 'build_flutter')),
 
     # --- Cloudflare ---
     Setting('CF_API_TOKEN', 'Cloudflare', 'API token', secret=True,
@@ -198,6 +198,24 @@ SETTINGS: tuple[Setting, ...] = (
             placeholder='/srv/datos 755\n/srv/datos/public 755\n/srv/datos/private 750',
             used_by=('configure_service',)),
 
+    # --- Builds ---
+    # Donde queda cada build de `build_flutter`, relativo a la carpeta de la app.
+    # Vacia, donde lo deja el framework: la marca de agua dice cual es. Con valor,
+    # el build se copia ahi y la subida al VPS lo toma de ahi. Sin `used_by`: las
+    # reclama la casilla de cada plataforma (`AxisDef.uses_env` del catalogo), y
+    # solo se muestran las de las plataformas marcadas.
+    *(Setting(f'BUILD_OUT_{clave}', 'Builds', f'Carpeta del build {nombre}',
+              placeholder=defecto)
+      for clave, nombre, defecto in (
+          ('APK', 'APK', 'build/app/outputs/flutter-apk · en Flet: build/apk'),
+          ('AAB', 'AAB', 'build/app/outputs/bundle/release · en Flet: build/aab'),
+          ('WEB', 'web', 'build/web'),
+          ('WINDOWS', 'Windows', 'build/windows/x64/runner/Release · en Flet: build/windows'),
+          ('LINUX', 'Linux', 'build/linux/x64/release/bundle · en Flet: build/linux'),
+          ('MACOS', 'macOS', 'build/macos/Build/Products/Release · en Flet: build/macos'),
+          ('IPA', 'iOS', 'build/ios/ipa · en Flet: build/ipa'),
+      )),
+
     # --- Maquina ---
     # El `PYINSTALLER_BIN` del script original, y por el mismo motivo: `pip
     # install pyinstaller` deja el ejecutable en el Scripts del usuario, que en
@@ -212,7 +230,7 @@ SETTINGS: tuple[Setting, ...] = (
             used_by=('build_binary',)),
 )
 
-GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'Web', 'GitHub', 'Systemd', 'Máquina')
+GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'Web', 'GitHub', 'Systemd', 'Builds', 'Máquina')
 
 # Los seguros del repo (`PROTECT_*`) NO estan aca y no son un `Setting`: no son
 # un dato que una tarea consuma —ningun paso lee uno— sino una decision de la

@@ -793,6 +793,7 @@ class TabPanel(ReorderableBar, QWidget):
         panel.set_env(self.env_panel.values())
         panel.execute_requested.connect(lambda payload, t=tab: self._run(t, payload))
         panel.params_changed.connect(self.params_changed.emit)
+        panel.params_changed.connect(lambda p=panel: self._refilter_env(p))
         panel.stop_requested.connect(lambda serial, t=tab: self._stop_live(t, serial))
         panel.clear_requested.connect(view.clear_console)
         self.params_stack.addWidget(panel)
@@ -981,6 +982,13 @@ class TabPanel(ReorderableBar, QWidget):
             # a mano, vuelve a abrirse — es lo que fuiste a buscar al clic.
             self.params_section.set_expanded(True, announce=False)
             QTimer.singleShot(0, self._relayout_right)
+
+    def _refilter_env(self, panel: ParamsPanel) -> None:
+        """Marcar o desmarcar un valor puede sumar o sacar claves del panel de
+        configuracion (`AxisDef.uses_env`), y eso solo importa en la pestana
+        que se esta mirando."""
+        if self.current_params() is panel:
+            self.env_panel.filter_for(panel.relevant_keys())
 
     def eventFilter(self, obj, event):
         """La columna derecha cambio de alto (ventana redimensionada, o la

@@ -3,7 +3,7 @@ import os
 from dataclasses import replace
 from pathlib import Path
 
-from . import android, cache, ssh, targets, vps
+from . import android, cache, ssh, targets, toolchain, vps
 from .envfile import Config
 from .errors import TaskError
 from .registry import registry, Capability, AxisDef, Step
@@ -235,18 +235,27 @@ SEMVER_MODES = ['major', 'minor', 'patch', 'none']
 _SEMVER_AXIS = lambda: AxisDef('bump_mode', SEMVER_MODES, 'scope', label='Bump',
                                default='patch')
 
-# El paso nucleo va en su orden real, entre el bump y la subida. A diferencia
-# de 'Compilar binario', 'Compilar APK' si se puede desmarcar: sin compilar, la
-# capacidad sube el APK que ya esta en disco. Es el modo que el script original
-# activaba con BUILD_APK=false, y la razon es economica — retomar un scp
-# cortado no deberia costar diez minutos de build.
-BUILD_APK_STEPS = [
+# El paso nucleo va en su orden real, entre el bump y la subida. 'Compilar' se
+# puede desmarcar: sin compilar, la capacidad sube lo que ya esta en disco. Es
+# el modo que el script original activaba con BUILD_APP=false, y la razon es
+# economica — retomar un scp cortado no deberia costar diez minutos de build.
+BUILD_FLUTTER_STEPS = [
     Step('bump', 'Subir número de versión'),
-    Step('build', 'Compilar APK', requires_env={'API_URL'}),
+    Step('build', 'Compilar', requires_env={'API_URL'}),
     Step('upload', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
-# Los mismos tres pasos del APK, con la misma semantica: 'Build Vite'
+# Solo las que esta maquina puede compilar: ofrecer Windows en Linux seria
+# ofrecer una casilla que siempre termina en error. Cada una trae su carpeta de
+# salida de `config.env`, que solo aparece en pantalla si la plataforma esta
+# marcada.
+_PLATFORMS_AXIS = lambda: AxisDef(
+    'platforms', toolchain.host_platforms(), 'checks', select='many',
+    label='Plataformas', defaults={'apk'},
+    labels={k: p.label for k, p in toolchain.BUILD_PLATFORMS.items()},
+    uses_env={k: {toolchain.out_key(k)} for k in toolchain.BUILD_PLATFORMS})
+
+# Los mismos tres pasos de Flutter, con la misma semantica: 'Build Vite'
 # desmarcado sube la carpeta compilada que ya esta en disco (el BUILD_SPA=false
 # del script original), y ahi el `npm install` que abre el paso de compilacion
 # es justo lo que no se quiere repetir para retomar un scp cortado.
@@ -597,8 +606,8 @@ def load_catalog() -> None:
     # framework no se pregunta aparte porque viaja dentro del target elegido.
     # `bump_mode` es una lista cerrada, no un texto: va como opción excluyente
     # (igual que `dry_run` en clean_artifacts) y no como campo escrito.
-    registry.register(Capability(id='build_apk', name='Build APK', group='Builders', section='Build APK', kind='once', icon='📦', description='Deja un APK de release al día, listo para instalar o publicar.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('directory', [], 'scope', label='App móvil', discover=targets.MOBILE_APP), _BUMP_AXIS()], steps=BUILD_APK_STEPS, stub=True))
-    # Homologo de `build_apk`: mismas atomicas compuestas, mismos tres pasos.
+    registry.register(Capability(id='build_flutter', name='Build Flutter', group='Builders', section='Build Flutter', kind='once', icon='📦', description='Compila la app Flutter o Flet para las plataformas marcadas: APK, web, escritorio o iOS.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('directory', [], 'scope', label='App', discover=targets.MOBILE_APP), _PLATFORMS_AXIS(), _BUMP_AXIS()], steps=BUILD_FLUTTER_STEPS, stub=True))
+    # Homologo de `build_flutter`: mismas atomicas compuestas, mismos tres pasos.
     # Lo unico propio es que su eje es `many` — un repo tiene una app móvil y
     # tres SPA — y como es una capacidad que termina, las marcadas se recorren
     # en un bucle dentro de `build_vite`, no en una pestaña por cada una.

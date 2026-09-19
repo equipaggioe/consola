@@ -797,10 +797,15 @@ class ParamsPanel(QWidget):
 
     def relevant_keys(self) -> set[str]:
         """Claves de `.env` que esta accion puede llegar a necesitar (todos los
-        pasos, no solo los activos) — para filtrar el panel de configuracion."""
+        pasos, no solo los activos) — para filtrar el panel de configuracion.
+
+        Las de `uses_env` si siguen a lo marcado: son de un valor del eje y no
+        de la accion, y se releen cada vez que cambia la seleccion."""
         needed = set(relevant_keys_for(self.capability.id))
         for axis in self.capability.axes:
             needed |= axis.all_keys
+            for valor in self.selection(axis.name) + self.option_values(axis.name):
+                needed |= axis.uses_env.get(valor, set())
         for step in self.steps:
             needed |= step.requires_env
             needed |= set(relevant_keys_for(step.id))
