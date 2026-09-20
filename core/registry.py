@@ -44,9 +44,6 @@ class AxisDef:
                                 # valor real es un id feo
                                 # (`system-images;android-36;google_apis;x86_64`)
                                 # y lo que se elige es "Android 36 | Google APIs".
-    placeholder: str = ''       # solo expand='field': marca de agua del campo. Para cuando el
-                                # ejemplo ayuda a escribir el valor pero no es un default que
-                                # convenga dejar puesto (las rutas a copiar cambian por repo).
     multiline: bool = False     # solo expand='field': caja de varios renglones, un valor por
                                 # linea. Para listas cortas que se escriben a mano (las rutas
                                 # a copiar): en una sola linea no se ve donde termina cada una.
@@ -284,7 +281,7 @@ class Capability:
             escrito = (payload.get('fields') or {}).get(axis.name, '')
             # Una caja de varios renglones ES una lista: un valor por linea. Lo
             # que la separa es el salto de linea, no una coma que despues haya
-            # que explicar en un placeholder.
+            # que explicar al costado del campo.
             if axis.multiline:
                 return [ln.strip() for ln in escrito.splitlines() if ln.strip()]
             if axis.cast == 'int':

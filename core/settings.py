@@ -13,7 +13,14 @@ class Setting:
     label: str = ''
     secret: bool = False
     default: str = ''
-    placeholder: str = ''
+    default_hint: str = ''  # El default, escrito a mano, para cuando no hay un
+                        # `default` que poner: lo que pasa con el campo vacio no
+                        # es un valor que se guarde, sino donde lo deja otro (la
+                        # carpeta de build de cada framework). Se muestra de
+                        # marca de agua igual que un default resuelto, asi que
+                        # solo entra aca lo que de verdad se va a usar: una
+                        # explicacion de que va en el campo se leeria como un
+                        # valor ya cargado.
     kind: str = 'text'  # 'text' | 'list'. 'list' es un campo multilinea: una
                         # entrada por renglon, guardadas separadas por comas.
     scope: str = 'repo'  # 'repo' = va a `.consola/config.env`, porque el valor
@@ -50,7 +57,6 @@ SETTINGS: tuple[Setting, ...] = (
     # No la exige nadie: el build de Flutter la pide por paso (`BUILD_FLUTTER_STEPS`) y
     # `run_mobile` cae en la URL del backend de esta sesion si esta vacia.
     Setting('API_URL', 'Server', 'URL publica de la API',
-            placeholder='https://ejemplo.net:443',
             used_by=('backend', 'run_mobile', 'build_flutter')),
 
     # --- Cloudflare ---
@@ -90,7 +96,6 @@ SETTINGS: tuple[Setting, ...] = (
     # separada por comas, que es lo unico que entra en un renglon de .env;
     # `envfile.split_list` acepta las dos formas al leerla.
     Setting('SECRET_FILES', 'VPS', 'Archivos a copiar', kind='list',
-            placeholder='server/.env, server/certs/cert.pem, server/certs/key.pem',
             used_by=('publish_code', 'update_remote', 'upload_secret_files',
                      'bootstrap_vps')),
     # Vacio, el rol es el mismo usuario de despliegue (`Config._dynamic_default`).
@@ -105,7 +110,6 @@ SETTINGS: tuple[Setting, ...] = (
     # llamadas sin decir por que. `used_by` y no `required_by`: vacio significa
     # "todavia no se genero", no "falta un dato".
     Setting('TURN_SECRET', 'VPS', 'Secreto TURN', secret=True,
-            placeholder='se genera solo al configurar coturn',
             used_by=('configure_coturn',)),
     # Los puertos del TURN son datos y no parametros por la misma razon que el
     # secreto: el backend tiene que anunciar en sus `turn:` URLs exactamente los
@@ -132,7 +136,7 @@ SETTINGS: tuple[Setting, ...] = (
     # disponible, y crearla en la base es este paso aparte. Si el paquete no
     # esta, `enable_extensions` avisa y sigue en vez de romper el bootstrap.
     Setting('DB_EXTENSIONS', 'VPS', 'Extensiones de Postgres', kind='list',
-            default='postgis', placeholder='postgis, pg_trgm, unaccent',
+            default='postgis',
             used_by=('bootstrap_db', 'enable_extensions', 'bootstrap_vps')),
 
     # --- Web ---
@@ -150,19 +154,16 @@ SETTINGS: tuple[Setting, ...] = (
     # `*` es el catch-all y va ultimo. Sin comas en ningun valor: son el
     # separador con el que se guarda la lista.
     Setting('CADDY_ROUTES', 'Web', 'Rutas del proxy', kind='list',
-            placeholder='/api/* proxy $BACKEND_HOST:$BACKEND_PORT\n/admin/* spa backoffice\n* spa pwa',
             required_by=('configure_caddy',)),
     # La unica cabecera de seguridad que cambia entre proyectos. Las otras tres
     # —HSTS, nosniff, Referrer-Policy— tienen un solo valor sensato y las escribe
     # `configure_caddy` sin preguntar: son de las que se olvidan, no de las que
     # se eligen. Vacia significa no emitir CSP, que es lo que corresponde
     # mientras el sitio todavia no la tenga pensada.
-    Setting('CSP', 'Web', 'Content-Security-Policy',
-            placeholder="default-src 'self'", used_by=('configure_caddy',)),
+    Setting('CSP', 'Web', 'Content-Security-Policy', used_by=('configure_caddy',)),
 
     # --- GitHub ---
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
-            placeholder='git@github.com:usuario/repo.git',
             required_by=('update_remote', 'setup_github_ssh', 'bootstrap_vps')),
     Setting('GITHUB_TOKEN', 'GitHub', 'Token', secret=True,
             required_by=('setup_github_ssh', 'revoke_github_ssh')),
@@ -195,7 +196,6 @@ SETTINGS: tuple[Setting, ...] = (
     # con un `tmpfiles.d`, que systemd vuelve a aplicar en cada arranque. Vacia
     # si el repo no guarda nada fuera del codigo.
     Setting('SERVICE_DIRS', 'Systemd', 'Carpetas del servicio', kind='list',
-            placeholder='/srv/datos 755\n/srv/datos/public 755\n/srv/datos/private 750',
             used_by=('configure_service',)),
 
     # --- Builds ---
@@ -205,7 +205,7 @@ SETTINGS: tuple[Setting, ...] = (
     # reclama la casilla de cada plataforma (`AxisDef.uses_env` del catalogo), y
     # solo se muestran las de las plataformas marcadas.
     *(Setting(f'BUILD_OUT_{clave}', 'Builds', f'Carpeta del build {nombre}',
-              placeholder=defecto)
+              default_hint=defecto)
       for clave, nombre, defecto in (
           ('APK', 'APK', 'build/app/outputs/flutter-apk · en Flet: build/apk'),
           ('AAB', 'AAB', 'build/app/outputs/bundle/release · en Flet: build/aab'),
@@ -226,7 +226,6 @@ SETTINGS: tuple[Setting, ...] = (
     # no del proyecto. En `config.env` habia que escribir la misma ruta en cada
     # repo, y nueve copias de un dato son ocho oportunidades de que discrepen.
     Setting('PYINSTALLER_BIN', 'Máquina', 'Ruta de PyInstaller', scope='machine',
-            placeholder='se busca en el venv de la app y en el PATH',
             used_by=('build_binary',)),
 )
 

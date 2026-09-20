@@ -624,8 +624,7 @@ def load_catalog() -> None:
         id='create_spa', name='Nueva SPA', group='Builders', section='Build Vite',
         kind='once', icon='✨',
         description='Crea en el repo una SPA en blanco con SvelteKit, runes y UnoCSS.',
-        axes=[AxisDef('name', [''], 'field', label='Carpeta',
-                      placeholder='panel · backoffice · landing')],
+        axes=[AxisDef('name', [''], 'field', label='Carpeta')],
         stub=True))
     registry.register(Capability(id='build_vite', name='Build Vite', group='Builders', section='Build Vite', kind='once', icon='🏗️', description='Deja compiladas las SPA del repo, listas para que el proxy las sirva.', composed_of=['bump_version', 'upload_to_vps'], axes=[AxisDef('directories', [], 'checks', select='many', label='Apps', discover=(targets.SPA_VITE,)), _SEMVER_AXIS()], steps=BUILD_VITE_STEPS, stub=True))
     # El tercer builder, con los mismos pasos y el mismo `bump` SemVer que Vite
@@ -641,12 +640,9 @@ def load_catalog() -> None:
         section='Build binario', kind='once', icon='⚡',
         description='Empaqueta una app Python del repo como ejecutable descargable.',
         composed_of=['bump_version', 'upload_to_vps'],
-        axes=[AxisDef('entrypoint', [''], 'field', label='Punto de entrada',
-                      placeholder='se deduce: src/main.py de la app Python del repo'),
-              AxisDef('name', [''], 'field', label='Nombre del ejecutable',
-                      placeholder='se deriva de la app, con la etiqueta de la plataforma'),
-              AxisDef('icon', [''], 'field', label='Ícono',
-                      placeholder='assets/icon.ico'),
+        axes=[AxisDef('entrypoint', [''], 'field', label='Punto de entrada'),
+              AxisDef('name', [''], 'field', label='Nombre del ejecutable'),
+              AxisDef('icon', [''], 'field', label='Ícono'),
               # Las dos decisiones de PyInstaller que cambian *que* se entrega:
               # un archivo suelto o una carpeta, y con o sin consola detras.
               AxisDef('onefile', ['un archivo', 'carpeta'], 'scope',
@@ -693,8 +689,7 @@ def load_catalog() -> None:
               # Vacio a proposito: el nombre se deriva del dispositivo y la API
               # (`pixel_4_api36`). Solo se escribe cuando hace falta distinguir
               # dos AVD del mismo modelo.
-              AxisDef('name', [''], 'field', label='Nombre del AVD',
-                      placeholder='se deriva del dispositivo y la API')],
+              AxisDef('name', [''], 'field', label='Nombre del AVD')],
         stub=True))
     registry.register(Capability(
         id='launch_emulator', name='Emulador', group='Emulators',
@@ -726,8 +721,7 @@ def load_catalog() -> None:
               # (`-no-boot-anim`, `-netdelay none`...) en vez de reemplazarlos.
               # Una sola linea porque es una linea de comandos: se parte en
               # tokens como la partiria una shell, y `-memory 4096` son dos.
-              AxisDef('flags', [''], 'field', label='Flags extra del emulador',
-                      placeholder='-memory 4096 -http-proxy …')],
+              AxisDef('flags', [''], 'field', label='Flags extra del emulador')],
         live_state=ANDROID_RUNNING,
         stub=True))
     # Un solo boton de limpieza para las dos cosas que ocupan disco: el AVD
@@ -788,7 +782,7 @@ def load_catalog() -> None:
     # VPS · ops group
     registry.register(Capability(id='ssh_login', name='Sesión SSH', group='VPS · ops', section='Conexión', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
     registry.register(Capability(id='health_check', name='Health check', group='VPS · ops', section='Diagnóstico', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))
-    registry.register(Capability(id='run_command', name='Comando remoto', group='VPS · ops', section='Diagnóstico', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', axes=[AxisDef('command', [''], 'field', label='Comando', placeholder='systemctl status … · df -h · journalctl -n 50')], stub=True))
+    registry.register(Capability(id='run_command', name='Comando remoto', group='VPS · ops', section='Diagnóstico', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', axes=[AxisDef('command', [''], 'field', label='Comando')], stub=True))
     registry.register(Capability(id='run_setup_scripts', name='Correr setup remoto', group='VPS · ops', section='Setup', kind='once', icon='📜', description='Prepara la base del ámbito elegido encadenando los botones de Base de datos.', composed_of=['bootstrap_db', 'rebuild_db'], axes=[_SCOPE_AXIS()], steps=RUN_SETUP_SCRIPTS_STEPS, stub=True))
     registry.register(Capability(id='revoke_ssh', name='Revocar SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Quita del VPS la clave pública con la que entra esta máquina.', steps=REVOKE_SSH_STEPS, stub=True))
     registry.register(Capability(id='revoke_github_ssh', name='Revocar GitHub SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Borra la deploy key del VPS y la da de baja en GitHub.', composed_of=['remove_remote_ssh_key_files', 'revoke_github_key'], steps=REVOKE_GITHUB_SSH_STEPS, stub=True))
@@ -1016,7 +1010,7 @@ def load_catalog() -> None:
         axes=[AxisDef('install_dir', [FLUTTER_DIR_DEFAULT], 'field', label='Directorio')],
         stub=True))
     registry.register(Capability(id='update_cloudflare', name='Actualizar Cloudflare', group='Utils', section='DNS', kind='once', icon='☁️', description='Apunta el registro DNS de Cloudflare a la IP pública actual.', stub=True))
-    registry.register(Capability(id='sync_common_files', name='Sync archivos comunes', group='Utils', section='Sync', kind='destructive', icon='🔄', description='Copia los archivos compartidos a los otros repos; en simulacro solo compara.', axes=[AxisDef('targets', [''], 'field', label='Repos destino', multiline=True, placeholder='una ruta de repo por línea'), AxisDef('paths', [''], 'field', label='Archivos a copiar', multiline=True, placeholder='vacío = los archivos comunes del catálogo'), AxisDef('apply', ['simulacro', 'aplicar'], 'scope', label='Modo', truthy='aplicar', labels={'simulacro': 'Simulacro', 'aplicar': 'Aplicar'})], stub=True))
+    registry.register(Capability(id='sync_common_files', name='Sync archivos comunes', group='Utils', section='Sync', kind='destructive', icon='🔄', description='Copia los archivos compartidos a los otros repos; en simulacro solo compara.', axes=[AxisDef('targets', [''], 'field', label='Repos destino', multiline=True), AxisDef('paths', [''], 'field', label='Archivos a copiar', multiline=True), AxisDef('apply', ['simulacro', 'aplicar'], 'scope', label='Modo', truthy='aplicar', labels={'simulacro': 'Simulacro', 'aplicar': 'Aplicar'})], stub=True))
 
     # Hidden atomic capabilities
     # Apagar no es un boton del rail: cerrar la pestana del emulador ya lo

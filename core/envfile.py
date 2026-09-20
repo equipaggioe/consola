@@ -90,12 +90,10 @@ def describe(setting) -> str:
         bits.append(setting.label)
     if setting.secret:
         bits.append('secreto')
-    if setting.placeholder:
-        # El de una `list` trae un renglon por entrada: en el comentario van en
-        # una sola linea, o las siguientes quedan sin `#` en el archivo.
-        bits.append(f'ej. {", ".join(setting.placeholder.splitlines())}')
-    elif setting.default:
+    if setting.default:
         bits.append(f'por defecto: {setting.default}')
+    elif setting.default_hint:
+        bits.append(f'por defecto: {setting.default_hint}')
     elif setting.key in _DYNAMIC_DEFAULT_HINTS:
         bits.append(f'por defecto: {_DYNAMIC_DEFAULT_HINTS[setting.key]}')
     return ' · '.join(bits)

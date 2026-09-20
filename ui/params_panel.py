@@ -400,9 +400,6 @@ class ParamsPanel(QWidget):
 
             # `values[0]` es el valor por defecto, y se escribe en el campo en
             # vez de dejarlo de marca de agua: asi se ve que se va a usar.
-            # `placeholder` es lo contrario: un ejemplo del formato para un
-            # campo que arranca vacio a proposito (las rutas a copiar), y que
-            # no debe prellenarse con algo que este repo quiza no tiene.
             default = axis.values[0] if axis.values else ''
             if axis.multiline:
                 field = QPlainTextEdit(default)
@@ -418,7 +415,11 @@ class ParamsPanel(QWidget):
                     # explicar despues por que el puerto volvio a 8000.
                     field.setValidator(QIntValidator(0, 2_147_483_647, field))
                 field.textChanged.connect(self._refresh_summary)
-            field.setPlaceholderText(axis.placeholder or default)
+            # La marca de agua repite el default y nada mas: si el campo se
+            # vacia, lo que se ve es lo que va a correr. Un texto que explique
+            # que va en el campo ocuparia este mismo lugar y se leeria como un
+            # valor — eso va en la etiqueta, no aca.
+            field.setPlaceholderText(default)
             field.setStyleSheet(f"""
                 QLineEdit, QPlainTextEdit {{
                     background: {Colors.SURFACE_ALT}; border: 1px solid {Colors.BORDER};

@@ -80,7 +80,13 @@ class EnvRow(QWidget):
         # `default_display` es el default ya resuelto para ESTE repo (fijo o
         # dinamico, ej. VPS_USER -> nombre de carpeta): dejar el campo vacio
         # no es un error, corre con lo que se ve de marca de agua aca.
-        self.field.setPlaceholderText(setting.placeholder or default_display or setting.key)
+        #
+        # Y solo eso —o el `default_hint` de las que no tienen default que
+        # resolver—: sin ninguno de los dos la marca de agua queda vacia. Antes
+        # caia en el nombre de la clave, que no es un valor sino un recordatorio
+        # de que va en el campo — en el mismo gris y el mismo lugar que el
+        # default de la fila de al lado, se lee como si ya hubiera algo cargado.
+        self.field.setPlaceholderText(default_display or setting.default_hint)
         self.field.textChanged.connect(self._on_text)
 
         lay.addWidget(self.label)
@@ -94,7 +100,7 @@ class EnvRow(QWidget):
         """Actualiza la marca de agua con el default recalculado — el de
         `PUBLIC_HOST` o `DB_NAME` cambia con lo que se escriba en otras
         claves, asi que no queda fijo desde que se construyo la fila."""
-        self.field.setPlaceholderText(self.setting.placeholder or default_display or self.setting.key)
+        self.field.setPlaceholderText(default_display or self.setting.default_hint)
 
     @property
     def _is_list(self) -> bool:
