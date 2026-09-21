@@ -84,7 +84,7 @@ Un patrón es **un host más una ruta**, y las dos partes van escritas ([ADR-004
 
 Un patrón sin host **corta**. El host va aunque el repo no tenga proxy: la tabla dice dónde se publica cada cosa, no quién la sirve ([ADR-0020](../adr/0020-ruta-publica-no-implica-proxy.md)), y esa dirección tiene host igual.
 
-La forma es **un host por pieza**: dos piezas bajo un mismo host comparten `localStorage`, cookies y el scope del service worker, y una sesión pisa a la otra. Varias rutas bajo un mismo host quedan para lo que no es una pieza aparte —los archivos estáticos de una API— y para un repo sin proxy cuyo backend monta sus SPA bajo rutas.
+Las dos formas valen y el generador no prefiere ninguna. Lo que las separa es el **origen del navegador**: `localStorage`, `IndexedDB`, el scope del service worker y la CSP son por origen, así que dos aplicaciones bajo un mismo host comparten todo eso. A cambio, separarlas en dos hosts trae CORS, un registro DNS por pieza y un certificado por pieza. Cuál conviene depende de si las piezas de ese repo comparten sesión ([ADR-0040](../adr/0040-una-regla-es-host-mas-ruta.md)).
 
 | Tipo | Destino | Qué hace Caddy |
 |---|---|---|

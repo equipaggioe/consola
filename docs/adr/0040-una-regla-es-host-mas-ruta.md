@@ -41,14 +41,20 @@ cuando cada pieza cuelga de la raíz de su host.
    aplicaba callada a todos, y con eso una fila con el host mal escrito no se notaba.
 7. **Los destinos se indexan por identidad de la regla, no por su patrón.** Con un host por
    pieza, `*` es el patrón de casi todas y un diccionario por patrón las pisaba entre sí.
-8. **La forma recomendada es un host por pieza**, incluso cuando el repo publica una sola.
-   Un host extra cuesta un registro DNS y el certificado sale solo; empezar por rutas y
-   después necesitar orígenes separados cuesta cambiar URLs, romper enlaces guardados y
-   volver a registrar service workers.
+8. **Las dos formas valen, y cada repo elige la suya.** Un host por pieza y varias rutas bajo
+   un host son igual de expresables, y el generador no prefiere ninguna.
 
-   Varias rutas bajo un mismo host siguen siendo expresables, porque hay dos casos que no son
-   piezas separadas: los archivos estáticos de una API, que son suyos y no una aplicación con
-   su propio almacenamiento, y un repo sin proxy cuyo backend monta sus SPA bajo rutas.
+   Lo que las separa es el **origen del navegador**: `localStorage`, `IndexedDB`, el scope del
+   service worker y la CSP son por origen. Dos aplicaciones bajo un mismo host comparten todo
+   eso, y si las dos guardan sesión con las mismas claves, una pisa a la otra. Eso se puede
+   resolver sin separar el host —nombrando distinto las claves y acotando el scope—, así que
+   es disciplina, no imposibilidad.
+
+   A cambio, separar el host trae CORS: la SPA deja de llamar a su API en el mismo origen, y
+   aparecen los orígenes permitidos, el preflight y las entradas de `connect-src`. Más un
+   registro DNS y un certificado por pieza.
+
+   Cuál conviene depende de si las piezas del repo comparten sesión, no de una regla general.
 
 ## Consecuencias
 
@@ -61,8 +67,9 @@ cuando cada pieza cuelga de la raíz de su host.
   comprueba las dos topologías, la CSP por sitio y el catch-all por host.
 - Una tabla con varios hosts necesita que los registros DNS existan antes de recargar Caddy,
   o el certificado de ese sitio no sale.
-- Una SPA que queda sola en su host deja de compilarse con `base`, así que el valor con el que
-  llama a la API tiene que pasar a ser absoluto: deja de alcanzarla por ruta relativa.
+- Mover una pieza de una ruta a un host propio la deja sin `base`, y el valor con el que llama
+  a la API pasa a ser absoluto: deja de alcanzarla por ruta relativa, y el backend tiene que
+  aceptar el nuevo origen por CORS.
 
 ## Descartado
 
