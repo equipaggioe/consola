@@ -220,6 +220,26 @@ si no estaba.
 Queda pendiente decidir qué hace la cuarta pestaña del pie (`Configuración`), que ahora se queda sin
 su contenido previsto.
 
+### Una lista no decide el ancho de la columna
+
+Un `QComboBox` pide de mínimo lo que mide su entrada más larga. Con el catálogo del SDK adentro eso
+son **906px** para las system images y **570px** para los dispositivos: el panel entero no podía
+angostarse por debajo de eso, y la columna derecha —que ya reparte su alto entre tres secciones—
+aparecía con barras de desplazamiento por una etiqueta que ni siquiera se estaba leyendo.
+
+Tres arreglos, todos en `_pick_combo`/`_pick_title`:
+
+- `AdjustToMinimumContentsLengthWithIcon` + `setMinimumContentsLength(8)`: el control cerrado exige
+  ocho caracteres y se estira con la fila. 906px → 160px.
+- `_fit_popup`: lo que se recorta al cerrar se recupera al abrir. La lista desplegada se ensancha a
+  su entrada más larga (con tope), porque comparar entradas es justo lo que se hace ahí.
+- `setWordWrap(True)` en el rótulo: un `QLabel` sin wrap pide la frase entera, y
+  «Máquina virtual (instaladas)» exigía 364px — era el **rótulo**, no la lista, lo que no dejaba
+  angostar `Crear AVD`.
+
+`Crear AVD` pasó de exigir 396px a 192px. Lo que queda ancho es otra cosa y no un selector: las
+casillas de `Emulador` («Arranque en frío (ignora el snapshot)») piden 501px.
+
 ### El filtro sigue a lo marcado, no al catálogo
 
 El panel de abajo muestra **solo las claves que esta corrida va a leer**, con los parámetros tal

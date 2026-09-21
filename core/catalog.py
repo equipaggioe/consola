@@ -701,8 +701,13 @@ def load_catalog() -> None:
         description='Crea el dispositivo virtual eligiéndolo del catálogo del SDK.',
         axes=[AxisDef('device', [], 'pick', label='Dispositivo',
                       source=ANDROID_DEVICES),
+              # Sin `facets`, a diferencia de 'Instalar máquina': acá la lista
+              # son las que ya están bajadas, casi siempre una o dos. Partir dos
+              # entradas en tres listas no ahorra ninguna lectura y hace creer
+              # que hay un catálogo detrás — la forma del control estaría
+              # diciendo algo falso sobre cuántas opciones hay.
               AxisDef('image', [], 'pick', label='Máquina virtual (instaladas)',
-                      source=ANDROID_IMAGES_INSTALLED, facets=_IMAGE_FACETS)],
+                      source=ANDROID_IMAGES_INSTALLED)],
         stub=True))
     registry.register(Capability(
         id='launch_emulator', name='Emulador', group='Emulators',

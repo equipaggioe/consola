@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
@@ -81,6 +82,12 @@ def avd_home() -> Path:
 
 # --- catalogos y perfiles --------------------------------------------------
 
+# El numero de modelo dentro del nombre de un dispositivo, para ordenarlos del
+# nuevo al viejo. Exige que antes haya una palabra: sin eso, `3.7" WVGA` entra
+# como modelo 3 y los tamanos de pantalla se mezclan con los Pixel.
+_MODELO = re.compile(r'^[A-Za-z][A-Za-z ]*?\s(\d+)')
+
+
 @dataclass(frozen=True)
 class Device:
     """Un perfil de hardware del catalogo de `avdmanager list device`.
@@ -97,29 +104,52 @@ class Device:
 
     @property
     def label(self) -> str:
-        partes = [self.name or self.id]
-        if self.oem and self.oem.lower() != 'generic':
-            partes.append(self.oem)
-        return '  |  '.join(partes)
+        """Solo el modelo.
+
+        El fabricante estaba al lado y no distinguia nada: el catalogo entero
+        son 64 `Google` y 24 `Generic`, y `Generic` ya se omitia. O sea que la
+        mitad de cada etiqueta repetia la misma palabra y la otra mitad no la
+        decia — un dato que nunca cambia entre dos opciones no ayuda a elegir
+        entre ellas, solo gasta el ancho del panel.
+        """
+        return self.name or self.id
 
     @property
     def order(self) -> tuple:
-        """Telefonos y tablets primero; TV, reloj, auto y demas, despues.
+        """Telefonos y tablets primero; TV, reloj, auto y demas, despues. Y
+        dentro de cada familia, el modelo nuevo antes que el viejo.
 
         El catalogo viene ordenado por id, y asi la lista abre en
         "AI Glasses" — un dispositivo que casi nadie emula. Lo que se elige el
         99% de las veces es un telefono.
+
+        El desempate por nombre tampoco alcanzaba: alfabeticamente "Pixel 2" va
+        antes que "Pixel 9", asi que la lista abria en el telefono mas viejo de
+        la familia mas usada. Se ordena por numero de modelo descendente, igual
+        que las system images por API (`Image.order`), y lo que no tiene numero
+        (Pixel, Pixel Fold, Pixel Tablet) va despues de los que si.
         """
         familia = f'{self.tag} {self.id}'.lower()
+        clave = (-self._modelo, self.name or self.id)
         for marca in ('tv', 'wear', 'automotive', 'desktop', 'glasses', 'xr'):
             if marca in familia:
-                return (4, self.name or self.id)
+                return (4, *clave)
         for rango, marcas in enumerate((('pixel',),
                                         ('phone', 'nexus'),
                                         ('tablet', 'foldable', 'resizable'))):
             if any(m in familia for m in marcas):
-                return (rango, self.name or self.id)
-        return (3, self.name or self.id)
+                return (rango, *clave)
+        return (3, *clave)
+
+    @property
+    def _modelo(self) -> int:
+        """El numero de modelo del nombre: 9 en "Pixel 9 Pro", 10 en "Nexus 10".
+
+        Tiene que empezar por letra para no confundir el modelo con el tamano
+        de pantalla: `3.7" WVGA (Nexus One)` no es un Pixel 3.
+        """
+        match = _MODELO.match(self.name or self.id)
+        return int(match.group(1)) if match else 0
 
 
 @dataclass(frozen=True)

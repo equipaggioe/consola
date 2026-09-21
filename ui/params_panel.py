@@ -4,7 +4,7 @@ from dataclasses import replace
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QPushButton,
     QScrollArea, QFrame, QButtonGroup, QLineEdit, QPlainTextEdit, QComboBox,
-    QCompleter
+    QCompleter, QSizePolicy
 )
 from PySide6.QtCore import Qt, Signal, QThread
 from PySide6.QtGui import QIntValidator
@@ -69,6 +69,15 @@ _LIVE = '@live'
 # empezando cada uno donde termina su palabra se leen como tres controles
 # sueltos y no como las tres partes de una misma eleccion.
 _FACET_LABEL_WIDTH = 86
+
+# Ancho minimo de una lista cerrada, en caracteres. No es el ancho real: es lo
+# unico que el combo exige, para que despues se estire con la fila en vez de
+# empujarla (`_pick_combo`).
+_COMBO_MIN_CHARS = 8
+
+# Tope de lo que puede ensancharse una lista desplegada. Sin el, el catalogo de
+# system images abriria un desplegable mas ancho que la ventana.
+_POPUP_MAX_WIDTH = 460
 
 
 class ParamsPanel(QWidget):
@@ -281,6 +290,10 @@ class ParamsPanel(QWidget):
 
     def _pick_title(self, texto: str) -> QLabel:
         label = QLabel(texto)
+        # Con `wordWrap` el rotulo pide de minimo su palabra mas larga y no la
+        # frase entera: "Maquina virtual (instaladas)" exigia 364px y era el
+        # rotulo —no la lista— lo que no dejaba angostar la columna.
+        label.setWordWrap(True)
         label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
         )
@@ -298,6 +311,18 @@ class ParamsPanel(QWidget):
         combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         combo.setMinimumHeight(30)
         combo.setMaxVisibleItems(18)
+        # El ancho lo manda la columna, no el item mas largo. Por defecto un
+        # QComboBox pide de minimo lo que mide su entrada mas larga —y aca las
+        # hay de 50 caracteres ("Automotive (1408p landscape) with Google
+        # Play")—, asi que el panel entero no podia angostarse por debajo de
+        # eso y aparecian barras de desplazamiento en una columna que ya estaba
+        # apretada. Con esto el combo se conforma con `_COMBO_MIN_CHARS` y
+        # ocupa lo que la fila le de; lo largo se lee al desplegar, donde la
+        # lista se ensancha sola (`_fit_popup`).
+        combo.setSizeAdjustPolicy(
+            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        combo.setMinimumContentsLength(_COMBO_MIN_CHARS)
+        combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         if buscable:
             combo.setEditable(True)
             completer = QCompleter(combo.model(), combo)
@@ -392,6 +417,21 @@ class ParamsPanel(QWidget):
             indice = combo.findData(resuelto.get(facet.name, ''))
             combo.setCurrentIndex(max(indice, 0))
             combo.blockSignals(False)
+            self._fit_popup(combo)
+
+    def _fit_popup(self, combo: QComboBox) -> None:
+        """La lista desplegada se ensancha a lo que mide su entrada mas larga.
+
+        Es la contraparte de `_pick_combo`: el control cerrado se angosta con
+        la columna, y lo que se recorta ahi se recupera al abrirlo, que es
+        cuando de verdad hay que comparar entradas. Sin esto, angostar el
+        combo angostaba tambien el desplegable y las etiquetas quedaban
+        cortadas justo donde se estaba eligiendo.
+        """
+        metrics = combo.fontMetrics()
+        ancho = max((metrics.horizontalAdvance(combo.itemText(i))
+                     for i in range(combo.count())), default=0)
+        combo.view().setMinimumWidth(min(ancho + 28, _POPUP_MAX_WIDTH))
 
     def _fill_pick(self, axis: AxisDef) -> None:
         """(Re)carga las opciones de una lista larga, conservando lo elegido."""
@@ -414,6 +454,7 @@ class ParamsPanel(QWidget):
         indice = combo.findData(anterior)
         combo.setCurrentIndex(indice if indice >= 0 else 0)
         combo.blockSignals(False)
+        self._fit_popup(combo)
 
     def _fill_multi(self, axis: AxisDef) -> None:
         """(Re)crea las casillas de un eje que se llenó desde la máquina."""

@@ -35,7 +35,7 @@ Por eso `start_emulator` desaparece y quedan **tres actividades separadas**, má
 | Botón | Nivel | kind | Ejes |
 |---|---|---|---|
 | **Instalar máquina** (`install_system_image`) | A | once · machine | `image` — catálogo completo de system images, por característica |
-| **Crear AVD** (`create_avd`) | A | once · machine | `device` — catálogo de dispositivos · `image` — solo las instaladas, por característica (el nombre se pregunta al correr) |
+| **Crear AVD** (`create_avd`) | A | once · machine | `device` — catálogo de dispositivos · `image` — solo las instaladas, una lista (el nombre se pregunta al correr) |
 | **Emulador** (`launch_emulator`) | A | live · machine | `avd` — los ya creados · `wipe` — normal \| borrar datos · `boot_flags` · `gpu` · `flags` |
 | **Liberar disco** (`purge_emulators`) | A | destructive · machine | `avds` · `images` (casillas) · `dry_run` |
 
@@ -78,9 +78,31 @@ El orden de las opciones dentro de cada lista es el de `Image.order`, que ya exi
 antes que vieja, variantes de teléfono antes que las de TV o reloj, arquitectura nativa antes que
 la emulada. Así la combinación que aparece sin tocar nada es la que se quiere casi siempre.
 
-`Liberar disco` sigue listando las imágenes instaladas como casillas con su etiqueta entera: ahí no
-se está eligiendo una combinación sino marcando las que ocupan disco, y cada una es un objeto
-concreto que ya existe.
+**Solo en `Instalar máquina`.** `Crear AVD` elige entre las que ya están bajadas —casi siempre una
+o dos— y ahí las tres listas mienten sobre el tamaño del problema: la forma del control es lo
+primero que se lee, y tres selectores para dos entradas dicen «hay un catálogo detrás» cuando no lo
+hay. Partir dos opciones en tres preguntas no ahorra ninguna lectura; las suma. Misma razón por la
+que `Liberar disco` sigue listando las instaladas como casillas con su etiqueta entera: ahí no se
+elige una combinación, se marcan objetos concretos que ya existen.
+
+La regla, entonces: las características valen cuando la lista es un catálogo (cientos de
+combinaciones publicadas), no cuando es un inventario (lo que hay en esta máquina).
+
+### El dispositivo: sin fabricante, y del nuevo al viejo
+
+La etiqueta de cada dispositivo era `Pixel 9  |  Google`. El catálogo entero son **64 `Google` y 24
+`Generic`**, y `Generic` ya se omitía: o sea que la mitad de cada etiqueta repetía siempre la misma
+palabra y la otra mitad no decía nada. Un dato que no cambia entre dos opciones no ayuda a elegir
+entre ellas — solo gasta ancho de panel, que es justo lo que faltaba. Queda el modelo y nada más.
+
+El orden por familia ya estaba (teléfonos y tablets primero; TV, reloj y auto al final), pero el
+desempate era alfabético, y alfabéticamente `Pixel 2` va antes que `Pixel 9`: la lista abría en el
+teléfono más viejo de la familia más usada. Ahora desempata por número de modelo descendente
+(`Device._modelo`), igual que las system images por API. El número tiene que venir después de una
+palabra, para no confundir modelo con tamaño de pantalla: `3.7" WVGA (Nexus One)` no es un Pixel 3.
+
+Resultado: `Pixel 9`, `Pixel 9 Pro`, `Pixel 9 Pro Fold`, `Pixel 9 Pro XL`, `Pixel 9a`, `Pixel 8`…
+y los que no tienen número (`Pixel`, `Pixel Fold`, `Pixel Tablet`) después de los que sí.
 
 ### El nombre del AVD se pregunta al correr
 
