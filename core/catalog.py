@@ -91,8 +91,8 @@ def for_project(cap: Capability, root: Path | str | None) -> Capability:
     Los ejes descubiertos (ADR-0006) no pueden declararse en `load_catalog()`:
     el catalogo se arma una vez al arrancar y el repo cambia con el selector.
     Aca se les llenan los valores mirando el repo, justo antes de dibujar el
-    panel — en `navetta` el eje de SPA da tres, en un repo con solo `panel/` da
-    una, y un subproyecto nuevo aparece sin tocar el catalogo.
+    panel — un repo con tres SPA da tres valores, uno con una sola da uno, y un
+    subproyecto nuevo aparece sin tocar el catalogo.
 
     Lo mismo vale para los pasos: los que exigen una caracteristica que el repo
     no tiene (`Step.requires_repo`) no se dibujan. No van en ambar como los que

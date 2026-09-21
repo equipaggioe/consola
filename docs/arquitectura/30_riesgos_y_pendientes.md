@@ -35,7 +35,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 |---|---|---|
 | Bitácora, historial y presets en un SQLite de la máquina (`core/store.py`) | — | — |
 | Que la confirmación escrita de un destructivo sea **el nombre del repo** y no una palabra fija, para que el automatismo no erosione la comprobación | [0018](../adr/0018-seguro-por-repo-y-objetivo.md) | — |
-| Botón de Detener en la pestaña | [0005](../adr/0005-todo-pasa-por-taskcontext.md) | — |
+| Botón de Detener en la pestaña | — | — |
 | Capturas de pantalla publicables de las apps de un repo | — | [capturas.md](../planes/capturas.md) |
 | `build_binary` con eje `many` descubierto y `install_python_deps` | — | [apps-python.md](../planes/apps-python.md) |
 

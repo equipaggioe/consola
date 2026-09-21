@@ -62,4 +62,4 @@ El bloqueo no tiene escape por diseño: el seguro se quita en la sección Seguri
 
 `ctx.confirm(..., expect="TEXTO")` abre un campo de texto en vez de un sí/no: hay que escribir exactamente eso para que la acción corra ([11](11_ejecucion_de_tareas.md) §3). Hoy la usa **una sola** capacidad, `purge_emulators`, con la palabra `BORRAR` — que es justamente la que se queda fuera del seguro por repo, por ser de la máquina.
 
-El resto de los destructivos no pide escribir nada: o quedan bloqueados, o muestran el recordatorio con el repo a la vista. Que la palabra a escribir sea el nombre del repo —para que el automatismo no erosione la comprobación— está decidido y sin construir ([30](30_riesgos_y_pendientes.md), [ADR-0018](../adr/0018-seguro-por-repo-y-objetivo.md)).
+El resto de los destructivos no pide escribir nada: o quedan bloqueados, o muestran el recordatorio con el repo a la vista.

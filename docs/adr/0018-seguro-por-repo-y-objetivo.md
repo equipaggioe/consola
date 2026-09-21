@@ -1,6 +1,6 @@
 # ADR-0018 · El seguro de los destructivos es por repositorio y por tipo de objetivo, no por botón
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada, salvo el punto 8, marcado *(propuesta)*: no se confirmó ni se construyó
 - **Fecha:** 2026-09-21
 - **Alcance:** core/protection.py, ui/guard_dialog.py, ui/tab_panel.py, ui/security_panel.py
 
