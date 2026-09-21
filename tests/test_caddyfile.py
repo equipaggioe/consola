@@ -84,3 +84,35 @@ def test_catch_all_por_host_y_no_por_tabla():
         assert 'catch-all' in str(error)
     else:
         raise AssertionError('dos reglas del mismo host con el catch-all primero tienen que fallar')
+
+
+def test_csp_sin_host_es_la_de_todos_los_sitios():
+    """La forma en que ya estaba escrita antes de que `CSP` fuera una tabla.
+
+    Se distingue sin ambiguedad porque una politica empieza siempre con una
+    directiva y ninguna lleva punto, mientras que un host exige al menos uno.
+    """
+    politica = ("default-src 'self'; img-src 'self' data: blob:; "
+                "script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
+    conf = render(FakeConfig(
+        PUBLIC_HOST='concordia.ejemplo.net',
+        PUBLIC_ROUTES='/api/* proxy 127.0.0.1:8000,/backoffice/* spa /srv/back,* spa /srv/landing',
+        CSP=politica,
+    ))
+    assert f'Content-Security-Policy "{politica}"' in conf
+
+
+def test_una_tabla_por_rutas_sigue_dando_un_solo_sitio():
+    """Un repo publicado por subrutas no cambia de forma al poder nombrar hosts."""
+    conf = render(FakeConfig(
+        PUBLIC_HOST='concordia.ejemplo.net',
+        PUBLIC_ROUTES=('/api/* proxy 127.0.0.1:8000,/ws/* proxy 127.0.0.1:8000,'
+                       '/media/* static /var/storage/public,/backoffice/* spa /srv/back,'
+                       '/pwa/* spa /srv/pwa,* spa /srv/landing'),
+    ))
+    assert conf.count('encode zstd gzip') == 1
+    assert conf.startswith('concordia.ejemplo.net {')
+    assert 'uri strip_prefix /backoffice' in conf
+    assert 'uri strip_prefix /pwa' in conf
+    # El catch-all de la landing no recorta nada.
+    assert conf.rstrip().endswith('}')

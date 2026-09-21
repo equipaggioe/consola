@@ -37,7 +37,10 @@ cuando cada pieza cuelga de la raíz de su host.
    regla vieja las volvía imposibles de escribir.
 6. **`CSP` es por sitio**, una tabla `<host> <política>` con `*` para los que no tengan la
    suya. Una sola política para todos los sitios de un repo termina siendo la más permisiva
-   de todas, que no protege a ninguno.
+   de todas, que no protege a ninguno. Una fila **sin host** es la política de todos, igual
+   que un patrón sin host usa `PUBLIC_HOST`: lo que ya estaba escrito sigue significando lo
+   mismo. Se distingue sin ambigüedad porque una política empieza siempre con una directiva
+   —`default-src`, `script-src`— y ninguna lleva punto, mientras que un host exige al menos uno.
 7. **Los destinos se indexan por identidad de la regla, no por su patrón.** Con un host por
    pieza, `*` es el patrón de casi todas y un diccionario por patrón las pisaba entre sí.
 8. **La forma recomendada es un host por pieza**, incluso cuando el repo publica una sola.

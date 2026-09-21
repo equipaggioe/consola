@@ -188,16 +188,29 @@ CSP_DEFAULT_HOST = '*'
 
 
 def csp_by_host(config: Config) -> dict[str, str]:
-    """`CSP` interpretada: host -> politica, con `*` como la de los demas."""
+    """`CSP` interpretada: host -> politica, con `*` como la de los demas.
+
+    Una fila que no empieza con un host es la politica de todos los sitios, igual
+    que un patron de `PUBLIC_ROUTES` sin host usa `PUBLIC_HOST`: lo que estaba
+    escrito antes de que esto fuera una tabla sigue significando lo mismo.
+
+    Se puede distinguir sin ambiguedad porque una politica siempre empieza con
+    una directiva —`default-src`, `script-src`— y ninguna lleva punto, mientras
+    que `_HOST` exige al menos uno.
+    """
     politicas: dict[str, str] = {}
     for linea in split_list(config.get('CSP')):
-        host, _, politica = linea.strip().partition(' ')
+        linea = linea.strip()
+        if not linea:
+            continue
+        host, _, politica = linea.partition(' ')
+        if host != CSP_DEFAULT_HOST and not _HOST.match(host):
+            politicas[CSP_DEFAULT_HOST] = linea
+            continue
         politica = politica.strip()
         if not politica:
             raise TaskError(f'CSP mal formada: «{linea}». Va «<host> <politica>», y el host '
                             f'puede ser {CSP_DEFAULT_HOST} para todos los sitios.')
-        if host != CSP_DEFAULT_HOST and not _HOST.match(host):
-            raise TaskError(f'CSP: «{host}» no es un nombre de host ni {CSP_DEFAULT_HOST}.')
         politicas[host] = politica
     return politicas
 
