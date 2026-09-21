@@ -10,13 +10,21 @@ from .ssh import Remote, capture, quote, reachable, run, succeeds
 SUDO = 'sudo -n'
 
 
-# --- tabla de ruteo del proxy ----------------------------------------------
+# --- tabla de rutas publicas -----------------------------------------------
 #
 # Vive aca y no en `core/tasks/vps_setup.py`, que es quien escribe el Caddyfile,
 # porque la misma tabla la lee el build: si una SPA se publica bajo `/admin`,
 # Vite tiene que compilarla con ese `base` o sus assets se piden en la raiz.
 # Ese es todo el motivo por el que la ruta de cada SPA es un dato y no un eje —
 # dos botones distintos tienen que leer exactamente el mismo valor.
+#
+# La tabla dice bajo que ruta se publica cada cosa. NO dice quien la sirve: un
+# repo puede publicar su SPA en `/terminal` porque un proxy la mapea ahi o
+# porque su propio backend la montó ahi, y al build le da igual cual de las dos.
+# Por eso la clave es `PUBLIC_ROUTES` y no `CADDY_ROUTES`: Caddy es UN
+# consumidor de la tabla, no su dueño. Haberlas confundido hacia que un repo sin
+# proxy no tuviera donde declarar su ruta publica, y sus builds salian apuntando
+# a la raiz.
 
 # `$CLAVE` en una tabla de la configuracion, para no repetir un valor que ya
 # esta cargado en otra clave (`$BACKEND_HOST:$BACKEND_PORT`).
@@ -38,7 +46,7 @@ ROUTE_KINDS = ('proxy', 'spa', 'static')
 
 
 class Route:
-    """Una fila de `CADDY_ROUTES` ya interpretada."""
+    """Una fila de `PUBLIC_ROUTES` ya interpretada."""
 
     __slots__ = ('pattern', 'kind', 'target')
 
@@ -75,7 +83,7 @@ def parse_routes(lineas: list[str]) -> list[Route]:
                             'proxy <host:puerto>, spa <carpeta>, static <ruta>.')
         rutas.append(Route(patron, tipo, destino))
     if not rutas:
-        raise TaskError('CADDY_ROUTES esta vacia: sin reglas no hay nada que servir.')
+        raise TaskError('La tabla de rutas esta vacia: sin reglas no hay nada que servir.')
     if any(r.catch_all for r in rutas[:-1]):
         raise TaskError('El catch-all «*» tiene que ser la ultima regla: lo que va '
                         'despues nunca se alcanza.')
@@ -83,7 +91,17 @@ def parse_routes(lineas: list[str]) -> list[Route]:
 
 
 def routes(config: Config) -> list[Route]:
-    return parse_routes(split_list(config.get('CADDY_ROUTES')))
+    return parse_routes(route_lines(config))
+
+
+def route_lines(config: Config) -> list[str]:
+    """Las filas crudas de la tabla, sin interpretar.
+
+    `CADDY_ROUTES` es el nombre viejo de la misma clave y se sigue leyendo: los
+    repos que ya la tenian escrita no se quedan sin tabla por un renombre.
+    """
+    return (split_list(config.get('PUBLIC_ROUTES'))
+            or split_list(config.get('CADDY_ROUTES')))
 
 
 def resolve_target(config: Config, route: Route) -> str:
@@ -131,18 +149,49 @@ def render_tmpfiles(carpetas: list[tuple[str, str]], user: str) -> str:
     return ''.join(f'd {ruta} {modo} {user} {user} -\n' for ruta, modo in carpetas)
 
 
-def spa_base(config: Config, name: str) -> str:
-    """Bajo que ruta se publica esa SPA: `/admin`, o vacio si va en la raiz.
+def uses_proxy(config: Config) -> bool:
+    """Si algo se interpone entre internet y el backend de este repo.
 
-    Vacio tambien cuando el repo todavia no tiene tabla: el build no es el lugar
-    donde enterarse de que falta configurar el proxy, y la raiz es lo que hacia
-    antes de que la ruta fuera configurable.
+    La respuesta es "la tabla tiene alguna regla `proxy`", y no "la tabla existe".
+    Una regla `proxy` es, por definicion, alguien adelante que reenvia al
+    backend; si no hay ninguna, el backend contesta por si mismo aunque el repo
+    publique diez SPA bajo diez rutas distintas.
+
+    Antes esto era `hay tabla`, y de ahi salia que un repo sin proxy tampoco
+    tenia rutas publicas. Son dos preguntas: esta contesta quien escucha, y
+    `spa_base` contesta bajo que ruta se publica cada app.
     """
     try:
         tabla = routes(config)
     except TaskError:
-        return ''
-    for route in tabla:
+        return False
+    return any(route.kind == 'proxy' for route in tabla)
+
+
+def declares_routes(config: Config) -> bool:
+    """Si el repo declaro su tabla. Sin ella no hay ninguna ruta publica escrita."""
+    return bool(route_lines(config))
+
+
+def spa_base(config: Config, name: str) -> str | None:
+    """Bajo que ruta se publica esa SPA: `/admin`, vacio si va en la raiz del
+    dominio, o `None` si este repo no usa reverse proxy.
+
+    `None` y `''` eran el mismo valor y son dos cosas distintas. Un repo que no
+    declaro tabla no dijo bajo que ruta publica nada, y no hay ningun valor que
+    escribirle: devolver `''` ahi le dejaba adentro un `base.generated.js` que
+    nadie importa.
+
+    Con tabla, una SPA que no esta en ella si vale `''`: lo que no tiene regla
+    propia cuelga de la raiz.
+
+    Lo que se pregunta es si hay tabla, no si hay proxy. Quien sirva la ruta
+    —un proxy o el backend del propio repo— no cambia donde va a pedir sus
+    assets el navegador, que es lo unico que el build necesita saber.
+    """
+    if not declares_routes(config):
+        return None
+    for route in routes(config):
         if route.kind == 'spa' and route.target == name:
             return '' if route.catch_all else route.prefix
     return ''
@@ -237,10 +286,14 @@ def backend_listen(config: Config) -> tuple[str, int]:
 
     Lo usa `write_systemd_unit`, que es quien lo pone a escuchar. Estaba clavado
     en su firma (`host='0.0.0.0', port=443`) sin eje que lo ofreciera, asi que
-    no habia forma de moverlo. Las reglas `proxy` de `CADDY_ROUTES` apuntan aca
+    no habia forma de moverlo. Las reglas `proxy` de `PUBLIC_ROUTES` apuntan aca
     con `$BACKEND_HOST:$BACKEND_PORT`.
+
+    Sin fallback propio: el default de `BACKEND_HOST` depende de si el repo
+    tiene proxy y lo resuelve el esquema (`envfile.Config._dynamic_default`).
+    Repetir aca un `127.0.0.1` era el mismo valor decidido en dos lugares.
     """
-    return config.get('BACKEND_HOST', '127.0.0.1'), config.port('BACKEND_PORT', 8000)
+    return config.get('BACKEND_HOST'), config.port('BACKEND_PORT', 8000)
 
 
 def is_loopback(host: str) -> bool:

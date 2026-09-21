@@ -153,7 +153,10 @@ SETTINGS: tuple[Setting, ...] = (
     # Cada `$CLAVE` del destino se resuelve contra esta configuracion. El patron
     # `*` es el catch-all y va ultimo. Sin comas en ningun valor: son el
     # separador con el que se guarda la lista.
-    Setting('CADDY_ROUTES', 'Web', 'Rutas del proxy', kind='list',
+    # El nombre no menciona a Caddy a proposito: la tabla dice bajo que ruta se
+    # publica cada cosa, y quien la sirva —un proxy o el backend del propio
+    # repo— es otra pregunta. El build la necesita en los dos casos.
+    Setting('PUBLIC_ROUTES', 'Web', 'Rutas publicas', kind='list',
             required_by=('configure_caddy',)),
     # La unica cabecera de seguridad que cambia entre proyectos. Las otras tres
     # —HSTS, nosniff, Referrer-Policy— tienen un solo valor sensato y las escribe
@@ -178,10 +181,13 @@ SETTINGS: tuple[Setting, ...] = (
     # es un dato de a dos, y tenerlo en cada boton por separado seria dejar que
     # un lado quede apuntando a donde el otro ya no escucha.
     #
-    # El default es loopback y no 0.0.0.0:443 —lo que estaba clavado en la
-    # funcion— porque Caddy viene en `DEFAULT_GROUPS`: el backend de este
-    # catalogo corre detras de Caddy, y ahi el 443 lo toma Caddy.
-    Setting('BACKEND_HOST', 'Systemd', 'Escucha del backend', default='127.0.0.1',
+    # El default sale de si la tabla tiene alguna regla `proxy`
+    # (`envfile.Config._dynamic_default`) y no es fijo: con proxy adelante el
+    # backend solo tiene que ser alcanzable desde el propio VPS, y sin proxy el
+    # unico que contesta afuera es el. Era `127.0.0.1` para todos "porque Caddy
+    # viene en DEFAULT_GROUPS" — o sea, el unico repo con proxy decidiendo por
+    # los que no lo tienen.
+    Setting('BACKEND_HOST', 'Systemd', 'Escucha del backend',
             used_by=('configure_service', 'configure_caddy')),
     Setting('BACKEND_PORT', 'Systemd', 'Puerto del backend', default='8000',
             used_by=('configure_service', 'configure_caddy')),

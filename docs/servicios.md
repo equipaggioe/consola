@@ -86,11 +86,17 @@ Los datos de cada servicio, hoy:
 |---|---|
 | Backend | `SERVER_DIR`, `UVICORN_APP`, `BACKEND_HOST`, `BACKEND_PORT`, `CERT_FILE_PATH`, `KEY_FILE_PATH`, `SERVICE_DIRS` |
 | coturn | `PUBLIC_HOST`, `TURN_PORT`, `TURN_RELAY_RANGE`, `TURN_SECRET`, `CERT_FILE_PATH`, `KEY_FILE_PATH` |
-| Caddy | `PUBLIC_HOST`, `CADDY_ROUTES`, `CSP`, `BACKEND_HOST`, `BACKEND_PORT` |
+| Caddy | `PUBLIC_HOST`, `PUBLIC_ROUTES`, `CSP`, `BACKEND_HOST`, `BACKEND_PORT` |
 
 `BACKEND_HOST`/`BACKEND_PORT` aparecen dos veces a propósito: es una sola clave leída por los dos
 lados del mismo hecho —dónde escucha el backend y a dónde manda el proxy—, que es la forma de que
 no queden apuntando a lugares distintos.
+
+El default de `BACKEND_HOST` sale de la misma pregunta: `127.0.0.1` si hay tabla de rutas, porque
+ahí el único que tiene que alcanzarlo es el proxy; `0.0.0.0` si no la hay, porque entonces el que
+contesta afuera es el backend. Con loopback, `configure_service` además no le pone TLS a uvicorn
+ni abre el puerto en ufw — correcto detrás de un proxy, y en un repo sin proxy dejaba el servicio
+andando sin contestarle a nadie.
 
 ## 5. La tabla de rutas del proxy
 
@@ -98,7 +104,7 @@ El único dato de los tres que no es un escalar. Es una lista ordenada de reglas
 matchea gana — la misma forma que tienen por dentro los `handle` de Caddy, los `rewrites` de
 Vercel, los `_redirects` de Netlify y los `paths` de un Ingress de Kubernetes.
 
-Va en `CADDY_ROUTES`, un `Setting(kind='list')`: el panel lo edita con un renglón por regla y
+Va en `PUBLIC_ROUTES`, un `Setting(kind='list')`: el panel lo edita con un renglón por regla y
 conserva el orden. Se guarda separado por comas, así que **ningún valor puede contener una coma**.
 
 ```
@@ -120,12 +126,30 @@ raíz y esta otra en `/admin`».
 
 ## 6. El punto delicado: la ruta pública de cada SPA
 
-Aparece en dos lados y tiene que decir lo mismo:
+Todo esto es de los repos que declararon su tabla. Sin tabla nadie dijo bajo qué ruta se publica
+nada y no hay ruta pública que escribir: Consola compila el repo tal cual y no le deja adentro
+ningún `base.generated.js` — ni la SPA nueva de `create_spa` nace importándolo.
 
-- en la tabla de rutas, para que el proxy sirva la app bajo `/backoffice`;
+Lo que la tabla contesta es **bajo qué ruta se publica**, no **quién la sirve**. Un repo puede
+publicar su SPA en `/terminal` porque un proxy la mapea ahí o porque su propio backend la montó
+ahí; al build le da igual cuál de las dos, porque lo único que necesita saber es de dónde va a
+pedir sus assets el navegador. Por eso la clave es `PUBLIC_ROUTES` y no `CADDY_ROUTES`: Caddy es
+un consumidor de la tabla, no su dueño.
+
+Confundirlas tenía consecuencia concreta: un repo sin proxy no tenía dónde declarar su ruta y sus
+builds salían apuntando a la raíz. Le pasó a `posta`, que sirve su terminal Flutter bajo
+`/terminal` desde su propio FastAPI: el `index.html` salía con `<base href="/">`, el navegador
+pedía `flutter_bootstrap.js` a la raíz del dominio, recibía 404 y la página quedaba en blanco.
+
+Quién escucha dónde es la otra pregunta, y la contesta `uses_proxy()`: hay proxy cuando la tabla
+tiene alguna regla `proxy`, no cuando la tabla existe. De eso sale el default de `BACKEND_HOST`.
+
+Con tabla, la ruta aparece en dos lados y tiene que decir lo mismo:
+
+- en la tabla de rutas, para que quien sirva la app la publique bajo `/backoffice`;
 - en el repo, para que el build pida sus assets bajo `/backoffice/` y no en la raíz del dominio.
 
-La fuente de verdad es `CADDY_ROUTES`. Pero el valor no puede viajar por el entorno del build,
+La fuente de verdad es `PUBLIC_ROUTES`. Pero el valor no puede viajar por el entorno del build,
 porque entonces el repo no se compilaría bien sin Consola (regla 1). Así que Consola lo **escribe
 como literal** en un archivo que se commitea, y después ese archivo es del repo:
 
@@ -173,7 +197,7 @@ producción de concordia.
 
 **Consola**
 
-1. `configure_caddy`: generar el `Caddyfile` desde `CADDY_ROUTES` a `/etc/caddy/Caddyfile`,
+1. `configure_caddy`: generar el `Caddyfile` desde `PUBLIC_ROUTES` a `/etc/caddy/Caddyfile`,
    rompiendo el symlink si lo hubiera, y dejar la copia en `.consola/Caddyfile.generado`. Hecho.
 2. `compile_spa`: escribir `<spa>/base.generated.js` antes de compilar y verificar el HTML
    después. Hecho.

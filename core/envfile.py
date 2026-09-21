@@ -76,6 +76,7 @@ _DYNAMIC_DEFAULT_HINTS = {
     'DB_NAME': '<VPS_USER>_db',
     'GITHUB_KEY_TITLE': '<nombre del repo>-vps',
     'PUBLIC_HOST': '<CF_RECORD_NAME>, si no <CF_DOMAIN_NAME>, si no <VPS_IP>',
+    'BACKEND_HOST': '127.0.0.1 si hay una regla proxy, si no 0.0.0.0',
 }
 
 
@@ -280,6 +281,18 @@ class Config:
             # mismo nombre dos veces, y el panel lo muestra ya resuelto en vez
             # de explicar de donde saldria.
             return self.get('CF_RECORD_NAME') or self.get('CF_DOMAIN_NAME') or self.get('VPS_IP')
+        if key == 'BACKEND_HOST':
+            # Donde escucha depende de quien lo tiene que alcanzar. Con un proxy
+            # adelante el unico que lo alcanza es el proxy, y loopback es lo
+            # correcto: nada del backend queda expuesto. Sin nadie adelante,
+            # loopback dejaba el servicio andando y sin contestarle a nadie.
+            #
+            # La pregunta es si hay una regla `proxy`, no si hay tabla: un repo
+            # que sirve sus propios estaticos declara sus rutas publicas igual y
+            # sigue teniendo que escuchar afuera. Import diferido porque `vps`
+            # importa de aca.
+            from .vps import uses_proxy
+            return '127.0.0.1' if uses_proxy(self) else '0.0.0.0'
         return ''
 
     def require(self, key: str) -> str:

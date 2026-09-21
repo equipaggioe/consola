@@ -201,7 +201,7 @@ BASE_FILE = 'base.generated.js'
 def _write_base(ctx, spa: targets.Target, base: str) -> None:
     """Deja en la SPA el modulo con su ruta publica, para que su config lo importe.
 
-    La fuente de verdad de bajo que ruta vive cada SPA es `CADDY_ROUTES`, la
+    La fuente de verdad de bajo que ruta vive cada SPA es `PUBLIC_ROUTES`, la
     misma tabla con la que `configure_caddy` escribe el proxy. Pero el repo tiene
     que poder compilarse sin Consola, asi que el valor no viaja por el entorno
     del build: se escribe como un literal en un archivo que se commitea. Consola
@@ -211,7 +211,7 @@ def _write_base(ctx, spa: targets.Target, base: str) -> None:
     Es un archivo propio y no un parche sobre `svelte.config.js` o
     `vite.config.*`: Consola no edita codigo que no escribio ella.
     """
-    contenido = ('// Generado por Consola desde CADDY_ROUTES. Se sobrescribe al compilar.\n'
+    contenido = ('// Generado por Consola desde PUBLIC_ROUTES. Se sobrescribe al compilar.\n'
                  '// Ruta bajo la que el reverse proxy publica esta app.\n'
                  f'export const base = "{base}";\n')
     destino = spa.path / BASE_FILE
@@ -224,7 +224,7 @@ def _write_base(ctx, spa: targets.Target, base: str) -> None:
 def compile_spa(ctx, directory: str = '') -> Path:
     """`npm run build`, con la ruta publica escrita antes y comprobada despues.
 
-    Bajo que ruta vive cada SPA lo dice `CADDY_ROUTES`, la misma tabla que lee
+    Bajo que ruta vive cada SPA lo dice `PUBLIC_ROUTES`, la misma tabla que lee
     `configure_caddy`. Los dos lados tienen que decir lo mismo, y el desacuerdo
     no da error: el proxy sirve la app, el navegador pide sus assets en la raiz
     del dominio —donde vive la OTRA app— y lo que se ve es una pagina en blanco.
@@ -321,7 +321,7 @@ export default defineConfig(({ command }) => ({
 			},
 			// SPA estatica: la sirve el reverse proxy y el enrutamiento es del cliente.
 			adapter: adapter({ fallback: 'index.html' }),
-			// La base la escribe Consola desde CADDY_ROUTES; en `vite dev` la app va en la raiz.
+			// La base la escribe Consola desde PUBLIC_ROUTES; en `vite dev` la app va en la raiz.
 			paths: { base: command === 'build' ? deployedBase : '' }
 		})
 	]

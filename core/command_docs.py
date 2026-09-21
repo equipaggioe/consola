@@ -184,7 +184,7 @@ DOCS: dict[str, CommandDoc] = {
             'Corre npm install en la carpeta de la SPA.',
             'Escribe la versión nueva en el package.json, según el modo '
             'elegido.',
-            'Escribe base.generated.js con la ruta pública que CADDY_ROUTES le '
+            'Escribe base.generated.js con la ruta pública que PUBLIC_ROUTES le '
             'asigna a esa app.',
             'Corre npm run build.',
             'Busca la salida en dist/ o en build/.',
@@ -634,13 +634,13 @@ DOCS: dict[str, CommandDoc] = {
 
     'configure_caddy': CommandDoc(
         summary=(
-            'Escribe /etc/caddy/Caddyfile desde la tabla CADDY_ROUTES, abre el 80 '
+            'Escribe /etc/caddy/Caddyfile desde la tabla PUBLIC_ROUTES, abre el 80 '
             'y el 443 y deja Caddy sirviendo con HTTPS automático.'
         ),
         steps=[
             'Comprueba que el paquete caddy esté instalado en el VPS y que haya '
             'PUBLIC_HOST.',
-            'Lee CADDY_ROUTES y resuelve el destino de cada regla: la dirección '
+            'Lee PUBLIC_ROUTES y resuelve el destino de cada regla: la dirección '
             'de un proxy, la ruta de subida del build para una SPA, la carpeta '
             'declarada para un estático. Cada $CLAVE se reemplaza por su valor.',
             'Comprueba que existan en el VPS las carpetas de las reglas '

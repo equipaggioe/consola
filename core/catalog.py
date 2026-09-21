@@ -913,7 +913,7 @@ def load_catalog() -> None:
     # nombre de cada carpeta como prefijo de URL. Una topologia de proxy real no
     # sale de dos preguntas: es una lista ordenada de reglas, y es un dato del
     # despliegue (existiria igual escribiendo el Caddyfile a mano), asi que vive
-    # en `CADDY_ROUTES` y no en los parametros del boton. La misma tabla la lee
+    # en `PUBLIC_ROUTES` y no en los parametros del boton. La misma tabla la lee
     # `compile_spa` para saber con que `base` compilar cada SPA.
     registry.register(Capability(
         id='configure_caddy', name='Configurar Caddy', group='VPS · setup',

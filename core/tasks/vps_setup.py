@@ -326,7 +326,7 @@ def _caddyfile(*, domain: str, routes: list[vps.Route], destinos: dict[str, str]
 
     Cada regla es un `handle`, en el orden en que vino: gana la primera que
     matchea, que es la semantica de Caddy y la razon por la que el orden de
-    `CADDY_ROUTES` es informacion y no presentacion.
+    `PUBLIC_ROUTES` es informacion y no presentacion.
     """
     cuerpo = ['\tencode zstd gzip']
 
@@ -374,13 +374,13 @@ def _save_reference(ctx, conf: str) -> None:
     destino = ctx.root / envfile.CONSOLA_DIR / CADDY_REFERENCE
     destino.parent.mkdir(parents=True, exist_ok=True)
     encabezado = (f'# Copia de referencia. El que usa Caddy es {CADDYFILE} en el VPS.\n'
-                  f'# Lo genera Consola desde CADDY_ROUTES: editar esto no cambia nada.\n\n')
+                  f'# Lo genera Consola desde PUBLIC_ROUTES: editar esto no cambia nada.\n\n')
     destino.write_text(encabezado + conf, encoding='utf-8', newline='\n')
     ctx.info(f'Copia de referencia: {destino}')
 
 
 def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
-    """Escribe el Caddyfile del VPS a partir de `CADDY_ROUTES` y deja Caddy sirviendo.
+    """Escribe el Caddyfile del VPS a partir de `PUBLIC_ROUTES` y deja Caddy sirviendo.
 
     Caddy queda adelante de todo: toma el 80 y el 443, saca y renueva el
     certificado solo y reparte segun la tabla de ruteo. Esa tabla es un dato del
