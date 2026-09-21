@@ -14,6 +14,7 @@ from ui.project_tabs import ProjectTabBar
 from ui import project_store, params_store, readiness, favorites
 from ui.theme import Colors, Fonts
 from ui.widgets import ToggleSwitch
+from core.catalog import applicable_ids
 from core.registry import registry
 from core.projects import Project
 
@@ -310,6 +311,7 @@ class MainWindow(QMainWindow):
             workspace.machine_changed.connect(self.status_bar.refresh_tools)
             workspace.favorite_changed.connect(self._on_favorites_changed)
             workspace.sections_changed.connect(self._on_sections_changed)
+            workspace.repo_ready.connect(self.project_tabs.open_path)
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -426,6 +428,7 @@ class MainWindow(QMainWindow):
 
         self.action_menu.set_project_active(True)
         self.action_search.set_project_active(True)
+        self._refresh_applicable(project)
         self._refresh_readiness()
         self._apply_accent(project.color)
         self.status_bar.set_accent(project.color)
@@ -465,6 +468,17 @@ class MainWindow(QMainWindow):
         workspace = self.current_workspace
         if capability and workspace is not None:
             workspace.quick_run(capability)
+
+    def _refresh_applicable(self, project: Project) -> None:
+        """Que acciones tienen sentido en el repo que se acaba de elegir.
+
+        Se recalcula al cambiar de pestana y no al arrancar: lo que la decide
+        es lo que hay dentro de ESE repo (`core/catalog.py::applicable_ids`), y
+        dos repos de la barra no tienen por que coincidir.
+        """
+        ids = applicable_ids(project.path)
+        self.action_menu.set_applicable(ids)
+        self.action_search.set_applicable(ids)
 
     def _refresh_readiness(self) -> None:
         """Que acciones pueden correr ya sobre el repo activo.

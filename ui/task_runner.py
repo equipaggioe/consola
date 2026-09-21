@@ -57,6 +57,11 @@ class TaskRunner(QThread):
         self._func = func
         self._kwargs = kwargs
         self._ctx: TaskContext | None = None
+        # Lo que devolvio la funcion. Casi ninguna capacidad lo usa —lo que
+        # entregan es su log o su endpoint—, pero las que declaran `opens_repo`
+        # devuelven la carpeta del repo que dejaron en disco, y la ventana la
+        # necesita para abrirla como pestana.
+        self.result = None
         self._answer = ''
         self._answered = threading.Event()
 
@@ -118,7 +123,7 @@ class TaskRunner(QThread):
         )
         self._ctx = ctx
         try:
-            self._func(ctx, **self._kwargs)
+            self.result = self._func(ctx, **self._kwargs)
         except Cancelled:
             ctx.warn('Detenido por el usuario.')
             self._done(False)

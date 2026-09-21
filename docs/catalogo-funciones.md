@@ -182,6 +182,7 @@ Puros atómicos: ninguno encadena a otro (el módulo no declara compuestas).
 | `clean_artifacts` | A | `clean_artifacts` | — |
 | `compare_common_files` | A | — | `sync_common_files` |
 | `sync_common_files` | A | `sync_common_files` | — |
+| `sync_server_env` | A | `sync_server_env` | — |
 | `detect_public_ip` | A | — | `update_cloudflare` en modo `detect` |
 | `update_cloudflare` | A | `update_cloudflare` | — |
 | `install_android_tools` | A | `install_android_tools` | `install_android_sdk` (y solo) |

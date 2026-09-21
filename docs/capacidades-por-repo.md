@@ -71,6 +71,22 @@ De ahí salen **tres estados**, y la distinción entre los dos primeros es la de
 | **Incompleto** | Hay target, pero falta config o herramienta | **Visible, en ámbar, deshabilitado**, con el faltante en el tooltip y clic → Configuración (o → la capacidad que lo instala, ej. `install_flutter_sdk`). |
 | **Disponible** | Todo resuelto | Normal. |
 
+**Lo que hoy está implementado de esta sección** (2026-09-21): el estado *inaplicable* existe, pero
+no por `applies_to` sino por `requires_repo` — el nombre de una **característica** del repo
+(`core/targets.py`: por ahora `migrations`, que es tener Alembic). Lo declaran dos cosas:
+
+- `Capability.requires_repo` — el botón entero desaparece de la barra de menú y del buscador
+  (`core/catalog.py::applicable_ids`, `ui/menu_bar.py::set_applicable`). Es el caso de «Migrar» y
+  «Reiniciar migraciones»: en un repo que no versiona su esquema no hay nada que migrar.
+- `Step.requires_repo` — el paso desaparece del panel de parámetros de un botón que por lo demás
+  sigue teniendo sentido (`core/catalog.py::for_project`). Es el caso del paso «Ejecutar migraciones»
+  dentro de Bootstrap DB, Reconstruir DB y Actualizar remoto. El paso que no se dibuja llega a la
+  función en `False`, porque los kwargs los arma la capacidad registrada con lo que el panel marcó.
+
+La diferencia con *incompleto* (ámbar) es la de siempre: al ámbar le falta un **dato**, que se puede
+cargar; a esto le falta el **objeto** sobre el que actuar, y no hay nada que el usuario pueda escribir
+para que aparezca.
+
 Que "incompleto" siga visible es deliberado: si se oculta lo que falta configurar, el usuario no
 tiene forma de descubrir que existe ni de saber qué le falta. Es el mismo criterio que ya usa
 `PLAN.md` §2.4 para `requires` por valor de eje (el segmentado "remoto" en ámbar mientras "local"

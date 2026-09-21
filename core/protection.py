@@ -114,6 +114,11 @@ RULES: dict[str, Rule] = {
     'clean_artifacts': Rule(always=('local',), dry_run={'apply': ('simulacro',)}),
     'sync_common_files': Rule(always=('otros_repos',), dry_run={'apply': ('simulacro',)}),
 
+    # Escribe dentro de este repo: pisa valores de `.consola/config.env` o del
+    # `.env` del server. Objetivo 'local' —no sale de esta maquina— y el
+    # simulacro no toca nada, igual que los dos de arriba.
+    'sync_server_env': Rule(always=('local',), dry_run={'apply': ('simulacro',)}),
+
     # `git_force_push` y `git_force_origin_from_vps` reescriben origin -- no
     # tocan ni esta maquina ni el VPS -- asi que van con 'origin', no con
     # 'local' ni 'vps'. `git_force_reset` si descarta commits y archivos DE

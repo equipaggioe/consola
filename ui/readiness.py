@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from core.catalog import applicable_ids, for_project
 from core.registry import registry
 from core.settings import required_keys_for
 from core import envfile
@@ -22,6 +23,9 @@ def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
     marcaba como faltante mientras el panel la daba por buena.
     """
     active = params_store.stored_steps(repo_path, capability.id)
+    # Los pasos que este repo no tiene (las migraciones de un repo sin Alembic)
+    # tampoco reclaman claves: no se dibujan ni corren.
+    capability = for_project(capability, repo_path)
     needed = set(required_keys_for(capability.id))
     state = params_store.load(repo_path, capability.id) or {}
     for axis in capability.axes:
@@ -60,7 +64,8 @@ def ready_ids(project) -> set[str]:
         return set()
     env = envfile.load_config(project.path)
     path = project.path
+    aplicables = applicable_ids(path)
     return {
         cap.id for cap in registry.get_all()
-        if not missing_keys(cap, env, path)
+        if cap.id in aplicables and not missing_keys(cap, env, path)
     }

@@ -37,6 +37,11 @@ class ActionSearch(QWidget):
         super().__init__(parent)
         self._accent = Colors.ACCENT
         self._ready: set[str] = set()
+        # Lo que tiene sentido en el repo abierto. Buscar si muestra lo que no
+        # esta marcado como favorito (ver la docstring), pero no lo que este
+        # repo no puede hacer: eso no es esconder algo que existe, es no
+        # ofrecer un boton que solo podria fallar.
+        self._applicable: set[str] | None = None
         self._current = -1
 
         lay = QHBoxLayout(self)
@@ -71,6 +76,14 @@ class ActionSearch(QWidget):
     def set_favorites(self, ids: set[str]) -> None:
         for row in self._rows:
             row.set_favorite(row.capability_id in ids)
+
+    def set_applicable(self, ids: set[str]) -> None:
+        """Que acciones tienen sentido en el repo abierto
+        (`core/catalog.py::applicable_ids`). Se aplica al filtrar, junto con el
+        texto escrito."""
+        self._applicable = set(ids)
+        if self.box.text().strip():
+            self._on_text(self.box.text())
 
     def set_project_active(self, active: bool) -> None:
         """Sin repo en pestanas no hay sobre que correr: igual que los menus
@@ -177,7 +190,8 @@ class ActionSearch(QWidget):
         for header, rows in self._headers:
             group_hits = 0
             for row in rows:
-                match = row.matches(needle)
+                match = row.matches(needle) and (
+                    self._applicable is None or row.capability_id in self._applicable)
                 row.setVisible(match)
                 group_hits += int(match)
             header.setVisible(group_hits > 0)

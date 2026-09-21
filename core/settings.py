@@ -175,7 +175,7 @@ SETTINGS: tuple[Setting, ...] = (
 
     # --- Systemd ---
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
-            required_by=('configure_service',)),
+            required_by=('configure_service',), used_by=('sync_server_env',)),
     # Donde escucha el backend DENTRO del VPS. Lo escribe `write_systemd_unit` y
     # lo leen las reglas `proxy $BACKEND_HOST:$BACKEND_PORT` de `configure_caddy`:
     # es un dato de a dos, y tenerlo en cada boton por separado seria dejar que

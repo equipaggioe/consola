@@ -348,6 +348,18 @@ class ProjectTabBar(ReorderableBar, QWidget):
     # --- anadir repo --------------------------------------------------
     def _pick_repo(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Elegir carpeta del repositorio", "")
+        if path:
+            self.open_path(path)
+
+    def open_path(self, path: str) -> None:
+        """Abre esa carpeta como pestana, o salta a la suya si ya esta.
+
+        Lo llaman el «+» y lo que deja una carpeta de repo nueva sin que nadie
+        la elija: clonar de GitHub (`Capability.opens_repo`). Es el mismo
+        camino en los dos casos — color de la paleta, icono por defecto y
+        aviso de repo anadido — porque un repo clonado no es un repo distinto
+        de uno elegido a mano.
+        """
         if not path:
             return
         ya = self.find_tab(path)
@@ -357,7 +369,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
         limpia = project_store.display_path(path)
         name = os.path.basename(limpia) or limpia
         color = PALETTE[len(self.tabs) % len(PALETTE)]
-        project = Project(name, limpia, color, '\U0001F4C1')
+        project = Project(name, limpia, color, '📁')
         self.add_project(project, select=True)
         self.project_added.emit(project)
 

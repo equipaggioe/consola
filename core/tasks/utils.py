@@ -8,7 +8,7 @@ import tempfile
 import urllib.request
 from pathlib import Path
 
-from .. import android, files, userenv
+from .. import android, envfile, files, runner, userenv
 from ..catalog import ANDROID_DIR_DEFAULT, API_LEVEL_DEFAULT, BUILD_TOOLS_DEFAULT, FLUTTER_DIR_DEFAULT
 from ..context import Level
 from ..errors import TaskError
@@ -182,6 +182,79 @@ def sync_common_files(ctx, targets: list[str] | None = None,
         files.copy(ctx.path(rel), raiz / rel)
         ctx.ok(f'{raiz.name}/{rel}')
     return diferencias
+
+
+# --- configuracion: config.env <-> server/.env ------------------------------
+
+# Los dos extremos de la sincronizacion, en el orden en que los nombra el eje
+# `direction` del catalogo: primero el origen, despues el destino.
+CONFIG_TO_SERVER = 'a_server'
+
+
+def _env_files(ctx) -> tuple[Path, Path]:
+    """`.consola/config.env` y el `.env` del server, los dos comprobados.
+
+    El del server sale de `SERVER_DIR` por `runner.server_root`, que es de donde
+    lo saca todo lo demas: en un repo cuya carpeta se llama `backend/` el
+    archivo tiene que ser el mismo que lee el servicio.
+    """
+    config = Path(envfile.config_path(str(ctx.root)))
+    servidor = runner.server_root(ctx) / '.env'
+    if not config.is_file():
+        raise TaskError(f'Este repo todavia no tiene {config}: abre Configuracion y guarda.')
+    if not servidor.is_file():
+        raise TaskError(f'No existe {servidor}: el server de este repo no tiene .env.')
+    return config, servidor
+
+
+def sync_server_env(ctx, direction: str = CONFIG_TO_SERVER,
+                    apply: bool = False) -> list[tuple[str, str]]:
+    """Iguala los valores de las claves que los dos archivos ya comparten.
+
+    Solo esas. Ninguna clave nace de esta accion: `config.env` tiene lo que
+    Consola necesita para alcanzar el VPS y el `.env` del server lo que la app
+    lee al arrancar, y volcar uno entero sobre el otro dejaria `VPS_KEY_NAME`
+    en el archivo de la app. Lo que si pasa —y es el bug que esto arregla— es
+    que las que SI estan en los dos (el rol y la base, el secreto del TURN, el
+    token de Cloudflare) queden discrepando.
+
+    Escribe con `upsert_value`, clave por clave: el archivo destino conserva
+    sus comentarios, su orden y todo lo que no se toca.
+    """
+    config, servidor = _env_files(ctx)
+    origen, destino = ((config, servidor) if direction == CONFIG_TO_SERVER
+                       else (servidor, config))
+    valores_origen = envfile.load_env(str(origen))
+    valores_destino = envfile.load_env(str(destino))
+
+    def _rel(ruta: Path) -> str:
+        return str(ruta.relative_to(ctx.root)) if ruta.is_relative_to(ctx.root) else str(ruta)
+
+    ctx.info(f'{_rel(origen)} -> {_rel(destino)}')
+    comunes = [k for k in valores_destino if k in valores_origen]
+    if not comunes:
+        ctx.warn('Los dos archivos no comparten ninguna clave: no hay nada que copiar.')
+        return []
+
+    # Los valores no se imprimen: la mitad de lo que viaja aca es un secreto, y
+    # el log de la corrida se guarda.
+    cambios = [(k, valores_origen[k]) for k in comunes
+               if valores_destino[k] != valores_origen[k]]
+    ctx.info(f'{len(comunes)} clave(s) en comun, {len(cambios)} con distinto valor.')
+    if not cambios:
+        ctx.ok('Ya estaban iguales: no se escribio nada.')
+        return []
+    for clave, _ in cambios:
+        ctx.info(f'  {clave}')
+
+    if not apply:
+        ctx.info('Simulacro: no se escribio nada.')
+        return cambios
+
+    for clave, valor in cambios:
+        envfile.upsert_value(str(destino), clave, valor)
+    ctx.ok(f'{len(cambios)} clave(s) actualizadas en {destino}.')
+    return cambios
 
 
 # --- DNS -------------------------------------------------------------------
@@ -701,6 +774,7 @@ def bind_all() -> None:
     registry.bind('clean_artifacts', clean_artifacts)
     registry.bind('update_cloudflare', update_cloudflare)
     registry.bind('sync_common_files', sync_common_files)
+    registry.bind('sync_server_env', sync_server_env)
     registry.bind('install_android_tools', install_android_tools)
     registry.bind('install_android_packages', install_android_packages)
     registry.bind('install_android_hypervisor', install_android_hypervisor)

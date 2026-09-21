@@ -51,18 +51,22 @@ class ActionMenuBar(QMenuBar):
         self._group_menus: list[QMenu] = []
         # Por menu de grupo, sus bloques de seccion: cada uno con el separador
         # y el encabezado que lo abren (si los tiene) y sus acciones. Es lo que
-        # necesita `_apply_favorites` para podar un menu sin dejar rayas ni
+        # necesita `_apply_filters` para podar un menu sin dejar rayas ni
         # encabezados sueltos sobre una seccion que quedo vacia.
         self._blocks: dict[QMenu, list[tuple[QAction | None, QAction | None, list[str]]]] = {}
         self._favorites: set[str] = favorites.favorite_ids()
         self._only_favorites = favorites.only_favorites()
+        # Lo que tiene sentido en el repo abierto (`core/catalog.py::applicable_ids`).
+        # None = todavia no hay repo: no se filtra nada, que es lo mismo que
+        # hacia antes de que existiera este filtro.
+        self._applicable: set[str] | None = None
 
         self._build_action_menus()
         self._build_view_menu()
         self._build_help_menu()
 
         self.set_project_active(False)
-        self._apply_favorites()
+        self._apply_filters()
 
     # --- construccion ----------------------------------------------------
     def _build_action_menus(self) -> None:
@@ -136,6 +140,19 @@ class ActionMenuBar(QMenuBar):
         for menu in self._group_menus:
             menu.setEnabled(active)
 
+    def set_applicable(self, ids: set[str]) -> None:
+        """Que acciones tienen sentido en el repo abierto.
+
+        Las que no —"Migrar" en un repo que no lleva migraciones— se van del
+        menu enteras, no quedan en ambar: no les falta un dato, les falta sobre
+        que actuar (docs/capacidades-por-repo.md 1). Un grupo que se queda sin
+        ninguna desaparece de la barra, igual que con «solo favoritos».
+        """
+        if self._applicable is not None and ids == self._applicable:
+            return
+        self._applicable = set(ids)
+        self._apply_filters()
+
     # --- solo favoritos ---------------------------------------------------
     def set_only_favorites(self, value: bool) -> None:
         """El interruptor de la barra de titulo: con el puesto, los menus de
@@ -144,7 +161,7 @@ class ActionMenuBar(QMenuBar):
         if value == self._only_favorites:
             return
         self._only_favorites = value
-        self._apply_favorites()
+        self._apply_filters()
 
     def set_favorites(self, ids: set[str]) -> None:
         """Se marco o desmarco una favorita en otra superficie (el filete del
@@ -152,16 +169,19 @@ class ActionMenuBar(QMenuBar):
         if ids == self._favorites:
             return
         self._favorites = set(ids)
-        self._apply_favorites()
+        self._apply_filters()
 
-    def _apply_favorites(self) -> None:
+    def _apply_filters(self) -> None:
+        """Los dos filtros de la barra, en una sola pasada: lo que no aplica a
+        este repo y —si el interruptor esta puesto— lo que no esta marcado."""
         for menu in self._group_menus:
             vivos = 0
             for separator, header, cap_ids in self._blocks.get(menu, []):
                 visibles = 0
                 for cap_id in cap_ids:
                     action = self._actions[cap_id]
-                    ver = not self._only_favorites or cap_id in self._favorites
+                    ver = (self._applicable is None or cap_id in self._applicable) and (
+                        not self._only_favorites or cap_id in self._favorites)
                     action.setVisible(ver)
                     visibles += int(ver)
                 # El encabezado (y la raya que lo precede) solo tienen sentido

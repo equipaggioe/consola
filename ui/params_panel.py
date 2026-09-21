@@ -102,7 +102,10 @@ class ParamsPanel(QWidget):
         self.project = project
         self.accent = project.color
         self.env_panel = env_panel
-        self.steps: list[Step] = registry.resolve_steps(capability)
+        # Sobre la copia resuelta para ESTE repo, no sobre la del catalogo: es
+        # la que ya se quedo sin los pasos que aca no existen (las migraciones
+        # en un repo que no las lleva).
+        self.steps: list[Step] = registry.resolve_steps(self.capability)
         self._env: dict[str, str] = {}
 
         self._checks: dict[str, dict[str, QCheckBox]] = {}   # axis -> value -> check
@@ -1049,6 +1052,9 @@ class ParamsPanel(QWidget):
             if axis.allow_empty:
                 continue
             reasons.append(f"no hay {axis.display.lower()} {donde}")
+        for axis in self.capability.field_axes:
+            if axis.required and not self.field_value(axis.name).strip():
+                reasons.append(f"escribe {axis.display.lower()}")
         for axis in self.capability.pick_axes:
             if axis.values and not axis.allow_empty and not self.pick_value(axis.name):
                 reasons.append(f"elige {axis.display.lower()}")

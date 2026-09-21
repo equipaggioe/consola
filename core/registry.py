@@ -71,6 +71,13 @@ class AxisDef:
     multiline: bool = False     # solo expand='field': caja de varios renglones, un valor por
                                 # linea. Para listas cortas que se escriben a mano (las rutas
                                 # a copiar): en una sola linea no se ve donde termina cada una.
+    required: bool = False      # solo expand='field': dejarlo vacio NO es una eleccion.
+                                # Los campos de Consola son casi todos "vacio = el
+                                # default de la funcion" (la carpeta del build, el
+                                # mensaje de la migracion) y por eso no bloquean; la
+                                # URL del repo a clonar no tiene default posible, y
+                                # sin esto el boton se dejaba apretar para morir en
+                                # la primera linea de la tarea.
     cast: str = ''              # solo expand='field': 'int' cuando lo escrito es un numero. Un
                                 # campo devuelve texto y hay seis parametros que son enteros (el
                                 # puerto del backend, las lineas del journal, el TTL de
@@ -246,6 +253,14 @@ class Step:
     optional: bool = True
     default: bool = True
     requires_env: set[str] = field(default_factory=set)
+    requires_repo: str = ''  # caracteristica del repo sin la cual el paso no existe
+                        # (`core/targets.py`: MIGRATIONS). No es lo mismo que
+                        # `requires_env`, que deja la casilla a la vista en ambar
+                        # porque lo que falta se puede cargar: aca no falta un
+                        # dato, falta el objeto sobre el que actuar. Un repo que
+                        # no versiona su esquema no tiene "ejecutar migraciones"
+                        # apagado, no lo tiene — y ofrecerlo era prometer un paso
+                        # que solo podia terminar en el error de Alembic.
 
 
 @dataclass
@@ -265,6 +280,15 @@ class Capability:
     level: str = ''        # 'A' | 'C'; vacio = se deduce de steps/composed_of
     scope: str = 'repo'    # 'repo' | 'machine': ver `is_machine_wide`
     hidden: bool = False   # capacidad atomica: existe como paso, no como boton
+    requires_repo: str = ''  # lo mismo que en `Step`, para el boton entero: la
+                           # capacidad cuyos pasos son TODOS de esa caracteristica
+                           # no queda vacia, desaparece (docs/capacidades-por-repo.md 1,
+                           # estado "inaplicable").
+    opens_repo: bool = False  # lo que entrega la tarea es una carpeta de repo:
+                           # la ventana la abre como pestana al terminar. Es lo
+                           # unico que hace falta declarar para que clonar
+                           # termine donde tiene que terminar, sin que la interfaz
+                           # conozca el id del boton que clona.
     view: str = ''         # segunda vista de la pestana, ademas de la consola:
                            # 'web' = navegador embebido apuntado al endpoint que
                            # la tarea publica con `ctx.serve()`. El log de un
@@ -409,6 +433,14 @@ class Capability:
         # declarado, que es lo que el panel habria mostrado.
         valor = crudo or axis.initial
         return valor == axis.truthy if axis.truthy else valor
+
+    def applies_to(self, features) -> bool:
+        """Si este boton tiene sentido en un repo con esas caracteristicas."""
+        return not self.requires_repo or self.requires_repo in features
+
+    def steps_for(self, features) -> list:
+        """Los pasos que quedan en un repo con esas caracteristicas."""
+        return [s for s in self.steps if not s.requires_repo or s.requires_repo in features]
 
     @property
     def is_machine_wide(self) -> bool:

@@ -94,10 +94,24 @@ def for_project(cap: Capability, root: Path | str | None) -> Capability:
     panel — en `navetta` el eje de SPA da tres, en un repo con solo `panel/` da
     una, y un subproyecto nuevo aparece sin tocar el catalogo.
 
+    Lo mismo vale para los pasos: los que exigen una caracteristica que el repo
+    no tiene (`Step.requires_repo`) no se dibujan. No van en ambar como los que
+    esperan una clave — ahi falta un dato que se puede cargar; aca falta el
+    objeto sobre el que actuar, y la casilla no llevaria a ninguna parte.
+
+    Los pasos se caen de la COPIA que mira el panel, no del catalogo: quien
+    arma los kwargs es la capacidad registrada (`TabPanel._run` la busca por id)
+    y un paso que el panel no dibujo no viene marcado en el payload, o sea que
+    llega a la funcion en False. El paso no queda "sin decidir": queda apagado,
+    que es lo correcto.
+
     Devuelve la misma capacidad cuando no hay nada que descubrir, asi que no
     cuesta nada llamarla para todas.
     """
-    if not root or not any(a.is_discovered for a in cap.axes):
+    if not root:
+        return cap
+    hay_pasos = any(s.requires_repo for s in cap.steps)
+    if not hay_pasos and not any(a.is_discovered for a in cap.axes):
         return cap
     # `Project.path` es un str; el descubrimiento trabaja con rutas.
     carpeta = Path(root)
@@ -105,7 +119,30 @@ def for_project(cap: Capability, root: Path | str | None) -> Capability:
         return cap
     resueltos = [replace(a, values=targets.names_of(carpeta, a.discover)) if a.is_discovered else a
                  for a in cap.axes]
-    return replace(cap, axes=resueltos)
+    pasos = cap.steps_for(repo_features(carpeta)) if hay_pasos else cap.steps
+    return replace(cap, axes=resueltos, steps=pasos)
+
+
+def repo_features(root: Path | str | None) -> frozenset[str]:
+    """Que caracteristicas tiene este repo (`core/targets.py::features`)."""
+    if not root:
+        return frozenset()
+    carpeta = Path(root)
+    return targets.features(carpeta) if carpeta.is_dir() else frozenset()
+
+
+def applicable_ids(root: Path | str | None) -> set[str]:
+    """Los botones que tienen sentido en este repo.
+
+    Los que no —"Migrar" en un repo sin migraciones— se ocultan enteros en vez
+    de quedar en ambar: no les falta configuracion, les falta sobre que actuar
+    (docs/capacidades-por-repo.md 1). Un repo sin nada abierto no oculta nada:
+    los menus ya estan deshabilitados por completo.
+    """
+    if not root:
+        return {cap.id for cap in registry.get_all()}
+    caracteristicas = repo_features(root)
+    return {cap.id for cap in registry.get_all() if cap.applies_to(caracteristicas)}
 
 
 # --- catalogos que se consultan -------------------------------------------
@@ -326,7 +363,7 @@ PUBLISH_CODE_STEPS = [
 # tocan lo que ya esta corriendo. Se derivan y no se copian: si un paso de
 # `publish_code` cambia de etiqueta o de claves, los dos paneles cambian juntos.
 UPDATE_REMOTE_STEPS = PUBLISH_CODE_STEPS + [
-    Step('migrate', 'Ejecutar migraciones',
+    Step('migrate', 'Ejecutar migraciones', requires_repo=targets.MIGRATIONS,
          requires_env={'DB_NAME', 'DB_PASSWORD'}),
     Step('restart', 'Reiniciar systemd'),
 ]
@@ -393,7 +430,7 @@ BOOTSTRAP_DB_STEPS = [
     Step('database', 'Crear base de datos'),
     Step('privileges', 'Otorgar permisos al rol'),
     Step('extensions', 'Habilitar extensiones', default=False),
-    Step('migrate', 'Ejecutar migraciones'),
+    Step('migrate', 'Ejecutar migraciones', requires_repo=targets.MIGRATIONS),
     Step('partitions', 'Crear particiones'),
     Step('seeders', 'Cargar seeders'),
     Step('mock_seeders', 'Cargar datos mock', default=False),
@@ -409,7 +446,7 @@ BOOTSTRAP_DB_STEPS = [
 # Borrarlo y escribir una inicial nueva es `reinit_migrations`, su propio boton.
 REBUILD_DB_STEPS = [
     Step('drop', 'Borrar tablas'),
-    Step('migrate', 'Ejecutar migraciones'),
+    Step('migrate', 'Ejecutar migraciones', requires_repo=targets.MIGRATIONS),
     Step('partitions', 'Crear particiones'),
     Step('seeders', 'Cargar seeders'),
     Step('mock_seeders', 'Cargar datos mock'),
@@ -759,6 +796,25 @@ def load_catalog() -> None:
         stub=True))
 
     # Git group
+    # Clonar es la unica accion del catalogo que no le pasa al repo abierto sino
+    # a uno que todavia no existe, y por eso es `scope='machine'`: sus campos se
+    # guardan una sola vez y no por repositorio (`ui/params_store.py`). La
+    # carpeta destino vacia significa "al lado de los repos que ya tengo
+    # abiertos" — el destino real casi siempre es la carpeta que contiene al
+    # repo de la pestana, y escribirla a mano seria escribir lo que ya se sabe.
+    #
+    # `opens_repo=True` es el final del boton y no un extra: clonar para tener
+    # que anadir la carpeta con «+» a continuacion deja la accion a mitad de
+    # camino. Lo declara el catalogo y lo ejecuta la ventana, que es la unica
+    # que sabe lo que es una pestana.
+    registry.register(Capability(
+        id='clone_repo', name='Clonar de GitHub', group='Git', section='Traer',
+        kind='once', icon='📥', scope='machine', opens_repo=True,
+        description='Clona un repositorio de GitHub y lo abre como pestaña.',
+        axes=[AxisDef('url', [''], 'field', label='URL del repositorio', required=True),
+              AxisDef('dest', [''], 'field', label='Carpeta destino'),
+              AxisDef('branch', [''], 'field', label='Rama')],
+        stub=True))
     # Los dos de abajo son el forzado que `push_repository`/`sync_repository`
     # (`VPS · server`) deliberadamente no hacen: esos avisan y frenan ante
     # cualquier divergencia, estos existen justo para el caso en que alguien ya
@@ -945,7 +1001,7 @@ def load_catalog() -> None:
     registry.register(Capability(id='teardown_db', name='Teardown DB', group='Base de datos', section='Ciclo de vida', kind='destructive', icon='💥', description='Borra la base de la aplicación y su rol.', axes=[_SCOPE_AXIS()], steps=TEARDOWN_DB_STEPS, stub=True))
     registry.register(Capability(
         id='migrate_db', name='Migrar', group='Base de datos', section='Migraciones',
-        kind='once', icon='📐',
+        kind='once', icon='📐', requires_repo=targets.MIGRATIONS,
         description='Genera la migración pendiente y la aplica.',
         axes=[_SCOPE_AXIS()],
         steps=MIGRATE_DB_STEPS, stub=True))
@@ -958,6 +1014,7 @@ def load_catalog() -> None:
     registry.register(Capability(
         id='reinit_migrations', name='Reiniciar migraciones', group='Base de datos',
         section='Migraciones', kind='destructive', icon='🧨',
+        requires_repo=targets.MIGRATIONS,
         description='Reinicia el historial de migraciones: deja una sola inicial con los modelos de hoy.',
         axes=[_SCOPE_AXIS()],
         steps=REINIT_MIGRATIONS_STEPS, stub=True))
@@ -1027,6 +1084,29 @@ def load_catalog() -> None:
         axes=[AxisDef('install_dir', [FLUTTER_DIR_DEFAULT], 'field', label='Directorio')],
         stub=True))
     registry.register(Capability(id='update_cloudflare', name='Actualizar Cloudflare', group='Utils', section='DNS', kind='once', icon='☁️', description='Apunta el registro DNS de Cloudflare a la IP pública actual.', stub=True))
+    # Las dos mitades de la configuracion de un repo: la que Consola necesita
+    # para alcanzar el VPS (`.consola/config.env`) y la que la app lee al
+    # arrancar (`<SERVER_DIR>/.env`). Hay claves que estan en las dos —el rol y
+    # la base, el secreto del TURN, el token de Cloudflare— y tenerlas
+    # discrepando es un despliegue que apunta a un lado y una app que apunta a
+    # otro.
+    #
+    # Se copian SOLO las claves que ya existen en los dos archivos. No hay
+    # tabla de equivalencias ni claves nuevas: cada archivo sigue decidiendo
+    # que datos le corresponden, y esto solo iguala los valores de los que ya
+    # declararon compartir. Volcar un archivo entero sobre el otro dejaria
+    # VPS_KEY_NAME en el .env de la app y SECRET_KEY en el de Consola.
+    registry.register(Capability(
+        id='sync_server_env', name='Sincronizar env', group='Utils',
+        section='Configuración', kind='destructive', icon='🔃',
+        description='Iguala entre config.env y el .env del server las claves que los dos tienen.',
+        axes=[AxisDef('direction', ['a_server', 'desde_server'], 'scope', label='Dirección',
+                      labels={'a_server': 'config.env → server/.env',
+                              'desde_server': 'server/.env → config.env'}),
+              AxisDef('apply', ['simulacro', 'aplicar'], 'scope', label='Modo',
+                      truthy='aplicar',
+                      labels={'simulacro': 'Simulacro', 'aplicar': 'Aplicar'})],
+        stub=True))
     registry.register(Capability(id='sync_common_files', name='Sync archivos comunes', group='Utils', section='Sync', kind='destructive', icon='🔄', description='Copia los archivos compartidos a los otros repos; en simulacro solo compara.', axes=[AxisDef('targets', [''], 'field', label='Repos destino', multiline=True), AxisDef('paths', [''], 'field', label='Archivos a copiar', multiline=True), AxisDef('apply', ['simulacro', 'aplicar'], 'scope', label='Modo', truthy='aplicar', labels={'simulacro': 'Simulacro', 'aplicar': 'Aplicar'})], stub=True))
 
     # Hidden atomic capabilities

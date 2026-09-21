@@ -390,6 +390,8 @@ class TabPanel(ReorderableBar, QWidget):
     machine_changed = Signal()  # una tarea de maquina cambio el entorno (SDK instalado, AVD creado)
     favorite_changed = Signal()  # se marco/desmarco una favorita desde la estrella
     sections_changed = Signal()  # se mostro/oculto una seccion de la columna lateral
+    repo_ready = Signal(str)    # una tarea dejo un repo nuevo en disco (clonar):
+                                # su carpeta, para abrirla como pestana
 
     # Piso del cuerpo de una seccion del acordeon al arrastrarla a mano.
     MIN_BODY = 48
@@ -1409,6 +1411,12 @@ class TabPanel(ReorderableBar, QWidget):
                 self._busy.pop(tab, None)
             if panel is not None:
                 panel.refresh_run_state()
+            # Lo que la tarea entrego es un repo (`Capability.opens_repo`):
+            # la ventana lo abre como pestana. La capacidad declara que su
+            # resultado es una carpeta de repo y la interfaz hace el resto:
+            # aca no hay ningun id de boton escrito.
+            if ok and capability.opens_repo and runner.result:
+                self.repo_ready.emit(str(runner.result))
             if capability.is_machine_wide:
                 # Instalar una imagen, crear un AVD o apagar un emulador cambia
                 # justo lo que los paneles de este grupo listan. Se olvida lo

@@ -1029,6 +1029,45 @@ DOCS: dict[str, CommandDoc] = {
             'Copia archivo por archivo, nombrando cada uno.',
         ],
     ),
+
+    'sync_server_env': CommandDoc(
+        summary=(
+            'Iguala los valores de las claves que .consola/config.env y el .env '
+            'del server ya tienen los dos. No crea claves nuevas en ninguno de '
+            'los dos archivos.'
+        ),
+        steps=[
+            'Ubica .consola/config.env y el .env de la carpeta SERVER_DIR, y '
+            'corta si falta cualquiera de los dos.',
+            'Elige origen y destino según la dirección marcada.',
+            'Lee los dos archivos y se queda con las claves que están en ambos.',
+            'Termina con un aviso si no comparten ninguna clave.',
+            'Lista por nombre las claves cuyo valor difiere, sin imprimir los '
+            'valores: la mitad son secretos.',
+            'En modo simulacro, termina.',
+            'Escribe en el destino clave por clave, conservando sus comentarios '
+            'y las claves que no viajan.',
+        ],
+    ),
+
+    'clone_repo': CommandDoc(
+        summary=(
+            'Clona un repositorio de GitHub en una carpeta nueva y lo abre como '
+            'pestaña de Consola.'
+        ),
+        steps=[
+            'Corta si no hay URL o si no hay git en el PATH.',
+            'Toma la carpeta destino escrita; vacía, usa la carpeta que '
+            'contiene al repo abierto.',
+            'Deriva el nombre de la carpeta del último tramo de la URL, sin '
+            '.git.',
+            'Corta si esa carpeta ya existe: clonar encima sería mezclar dos '
+            'repos.',
+            'Corre git clone, con --branch si se escribió una rama.',
+            'Lee el commit corto del clon y lo deja en el log.',
+            'Devuelve la carpeta, que la ventana abre como pestaña nueva.',
+        ],
+    ),
 }
 
 

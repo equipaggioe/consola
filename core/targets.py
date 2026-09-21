@@ -33,6 +33,12 @@ _ASGI_MODULES = (('app/main.py', 'app.main:app'), ('main.py', 'main:app'))
 # boton, asi que los dos tipos viajan juntos en todos los ejes que la nombran.
 MOBILE_APP = (FLUTTER_APP, FLET_APP)
 
+# --- caracteristicas del repo ----------------------------------------------
+# No son subproyectos: no se eligen ni se listan, solo estan o no estan. Lo que
+# deciden es si un paso tiene sentido aca. Un repo que no versiona su esquema no
+# tiene "generar migracion" apagado: no lo tiene.
+MIGRATIONS = 'migrations'
+
 IGNORED = {'node_modules', '.git', '.venv', 'venv', 'build', 'dist', '.consola',
            '__pycache__', '.dart_tool', 'android', 'ios', 'web'}
 _DEPTH = 2
@@ -181,3 +187,20 @@ def find(root: Path, kind: str, name: str) -> Target:
 def only(root: Path, kind: str) -> Target:
     """El unico subproyecto de ese tipo. Falla si hay cero o mas de uno."""
     return pick(root, (kind,))
+
+
+def has_migrations(root: Path) -> bool:
+    """Si el repo lleva el esquema de su base en migraciones versionadas.
+
+    Lo dice Alembic: su `alembic.ini` o la carpeta de revisiones. Se mira lo
+    mismo que mira la tarea al correr (`core/runner.py::server_root` + `alembic/
+    versions`), porque la pregunta es exactamente esa: si el boton apretara,
+    ¿habria historial contra el que generar o aplicar algo?
+    """
+    return any((d / 'alembic.ini').is_file() or (d / 'alembic' / 'versions').is_dir()
+               for d in _walk(root, _DEPTH))
+
+
+def features(root: Path) -> frozenset[str]:
+    """Las caracteristicas que este repo tiene, para las que las exigen."""
+    return frozenset({MIGRATIONS} if has_migrations(root) else ())
