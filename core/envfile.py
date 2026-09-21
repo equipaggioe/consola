@@ -139,7 +139,7 @@ def save_config(repo_path: str, values: dict[str, str]) -> str:
 
 
 def ensure_gitignored(repo_path: str) -> None:
-    """`.consola/` nunca se commitea (PLAN.md §9).
+    """`.consola/` nunca se commitea (ADR-0017).
 
     Publica porque ya no la usa solo `save_config`: `ui/params_store.py`
     escribe ahi `params.json` y necesita la misma garantia.
@@ -329,6 +329,6 @@ class Config:
         return [k for k in keys if not self.get(k)]
 
     def secrets(self) -> list[str]:
-        """Valores a enmascarar en la consola (PLAN.md 9)."""
+        """Valores a enmascarar en la consola (ADR-0017)."""
         return [self.values[s.key] for s in SETTINGS
                 if s.secret and self.values.get(s.key, '').strip()]

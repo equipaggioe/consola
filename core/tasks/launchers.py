@@ -20,11 +20,11 @@ arranca el backend y lo leen los que arrancan despues.
 Lo que un launcher entrega no es su log: es un **endpoint**, una URL. Por eso
 todos llaman a `ctx.serve()` apenas conocen su puerto, antes de arrancar el
 proceso. De ahi salen la barra de la pestana, el navegador embebido y la senal
-que espera el launcher siguiente (docs/launchers.md).
+que espera el launcher siguiente (ADR-0008).
 
 Ninguna de las funciones `resolve_*` de este modulo es una atomica con boton:
 son la plomeria de las que si lo son, igual que `_download` o `_extract` dentro
-de `install_android_tools` (docs/atomicas.md 0). `serve_backend` es UNA atomica
+de `install_android_tools` (ADR-0004). `serve_backend` es UNA atomica
 hecha de cinco funciones.
 """
 
@@ -32,7 +32,7 @@ SERVER_PORT = 'SERVER_PORT'
 BACKEND = 'backend'          # clave del endpoint del backend en `core/session`
 
 # Cuanto espera un launcher dependiente a que el backend conteste. Generoso
-# porque el caso que importa es el arranque conjunto (docs/launchers.md 2.5):
+# porque el caso que importa es el arranque conjunto (ADR-0011):
 # uvicorn con --reload y una base remota por tunel tarda sus buenos segundos.
 BACKEND_WAIT = 90.0
 
@@ -43,7 +43,7 @@ def resolve_server_port(ctx, preferred: int = 8000, search: bool = True) -> int:
     """Elige el puerto del backend y lo publica para las tareas que vengan despues.
 
     No es un boton: nadie pide "elige un puerto y nada mas". Es plomeria de
-    `serve_backend`, que si lo es (docs/launchers.md 1).
+    `serve_backend`, que si lo es (ADR-0008).
     """
     puerto = ports.resolve_port(preferred, search=search, label='puerto del backend')
     session.publish(ctx.project.name, SERVER_PORT, puerto)
@@ -57,7 +57,7 @@ def backend_url(ctx, *, wait: float = 0.0, required: bool = True) -> str:
     Con `wait`, espera a que el backend conteste de verdad en vez de mirar solo
     si alguien publico un puerto. Es lo que hace que "Entorno de desarrollo"
     funcione sin depender del orden en que arrancaron las pestanas: la SPA se
-    queda esperando el endpoint del backend, no un `sleep` (docs/launchers.md 2.5).
+    queda esperando el endpoint del backend, no un `sleep` (ADR-0011).
 
     Con `required=False` devuelve cadena vacia si no hay backend, en vez de
     fallar: para la SPA eso no es un error, es arrancar con su propia config.
@@ -134,7 +134,7 @@ def serve_spa(ctx, target: str = '', preferred_port: int = 5173,
 
     Corre UNA sola SPA. Marcar varias en el panel no la hace iterar: cada una es
     un proceso vivo con su puerto y su consola, asi que la interfaz abre una
-    pestana por cada una y llama aca una vez por pestana (docs/launchers.md 2.1).
+    pestana por cada una y llama aca una vez por pestana (ADR-0010).
     """
     spa = targets.pick(ctx.root, (targets.SPA_VITE,), target)
     puerto = ports.resolve_port(preferred_port, label=f'puerto de {spa.name}')
@@ -187,9 +187,9 @@ def run_python_app(ctx, target: str = '', auto_login: bool = False, watch: bool 
     """Arranca una app Python del repo, con recarga al cambiar sus fuentes.
 
     Corre UNA app: marcar varias abre una pestana por cada una, igual que las
-    SPA (docs/launchers.md 2.1). Con `watch` son dos niveles de proceso: el
+    SPA (ADR-0010). Con `watch` son dos niveles de proceso: el
     vigilante y su hijo, y detener la pestana mata los dos, de abajo hacia
-    arriba (PLAN.md 7, caso 6). Sin `watch` es un solo proceso, para la app que
+    arriba (ADR-0005). Sin `watch` es un solo proceso, para la app que
     no tiene sentido relanzar sola (un bot, un script de un solo uso).
     """
     app = targets.pick(ctx.root, targets.DESKTOP_APP, target)
@@ -267,7 +267,7 @@ def _snapshot(root: Path) -> dict[str, float]:
 
 
 def open_ssh_session(ctx) -> None:
-    """Abre la sesion SSH en una terminal externa: necesita TTY real (PLAN.md 7.1)."""
+    """Abre la sesion SSH en una terminal externa: necesita TTY real (ADR-0005)."""
     remote = ssh.resolve_remote(ctx.config)
     ctx.detach(ssh.terminal_argv(remote))
     ctx.ok(f'Sesion SSH abierta en una terminal externa: {remote.target}')

@@ -808,7 +808,7 @@ def build_vite(
     tres SPA (`panel`, `backoffice`, `landing`), y compilarlas es una tarea que
     termina — asi que las marcadas se recorren en un bucle aca dentro, N builds
     en fila en un solo log, y no una pestana por cada una como hace el launcher
-    de dev servers (docs/launchers.md 2.1).
+    de dev servers (ADR-0010).
 
     La lista vacia significa "la unica SPA que haya", igual que el `directory`
     vacio de `build_flutter`: en un repo con una sola, el eje ni se dibuja.

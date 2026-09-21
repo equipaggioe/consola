@@ -50,7 +50,7 @@ class Target:
 
     Es lo que convierte `panel`/`backoffice`/`landing` de tres scripts casi
     identicos en tres botones del mismo eje: la lista sale de mirar el repo,
-    no de enumerarla a mano por proyecto (PLAN.md 2.4).
+    no de enumerarla a mano por proyecto (ADR-0006).
     """
     name: str
     kind: str

@@ -21,7 +21,7 @@ Grupo Utils.
 Lo transversal: limpiar artefactos, actualizar el DNS, sincronizar los archivos
 comunes entre repos e instalar los SDK. Todos los destructivos de este grupo
 comparten el mismo patron: primero la lista exacta de lo que va a pasar, y recien
-despues el borrado (PLAN.md 7, caso 5).
+despues el borrado (ADR-0018).
 """
 
 # Familias de artefactos livianos: se recorren y se listan archivo por
@@ -36,7 +36,7 @@ FAMILIES: dict[str, dict[str, tuple[str, ...]]] = {
 }
 
 # Carpetas pesadas: no se listan por dentro, se listan como una unidad y se
-# borran enteras. Apagadas por defecto (PLAN.md 7, caso 5: lo caro se pide
+# borran enteras. Apagadas por defecto (ADR-0018: lo caro se pide
 # explicito). Varios nombres por clave porque node_modules no cambia, pero
 # "venv" y "build" si.
 HEAVY_DIRS: dict[str, tuple[str, ...]] = {
@@ -139,7 +139,7 @@ def compare_common_files(ctx, targets: list[str], paths: list[str] | None = None
 
     Devuelve `(destino, ruta, estado)` con estado NEW / DIFF / SAME. Es lo que
     se muestra antes de habilitar Aplicar; `verify_projects.py` no era mas que
-    esto, y por eso deja de ser una capacidad aparte (PLAN.md 1).
+    esto, y por eso deja de ser una capacidad aparte (ADR-0004).
     """
     rutas = list(paths or COMMON_PATHS)
     resultado: list[tuple] = []
@@ -161,7 +161,7 @@ def sync_common_files(ctx, targets: list[str] | None = None,
     """Copia los archivos compartidos a los otros repos gestionados.
 
     Ya no incluye `scripts/`: esa carpeta deja de existir cuando Consola es la
-    herramienta, y era la unica razon original de este script (PLAN.md 1).
+    herramienta, y era la unica razon original de este script (ADR-0001).
     """
     if not targets:
         raise TaskError('No hay repos destino seleccionados.')
@@ -656,7 +656,7 @@ def install_android_sdk(ctx, install_dir: str = '', components: list[str] | None
     lista de ids (`steps=['install_android_tools', ...]`) y era la unica que lo
     hacia: eso obligaba al catalogo a nombrar sus casillas con ids de capacidad
     en vez de con nombres de parametro, que es justo lo que el contrato de
-    nombres saca (docs/contrato-de-nombres.md §5, causa D).
+    nombres saca (ADR-0003).
     """
     root = _android_root(install_dir)
 

@@ -17,7 +17,7 @@ class MissingConfig(TaskError):
     """Faltan claves de `.consola/config.env` para poder correr.
 
     Se distingue de TaskError comun para que la UI pueda ofrecer el engranaje
-    de Configuracion filtrado a `keys` en vez de un mensaje suelto (PLAN.md §9).
+    de Configuracion filtrado a `keys` en vez de un mensaje suelto (ADR-0017).
     """
 
     def __init__(self, keys: list[str]) -> None:

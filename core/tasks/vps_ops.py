@@ -177,7 +177,7 @@ def clean_vps(
     """Compuesta destructiva: dejar el VPS como recien formateado.
 
     Los seis pasos son casillas del formulario, no botones sueltos del rail:
-    esta operacion casi siempre se pide entera (PLAN.md 7, caso 7).
+    esta operacion casi siempre se pide entera (ADR-0004).
     """
     from . import database as db_tasks
 

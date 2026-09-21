@@ -31,7 +31,7 @@ pestana lanzo, y los huerfanos se apagan desde la cabecera de estado del panel.
 
 # El serial del ultimo emulador arrancado, para que la app movil no tenga que
 # adivinar contra cual correr. Es estado de sesion como `SERVER_PORT`
-# (PLAN.md 7, caso 4), pero de la maquina y no de un repo: el emulador no es de
+# (ADR-0009), pero de la maquina y no de un repo: el emulador no es de
 # nadie en particular.
 EMULATOR_SERIAL = 'EMULATOR_SERIAL'
 
@@ -59,7 +59,7 @@ def create_avd(ctx, device: str = '', image: str = '') -> str:
 
     El nombre se pregunta al correr y no llega como parametro: dos AVD no se
     pueden llamar igual, asi que un nombre guardado solo sirve para la primera
-    vez (`docs/parametros-persistentes.md` 5). Dejarlo vacio es la respuesta
+    vez (`ADR-0017` 5). Dejarlo vacio es la respuesta
     normal: entonces se deriva del dispositivo y la API (`pixel_4_api36`), que
     es lo que se quiere casi siempre. Se pregunta igual —y no solo cuando hay
     colision— porque el derivado se muestra ahi mismo: se ve con que nombre va
@@ -96,7 +96,7 @@ def launch_emulator(ctx, avd: str = '', wipe: bool = False, boot_flags: list[str
     - Si ese AVD ya esta corriendo, la segunda copia va en `-read-only`, que es
       lo unico que permite tener dos abiertos a la vez.
     - Detener la pestana le pide al emulador que se cierre por adb en vez de
-      matarle el proceso (PLAN.md 7, caso 3).
+      matarle el proceso (ADR-0028).
 
     Los flags llegan por tres caminos que se suman, nunca se reemplazan:
     `android.DEFAULT_FLAGS` (los de siempre), `boot_flags` y `gpu` (las casillas
@@ -179,8 +179,8 @@ def purge_emulators(ctx, avds: list[str] | None = None, images: list[str] | None
     """Borra los AVD y las maquinas virtuales marcados, con simulacro primero.
 
     `purge_avds.py` y `purge_system_images.py` borraban *todo* y sin preguntar,
-    a un clic de distancia de perder los emuladores configurados (PLAN.md 7,
-    caso 5). Aca se elige que se borra, se ve la lista con su tamano, y recien
+    a un clic de distancia de perder los emuladores configurados (ADR-0018).
+    Aca se elige que se borra, se ve la lista con su tamano, y recien
     despues se pide escribir BORRAR.
     """
     sdk = android.resolve_sdk()

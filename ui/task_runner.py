@@ -45,7 +45,7 @@ class TaskRunner(QThread):
     # url, etiqueta, se abre en navegador, estado. Lo emite `ctx.serve()` dos
     # veces: al anunciar la URL y cuando el puerto contesta de verdad. La
     # segunda llega desde el hilo que sondea el puerto, no desde este — una
-    # senal Qt entre hilos se entrega igual, en cola (docs/launchers.md 2.2).
+    # senal Qt entre hilos se entrega igual, en cola (ADR-0008).
     serve_requested = Signal(str, str, bool, str)
     finished_ok = Signal(bool)
 

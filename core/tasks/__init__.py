@@ -4,7 +4,7 @@ from __future__ import annotations
 
 Cada modulo agrupa las atomicas de un grupo del rail y las compuestas que las
 encadenan. La regla para saber si un paso interno de un script viejo se volvio
-atomica con boton propio esta en PLAN.md 7, caso 7: se separa si tiene sentido
+atomica con boton propio esta en ADR-0004: se separa si tiene sentido
 re-ejecutarlo solo, sin repetir el resto.
 
 Nada de aca reimplementa plomeria: todo se apoya en `core/` (nivel 0). Por eso

@@ -8,7 +8,7 @@ Estado de sesion: lo que una tarea publica para que otra lo lea, en memoria.
 `run_server.py` escribia `SERVER_PORT` en `scripts/.env` para que `run_terminal.py`
 y `run_vite.py` lo leyeran despues. Funcionaba por casualidad de orden de
 ejecucion y ensuciaba el repo con un dato que no es configuracion: es el puerto
-que el backend consiguio *en esta corrida* (PLAN.md 7, caso 4).
+que el backend consiguio *en esta corrida* (ADR-0009).
 
 Aca vive en memoria, con alcance por proyecto, y desaparece al cerrar la app.
 Nada de esto se escribe a disco.
@@ -57,7 +57,7 @@ def snapshot(project: str) -> dict[str, object]:
 # estado de sesion que la interfaz mira todo el tiempo (la barra de endpoint de
 # la pestana, el navegador embebido) y que ademas encadena launchers entre si:
 # la SPA y la terminal esperan a que el backend conteste en vez de confiar en
-# el orden en que se apretaron los botones (docs/launchers.md 2.5).
+# el orden en que se apretaron los botones (ADR-0011).
 
 STARTING = 'starting'
 READY = 'ready'

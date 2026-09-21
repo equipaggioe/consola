@@ -14,7 +14,7 @@ SEMVER_PARTS = ('major', 'minor', 'patch', 'none')
 MODES = ('major', 'minor', 'patch', 'build', 'none')
 
 # Cada manifiesto guarda la version en su propio formato; el resto del flujo
-# no tiene por que enterarse de cual es (PLAN.md 2.2: bump_version es una sola
+# no tiene por que enterarse de cual es (ADR-0004: bump_version es una sola
 # atomica, no una por tipo de proyecto).
 _PUBSPEC = re.compile(r'^(version:\s*)(\S+)\s*$', re.MULTILINE)
 _PYPROJECT = re.compile(r'^(version\s*=\s*")([^"]+)(")', re.MULTILINE)

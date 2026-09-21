@@ -10,7 +10,7 @@ from core import db_explorer, db_models
 from core.errors import TaskError
 
 """
-El hilo del explorador de base (docs/explorador-db.md 4).
+El hilo del explorador de base (ADR-0015).
 
 psycopg no admite dos consultas a la vez sobre la misma conexion, y la interfaz
 no puede esperar a la red: un solo hilo es dueno de la conexion y atiende los

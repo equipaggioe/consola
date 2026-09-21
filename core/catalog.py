@@ -88,7 +88,7 @@ _HOST_AXIS = lambda: AxisDef('host', ['0.0.0.0', '127.0.0.1'], 'scope',
 def for_project(cap: Capability, root: Path | str | None) -> Capability:
     """La capacidad tal como se ve con este repo abierto.
 
-    Los ejes descubiertos (PLAN.md 2.4) no pueden declararse en `load_catalog()`:
+    Los ejes descubiertos (ADR-0006) no pueden declararse en `load_catalog()`:
     el catalogo se arma una vez al arrancar y el repo cambia con el selector.
     Aca se les llenan los valores mirando el repo, justo antes de dibujar el
     panel — en `navetta` el eje de SPA da tres, en un repo con solo `panel/` da
@@ -136,7 +136,7 @@ def applicable_ids(root: Path | str | None) -> set[str]:
 
     Los que no —"Migrar" en un repo sin migraciones— se ocultan enteros en vez
     de quedar en ambar: no les falta configuracion, les falta sobre que actuar
-    (docs/capacidades-por-repo.md 1). Un repo sin nada abierto no oculta nada:
+    (ADR-0007). Un repo sin nada abierto no oculta nada:
     los menus ya estan deshabilitados por completo.
     """
     if not root:
@@ -149,7 +149,7 @@ def applicable_ids(root: Path | str | None) -> set[str]:
 # Un eje `discover` se llena mirando el repo abierto (`core/targets.py`). Estos
 # se llenan preguntandole a algo: al SDK, que dispositivos y que maquinas
 # virtuales hay; al VPS del repo, cuales de los servicios que Consola administra
-# existen ahi. Son la misma idea de PLAN.md 2.4 contra una fuente que no es la
+# existen ahi. Son la misma idea de ADR-0006 contra una fuente que no es la
 # carpeta — y por eso viven aca, al lado de `for_project`, y no en el catalogo
 # de botones.
 #
@@ -270,7 +270,7 @@ ANDROID_PACKAGE_AXES = [
 # `core/tasks/utils.py::find_artifacts` y las etiquetas van aparte, en `labels`:
 # antes los valores ERAN el texto visible y `ui/task_adapters.py` mantenia dos
 # tablas para traducirlos de vuelta, que es exactamente la duplicacion que el
-# contrato de nombres saca (docs/contrato-de-nombres.md).
+# contrato de nombres saca (ADR-0003).
 FAMILY_AXIS_VALUES = ['python', 'gradle', 'flutter', 'crash']
 FAMILY_AXIS_LABELS = {'python': 'Python', 'gradle': 'Gradle/Android',
                       'flutter': 'Flutter', 'crash': 'Volcados de crash'}
@@ -340,7 +340,7 @@ BUILD_BINARY_STEPS = [
 
 # Los seis pasos del despliegue, en el orden en que ocurren: primero se publica
 # lo local, después el VPS lo trae. Las claves van por paso y no en el
-# `required_by` de la capacidad (§4.2 de docs/atomicas.md): "solo recopiar los
+# `required_by` de la capacidad (§4.2 de ADR-0004): "solo recopiar los
 # certificados" no tiene por qué quedar bloqueado por GIT_REPO_URL.
 #
 # 'push_repo' arranca marcado como el resto: el VPS clona de GitHub y no de
@@ -388,7 +388,7 @@ BOOTSTRAP_VPS_STEPS = [
 
 
 # Los seis pasos de la limpieza son casillas del formulario, no botones del rail
-# (PLAN.md 7, caso 7): "dejar el VPS como recien formateado" casi siempre se pide
+# (ADR-0004): "dejar el VPS como recien formateado" casi siempre se pide
 # entero. Los ids son los de los parametros de `vps_ops.clean_vps`, no los de
 # `composed_of`: ese lista las atomicas que encadena, que no son capacidades del
 # catalogo y por eso derivaban etiquetas en ingles.
@@ -492,13 +492,13 @@ SETUP_SSH_STEPS = [
 
 # Los tres launchers del arranque diario, como pasos de una compuesta que NO es
 # una secuencia: se lanzan a la vez, cada uno en su pestana, y ninguno termina
-# (docs/launchers.md 2.5). El orden de esta lista es el de despacho, y el unico
+# (ADR-0011). El orden de esta lista es el de despacho, y el unico
 # que importa es que el backend salga primero: los otros dos esperan su endpoint.
 # Los pasos de abajo existian como parametros de su funcion y no como casillas:
 # el catalogo dejaba que `composed_of` los derivara, y `composed_of` nombra
 # CAPACIDADES (`generate_remote_keypair`), no parametros (`generate`). El panel
 # dibujaba casillas cuyo id no le correspondia a nada y la funcion corria
-# siempre con sus defaults (docs/contrato-de-nombres.md §2, causa C).
+# siempre con sus defaults (ADR-0003).
 
 SETUP_GITHUB_SSH_STEPS = [
     Step('generate', 'Generar llave en el VPS'),
@@ -525,7 +525,7 @@ REVOKE_SSH_STEPS = [
 # Los dos pasos de los TRES botones que escriben la configuracion de un
 # servicio del VPS: el del repo, coturn y Caddy. Los tres hacen lo mismo
 # —escribir su configuracion y dejar el servicio andando— asi que se dibujan
-# igual (docs/atomicas.md 4.6).
+# igual (ADR-0022).
 #
 # Escribir no es casilla: es lo que el boton ES, y desmarcarlo lo dejaba
 # haciendo exactamente lo que hace `systemd_action`. Las dos que quedan son las
@@ -541,7 +541,7 @@ def _SERVICE_STEPS() -> list[Step]:
 
 # Los tres pasos de `utils.install_android_sdk`. Era la unica compuesta que
 # recibia la lista de ids en vez de un booleano por paso: ahora recibe los tres
-# booleanos como las otras doce (docs/contrato-de-nombres.md §5, causa D).
+# booleanos como las otras doce (ADR-0003).
 INSTALL_ANDROID_SDK_STEPS = [
     Step('tools', 'Instalar herramientas de línea de comandos'),
     Step('packages', 'Instalar paquetes del SDK'),
@@ -575,7 +575,7 @@ def load_catalog() -> None:
     # Launchers group
     # Las secciones agrupan por lo que el launcher TE ENTREGA, que es lo mismo
     # que decide si su pestana tiene segunda vista: una URL se mira en un
-    # navegador, un emulador se mira en su ventana (docs/launchers.md 2.4).
+    # navegador, un emulador se mira en su ventana (ADR-0008).
     #
     # `view='web'` no es un boton mas ni una capacidad aparte: es la segunda
     # vista de la pestana del propio launcher, apuntada al endpoint que la tarea
@@ -605,7 +605,7 @@ def load_catalog() -> None:
     # `fanout='target'`: marcar panel + backoffice son dos dev servers vivos a la
     # vez, no dos pasos en fila. Un eje `many` se recorre en bucle cuando la
     # capacidad termina (`build_vite`) y se reparte en pestanas cuando no
-    # (docs/launchers.md 2.1).
+    # (ADR-0010).
     registry.register(Capability(
         id='serve_vite', name='SPA Vite', group='Launchers', section='Web',
         kind='live', icon='🌐', view='web', fanout='target',
@@ -636,7 +636,7 @@ def load_catalog() -> None:
         stub=True))
     # Cualquier app Python del repo que no sea el servidor: PySide6, Flet de
     # escritorio, un bot. Como `serve_vite`, marcar varias abre una pestana por
-    # cada una (docs/launchers.md 2.1).
+    # cada una (ADR-0010).
     registry.register(Capability(
         id='run_python', name='App Python', group='Launchers', section='Escritorio',
         kind='live', icon='🐍', fanout='target',
@@ -651,7 +651,7 @@ def load_catalog() -> None:
     # La compuesta concurrente del grupo. No tiene `func` ni adaptador: su
     # cuerpo es el despachador de `ui/tab_panel.py`, porque "una pestana por
     # paso, todas vivas a la vez" no significa nada dentro de `core/`
-    # (docs/launchers.md 2.5). Por eso se declara `stub=False` a mano.
+    # (ADR-0011). Por eso se declara `stub=False` a mano.
     registry.register(Capability(
         id='dev_env', name='Entorno de desarrollo', group='Launchers',
         section='Todo junto', kind='live', icon='🧪', level='C', concurrent=True,
@@ -686,7 +686,7 @@ def load_catalog() -> None:
     # son campos y no una lista descubierta: el script original empaquetaba
     # *cualquier* ruta del repo (`server/main.py`, `tools/cli.py`), y un eje
     # `app` descubierto vacío dejaría en ámbar justo al repo que se empaqueta
-    # desde su raíz — que es el caso de la propia Consola (PLAN.md §7).
+    # desde su raíz — que es el caso de la propia Consola (ADR-0007).
     # Vacío no es "falta un dato": `resolve_entrypoint` deduce `src/main.py` de
     # la única app Python del repo, igual que hace el launcher App Python.
     registry.register(Capability(
@@ -724,7 +724,7 @@ def load_catalog() -> None:
     # cualquier proyecto, igual que el SDK. Instalar la maquina virtual, crear
     # el AVD y arrancarlo dejaron de ser tres casillas de una compuesta y son
     # tres botones, porque cada uno tiene su propio catalogo de opciones: un
-    # paso con opciones propias ya no entra en una casilla (docs/emuladores.md).
+    # paso con opciones propias ya no entra en una casilla (ADR-0027).
     registry.register(Capability(
         id='install_system_image', name='Instalar máquina', group='Emulators',
         section='Instalación', kind='once', icon='💿', scope='machine',
@@ -781,7 +781,7 @@ def load_catalog() -> None:
         stub=True))
     # Un solo boton de limpieza para las dos cosas que ocupan disco: el AVD
     # pesa cientos de MB y la maquina virtual, varios GB. Borrar uno suelto es
-    # marcar una casilla, no otro boton (docs/atomicas.md 1).
+    # marcar una casilla, no otro boton (ADR-0004).
     registry.register(Capability(
         id='purge_emulators', name='Liberar disco', group='Emulators',
         section='Limpieza', kind='destructive', icon='🗑️', scope='machine',
@@ -819,7 +819,7 @@ def load_catalog() -> None:
     # (`VPS · server`) deliberadamente no hacen: esos avisan y frenan ante
     # cualquier divergencia, estos existen justo para el caso en que alguien ya
     # decidio que un lado gana igual. Objetivo de proteccion 'local' en los dos
-    # (docs/seguro-destructivos.md): no salen de esta maquina ni de este repo
+    # (ADR-0018): no salen de esta maquina ni de este repo
     # de GitHub, a diferencia de un forzado contra el VPS.
     registry.register(Capability(
         id='git_force_push', name='Forzar: origin = local', group='Git', section='Local ↔ GitHub',
@@ -1030,7 +1030,7 @@ def load_catalog() -> None:
     registry.register(Capability(id='ssh_tunnel', name='Túnel Postgres', group='Base de datos', section='Conexión', kind='background', icon='🔗', description='Abre un túnel SSH al Postgres del VPS para conectarse en local.', stub=True))
     # Viva como un launcher: sostiene la conexion (y en remoto el tunel) hasta
     # cerrar la pestana, y lo que entrega es la vista de arbol y datos, no el
-    # log (docs/explorador-db.md 3).
+    # log (ADR-0015).
     registry.register(Capability(id='explore_db', name='Explorar base', group='Base de datos', section='Conexión', kind='live', view='db', icon='🗂️', description='Navega esquemas, tablas y datos de la base, en solo lectura.', axes=[_SCOPE_AXIS()], stub=True))
     registry.register(Capability(id='inspect_db', name='Inspeccionar', group='Base de datos', section='Diagnóstico', kind='once', icon='🔍', description='Lista las tablas de la base con su cantidad de filas.', axes=[_SCOPE_AXIS()], stub=True))
 

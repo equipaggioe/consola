@@ -23,7 +23,7 @@ def resolve_port(preferred: int, *, search: bool = True, label: str = 'puerto') 
     """Devuelve `preferred` si esta libre; si no y `search`, el siguiente libre.
 
     Los scripts guardaban el resultado en el .env para que el proceso siguiente
-    lo leyera. Aca el puerto es estado de sesion (PLAN.md 7, caso 4): lo publica
+    lo leyera. Aca el puerto es estado de sesion (ADR-0009): lo publica
     quien arranca el servicio y lo lee quien arranca despues, sin tocar disco.
     """
     if is_free(preferred):
@@ -56,7 +56,7 @@ def wait_until_serving(port: int, *, host: str = '127.0.0.1', timeout: float = 6
     Elegir el puerto (`resolve_port`) no es lo mismo que estar sirviendo: entre
     las dos cosas hay un `npm run dev` que tarda dos segundos o un uvicorn que
     tarda diez. Sin esta espera, el navegador de la pestana abriria la URL antes
-    de que exista y mostraria un error que no es tal (docs/launchers.md 2.2).
+    de que exista y mostraria un error que no es tal (ADR-0008).
 
     `cancel` es el `threading.Event` de la tarea: detenerla no debe dejar este
     bucle vivo hasta que se cumpla el timeout.

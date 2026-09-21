@@ -106,7 +106,7 @@ class TaskContext:
         """Encabezado de un paso dentro de una compuesta.
 
         El log de una receta queda plano, con un encabezado por paso y sin
-        sub-pestanas (PLAN.md 7, caso 8).
+        sub-pestanas (ADR-0005).
 
         Recibe el ID del paso y la etiqueta la resuelve del catalogo, que es
         donde ya estaba escrita para la casilla del panel. Antes se pasaba el
@@ -201,7 +201,7 @@ class TaskContext:
         """Anuncia que esta tarea va a servir en esa URL.
 
         Lo que un launcher entrega no es su log, es un endpoint: la consola es
-        el subproducto (docs/launchers.md 1). Llamar a esto antes de arrancar el
+        el subproducto (ADR-0008). Llamar a esto antes de arrancar el
         proceso hace tres cosas de una sola vez —la barra de la pestana con su
         URL, la vista de navegador embebido, y la senal de "listo" que esperan
         los launchers que dependen de este.
@@ -272,7 +272,7 @@ class TaskContext:
 
         Es la otra mitad de `serve()` para lo que no se puede mostrar en la
         barra: la URL con contrasena que el explorador necesita para abrir su
-        propia conexion (docs/explorador-db.md 4). Queda en memoria y se borra
+        propia conexion (ADR-0015). Queda en memoria y se borra
         sola cuando la tarea termina.
         """
         if self.project is None:
@@ -319,7 +319,7 @@ class TaskContext:
             self.progress_sink(done, total, label)
 
     def note(self, entry: str) -> None:
-        """Deja una entrada automatica en la bitacora del proyecto (PLAN.md 8)."""
+        """Deja una entrada automatica en la bitacora del proyecto (docs/arquitectura/30_riesgos_y_pendientes.md)."""
         if self.note_sink:
             self.note_sink(self.mask(entry))
 
@@ -342,7 +342,7 @@ class TaskContext:
 
         Matar el proceso sirve para casi todo, pero no para lo que guarda estado
         al cerrarse: al emulador hay que pedirle `adb emu kill` y darle un
-        momento, o el AVD queda a medio escribir (PLAN.md 7, caso 3). El gancho
+        momento, o el AVD queda a medio escribir (ADR-0028). El gancho
         corre ANTES que `kill_tree`, que asi casi siempre encuentra el proceso
         ya terminado y no tiene nada que matar.
         """
@@ -388,7 +388,7 @@ class TaskContext:
         """Contexto para un paso interno: misma consola, misma cancelacion.
 
         Una compuesta llama a sus atomicas con esto, no con un contexto nuevo:
-        el usuario ve un solo log y un solo boton de Detener (PLAN.md 7, caso 8).
+        el usuario ve un solo log y un solo boton de Detener (ADR-0005).
         """
         return TaskContext(
             capability_id=capability_id,

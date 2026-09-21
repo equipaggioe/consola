@@ -5,7 +5,7 @@ from __future__ import annotations
 Nada de esto es un boton. Cada modulo resuelve una sola clase de problema y no
 importa Qt, no imprime a stdout, no lee de stdin y no sale del proceso: informa
 por el `TaskContext` que recibe y levanta `TaskError` cuando no puede seguir
-(PLAN.md 2.1).
+(ADR-0005).
 
     errors      TaskError, Cancelled, MissingConfig
     context     TaskContext: log, run, confirm, ask, note, cancelacion

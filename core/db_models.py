@@ -9,7 +9,7 @@ from . import db_explorer, process
 from .errors import TaskError
 
 """
-Los modelos del repo contra la base viva (docs/explorador-db.md 7).
+Los modelos del repo contra la base viva (ADR-0015).
 
 Sin Qt. Lo que se compara es lo mismo que compara Alembic: el `Base.metadata`
 que arma `app.models`, el paquete que importa `alembic/env.py` en todos los

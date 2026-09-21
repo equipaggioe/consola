@@ -449,7 +449,7 @@ class MainWindow(QMainWindow):
 
     def _on_security_clicked(self) -> None:
         """Clic en el indicador de la barra de estado: salta a la seccion
-        Seguridad del repo activo (`docs/seguro-destructivos.md` §4)."""
+        Seguridad del repo activo (`ADR-0018` §4)."""
         workspace = self.current_workspace
         if workspace is not None:
             workspace.reveal_security()

@@ -293,7 +293,7 @@ def rotate_backups(ctx, keep: int = 7) -> list[Path]:
 
 
 def open_db_tunnel(ctx):
-    """Tunel Postgres como servicio de fondo: sobrevive a su pestana (PLAN.md 7.2)."""
+    """Tunel Postgres como servicio de fondo: sobrevive a su pestana (ADR-0016)."""
     remote = ssh.resolve_remote(ctx.config)
     remoto = vps.postgres_port(remote)
     from .. import ports
@@ -320,7 +320,7 @@ def inspect_database(ctx, scope: str = db.LOCAL) -> list[str]:
 def explore_db(ctx, scope: str = db.LOCAL) -> None:
     """Conecta el explorador y lo mantiene conectado hasta cerrar la pestana.
 
-    Es una tarea viva, como un launcher (docs/explorador-db.md 3): lo que
+    Es una tarea viva, como un launcher (ADR-0015): lo que
     sostiene es la conexion —y en remoto, el tunel SSH—, y lo que entrega no es
     su log sino la vista de arbol y datos de la misma pestana. Antes de
     publicarla prueba la conexion con el rol de la app y deja en la consola lo

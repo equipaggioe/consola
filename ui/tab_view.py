@@ -22,9 +22,9 @@ El contenido de una pestana de accion.
 Hasta ahora una pestana era una consola y nada mas. Un launcher no entrega un
 log, entrega una URL: la consola pasa a ser la primera de dos vistas, y la
 segunda —el navegador— es la que hace falta cuando lo que se levanto es un dev
-server (docs/launchers.md 2.3).
+server (ADR-0008).
 
-La misma caja sirve para «Explorar base» (docs/explorador-db.md): arbol y
+La misma caja sirve para «Explorar base» (ADR-0015): arbol y
 grilla en lugar de texto, compartiendo el panel de parametros y el pie de la
 pestana. Por eso el conmutador se llama "vista" y no "navegador".
 """

@@ -357,7 +357,7 @@ def list_images(sdk: Sdk) -> list[str]:
 def list_devices(sdk: Sdk) -> list[str]:
     """Seriales de emuladores vivos, preguntandole a adb.
 
-    El emulador se desprende del proceso que lo lanzo (PLAN.md 7, caso 3), asi
+    El emulador se desprende del proceso que lo lanzo (ADR-0028), asi
     que su estado no se puede inferir de un PID: hay que sondearlo.
     """
     salida = capture([sdk.adb, 'devices'], timeout=30, check=False)

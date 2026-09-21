@@ -168,7 +168,7 @@ def app_python(app_dir: Path, repo_root: Path) -> list[str]:
 def detect_app_kind(project_dir: Path) -> str:
     """Distingue un proyecto Flutter de uno Flet por sus marcadores de archivo.
 
-    Es el eje `framework` descubierto de PLAN.md 2.4: no se declara a mano en
+    Es el eje `framework` descubierto de ADR-0006: no se declara a mano en
     ningun catalogo, sale de mirar el repo abierto.
     """
     pubspec = project_dir / 'pubspec.yaml'

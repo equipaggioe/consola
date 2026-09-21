@@ -17,7 +17,7 @@ Aca son dos atomicas —`ensure_deploy_access` y `configure_sudo`—: cada una
 detecta su estado antes de actuar y se puede repetir sola. `setup_ssh_key` es la
 compuesta que las corre en orden y cierra con la verificacion, que no es atomica
 sino `ssh.reachable`: algo que necesitan casi todos los botones de SSH es
-plomeria de nivel 0, no una tarea con boton (docs/atomicas.md 4.6).
+plomeria de nivel 0, no una tarea con boton (ADR-0022).
 """
 
 # `PACKAGE_GROUPS` y `DEFAULT_GROUPS` viven en `core/vps.py`: el catalogo los
@@ -101,7 +101,7 @@ def ensure_deploy_access(ctx) -> str:
     """Da de alta la cuenta de despliegue y le instala la llave con la que se entra.
 
     Eran dos atomicas, `ensure_remote_user` e `install_public_key`. Se fusionaron
-    porque la primera no pasaba el criterio del 1 de docs/atomicas.md: nadie la
+    porque la primera no pasaba el criterio del 1 de ADR-0004: nadie la
     corre sola, y si lo hiciera quedaria con un usuario al que no puede entrar.
     Tampoco servia como casilla desmarcable, porque el paso ya era idempotente y
     saltearlo solo ahorraba un `id -u`.
@@ -533,7 +533,7 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
                   ssh_key: bool = True, software: bool = True,
                   github_ssh: bool = True, deploy: bool = True,
                   database: bool = True, service: bool = True) -> None:
-    """Compuesta de compuestas: el VPS desde cero (PLAN.md 7, caso 8).
+    """Compuesta de compuestas: el VPS desde cero (ADR-0005).
 
     Encadena capacidades que ya tienen su propio boton compuesto. Si un paso
     falla, la receta se detiene ahi: cada compuesta interna ya sabe revertir lo
@@ -542,7 +542,7 @@ def bootstrap_vps(ctx, sudo_mode: str = 'all', groups: list[str] | None = None, 
     `sudo_mode` y `groups` se reenvian a las compuestas de adentro. No es
     duplicar sus ejes: un parametro que el bootstrap no reenvia queda clavado
     en su default y el eje del boton suelto no sirve de nada aca — el mismo
-    agujero que tenia `sudo_mode` antes de docs/atomicas.md 4.6, una capa mas
+    agujero que tenia `sudo_mode` antes de ADR-0022, una capa mas
     arriba.
 
     El paso de codigo llama a `publish_code` y no a `update_remote`: una

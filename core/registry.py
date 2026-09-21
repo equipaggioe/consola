@@ -30,7 +30,7 @@ class Facet:
 class AxisDef:
     """Un eje que genera opciones en el panel de parametros.
 
-    `select` es la decision importante (docs/panel-de-parametros.md §2):
+    `select` es la decision importante (ADR-0004):
     'many' = casillas (tiene sentido pedir dos a la vez: panel + backoffice),
     'one'  = segmentado (pedir dos es un absurdo: start + stop).
     """
@@ -222,7 +222,7 @@ class AxisDef:
 
     @property
     def is_discovered(self) -> bool:
-        """Sus valores salen de mirar el repo abierto, no del catalogo (PLAN.md 2.4).
+        """Sus valores salen de mirar el repo abierto, no del catalogo (ADR-0006).
 
         El catalogo se carga una sola vez al arrancar y el repo cambia con el
         selector, asi que un eje descubierto se declara vacio aca y lo llena
@@ -282,8 +282,7 @@ class Capability:
     hidden: bool = False   # capacidad atomica: existe como paso, no como boton
     requires_repo: str = ''  # lo mismo que en `Step`, para el boton entero: la
                            # capacidad cuyos pasos son TODOS de esa caracteristica
-                           # no queda vacia, desaparece (docs/capacidades-por-repo.md 1,
-                           # estado "inaplicable").
+                           # no queda vacia, desaparece (ADR-0007).
     opens_repo: bool = False  # lo que entrega la tarea es una carpeta de repo:
                            # la ventana la abre como pestana al terminar. Es lo
                            # unico que hace falta declarar para que clonar
@@ -293,19 +292,19 @@ class Capability:
                            # 'web' = navegador embebido apuntado al endpoint que
                            # la tarea publica con `ctx.serve()`. El log de un
                            # launcher es el subproducto; lo que entrega es una
-                           # URL (docs/launchers.md 2.3).
+                           # URL (ADR-0008).
                            # 'db' = explorador de base sobre la conexion que
-                           # publica `explore_db` (docs/explorador-db.md).
+                           # publica `explore_db` (ADR-0015).
     fanout: str = ''       # solo kind='live': nombre del eje `select='many'`
                            # cuyos valores NO se corren en un bucle sino en una
                            # pestana cada uno. Marcar panel + backoffice son dos
                            # dev servers vivos a la vez, no dos pasos en fila
-                           # (docs/launchers.md 2.1).
+                           # (ADR-0010).
     concurrent: bool = False  # compuesta concurrente: sus pasos son capacidades
                            # que se lanzan en paralelo, una pestana cada una, y
                            # ninguna termina. No tiene `func`: su cuerpo es el
                            # despachador de la interfaz, porque "N pestanas" no
-                           # significa nada en `core/` (docs/launchers.md 2.5).
+                           # significa nada en `core/` (ADR-0011).
     live_state: str = ''   # inventario que el panel muestra como cabecera de
                            # estado, con su boton de apagar por fila
                            # (`core/catalog.py::queried_values`). Es lo que
@@ -354,7 +353,7 @@ class Capability:
 
     @property
     def is_composite(self) -> bool:
-        """Compuesta = encadena varias atomicas (docs/catalogo-funciones.md).
+        """Compuesta = encadena varias atomicas (ADR-0004).
 
         Lo normal es que se note sola: si declara `steps` o `composed_of`, es
         compuesta. Pero varias compuestas reales (`bootstrap_db`,
@@ -374,7 +373,7 @@ class Capability:
 
         Es el reemplazo generico de `ui/task_adapters.py`: no hay una tabla por
         capacidad porque no hace falta, la capacidad ya se declara a si misma.
-        El contrato que lo permite (docs/contrato-de-nombres.md) es que el `name`
+        El contrato que lo permite (ADR-0003) es que el `name`
         de un eje y el `id` de un paso SEAN el nombre del parametro; la etiqueta
         que lee el humano vive aparte, en `label`/`labels`.
 
@@ -520,7 +519,7 @@ class Registry:
         coincidir con el nombre de un parametro (`generate_remote_keypair`
         contra `generate`). Derivar de ahi producia casillas cuyo id no le
         correspondia a nada, y por eso once capacidades ya declaraban `steps=`
-        a mano para taparlo (docs/contrato-de-nombres.md §2, causa C).
+        a mano para taparlo (ADR-0003).
 
         Quien quiere una casilla por paso la declara. Sin `steps`, la capacidad
         es un solo paso obligatorio y el panel no dibuja la seccion.

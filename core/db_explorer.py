@@ -4,7 +4,7 @@ from dataclasses import dataclass, field
 from .errors import TaskError
 
 """
-Introspeccion de solo lectura de una base Postgres (docs/explorador-db.md).
+Introspeccion de solo lectura de una base Postgres (ADR-0015).
 
 Sin Qt: funciones sobre una conexion psycopg, que la vista llama desde su hilo
 (`ui/db_worker.py`) y la tarea `explore_db` desde el suyo.

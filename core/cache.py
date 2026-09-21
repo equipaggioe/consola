@@ -21,7 +21,7 @@ vivo — no se cachea nunca: se pregunta cada vez, porque es barato y porque una
 respuesta vieja ahi seria mentira.
 
 Vive en `%LOCALAPPDATA%\\Consola\\cache` (o `~/.cache/consola`), fuera de los
-repos: es historia de la maquina, igual que el SQLite de PLAN.md 8.
+repos: es historia de la maquina, igual que el SQLite de docs/arquitectura/30_riesgos_y_pendientes.md.
 """
 
 

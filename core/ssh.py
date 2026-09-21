@@ -182,7 +182,7 @@ def reachable(remote: Remote) -> bool:
     distinguir "no llego a la maquina" de "el comando fallo". Vivio un tiempo
     como la atomica `test_ssh_login` de `vps_setup`, y se bajo aca al notar que
     algo que necesitan casi todos los botones de SSH es plomeria, no una tarea
-    con boton propio (docs/atomicas.md 0).
+    con boton propio (ADR-0004).
     """
     return succeeds(remote, 'echo ok')
 
@@ -239,7 +239,7 @@ def download(ctx, remote: Remote, remote_path: str, local: Path, *,
 
 @dataclass
 class Tunnel:
-    """Un `ssh -N -L` vivo. Es un servicio de fondo, no una tarea (PLAN.md 7.2)."""
+    """Un `ssh -N -L` vivo. Es un servicio de fondo, no una tarea (ADR-0016)."""
     remote: Remote
     local_port: int
     remote_port: int
@@ -310,7 +310,7 @@ def forget_host(ctx, host: str) -> None:
 
 
 def terminal_argv(remote: Remote) -> list[str]:
-    """Sesion interactiva en terminal externa: necesita TTY real (PLAN.md 7.1)."""
+    """Sesion interactiva en terminal externa: necesita TTY real (ADR-0005)."""
     ssh = ['ssh', '-i', str(remote.identity), remote.target]
     if os.name == 'nt':
         return ['wt.exe', *ssh]

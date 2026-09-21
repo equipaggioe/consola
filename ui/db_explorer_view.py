@@ -17,7 +17,7 @@ from ui.db_worker import DbWorker
 from ui.theme import Colors, Fonts
 
 """
-La vista de la pestana «Explorar base» (docs/explorador-db.md 6).
+La vista de la pestana «Explorar base» (ADR-0015).
 
 Arbol de tablas a la izquierda, por esquema o por la carpeta de su modelo en
 `app/models/`; a la derecha, Datos (paginado, ordenado en el servidor) y
@@ -34,7 +34,7 @@ JSON_TYPES = {'json', 'jsonb'}
 _ROLE_REL = Qt.ItemDataRole.UserRole          # Relation, o ModelTable si falta en la base
 _ROLE_GROUP = Qt.ItemDataRole.UserRole + 1    # clave de un esquema o carpeta
 
-# Marca y color de cada estado frente a los modelos (docs/explorador-db.md 7).
+# Marca y color de cada estado frente a los modelos (ADR-0015).
 _STATUS_MARK = {
     dbm.MISSING: ('✕ ', Colors.ERROR),
     dbm.CHANGED: ('≠ ', Colors.WARNING),
@@ -373,7 +373,7 @@ class DbExplorerView(QWidget):
         """Relee el catalogo, la estructura de la tabla abierta y la comparacion
         con los modelos.
 
-        Lo llama la pestana al mostrarse (docs/explorador-db.md 6): si migraste
+        Lo llama la pestana al mostrarse (ADR-0015): si migraste
         en otra pestana o tocaste un modelo, al volver lo ves. Las filas no se
         releen solas — vuelven a la primera pagina cuando eliges la tabla otra vez.
         """
@@ -490,7 +490,7 @@ class DbExplorerView(QWidget):
             current = self._trail[-1][0].qualified if self._trail else None
         expanded = self._expanded_groups()
         # Por modelos siempre que se pudieron leer; por esquemas es el respaldo
-        # mientras cargan o si no se pueden importar (docs/explorador-db.md 7).
+        # mientras cargan o si no se pueden importar (ADR-0015).
         by_models = self._comparison is not None
 
         self.tree.blockSignals(True)

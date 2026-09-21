@@ -239,7 +239,7 @@ class WorkspaceStatusBar(QWidget):
 
         # Los objetivos de proteccion del repo activo (`core/protection.py`),
         # cada uno con su candado abierto o cerrado, siempre a la vista sin
-        # importar que accion este abierta arriba (`docs/seguro-destructivos.md`
+        # importar que accion este abierta arriba (`ADR-0018`
         # §4). El clic en cualquiera salta a la seccion Seguridad.
         self.security_box = QWidget()
         self.security_box.setStyleSheet("background: transparent;")
@@ -575,7 +575,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.tabs: list[SubTabButton] = []
         # La pestana ya no es una consola suelta: es una caja con la consola y,
         # cuando la accion publica un endpoint, un navegador al lado
-        # (`ui/tab_view.py`, docs/launchers.md 2.3). `_consoles` sigue existiendo
+        # (`ui/tab_view.py`, ADR-0008). `_consoles` sigue existiendo
         # porque casi todo el archivo habla con la consola y no con la caja.
         self._views: dict[SubTabButton, TabView] = {}
         self._consoles: dict[SubTabButton, ConsoleView] = {}
@@ -782,7 +782,7 @@ class TabPanel(ReorderableBar, QWidget):
               axis_value: str = '') -> tuple[SubTabButton, TabView]:
         """Lo mismo que `open_tab`, devolviendo tambien la pestana.
 
-        El reparto en pestanas de un eje `fanout` (docs/launchers.md 2.1)
+        El reparto en pestanas de un eje `fanout` (ADR-0010)
         necesita correr una tarea *en* la pestana que acaba de abrir, y para eso
         hace falta el boton, no solo su consola.
         """
@@ -840,7 +840,7 @@ class TabPanel(ReorderableBar, QWidget):
 
         Lo usa el reparto de `fanout`: la pestana generica «SPA Vite»
         pasa a llamarse «SPA Vite panel» cuando se sabe cual arranco. Una
-        pestana por proceso vivo, y el nombre dice cual (docs/launchers.md 2.1).
+        pestana por proceso vivo, y el nombre dice cual (ADR-0010).
         """
         usados = {t.title for t in self.tabs if t is not tab}
         if title in usados:
@@ -1228,12 +1228,12 @@ class TabPanel(ReorderableBar, QWidget):
     def _run(self, tab: SubTabButton, payload: dict) -> None:
         """Punto unico de 'Ejecutar': corre de verdad lo que ya tiene cuerpo
         (`func`); lo que todavia no lo tiene sigue simulado, para que el rail y
-        el panel funcionen igual mientras se escribe (PLAN.md §10).
+        el panel funcionen igual mientras se escribe (ADR-0002).
 
         Tener cuerpo es la unica condicion. Antes hacian falta dos —cuerpo y una
         entrada en `ADAPTERS`— y ese diccionario terminaba siendo una compuerta:
         veinte capacidades escritas y probadas se simulaban porque les faltaba
-        una linea ahi (docs/contrato-de-nombres.md §1). Los kwargs los arma
+        una linea ahi (ADR-0003). Los kwargs los arma
         ahora la propia capacidad desde su declaracion."""
         console = self._consoles.get(tab)
         if console is None:
@@ -1252,7 +1252,7 @@ class TabPanel(ReorderableBar, QWidget):
             return
 
         # Una compuesta concurrente no corre nada por si misma: reparte sus
-        # pasos, que son capacidades, una por pestana (docs/launchers.md 2.5).
+        # pasos, que son capacidades, una por pestana (ADR-0011).
         if capability.concurrent:
             self._run_concurrent(tab, capability, payload)
             return
@@ -1307,7 +1307,7 @@ class TabPanel(ReorderableBar, QWidget):
         Solo para lo que corre en vivo: un eje `many` de una capacidad que
         termina (`build_vite`) se recorre en un bucle dentro de su propia
         consola, porque ver los builds en fila es lo correcto. Tres dev servers
-        en una sola consola, no (docs/launchers.md 2.1).
+        en una sola consola, no (ADR-0010).
         """
         if capability.kind != 'live' or not capability.fanout:
             return []
@@ -1393,7 +1393,7 @@ class TabPanel(ReorderableBar, QWidget):
         view = self._views.get(tab)
         if view is not None:
             runner.serve_requested.connect(view.set_endpoint)
-        # La bitacora todavia no existe (`core/store.py`, PLAN.md §8): hasta que
+        # La bitacora todavia no existe (`core/store.py`, docs/arquitectura/30_riesgos_y_pendientes.md): hasta que
         # exista, una nota no se pierde — se deja marcada en la consola.
         runner.noted.connect(lambda entry: console.append_log(f'✱ {entry}', 'ok'))
         runner.ask_requested.connect(
@@ -1483,7 +1483,7 @@ class TabPanel(ReorderableBar, QWidget):
         runner.provide_answer('no' if box.clickedButton() is no else 'si')
 
     def _run_stub(self, console: ConsoleView, payload: dict) -> None:
-        """Ejecucion simulada: reporta exactamente lo que correria (stub, PLAN.md §10)."""
+        """Ejecucion simulada: reporta exactamente lo que correria (stub, ADR-0002)."""
         console.append_log("─" * 46, "info")
 
         variants = {k: v for k, v in payload['variants'].items() if v}

@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 class Setting:
     """Una clave de `.consola/config.env`, declarada una sola vez.
 
-    Dos consumidores (PLAN.md §9): el formulario de Configuracion y la
+    Dos consumidores (ADR-0017): el formulario de Configuracion y la
     validacion previa que marca en ambar lo que le falta a una accion.
     """
     key: str
@@ -33,7 +33,7 @@ class Setting:
     # de configuracion filtrado de esas acciones, y no bloquea su boton. La
     # distincion importa: `serve_backend` nunca lee `API_URL` —quien la lee es
     # `compile_flutter`, y ese ya la pide por paso— asi que exigirla dejaba el
-    # Backend en ambar por una clave que jamas iba a mirar (docs/launchers.md 3).
+    # Backend en ambar por una clave que jamas iba a mirar (docs/arquitectura/13_configuracion_y_persistencia.md).
     used_by: tuple[str, ...] = field(default_factory=tuple)
 
     @property

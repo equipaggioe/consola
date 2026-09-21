@@ -336,7 +336,7 @@ def systemd_action(ctx, action: str = 'status', service: str = 'proyecto') -> in
     mismos nueve valores para el servicio del proyecto, para coturn y para
     Caddy, y lo unico que cambia es el nombre de la unidad. Un boton "Reiniciar
     coturn" al lado de este seria la misma funcion con una constante distinta
-    (PLAN.md 1).
+    (ADR-0023).
     """
     remote = _remote(ctx)
     servicio = vps.resolve_service(ctx.config, service)
@@ -399,7 +399,7 @@ def view_logs(ctx, lines: int = 200, follow: bool = True, since: str = '',
     """Sigue el journal del servicio con los filtros pedidos.
 
     Es capacidad hermana de `systemd_action`, no un valor suyo: los filtros no
-    tienen sentido para start/stop (PLAN.md 1). El eje `service` es el mismo de
+    tienen sentido para start/stop (ADR-0023). El eje `service` es el mismo de
     alla: cuando coturn o Caddy no arrancan, lo que hay que leer es su journal.
     """
     remote = _remote(ctx)

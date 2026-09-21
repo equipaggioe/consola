@@ -12,7 +12,7 @@ from ui.theme import Colors, Fonts
 El navegador embebido de una pestana de launcher.
 
 Un dev server de Vite entrega una URL, no un log: la consola es el subproducto
-(docs/launchers.md 2.3). Esta vista es la otra mitad de esa pestana — no un
+(ADR-0008). Esta vista es la otra mitad de esa pestana — no un
 boton del rail, porque abrir una URL no ejecuta nada, no registra nada y no
 tiene parametros.
 

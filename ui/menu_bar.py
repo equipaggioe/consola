@@ -145,7 +145,7 @@ class ActionMenuBar(QMenuBar):
 
         Las que no —"Migrar" en un repo que no lleva migraciones— se van del
         menu enteras, no quedan en ambar: no les falta un dato, les falta sobre
-        que actuar (docs/capacidades-por-repo.md 1). Un grupo que se queda sin
+        que actuar (ADR-0007). Un grupo que se queda sin
         ninguna desaparece de la barra, igual que con «solo favoritos».
         """
         if self._applicable is not None and ids == self._applicable:

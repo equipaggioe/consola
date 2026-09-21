@@ -264,7 +264,7 @@ def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
 
 
 def kill_tree(proc: subprocess.Popen, *, grace: float = 5.0) -> None:
-    """Termina el proceso y sus hijos, de abajo hacia arriba (PLAN.md §7, caso 6).
+    """Termina el proceso y sus hijos, de abajo hacia arriba (ADR-0005).
 
     Un launcher que vigila archivos y relanza a su hijo deja el puerto ocupado si
     solo se mata al padre; `taskkill /T` y el grupo de procesos POSIX se encargan

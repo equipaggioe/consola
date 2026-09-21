@@ -483,7 +483,7 @@ class EnvPanel(QWidget):
 
         Los seguros del repo no necesitan la excepcion al filtro que tenian
         aca: viven en otra seccion y en otro archivo
-        (`docs/seguro-destructivos.md` §4).
+        (`ADR-0018` §4).
         """
         self._filter = keys
         visible_groups: set[QWidget] = set()

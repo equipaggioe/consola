@@ -48,7 +48,7 @@ def server_url(root: Path) -> str:
     """La DATABASE_URL que el propio server declara en `server/.env`.
 
     Es la unica lectura permitida de ese archivo: Consola nunca lo escribe
-    (PLAN.md 9). Sirve para precargar el formulario del explorador.
+    (ADR-0017). Sirve para precargar el formulario del explorador.
     """
     return read_value(str(root / 'server' / '.env'), 'DATABASE_URL')
 
@@ -98,7 +98,7 @@ def connect(ctx, scope: str = LOCAL) -> Connection:
     """Devuelve la conexion del ambito pedido, abriendo el tunel si es remota.
 
     Nunca se conecta a la IP publica del VPS: el trafico va siempre por
-    `127.0.0.1` a traves del tunel SSH (PLAN.md 6).
+    `127.0.0.1` a traves del tunel SSH (ADR-0016).
     """
     if scope not in SCOPES:
         raise TaskError(f'Ambito invalido: {scope!r}. Usa {" | ".join(SCOPES)}.')

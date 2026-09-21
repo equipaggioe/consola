@@ -38,7 +38,7 @@ def read_text(path: Path) -> str:
 def compare(source: Path, target: Path) -> str:
     """Estado de un archivo frente a su copia: NEW, DIFF o SAME.
 
-    Es el simulacro que exige PLAN.md 7.5: se muestra que va a cambiar antes de
+    Es el simulacro que exige ADR-0039: se muestra que va a cambiar antes de
     habilitar Aplicar, nunca se sobrescribe a ciegas.
     """
     if not target.exists():

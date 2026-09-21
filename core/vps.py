@@ -328,7 +328,7 @@ def require_package(remote: Remote, package: str, group: str) -> None:
     que `postgresql`: los botones de configurar son el `bootstrap_db` de su
     servicio — la configuracion, no la instalacion. Que un boton de configurar
     corriera su propio `apt-get install` era la unica parte del catalogo donde
-    la misma accion vivia en dos lugares (docs/atomicas.md 4.6).
+    la misma accion vivia en dos lugares (ADR-0022).
 
     Vive aca y no en `core/tasks/vps_setup.py`, donde nacio, porque la misma
     pregunta —¿esta puesto lo que este boton da por dado?— se la hacen los tres
@@ -438,7 +438,7 @@ def systemctl(ctx, remote: Remote, action: str, service: str, *, check: bool = T
     """Una accion de systemd sobre el servicio del proyecto.
 
     Es la atomica que reusan `configure_service` y `update_remote` en vez de
-    reimplementar `enable`/`start` cada uno por su lado (PLAN.md 7, caso 7).
+    reimplementar `enable`/`start` cada uno por su lado (ADR-0004).
     `configure_coturn` y `configure_caddy` tambien, desde que los tres cierran
     por `vps_server.bring_up_service`.
     """
@@ -491,7 +491,7 @@ def write_config(ctx, remote: Remote, path: str, content: str) -> bool:
     Los tres botones que configuran un servicio eran los unicos escritores de
     Consola que sobrescribian a ciegas: escribian siempre y reiniciaban siempre,
     aunque el archivo saliera identico al que ya estaba. El resto ya cumple la
-    regla (`core/files.py::compare`, PLAN.md 7.5): se muestra que va a cambiar
+    regla (`core/files.py::compare`, ADR-0039): se muestra que va a cambiar
     antes de tocar nada.
 
     El `cat` va sin sudo porque los tres archivos son legibles, y no por sudo:
@@ -556,7 +556,7 @@ def journal_command(
     """Comando de `journalctl` con los filtros de la capacidad Ver logs.
 
     Es hermana de `systemctl`, no un valor suyo: los filtros no tienen sentido
-    para start/stop y `logs` dejo de ser una accion de systemd (PLAN.md 1).
+    para start/stop y `logs` dejo de ser una accion de systemd (ADR-0023).
     """
     parts = [f'{SUDO} journalctl -u {quote(service)}', f'-n {int(lines)}']
     if follow:

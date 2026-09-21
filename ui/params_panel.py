@@ -94,7 +94,7 @@ class ParamsPanel(QWidget):
     def __init__(self, capability: Capability, project: Project, env_panel, parent=None):
         super().__init__(parent)
         # Los ejes descubiertos se resuelven contra ESTE repo, no contra el
-        # catalogo: la lista de apps sale de mirar las carpetas (PLAN.md 2.4).
+        # catalogo: la lista de apps sale de mirar las carpetas (ADR-0006).
         # Copia propia de los ejes: los descubiertos y los de maquina se
         # rellenan sobre esta capacidad, y el catalogo global no se toca.
         base = for_project(capability, project.path)
