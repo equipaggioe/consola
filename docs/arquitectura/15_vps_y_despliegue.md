@@ -66,13 +66,24 @@ Dónde escucha el backend sale de `BACKEND_HOST` y `BACKEND_PORT`, no de un par�
 
 `PUBLIC_ROUTES` es una lista ordenada de reglas `<patrón> <tipo> <destino>`. Gana la primera que matchea, que es la semántica de Caddy — y por eso el orden es información, no presentación ([ADR-0019](../adr/0019-tabla-de-rutas-publicas.md)).
 
+Un patrón es **un host más una ruta** ([ADR-0040](../adr/0040-una-regla-es-host-mas-ruta.md)). `split_pattern` lo parte:
+
+| Patrón | Host | Ruta |
+|---|---|---|
+| `*` | `PUBLIC_HOST` | `*` |
+| `/api/*` | `PUBLIC_HOST` | `/api/*` |
+| `api.ejemplo.net` | `api.ejemplo.net` | `*` |
+| `api.ejemplo.net/v1/*` | `api.ejemplo.net` | `/v1/*` |
+
+El host vacío es `PUBLIC_HOST`, así que una tabla escrita antes de que el host se pudiera nombrar significa lo mismo que antes. La forma recomendada es **un host por pieza**, incluso con una sola: dos piezas bajo un mismo host comparten `localStorage`, cookies y el scope del service worker, y una sesión pisa a la otra.
+
 | Tipo | Destino | Qué hace Caddy |
 |---|---|---|
 | `proxy` | `host:puerto` | `reverse_proxy`. No recorta el prefijo: las rutas del server ya incluyen su `/api` |
 | `spa` | Nombre de una carpeta SPA del repo | Sirve su build, recorta el prefijo y cae en `index.html` |
 | `static` | Ruta del VPS | Sirve la carpeta y recorta el prefijo |
 
-`$CLAVE` en el destino se resuelve contra la configuración (`$BACKEND_HOST:$BACKEND_PORT`). El patrón `*` es el catch-all y tiene que ir último. Una fila que no se entiende **corta**: una regla ignorada en silencio no falla al escribir, falla en producción, cuando el tráfico que iba al backend cae en la SPA.
+`$CLAVE` en el destino se resuelve contra la configuración (`$BACKEND_HOST:$BACKEND_PORT`). El catch-all se queda con todo lo que llegue **a su host**, así que tiene que ir último *de ese host*, no de la tabla. Una fila que no se entiende **corta**: una regla ignorada en silencio no falla al escribir, falla en producción, cuando el tráfico que iba al backend cae en la SPA.
 
 La clave se llama `PUBLIC_ROUTES` y no `CADDY_ROUTES` porque Caddy es **un** consumidor de la tabla, no su dueño: la misma tabla la lee el build para saber con qué `base` compilar cada SPA ([17](17_builds_y_artefactos.md)). De ahí salen dos preguntas que parecen una:
 
@@ -81,7 +92,9 @@ La clave se llama `PUBLIC_ROUTES` y no `CADDY_ROUTES` porque Caddy es **un** con
 
 ## 7. Caddy
 
-`configure_caddy` arma el Caddyfile entero en una función sin efectos (`_caddyfile`), que es lo único que se puede probar sin un VPS. Escribe siempre tres cabeceras de seguridad —HSTS, `nosniff` y `Referrer-Policy`—, porque cada una tiene un solo valor sensato y son de las que uno se olvida; la CSP sí cambia entre proyectos y sale de la configuración.
+`configure_caddy` arma el Caddyfile entero en una función sin efectos (`_caddyfile`), que es lo único que se puede probar sin un VPS — y `tests/test_caddyfile.py` lo prueba. Emite **un bloque de sitio por host** (`_site`), en el orden en que cada host aparece en la tabla; un solo host es el caso de un bloque, no otra rama del generador.
+
+Escribe siempre tres cabeceras de seguridad —HSTS, `nosniff` y `Referrer-Policy`—, porque cada una tiene un solo valor sensato y son de las que uno se olvida. La CSP no: cambia entre proyectos **y entre sitios del mismo proyecto**, así que `CSP` es una tabla `<host> <política>` con `*` para los sitios que no tengan la suya ([ADR-0040](../adr/0040-una-regla-es-host-mas-ruta.md)).
 
 Cuatro cuidados que están en el código por algo que pasó:
 

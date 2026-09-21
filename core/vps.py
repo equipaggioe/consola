@@ -44,23 +44,71 @@ def expand_refs(config: Config, texto: str, donde: str) -> str:
 
 ROUTE_KINDS = ('proxy', 'spa', 'static')
 
+# Un nombre de host, para distinguirlo de una ruta. No acepta comodines: un
+# bloque `*.dominio` serviria cualquier subdominio con la misma configuracion, y
+# la tabla existe justamente para decir que cada pieza tiene la suya.
+_HOST = re.compile(r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?)+$')
+
+
+def split_pattern(pattern: str) -> tuple[str, str]:
+    """Parte un patron en `(host, ruta)`. El host vacio significa `PUBLIC_HOST`.
+
+    Una regla es siempre host mas ruta; publicar todo bajo un solo host es el
+    caso en que todas las filas dejan el host vacio, no un modo distinto. Por eso
+    una tabla vieja —escrita cuando el host no se podia nombrar— sigue
+    significando exactamente lo mismo, sin conversion ni bandera.
+
+        *                     -> ('',            '*')
+        /api/*                -> ('',            '/api/*')
+        api.ejemplo.net       -> ('api.ejemplo.net', '*')
+        api.ejemplo.net/*     -> ('api.ejemplo.net', '*')
+        api.ejemplo.net/v1/*  -> ('api.ejemplo.net', '/v1/*')
+    """
+    if pattern == '*' or pattern.startswith('/'):
+        return '', pattern
+    host, barra, resto = pattern.partition('/')
+    if not _HOST.match(host):
+        raise TaskError(f'«{pattern}»: «{host}» no es un nombre de host. Un patron empieza '
+                        'con /, es *, o empieza con un host como api.ejemplo.net.')
+    if not barra or resto in ('', '*'):
+        return host, '*'
+    return host, '/' + resto
+
 
 class Route:
     """Una fila de `PUBLIC_ROUTES` ya interpretada."""
 
-    __slots__ = ('pattern', 'kind', 'target')
+    __slots__ = ('pattern', 'kind', 'target', 'host', 'path')
 
     def __init__(self, pattern: str, kind: str, target: str):
         self.pattern, self.kind, self.target = pattern, kind, target
+        self.host, self.path = split_pattern(pattern)
 
     @property
     def catch_all(self) -> bool:
-        return self.pattern == '*'
+        """Si se queda con todo lo que llegue a su host."""
+        return self.path == '*'
 
     @property
     def prefix(self) -> str:
-        """El prefijo que Caddy tiene que recortar: `/admin/*` -> `/admin`."""
-        return self.pattern[:-2] if self.pattern.endswith('/*') else self.pattern
+        """El prefijo que Caddy tiene que recortar: `/admin/*` -> `/admin`.
+
+        Con un host por pieza siempre es vacio, que es medio motivo para tener
+        un host por pieza: la SPA no tiene que compilarse sabiendo bajo que
+        prefijo vive.
+        """
+        return self.path[:-2] if self.path.endswith('/*') else self.path
+
+
+def resolve_host(config: Config, route: Route) -> str:
+    """El host de esa regla, con `PUBLIC_HOST` cuando la fila no lo nombra."""
+    if route.host:
+        return route.host
+    host = config.get('PUBLIC_HOST').strip()
+    if not host:
+        raise TaskError(f'«{route.pattern}» no nombra un host y PUBLIC_HOST esta vacio: '
+                        'cargalo en Configuracion, o escribe el host en la regla.')
+    return host
 
 
 def parse_routes(lineas: list[str]) -> list[Route]:
@@ -76,17 +124,24 @@ def parse_routes(lineas: list[str]) -> list[Route]:
         if len(partes) != 3:
             raise TaskError(f'Regla mal formada: «{linea}». Va «<patron> <tipo> <destino>».')
         patron, tipo, destino = partes
-        if not (patron == '*' or patron.startswith('/')):
-            raise TaskError(f'Patron invalido en «{linea}»: empieza con / o es *.')
+        # El patron lo valida `split_pattern` al construir la Route, que es quien
+        # sabe donde termina el host y empieza la ruta.
         if tipo not in ROUTE_KINDS:
             raise TaskError(f'Tipo desconocido «{tipo}» en «{linea}». Los tipos son: '
                             'proxy <host:puerto>, spa <carpeta>, static <ruta>.')
         rutas.append(Route(patron, tipo, destino))
     if not rutas:
         raise TaskError('La tabla de rutas esta vacia: sin reglas no hay nada que servir.')
-    if any(r.catch_all for r in rutas[:-1]):
-        raise TaskError('El catch-all «*» tiene que ser la ultima regla: lo que va '
-                        'despues nunca se alcanza.')
+    # El catch-all se queda con todo lo que llegue A SU HOST, asi que la regla de
+    # "va ultimo" es por host y no por tabla. Con un host por pieza casi todas las
+    # filas son catch-all de la suya, y prohibirlo en bloque las habria vuelto
+    # imposibles de escribir.
+    for host in {r.host for r in rutas}:
+        del_host = [r for r in rutas if r.host == host]
+        if any(r.catch_all for r in del_host[:-1]):
+            donde = host or 'el host por omision'
+            raise TaskError(f'En {donde} el catch-all «*» tiene que ser la ultima regla de '
+                            'ese host: lo que va despues nunca se alcanza.')
     return rutas
 
 
@@ -108,6 +163,48 @@ def resolve_target(config: Config, route: Route) -> str:
     """El destino de una regla con cada `$CLAVE` reemplazada por su valor."""
     fila = f'{route.pattern} {route.kind} {route.target}'
     return expand_refs(config, route.target, fila).rstrip('/')
+
+
+def sites(config: Config) -> list[tuple[str, list[Route]]]:
+    """La tabla agrupada por host, en el orden en que cada host aparece.
+
+    Es lo que un proxy necesita: un bloque de sitio por host, con sus reglas
+    adentro y en el orden escrito. Agrupar aca y no en quien escribe el archivo
+    deja la decision de "que es un sitio" del lado del modelo.
+    """
+    agrupado: dict[str, list[Route]] = {}
+    for route in routes(config):
+        agrupado.setdefault(resolve_host(config, route), []).append(route)
+    return list(agrupado.items())
+
+
+# `CSP` es por sitio y no por VPS: cada pieza carga lo suyo. El backoffice de un
+# repo puede necesitar tres CDN y su landing ninguno, y una sola politica para
+# los dos termina siendo la mas permisiva de ambas, que no protege a ninguno.
+# Una fila es «<host> <politica>»; el host `*` es la politica de los sitios que
+# no tienen la suya. Sin filas no se emite CSP, que es lo que corresponde
+# mientras el sitio todavia no la tenga pensada.
+CSP_DEFAULT_HOST = '*'
+
+
+def csp_by_host(config: Config) -> dict[str, str]:
+    """`CSP` interpretada: host -> politica, con `*` como la de los demas."""
+    politicas: dict[str, str] = {}
+    for linea in split_list(config.get('CSP')):
+        host, _, politica = linea.strip().partition(' ')
+        politica = politica.strip()
+        if not politica:
+            raise TaskError(f'CSP mal formada: «{linea}». Va «<host> <politica>», y el host '
+                            f'puede ser {CSP_DEFAULT_HOST} para todos los sitios.')
+        if host != CSP_DEFAULT_HOST and not _HOST.match(host):
+            raise TaskError(f'CSP: «{host}» no es un nombre de host ni {CSP_DEFAULT_HOST}.')
+        politicas[host] = politica
+    return politicas
+
+
+def csp_for(politicas: dict[str, str], host: str) -> str:
+    """La politica de ese sitio, la general, o vacio si no hay ninguna."""
+    return politicas.get(host) or politicas.get(CSP_DEFAULT_HOST, '')
 
 
 # --- carpetas del servicio -------------------------------------------------
@@ -183,7 +280,8 @@ def spa_base(config: Config, name: str) -> str | None:
     nadie importa.
 
     Con tabla, una SPA que no esta en ella si vale `''`: lo que no tiene regla
-    propia cuelga de la raiz.
+    propia cuelga de la raiz. Con un host propio tambien vale `''`, que es el
+    caso normal desde que cada pieza tiene el suyo.
 
     Lo que se pregunta es si hay tabla, no si hay proxy. Quien sirva la ruta
     —un proxy o el backend del propio repo— no cambia donde va a pedir sus

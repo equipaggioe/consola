@@ -645,9 +645,9 @@ DOCS: dict[str, CommandDoc] = {
             'declarada para un estático. Cada $CLAVE se reemplaza por su valor.',
             'Comprueba que existan en el VPS las carpetas de las reglas '
             'estáticas y corta si falta alguna.',
-            'Arma el Caddyfile con la compresión, las cabeceras de seguridad, la '
-            'CSP si está cargada, y un bloque handle por regla en el orden de la '
-            'tabla.',
+            'Agrupa las reglas por host y arma un bloque de sitio por cada uno, '
+            'con la compresión, las cabeceras de seguridad, la CSP de ese sitio '
+            'si está cargada, y un handle por regla en el orden de la tabla.',
             'Guarda una copia de referencia en .consola/.',
             'Corre mkdir -p /etc/caddy.',
             'Si /etc/caddy/Caddyfile es un symlink, lo informa y lo borra.',

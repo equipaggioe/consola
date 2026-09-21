@@ -85,6 +85,9 @@ SETTINGS: tuple[Setting, ...] = (
     # despliegue muestra el nombre del repo.
     Setting('PUBLIC_HOST', 'VPS', 'Nombre publico del VPS',
             used_by=('configure_coturn', 'configure_caddy')),
+    # Para Caddy es el host por omision de las reglas que no nombran el suyo, no
+    # "el dominio del sitio": desde que una regla puede traer host, un repo con
+    # un host por pieza no lo necesita. coturn si lo sigue usando como realm.
     # Los archivos que nunca viajan por git. Era un eje repetido en los cuatro
     # botones del deploy, con su propio valor guardado en cada uno: cambiar la
     # lista obligaba a escribirla cuatro veces y nada avisaba cuando dos
@@ -158,12 +161,18 @@ SETTINGS: tuple[Setting, ...] = (
     # repo— es otra pregunta. El build la necesita en los dos casos.
     Setting('PUBLIC_ROUTES', 'Web', 'Rutas publicas', kind='list',
             required_by=('configure_caddy',)),
-    # La unica cabecera de seguridad que cambia entre proyectos. Las otras tres
-    # —HSTS, nosniff, Referrer-Policy— tienen un solo valor sensato y las escribe
-    # `configure_caddy` sin preguntar: son de las que se olvidan, no de las que
-    # se eligen. Vacia significa no emitir CSP, que es lo que corresponde
-    # mientras el sitio todavia no la tenga pensada.
-    Setting('CSP', 'Web', 'Content-Security-Policy', used_by=('configure_caddy',)),
+    # La unica cabecera de seguridad que cambia entre proyectos, y la unica que
+    # cambia ENTRE SITIOS del mismo repo: el backoffice puede necesitar tres CDN
+    # y la landing ninguno. Una sola politica para los dos termina siendo la mas
+    # permisiva de ambas, que no protege a ninguno; por eso es una tabla
+    # «<host> <politica>», con `*` para los sitios que no tengan la suya.
+    #
+    # Las otras tres —HSTS, nosniff, Referrer-Policy— tienen un solo valor
+    # sensato y las escribe `configure_caddy` sin preguntar: son de las que se
+    # olvidan, no de las que se eligen. Vacia significa no emitir CSP, que es lo
+    # que corresponde mientras el sitio todavia no la tenga pensada.
+    Setting('CSP', 'Web', 'Content-Security-Policy por sitio', kind='list',
+            used_by=('configure_caddy',)),
 
     # --- GitHub ---
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',

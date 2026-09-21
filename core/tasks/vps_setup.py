@@ -320,9 +320,8 @@ def _route_target(ctx, route: vps.Route) -> str:
     return vps.resolve_target(ctx.config, route)
 
 
-def _caddyfile(*, domain: str, routes: list[vps.Route], destinos: dict[str, str],
-               csp: str) -> str:
-    """El Caddyfile entero, en una funcion sin efectos: es lo unico que se prueba.
+def _site(*, host, routes, destinos, csp: str) -> str:
+    """Un bloque de sitio: un host con sus reglas.
 
     Cada regla es un `handle`, en el orden en que vino: gana la primera que
     matchea, que es la semantica de Caddy y la razon por la que el orden de
@@ -336,12 +335,15 @@ def _caddyfile(*, domain: str, routes: list[vps.Route], destinos: dict[str, str]
     cuerpo.append('\theader {\n' + '\n'.join(cabeceras) + '\n\t}')
 
     for route in routes:
-        # El catch-all es `handle` sin patron; el resto lleva el suyo.
-        cabeza = 'handle' if route.catch_all else f'handle {route.pattern}'
+        destino = destinos[id(route)]
+        # El catch-all de un host es `handle` sin patron; el resto lleva su ruta.
+        # La ruta y no el patron: el patron puede traer el host adelante, y aca
+        # adentro el host ya es el del bloque.
+        cabeza = 'handle' if route.catch_all else f'handle {route.path}'
         if route.kind == 'proxy':
-            lineas = [f'\t\treverse_proxy {destinos[route.pattern]}']
+            lineas = [f'\t\treverse_proxy {destino}']
         else:
-            lineas = [f'\t\troot * {destinos[route.pattern]}']
+            lineas = [f'\t\troot * {destino}']
             # Recortar el prefijo es lo que hace que el build no necesite una
             # carpeta `admin/` en disco: el prefijo vive solo en las URLs. El
             # catch-all no tiene prefijo que recortar, y `proxy` nunca recorta
@@ -353,7 +355,19 @@ def _caddyfile(*, domain: str, routes: list[vps.Route], destinos: dict[str, str]
             lineas.append('\t\tfile_server')
         cuerpo.append(f'\t{cabeza} {{\n' + '\n'.join(lineas) + '\n\t}')
 
-    return f'{domain} {{\n' + '\n\n'.join(cuerpo) + '\n}\n'
+    return f'{host} {{\n' + '\n\n'.join(cuerpo) + '\n}\n'
+
+
+def _caddyfile(*, sites, destinos, politicas) -> str:
+    """El Caddyfile entero, en una funcion sin efectos: es lo unico que se prueba.
+
+    Un bloque por host. Publicar todo bajo un solo host es el caso de un bloque,
+    no un modo distinto de armar el archivo; por eso no hay dos caminos aca.
+    """
+    return '\n'.join(
+        _site(host=host, routes=rutas, destinos=destinos, csp=vps.csp_for(politicas, host))
+        for host, rutas in sites
+    )
 
 
 CADDY_REFERENCE = 'Caddyfile.generado'
@@ -397,25 +411,25 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
     remote = ssh.resolve_remote(ctx.config)
     vps.require_package(remote, 'caddy', 'Caddy')
 
-    dominio = ctx.config.get('PUBLIC_HOST')
-    if not dominio:
-        raise TaskError('Falta PUBLIC_HOST: cárgalo en Configuración, o el dominio '
-                        'de Cloudflare del que se deriva.')
-
-    rutas = vps.routes(ctx.config)
-    destinos = {r.pattern: _route_target(ctx, r) for r in rutas}
+    # `PUBLIC_HOST` ya no es el dominio del sitio, es el host por omision de las
+    # reglas que no nombran el suyo. Una tabla donde todas lo nombran no lo
+    # necesita, y `resolve_host` avisa si falta justo donde hace falta.
+    sitios = vps.sites(ctx.config)
+    rutas = [r for _, del_host in sitios for r in del_host]
+    # Por identidad y no por patron: con un host por pieza, «*» es el patron de
+    # casi todas las reglas y un diccionario por patron las pisaba entre si.
+    destinos = {id(r): _route_target(ctx, r) for r in rutas}
     # Las carpetas de las SPA las crea la subida del build; las de `static` son
     # de quien administra el VPS y Consola no las inventa. Servir una carpeta
     # que no existe no hace fallar a Caddy: devuelve 404 y hay que ir a buscar
     # por que.
     for route in rutas:
-        if route.kind == 'static' and not ssh.succeeds(remote, f'test -d {ssh.quote(destinos[route.pattern])}'):
-            raise TaskError(f'{destinos[route.pattern]} no existe en el VPS, y la regla '
+        if route.kind == 'static' and not ssh.succeeds(remote, f'test -d {ssh.quote(destinos[id(route)])}'):
+            raise TaskError(f'{destinos[id(route)]} no existe en el VPS, y la regla '
                             f'«{route.pattern}» lo sirve. Agrégalo a "Carpetas del servicio" y corre '
                             f'Configurar servicio.')
 
-    conf = _caddyfile(domain=dominio, routes=rutas, destinos=destinos,
-                      csp=ctx.config.get('CSP').strip())
+    conf = _caddyfile(sites=sitios, destinos=destinos, politicas=vps.csp_by_host(ctx.config))
     _save_reference(ctx, conf)
 
     ssh.run(ctx, remote, f'{vps.SUDO} mkdir -p /etc/caddy')
@@ -441,9 +455,10 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
     from . import vps_server
     vps_server.bring_up_service(ctx, 'caddy', enable=enable, start=start, changed=cambio)
 
-    for route in rutas:
-        donde = f'https://{dominio}' + ('' if route.catch_all else route.prefix)
-        ctx.ok(f'{donde} -> {route.kind} {destinos[route.pattern]}')
+    for host, del_host in sitios:
+        for route in del_host:
+            donde = f'https://{host}' + ('' if route.catch_all else route.prefix)
+            ctx.ok(f'{donde} -> {route.kind} {destinos[id(route)]}')
     return CADDYFILE
 
 

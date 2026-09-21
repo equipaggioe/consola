@@ -3,6 +3,7 @@
 - **Estado:** Aceptada
 - **Fecha:** 2026-09-21
 - **Alcance:** core/vps.py, core/settings.py, core/tasks/vps_setup.py, core/tasks/builders.py
+- **Modificada por:** [ADR-0040](0040-una-regla-es-host-mas-ruta.md), que hace del host parte de la regla. Cambia los puntos 1 y 6; el resto sigue en pie.
 
 ## Contexto
 
