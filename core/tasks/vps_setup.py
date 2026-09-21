@@ -411,9 +411,8 @@ def configure_caddy(ctx, *, enable: bool = True, start: bool = True) -> str:
     remote = ssh.resolve_remote(ctx.config)
     vps.require_package(remote, 'caddy', 'Caddy')
 
-    # `PUBLIC_HOST` ya no es el dominio del sitio, es el host por omision de las
-    # reglas que no nombran el suyo. Una tabla donde todas lo nombran no lo
-    # necesita, y `resolve_host` avisa si falta justo donde hace falta.
+    # Ya no se lee `PUBLIC_HOST`: cada regla nombra su host. Esa clave le quedo a
+    # coturn, que la usa de realm.
     sitios = vps.sites(ctx.config)
     rutas = [r for _, del_host in sitios for r in del_host]
     # Por identidad y no por patron: con un host por pieza, «*» es el patron de

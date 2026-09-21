@@ -10,7 +10,10 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
+import pytest
+
 from core import vps
+from core.errors import TaskError
 from core.tasks.vps_setup import _caddyfile
 
 
@@ -48,23 +51,42 @@ def test_un_host_por_pieza():
     assert 'reverse_proxy 127.0.0.1:8000' in conf
 
 
-def test_tabla_vieja_sin_host_sigue_significando_lo_mismo():
-    """Una tabla escrita cuando el host no se podia nombrar usa `PUBLIC_HOST`."""
-    conf = render(FakeConfig(
-        PUBLIC_HOST='ejemplo.net',
-        PUBLIC_ROUTES='/api/* proxy 127.0.0.1:8000,/admin/* spa /srv/admin,* spa /srv/pwa',
-    ))
-    assert conf.count('encode zstd gzip') == 1, 'un solo host, un solo bloque'
-    assert conf.startswith('ejemplo.net {')
-    assert 'handle /api/*' in conf
-    assert 'uri strip_prefix /admin' in conf
-    assert 'Content-Security-Policy' not in conf, 'sin CSP cargada no se emite'
+def test_un_patron_sin_host_corta():
+    """Antes se deducia de PUBLIC_HOST; ahora falla donde se escribe."""
+    for patron in ('*', '/api/*'):
+        with pytest.raises(TaskError) as error:
+            vps.parse_routes([f'{patron} spa /srv/x'])
+        assert 'no es un nombre de host' in str(error.value)
+
+
+def test_una_csp_sin_host_corta():
+    """Una politica pelada se aplicaba callada a todos los sitios."""
+    politica = "default-src 'self'; script-src 'self' 'unsafe-inline'"
+    with pytest.raises(TaskError) as error:
+        vps.csp_by_host(FakeConfig(CSP=politica))
+    assert 'no es un nombre de host' in str(error.value)
+    # Con el host escrito, la misma politica vale para todos.
+    assert vps.csp_by_host(FakeConfig(CSP=f'* {politica}')) == {'*': politica}
+
+
+def test_varias_rutas_bajo_un_mismo_host():
+    """Un repo que publica por subrutas escribe su host en cada regla.
+
+    Es la forma de un repo cuyo propio backend monta las SPA: no hay Caddy de por
+    medio, pero la tabla sigue diciendo donde se publica cada una, y de ahi sale
+    el `base` con que se compila.
+    """
+    config = FakeConfig(PUBLIC_ROUTES='ejemplo.net/terminal/* spa terminal,ejemplo.net/* spa clientes')
+    assert vps.spa_base(config, 'terminal') == '/terminal'
+    assert vps.spa_base(config, 'clientes') == ''
+    assert vps.uses_proxy(config) is False
+    assert [h for h, _ in vps.sites(config)] == ['ejemplo.net']
 
 
 def test_csp_por_sitio():
     """Cada host lleva la suya; `*` es la de los demas."""
     conf = render(FakeConfig(
-        PUBLIC_ROUTES=('back.ejemplo.net/* spa /srv/back,ejemplo.net/* spa /srv/landing'),
+        PUBLIC_ROUTES='back.ejemplo.net/* spa /srv/back,ejemplo.net/* spa /srv/landing',
         CSP=("* default-src 'self',"
              "back.ejemplo.net default-src 'self' https://unpkg.com"),
     ))
@@ -78,41 +100,6 @@ def test_catch_all_por_host_y_no_por_tabla():
     """Dos catch-all seguidos son correctos si son de hosts distintos."""
     vps.parse_routes(['a.ejemplo.net/* spa /srv/a', 'b.ejemplo.net/* spa /srv/b'])
 
-    try:
+    with pytest.raises(TaskError) as error:
         vps.parse_routes(['a.ejemplo.net/* spa /srv/a', 'a.ejemplo.net/api/* proxy 1:2'])
-    except Exception as error:
-        assert 'catch-all' in str(error)
-    else:
-        raise AssertionError('dos reglas del mismo host con el catch-all primero tienen que fallar')
-
-
-def test_csp_sin_host_es_la_de_todos_los_sitios():
-    """La forma en que ya estaba escrita antes de que `CSP` fuera una tabla.
-
-    Se distingue sin ambiguedad porque una politica empieza siempre con una
-    directiva y ninguna lleva punto, mientras que un host exige al menos uno.
-    """
-    politica = ("default-src 'self'; img-src 'self' data: blob:; "
-                "script-src 'self' 'unsafe-inline'; frame-ancestors 'none'")
-    conf = render(FakeConfig(
-        PUBLIC_HOST='concordia.ejemplo.net',
-        PUBLIC_ROUTES='/api/* proxy 127.0.0.1:8000,/backoffice/* spa /srv/back,* spa /srv/landing',
-        CSP=politica,
-    ))
-    assert f'Content-Security-Policy "{politica}"' in conf
-
-
-def test_una_tabla_por_rutas_sigue_dando_un_solo_sitio():
-    """Un repo publicado por subrutas no cambia de forma al poder nombrar hosts."""
-    conf = render(FakeConfig(
-        PUBLIC_HOST='concordia.ejemplo.net',
-        PUBLIC_ROUTES=('/api/* proxy 127.0.0.1:8000,/ws/* proxy 127.0.0.1:8000,'
-                       '/media/* static /var/storage/public,/backoffice/* spa /srv/back,'
-                       '/pwa/* spa /srv/pwa,* spa /srv/landing'),
-    ))
-    assert conf.count('encode zstd gzip') == 1
-    assert conf.startswith('concordia.ejemplo.net {')
-    assert 'uri strip_prefix /backoffice' in conf
-    assert 'uri strip_prefix /pwa' in conf
-    # El catch-all de la landing no recorta nada.
-    assert conf.rstrip().endswith('}')
+    assert 'catch-all' in str(error.value)

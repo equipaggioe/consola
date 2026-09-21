@@ -22,13 +22,13 @@ cuando cada pieza cuelga de la raíz de su host.
 
 ## Decisión
 
-1. **Una regla es host más ruta.** El patrón puede traer el host adelante:
-   `api.ejemplo.net/*`, `api.ejemplo.net/v1/*`, o `api.ejemplo.net` como atajo de `/*`.
-2. **El host vacío significa `PUBLIC_HOST`.** Un patrón que empieza con `/` o es `*` no
-   nombra host y usa el de la configuración. Con eso, **una tabla escrita antes de este ADR
-   sigue significando exactamente lo mismo**, sin conversión ni bandera.
-3. **`PUBLIC_HOST` deja de ser «el dominio del sitio»** y pasa a ser el host por omisión. Un
-   repo cuyas reglas nombran todas su host no lo necesita. coturn lo sigue usando como realm.
+1. **Una regla es host más ruta, y las dos partes van escritas.** El patrón empieza con el
+   host: `api.ejemplo.net/*`, `api.ejemplo.net/v1/*`, o `api.ejemplo.net` como atajo de `/*`.
+2. **Un patrón sin host corta.** Deducirlo de otra clave ahorraba teclas y a cambio hacía que
+   una tabla incompleta pareciera completa: no fallaba al escribirla, fallaba después y en el
+   sitio equivocado. Las tablas que estaban escritas así se reescribieron.
+3. **`PUBLIC_HOST` deja de leerla Caddy.** Le quedó coturn, que la usa de realm.
+   `CADDY_ROUTES`, el nombre viejo de la clave, deja de leerse.
 4. **Un bloque de sitio por host**, en el orden en que cada host aparece en la tabla, con sus
    reglas adentro y en el orden escrito. Publicar todo bajo un host es el caso de un bloque,
    no un camino distinto: `_caddyfile` no tiene dos ramas.
@@ -37,16 +37,18 @@ cuando cada pieza cuelga de la raíz de su host.
    regla vieja las volvía imposibles de escribir.
 6. **`CSP` es por sitio**, una tabla `<host> <política>` con `*` para los que no tengan la
    suya. Una sola política para todos los sitios de un repo termina siendo la más permisiva
-   de todas, que no protege a ninguno. Una fila **sin host** es la política de todos, igual
-   que un patrón sin host usa `PUBLIC_HOST`: lo que ya estaba escrito sigue significando lo
-   mismo. Se distingue sin ambigüedad porque una política empieza siempre con una directiva
-   —`default-src`, `script-src`— y ninguna lleva punto, mientras que un host exige al menos uno.
+   de todas, que no protege a ninguno. El host va escrito también aquí: una política pelada se
+   aplicaba callada a todos, y con eso una fila con el host mal escrito no se notaba.
 7. **Los destinos se indexan por identidad de la regla, no por su patrón.** Con un host por
    pieza, `*` es el patrón de casi todas y un diccionario por patrón las pisaba entre sí.
 8. **La forma recomendada es un host por pieza**, incluso cuando el repo publica una sola.
    Un host extra cuesta un registro DNS y el certificado sale solo; empezar por rutas y
    después necesitar orígenes separados cuesta cambiar URLs, romper enlaces guardados y
-   volver a registrar service workers. Las rutas quedan para lo que ya está publicado así.
+   volver a registrar service workers.
+
+   Varias rutas bajo un mismo host siguen siendo expresables, porque hay dos casos que no son
+   piezas separadas: los archivos estáticos de una API, que son suyos y no una aplicación con
+   su propio almacenamiento, y un repo sin proxy cuyo backend monta sus SPA bajo rutas.
 
 ## Consecuencias
 
@@ -59,11 +61,16 @@ cuando cada pieza cuelga de la raíz de su host.
   comprueba las dos topologías, la CSP por sitio y el catch-all por host.
 - Una tabla con varios hosts necesita que los registros DNS existan antes de recargar Caddy,
   o el certificado de ese sitio no sale.
+- Una SPA que queda sola en su host deja de compilarse con `base`, así que el valor con el que
+  llama a la API tiene que pasar a ser absoluto: deja de alcanzarla por ruta relativa.
 
 ## Descartado
 
 - **Una clave aparte para «modo subdominio».** Serían dos caminos en el generador y dos
   formas de leer la tabla, para expresar lo mismo que un campo del patrón.
+- **Seguir leyendo `CADDY_ROUTES`, el host implícito y la CSP pelada.** Los tres hacían que una
+  tabla a medio escribir produjera un archivo válido, y el error apareciera en producción y en
+  otro lado. Reescribir cuatro tablas se hace una vez; buscar ese error se hace cada vez.
 - **Comodines en el host (`*.ejemplo.net`).** Servirían cualquier subdominio con la misma
   configuración, que es lo contrario de lo que la tabla existe para decir.
 - **Dejar `CSP` como valor único.** Es la cabecera que más cambia entre piezas del mismo

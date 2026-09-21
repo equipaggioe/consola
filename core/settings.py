@@ -84,10 +84,9 @@ SETTINGS: tuple[Setting, ...] = (
     # no la IP— y el panel lo muestra resuelto, igual que el usuario de
     # despliegue muestra el nombre del repo.
     Setting('PUBLIC_HOST', 'VPS', 'Nombre publico del VPS',
-            used_by=('configure_coturn', 'configure_caddy')),
-    # Para Caddy es el host por omision de las reglas que no nombran el suyo, no
-    # "el dominio del sitio": desde que una regla puede traer host, un repo con
-    # un host por pieza no lo necesita. coturn si lo sigue usando como realm.
+            used_by=('configure_coturn',)),
+    # Ya no la lee Caddy: cada regla de `PUBLIC_ROUTES` nombra su host. Le quedo
+    # coturn, que la usa de realm.
     # Los archivos que nunca viajan por git. Era un eje repetido en los cuatro
     # botones del deploy, con su propio valor guardado en cada uno: cambiar la
     # lista obligaba a escribirla cuatro veces y nada avisaba cuando dos

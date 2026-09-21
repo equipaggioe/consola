@@ -51,25 +51,24 @@ _HOST = re.compile(r'^[A-Za-z0-9]([A-Za-z0-9-]*[A-Za-z0-9])?(\.[A-Za-z0-9]([A-Za
 
 
 def split_pattern(pattern: str) -> tuple[str, str]:
-    """Parte un patron en `(host, ruta)`. El host vacio significa `PUBLIC_HOST`.
+    """Parte un patron en `(host, ruta)`. Las dos partes van escritas.
 
-    Una regla es siempre host mas ruta; publicar todo bajo un solo host es el
-    caso en que todas las filas dejan el host vacio, no un modo distinto. Por eso
-    una tabla vieja —escrita cuando el host no se podia nombrar— sigue
-    significando exactamente lo mismo, sin conversion ni bandera.
+    Deducir el host de otra clave cuando la fila no lo nombraba ahorraba teclas y
+    a cambio hacia que una tabla incompleta pareciera completa: no fallaba al
+    escribirla, fallaba despues y en el sitio equivocado.
 
-        *                     -> ('',            '*')
-        /api/*                -> ('',            '/api/*')
+    El host va aunque el repo no tenga proxy. La tabla dice donde se publica cada
+    cosa, no quien la sirve (ADR-0020): un repo cuyo propio backend monta la SPA
+    se publica igual en una direccion, y esa direccion tiene host.
+
         api.ejemplo.net       -> ('api.ejemplo.net', '*')
         api.ejemplo.net/*     -> ('api.ejemplo.net', '*')
         api.ejemplo.net/v1/*  -> ('api.ejemplo.net', '/v1/*')
     """
-    if pattern == '*' or pattern.startswith('/'):
-        return '', pattern
     host, barra, resto = pattern.partition('/')
     if not _HOST.match(host):
         raise TaskError(f'«{pattern}»: «{host}» no es un nombre de host. Un patron empieza '
-                        'con /, es *, o empieza con un host como api.ejemplo.net.')
+                        'con el host, como api.ejemplo.net/* o api.ejemplo.net/v1/*.')
     if not barra or resto in ('', '*'):
         return host, '*'
     return host, '/' + resto
@@ -100,17 +99,6 @@ class Route:
         return self.path[:-2] if self.path.endswith('/*') else self.path
 
 
-def resolve_host(config: Config, route: Route) -> str:
-    """El host de esa regla, con `PUBLIC_HOST` cuando la fila no lo nombra."""
-    if route.host:
-        return route.host
-    host = config.get('PUBLIC_HOST').strip()
-    if not host:
-        raise TaskError(f'«{route.pattern}» no nombra un host y PUBLIC_HOST esta vacio: '
-                        'cargalo en Configuracion, o escribe el host en la regla.')
-    return host
-
-
 def parse_routes(lineas: list[str]) -> list[Route]:
     """Interpreta la tabla. Sin efectos, para poder probarla contra un Caddyfile real.
 
@@ -139,8 +127,7 @@ def parse_routes(lineas: list[str]) -> list[Route]:
     for host in {r.host for r in rutas}:
         del_host = [r for r in rutas if r.host == host]
         if any(r.catch_all for r in del_host[:-1]):
-            donde = host or 'el host por omision'
-            raise TaskError(f'En {donde} el catch-all «*» tiene que ser la ultima regla de '
+            raise TaskError(f'En {host} el catch-all «*» tiene que ser la ultima regla de '
                             'ese host: lo que va despues nunca se alcanza.')
     return rutas
 
@@ -150,13 +137,8 @@ def routes(config: Config) -> list[Route]:
 
 
 def route_lines(config: Config) -> list[str]:
-    """Las filas crudas de la tabla, sin interpretar.
-
-    `CADDY_ROUTES` es el nombre viejo de la misma clave y se sigue leyendo: los
-    repos que ya la tenian escrita no se quedan sin tabla por un renombre.
-    """
-    return (split_list(config.get('PUBLIC_ROUTES'))
-            or split_list(config.get('CADDY_ROUTES')))
+    """Las filas crudas de la tabla, sin interpretar."""
+    return split_list(config.get('PUBLIC_ROUTES'))
 
 
 def resolve_target(config: Config, route: Route) -> str:
@@ -174,7 +156,7 @@ def sites(config: Config) -> list[tuple[str, list[Route]]]:
     """
     agrupado: dict[str, list[Route]] = {}
     for route in routes(config):
-        agrupado.setdefault(resolve_host(config, route), []).append(route)
+        agrupado.setdefault(route.host, []).append(route)
     return list(agrupado.items())
 
 
@@ -190,13 +172,9 @@ CSP_DEFAULT_HOST = '*'
 def csp_by_host(config: Config) -> dict[str, str]:
     """`CSP` interpretada: host -> politica, con `*` como la de los demas.
 
-    Una fila que no empieza con un host es la politica de todos los sitios, igual
-    que un patron de `PUBLIC_ROUTES` sin host usa `PUBLIC_HOST`: lo que estaba
-    escrito antes de que esto fuera una tabla sigue significando lo mismo.
-
-    Se puede distinguir sin ambiguedad porque una politica siempre empieza con
-    una directiva —`default-src`, `script-src`— y ninguna lleva punto, mientras
-    que `_HOST` exige al menos uno.
+    El host va escrito, igual que en un patron. Una politica pelada se leia antes
+    como "la de todos", y eso hacia que una fila con el host mal escrito se
+    aplicara callada a sitios que no eran.
     """
     politicas: dict[str, str] = {}
     for linea in split_list(config.get('CSP')):
@@ -204,13 +182,14 @@ def csp_by_host(config: Config) -> dict[str, str]:
         if not linea:
             continue
         host, _, politica = linea.partition(' ')
-        if host != CSP_DEFAULT_HOST and not _HOST.match(host):
-            politicas[CSP_DEFAULT_HOST] = linea
-            continue
         politica = politica.strip()
         if not politica:
             raise TaskError(f'CSP mal formada: «{linea}». Va «<host> <politica>», y el host '
                             f'puede ser {CSP_DEFAULT_HOST} para todos los sitios.')
+        if host != CSP_DEFAULT_HOST and not _HOST.match(host):
+            raise TaskError(f'CSP: «{host}» no es un nombre de host ni {CSP_DEFAULT_HOST}. '
+                            f'Una politica sola no alcanza: escribe «{CSP_DEFAULT_HOST} '
+                            f'{linea}» si va para todos los sitios.')
         politicas[host] = politica
     return politicas
 
