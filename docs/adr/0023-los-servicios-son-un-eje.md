@@ -3,6 +3,7 @@
 - **Estado:** Aceptada
 - **Fecha:** 2026-09-21
 - **Alcance:** core/vps.py, core/catalog.py, core/tasks/vps_server.py
+- **Modificada por:** [ADR-0041](0041-un-repo-declara-sus-servicios.md), que hace del eje una lista derivada de los servicios que el repo declara. Cambia el punto 1; el resto sigue en pie.
 
 ## Contexto
 

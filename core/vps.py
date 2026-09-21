@@ -455,7 +455,78 @@ def open_ports(ctx, remote: Remote, ports: list[str]) -> None:
 # --- systemd ---------------------------------------------------------------
 
 def service_name(config: Config) -> str:
+    """La unidad del repo cuando declara una sola. Es el nombre historico."""
     return repo_name(config)
+
+
+# --- los servicios del repo ------------------------------------------------
+#
+# Un repo puede tener mas de un proceso largo: una API y un enviador de avisos,
+# un servidor y un consumidor de cola. Para systemd son dos unidades y no hay
+# nada que las distinga salvo su comando, asi que la tabla tiene la misma forma
+# que `PUBLIC_ROUTES`: filas «<sufijo> <tipo> <destino>», donde el tipo dice
+# como se arma el comando.
+#
+# Tabla vacia = un solo servicio, llamado como el repo y corriendo `UVICORN_APP`.
+# Es exactamente lo que habia antes de que la tabla existiera.
+
+SERVICE_KINDS = ('uvicorn', 'python', 'command')
+_SUFFIX = re.compile(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
+
+
+class Service:
+    """Una fila de `SERVICES` ya interpretada."""
+
+    __slots__ = ('suffix', 'kind', 'target')
+
+    def __init__(self, suffix: str, kind: str, target: str):
+        self.suffix, self.kind, self.target = suffix, kind, target
+
+
+def parse_services(lineas: list[str]) -> list[Service]:
+    """Interpreta la tabla. Sin efectos, para poder probarla sin un VPS.
+
+    Corta en la primera fila que no entiende, por el mismo motivo que
+    `parse_routes`: un servicio que se ignora en silencio no falla al escribir,
+    falla cuando alguien busca por que no corre nada.
+    """
+    servicios: list[Service] = []
+    for linea in lineas:
+        sufijo, _, resto = linea.strip().partition(' ')
+        tipo, _, destino = resto.strip().partition(' ')
+        destino = destino.strip()
+        if not tipo or not destino:
+            raise TaskError(f'Servicio mal formado: «{linea}». Va «<sufijo> <tipo> <destino>».')
+        if not _SUFFIX.match(sufijo):
+            raise TaskError(f'«{sufijo}» no sirve como sufijo de unidad: minusculas, numeros '
+                            'y guiones, como «api» o «push».')
+        if tipo not in SERVICE_KINDS:
+            raise TaskError(f'Tipo desconocido «{tipo}» en «{linea}». Los tipos son: '
+                            'uvicorn <app>, python <argumentos>, command <linea entera>.')
+        servicios.append(Service(sufijo, tipo, destino))
+    if len({s.suffix for s in servicios}) != len(servicios):
+        raise TaskError('Hay dos servicios con el mismo sufijo: cada uno es una unidad '
+                        'distinta y no pueden llamarse igual.')
+    return servicios
+
+
+def services(config: Config) -> list[Service]:
+    """Los servicios del repo. Sin tabla, el unico de siempre."""
+    tabla = parse_services(split_list(config.get('SERVICES')))
+    if tabla:
+        return tabla
+    return [Service('', 'uvicorn', config.get('UVICORN_APP') or 'app.main:app')]
+
+
+def unit_name(config: Config, service: Service) -> str:
+    """`<repo>` cuando el repo declara uno solo, `<repo>-<sufijo>` cuando declara varios.
+
+    El nombre sin sufijo es el que ya existe en los VPS desplegados: un repo que
+    nunca declaro la tabla no tiene que ver su unidad renombrada por un cambio
+    de Consola.
+    """
+    base = service_name(config)
+    return f'{base}-{service.suffix}' if service.suffix else base
 
 
 def unit_path(service: str) -> str:
@@ -467,21 +538,57 @@ def unit_path(service: str) -> str:
 # nombre fijo, y son servicios de Consola porque Consola los configura
 # (`configure_coturn`, `configure_caddy`). Reiniciarlos o leerles el journal no
 # pide botones nuevos: pide que los que ya existen sepan a cual apuntar.
-MANAGED_SERVICES = ('proyecto', 'coturn', 'caddy')
-SERVICE_LABELS = {'proyecto': 'Servidor', 'coturn': 'Coturn', 'caddy': 'Caddy'}
+PACKAGE_SERVICES = ('coturn', 'caddy')
+PACKAGE_LABELS = {'coturn': 'Coturn', 'caddy': 'Caddy'}
+# El valor historico del eje: "el servicio del repo", cuando el repo tiene uno
+# solo. Se sigue aceptando porque es el default de `systemd_action`, `view_logs`
+# y `bring_up_service`, y porque un repo sin tabla no tiene otro nombre.
+MAIN_SERVICE = 'proyecto'
 
 
-def resolve_service(config: Config, which: str = 'proyecto') -> str:
+def managed_services(config: Config) -> list[str]:
+    """Los valores del eje `service` de ESTE repo.
+
+    Los del repo primero —uno por fila de `SERVICES`, o `proyecto` si no hay
+    tabla— y despues los dos paquetes que Consola configura.
+    """
+    try:
+        propios = [s.suffix or MAIN_SERVICE for s in services(config)]
+    except TaskError:
+        propios = [MAIN_SERVICE]
+    return propios + list(PACKAGE_SERVICES)
+
+
+def service_labels(config: Config) -> dict[str, str]:
+    """Como se llama cada valor del eje en la interfaz."""
+    etiquetas = dict(PACKAGE_LABELS)
+    try:
+        tabla = services(config)
+    except TaskError:
+        tabla = []
+    for servicio in tabla:
+        if servicio.suffix:
+            etiquetas[servicio.suffix] = servicio.suffix.replace('-', ' ').capitalize()
+    etiquetas.setdefault(MAIN_SERVICE, 'Servidor')
+    return etiquetas
+
+
+def resolve_service(config: Config, which: str = MAIN_SERVICE) -> str:
     """El nombre real de la unidad detras del valor del eje `service`."""
-    if not which or which == 'proyecto':
-        return service_name(config)
-    if which not in MANAGED_SERVICES:
-        raise TaskError(f'Servicio desconocido: {which}')
-    return which
+    if which in PACKAGE_SERVICES:
+        return which
+    tabla = services(config)
+    if not which or which == MAIN_SERVICE:
+        # Sin tabla es el unico que hay; con tabla, el primero que se declaro.
+        return unit_name(config, tabla[0])
+    for servicio in tabla:
+        if servicio.suffix == which:
+            return unit_name(config, servicio)
+    raise TaskError(f'Servicio desconocido: {which}')
 
 
 def installed_services(remote: Remote, config: Config) -> list[str]:
-    """Cuales de los tres servicios existen en ESTE VPS, en una sola consulta.
+    """Cuales de los servicios del eje existen en ESTE VPS, en una sola consulta.
 
     El eje de `systemd_action` ofrecia los tres siempre, y en un VPS sin coturn
     elegirlo terminaba en un error que se podia haber evitado antes de apretar.
@@ -491,9 +598,10 @@ def installed_services(remote: Remote, config: Config) -> list[str]:
     Devuelve la lista entera si no se puede preguntar: un VPS todavia sin llave
     o apagado no deberia dejar el boton sin valores que ofrecer.
     """
-    nombres = {resolve_service(config, s): s for s in MANAGED_SERVICES}
+    ejes = managed_services(config)
+    nombres = {resolve_service(config, s): s for s in ejes}
     if not reachable(remote):
-        return list(MANAGED_SERVICES)
+        return list(ejes)
     lista = ' '.join(quote(n) for n in nombres)
     salida = capture(
         remote, f'for s in {lista}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done',

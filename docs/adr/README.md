@@ -48,3 +48,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0038](0038-una-compuesta-reusa-otra-entera.md) | Una compuesta reusa a otra solo si quiere todos sus pasos |
 | [0039](0039-mostrar-antes-de-escribir.md) | Nada se sobrescribe a ciegas: primero se muestra qué va a cambiar |
 | [0040](0040-una-regla-es-host-mas-ruta.md) | Una regla de publicación es un host más una ruta, y cada pieza va en su propio host |
+| [0041](0041-un-repo-declara-sus-servicios.md) | Un repo declara sus servicios en una tabla; uno solo es el caso de una fila |

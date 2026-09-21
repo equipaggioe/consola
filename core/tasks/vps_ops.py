@@ -102,23 +102,33 @@ def revoke_github_ssh(ctx, *, remote_files: bool = True, github_side: bool = Tru
 # --- limpieza del VPS ------------------------------------------------------
 
 def remove_systemd_service(ctx) -> bool:
-    """Para, deshabilita y borra la unidad del servicio. Detecta antes de actuar.
+    """Para, deshabilita y borra las unidades del repo. Detecta antes de actuar.
 
     Borra tambien su `tmpfiles.d`, pero no las carpetas: tienen datos de usuarios.
+
+    Son todas las que el repo declara en `SERVICES`, no una: dejar viva la mitad
+    de un repo "eliminado" es peor que no borrar nada, porque nada lo dice.
     """
     remote = _remote(ctx)
-    servicio = vps.service_name(ctx.config)
-    ssh.run(ctx, remote, f'sudo -n rm -f {ssh.quote(vps.tmpfiles_path(servicio))}', check=False)
-    if vps.service_state(remote, servicio) == 'missing':
-        ctx.info(f'No hay servicio {servicio} para borrar.')
-        return False
+    ssh.run(ctx, remote,
+            f'sudo -n rm -f {ssh.quote(vps.tmpfiles_path(vps.service_name(ctx.config)))}',
+            check=False)
 
-    vps.systemctl(ctx, remote, 'stop', servicio, check=False)
-    vps.systemctl(ctx, remote, 'disable', servicio, check=False)
-    ssh.run(ctx, remote, f'sudo -n rm -f {ssh.quote(vps.unit_path(servicio))} && '
-                         'sudo -n systemctl daemon-reload')
-    ctx.ok(f'Servicio {servicio} eliminado.')
-    return True
+    borrado = False
+    for servicio in vps.services(ctx.config):
+        nombre = vps.unit_name(ctx.config, servicio)
+        if vps.service_state(remote, nombre) == 'missing':
+            ctx.info(f'No hay servicio {nombre} para borrar.')
+            continue
+        vps.systemctl(ctx, remote, 'stop', nombre, check=False)
+        vps.systemctl(ctx, remote, 'disable', nombre, check=False)
+        ssh.run(ctx, remote, f'sudo -n rm -f {ssh.quote(vps.unit_path(nombre))}')
+        ctx.ok(f'Servicio {nombre} eliminado.')
+        borrado = True
+
+    if borrado:
+        ssh.run(ctx, remote, 'sudo -n systemctl daemon-reload')
+    return borrado
 
 
 def remove_deployed_repo(ctx) -> bool:

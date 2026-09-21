@@ -240,7 +240,7 @@ def _vps_services(config: Config | None, *, refresh: bool = False) -> tuple[list
                                max_age=_FRESCO, refresh=refresh)
     except TaskError:
         return [], {}
-    return list(valores), dict(vps.SERVICE_LABELS)
+    return list(valores), vps.service_labels(config)
 
 
 def forget_machine_cache() -> None:

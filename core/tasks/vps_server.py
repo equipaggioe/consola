@@ -304,12 +304,38 @@ def write_systemd_unit(ctx) -> bool:
     donde mandar el trafico (`core/vps.py::backend_listen`).
     """
     remote = _remote(ctx)
-    servicio = vps.service_name(ctx.config)
     server = _server_rel(ctx)
     python = f'{_venv_path(ctx)}/bin/python'
-    app = ctx.config.get('UVICORN_APP', 'app.main:app')
-    host, port = vps.backend_listen(ctx.config)
+    working_dir = vps.remote_path(ctx.config, server)
 
+    cambio = False
+    for servicio in vps.services(ctx.config):
+        nombre = vps.unit_name(ctx.config, servicio)
+        unidad = vps.render_unit(
+            description=f'Servidor de {nombre}',
+            user=remote.user,
+            working_dir=working_dir,
+            exec_start=_exec_start(ctx, remote, servicio, python=python, server=server),
+        )
+        cambio = vps.write_unit(ctx, remote, nombre, unidad) or cambio
+    return cambio
+
+
+def _exec_start(ctx, remote, servicio, *, python: str, server: str) -> str:
+    """La linea `ExecStart` de esa fila de `SERVICES`, segun su tipo.
+
+    `uvicorn` es el unico que Consola sabe armar: donde escucha y si lleva TLS
+    salen de la configuracion, no del texto de la fila. Los otros dos existen
+    porque un proceso largo de un repo no tiene por que ser un servidor HTTP —un
+    enviador de avisos, un consumidor de cola— y systemd no los distingue.
+    """
+    destino = vps.expand_refs(ctx.config, servicio.target, f'SERVICES: {servicio.suffix}')
+    if servicio.kind == 'command':
+        return destino
+    if servicio.kind == 'python':
+        return f'{python} {destino}'
+
+    host, port = vps.backend_listen(ctx.config)
     # TLS solo cuando el backend da la cara a internet. Escuchando en loopback
     # el unico que lo alcanza es Caddy, que habla HTTP contra el upstream y ya
     # puso el HTTPS de afuera: cifrar ese tramo pediria ademas que Caddy
@@ -319,14 +345,10 @@ def write_systemd_unit(ctx) -> bool:
     publico = not vps.is_loopback(host)
     tls = (f' --ssl-certfile {cert} --ssl-keyfile {key}'
            if publico and ssh.path_exists(remote, cert) else '')
-
-    unidad = vps.render_unit(
-        description=f'Servidor de {servicio}',
-        user=remote.user,
-        working_dir=vps.remote_path(ctx.config, server),
-        exec_start=f'{python} -m uvicorn {app} --host {host} --port {port}{tls}',
-    )
-    return vps.write_unit(ctx, remote, servicio, unidad)
+    # Detras de un proxy el backend tiene que leer X-Forwarded-*, o ve todas las
+    # peticiones como http y con la direccion del proxy.
+    proxy = '' if publico else ' --proxy-headers --forwarded-allow-ips 127.0.0.1'
+    return f'{python} -m uvicorn {destino} --host {host} --port {port}{tls}{proxy}'
 
 
 def systemd_action(ctx, action: str = 'status', service: str = 'proyecto') -> int:
@@ -384,7 +406,7 @@ def bring_up_service(ctx, service: str = 'proyecto', *, enable: bool = True,
     estado = vps.service_state(remote, servicio)
     if start and estado != 'active':
         raise TaskError(f'{servicio} quedo en estado {estado}. Mira sus logs con '
-                        f'Ver logs -> {vps.SERVICE_LABELS.get(service, servicio)}.')
+                        f'Ver logs -> {vps.service_labels(ctx.config).get(service, servicio)}.')
     if not start:
         if changed:
             ctx.warn(f'{servicio} sigue con la configuracion anterior: la nueva entra '
@@ -456,7 +478,10 @@ def configure_service(ctx, *, enable: bool = True, start: bool = True) -> None:
     if publico:
         vps.open_ports(ctx, remote, [f'{port}/tcp'])
 
-    bring_up_service(ctx, 'proyecto', enable=enable, start=start, changed=cambio)
+    # Una unidad por fila de `SERVICES`. Sin tabla es una sola, que es el eje
+    # `proyecto` de siempre.
+    for eje in (s.suffix or vps.MAIN_SERVICE for s in vps.services(ctx.config)):
+        bring_up_service(ctx, eje, enable=enable, start=start, changed=cambio)
 
     if publico:
         ctx.ok(f'Backend escuchando en {remote.host}:{port}.')

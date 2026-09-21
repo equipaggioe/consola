@@ -206,6 +206,17 @@ SETTINGS: tuple[Setting, ...] = (
             required_by=('configure_service',)),
     Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
             required_by=('configure_service',)),
+    # Un repo puede tener mas de un proceso largo —una API y un enviador de
+    # avisos, un servidor y un consumidor de cola— y para systemd son dos
+    # unidades sin nada que las distinga salvo su comando. Misma forma que
+    # `PUBLIC_ROUTES`: «<sufijo> <tipo> <destino>», con tipos `uvicorn`, `python`
+    # y `command`.
+    #
+    # Vacia = un solo servicio, llamado como el repo y corriendo `UVICORN_APP`,
+    # que es lo que habia antes de que la tabla existiera. Con tabla, cada
+    # unidad se llama `<repo>-<sufijo>`.
+    Setting('SERVICES', 'Systemd', 'Servicios del repo', kind='list',
+            used_by=('configure_service', 'remove_systemd_service')),
     # Las carpetas que el servicio necesita fuera del repo, `<ruta> <modo>` por
     # renglon, a nombre del usuario del servicio. Las crea `configure_service`
     # con un `tmpfiles.d`, que systemd vuelve a aplicar en cada arranque. Vacia

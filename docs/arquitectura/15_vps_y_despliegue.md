@@ -36,11 +36,19 @@ Instalar saltea lo que ya está (`dpkg -s`). Configurar **no** instala: `vps.req
 
 `vps.open_ports` abre en ufw si ufw manda; si no está activo, **lo dice**: el firewall puede estar en el panel del proveedor, y ahí los puertos siguen cerrados.
 
-## 4. Los tres servicios
+## 4. Los servicios del VPS
 
-Consola administra tres unidades systemd en el mismo VPS: la del repo (`proyecto`, con el nombre derivado del repo), `coturn` y `caddy`. Los tres se reinician, se paran y se leen igual, así que `service` es **un eje** de `systemd_action` y de `view_logs`, no tres botones nuevos ([ADR-0023](../adr/0023-los-servicios-son-un-eje.md)).
+Consola administra en el mismo VPS las unidades systemd **del repo** más `coturn` y `caddy`. Todas se reinician, se paran y se leen igual, así que `service` es **un eje** de `systemd_action` y de `view_logs`, no un botón por servicio ([ADR-0023](../adr/0023-los-servicios-son-un-eje.md)).
 
-Los valores de ese eje no se enumeran: `vps.installed_services` pregunta cuáles de los tres existen en **este** VPS, en una sola consulta, y el resultado se cachea por host. Si no se puede preguntar devuelve los tres, para no dejar el botón sin nada que ofrecer.
+Cuántas son las del repo lo dice el repo: `SERVICES` es una tabla de filas `<sufijo> <tipo> <destino>` y cada fila es una unidad ([ADR-0041](../adr/0041-un-repo-declara-sus-servicios.md)). Sin tabla hay una sola, llamada como el repo, que es el valor `proyecto` del eje de siempre.
+
+| Tipo | Destino | `ExecStart` |
+|---|---|---|
+| `uvicorn` | El entrypoint | Consola arma la línea: dónde escucha, TLS y `--proxy-headers` |
+| `python` | Argumentos | El intérprete del venv del repo con eso |
+| `command` | La línea entera | Tal cual |
+
+`vps.managed_services` arma los valores del eje —los del repo y después los dos paquetes— y `vps.resolve_service` los traduce al nombre real de la unidad: `<repo>` sin tabla, `<repo>-<sufijo>` con ella. Los valores que se ofrecen no se enumeran: `vps.installed_services` pregunta cuáles existen en **este** VPS, en una sola consulta, y el resultado se cachea por host. Si no se puede preguntar los devuelve todos, para no dejar el botón sin nada que ofrecer.
 
 Dos preguntas distintas sobre una unidad, y las dos hacen falta: `service_exists` mira `/etc/systemd/system` (donde Consola escribe la del proyecto) y `unit_installed` pregunta con `systemctl cat` (las de un paquete apt viven en `/lib/systemd/system`).
 
@@ -54,13 +62,13 @@ Ese booleano es lo que separa `restart` de `start` en `vps_server.bring_up_servi
 
 Desmarcar «Arrancar» es la ventana de mantenimiento: la configuración nueva queda escrita y el servicio sigue con la vieja, y el botón lo dice al terminar.
 
-## 5. El servicio del repo
+## 5. Los servicios del repo
 
-`configure_service` escribe la unidad y deja el servicio corriendo. Antes exige que haya código y venv en el VPS (`_require_deployment`): sin eso la unidad se escribía igual, uvicorn moría por falta de intérprete y `Restart=always` lo reintentaba cada 3 segundos, todo después de un mensaje de éxito.
+`configure_service` escribe una unidad por fila de `SERVICES` y las deja corriendo; `remove_systemd_service` las borra todas, porque dejar viva la mitad de un repo «eliminado» es peor que no borrar nada. Antes exige que haya código y venv en el VPS (`_require_deployment`): sin eso la unidad se escribía igual, uvicorn moría por falta de intérprete y `Restart=always` lo reintentaba cada 3 segundos, todo después de un mensaje de éxito.
 
 Antes de la unidad escribe las carpetas del servicio: `SERVICE_DIRS` se vuelca a `/etc/tmpfiles.d/<servicio>.conf`, que systemd vuelve a aplicar en cada arranque. Van fuera del repo porque el despliegue corre `git clean`.
 
-Dónde escucha el backend sale de `BACKEND_HOST` y `BACKEND_PORT`, no de un parámetro del botón: es el mismo dato que necesita Caddy para saber a dónde mandar el tráfico. De ahí se derivan dos cosas más: **TLS** solo cuando el backend da la cara a internet (detrás de Caddy, el tramo hasta el upstream es HTTP), y **abrir el puerto en ufw** solo en ese mismo caso.
+Dónde escucha el backend sale de `BACKEND_HOST` y `BACKEND_PORT`, no de un parámetro del botón: es el mismo dato que necesita Caddy para saber a dónde mandar el tráfico. De ahí se derivan tres cosas más, todas para los servicios de tipo `uvicorn`: **TLS** solo cuando el backend da la cara a internet (detrás de Caddy, el tramo hasta el upstream es HTTP), **abrir el puerto en ufw** solo en ese mismo caso, y **`--proxy-headers`** justo en el contrario — escuchando en loopback hay un proxy delante, y sin eso el backend ve todas las peticiones como `http` y con la dirección del proxy.
 
 ## 6. La tabla de rutas públicas
 
