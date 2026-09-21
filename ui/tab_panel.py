@@ -1455,16 +1455,13 @@ class TabPanel(ReorderableBar, QWidget):
             runner.provide_answer(answer if ok else '')
             return
 
-        if shape == context.ASK_SECRET:
-            answer, ok = QInputDialog.getText(
-                self, 'Dato requerido', question, QLineEdit.EchoMode.Password)
-            runner.provide_answer(answer if ok else '')
-            return
-
-        if shape == context.ASK_TEXT:
-            answer, ok = QInputDialog.getText(
-                self, 'Dato requerido', question, QLineEdit.EchoMode.Normal)
-            runner.provide_answer(answer if ok else '')
+        if shape in (context.ASK_SECRET, context.ASK_TEXT):
+            modo = (QLineEdit.EchoMode.Password if shape == context.ASK_SECRET
+                    else QLineEdit.EchoMode.Normal)
+            answer, ok = QInputDialog.getText(self, 'Dato requerido', question, modo)
+            # Cancelar no es responder vacio: hay preguntas donde el vacio
+            # significa "usa el valor derivado" (`core/context.py::ASK_CANCELLED`).
+            runner.provide_answer(answer if ok else context.ASK_CANCELLED)
             return
 
         box = QMessageBox(self)

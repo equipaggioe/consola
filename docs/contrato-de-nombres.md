@@ -91,7 +91,7 @@ lo dice el adaptador con una comparación de cadenas.
 `registry.resolve_steps()` inventa un `Step` por cada entrada de `composed_of` cuando no hay `steps=`.
 Esos ids son nombres de *botones* (`generate_remote_keypair`), y jamás van a coincidir con un nombre
 de parámetro (`generate`). Afecta a 5 capacidades: `setup_github_ssh`, `install_android_sdk`,
-`revoke_github_ssh`, `configure_service`, `run_setup_scripts`.
+`revoke_github_ssh`, `configure_service`.
 
 Ya se corrigió a mano en 11 capacidades declarando `steps=` explícitos — el catálogo lo documenta
 como error repetido. Queda formalizarlo.

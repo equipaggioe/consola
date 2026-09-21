@@ -46,23 +46,6 @@ def run_command(ctx, command: str = '') -> int:
     return ssh.run(ctx, _remote(ctx), command, check=False)
 
 
-def run_setup_scripts(ctx, scope: str = 'remoto', *, bootstrap: bool = True,
-                      rebuild: bool = False) -> None:
-    """Corre las capacidades de preparacion contra el ambito elegido.
-
-    `SETUP_SCRIPTS` era una lista de rutas a `.py` en el `.env`. Ya no hace
-    falta: los pasos son capacidades del catalogo y el ambito es un eje.
-    """
-    from . import database as db_tasks
-
-    if bootstrap:
-        ctx.step('bootstrap')
-        db_tasks.bootstrap_db(ctx.child('bootstrap_db'), scope)
-    if rebuild:
-        ctx.step('rebuild')
-        db_tasks.rebuild_db(ctx.child('rebuild_db'), scope)
-
-
 # --- revocacion ------------------------------------------------------------
 
 def revoke_ssh_key(ctx, *, remote_side: bool = True, local_side: bool = True) -> None:
@@ -222,7 +205,6 @@ def clean_vps(
 def bind_all() -> None:
     registry.bind('health_check', health_check)
     registry.bind('run_command', run_command)
-    registry.bind('run_setup_scripts', run_setup_scripts)
     registry.bind('revoke_ssh', revoke_ssh_key)
     registry.bind('revoke_github_ssh', revoke_github_ssh)
     registry.bind('clean_vps', clean_vps)

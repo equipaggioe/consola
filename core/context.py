@@ -30,6 +30,11 @@ LogSink = Callable[[str, str], None]
 ASK_YES_NO = 'si_no'    # confirmacion: dos botones
 ASK_TEXT = 'texto'      # un dato que la tarea no puede deducir
 ASK_SECRET = 'secreto'  # lo mismo, sin mostrarlo mientras se escribe
+# Cerrar el dialogo de texto no es lo mismo que dejarlo vacio, y con una cadena
+# vacia para las dos cosas no habia forma de distinguirlas: `create_avd` toma el
+# vacio como "usa el nombre derivado", asi que un Escape le creaba el AVD igual.
+# La UI contesta esto al cancelar y `ask()` lo convierte en `Cancelled`.
+ASK_CANCELLED = '\x00cancelado'
 AskSink = Callable[[str, str, bool, str], str]
 ProgressSink = Callable[[int, int, str], None]
 NoteSink = Callable[[str], None]
@@ -290,6 +295,8 @@ class TaskContext:
         if self.ask_sink is None:
             raise TaskError(f'Hace falta un dato que nadie puede responder: {prompt}')
         answer = self.ask_sink(prompt, ASK_SECRET if secret else ASK_TEXT, False, '')
+        if answer == ASK_CANCELLED:
+            raise Cancelled('Cancelado: no se dio el dato que la accion pedia.')
         if secret:
             self.guard(answer)
         return answer

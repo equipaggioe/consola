@@ -164,9 +164,15 @@ Puros atómicos: ninguno encadena a otro (el módulo no declara compuestas).
 | `remove_deployed_repo` | A | — | `clean_vps` |
 | `uninstall_packages` | A | — | `clean_vps` |
 | `remove_vps_user` | A | — | `clean_vps` |
-| `run_setup_scripts` | C | `run_setup_scripts` | — |
 | `revoke_github_ssh` | C | `revoke_github_ssh` | `clean_vps` |
 | `clean_vps` | C | `clean_vps` | — (compuesta de compuestas: reusa `teardown_db` y `revoke_github_ssh`) |
+
+> **`run_setup_scripts` se eliminó.** Era una compuesta de dos pasos —`bootstrap_db` y
+> `rebuild_db`, sobre el mismo eje `local`/`remoto`— y los dos ya son botones con ese mismo eje.
+> No agregaba ni un paso ni una decisión: encadenarlos no es un caso, porque reconstruir una base
+> que se acaba de crear desde cero es correr dos veces las migraciones y los seeders. Nació como el
+> reemplazo de `SETUP_SCRIPTS`, una lista de rutas a `.py` que vivía en el `.env`; una vez que esos
+> scripts fueron botones, lo único que le quedaba era el nombre del script viejo.
 
 ### `core/tasks/utils.py`
 

@@ -301,7 +301,7 @@ que llega hasta los seeders, ese paso solo agregaba un `drop_tables` sobre una b
 y los seis pasos de la limpieza: `remove_systemd_service` · `remove_deployed_repo` ·
 `uninstall_packages` · `remove_vps_user` (+ `teardown_db` y `revoke_github_ssh`, reusados).
 
-**Compuestas:** `revoke_github_ssh`, `clean_vps`, `run_setup_scripts`.
+**Compuestas:** `revoke_github_ssh`, `clean_vps`.
 
 ### `core/tasks/launchers.py`
 

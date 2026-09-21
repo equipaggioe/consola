@@ -42,7 +42,7 @@ class Setting:
 
 
 # Claves VPS que necesita cualquier operacion que alcance el servidor.
-_VPS_REACH = ('ssh_login', 'health_check', 'run_command', 'run_setup_scripts',
+_VPS_REACH = ('ssh_login', 'health_check', 'run_command',
               'update_remote', 'upload_to_vps', 'install_software', 'setup_ssh_key',
               'setup_github_ssh', 'configure_coturn', 'configure_caddy',
               'bootstrap_vps', 'view_logs',

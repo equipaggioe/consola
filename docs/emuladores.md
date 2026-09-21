@@ -34,8 +34,8 @@ Por eso `start_emulator` desaparece y quedan **tres actividades separadas**, má
 
 | Botón | Nivel | kind | Ejes |
 |---|---|---|---|
-| **Instalar máquina** (`install_system_image`) | A | once · machine | `image` — catálogo completo de system images |
-| **Crear AVD** (`create_avd`) | A | once · machine | `device` — catálogo de dispositivos · `image` — solo las instaladas · `name` — campo opcional |
+| **Instalar máquina** (`install_system_image`) | A | once · machine | `image` — catálogo completo de system images, por característica |
+| **Crear AVD** (`create_avd`) | A | once · machine | `device` — catálogo de dispositivos · `image` — solo las instaladas, por característica (el nombre se pregunta al correr) |
 | **Emulador** (`launch_emulator`) | A | live · machine | `avd` — los ya creados · `wipe` — normal \| borrar datos · `boot_flags` · `gpu` · `flags` |
 | **Liberar disco** (`purge_emulators`) | A | destructive · machine | `avds` · `images` (casillas) · `dry_run` |
 
@@ -46,6 +46,51 @@ del proyecto abierto.
 
 Ninguna es compuesta. El grupo entero es de nivel 1 sobre la plomería de `core/android.py`, que es
 donde vive el trabajo real — cada atómica son entre 5 y 20 líneas.
+
+### La máquina virtual se elige por característica, no de una lista de 317
+
+Las 317 system images del catálogo no son 317 cosas distintas: son tres preguntas ya permutadas.
+`system-images;android-36;google_apis;x86_64` dice **qué versión de Android**, **qué variante**
+(Android puro, Google APIs, con Play Store, TV, Wear OS, Automotive, las ATD livianas) y **qué
+arquitectura**. Una lista con las tres combinadas obliga a leer trescientas etiquetas casi iguales
+para encontrar la que cambia en un solo campo, y no deja ver lo que *no* existe: que no haya Wear OS
+para la 36 solo se descubre no encontrándolo.
+
+El eje sigue siendo uno solo y su valor sigue siendo el paquete entero —es lo único que entiende
+`sdkmanager`—, pero declara sus `facets` (`core/registry.py::Facet`) y el panel lo dibuja como tres
+listas cortas:
+
+| Lista | Sale de | Se recorta con |
+|---|---|---|
+| Versión | `android-36` → «Android 36» | nada: es la primera decisión |
+| Variante | `google_apis` → «Google APIs» (`android.VARIANTS`) | la versión elegida |
+| Arquitectura | `x86_64` → «x86_64 (Intel / AMD)» (`android.ABIS`) | la versión y la variante |
+
+**Es una cascada, no un filtro cruzado.** Cada lista se recorta con las de *arriba* y nunca con las
+de abajo. Recortar en los dos sentidos parece más listo y deja la primera lista sin salida: con
+«Play Store» marcado desaparecerían de la lista de versiones justamente las que no lo publican, y
+no quedaría forma de llegar a ellas desde el único control que debería poder cambiarlo todo. Al
+cambiar una, las de abajo se recomponen y caen en su mejor opción disponible
+(`AxisDef.resolve_facets`); las de arriba no se mueven solas, que es lo que hace la cascada
+predecible.
+
+El orden de las opciones dentro de cada lista es el de `Image.order`, que ya existía: API nueva
+antes que vieja, variantes de teléfono antes que las de TV o reloj, arquitectura nativa antes que
+la emulada. Así la combinación que aparece sin tocar nada es la que se quiere casi siempre.
+
+`Liberar disco` sigue listando las imágenes instaladas como casillas con su etiqueta entera: ahí no
+se está eligiendo una combinación sino marcando las que ocupan disco, y cada una es un objeto
+concreto que ya existe.
+
+### El nombre del AVD se pregunta al correr
+
+Era un campo del panel, y un campo del panel se guarda. Dos AVD no se pueden llamar igual, así que
+un nombre guardado sirve exactamente una vez: a la segunda, el panel arranca con el nombre del AVD
+que ya existe. Ahora se pregunta al ejecutar, y la pregunta **muestra el derivado**
+(`pixel_4_api36`) como respuesta por defecto: dejarla vacía lo usa. Se ve con qué nombre va a
+quedar antes de que exista, que es cuando importa. Cerrar el diálogo cancela —no crea el AVD con el
+nombre derivado—, porque cancelar y responder vacío viajan distinto
+(`core/context.py::ASK_CANCELLED`).
 
 ### Los flags del emulador
 

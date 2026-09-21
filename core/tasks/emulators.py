@@ -54,12 +54,16 @@ def install_system_image(ctx, image: str = '') -> str:
     return image
 
 
-def create_avd(ctx, device: str = '', image: str = '', name: str = '') -> str:
+def create_avd(ctx, device: str = '', image: str = '') -> str:
     """Crea el dispositivo virtual con el modelo y la maquina elegidos.
 
-    Sin nombre propio se deriva del dispositivo y la API (`pixel_4_api36`), que
-    es lo que se quiere casi siempre: el nombre solo importa cuando hay dos AVD
-    del mismo modelo.
+    El nombre se pregunta al correr y no llega como parametro: dos AVD no se
+    pueden llamar igual, asi que un nombre guardado solo sirve para la primera
+    vez (`docs/parametros-persistentes.md` 5). Dejarlo vacio es la respuesta
+    normal: entonces se deriva del dispositivo y la API (`pixel_4_api36`), que
+    es lo que se quiere casi siempre. Se pregunta igual —y no solo cuando hay
+    colision— porque el derivado se muestra ahi mismo: se ve con que nombre va
+    a quedar antes de que exista, que es cuando importa.
     """
     if not device:
         raise TaskError('Elige un dispositivo del catalogo.')
@@ -67,9 +71,11 @@ def create_avd(ctx, device: str = '', image: str = '', name: str = '') -> str:
         raise TaskError('Elige una maquina virtual instalada. Si no hay ninguna, '
                         'instalala primero con "Instalar maquina".')
 
+    derivado = android.suggest_avd_name(device, image)
+    name = ctx.ask(f'Nombre del AVD (vacío = {derivado})')
+
     sdk = android.resolve_sdk()
-    spec = android.AvdSpec(name.strip() or android.suggest_avd_name(device, image),
-                           device, image)
+    spec = android.AvdSpec(name.strip() or derivado, device, image)
     creado = android.ensure_avd(ctx, sdk, spec)
     cache.forget('android-avds')
     ctx.ok(f'AVD listo: {creado}')

@@ -64,6 +64,12 @@ class AxesLoader(QThread):
 # resultado del loader. No es un eje: no se elige, se mira y se apaga.
 _LIVE = '@live'
 
+# Ancho de la etiqueta de cada caracteristica de un eje `pick` con `facets`.
+# Fijo y compartido para que las listas queden alineadas en columna: tres combos
+# empezando cada uno donde termina su palabra se leen como tres controles
+# sueltos y no como las tres partes de una misma eleccion.
+_FACET_LABEL_WIDTH = 86
+
 
 class ParamsPanel(QWidget):
     """Parametros de UNA ejecucion: variantes, pasos y opciones.
@@ -94,6 +100,11 @@ class ParamsPanel(QWidget):
         self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
         self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}  # axis -> valor escrito
         self._picks: dict[str, QComboBox] = {}   # axis -> lista larga con busqueda
+        # axis -> caracteristica -> su lista corta. Es el mismo eje `pick` que
+        # arriba, dibujado en varias listas que se recortan entre si
+        # (`core/registry.py::Facet`); su valor sigue siendo el id entero, asi
+        # que viaja en el mismo balde `picks` del payload.
+        self._facets: dict[str, dict[str, QComboBox]] = {}
         self._multi_layouts: dict[str, QVBoxLayout] = {}  # axis -> donde van sus casillas
         self._option_layouts: dict[str, QVBoxLayout] = {}  # axis -> donde van sus excluyentes
         self._empty_notes: dict[str, QLabel] = {}  # axis -> rotulo de "no hay ninguno aca"
@@ -151,7 +162,9 @@ class ParamsPanel(QWidget):
                 if axis.name not in resuelto:
                     continue
                 axis.values, axis.labels = resuelto[axis.name]
-                if axis.name in self._picks:
+                if axis.name in self._facets:
+                    self._fill_facets(axis)
+                elif axis.name in self._picks:
                     self._fill_pick(axis)
                 elif axis.name in self._multi_layouts:
                     self._fill_multi(axis)
@@ -252,43 +265,133 @@ class ParamsPanel(QWidget):
         lay.setSpacing(9)
 
         for axis in axes:
+            if axis.facets:
+                lay.addWidget(self._build_facets(axis))
+                continue
             row = QVBoxLayout()
             row.setSpacing(4)
-            label = QLabel(axis.display)
-            label.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
-            )
-            row.addWidget(label)
-
-            combo = QComboBox()
-            combo.setEditable(True)          # editable solo para poder escribir y filtrar
-            combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-            combo.setMinimumHeight(30)
-            combo.setMaxVisibleItems(18)
-            completer = QCompleter(combo.model(), combo)
-            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
-            completer.setFilterMode(Qt.MatchFlag.MatchContains)
-            completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
-            combo.setCompleter(completer)
-            combo.setStyleSheet(f"""
-                QComboBox {{
-                    background: {Colors.SURFACE_ALT}; border: 1px solid {Colors.BORDER};
-                    border-radius: 5px; padding: 0 8px;
-                    color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
-                }}
-                QComboBox:focus {{ border: 1px solid {self.accent}; }}
-                QComboBox QAbstractItemView {{
-                    background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
-                    selection-background-color: {self.accent};
-                    border: 1px solid {Colors.BORDER};
-                }}
-            """)
+            row.addWidget(self._pick_title(axis.display))
+            combo = self._pick_combo(buscable=True)
             combo.currentIndexChanged.connect(self._refresh_summary)
             self._picks[axis.name] = combo
             self._fill_pick(axis)
             row.addWidget(combo)
             lay.addLayout(row)
         return box
+
+    def _pick_title(self, texto: str) -> QLabel:
+        label = QLabel(texto)
+        label.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
+        )
+        return label
+
+    def _pick_combo(self, *, buscable: bool) -> QComboBox:
+        """La lista cerrada del panel.
+
+        `buscable` la hace editable, y editable es solo para poder escribir y
+        filtrar: en un catalogo de cien dispositivos es la unica forma de
+        llegar, y en una lista de seis variantes seria un cursor que invita a
+        escribir algo que no se puede escribir.
+        """
+        combo = QComboBox()
+        combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
+        combo.setMinimumHeight(30)
+        combo.setMaxVisibleItems(18)
+        if buscable:
+            combo.setEditable(True)
+            completer = QCompleter(combo.model(), combo)
+            completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
+            completer.setFilterMode(Qt.MatchFlag.MatchContains)
+            completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
+            combo.setCompleter(completer)
+        combo.setStyleSheet(f"""
+            QComboBox {{
+                background: {Colors.SURFACE_ALT}; border: 1px solid {Colors.BORDER};
+                border-radius: 5px; padding: 0 8px;
+                color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
+            }}
+            QComboBox:focus {{ border: 1px solid {self.accent}; }}
+            QComboBox QAbstractItemView {{
+                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
+                selection-background-color: {self.accent};
+                border: 1px solid {Colors.BORDER};
+            }}
+        """)
+        return combo
+
+    def _build_facets(self, axis: AxisDef) -> QWidget:
+        """Un eje `pick` dibujado por caracteristica: una lista corta por cada
+        parte del valor, y todas se recortan entre si.
+
+        El catalogo de system images son varios cientos de paquetes que en el
+        fondo son tres preguntas —que version de Android, que variante, que
+        arquitectura— ya permutadas. En una sola lista hay que leer trescientas
+        etiquetas casi iguales para encontrar la que cambia en un solo campo; y
+        peor, no se ve que existe: que no haya Wear OS para la 36 solo se
+        descubre no encontrandolo.
+
+        Aca cada lista ofrece *solo lo que existe dado lo demas elegido*
+        (`AxisDef.facet_values`), y cambiar una recompone las otras
+        (`AxisDef.resolve_facets`). Lo que se guarda no cambia: sigue siendo el
+        paquete entero que entiende sdkmanager.
+        """
+        box = QWidget()
+        box.setStyleSheet("background: transparent;")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(4)
+        lay.addWidget(self._pick_title(axis.display))
+
+        self._facets[axis.name] = {}
+        for facet in axis.facets:
+            fila = QHBoxLayout()
+            fila.setSpacing(8)
+            etiqueta = QLabel(facet.label)
+            etiqueta.setFixedWidth(_FACET_LABEL_WIDTH)
+            etiqueta.setStyleSheet(
+                f"background: transparent; color: {Colors.TEXT_MUTED}; "
+                f"font-size: {Fonts.SIZE_XS}px;"
+            )
+            combo = self._pick_combo(buscable=False)
+            combo.currentIndexChanged.connect(
+                lambda _i, a=axis: self._on_facet_changed(a))
+            self._facets[axis.name][facet.name] = combo
+            fila.addWidget(etiqueta)
+            fila.addWidget(combo, 1)
+            lay.addLayout(fila)
+        self._fill_facets(axis)
+        return box
+
+    def _on_facet_changed(self, axis: AxisDef) -> None:
+        self._fill_facets(axis)
+        self._refresh_summary()
+
+    def _fill_facets(self, axis: AxisDef) -> None:
+        """(Re)carga las listas de un eje por caracteristica.
+
+        Se rehacen todas y no solo las de abajo: cuesta lo mismo y evita tener
+        que llevar la cuenta de cual cambio. Lo que decide que se mueve y que
+        no es la cascada (`AxisDef.resolve_facets`), no quien disparo.
+        """
+        combos = self._facets.get(axis.name) or {}
+        if not combos:
+            return
+        actual = {nombre: (c.currentData() or '') for nombre, c in combos.items()}
+        resuelto = axis.resolve_facets(actual)
+        for facet in axis.facets:
+            combo = combos[facet.name]
+            combo.blockSignals(True)
+            combo.clear()
+            opciones = axis.facet_values(facet, resuelto)
+            for value in opciones:
+                combo.addItem(axis.text_of(value), value)
+            if not opciones:
+                combo.addItem('leyendo el catálogo…' if self._loading
+                              else f'no hay ninguna {axis.query_place}', '')
+            indice = combo.findData(resuelto.get(facet.name, ''))
+            combo.setCurrentIndex(max(indice, 0))
+            combo.blockSignals(False)
 
     def _fill_pick(self, axis: AxisDef) -> None:
         """(Re)carga las opciones de una lista larga, conservando lo elegido."""
@@ -666,12 +769,28 @@ class ParamsPanel(QWidget):
         return self.option_value(axis_name)
 
     def pick_value(self, axis_name: str) -> str:
-        """El id elegido en una lista larga (no su etiqueta)."""
+        """El id elegido en una lista larga (no su etiqueta).
+
+        Un eje por caracteristica no guarda el id en ningun combo: lo arma el
+        catalogo con lo marcado en cada lista, porque el id sigue siendo lo
+        unico que la herramienta entiende (`AxisDef.value_for`).
+        """
+        combos = self._facets.get(axis_name)
+        if combos is not None:
+            axis = self._axis(axis_name)
+            if axis is None:
+                return ''
+            return axis.value_for({n: (c.currentData() or '') for n, c in combos.items()})
         combo = self._picks.get(axis_name)
         if combo is None:
             return ''
         value = combo.currentData()
         return value if isinstance(value, str) else ''
+
+    def _pick_names(self) -> list[str]:
+        """Los ejes que guardan un id suelto, se dibujen como una lista o como
+        varias: los dos casos viajan en el mismo balde `picks`."""
+        return [*self._picks, *self._facets]
 
     def field_value(self, axis_name: str) -> str:
         """El texto escrito, sea el campo de una linea o la caja de varias.
@@ -692,7 +811,7 @@ class ParamsPanel(QWidget):
             'steps': [s.id for s in self.active_steps()],
             'options': {name: self._option_payload(name) for name in self._options},
             'fields': {name: self.field_value(name) for name in self._fields},
-            'picks': {name: self.pick_value(name) for name in self._picks},
+            'picks': {name: self.pick_value(name) for name in self._pick_names()},
         }
 
     def apply_state(self, state: dict | None) -> None:
@@ -744,6 +863,27 @@ class ParamsPanel(QWidget):
                 if indice >= 0:
                     combo.setCurrentIndex(indice)
 
+            # Un eje por caracteristica guarda el id entero igual que los de
+            # arriba: para reponerlo hay que descomponerlo y dejar cada lista
+            # en su parte. `resolve_facets` descarta sola las que ya no existen.
+            for axis_name, combos in self._facets.items():
+                elegido = picks.get(axis_name)
+                axis = self._axis(axis_name)
+                if not elegido or axis is None:
+                    continue
+                for nombre, parte in axis.facets_of(elegido).items():
+                    combo = combos.get(nombre)
+                    if combo is None:
+                        continue
+                    indice = combo.findData(parte)
+                    if indice < 0:
+                        combo.blockSignals(True)
+                        combo.addItem(axis.text_of(parte), parte)
+                        indice = combo.count() - 1
+                        combo.blockSignals(False)
+                    combo.setCurrentIndex(indice)
+                self._fill_facets(axis)
+
             fields = state.get('fields') or {}
             for axis_name, field in self._fields.items():
                 saved = fields.get(axis_name)
@@ -769,7 +909,7 @@ class ParamsPanel(QWidget):
             'steps': [s.id for s in self.active_steps()],
             'options': {name: self._option_payload(name) for name in self._options},
             'fields': {name: self.field_value(name) for name in self._fields},
-            'picks': {name: self.pick_value(name) for name in self._picks},
+            'picks': {name: self.pick_value(name) for name in self._pick_names()},
             'missing_env': self._missing_keys(),
         }
 

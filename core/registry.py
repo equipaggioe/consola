@@ -2,6 +2,30 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Callable, Any
 
+@dataclass(frozen=True)
+class Facet:
+    """Una caracteristica de un valor compuesto, con lista propia en el panel.
+
+    Un eje `pick` ofrece valores enteros; sus `facets` dicen que ese valor esta
+    hecho de partes que se eligen por separado. El valor guardado no cambia —
+    sigue siendo el id completo que entiende la herramienta—, cambia como se
+    llega a el.
+
+    Nace de las system images del SDK. El catalogo trae varios cientos de
+    paquetes (`system-images;android-36;google_apis;x86_64`) que en realidad son
+    la combinacion de tres cosas: la version de Android, la variante y la
+    arquitectura. Una sola lista con las tres permutadas en una linea obliga a
+    leer trescientas etiquetas casi iguales para encontrar la que cambia en un
+    solo campo. Tres listas cortas que se recortan entre si contestan la
+    pregunta que uno trae ("quiero la 36 con Play Store") en tres miradas.
+
+    `part` es el indice dentro del valor partido por `AxisDef.facet_sep`.
+    """
+    name: str
+    label: str
+    part: int
+
+
 @dataclass
 class AxisDef:
     """Un eje que genera opciones en el panel de parametros.
@@ -71,6 +95,12 @@ class AxisDef:
                                 # del VPS y `local` no: exigirlas en la capacidad dejaba
                                 # en ambar la base local de un repo sin VPS.
 
+    facets: tuple = field(default_factory=tuple)  # solo expand='pick': las caracteristicas
+                                # en las que se descompone cada valor (`Facet`). Con esto el
+                                # panel dibuja una lista corta por caracteristica en vez de una
+                                # larga con todas las combinaciones.
+    facet_sep: str = ';'        # con que se parte el valor para sacar sus caracteristicas
+
     uses_env: dict = field(default_factory=dict)  # valor -> claves de config.env que usa
                                 # elegirlo, sin exigirlas. Solo filtran el panel de
                                 # configuracion: la carpeta del build web no tiene nada que
@@ -78,6 +108,76 @@ class AxisDef:
 
     def keys_for(self, chosen) -> set[str]:
         return set().union(*(self.requires_env.get(v, set()) for v in chosen))
+
+    # --- caracteristicas ---------------------------------------------------
+    # Todo lo que sigue es logica pura sobre `values`: el panel solo dibuja lo
+    # que estas cuatro devuelven, para que la cascada se pueda leer (y probar)
+    # sin una ventana abierta.
+
+    def facet_of(self, value: str, facet: Facet) -> str:
+        """Que dice esta caracteristica en este valor."""
+        partes = value.split(self.facet_sep)
+        return partes[facet.part] if facet.part < len(partes) else ''
+
+    def _upstream(self, name: str) -> list[Facet]:
+        """Las caracteristicas declaradas ANTES que esta."""
+        nombres = [f.name for f in self.facets]
+        return list(self.facets[:nombres.index(name)]) if name in nombres else []
+
+    def facet_values(self, facet: Facet, chosen: dict) -> list[str]:
+        """Lo que esta caracteristica puede tomar dado lo elegido mas arriba.
+
+        Es una cascada y no un filtro cruzado: cada lista se recorta con las
+        que estan ANTES, nunca con las de abajo. Por eso el orden en que se
+        declaran las caracteristicas es el orden en que se deciden — primero
+        que version de Android, despues que variante hay para esa version,
+        despues que arquitecturas hay para esa combinacion.
+
+        Recortar tambien hacia arriba parece mas listo y deja la primera lista
+        sin salida: con "Play Store" marcado, las versiones que no lo publican
+        desaparecen de la lista de versiones, y no queda forma de llegar a
+        ellas desde el unico control que deberia poder cambiarlo todo.
+
+        El orden de las opciones es el de `values`, que ya viene ordenado por
+        lo que se elige casi siempre: la primera es la buena por defecto.
+        """
+        salida: list[str] = []
+        arriba = self._upstream(facet.name)
+        for value in self.values:
+            if any(chosen.get(f.name) and self.facet_of(value, f) != chosen[f.name]
+                   for f in arriba):
+                continue
+            parte = self.facet_of(value, facet)
+            if parte and parte not in salida:
+                salida.append(parte)
+        return salida
+
+    def resolve_facets(self, chosen: dict) -> dict:
+        """Lo elegido en cada caracteristica, corregido para que exista.
+
+        Cambiar una de arriba puede dejar a las de abajo en un valor imposible
+        (no hay Wear OS en Android 36): esas caen en su mejor opcion disponible
+        en vez de quedar apuntando a una combinacion que el SDK no publica. Las
+        de arriba no se tocan nunca, que es lo que hace predecible la cascada:
+        lo que uno acaba de elegir no se mueve solo.
+        """
+        resuelto: dict[str, str] = {}
+        for facet in self.facets:
+            opciones = self.facet_values(facet, resuelto)
+            actual = chosen.get(facet.name, '')
+            resuelto[facet.name] = actual if actual in opciones else (
+                opciones[0] if opciones else '')
+        return resuelto
+
+    def value_for(self, chosen: dict) -> str:
+        """El valor del catalogo que cumple con todas las caracteristicas."""
+        return next((v for v in self.values
+                     if all(self.facet_of(v, f) == chosen.get(f.name)
+                            for f in self.facets)), '')
+
+    def facets_of(self, value: str) -> dict:
+        """El camino inverso: de un valor guardado, que hay que marcar."""
+        return {f.name: self.facet_of(value, f) for f in self.facets}
 
     @property
     def exclusive_values(self) -> list[str]:

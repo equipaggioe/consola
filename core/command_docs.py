@@ -268,8 +268,9 @@ DOCS: dict[str, CommandDoc] = {
         ),
         steps=[
             'Resuelve el SDK de Android.',
-            'Arma el nombre del AVD: el escrito, o el derivado del dispositivo y '
-            'la API, saneado a lo que acepta avdmanager.',
+            'Pregunta el nombre del AVD, mostrando el derivado del dispositivo '
+            'y la API; vacío usa ese derivado, saneado a lo que acepta '
+            'avdmanager.',
             'Si ya existe un AVD con ese nombre, salta la creación.',
             'Comprueba que la máquina virtual elegida esté instalada y corta si '
             'no lo está.',
@@ -358,19 +359,6 @@ DOCS: dict[str, CommandDoc] = {
             'Resuelve el destino SSH del repo.',
             'Manda el comando tal cual por SSH.',
             'Vuelca su salida en la consola a medida que llega.',
-        ],
-    ),
-
-    'run_setup_scripts': CommandDoc(
-        summary=(
-            'Prepara la base del ámbito elegido encadenando los botones de Base '
-            'de datos.'
-        ),
-        steps=[
-            'Corre Bootstrap DB contra el ámbito elegido: rol, base, permisos, '
-            'extensiones, migraciones, particiones y seeders.',
-            'Corre Reconstruir DB sobre el mismo ámbito, si está marcado: borra '
-            'las tablas y vuelve a llenarlas.',
         ],
     ),
 

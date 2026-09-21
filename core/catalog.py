@@ -6,7 +6,7 @@ from pathlib import Path
 from . import android, cache, ssh, targets, toolchain, vps
 from .envfile import Config
 from .errors import TaskError
-from .registry import registry, Capability, AxisDef, Step
+from .registry import registry, Capability, AxisDef, Facet, Step
 
 # La lista de archivos a copiar era un eje repetido en los cuatro botones del
 # deploy, con un valor guardado por boton. Ahora es la clave `SECRET_FILES`
@@ -35,6 +35,17 @@ _PACKAGES_AXIS = lambda: AxisDef('groups', list(vps.PACKAGE_GROUPS), 'checks',
                                  labels=_PACKAGE_LABELS)
 
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
+
+# Las tres cosas que de verdad se eligen de una system image. El id del SDK las
+# trae permutadas en un solo paquete
+# (`system-images;android-36;google_apis;x86_64`), y el catalogo publica varios
+# cientos: una lista con todas es la misma pregunta hecha trescientas veces.
+# Declaradas asi, el panel dibuja tres listas cortas que se recortan entre si
+# —cambiar la version deja solo las variantes que existen para esa version— y
+# el valor que se guarda sigue siendo el paquete entero.
+_IMAGE_FACETS = (Facet('api', 'Versión', 1),
+                 Facet('variant', 'Variante', 2),
+                 Facet('abi', 'Arquitectura', 3))
 
 # El eje 'local'/'remoto' se repite igual en una docena de botones (DB,
 # scripts de setup): una sola tabla de etiquetas para que el panel no muestre
@@ -141,12 +152,12 @@ def queried_values(source: str, *, refresh: bool = False,
             return [d.id for d in catalogo], {d.id: d.label for d in catalogo}
         if source == ANDROID_IMAGES:
             catalogo = android.image_catalog(sdk, refresh=refresh)
-            return [i.package for i in catalogo], {i.package: i.label for i in catalogo}
+            return [i.package for i in catalogo], _image_labels(catalogo)
         if source == ANDROID_IMAGES_INSTALLED:
             paquetes = cache.cached('android-installed', lambda: android.list_images(sdk),
                                     max_age=_FRESCO, refresh=refresh)
             imagenes = sorted((android.parse_image(p) for p in paquetes), key=lambda i: i.order)
-            return [i.package for i in imagenes], {i.package: i.label for i in imagenes}
+            return [i.package for i in imagenes], _image_labels(imagenes)
         if source == ANDROID_AVDS:
             nombres = cache.cached('android-avds', lambda: android.list_avds(sdk),
                                    max_age=_FRESCO, refresh=refresh)
@@ -159,6 +170,17 @@ def queried_values(source: str, *, refresh: bool = False,
     except TaskError:
         return [], {}
     return [], {}
+
+
+def _image_labels(imagenes: list) -> dict[str, str]:
+    """Las etiquetas de un eje de system images: el paquete entero y sus partes.
+
+    Las dos en la misma tabla porque `AxisDef.text_of` es una sola, y los ids no
+    se pisan: un paquete siempre empieza con `system-images;`. El eje se dibuja
+    por caracteristica (`_IMAGE_FACETS`), pero el paquete entero se sigue
+    leyendo en el resumen de la corrida y en la lista de 'Liberar disco'.
+    """
+    return {**{i.package: i.label for i in imagenes}, **android.facet_labels(imagenes)}
 
 
 def _vps_services(config: Config | None, *, refresh: bool = False) -> tuple[list[str], dict[str, str]]:
@@ -497,14 +519,6 @@ TEARDOWN_DB_STEPS = [
     Step('role', 'Borrar rol de la aplicación'),
 ]
 
-# Los dos de `vps_ops.run_setup_scripts`. Reconstruir arranca desmarcado porque
-# es destructivo y el caso normal de "correr el setup" es el bootstrap.
-RUN_SETUP_SCRIPTS_STEPS = [
-    Step('bootstrap', 'Crear base desde cero'),
-    Step('rebuild', 'Reconstruir base', default=False),
-]
-
-
 DEV_ENV_STEPS = [
     Step('backend', 'Backend', optional=False),
     Step('serve_vite', 'SPA Vite'),
@@ -679,7 +693,7 @@ def load_catalog() -> None:
         section='Instalación', kind='once', icon='💿', scope='machine',
         description='Descarga del SDK la máquina virtual (system image) que va a correr el AVD.',
         axes=[AxisDef('image', [], 'pick', label='Máquina virtual',
-                      source=ANDROID_IMAGES)],
+                      source=ANDROID_IMAGES, facets=_IMAGE_FACETS)],
         stub=True))
     registry.register(Capability(
         id='create_avd', name='Crear AVD', group='Emulators',
@@ -688,11 +702,7 @@ def load_catalog() -> None:
         axes=[AxisDef('device', [], 'pick', label='Dispositivo',
                       source=ANDROID_DEVICES),
               AxisDef('image', [], 'pick', label='Máquina virtual (instaladas)',
-                      source=ANDROID_IMAGES_INSTALLED),
-              # Vacio a proposito: el nombre se deriva del dispositivo y la API
-              # (`pixel_4_api36`). Solo se escribe cuando hace falta distinguir
-              # dos AVD del mismo modelo.
-              AxisDef('name', [''], 'field', label='Nombre del AVD')],
+                      source=ANDROID_IMAGES_INSTALLED, facets=_IMAGE_FACETS)],
         stub=True))
     registry.register(Capability(
         id='launch_emulator', name='Emulador', group='Emulators',
@@ -786,7 +796,6 @@ def load_catalog() -> None:
     registry.register(Capability(id='ssh_login', name='Sesión SSH', group='VPS · ops', section='Conexión', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
     registry.register(Capability(id='health_check', name='Health check', group='VPS · ops', section='Diagnóstico', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))
     registry.register(Capability(id='run_command', name='Comando remoto', group='VPS · ops', section='Diagnóstico', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', axes=[AxisDef('command', [''], 'field', label='Comando')], stub=True))
-    registry.register(Capability(id='run_setup_scripts', name='Correr setup remoto', group='VPS · ops', section='Setup', kind='once', icon='📜', description='Prepara la base del ámbito elegido encadenando los botones de Base de datos.', composed_of=['bootstrap_db', 'rebuild_db'], axes=[_SCOPE_AXIS()], steps=RUN_SETUP_SCRIPTS_STEPS, stub=True))
     registry.register(Capability(id='revoke_ssh', name='Revocar SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Quita del VPS la clave pública con la que entra esta máquina.', steps=REVOKE_SSH_STEPS, stub=True))
     registry.register(Capability(id='revoke_github_ssh', name='Revocar GitHub SSH', group='VPS · ops', section='Seguridad', kind='destructive', icon='🔓', description='Borra la deploy key del VPS y la da de baja en GitHub.', composed_of=['remove_remote_ssh_key_files', 'revoke_github_key'], steps=REVOKE_GITHUB_SSH_STEPS, stub=True))
     registry.register(Capability(id='clean_vps', name='Limpiar VPS', group='VPS · ops', section='Limpieza', kind='destructive', icon='💣', description='Deja el VPS como recién formateado: deshace todo lo que Consola puso ahí.', composed_of=['remove_systemd_service', 'drop_database', 'remove_deployed_repo', 'revoke_github_key', 'uninstall_packages', 'remove_vps_user'], steps=CLEAN_VPS_STEPS, stub=True))

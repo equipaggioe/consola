@@ -139,11 +139,15 @@ Los campos de texto que **sí** son parámetros guardados siguen siéndolo, porq
 punto de entrada y el nombre del ejecutable de `Build binario`, las carpetas de `Promover app`, los
 puertos, el `install_dir` de las instalaciones, los `flags` del emulador.
 
-Dos casos rozan la línea y se dejaron como parámetro a propósito: el **nombre del AVD** de
-`Crear AVD` —vacío es lo normal, porque se deduce del dispositivo y la API, y preguntarlo en cada
-corrida sería pedir que confirmen lo que la carpeta ya contesta— y el **comando** de
-`Comando remoto`, donde repetir el anterior es el caso frecuente y el campo funciona como historial
-de uno. Si el guardado del AVD llega a molestar, el arreglo es el mismo de arriba.
+El **nombre del AVD** de `Crear AVD` es el segundo caso, y tiene una vuelta: ahí el vacío *sí*
+significa algo —«usá el derivado del dispositivo y la API»— y es la respuesta normal. Se pregunta
+igual, con el derivado escrito en la pregunta: así se ve con qué nombre va a quedar antes de que
+exista. Eso obliga a distinguir **cancelar** de **responder vacío**, que hasta ahora viajaban los
+dos como cadena vacía: la UI contesta `ASK_CANCELLED` al cerrar el diálogo y `ask()` lo convierte
+en `Cancelled`, que deja la pestaña gris en vez de crear el AVD con un nombre que nadie eligió.
+
+El **comando** de `Comando remoto` se dejó como parámetro guardado a propósito: repetir el anterior
+es el caso frecuente y el campo funciona como historial de uno.
 
 ## 6. Crear el `.consola/config.env` de un repo
 

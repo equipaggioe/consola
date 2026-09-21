@@ -186,6 +186,36 @@ VARIANTS = {
     'google_atd': 'Google ATD (liviana)',
 }
 
+# Como se lee cada arquitectura. El id crudo no dice lo unico que hay que saber
+# para elegir: si corre nativa en esta maquina o emulada (y por eso, lenta).
+ABIS = {
+    'x86_64': 'x86_64 (Intel / AMD)',
+    'x86': 'x86 (32 bits, en desuso)',
+    'arm64-v8a': 'arm64-v8a (ARM, Apple Silicon)',
+    'armeabi-v7a': 'armeabi-v7a (ARM 32 bits)',
+}
+
+
+def facet_labels(images: list[Image]) -> dict[str, str]:
+    """Como se lee cada parte suelta de una system image.
+
+    El panel elige la imagen por caracteristica (`core/registry.py::Facet`), asi
+    que ademas de la etiqueta del paquete entero hacen falta las de sus tres
+    pedazos tal como aparecen en el id: `android-36`, `google_apis`, `x86_64`.
+    Se arman de las imagenes que hay y no de una tabla fija porque las versiones
+    salen del catalogo del SDK, que gana una por ano.
+    """
+    etiquetas: dict[str, str] = {}
+    for imagen in images:
+        if imagen.api:
+            etiquetas[f'android-{imagen.api}'] = f'Android {imagen.api}'
+        if imagen.variant:
+            etiquetas[imagen.variant] = VARIANTS.get(imagen.variant, imagen.variant)
+        if imagen.abi:
+            etiquetas[imagen.abi] = ABIS.get(imagen.abi, imagen.abi)
+    return etiquetas
+
+
 # Orden de preferencia dentro de una misma API. Lo que no este listado va al
 # final, en orden alfabetico: son las variantes de nicho (TV, reloj, auto).
 _VARIANT_RANK = {'google_apis_playstore': 0, 'google_apis': 1, 'default': 2,
