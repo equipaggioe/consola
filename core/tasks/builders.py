@@ -363,13 +363,19 @@ export const ssr = false;
 }
 
 
-def create_spa(ctx, name: str = '') -> Path:
+def create_spa(ctx) -> Path:
     """Crea en el repo una SPA en blanco: SvelteKit + TypeScript + runes + UnoCSS.
 
     Queda lista para los otros botones de Vite: `serve_vite` y `build_vite` la
     descubren por su `vite.config.ts`, y su config ya lee la base publica.
+
+    El nombre de la carpeta se pregunta aca y no llega como parametro: es el
+    unico dato de la corrida y es distinto en cada una, asi que no tiene donde
+    guardarse (`core/catalog.py`, al registrar `create_spa`).
     """
-    nombre = name.strip()
+    nombre = ctx.ask('¿Cómo se va a llamar la carpeta de la SPA?').strip()
+    if not nombre:
+        raise TaskError('Cancelado: no se eligio un nombre de carpeta.')
     if not _SPA_NAME.fullmatch(nombre):
         raise TaskError('El nombre de la carpeta va en minusculas, sin espacios '
                         '(letras, numeros, ".", "_" o "-").')

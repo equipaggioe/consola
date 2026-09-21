@@ -80,10 +80,6 @@ class AxisDef:
         return set().union(*(self.requires_env.get(v, set()) for v in chosen))
 
     @property
-    def all_keys(self) -> set[str]:
-        return self.keys_for(self.values)
-
-    @property
     def exclusive_values(self) -> list[str]:
         return [v for v in self.values if v not in self.combine]
 

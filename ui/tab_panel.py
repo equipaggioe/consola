@@ -10,7 +10,7 @@ from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QEvent
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
-from core import toolstatus
+from core import context, toolstatus
 from core import sysinfo
 from core.catalog import forget_machine_cache
 from core import protection
@@ -1395,7 +1395,7 @@ class TabPanel(ReorderableBar, QWidget):
         # exista, una nota no se pierde — se deja marcada en la consola.
         runner.noted.connect(lambda entry: console.append_log(f'✱ {entry}', 'ok'))
         runner.ask_requested.connect(
-            lambda q, danger, secret, expect: self._answer_task(runner, q, danger, secret, expect)
+            lambda q, shape, danger, expect: self._answer_task(runner, q, shape, danger, expect)
         )
 
         def _on_done(ok: bool) -> None:
@@ -1427,16 +1427,21 @@ class TabPanel(ReorderableBar, QWidget):
         self._runners.add(runner)  # referencia viva mientras el hilo corre
         runner.start()
 
-    def _answer_task(self, runner: TaskRunner, question: str, danger: bool,
-                     secret: bool, expect: str) -> None:
+    def _answer_task(self, runner: TaskRunner, question: str, shape: str,
+                     danger: bool, expect: str) -> None:
         """Contesta una pregunta de la tarea. Corre en el hilo de la interfaz.
 
-        Tres dialogos, elegidos por lo que la tarea espera de vuelta y no por
-        como se ve la pregunta:
+        Cuatro dialogos, elegidos por lo que la tarea espera de vuelta
+        (`core/context.py::ASK_*`) y no por como se ve la pregunta:
 
         - `expect` — hay que escribir un texto exacto (borrar una base, pisar
           una carpeta). Campo de texto: la friccion es el punto.
-        - `secret` — un dato que no se debe ver mientras se escribe.
+        - `ASK_SECRET` — un dato que no se debe ver mientras se escribe.
+        - `ASK_TEXT` — un dato que la tarea no puede deducir y que no es de
+          este repo ni de esta maquina, asi que no tiene donde guardarse: el
+          nombre de la carpeta de una SPA nueva es distinto cada vez, y como
+          parametro guardado la segunda corrida arrancaba con el nombre de la
+          primera — o sea, con una carpeta que ya existe.
         - el resto — si/no, con el boton peligroso sin ser el predeterminado,
           para que un Enter de mas no descarte nada.
 
@@ -1450,9 +1455,15 @@ class TabPanel(ReorderableBar, QWidget):
             runner.provide_answer(answer if ok else '')
             return
 
-        if secret:
+        if shape == context.ASK_SECRET:
             answer, ok = QInputDialog.getText(
                 self, 'Dato requerido', question, QLineEdit.EchoMode.Password)
+            runner.provide_answer(answer if ok else '')
+            return
+
+        if shape == context.ASK_TEXT:
+            answer, ok = QInputDialog.getText(
+                self, 'Dato requerido', question, QLineEdit.EchoMode.Normal)
             runner.provide_answer(answer if ok else '')
             return
 

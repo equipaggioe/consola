@@ -41,7 +41,7 @@ class TaskRunner(QThread):
     """
     logged = Signal(str, str)
     noted = Signal(str)
-    ask_requested = Signal(str, bool, bool, str)
+    ask_requested = Signal(str, str, bool, str)  # pregunta, forma, peligrosa, expect
     # url, etiqueta, se abre en navegador, estado. Lo emite `ctx.serve()` dos
     # veces: al anunciar la URL y cuando el puerto contesta de verdad. La
     # segunda llega desde el hilo que sondea el puerto, no desde este — una
@@ -62,11 +62,11 @@ class TaskRunner(QThread):
 
     # --- puente de preguntas ------------------------------------------------
 
-    def _ask(self, question: str, danger: bool, secret: bool, expect: str) -> str:
+    def _ask(self, question: str, shape: str, danger: bool, expect: str) -> str:
         """Pregunta desde el hilo de la tarea y espera la respuesta de la UI."""
         self._answer = ''
         self._answered.clear()
-        self.ask_requested.emit(question, danger, secret, expect)
+        self.ask_requested.emit(question, shape, danger, expect)
         while not self._answered.wait(0.1):
             self._raise_if_cancelled()
         # Tambien despues de salir del bucle: `cancel()` levanta el Event para

@@ -106,7 +106,46 @@ configuración. Apagar la subida en `build_apk` habilita el ▶ aunque falten la
 volver a encenderla lo apaga (`ui/rail.py::_missing_keys`). El rail se entera porque el panel emite
 `params_changed` y `MainWindow` recalcula.
 
-## 5. Crear el `.consola/config.env` de un repo
+## 5. Lo que NO se guarda: el dato de una sola corrida
+
+Hay un tercer tipo de valor, además del dato de configuración (`config.env`) y del parámetro
+guardado (`params.json`): el que es **distinto en cada corrida** y por eso no tiene dónde vivir.
+El caso claro es el nombre de la carpeta de `Nueva SPA`.
+
+Guardarlo era peor que no tenerlo. Un parámetro persistente promete "esto es lo que vas a querer la
+próxima vez", y ahí la próxima vez es justamente lo contrario: el nombre guardado es el de la SPA
+que ya se creó, así que el panel arranca con un valor que solo puede fallar («Ya existe»). Tampoco
+es configuración: no lo lee ninguna tarea del repo, y no hay un `config.env` que pueda contestar
+cómo se llamará una carpeta que todavía no existe.
+
+Se pregunta al correr, con `ctx.ask()` (`core/context.py`). La capacidad se declara **sin ejes** y
+el diálogo lo abre `ui/tab_panel.py::_answer_task`, así que el ▶ del rail se comporta igual que el
+botón Ejecutar: los dos preguntan. Cancelar el diálogo cancela la acción.
+
+`ctx.ask` ya existía pero solo se usaba en su forma secreta (la contraseña de root). La forma de la
+respuesta —`ASK_YES_NO`, `ASK_TEXT`, `ASK_SECRET`— ahora viaja explícita hasta la UI: deducirla de
+`secret`/`expect` dejaba a un `ask` corriente indistinguible de una confirmación, y se abría como
+un sí/no.
+
+**La regla para decidir dónde va un valor:**
+
+| El valor… | Va a |
+|---|---|
+| es el mismo siempre y lo lee una tarea | `config.env` (`core/settings.py`) |
+| es una decisión que se repite igual en este repo | `params.json` (eje o paso del catálogo) |
+| es distinto en cada corrida y no se deduce del repo | `ctx.ask()` al ejecutar |
+
+Los campos de texto que **sí** son parámetros guardados siguen siéndolo, porque se repiten: el
+punto de entrada y el nombre del ejecutable de `Build binario`, las carpetas de `Promover app`, los
+puertos, el `install_dir` de las instalaciones, los `flags` del emulador.
+
+Dos casos rozan la línea y se dejaron como parámetro a propósito: el **nombre del AVD** de
+`Crear AVD` —vacío es lo normal, porque se deduce del dispositivo y la API, y preguntarlo en cada
+corrida sería pedir que confirmen lo que la carpeta ya contesta— y el **comando** de
+`Comando remoto`, donde repetir el anterior es el caso frecuente y el campo funciona como historial
+de uno. Si el guardado del AVD llega a molestar, el arreglo es el mismo de arriba.
+
+## 6. Crear el `.consola/config.env` de un repo
 
 El panel de configuración tiene abajo una barra fija con el estado del archivo y un botón:
 

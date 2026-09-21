@@ -220,6 +220,31 @@ si no estaba.
 Queda pendiente decidir qué hace la cuarta pestaña del pie (`Configuración`), que ahora se queda sin
 su contenido previsto.
 
+### El filtro sigue a lo marcado, no al catálogo
+
+El panel de abajo muestra **solo las claves que esta corrida va a leer**, con los parámetros tal
+como están marcados **ahora** (`ParamsPanel.relevant_keys`). No las que la acción podría llegar a
+pedir con otra selección.
+
+Antes mezclaba dos criterios: las claves del eje salían de `all_keys` —la unión de *todos* sus
+valores— y las de los pasos, de todos los pasos declarados; solo los `uses_env` miraban lo marcado.
+El resultado era un formulario que pedía datos que nadie iba a leer:
+
+| Botón | Con esto marcado | Pedía de más |
+|---|---|---|
+| `Bootstrap DB` y los otros doce del eje `local`/`remoto` | `local` | `VPS_IP`, `VPS_USER`, `VPS_KEY_NAME` |
+| `Build Vite`, `Build Flutter`, `Build binario` | «Subir al VPS» apagado (su default) | `VPS_IP`, `VPS_USER`, `VPS_KEY_NAME`, `VPS_DEPLOY_DIR` |
+| `Bootstrap VPS`, `Limpiar VPS`, `Actualizar remoto` | cualquier paso apagado | las claves de ese paso (`GITHUB_TOKEN`, `DB_NAME`…) |
+
+Un campo de más no es solo ruido: en el mismo gris y el mismo lugar que los demás, se lee como un
+dato que hace falta, y el que lo llena termina cargando la IP de un VPS para crear una base local.
+
+El conjunto es ahora **exactamente** el de `_missing_keys` —el que decide el ámbar del botón— con
+`relevant_keys_for` en lugar de `required_keys_for`. Esa tiene que ser la única diferencia entre los
+dos: lo que se muestra y lo que bloquea salen de la misma selección, y cualquier otra divergencia es
+un formulario que discute con su propio aviso. Marcar o desmarcar rehace el filtro en el acto, por
+`params_changed` → `ui/tab_panel.py::_refilter_env`.
+
 ## 7. Estado de implementación
 
 | Archivo | Estado |

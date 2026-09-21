@@ -22,11 +22,15 @@ class Level:
 
 
 LogSink = Callable[[str, str], None]
-# pregunta, peligrosa, secreta, texto que hay que escribir para aceptar.
-# `expect` viaja hasta el sink porque es lo unico que distingue un si/no de un
-# "escribe el nombre de la base": sin el, la UI tendria que adivinar cual de los
-# dos dialogos abrir y le pediria escribir "si" a una confirmacion corriente.
-AskSink = Callable[[str, bool, bool, str], str]
+# pregunta, forma de la respuesta, peligrosa, texto que hay que escribir para
+# aceptar. La forma viaja explicita porque es lo unico que decide que dialogo
+# abre la UI, y deducirla de los otros campos no alcanza: un `ask` corriente
+# —"como se va a llamar la carpeta"— no es secreto ni exige escribir nada, y
+# sin este dato se leia igual que una confirmacion y salia como un si/no.
+ASK_YES_NO = 'si_no'    # confirmacion: dos botones
+ASK_TEXT = 'texto'      # un dato que la tarea no puede deducir
+ASK_SECRET = 'secreto'  # lo mismo, sin mostrarlo mientras se escribe
+AskSink = Callable[[str, str, bool, str], str]
 ProgressSink = Callable[[int, int, str], None]
 NoteSink = Callable[[str], None]
 # url, etiqueta, se abre en navegador, estado. Lo que la pestana necesita para
@@ -277,7 +281,7 @@ class TaskContext:
         """Pregunta si seguir. `expect` exige escribir ese texto (destructivos, 7.5)."""
         if self.ask_sink is None:
             return not danger
-        answer = self.ask_sink(question, danger, False, expect)
+        answer = self.ask_sink(question, ASK_YES_NO, danger, expect)
         if expect:
             return answer.strip() == expect
         return answer.strip().lower() in _YES
@@ -285,7 +289,7 @@ class TaskContext:
     def ask(self, prompt: str, *, secret: bool = False) -> str:
         if self.ask_sink is None:
             raise TaskError(f'Hace falta un dato que nadie puede responder: {prompt}')
-        answer = self.ask_sink(prompt, False, secret, '')
+        answer = self.ask_sink(prompt, ASK_SECRET if secret else ASK_TEXT, False, '')
         if secret:
             self.guard(answer)
         return answer

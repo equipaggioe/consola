@@ -797,17 +797,28 @@ class ParamsPanel(QWidget):
         return self._content.sizeHint().height() + 4
 
     def relevant_keys(self) -> set[str]:
-        """Claves de `.env` que esta accion puede llegar a necesitar (todos los
-        pasos, no solo los activos) — para filtrar el panel de configuracion.
+        """Claves de `.env` que esta accion puede llegar a necesitar CON LO QUE
+        ESTA MARCADO AHORA — para filtrar el panel de configuracion.
 
-        Las de `uses_env` si siguen a lo marcado: son de un valor del eje y no
-        de la accion, y se releen cada vez que cambia la seleccion."""
+        Sigue a la seleccion, no al catalogo entero, y la sigue igual en las
+        tres fuentes: el eje, sus `uses_env` y los pasos. Antes mezclaba las dos
+        cosas —`all_keys` (todos los valores del eje) y `self.steps` (todos los
+        pasos) contra unos `uses_env` que si miraban lo marcado—, y el resultado
+        era un formulario que pedia datos que la corrida jamas iba a leer: la IP
+        y la llave del VPS con `Bootstrap DB` en `local`, el directorio de
+        despliegue con 'Subir al VPS' desmarcado.
+
+        Es exactamente el conjunto de `_missing_keys`, con `relevant` en lugar
+        de `required` — esa es la unica diferencia que debe haber entre los dos:
+        lo que se muestra y lo que bloquea salen de la misma seleccion.
+        """
         needed = set(relevant_keys_for(self.capability.id))
         for axis in self.capability.axes:
-            needed |= axis.all_keys
-            for valor in self.selection(axis.name) + self.option_values(axis.name):
+            elegidos = self.selection(axis.name) + self.option_values(axis.name)
+            needed |= axis.keys_for(elegidos)
+            for valor in elegidos:
                 needed |= axis.uses_env.get(valor, set())
-        for step in self.steps:
+        for step in self.active_steps():
             needed |= step.requires_env
             needed |= set(relevant_keys_for(step.id))
         return needed
