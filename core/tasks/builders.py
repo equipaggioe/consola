@@ -1,7 +1,9 @@
 from __future__ import annotations
+import json
 import platform
 import re
 from collections.abc import Sequence
+from datetime import datetime, timezone
 from pathlib import Path
 
 from .. import files, ssh, targets, toolchain, versioning, vps
@@ -88,27 +90,30 @@ def compile_flutter(ctx, directory: str = '', platform_id: str = 'apk') -> Path:
 
     En web va ademas la ruta bajo la que el proxy sirve la app (`vps.spa_base`,
     la misma que usa `compile_spa`): es de donde el navegador pide los assets, y
-    si no coincide lo que se ve es una pagina en blanco. Offline no hay: el
-    service worker que genera Flutter se des-registra solo (su `--pwa-strategy`
-    esta deprecado y ya no cachea nada), asi que la app es instalable por su
-    `manifest.json` pero solo funciona en linea.
+    si no coincide lo que se ve es una pagina en blanco. En un repo sin proxy no
+    va ninguna, y el default de Flutter —la raiz— es justamente el correcto.
+
+    Offline no hay: el service worker que genera Flutter se des-registra solo
+    (su `--pwa-strategy` esta deprecado y ya no cachea nada), asi que la app es
+    instalable por su `manifest.json` pero solo funciona en linea.
     """
     app = _mobile(ctx, directory)
     kind = toolchain.detect_app_kind(app.path)
     destino = toolchain.BUILD_PLATFORMS[platform_id]
     api = ctx.config.require('API_URL')
     define = f'--dart-define=API_BASE_URL={api}'
-    base = f'{vps.spa_base(ctx.config, app.name)}/'
+    publica = vps.spa_base(ctx.config, app.name)
+    base = None if publica is None else f'{publica}/'
 
     if kind == toolchain.FLUTTER:
         argv = [*toolchain.flutter_cmd(), 'build', destino.flutter, '--release', define]
-        if platform_id == 'web':
+        if platform_id == 'web' and base:
             argv.append(f'--base-href={base}')
         ctx.run(argv, cwd=app.path)
     else:
         argv = [*toolchain.flet_cmd(), 'build', destino.flet,
                 f'--flutter-build-args={define}']
-        if platform_id == 'web':
+        if platform_id == 'web' and base:
             argv.append(f'--base-url={base}')
         # La variable de entorno queda para el codigo Python que la lea al empaquetar.
         ctx.run(argv, cwd=app.path, env={'API_BASE_URL': api})
@@ -174,16 +179,70 @@ def _last_output(ctx, app_dir: Path, platform_id: str) -> Path:
     return encontrado
 
 
-def _publish(ctx, salidas: Sequence[Path], manifest: Path) -> None:
-    """Sube los builds junto con su manifiesto de version.
+def _publish(ctx, app: str, platforms: Sequence[str], salidas: Sequence[Path],
+             manifest: Path) -> None:
+    """Sube los builds junto con su manifiesto de version y el de release.
 
     Van todos o no va ninguno: un APK o una carpeta web no dicen de que version
     son, y del lado del VPS el manifiesto es lo unico que los identifica. Subir
     solo los builds deja al servidor anunciando la version anterior.
+
+    El manifiesto de release es lo que lee la app para saber si hay algo nuevo,
+    y se escribe uno por plataforma: el APK y el build web se publican por
+    separado y pueden ir en versiones distintas.
     """
     for salida in salidas:
         upload_artifact(ctx, salida)
     upload_artifact(ctx, manifest)
+    for platform_id, salida in zip(platforms, salidas):
+        _publish_release(ctx, app, platform_id, salida, manifest)
+
+
+# --- manifiesto de release -------------------------------------------------
+#
+# Que version esta publicada es un hecho del artefacto, no configuracion del
+# servidor. Tenerlo como variable de entorno del backend obligaba a editar un
+# `.env`, subirlo y reiniciar el servicio para anunciar un build — tres pasos
+# que no tienen nada que ver con compilar, y que se saltean solos en cuanto
+# alguien publica sin acordarse. Aca lo escribe quien construye, que es el unico
+# que sabe la version en el momento exacto en que deja de ser una intencion.
+#
+# Es la convencion de siempre para actualizaciones: el appcast de Sparkle, el
+# `latest.yml` de electron-updater, el `latest.json` de Tauri. Flutter mismo ya
+# emite `build/web/version.json`, que es esto para una sola plataforma.
+#
+# No es una fuente de verdad nueva: se deriva del manifiesto del subproyecto
+# (`pubspec.yaml`, `package.json`, `pyproject.toml`) en el momento de publicar,
+# asi que no hay nada que mantener sincronizado a mano.
+
+RELEASES_DIR = 'releases'
+
+
+def _release_manifest(ctx, app: str, platform_id: str, artifact: Path, manifest: Path) -> Path:
+    """Escribe `releases/<app>/<plataforma>.json` describiendo lo que se publica.
+
+    El `sha256` va solo cuando el artefacto es un archivo: un build web es un
+    arbol, y un hash por archivo no es lo que nadie va a verificar. Sin el, el
+    resto del manifiesto sigue sirviendo.
+    """
+    version = versioning.read_version(manifest)
+    datos = {'app': app, 'platform': platform_id, 'version': version.split('+', 1)[0]}
+    if '+' in version:
+        datos['build'] = int(version.split('+', 1)[1])
+    datos['artifact'] = artifact.name
+    if artifact.is_file():
+        datos['sha256'] = files.digest(artifact)
+    datos['published_at'] = datetime.now(timezone.utc).strftime('%Y-%m-%dT%H:%M:%SZ')
+
+    destino = ctx.root / RELEASES_DIR / app / f'{platform_id}.json'
+    files.write_text(destino, json.dumps(datos, indent=2, ensure_ascii=False) + '\n')
+    ctx.ok(f'Release {app}/{platform_id}: {datos["version"]}')
+    return destino
+
+
+def _publish_release(ctx, app: str, platform_id: str, artifact: Path, manifest: Path) -> None:
+    """Escribe el manifiesto de release y lo sube junto al artefacto."""
+    upload_artifact(ctx, _release_manifest(ctx, app, platform_id, artifact, manifest))
 
 
 # --- pasos de Vite ---------------------------------------------------------
@@ -210,6 +269,10 @@ def _write_base(ctx, spa: targets.Target, base: str) -> None:
 
     Es un archivo propio y no un parche sobre `svelte.config.js` o
     `vite.config.*`: Consola no edita codigo que no escribio ella.
+
+    Solo se llama en los repos que tienen tabla: la ruta publica existe cuando
+    hay un proxy que la publica. Quien lo decide es `vps.spa_base`, que devuelve
+    `None` cuando no lo hay.
     """
     contenido = ('// Generado por Consola desde PUBLIC_ROUTES. Se sobrescribe al compilar.\n'
                  '// Ruta bajo la que el reverse proxy publica esta app.\n'
@@ -233,10 +296,15 @@ def compile_spa(ctx, directory: str = '') -> Path:
     donde el repo lo va a leer; comprobar el HTML confirma que de verdad lo leyo,
     que es lo unico que no se puede dar por hecho — una config con la ruta
     escrita a mano ignora el archivo y el build sale apuntando a otro lado.
+
+    Los dos pasos son de los repos con proxy. Sin tabla no hay ruta publica que
+    escribir ni contra que comparar, y el build es el del repo tal cual: Consola
+    compila y no le deja nada adentro.
     """
     spa = _target(ctx, targets.SPA_VITE, directory)
     base = vps.spa_base(ctx.config, spa.name)
-    _write_base(ctx, spa, base)
+    if base is not None:
+        _write_base(ctx, spa, base)
     ctx.run([*toolchain.npm_cmd(), 'run', 'build'], cwd=spa.path)
     salida = _spa_output(spa)
     _check_base(ctx, spa.name, salida, base)
@@ -244,13 +312,18 @@ def compile_spa(ctx, directory: str = '') -> Path:
     return salida
 
 
-def _check_base(ctx, name: str, salida: Path, base: str) -> None:
+def _check_base(ctx, name: str, salida: Path, base: str | None) -> None:
     """Compara la ruta que publica la SPA contra la que quedo en su HTML.
 
     Se mira el resultado y no la config del repo: como resuelve cada uno su base
     es asunto suyo, y parsear JS para averiguarlo seria adivinar. El HTML
     compilado, en cambio, dice sin ambiguedad donde va a pedir los assets.
+
+    Sin proxy (`base is None`) no hay contra que comparar: donde pide sus assets
+    esa SPA es asunto del repo.
     """
+    if base is None:
+        return
     index = salida / 'index.html'
     if not index.is_file():
         return
@@ -283,7 +356,7 @@ def _spa_output(spa: targets.Target) -> Path:
     raise TaskError(f'{spa.name} no tiene carpeta dist/ ni build/.')
 
 
-def _publish_spa(ctx, salida: Path, manifest: Path) -> None:
+def _publish_spa(ctx, app: str, salida: Path, manifest: Path) -> None:
     """Sube la carpeta del build junto con su `package.json`.
 
     Homologo de `_publish` en Flutter: van los dos o no va ninguno. La carpeta
@@ -293,13 +366,15 @@ def _publish_spa(ctx, salida: Path, manifest: Path) -> None:
     """
     upload_artifact(ctx, salida)
     upload_artifact(ctx, manifest)
+    _publish_release(ctx, app, 'web', salida, manifest)
 
 
 # El esqueleto lo pone `sv create`, que es el generador oficial de Svelte: trae
 # TypeScript, runes forzadas y el adaptador estatico instalado. UnoCSS no es un
 # add-on oficial de `sv`, asi que lo que falta para dejarla lista para Consola
-# se escribe encima: el plugin, la base leida de `base.generated.js` (la que
-# `compile_spa` comprueba) y el `ssr = false` de una SPA servida por el proxy.
+# se escribe encima: el plugin, el `ssr = false` de una SPA estatica y, si el
+# repo tiene proxy, la base leida de `base.generated.js` (la que `compile_spa`
+# comprueba).
 # Son archivos que Consola acaba de generar, no codigo del repo que se parchea.
 _SPA_NAME = re.compile(r'[a-z0-9][a-z0-9._-]*')
 
@@ -309,9 +384,8 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import UnoCSS from 'unocss/vite';
 import { defineConfig } from 'vite';
-import { base as deployedBase } from './base.generated.js';
-
-export default defineConfig(({ command }) => ({
+{BASE_IMPORT}
+export default defineConfig({BASE_OPEN}{
 	plugins: [
 		UnoCSS(),
 		sveltekit({
@@ -319,13 +393,11 @@ export default defineConfig(({ command }) => ({
 				// Force runes mode for the project, except for libraries. Can be removed in svelte 6.
 				runes: ({ filename }) => (filename.split(/[/\\\\]/).includes('node_modules') ? undefined : true)
 			},
-			// SPA estatica: la sirve el reverse proxy y el enrutamiento es del cliente.
-			adapter: adapter({ fallback: 'index.html' }),
-			// La base la escribe Consola desde PUBLIC_ROUTES; en `vite dev` la app va en la raiz.
-			paths: { base: command === 'build' ? deployedBase : '' }
+			// SPA estatica: el HTML se sirve tal cual y el enrutamiento es del cliente.
+			adapter: adapter({ fallback: 'index.html' }){BASE_PATHS}
 		})
 	]
-}));
+}{BASE_CLOSE});
 """,
     'uno.config.ts': """\
 import { defineConfig, presetWind3 } from 'unocss';
@@ -363,11 +435,30 @@ export const ssr = false;
 }
 
 
+# Lo unico de la config que depende de si el repo tiene reverse proxy. Con
+# tabla, la base sale de `base.generated.js` y `vite dev` la ignora, asi que la
+# config es una funcion de `command`; sin tabla no hay base que leer —ni archivo
+# que importar— y la funcion sobra: `command` quedaria declarado y sin usar.
+_BASE_WIRING = {
+    True: {
+        '{BASE_IMPORT}': "import { base as deployedBase } from './base.generated.js';\n",
+        '{BASE_OPEN}': '({ command }) => (',
+        '{BASE_CLOSE}': ')',
+        '{BASE_PATHS}': """,
+			// La base la escribe Consola desde PUBLIC_ROUTES; en `vite dev` la app va en la raiz.
+			paths: { base: command === 'build' ? deployedBase : '' }""",
+    },
+    False: {'{BASE_IMPORT}': '', '{BASE_OPEN}': '', '{BASE_CLOSE}': '', '{BASE_PATHS}': ''},
+}
+
+
 def create_spa(ctx) -> Path:
     """Crea en el repo una SPA en blanco: SvelteKit + TypeScript + runes + UnoCSS.
 
     Queda lista para los otros botones de Vite: `serve_vite` y `build_vite` la
-    descubren por su `vite.config.ts`, y su config ya lee la base publica.
+    descubren por su `vite.config.ts`. La base publica la lee solo si el repo
+    tiene tabla de rutas: en uno sin proxy, la SPA no se publica bajo ninguna
+    ruta y su config no tiene por que hablar de una.
 
     El nombre de la carpeta se pregunta aca y no llega como parametro: es el
     unico dato de la corrida y es distinto en cada una, asi que no tiene donde
@@ -390,11 +481,17 @@ def create_spa(ctx) -> Path:
             cwd=ctx.root)
     ctx.run([*npm, 'install', '--save-dev', 'unocss', '@unocss/reset'], cwd=destino)
 
+    # La SPA recien creada todavia no esta en la tabla, asi que su base es la
+    # raiz; lo que se pregunta aca es si el repo tiene tabla, y eso es
+    # exactamente `base is not None`.
+    base = vps.spa_base(ctx.config, nombre)
+    reemplazos = {'{NAME}': nombre, **_BASE_WIRING[base is not None]}
     for rel, contenido in _SPA_FILES.items():
-        (destino / rel).write_text(contenido.replace('{NAME}', nombre),
-                                   encoding='utf-8', newline='\n')
-    _write_base(ctx, targets.Target(nombre, targets.SPA_VITE, destino),
-                vps.spa_base(ctx.config, nombre))
+        for clave, valor in reemplazos.items():
+            contenido = contenido.replace(clave, valor)
+        (destino / rel).write_text(contenido, encoding='utf-8', newline='\n')
+    if base is not None:
+        _write_base(ctx, targets.Target(nombre, targets.SPA_VITE, destino), base)
 
     ctx.ok(f'SPA creada en {destino}')
     ctx.note(f'Nueva SPA {nombre}')
@@ -587,7 +684,7 @@ def _maybe_checksum(ctx, artifact: Path) -> Path | None:
     return checksum_artifact(ctx, artifact)
 
 
-def _publish_binary(ctx, artifact: Path, manifest: Path, checksum: Path | None) -> None:
+def _publish_binary(ctx, app: str, artifact: Path, manifest: Path, checksum: Path | None) -> None:
     """Sube el binario con su manifiesto (y su checksum, si se genero).
 
     Homologo de `_publish` y `_publish_spa`: van juntos o no va ninguno. El
@@ -604,6 +701,7 @@ def _publish_binary(ctx, artifact: Path, manifest: Path, checksum: Path | None) 
     upload_artifact(ctx, manifest)
     if checksum is not None:
         upload_artifact(ctx, checksum)
+    _publish_release(ctx, app, platform.system().lower(), artifact, manifest)
 
 
 # --- promocion -------------------------------------------------------------
@@ -672,7 +770,7 @@ def build_flutter(
                      'anunciaria como otra cosa.')
         salidas = [_last_output(ctx, app.path, p) for p in platforms]
         ctx.step('upload')
-        _publish(ctx, salidas, manifiesto)
+        _publish(ctx, app.name, platforms, salidas, manifiesto)
         ctx.note(f'Re-subida {app.name} ({nombres}) {versioning.read_version(manifiesto)}')
         return salidas
 
@@ -688,7 +786,7 @@ def build_flutter(
 
     if upload:
         ctx.step('upload')
-        _publish(ctx, salidas, manifiesto)
+        _publish(ctx, app.name, platforms, salidas, manifiesto)
 
     ctx.note(f'Build {app.name} ({nombres}) {versioning.read_version(manifiesto)}')
     return salidas
@@ -765,7 +863,7 @@ def _build_spa(
                      'anunciaria como otra cosa.')
         salida = _spa_output(spa)
         ctx.step('upload')
-        _publish_spa(ctx, salida, manifiesto)
+        _publish_spa(ctx, spa.name, salida, manifiesto)
         ctx.note(f'Re-subida SPA {spa.name} {versioning.read_version(manifiesto)}')
         return salida
 
@@ -780,7 +878,7 @@ def _build_spa(
 
     if upload:
         ctx.step('upload')
-        _publish_spa(ctx, salida, manifiesto)
+        _publish_spa(ctx, spa.name, salida, manifiesto)
 
     ctx.note(f'Build Vite {spa.name} {versioning.read_version(manifiesto)}')
     return salida
@@ -828,7 +926,7 @@ def build_binary(
             raise TaskError(f'No hay ningun binario compilado en {artefacto}.')
         firma = _maybe_checksum(ctx, artefacto) if checksum else None
         ctx.step('upload')
-        _publish_binary(ctx, artefacto, manifiesto, firma)
+        _publish_binary(ctx, app_dir.name, artefacto, manifiesto, firma)
         ctx.note(f'Re-subida binario {artefacto.name} {versioning.read_version(manifiesto)}')
         return artefacto
 
@@ -847,7 +945,7 @@ def build_binary(
 
     if upload:
         ctx.step('upload')
-        _publish_binary(ctx, artefacto, manifiesto, firma)
+        _publish_binary(ctx, app_dir.name, artefacto, manifiesto, firma)
 
     ctx.note(f'Build binario {artefacto.name} {versioning.read_version(manifiesto)}')
     return artefacto
