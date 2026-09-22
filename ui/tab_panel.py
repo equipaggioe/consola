@@ -1009,9 +1009,11 @@ class TabPanel(ReorderableBar, QWidget):
         lienzo de la consola, la cabecera de la columna derecha y los dos
         marcadores de posicion. Lo de adentro lo repinta cada panel.
         """
+        # La barra de pestanas de acciones NO se tine: va en el gris neutro
+        # `Colors.SURFACE` en los ocho temas. La linea de abajo si es del repo.
         self.sub_bar.setStyleSheet(f"""
             QWidget#subBar {{
-                background: {self.pal.surface};
+                background: {Colors.SURFACE};
                 border-bottom: 1px solid {self.pal.border};
             }}
         """)

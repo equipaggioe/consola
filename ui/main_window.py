@@ -371,11 +371,12 @@ class MainWindow(QMainWindow):
     # --- paleta del repo activo --------------------------------------------
     def _apply_palette(self, pal: Palette) -> None:
         """La paleta del repo activo, en todo lo que vive fuera de su espacio
-        de trabajo: la barra de titulo, la fila del menu, el interruptor de
-        favoritos, el buscador, la barra de estado y el borde de contorno de
-        la ventana (`_apply_window_border`)."""
+        de trabajo: la barra de titulo, la fila del menu y sus menus
+        desplegados, el interruptor de favoritos, el buscador, la barra de
+        estado y el borde de contorno de la ventana (`_apply_window_border`)."""
         self.pal = pal
         self.title_bar.set_palette(pal)
+        self.action_menu.set_palette(pal)
         self.fav_switch.set_accent(pal.accent)
         self.action_search.set_palette(pal)
         self.status_bar.set_palette(pal)

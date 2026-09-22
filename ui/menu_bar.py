@@ -5,6 +5,7 @@ from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtCore import Signal
 
 from ui.theme import Colors, Fonts
+from ui.palettes import NEUTRAL, Palette
 from ui import favorites
 from core.registry import registry
 
@@ -30,25 +31,14 @@ class ActionMenuBar(QMenuBar):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        # Su propia franja, debajo de la barra de titulo — no un tramo
-        # compartido con la marca y los botones de ventana (`ui/title_bar.py`):
-        # ahi quedaba demasiado apretada. El fondo y la linea de abajo los
-        # pinta la fila que la contiene, que llega mas a la derecha que el
-        # menu (ahi va el interruptor de favoritos).
-        self.setStyleSheet(f"""
-            QMenuBar {{
-                background: transparent; color: {Colors.TEXT};
-                font-size: {Fonts.SIZE_BASE}px;
-                min-height: 20px;
-                padding: 3px 2px;
-            }}
-            QMenuBar::item {{ background: transparent; padding: 9px 13px; }}
-            QMenuBar::item:selected {{ background: {Colors.SURFACE_HOVER}; }}
-            QMenuBar::item:pressed {{ background: {Colors.SURFACE_ALT}; }}
-        """)
+        self.pal = NEUTRAL
+        self.setStyleSheet(self._bar_style())
 
         self._actions: dict[str, QAction] = {}   # capability_id -> item del menu
         self._group_menus: list[QMenu] = []
+        # Todos los menus de la barra, de grupo o no: lo que hay que repintar
+        # cuando cambia el repo activo.
+        self._menus: list[QMenu] = []
         # Por menu de grupo, sus bloques de seccion: cada uno con el separador
         # y el encabezado que lo abren (si los tiene) y sus acciones. Es lo que
         # necesita `_apply_filters` para podar un menu sin dejar rayas ni
@@ -67,6 +57,62 @@ class ActionMenuBar(QMenuBar):
 
         self.set_project_active(False)
         self._apply_filters()
+
+    # --- paleta ------------------------------------------------------------
+    def set_palette(self, pal: Palette) -> None:
+        """Los menus desplegados son del repo abierto, como todo lo demas.
+
+        Sin esto se quedaban en los neutros de `ui/theme.py` y el nombre del
+        item bajo el cursor salia en el azul fijo de `Colors.ACCENT` — el
+        acento de OTRO tema — en los siete repos que no son azules.
+        """
+        self.pal = pal
+        self.setStyleSheet(self._bar_style())
+        for menu in self._menus:
+            menu.setStyleSheet(self._menu_style())
+
+    def _bar_style(self) -> str:
+        """La franja en si no se pinta: el fondo (`chrome`) y la linea de
+        abajo los pone la fila que la contiene, que llega mas a la derecha que
+        el menu (ahi va el interruptor de favoritos). Lo que si se pinta es el
+        titulo del menu abierto, que se pone del fondo del popup que cuelga de
+        el para que se lean como una sola pieza."""
+        return f"""
+            QMenuBar {{
+                background: transparent; color: {Colors.TEXT};
+                font-size: {Fonts.SIZE_BASE}px;
+                min-height: 20px;
+                padding: 3px 2px;
+            }}
+            QMenuBar::item {{ background: transparent; padding: 9px 13px; }}
+            QMenuBar::item:selected {{ background: {self.pal.panel}; }}
+            QMenuBar::item:pressed {{ background: {self.pal.panel}; }}
+        """
+
+    def _menu_style(self) -> str:
+        """El popup en `panel`, dos escalones por debajo de la fila de la que
+        cuelga: sobre `chrome` no se recortaria (1.06:1 contra la barra), y el
+        item bajo el cursor necesita un escalon propio por encima del popup.
+        Los encabezados de seccion son items deshabilitados (ver
+        `_build_action_menus`), de ahi la regla de `:disabled`."""
+        return f"""
+            QMenu {{
+                background: {self.pal.panel}; color: {Colors.TEXT};
+                border: 1px solid {self.pal.border_light};
+            }}
+            QMenu::item:selected {{
+                background: {self.pal.surface_hover}; color: {self.pal.accent};
+            }}
+            QMenu::item:disabled {{
+                color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;
+            }}
+        """
+
+    def _add_menu(self, title: str) -> QMenu:
+        menu = self.addMenu(title)
+        menu.setStyleSheet(self._menu_style())
+        self._menus.append(menu)
+        return menu
 
     # --- construccion ----------------------------------------------------
     def _build_action_menus(self) -> None:
@@ -87,11 +133,8 @@ class ActionMenuBar(QMenuBar):
         el emoji es lo primero que empuja los ultimos al desbordamiento.
         """
         for group, capabilities in registry.get_groups().items():
-            menu = self.addMenu(group)
+            menu = self._add_menu(group)
             menu.setToolTipsVisible(True)
-            menu.setStyleSheet(
-                f"QMenu::item:disabled {{ color: {Colors.TEXT_MUTED}; "
-                f"font-size: {Fonts.SIZE_XS}px; }}")
             sections = _by_section(capabilities)
             titled = len(sections) > 1
             blocks: list[tuple[QAction | None, QAction | None, list[str]]] = []
@@ -120,7 +163,7 @@ class ActionMenuBar(QMenuBar):
         return action
 
     def _build_view_menu(self) -> None:
-        menu = self.addMenu('Ver')
+        menu = self._add_menu('Ver')
         buscar = QAction('Buscar acciones', self)
         buscar.setShortcut(QKeySequence('Ctrl+L'))
         buscar.triggered.connect(self.focus_search_requested.emit)
@@ -128,7 +171,7 @@ class ActionMenuBar(QMenuBar):
 
     def _build_help_menu(self) -> None:
         """Solo la leyenda del marcador."""
-        menu = self.addMenu('Ayuda')
+        menu = self._add_menu('Ayuda')
         item = QAction(f'{MARK_DANGER}  = destructiva', self)
         item.setEnabled(False)
         menu.addAction(item)

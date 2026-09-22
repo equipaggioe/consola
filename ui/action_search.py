@@ -31,7 +31,7 @@ class ActionSearch(QWidget):
     favorites_changed = Signal(set)
 
     WIDTH = 240
-    FIELD_HEIGHT = 30       # el de un campo de una sola linea en el resto de la ventana
+    FIELD_HEIGHT = 28       # el de un campo de «Configuracion del repo» (`ui/env_panel.py`)
     POPUP_WIDTH = 440
     POPUP_MAX_HEIGHT = 460
 
@@ -54,8 +54,9 @@ class ActionSearch(QWidget):
         self.box.setPlaceholderText("Buscar acciones…")
         self.box.setClearButtonEnabled(True)
         self.box.setFixedWidth(self.WIDTH)
-        # El mismo alto que un campo de parametros (`ui/params_panel.py`): es
-        # un campo de texto como los otros y en la misma ventana.
+        # El mismo alto que un campo de «Configuracion del repo»
+        # (`ui/env_panel.py`): es un campo de texto como los otros y en la
+        # misma ventana.
         self.box.setFixedHeight(self.FIELD_HEIGHT)
         self.box.textChanged.connect(self._on_text)
         self.box.installEventFilter(self)
@@ -68,13 +69,14 @@ class ActionSearch(QWidget):
 
     # --- estado que llega de la ventana ----------------------------------
     def set_palette(self, pal: Palette) -> None:
-        """El buscador vive fuera del espacio de trabajo, pero su campo es un
-        campo: los mismos fondo, borde, alto, radio y foco que los de la
-        columna derecha, sin una sola excepcion. Marcarle mas el borde para
-        despegarlo de `chrome` —que esta a un 5 % de su claridad— lo dejaba
-        pareciendose a si mismo y a nada mas."""
+        """El campo del buscador es un campo de «Configuracion del repo»
+        (`ui/env_panel.py`) y nada mas: mismo fondo (`surface_alt`), borde,
+        alto, radio, cuerpo de letra y foco. Que sobre `chrome` se recorte
+        menos que alla sobre `panel` no lo convierte en otra cosa: un campo de
+        texto de esta ventana se ve asi."""
         self.pal = pal
         self._restyle_box()
+        self._restyle_popup()
         for row in self._rows:
             row.set_accent(pal.accent)
 
@@ -109,12 +111,38 @@ class ActionSearch(QWidget):
                 color: {Colors.TEXT};
                 border: 1px solid {self.pal.border};
                 border-radius: 5px;
-                padding: 0 8px;
-                font-size: {Fonts.SIZE_SM}px;
+                padding: 5px 8px;
+                font-size: {Fonts.SIZE_XS}px;
             }}
             QLineEdit:focus {{ border: 1px solid {self.pal.accent}; }}
             QLineEdit:disabled {{ color: {Colors.TEXT_MUTED}; }}
         """)
+
+    def _popup_style(self) -> str:
+        """La lista cuelga de la fila del menu igual que un menu de grupo, y
+        va pintada como ellos (`ui/menu_bar.py::_menu_style`): `panel`, dos
+        escalones por debajo de la barra."""
+        return f"""
+            QFrame#actionSearchPopup {{
+                background: {self.pal.panel};
+                border: 1px solid {self.pal.border_light};
+                border-radius: 8px;
+            }}
+        """
+
+    def _scroll_style(self) -> str:
+        return f"""
+            QScrollArea {{ border: none; background: transparent; }}
+            QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}
+            QScrollBar::handle:vertical {{ background: {self.pal.border_light}; border-radius: 4px; }}
+        """
+
+    def _restyle_popup(self) -> None:
+        """Se construye una sola vez y sobrevive a los cambios de repo: hay
+        que repintarlo, no basta con pintarlo al nacer."""
+        if self._popup is not None:
+            self._popup.setStyleSheet(self._popup_style())
+            self._scroll.setStyleSheet(self._scroll_style())
 
     # --- popup -------------------------------------------------------------
     def _build_popup(self) -> QFrame:
@@ -125,13 +153,7 @@ class ActionSearch(QWidget):
         popup = QFrame(self.window())
         popup.setObjectName("actionSearchPopup")
         popup.setCursor(Qt.CursorShape.ArrowCursor)
-        popup.setStyleSheet(f"""
-            QFrame#actionSearchPopup {{
-                background: {Colors.SURFACE};
-                border: 1px solid {Colors.BORDER_LIGHT};
-                border-radius: 8px;
-            }}
-        """)
+        popup.setStyleSheet(self._popup_style())
         outer = QVBoxLayout(popup)
         outer.setContentsMargins(1, 1, 1, 1)
         outer.setSpacing(0)
@@ -139,11 +161,7 @@ class ActionSearch(QWidget):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._scroll.setStyleSheet(f"""
-            QScrollArea {{ border: none; background: transparent; }}
-            QScrollBar:vertical {{ background: {Colors.SURFACE}; width: 8px; }}
-            QScrollBar::handle:vertical {{ background: {Colors.BORDER_LIGHT}; border-radius: 4px; }}
-        """)
+        self._scroll.setStyleSheet(self._scroll_style())
         content = QWidget()
         content.setStyleSheet("background: transparent;")
         self._content_layout = QVBoxLayout(content)
@@ -161,7 +179,7 @@ class ActionSearch(QWidget):
             rows = []
             for cap in capabilities:
                 row = ActionRow(cap.id, cap.name, cap.icon,
-                                danger=cap.kind == 'destructive', accent=self._accent,
+                                danger=cap.kind == 'destructive', accent=self.pal.accent,
                                 favorite=cap.id in marked, composite=cap.is_composite,
                                 description=cap.description, machine=cap.is_machine_wide)
                 row.set_ready(cap.id in self._ready)

@@ -37,13 +37,13 @@ Los ocho acentos son claros: el acento va **encima** de los fondos —la barra d
 | `chrome` | Fila de la barra de menú y pestaña del repo seleccionado: la banda más clara y más saturada de la escalera |
 | `bg` | Consola y lienzo izquierdo: el escalón más oscuro del contenido, el que se lee |
 | `panel` | Cuerpo de las secciones de la columna derecha |
-| `surface` | Sub-barra de ejecuciones, cabeceras de sección, cabecera derecha, pie y barra de estado |
+| `surface` | Cabeceras de sección, cabecera derecha, pie y barra de estado |
 | `surface_alt` | Campos, listas y chips |
 | `border` | Separadores y marcos |
 
 Los grises del texto, de más claro a más apagado: `TEXT` (texto corrido), `TEXT_LABEL` (rótulo de un campo y del interruptor «solo favoritos»), `TEXT_DIM` (resúmenes de sección) y `TEXT_MUTED` (pistas cortas y rutas).
 
-Lo que **no** sale de la paleta: los grises del texto y los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
+Lo que **no** sale de la paleta: los grises del texto, los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED) y el fondo de la barra de pestañas de acciones, que va en el gris neutro `Colors.SURFACE` en los ocho temas (su línea de abajo sí es `border` del repo). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
 
 Las pestañas de repo **no seleccionadas** llevan de fondo el acento del repo activo —el color con el que queda pintada la barra de título— y el contorno de `on_accent`, el mismo del «+», que es lo único que las recorta; el hover lo sube de 90 a 150 de alfa. La **seleccionada** se pinta de `chrome`, la banda de la fila del menú, que es la que va justo debajo: la pestaña queda conectada con el contenido que abre, como en un navegador, con el nombre en el acento del repo y sin contorno. El «+» es una pestaña más, la que todavía no tiene repo. Cambiar el color del repo activo repinta la fila entera.
 
@@ -53,7 +53,9 @@ El menú del clic derecho sobre una pestaña es la ruta y los ocho colores, nada
 
 Los tres botones de ventana se **pintan** —trazo de 1.6 px en `on_accent`—, no se escriben: como caracteres («─», «□», «✕») eran trazos de un píxel que se perdían contra el acento, y la negrita no engorda un carácter de dibujo de caja. El fondo del hover sale del mismo `on_accent` al 16 %, salvo el de cerrar, que es rojo.
 
-El campo del buscador toma de la paleta los mismos fondo (`surface_alt`), borde (`border`), alto (30 px), radio y foco (`accent`) que un campo de una sola línea de la columna derecha, sin una sola excepción: es un campo de texto como los otros, en la misma ventana. La lista que despliega sigue en los neutros de `ui/theme.py`.
+El campo del buscador es un campo de «Configuración del repo» y nada más: mismo fondo (`surface_alt`), borde (`border`), alto (28 px), radio, cuerpo de letra (12 px) y foco (`accent`). Los campos de «Parámetros» son otra medida: 30 px y 13 px de letra.
+
+Los menús desplegados de la barra y la lista del buscador son del repo abierto: fondo `panel` —dos escalones por debajo de la fila de la que cuelgan, porque sobre `chrome` un popup queda a 1.06:1 y no se recorta—, borde `border_light`, el ítem bajo el cursor en `surface_hover` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `panel` que el popup, para que se lean como una sola pieza. Los encabezados de sección quedan en `TEXT_MUTED`, que no se tiñe.
 
 Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` repite los neutros pelados de `ui/theme.py`, con la misma escalera y sin teñir.
 
