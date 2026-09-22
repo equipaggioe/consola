@@ -83,7 +83,7 @@ class _GuardDialog(QDialog):
         lay.addWidget(ruta)
         return caja
 
-    def _boton(self, texto: str) -> QPushButton:
+    def _button(self, texto: str) -> QPushButton:
         boton = QPushButton(texto)
         boton.setCursor(Qt.CursorShape.PointingHandCursor)
         boton.setFixedHeight(32)
@@ -98,7 +98,7 @@ class BlockedDialog(_GuardDialog):
 
     def __init__(self, project: Project, action: str, targets: list[Target],
                  parent=None):
-        cuales = _enumerar([t.label for t in targets])
+        cuales = _join_words([t.label for t in targets])
         super().__init__(
             project,
             'Accion bloqueada',
@@ -117,7 +117,7 @@ class BlockedDialog(_GuardDialog):
 
         botones = QHBoxLayout()
         botones.addStretch()
-        entendido = self._boton('Entendido')
+        entendido = self._button('Entendido')
         entendido.setDefault(True)
         entendido.setStyleSheet(f"""
             QPushButton {{
@@ -137,7 +137,7 @@ class ReminderDialog(_GuardDialog):
 
     def __init__(self, project: Project, action: str, targets: list[Target],
                  parent=None):
-        cuales = _enumerar([t.label for t in targets])
+        cuales = _join_words([t.label for t in targets])
         super().__init__(
             project,
             'Confirmar accion',
@@ -149,7 +149,7 @@ class ReminderDialog(_GuardDialog):
         botones = QHBoxLayout()
         botones.addStretch()
 
-        cancelar = self._boton('Cancelar')
+        cancelar = self._button('Cancelar')
         cancelar.setDefault(True)
         cancelar.setStyleSheet(f"""
             QPushButton {{
@@ -161,7 +161,7 @@ class ReminderDialog(_GuardDialog):
         """)
         cancelar.clicked.connect(self.reject)
 
-        continuar = self._boton('Continuar')
+        continuar = self._button('Continuar')
         # Nunca es el boton por defecto: un Enter de mas no destruye nada.
         continuar.setAutoDefault(False)
         continuar.setDefault(False)
@@ -179,7 +179,7 @@ class ReminderDialog(_GuardDialog):
         self._lay.addLayout(botones)
 
 
-def _enumerar(cosas: list[str]) -> str:
+def _join_words(cosas: list[str]) -> str:
     if len(cosas) <= 1:
         return cosas[0] if cosas else 'algo'
     return ', '.join(cosas[:-1]) + ' y ' + cosas[-1]

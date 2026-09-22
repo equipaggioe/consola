@@ -1321,7 +1321,7 @@ class TabPanel(ReorderableBar, QWidget):
         cambia de nombre): asi el caso normal —un repo con una sola SPA— se ve
         exactamente igual que antes, sin una pestana de mas.
         """
-        def _para(valor: str) -> dict:
+        def _payload_for(valor: str) -> dict:
             variantes = dict(payload.get('variants') or {})
             variantes[capability.fanout] = [valor]
             return {**payload, 'variants': variantes}
@@ -1333,12 +1333,12 @@ class TabPanel(ReorderableBar, QWidget):
                 f'{len(valores)} apps marcadas: una pestaña por cada una '
                 f'({", ".join(valores)}).', 'info')
         self._run_real(tab, self._consoles[tab], capability,
-                       capability.kwargs_from(_para(primero)))
+                       capability.kwargs_from(_payload_for(primero)))
 
         for valor in resto:
             otro, vista = self._open(capability, valor)
             self._run_real(otro, vista.console, capability,
-                           capability.kwargs_from(_para(valor)))
+                           capability.kwargs_from(_payload_for(valor)))
         self._activate(tab)
 
     def _run_concurrent(self, tab: SubTabButton, capability: Capability,

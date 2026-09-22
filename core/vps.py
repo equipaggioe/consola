@@ -33,13 +33,13 @@ _REF = re.compile(r'\$([A-Za-z_][A-Za-z0-9_]*)')
 
 def expand_refs(config: Config, texto: str, donde: str) -> str:
     """`texto` con cada `$CLAVE` reemplazada por su valor; `donde` nombra la fila en el error."""
-    def valor(ref: re.Match) -> str:
+    def resolve(ref: re.Match) -> str:
         clave = ref.group(1)
         resuelto = config.get(clave).strip()
         if not resuelto:
             raise TaskError(f'«{donde}» usa ${clave}, y esa clave esta vacia en Configuracion.')
         return resuelto.rstrip('/')
-    return _REF.sub(valor, texto)
+    return _REF.sub(resolve, texto)
 
 
 ROUTE_KINDS = ('proxy', 'spa', 'static')
