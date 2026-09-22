@@ -74,14 +74,14 @@ def _tinted(base: str, accent: str, amount: float) -> str:
 # lleva. Sube con la elevacion: el fondo donde se lee texto casi no se tiñe y
 # lo de arriba se tiñe mas, que es como se ve profundidad sin aclarar nada.
 _RECIPE: tuple[tuple[str, str, float], ...] = (
-    ('chrome',        Colors.CHROME,        0.22),
-    ('bg',            Colors.BG,            0.26),
-    ('panel',         Colors.PANEL,         0.34),
-    ('surface',       Colors.SURFACE,       0.40),
-    ('surface_hover', Colors.SURFACE_HOVER, 0.42),
-    ('surface_alt',   Colors.SURFACE_ALT,   0.40),
-    ('border',        Colors.BORDER,        0.48),
-    ('border_light',  Colors.BORDER_LIGHT,  0.48),
+    ('chrome',        Colors.CHROME,        0.10),
+    ('bg',            Colors.BG,            0.12),
+    ('panel',         Colors.PANEL,         0.16),
+    ('surface',       Colors.SURFACE,       0.20),
+    ('surface_hover', Colors.SURFACE_HOVER, 0.22),
+    ('surface_alt',   Colors.SURFACE_ALT,   0.20),
+    ('border',        Colors.BORDER,        0.26),
+    ('border_light',  Colors.BORDER_LIGHT,  0.26),
 )
 
 # El texto NO se tiñe: se queda en los grises de `ui/theme.py` en los ocho
@@ -119,17 +119,19 @@ def build(key: str, label: str, accent: str) -> Palette:
                       for rol, base, cantidad in _RECIPE})
 
 
-# Ocho tonos bien separados en el circulo cromatico, todos claros sobre fondo
-# oscuro (`tests/test_palettes.py` comprueba el contraste de cada uno).
+# Ocho tonos apagados, en orden por el circulo cromatico y empezando por el
+# azul. Apagados a proposito: un acento saturado pinta la barra de titulo
+# entera y tiñe cada fondo, y a ese tamaño un color que en un boton se ve vivo
+# se ve chillon. El contraste de cada uno lo comprueba `tests/test_palettes.py`.
 THEMES: dict[str, Palette] = {p.key: p for p in (
     build('azul',    'Azul',    '#58a6ff'),
-    build('cian',    'Cian',    '#39c5cf'),
-    build('verde',   'Verde',   '#3fb950'),
-    build('lima',    'Lima',    '#9ede4b'),
-    build('ambar',   'Ámbar',   '#d29922'),
-    build('coral',   'Coral',   '#f47067'),
-    build('rosa',    'Rosa',    '#ff7eb6'),
+    build('indigo',  'Índigo',  '#8fa0f0'),
     build('violeta', 'Violeta', '#bc8cff'),
+    build('rosa',    'Rosa',    '#dd8fb4'),
+    build('coral',   'Coral',   '#e0907f'),
+    build('ambar',   'Ámbar',   '#d4ae6a'),
+    build('verde',   'Verde',   '#7cc48a'),
+    build('cian',    'Cian',    '#6dbecb'),
 )}
 
 # Sin ningun repo abierto no hay de quien tomar el tono: los neutros pelados.

@@ -22,7 +22,9 @@ Cada repo tiene su propio `TabPanel`, indexado por la ruta normalizada de su car
 
 ## 2. El color del repo
 
-Cada repo tiene un **tema** y un icono. El tema es una clave (`azul`, `cian`, `verde`, `lima`, `ambar`, `coral`, `rosa`, `violeta`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo → «Color del repositorio»; al añadir un repo se le da el primer tema libre.
+Cada repo tiene un **tema** y un icono. El tema es una clave (`azul`, `indigo`, `violeta`, `rosa`, `coral`, `ambar`, `verde`, `cian`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú; al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
+
+Los ocho acentos son apagados a propósito: uno saturado pinta la barra de título entera y tiñe todos los fondos, y a ese tamaño un color que en un botón se ve vivo se ve chillón.
 
 Una paleta es un acento más la escalera de fondos que se deriva de él. Teñir **no cambia la luminosidad** del gris de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
 
@@ -39,6 +41,8 @@ Una paleta es un acento más la escalera de fondos que se deriva de él. Teñir 
 Lo que **no** sale de la paleta: los grises del texto y los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
 
 La pestaña activa del repo se funde con la barra de título; las demás son placas oscuras con su nombre en **su** color. Cambiar de tema repinta el espacio de trabajo de ese repo aunque no sea el activo.
+
+El menú del clic derecho sobre una pestaña es la ruta y los ocho colores, nada más: quitar el repo es la × de la pestaña, y repetirlo en el menú no agregaba un camino, agregaba una lista más larga.
 
 Fuera del espacio de trabajo quedan en gris el buscador y la barra de menú: son de la aplicación, no de un repo.
 

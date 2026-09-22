@@ -49,6 +49,10 @@ _PROTECTION_KEY = '@protection'
 # sobre ESTE repo —que botones dejaste a mano para volver a ellos— asi que van
 # al mismo archivo, bajo otra clave con '@' fuera del espacio de los ids.
 _TABS_KEY = '@tabs'
+# El color del repo es la tercera decision de la consola sobre ESTE repo: se
+# elige por repo y viaja con el, no con la maquina que lo abrio. Guarda la
+# clave del tema (`ui/palettes.py`), no un hex.
+_THEME_KEY = '@theme'
 _QSETTINGS_PREFIX = 'params'  # namespace de lo que SI sigue en QSettings: las
                               # capacidades `scope='machine'` (`_machine_key`)
 _FLUSH_MS = 500
@@ -190,6 +194,33 @@ def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
     if data.get(_TABS_KEY) == limpio:
         return
     data[_TABS_KEY] = limpio
+    _dirty.add(key)
+    _schedule()
+
+
+def load_theme(repo_path: str) -> str:
+    """La clave del tema de color de ese repo, o vacio si nunca eligio uno.
+
+    Quien la traduce a colores es `ui/palettes.py`; aca es una cadena y nada
+    mas. Vacio no es un error: un repo recien clonado no trae `.consola`, y
+    quien lo abre le da el primer tema libre (`ui/project_store.py`).
+    """
+    raw = _read(repo_path).get(_THEME_KEY)
+    if not isinstance(raw, dict):
+        return ''
+    clave = raw.get('key')
+    return clave if isinstance(clave, str) else ''
+
+
+def save_theme(repo_path: str, theme: str) -> None:
+    key = _norm(repo_path)
+    data = _read(repo_path)
+    # Envuelto en un objeto como las otras claves con '@': `_read` descarta lo
+    # que no sea un objeto, asi que una cadena suelta se perdia al releer.
+    limpio = {'key': str(theme)}
+    if data.get(_THEME_KEY) == limpio:
+        return
+    data[_THEME_KEY] = limpio
     _dirty.add(key)
     _schedule()
 

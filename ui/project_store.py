@@ -5,21 +5,25 @@ import os
 from PySide6.QtCore import QSettings
 
 from core.projects import Project
-from ui import palettes
+from ui import palettes, params_store
 
 """
 Conjunto de repositorios abiertos como pestanas de nivel superior.
 
 La primera vez que se abre Consola no hay ninguno: la barra arranca vacia y el
 primero se anade con «+». A partir de ahi se guarda la lista entera —ruta,
-nombre, tema, icono— para que la UI arranque como quedo: anadir, quitar,
-reordenar y cambiar de color sobreviven al reinicio.
+nombre, icono— para que la UI arranque como quedo: anadir, quitar y reordenar
+sobreviven al reinicio.
 
 **Esto SI va en QSettings**, a diferencia de los parametros de cada accion, que
 viven en el repo (`ui/params_store.py`). La regla es de quien es la decision:
 que repos tengo abiertos en pestanas es una decision de ESTA maquina —un repo
 no puede saber que esta en tu barra— mientras que como quedaron marcados los
 pasos de «Actualizar remoto» es una decision sobre ESE repo.
+
+**El color no va aca**: es una decision sobre ESE repo, asi que vive en su
+`.consola/params.json` y viaja con el. Aca se lee al cargar y se le pega a
+cada `Project` (`_resolve_themes`).
 """
 
 _KEY = 'projects/list'
@@ -44,29 +48,41 @@ def display_path(path: str) -> str:
 
 
 def _to_dict(p: Project) -> dict:
-    return {'name': p.name, 'path': p.path, 'theme': p.theme, 'icon': p.icon}
+    return {'name': p.name, 'path': p.path, 'icon': p.icon}
 
 
 def _from_dict(d: dict) -> Project | None:
-    """Una entrada guardada, o nada si no se puede abrir tal cual esta.
-
-    Se descarta la que no trae un tema conocido: las guardadas antes de que un
-    repo eligiera tema traian un hex suelto (`color`), y una que nombre un tema
-    que ya no existe se quedo sin su paleta. En los dos casos la pestana se
-    pierde y se vuelve a anadir con «+» — inventarle un color seria darle uno
-    distinto del que tenia sin avisar.
-    """
+    """Una entrada de la lista guardada. El tema llega despues, del repo."""
     try:
         path = display_path(str(d['path']))
-        theme = str(d['theme'])
     except (KeyError, TypeError):
         return None
-    if not path or path == '.' or theme not in palettes.THEMES:
+    if not path or path == '.':
         return None
     return Project(str(d.get('name') or os.path.basename(path)),
                    path,
-                   theme,
+                   '',
                    str(d.get('icon') or '\U0001F4C1'))
+
+
+def _resolve_themes(projects: list[Project]) -> list[Project]:
+    """Le pone a cada repo el tema que tiene guardado, o el primero libre.
+
+    Sin tema guardado hay dos casos y los dos son lo mismo: un repo que se
+    abrio antes de que hubiera temas, y uno recien clonado que todavia no
+    tiene `.consola`. En los dos se elige como al anadirlo con «+» —el primer
+    tema que ningun otro repo abierto este usando— y se guarda en el acto, asi
+    que el proximo arranque ya lo encuentra.
+    """
+    usados: list[str] = []
+    for p in projects:
+        guardado = params_store.load_theme(p.path)
+        if guardado not in palettes.THEMES:
+            guardado = palettes.first_free(usados)
+            params_store.save_theme(p.path, guardado)
+        p.theme = guardado
+        usados.append(guardado)
+    return projects
 
 
 def dedupe(projects: list[Project]) -> list[Project]:
@@ -98,8 +114,8 @@ def load() -> list[Project]:
         return []
     if not isinstance(data, list):
         return []
-    return dedupe([p for p in (_from_dict(d) for d in data
-                               if isinstance(d, dict)) if p])
+    return _resolve_themes(dedupe([p for p in (_from_dict(d) for d in data
+                                              if isinstance(d, dict)) if p]))
 
 
 def save(projects: list[Project]) -> None:

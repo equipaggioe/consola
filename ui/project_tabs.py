@@ -8,7 +8,7 @@ from PySide6.QtGui import (
 
 from ui.theme import Colors, Fonts
 from ui.widgets import ReorderableTab, ReorderableBar
-from ui import project_store, palettes
+from ui import project_store, palettes, params_store
 from core.projects import Project
 
 
@@ -134,38 +134,47 @@ class ProjectTab(ReorderableTab, QWidget):
     def set_theme(self, key: str) -> None:
         """Cambia el color del repo. Lo repinta todo: la pestana de aca y,
         via `theme_changed`, el espacio de trabajo entero — la paleta no es un
-        acento suelto, son los fondos de todos sus paneles."""
+        acento suelto, son los fondos de todos sus paneles.
+
+        Se guarda en el repo (`.consola/params.json`) y no en esta maquina: el
+        color es una decision sobre ESE repo y viaja con el.
+        """
         if key == self.project.theme:
             return
         self.project.theme = key
         self.pal = palettes.get(key)
+        params_store.save_theme(self.project.path, key)
         self._sync_text()
         self.update()
         self.theme_changed.emit()
 
     def contextMenuEvent(self, event):
+        """La ruta y los colores, sin un nivel de por medio.
+
+        Los ocho temas van sueltos en el menu y no dentro de un submenu: el
+        menu no tiene nada mas que ofrecer, asi que un submenu seria un paso
+        extra para llegar a lo unico que hay. Quitar el repo tampoco esta:
+        para eso esta la × de la pestana, y repetirlo aca no agrega un camino,
+        agrega una lista mas larga.
+        """
+        self._context_menu().exec(event.globalPos())
+
+    def _context_menu(self) -> QMenu:
         menu = QMenu(self)
         path_action = QAction(self.project.path, self)
         path_action.setEnabled(False)
         menu.addAction(path_action)
+        menu.addSeparator()
 
         # El color se elige, no toca en suerte: al anadir un repo se le da el
         # primer tema libre y desde aca se cambia por cualquier otro.
-        menu.addSeparator()
-        colores = menu.addMenu("Color del repositorio")
         for clave, pal in palettes.THEMES.items():
             accion = QAction(pal.label, self)
             accion.setCheckable(True)
             accion.setChecked(clave == self.project.theme)
             accion.triggered.connect(lambda _=False, k=clave: self.set_theme(k))
-            colores.addAction(accion)
-
-        if self._closable:
-            menu.addSeparator()
-            close_action = QAction("Quitar repositorio", self)
-            close_action.triggered.connect(self.close_requested.emit)
-            menu.addAction(close_action)
-        menu.exec(event.globalPos())
+            menu.addAction(accion)
+        return menu
 
     # --- pintura -----------------------------------------------------
     def paintEvent(self, event):
@@ -399,6 +408,9 @@ class ProjectTabBar(ReorderableBar, QWidget):
         limpia = project_store.display_path(path)
         name = os.path.basename(limpia) or limpia
         theme = palettes.first_free(t.project.theme for t in self.tabs)
+        # El color se guarda en el repo desde el primer momento, no al
+        # cambiarlo: abrirlo en otra maquina tiene que dar el mismo color.
+        params_store.save_theme(limpia, theme)
         project = Project(name, limpia, theme, '📁')
         self.add_project(project, select=True)
         self.project_added.emit(project)
