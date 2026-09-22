@@ -46,7 +46,6 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 - **`BACKEND_WAIT = 90 s`** es un número puesto a ojo para un uvicorn con `--reload` y base remota por túnel. Falta uso real para saber si sobra o falta.
 - **El explorador conecta como el rol de la aplicación.** Una tabla sin `GRANT` aparece en el árbol —sale de `pg_catalog`— pero sus datos dan «permission denied». Conectar como superusuario lo vería todo, pero en remoto ese canal es `psql` por SSH y no el driver ([ADR-0015](../adr/0015-explorador-de-solo-lectura.md)).
 - **Una sola base por repo.** `DB_NAME` es una. Si un repo tuviera dos sería otro eje, y no hace falta decidirlo antes de que pase.
-- **Los `scripts/` de referencia.** 51 archivos que nadie ejecuta y que ninguna capacidad necesita ya. Borrarlos es una decisión aparte de esta serie ([ADR-0001](../adr/0001-reimplementar-no-ejecutar-scripts.md)).
 
 ### Sin verificar
 

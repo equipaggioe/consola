@@ -147,18 +147,3 @@ Título mal: «Geocerca». Título bien: «La geocerca dispara por el estado que
 8. Borrar los documentos viejos, comprobar que todos los enlaces de `docs/` resuelven y buscar en el código referencias a los archivos borrados.
 
 Lo borrado sigue en el historial de git (`git show <commit>^:docs/archivo.md`) si hace falta recuperar algo.
-
-## Para asistentes de IA
-
-Agregar al archivo de instrucciones del repositorio (`CLAUDE.md` u otro):
-
-```markdown
-## Documentación
-- `docs/` sigue `docs/README.md`: `arquitectura/` (cómo es hoy; pendientes en cada documento 30),
-  `adr/` (por qué) y `planes/` (solo trabajo sin terminar).
-- Antes de afirmar que algo está hecho o pendiente, verificarlo contra el código.
-- No crear bitácoras, registros de cambios ni planes terminados.
-- Un cambio de comportamiento actualiza `arquitectura/` en el mismo commit; una decisión nueva es un ADR nuevo.
-- Solo se escribe `Aceptada` cuando la decisión se confirmó explícitamente.
-- Nunca borrar un plan que tenga trabajo pendiente.
-```

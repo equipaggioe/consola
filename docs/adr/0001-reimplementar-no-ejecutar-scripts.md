@@ -22,7 +22,9 @@ La salida fácil habría sido una interfaz que lanzara esos mismos archivos como
 - Cada paso interno es una función con nombre, así que puede tener botón propio cuando alguien lo pide solo (`upload_secret_files`, `bump_version`).
 - La plomería existe una sola vez: la mayoría de las atómicas son de tres a diez líneas.
 - Hay una excepción declarada y acotada: los **payloads** (`core/tasks/payloads.py`), que viajan por `-c` al intérprete del proyecto porque necesitan importar `app.` y `seeders.` del repo administrado.
-- Queda en el repositorio código que nadie ejecuta. Borrarlo es una decisión aparte.
+- Queda en el repositorio código que nadie ejecuta, y se queda: el 2026-09-21 se confirmó
+  conservarlo como referencia. `scripts/README.md` lo dice en la propia carpeta, para que
+  quien la abra no la tome por parte del programa.
 
 ## Descartado
 
