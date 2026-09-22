@@ -57,15 +57,14 @@ flowchart LR
 
 | Grupo | Botones | Qué resuelve |
 |---|---|---|
-| Launchers | 5 | Levantar lo que corre en desarrollo: backend, SPA, app móvil, apps Python, y todo junto |
-| Builders | 6 | Compilar y publicar: Flutter/Flet, Vite, binario, promoción, SPA nueva |
-| Emulators | 5 | Máquinas virtuales, AVD, arranque y limpieza de disco |
-| Git | 5 | Clonar y los cuatro forzados entre local, origin y VPS |
-| VPS · ops | 7 | Sesión, diagnóstico, revocación de llaves y limpieza total |
-| VPS · server | 6 | Servicio systemd, logs, despliegue del código y secretos |
-| VPS · setup | 7 | Aprovisionamiento: paquetes, SSH, GitHub, coturn, Caddy, bootstrap |
+| Ejecutar | 5 | Levantar lo que corre en desarrollo: backend, SPA, app móvil, app de escritorio, y todo junto |
+| Compilar | 6 | Compilar y publicar: Flutter/Flet, Vite, ejecutable, promoción, SPA nueva, limpieza de artefactos |
+| Repositorio | 7 | Clonar, los cuatro sobrescritos entre local, origin y VPS, y la sincronización de archivos y claves entre repos |
 | Base de datos | 12 | Ciclo de vida del esquema, migraciones, datos, respaldo, túnel y explorador |
-| Utils | 9 | Limpieza de artefactos, SDK, DNS y sincronización entre repos |
+| Despliegue | 9 | Publicar el código, el servicio systemd, logs y diagnóstico del VPS |
+| VPS | 11 | Aprovisionamiento y desmontaje: paquetes, SSH, GitHub, coturn, Caddy, DNS, bootstrap y revocaciones |
+| Emuladores | 4 | Imágenes de sistema, dispositivos virtuales, arranque y limpieza de disco |
+| SDKs | 5 | Dejar esta máquina lista para compilar: Android y Flutter |
 
 ## 6. Interesados
 

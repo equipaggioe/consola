@@ -78,7 +78,7 @@ class TabView(QWidget):
         # Solo los launchers publican un endpoint que mostrar; «Explorar base»
         # tambien, porque su boton es el unico camino de vuelta a la consola.
         # Limpiar no vive aca: esta en el pie, junto a Ejecutar.
-        self.tool_bar.setVisible(capability.group == 'Launchers' or bool(capability.view))
+        self.tool_bar.setVisible(capability.group == 'Ejecutar' or bool(capability.view))
 
     # --- construccion --------------------------------------------------
     def _build_tool_bar(self) -> QWidget:

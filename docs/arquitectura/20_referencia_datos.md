@@ -180,68 +180,68 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 
 | Grupo | Id | Botón | Tipo | |
 |---|---|---|---|---|
-| Launchers | `backend` | Backend | A | `live`, vista web |
-| | `serve_vite` | SPA Vite | A | `live`, vista web, `fanout` |
-| | `run_mobile` | App móvil | A | `live` |
-| | `run_python` | App Python | C | `live`, `fanout` |
-| | `dev_env` | Entorno de desarrollo | C | `live`, concurrente, sin cuerpo |
-| Builders | `build_flutter` | Build Flutter | C | |
-| | `create_spa` | Nueva SPA | A | |
-| | `build_vite` | Build Vite | C | |
-| | `build_binary` | Build binario | C | |
-| | `promote_app` | Promote app | A | destructiva |
-| | `bump_version` | Bump versión | A | oculta |
-| Emulators | `install_system_image` | Instalar máquina | A | ⌂ |
-| | `create_avd` | Crear AVD | A | ⌂ |
-| | `launch_emulator` | Emulador | A | `live`, ⌂ |
-| | `purge_emulators` | Liberar disco | A | destructiva, ⌂ |
-| | `stop_emulator` | Apagar emulador | A | oculta, ⌂ |
-| Git | `clone_repo` | Clonar de GitHub | A | ⌂, `opens_repo` |
-| | `git_force_push` | Forzar: origin = local | A | destructiva |
-| | `git_force_reset` | Forzar: local = origin | A | destructiva |
-| | `git_force_vps` | Forzar: VPS = origin | A | destructiva |
-| | `git_force_origin_from_vps` | Forzar: origin = VPS | A | destructiva |
-| VPS · ops | `ssh_login` | Sesión SSH | A | interactiva |
-| | `health_check` | Health check | A | |
-| | `run_command` | Comando remoto | A | |
-| | `revoke_ssh` | Revocar SSH | C | destructiva |
-| | `revoke_github_ssh` | Revocar GitHub SSH | C | destructiva |
-| | `clean_vps` | Limpiar VPS | C | destructiva |
-| | `upload_to_vps` | Subir al VPS | A | oculta |
-| VPS · server | `systemd_action` | Acción systemd | A | |
-| | `view_logs` | Ver logs | A | `live` |
-| | `configure_service` | Configurar servicio | C | |
-| | `publish_code` | Publicar código | C | `live` |
-| | `update_remote` | Actualizar remoto | C | `live` |
-| | `upload_secret_files` | Copiar secretos | A | |
-| VPS · setup | `install_software` | Software base | A | |
-| | `refresh_known_host` | Refrescar known_host | A | |
-| | `setup_ssh_key` | Configurar SSH | C | |
-| | `setup_github_ssh` | Configurar GitHub SSH | C | |
-| | `configure_coturn` | Configurar coturn | C | |
-| | `configure_caddy` | Configurar Caddy | C | |
-| | `bootstrap_vps` | Bootstrap VPS | C | |
-| Base de datos | `bootstrap_db` | Bootstrap DB | C | |
-| | `enable_extensions` | Habilitar extensiones | A | |
-| | `teardown_db` | Teardown DB | C | destructiva |
-| | `migrate_db` | Migrar | C | `requires_repo: migrations` |
-| | `rebuild_db` | Reconstruir DB | C | destructiva |
-| | `reinit_migrations` | Reiniciar migraciones | C | destructiva, `requires_repo` |
-| | `run_seeders` | Seeders base | A | |
-| | `run_mock_seeders` | Seeders mock | A | |
-| | `backup_db` | Backup DB | A | |
-| | `ssh_tunnel` | Túnel Postgres | A | `background` |
-| | `explore_db` | Explorar base | A | `live`, vista db |
-| | `inspect_db` | Inspeccionar | A | |
-| Utils | `clean_artifacts` | Limpiar artefactos | A | destructiva |
-| | `install_android_tools` | Herramientas Android | A | ⌂ |
-| | `install_android_packages` | Paquetes del SDK | A | ⌂ |
-| | `install_android_hypervisor` | Aceleración del emulador | A | ⌂ |
-| | `install_android_sdk` | SDK Android | C | ⌂ |
-| | `install_flutter_sdk` | SDK Flutter | A | ⌂ |
-| | `update_cloudflare` | Actualizar Cloudflare | A | |
-| | `sync_server_env` | Sincronizar env | A | destructiva |
-| | `sync_common_files` | Sync archivos comunes | A | destructiva |
+| Ejecutar | `backend` | Levantar backend | A | `live`, vista web |
+|  | `serve_vite` | Levantar SPA | A | `live`, vista web, `fanout` |
+|  | `run_mobile` | Levantar app móvil | A | `live` |
+|  | `run_python` | Levantar app de escritorio | C | `live`, `fanout` |
+|  | `dev_env` | Levantar todo el entorno | C | `live`, concurrente, sin cuerpo |
+| Compilar | `create_spa` | Crear SPA nueva | A |  |
+|  | `build_flutter` | Compilar app Flutter | C |  |
+|  | `build_vite` | Compilar SPA | C |  |
+|  | `build_binary` | Compilar ejecutable | C |  |
+|  | `bump_version` | Subir el número de versión | A | oculta |
+|  | `promote_app` | Publicar en producción | A | destructiva |
+|  | `clean_artifacts` | Borrar artefactos de build | A | destructiva |
+| Repositorio | `clone_repo` | Clonar repositorio de GitHub | A | `opens_repo`, ⌂ |
+|  | `sync_server_env` | Igualar claves de config.env y .env | A | destructiva |
+|  | `sync_common_files` | Copiar archivos comunes a otros repos | A | destructiva |
+|  | `git_force_push` | Sobrescribir origin con lo local | A | destructiva |
+|  | `git_force_reset` | Sobrescribir lo local con origin | A | destructiva |
+|  | `git_force_vps` | Sobrescribir el VPS con origin | A | destructiva |
+|  | `git_force_origin_from_vps` | Sobrescribir origin con el VPS | A | destructiva |
+| Base de datos | `bootstrap_db` | Crear base desde cero | C |  |
+|  | `enable_extensions` | Habilitar extensiones | A |  |
+|  | `migrate_db` | Migrar esquema | C | `requires_repo: migrations` |
+|  | `run_seeders` | Cargar datos base | A |  |
+|  | `run_mock_seeders` | Cargar datos de prueba | A |  |
+|  | `inspect_db` | Listar tablas y filas | A |  |
+|  | `explore_db` | Explorar datos | A | `live`, vista db |
+|  | `ssh_tunnel` | Abrir túnel a Postgres | A | `background` |
+|  | `backup_db` | Respaldar base | A |  |
+|  | `rebuild_db` | Reconstruir base | C | destructiva |
+|  | `reinit_migrations` | Reiniciar historial de migraciones | C | destructiva, `requires_repo: migrations` |
+|  | `teardown_db` | Borrar base y rol | C | destructiva |
+| Despliegue | `publish_code` | Publicar código | C | `live` |
+|  | `update_remote` | Actualizar lo publicado | C | `live` |
+|  | `upload_secret_files` | Copiar los archivos secretos | A |  |
+|  | `configure_service` | Instalar el servicio del repo | C |  |
+|  | `systemd_action` | Controlar el servicio | A |  |
+|  | `view_logs` | Ver logs del servicio | A | `live` |
+|  | `health_check` | Probar que responde | A |  |
+|  | `run_command` | Ejecutar un comando en el VPS | A |  |
+|  | `ssh_login` | Abrir sesión SSH | A | interactiva |
+|  | `upload_to_vps` | Subir el artefacto al VPS | A | oculta |
+| VPS | `bootstrap_vps` | Preparar el VPS desde cero | C |  |
+|  | `install_software` | Instalar paquetes base | A |  |
+|  | `setup_ssh_key` | Crear usuario y acceso SSH | C |  |
+|  | `refresh_known_host` | Olvidar la huella vieja del VPS | A |  |
+|  | `setup_github_ssh` | Dar acceso a GitHub | C |  |
+|  | `configure_caddy` | Configurar el proxy (Caddy) | C |  |
+|  | `configure_coturn` | Configurar el TURN (coturn) | C |  |
+|  | `update_cloudflare` | Apuntar el DNS a esta IP | A |  |
+|  | `revoke_ssh` | Quitar el acceso SSH | C | destructiva |
+|  | `revoke_github_ssh` | Quitar el acceso a GitHub | C | destructiva |
+|  | `clean_vps` | Vaciar el VPS | C | destructiva |
+| Emuladores | `install_system_image` | Instalar imagen de sistema | A | ⌂ |
+|  | `create_avd` | Crear dispositivo virtual | A | ⌂ |
+|  | `launch_emulator` | Abrir emulador | A | `live`, ⌂ |
+|  | `stop_emulator` | Apagar el emulador | A | oculta, ⌂ |
+|  | `purge_emulators` | Borrar imágenes y dispositivos | A | destructiva, ⌂ |
+| SDKs | `install_android_sdk` | Instalar SDK de Android | C | ⌂ |
+|  | `install_android_tools` | Instalar herramientas de línea de comandos | A | ⌂ |
+|  | `install_android_packages` | Instalar paquetes del SDK | A | ⌂ |
+|  | `install_android_hypervisor` | Instalar aceleración del emulador | A | ⌂ |
+|  | `install_flutter_sdk` | Instalar SDK de Flutter | A | ⌂ |
 
 ## 8. Características y tipos de subproyecto
 

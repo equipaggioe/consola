@@ -243,7 +243,7 @@ class AxisDef:
 class Step:
     """Un paso de una capacidad compuesta, con casilla propia en el panel.
 
-    `optional=False` se dibuja marcado y deshabilitado: un 'Build binario' sin
+    `optional=False` se dibuja marcado y deshabilitado: un 'Compilar ejecutable' sin
     build no es una variante, es un error. Los builders que si dejan desmarcar
     su compilacion (APK, Vite) lo hacen porque sin ella queda un modo con
     sentido: subir el artefacto que ya esta en disco.
@@ -270,7 +270,6 @@ class Capability:
     id: str
     name: str
     group: str
-    section: str
     kind: str  # 'live' | 'once' | 'destructive' | 'interactive' | 'background'
     axes: list[AxisDef] = field(default_factory=list)
     composed_of: list[str] = field(default_factory=list)
@@ -454,14 +453,14 @@ class Capability:
 
 
 GROUP_ICONS = {
-    'Launchers': '🚀',
-    'Builders': '🔨',
-    'Emulators': '📱',
-    'VPS · ops': '⚙️',
-    'VPS · server': '🖥️',
-    'VPS · setup': '🔧',
+    'Ejecutar': '🚀',
+    'Compilar': '🔨',
+    'Repositorio': '🐙',
     'Base de datos': '🗄️',
-    'Utils': '🧰',
+    'Despliegue': '🖥️',
+    'VPS': '🔧',
+    'Emuladores': '📱',
+    'SDKs': '🧰',
 }
 
 
@@ -479,7 +478,7 @@ class Registry:
     def bind(self, cap_id: str, func: Callable[..., Any]) -> Callable[..., Any]:
         """Le da cuerpo real a una capacidad declarada en el catalogo.
 
-        El catalogo (`core/catalog.py`) declara la forma: grupo, seccion, ejes,
+        El catalogo (`core/catalog.py`) declara la forma: grupo, ejes,
         pasos. `core/tasks/` la implementa. Mientras nadie llame a `bind`, la
         capacidad sigue siendo un stub y la UI la dibuja como tal.
         """

@@ -6,7 +6,7 @@ from ..errors import TaskError
 from ..registry import registry
 
 """
-Grupo Emulators.
+Grupo Emuladores.
 
 `android_emulator.py` era un solo `run()` que hacia cuatro cosas en fila:
 descargar la system image, crear el AVD, parchear su `config.ini` y arrancar el

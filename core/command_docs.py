@@ -29,7 +29,7 @@ class CommandDoc:
 
 DOCS: dict[str, CommandDoc] = {
 
-    # --- Launchers ---------------------------------------------------------
+    # --- Ejecutar ---------------------------------------------------------
 
     'backend': CommandDoc(
         summary=(
@@ -141,7 +141,7 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    # --- Builders ----------------------------------------------------------
+    # --- Compilar ----------------------------------------------------------
 
     'build_flutter': CommandDoc(
         summary=(
@@ -241,7 +241,7 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    # --- Emulators ---------------------------------------------------------
+    # --- Emuladores ---------------------------------------------------------
 
     'install_system_image': CommandDoc(
         summary=(
@@ -320,7 +320,7 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    # --- VPS · ops ---------------------------------------------------------
+    # --- Despliegue y VPS ---------------------------------------------------------
 
     'ssh_login': CommandDoc(
         summary=(
@@ -414,7 +414,7 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    # --- VPS · server ------------------------------------------------------
+    # --- Despliegue ------------------------------------------------------
 
     'systemd_action': CommandDoc(
         summary=(
@@ -541,7 +541,7 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    # --- VPS · setup -------------------------------------------------------
+    # --- VPS -------------------------------------------------------
 
     'install_software': CommandDoc(
         summary='Instala en el VPS los paquetes apt de los grupos marcados.',

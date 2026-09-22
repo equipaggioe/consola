@@ -55,7 +55,7 @@ Los tres botones de ventana se **pintan** —trazo de 1.6 px en `on_accent`—, 
 
 El campo del buscador es un campo de «Configuración del repo» y nada más: mismo fondo (`surface_alt`), borde (`border`), alto (28 px), radio, cuerpo de letra (12 px) y foco (`accent`). Los campos de «Parámetros» son otra medida: 30 px y 13 px de letra.
 
-Los menús desplegados de la barra y la lista del buscador son del repo abierto: fondo `panel` —dos escalones por debajo de la fila de la que cuelgan, porque sobre `chrome` un popup queda a 1.06:1 y no se recorta—, borde `border_light`, el ítem bajo el cursor en `surface_hover` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `panel` que el popup, para que se lean como una sola pieza. Los encabezados de sección quedan en `TEXT_MUTED`, que no se tiñe.
+Los menús desplegados de la barra y la lista del buscador son del repo abierto: fondo `panel` —dos escalones por debajo de la fila de la que cuelgan, porque sobre `chrome` un popup queda a 1.06:1 y no se recorta—, borde `border_light`, el ítem bajo el cursor en `surface_hover` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `panel` que el popup, para que se lean como una sola pieza. La leyenda del menú Ayuda, que es un ítem que no se puede apretar, queda en `TEXT_MUTED`, que no se tiñe.
 
 Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` repite los neutros pelados de `ui/theme.py`, con la misma escalera y sin teñir.
 
@@ -63,9 +63,11 @@ Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` rep
 
 | Superficie | Qué hace |
 |---|---|
-| Barra de menú | El catálogo entero por grupo y sección, a un recorrido de hover. Un clic **abre** la pestaña |
+| Barra de menú | El catálogo entero por grupo, a un recorrido de hover. Un clic **abre** la pestaña |
 | Buscador | Filtra sobre todas las acciones, con teclado (flechas, Enter, Ctrl+Enter). Cada fila trae su filete de favorita, la marca de nivel (`◈` compuesta, `◦` atómica), la de alcance (`⌂` es de la máquina) y un **▶** que corre de una |
 | «Solo favoritos» | Poda los menús. **No** poda el buscador: buscar es ir por algo puntual, y esconder justo lo que se busca sería un chiste cruel |
+
+Los ocho menús de la barra son los grupos del catálogo, en el orden en que `core/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar. Dentro de un menú **no hay encabezados de sección**; la única raya separa, al fondo, lo que borra (`kind == 'destructive'`), que el catálogo declara al final de cada grupo. Un menú que se quedó sin acciones aplicables desaparece de la barra, y la raya solo se dibuja si quedó algo visible de los dos lados ([ADR-0043](../adr/0043-un-menu-sin-secciones.md)).
 
 Abrir una pestaña no ejecuta nada. Ejecutar es apretar Ejecutar, o el ▶ del buscador, que corre con los parámetros guardados para ese botón en ese repo ([ADR-0032](../adr/0032-abrir-no-es-ejecutar.md)).
 

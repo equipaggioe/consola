@@ -10,7 +10,7 @@ from ..registry import registry
 from ..toolchain import venv_python
 
 """
-Grupo Launchers.
+Grupo Ejecutar.
 
 Los launchers eran cuatro scripts que se pasaban datos por el `.env`: el backend
 escribia `SERVER_PORT` a disco y el terminal y las SPA lo leian despues. Aca ese

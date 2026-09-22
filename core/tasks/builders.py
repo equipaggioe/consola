@@ -11,7 +11,7 @@ from ..errors import TaskError
 from ..registry import registry
 
 """
-Grupo Builders.
+Grupo Compilar.
 
 Los tres builders eran el mismo esqueleto repetido tres veces: subir la version
 del manifiesto, correr la herramienta que compila, y opcionalmente subir el

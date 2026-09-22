@@ -39,11 +39,10 @@ class ActionMenuBar(QMenuBar):
         # Todos los menus de la barra, de grupo o no: lo que hay que repintar
         # cuando cambia el repo activo.
         self._menus: list[QMenu] = []
-        # Por menu de grupo, sus bloques de seccion: cada uno con el separador
-        # y el encabezado que lo abren (si los tiene) y sus acciones. Es lo que
-        # necesita `_apply_filters` para podar un menu sin dejar rayas ni
-        # encabezados sueltos sobre una seccion que quedo vacia.
-        self._blocks: dict[QMenu, list[tuple[QAction | None, QAction | None, list[str]]]] = {}
+        # Por menu de grupo, sus dos tramos —lo que hace y lo que deshace— con
+        # la raya que los separa. Es lo que necesita `_apply_filters` para
+        # podar un menu sin dejar la raya colgando de un tramo vacio.
+        self._blocks: dict[QMenu, tuple[list[str], QAction | None, list[str]]] = {}
         self._favorites: set[str] = favorites.favorite_ids()
         self._only_favorites = favorites.only_favorites()
         # Lo que tiene sentido en el repo abierto (`core/catalog.py::applicable_ids`).
@@ -93,8 +92,8 @@ class ActionMenuBar(QMenuBar):
         """El popup en `panel`, dos escalones por debajo de la fila de la que
         cuelga: sobre `chrome` no se recortaria (1.06:1 contra la barra), y el
         item bajo el cursor necesita un escalon propio por encima del popup.
-        Los encabezados de seccion son items deshabilitados (ver
-        `_build_action_menus`), de ahi la regla de `:disabled`."""
+        La regla de `:disabled` es por la leyenda del menu Ayuda, que es un
+        item que no se puede apretar."""
         return f"""
             QMenu {{
                 background: {self.pal.panel}; color: {Colors.TEXT};
@@ -116,40 +115,38 @@ class ActionMenuBar(QMenuBar):
 
     # --- construccion ----------------------------------------------------
     def _build_action_menus(self) -> None:
-        """Un menu por grupo del registro, en su orden; dentro, las acciones
-        separadas por `Capability.section`.
+        """Un menu por grupo del registro, en el orden en que el catalogo los
+        declara, y dentro las acciones en ese mismo orden.
 
-        `section` da el segundo nivel sin anadir un
-        submenu — que para las secciones de una sola accion (Utils tiene
-        varias) seria un clic de mas por nada: queda todo a un nivel, con la
-        seccion como encabezado.
+        No hay encabezados de seccion. El segundo nivel dentro de un menu
+        existia porque los menus eran largos y heterogeneos; con los grupos
+        reorganizados ninguno pasa de doce items y el orden de declaracion es
+        el del uso real —preparar, usar, mirar—, asi que el rotulo no agregaba
+        nada. Que los nombres empiecen por el verbo hace el resto: los items de
+        la misma familia quedan pegados y se leen como un bloque sin que haya
+        que dibujarlo.
 
-        El encabezado es una accion deshabilitada y no `addSection`: con una
-        hoja de estilo puesta sobre el `QMenu`, Qt dibuja la raya de
-        `addSection` pero se come su texto, y «Base de datos» quedaba con
-        nueve acciones partidas por seis rayas sin explicacion.
+        La unica division que queda no es taxonomica sino de seguridad: una
+        raya, y debajo lo que borra (`kind == 'destructive'`). El catalogo
+        declara esas capacidades al final de su grupo, asi que la raya cae en
+        el corte y no parte ninguna familia.
 
-        El titulo de la barra va sin el emoji del grupo: son once menus en una fila, y a 1000px —el minimo de la ventana—
-        el emoji es lo primero que empuja los ultimos al desbordamiento.
+        El titulo de la barra va sin el emoji del grupo: son ocho menus en una
+        fila, y a 1000px —el minimo de la ventana— el emoji es lo primero que
+        empuja los ultimos al desbordamiento.
         """
         for group, capabilities in registry.get_groups().items():
             menu = self._add_menu(group)
             menu.setToolTipsVisible(True)
-            sections = _by_section(capabilities)
-            titled = len(sections) > 1
-            blocks: list[tuple[QAction | None, QAction | None, list[str]]] = []
-            for i, (section, caps) in enumerate(sections.items()):
-                separator = header = None
-                if titled and section:
-                    if i:
-                        separator = menu.addSeparator()
-                    header = QAction(section, menu)
-                    header.setEnabled(False)
-                    menu.addAction(header)
-                for cap in caps:
-                    menu.addAction(self._make_action(menu, cap))
-                blocks.append((separator, header, [c.id for c in caps]))
-            self._blocks[menu] = blocks
+            hacen = [c for c in capabilities if c.kind != 'destructive']
+            deshacen = [c for c in capabilities if c.kind == 'destructive']
+            for cap in hacen:
+                menu.addAction(self._make_action(menu, cap))
+            separator = menu.addSeparator() if hacen and deshacen else None
+            for cap in deshacen:
+                menu.addAction(self._make_action(menu, cap))
+            self._blocks[menu] = ([c.id for c in hacen], separator,
+                                  [c.id for c in deshacen])
             self._group_menus.append(menu)
 
     def _make_action(self, menu: QMenu, cap) -> QAction:
@@ -218,30 +215,23 @@ class ActionMenuBar(QMenuBar):
         """Los dos filtros de la barra, en una sola pasada: lo que no aplica a
         este repo y —si el interruptor esta puesto— lo que no esta marcado."""
         for menu in self._group_menus:
-            vivos = 0
-            for separator, header, cap_ids in self._blocks.get(menu, []):
-                visibles = 0
-                for cap_id in cap_ids:
-                    action = self._actions[cap_id]
-                    ver = (self._applicable is None or cap_id in self._applicable) and (
-                        not self._only_favorites or cap_id in self._favorites)
-                    action.setVisible(ver)
-                    visibles += int(ver)
-                # El encabezado (y la raya que lo precede) solo tienen sentido
-                # si quedo algo debajo.
-                if header is not None:
-                    header.setVisible(visibles > 0)
-                if separator is not None:
-                    separator.setVisible(visibles > 0 and vivos > 0)
-                vivos += visibles
-            menu.menuAction().setVisible(vivos > 0)
+            arriba, separator, abajo = self._blocks[menu]
+            visibles_arriba = self._show(arriba)
+            visibles_abajo = self._show(abajo)
+            # La raya solo separa si quedo algo de los dos lados.
+            if separator is not None:
+                separator.setVisible(bool(visibles_arriba and visibles_abajo))
+            menu.menuAction().setVisible(bool(visibles_arriba or visibles_abajo))
 
-
-def _by_section(capabilities: list) -> dict[str, list]:
-    sections: dict[str, list] = {}
-    for cap in capabilities:
-        sections.setdefault(cap.section, []).append(cap)
-    return sections
+    def _show(self, cap_ids: list[str]) -> int:
+        """Aplica los filtros a un tramo y devuelve cuantos quedaron a la vista."""
+        visibles = 0
+        for cap_id in cap_ids:
+            ver = (self._applicable is None or cap_id in self._applicable) and (
+                not self._only_favorites or cap_id in self._favorites)
+            self._actions[cap_id].setVisible(ver)
+            visibles += int(ver)
+        return visibles
 
 
 def _tooltip(cap) -> str:

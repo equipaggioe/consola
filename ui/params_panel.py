@@ -1035,7 +1035,7 @@ class ParamsPanel(QWidget):
         cosas —`all_keys` (todos los valores del eje) y `self.steps` (todos los
         pasos) contra unos `uses_env` que si miraban lo marcado—, y el resultado
         era un formulario que pedia datos que la corrida jamas iba a leer: la IP
-        y la llave del VPS con `Bootstrap DB` en `local`, el directorio de
+        y la llave del VPS con `Crear base desde cero` en `local`, el directorio de
         despliegue con 'Subir al VPS' desmarcado.
 
         Es exactamente el conjunto de `_missing_keys`, con `relevant` en lugar
