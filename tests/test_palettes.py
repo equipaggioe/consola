@@ -57,6 +57,16 @@ def test_texto_secundario_legible(pal, fondo):
 
 
 @pytest.mark.parametrize('pal', TEMAS, ids=IDS)
+@pytest.mark.parametrize('fondo', ['bg', 'panel', 'surface', 'surface_alt'])
+def test_rotulos_de_campo_legibles(pal, fondo):
+    """`TEXT_LABEL` son los rotulos de los campos de Parametros y de la
+    configuracion del repo, y el del interruptor «solo favoritos». Es el gris
+    mas claro despues del texto corrido: un rotulo hay que poder leerlo de
+    corrido, no adivinarlo."""
+    assert contraste(Colors.TEXT_LABEL, getattr(pal, fondo)) >= 4.5
+
+
+@pytest.mark.parametrize('pal', TEMAS, ids=IDS)
 @pytest.mark.parametrize('fondo', ['bg', 'panel', 'surface'])
 def test_texto_apagado_legible(pal, fondo):
     """`TEXT_MUTED` son pistas cortas y rutas: umbral de texto grande."""
@@ -96,13 +106,13 @@ def test_los_escalones_se_distinguen(pal, abajo, arriba):
 
 
 @pytest.mark.parametrize('pal', TEMAS, ids=IDS)
-@pytest.mark.parametrize('rol', ['brand', 'chrome', 'bg', 'panel', 'surface',
+@pytest.mark.parametrize('rol', ['chrome', 'bg', 'panel', 'surface',
                                  'surface_hover', 'surface_alt'])
 def test_tenir_no_mueve_el_escalon(pal, rol):
     """Teñir cambia el tono, no la profundidad: cada fondo conserva la
     luminancia de su neutro de partida. Es lo que garantiza que el contraste
     de todo lo que va encima sea el mismo en los ocho temas."""
-    base = {'brand': Colors.BRAND, 'chrome': Colors.CHROME, 'bg': Colors.BG,
+    base = {'chrome': Colors.CHROME, 'bg': Colors.BG,
             'panel': Colors.PANEL, 'surface': Colors.SURFACE,
             'surface_hover': Colors.SURFACE_HOVER,
             'surface_alt': Colors.SURFACE_ALT}[rol]
@@ -118,7 +128,7 @@ def test_los_fondos_siguen_siendo_oscuros(pal):
 
 
 @pytest.mark.parametrize('pal', TEMAS, ids=IDS)
-@pytest.mark.parametrize('rol', ['brand', 'chrome', 'bg', 'panel', 'surface',
+@pytest.mark.parametrize('rol', ['chrome', 'bg', 'panel', 'surface',
                                  'surface_hover', 'surface_alt'])
 def test_los_fondos_llevan_color_de_verdad(pal, rol):
     """El fondo tiene que leerse como el color del repo, no como un gris.
@@ -135,28 +145,25 @@ def test_los_fondos_llevan_color_de_verdad(pal, rol):
 def test_la_barra_de_menu_no_es_negra(pal):
     """`chrome` es la banda de la fila del menu, y es la mas clara de la
     escalera de fondos, no la mas oscura: por encima del cuerpo de las
-    secciones y de las cabeceras. El unico casi negro de la ventana es
-    `brand`, la placa del logo."""
+    secciones y de las cabeceras."""
     assert _luminancia(pal.chrome) > _luminancia(pal.surface)
-    # Y bien despegada del casi negro: mas del triple del salto que separa un
-    # panel de otro (1.09), para que no se lea como «la barra oscura».
-    assert contraste(pal.chrome, pal.brand) >= 1.30
 
 
 @pytest.mark.parametrize('pal', TEMAS, ids=IDS)
-@pytest.mark.parametrize('rol', ['chrome', 'bg', 'panel', 'surface',
-                                 'surface_hover', 'surface_alt'])
-def test_la_placa_del_logo_es_el_fondo_mas_oscuro(pal, rol):
-    """`brand` es el unico casi negro: si otro fondo bajara de el, la placa
-    dejaria de ser el sitio fijo donde se apoya la marca."""
-    assert _luminancia(pal.brand) < _luminancia(getattr(pal, rol))
+def test_la_pestana_seleccionada_se_lee(pal):
+    """La pestana del repo seleccionado se pinta de `chrome` —el color de la
+    fila del menu, la de justo debajo— con el nombre en el acento
+    (`ui/project_tabs.py`)."""
+    assert contraste(pal.accent, pal.chrome) >= 4.5
 
 
 @pytest.mark.parametrize('pal', TEMAS, ids=IDS)
-def test_el_acento_se_lee_sobre_la_placa_del_logo(pal):
-    """El rombo y el nombre van en el acento sobre `brand`
-    (`ui/title_bar.py`)."""
-    assert contraste(pal.accent, pal.brand) >= 4.5
+def test_las_pestanas_se_leen_sobre_la_barra(pal):
+    """Todas las pestanas de repo llevan el acento del repo activo de fondo
+    —el color con el que queda pintada la barra de titulo— y el nombre, el
+    contorno y la marca `◇ CONSOLA` van en `on_accent` encima
+    (`ui/project_tabs.py`, `ui/title_bar.py`)."""
+    assert contraste(pal.on_accent, pal.accent) >= 4.5
 
 
 def test_los_estados_no_se_tiñen():

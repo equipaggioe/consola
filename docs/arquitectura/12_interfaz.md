@@ -32,22 +32,28 @@ Los ocho acentos son claros: el acento va **encima** de los fondos —la barra d
 
 | Rol | Dónde |
 |---|---|
-| `accent` | Barra de título, borde de contorno de la ventana (solo con el foco), marca `◇ CONSOLA`, subrayado de la pestaña de ejecución activa, botón Ejecutar, foco de los campos, candados cerrados |
-| `brand` | Placa de la marca y placas de las pestañas de repo inactivas: el **único** fondo casi negro de la ventana |
-| `chrome` | Fila de la barra de menú: la banda más clara y más saturada de la escalera, no la más oscura |
+| `accent` | Barra de título, borde de contorno de la ventana (solo con el foco), subrayado de la pestaña de ejecución activa, botón Ejecutar, foco de los campos, candados cerrados |
+| `on_accent` | Lo que va **sobre** la barra de título: la marca, el nombre, el contorno y la × de las pestañas no seleccionadas, el «+», los botones de ventana |
+| `chrome` | Fila de la barra de menú y pestaña del repo seleccionado: la banda más clara y más saturada de la escalera |
 | `bg` | Consola y lienzo izquierdo: el escalón más oscuro del contenido, el que se lee |
 | `panel` | Cuerpo de las secciones de la columna derecha |
 | `surface` | Sub-barra de ejecuciones, cabeceras de sección, cabecera derecha, pie y barra de estado |
 | `surface_alt` | Campos, listas y chips |
 | `border` | Separadores y marcos |
 
+Los grises del texto, de más claro a más apagado: `TEXT` (texto corrido), `TEXT_LABEL` (rótulo de un campo y del interruptor «solo favoritos»), `TEXT_DIM` (resúmenes de sección) y `TEXT_MUTED` (pistas cortas y rutas).
+
 Lo que **no** sale de la paleta: los grises del texto y los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
 
-La pestaña activa del repo se funde con la barra de título; las demás son placas oscuras con su nombre en **su** color. Cambiar de tema repinta el espacio de trabajo de ese repo aunque no sea el activo.
+Las pestañas de repo **no seleccionadas** llevan de fondo el acento del repo activo —el color con el que queda pintada la barra de título— y el contorno de `on_accent`, el mismo del «+», que es lo único que las recorta; el hover lo sube de 90 a 150 de alfa. La **seleccionada** se pinta de `chrome`, la banda de la fila del menú, que es la que va justo debajo: la pestaña queda conectada con el contenido que abre, como en un navegador, con el nombre en el acento del repo y sin contorno. El «+» es una pestaña más, la que todavía no tiene repo. Cambiar el color del repo activo repinta la fila entera.
 
 El menú del clic derecho sobre una pestaña es la ruta y los ocho colores, nada más: quitar el repo es la × de la pestaña, y repetirlo en el menú no agregaba un camino, agregaba una lista más larga.
 
-La marca `◇ CONSOLA` se apoya en una placa casi negra sobre la barra de título pintada del acento — es el único negro de la ventana. La fila de la barra de menú no lo es: toma `chrome`, la banda más clara de la escalera.
+**Ningún fondo es negro.** La marca se apoya directamente en la barra de título, en `on_accent`, sin placa: su rombo se **pinta** con trazo de 2.2 px y el nombre va en negro de imprenta, que es lo que la sostiene sin una placa debajo. El casi negro `#0a0b10` sobrevive solo como tinta (`Colors.INK`, lo que `on_color` pone sobre un fondo claro), nunca como fondo. El contorno de la ventana sin foco es `border`.
+
+Los tres botones de ventana se **pintan** —trazo de 1.6 px en `on_accent`—, no se escriben: como caracteres («─», «□», «✕») eran trazos de un píxel que se perdían contra el acento, y la negrita no engorda un carácter de dibujo de caja. El fondo del hover sale del mismo `on_accent` al 16 %, salvo el de cerrar, que es rojo.
+
+El campo del buscador toma de la paleta los mismos fondo (`surface_alt`), borde (`border`), alto (30 px), radio y foco (`accent`) que un campo de una sola línea de la columna derecha, sin una sola excepción: es un campo de texto como los otros, en la misma ventana. La lista que despliega sigue en los neutros de `ui/theme.py`.
 
 Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` repite los neutros pelados de `ui/theme.py`, con la misma escalera y sin teñir.
 

@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt, Signal, QEvent, QPoint, QRect
 
 from ui.theme import Colors, Fonts
+from ui.palettes import NEUTRAL, Palette
 from ui import favorites
 from ui.widgets import ActionRow
 from core.registry import registry
@@ -30,12 +31,13 @@ class ActionSearch(QWidget):
     favorites_changed = Signal(set)
 
     WIDTH = 240
+    FIELD_HEIGHT = 30       # el de un campo de una sola linea en el resto de la ventana
     POPUP_WIDTH = 440
     POPUP_MAX_HEIGHT = 460
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self._accent = Colors.ACCENT
+        self.pal = NEUTRAL
         self._ready: set[str] = set()
         # Lo que tiene sentido en el repo abierto. Buscar si muestra lo que no
         # esta marcado como favorito (ver la docstring), pero no lo que este
@@ -52,6 +54,9 @@ class ActionSearch(QWidget):
         self.box.setPlaceholderText("Buscar acciones…")
         self.box.setClearButtonEnabled(True)
         self.box.setFixedWidth(self.WIDTH)
+        # El mismo alto que un campo de parametros (`ui/params_panel.py`): es
+        # un campo de texto como los otros y en la misma ventana.
+        self.box.setFixedHeight(self.FIELD_HEIGHT)
         self.box.textChanged.connect(self._on_text)
         self.box.installEventFilter(self)
         lay.addWidget(self.box)
@@ -62,11 +67,16 @@ class ActionSearch(QWidget):
         self._headers: list[tuple[QLabel, list[ActionRow]]] = []
 
     # --- estado que llega de la ventana ----------------------------------
-    def set_accent(self, color: str) -> None:
-        self._accent = color
+    def set_palette(self, pal: Palette) -> None:
+        """El buscador vive fuera del espacio de trabajo, pero su campo es un
+        campo: los mismos fondo, borde, alto, radio y foco que los de la
+        columna derecha, sin una sola excepcion. Marcarle mas el borde para
+        despegarlo de `chrome` —que esta a un 5 % de su claridad— lo dejaba
+        pareciendose a si mismo y a nada mas."""
+        self.pal = pal
         self._restyle_box()
         for row in self._rows:
-            row.set_accent(color)
+            row.set_accent(pal.accent)
 
     def set_ready(self, ready: set[str]) -> None:
         self._ready = set(ready)
@@ -95,14 +105,14 @@ class ActionSearch(QWidget):
     def _restyle_box(self) -> None:
         self.box.setStyleSheet(f"""
             QLineEdit {{
-                background: {Colors.SURFACE_ALT};
+                background: {self.pal.surface_alt};
                 color: {Colors.TEXT};
-                border: 1px solid {Colors.BORDER};
-                border-radius: 6px;
-                padding: 5px 10px;
+                border: 1px solid {self.pal.border};
+                border-radius: 5px;
+                padding: 0 8px;
                 font-size: {Fonts.SIZE_SM}px;
             }}
-            QLineEdit:focus {{ border: 1px solid {self._accent}; }}
+            QLineEdit:focus {{ border: 1px solid {self.pal.accent}; }}
             QLineEdit:disabled {{ color: {Colors.TEXT_MUTED}; }}
         """)
 

@@ -74,7 +74,7 @@ class EnvRow(QWidget):
         self.label.setFixedWidth(label_width)
         self.label.setToolTip(setting.key)
         self.label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
+            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_XS}px;"
         )
         if setting.kind == 'list':
             self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)

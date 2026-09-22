@@ -25,10 +25,10 @@ Dos señales, dos herramientas, y no se pisan:
   Un tono por seccion anularia la primera señal: si «Parametros» fuera siempre
   verde, el verde dejaria de querer decir «repo verde».
 
-Hay **un solo fondo casi negro**, `brand`: la placa del logo y la de las
-pestañas de repo inactivas, ambas sobre la barra de titulo pintada del acento.
-La fila de la barra de menu (`chrome`) no es negra — es la banda mas clara de
-la escalera de fondos, y la mas saturada de todas.
+**Ningun fondo es negro.** El mas oscuro es `bg`, el lienzo donde se lee; la
+fila de la barra de menu (`chrome`) es la banda mas clara de la escalera, y la
+mas saturada. La barra de titulo va pintada del acento y lo que se apoya en
+ella —la marca, las pestanas de repo— no lleva placa.
 
 Lo que NO entra aca: `SUCCESS`, `WARNING`, `ERROR` y los LED. Un estado tiene
 que significar lo mismo en todos los repos; teñirlos haria que en un repo
@@ -80,11 +80,10 @@ def _tinted(base: str, accent: str, sat: float) -> str:
 
 # De que neutro sale cada rol y con cuanta saturacion se pinta. Son fondos de
 # color, no grises insinuados: por debajo del 35 % el tono deja de leerse a
-# tamaño de pantalla y todo vuelve a parecer gris. Las dos franjas que van
-# sobre la barra de titulo —la placa del logo y la fila del menu— son las mas
-# saturadas, porque son las que dicen de un vistazo en que repo estas.
+# tamaño de pantalla y todo vuelve a parecer gris. La fila del menu es la mas
+# saturada: es la banda que dice de un vistazo en que repo estas, y la que
+# lleva ademas la pestana del repo seleccionado.
 _RECIPE: tuple[tuple[str, str, float], ...] = (
-    ('brand',         Colors.BRAND,         0.55),
     ('chrome',        Colors.CHROME,        0.50),
     ('bg',            Colors.BG,            0.38),
     ('panel',         Colors.PANEL,         0.42),
@@ -106,8 +105,7 @@ class Palette:
     key: str
     label: str
     accent: str
-    brand: str          # placa del logo y de las pestanas inactivas: el unico casi negro
-    chrome: str         # fila de la barra de menu: la banda mas clara y mas saturada
+    chrome: str         # fila de la barra de menu y pestana del repo seleccionado
     bg: str             # consola y lienzo izquierdo: el escalon mas oscuro
     panel: str          # cuerpo de las secciones de la columna derecha
     surface: str        # sub-barra, cabeceras de seccion, pie, barra de estado
@@ -150,8 +148,7 @@ THEMES: dict[str, Palette] = {p.key: p for p in (
 
 # Sin ningun repo abierto no hay de quien tomar el tono: los neutros pelados.
 NEUTRAL = Palette(key='', label='', accent=Colors.ACCENT,
-                  brand=Colors.BRAND, chrome=Colors.CHROME,
-                  bg=Colors.BG, panel=Colors.PANEL,
+                  chrome=Colors.CHROME, bg=Colors.BG, panel=Colors.PANEL,
                   surface=Colors.SURFACE, surface_hover=Colors.SURFACE_HOVER,
                   surface_alt=Colors.SURFACE_ALT, border=Colors.BORDER,
                   border_light=Colors.BORDER_LIGHT)

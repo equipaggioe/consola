@@ -1,37 +1,67 @@
 from __future__ import annotations
 from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
-from PySide6.QtCore import Qt, Signal, QPoint
-from PySide6.QtGui import QPainter, QColor
+from PySide6.QtCore import Qt, Signal, QPoint, QPointF, QRectF
+from PySide6.QtGui import QPainter, QColor, QPen, QPolygonF
 
 from ui.theme import Colors, Fonts, tint, on_color
 from ui.project_tabs import ProjectTab
 from ui.palettes import NEUTRAL, Palette
 
 
+class Diamond(QWidget):
+    """El rombo de la marca, pintado.
+
+    Como caracter (`◇`) es un trazo de un pixel que a esta escala se pierde
+    contra el acento, y la negrita no lo engorda: es un simbolo geometrico,
+    no una letra. Pintado se le puede pedir el grosor que la marca necesita.
+    """
+
+    SIZE = 17
+    STROKE = 2.2
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setFixedSize(self.SIZE + 4, self.SIZE + 4)
+        self._color = Colors.INK
+
+    def set_color(self, color: str) -> None:
+        self._color = color
+        self.update()
+
+    def paintEvent(self, event):
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        pen = QPen(QColor(self._color))
+        pen.setWidthF(self.STROKE)
+        pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        c = QRectF(self.rect()).center()
+        h = self.SIZE / 2 - self.STROKE / 2
+        rombo = QPolygonF([QPointF(c.x(), c.y() - h), QPointF(c.x() + h, c.y()),
+                           QPointF(c.x(), c.y() + h), QPointF(c.x() - h, c.y())])
+        p.drawPolygon(rombo)
+        p.end()
+
+
 class BrandMark(QWidget):
-    """Marca de la aplicacion: `◇ CONSOLA`, sobre una placa oscura.
+    """Marca de la aplicacion: el rombo y `CONSOLA`, sobre la barra de titulo
+    pintada del color del repo activo.
 
     Abre la barra de titulo, a la izquierda de las pestanas de repos — el
     lugar donde un navegador pone su boton de menu o su logo.
 
-    La placa es el unico fondo casi negro de la ventana (`Palette.brand`): el
-    rombo y el nombre piden un sitio fijo donde apoyarse, y sobre la barra
-    pintada del acento el mismo texto cambiaba de peso con cada tema. Todo lo
-    demas —empezando por la fila de la barra de menu— es color, no negro.
+    Sin placa que la separe, lo que la sostiene es el peso: el rombo se pinta
+    con trazo propio y el nombre va en negro de imprenta.
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setObjectName("brandMark")
-        # Sin esto un `QWidget` pelado ignora el `background` de su hoja de
-        # estilo y la placa se pierde contra la barra de titulo.
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 0, 16, 0)
-        layout.setSpacing(8)
+        layout.setContentsMargins(14, 0, 14, 0)
+        layout.setSpacing(9)
 
-        self.diamond = QLabel("◇")
-        self.diamond.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.diamond = Diamond()
         self.title = QLabel("CONSOLA")
         self.title.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
@@ -40,16 +70,13 @@ class BrandMark(QWidget):
         self.set_palette(NEUTRAL)
 
     def set_palette(self, pal: Palette) -> None:
-        """La placa toma el casi negro del repo; el rombo y el nombre, su
-        acento — que es lo que se lee sobre ella."""
-        self.setStyleSheet(f"QWidget#brandMark {{ background: {pal.brand}; }}")
-        self.diamond.setStyleSheet(
-            f"background: transparent; color: {pal.accent}; font-size: {Fonts.SIZE_LG}px;")
+        fg = pal.on_accent
+        self.diamond.set_color(fg)
         self.title.setStyleSheet(f"""
             background: transparent;
-            color: {pal.accent};
+            color: {fg};
             font-size: {Fonts.SIZE_SM}px;
-            font-weight: 700;
+            font-weight: 900;
             letter-spacing: 3px;
         """)
 
@@ -60,31 +87,90 @@ class WindowButton(QPushButton):
     La ventana es sin marco (`Qt.FramelessWindowHint`) para que las pestanas
     de repos y la marca compartan fila con estos tres botones; a cambio, hay
     que ponerlos.
+
+    El glifo se **pinta**, no se escribe. Como texto («─», «□», «✕») eran
+    trazos de un pixel que se perdian contra el acento, y la negrita no los
+    engorda: son caracteres de dibujo de caja, no letras. Pintados, los tres
+    tienen el mismo grosor y el mismo tamano, que es justo lo que se les pide.
     """
 
-    WIDTH = 44
+    WIDTH = 46
+    STROKE = 1.6
+    GLYPH = 11          # lado del cuadrado / de la equis, en pixeles
 
-    def __init__(self, glyph: str, danger: bool = False, parent=None):
-        super().__init__(glyph, parent)
+    def __init__(self, kind: str, parent=None):
+        super().__init__(parent)
+        self.kind = kind                    # 'min' | 'max' | 'close'
+        self.maximized = False
         self.setFixedWidth(self.WIDTH)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        self._danger = danger
+        self._fg = Colors.TEXT_DIM
         self.set_foreground(Colors.TEXT_DIM)
 
     def set_foreground(self, color: str) -> None:
-        """El glifo toma el color legible sobre la barra (`on_color`)."""
-        hover = Colors.ERROR if self._danger else Colors.SURFACE_HOVER
+        """El trazo toma el color legible sobre la barra (`on_color`).
+
+        El fondo del hover sale de ese mismo color y no de un gris fijo: un
+        gris oscuro sobre una barra clara era una mancha que no se parecia a
+        nada del resto de la ventana. El de cerrar si es rojo — ahi el color
+        ES el aviso.
+        """
+        self._fg = color
+        hover = Colors.ERROR if self.kind == 'close' else tint(color, 0.16)
         self.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: none; padding: 0;
-                text-align: center;
-                color: {color};
-                font-size: {Fonts.SIZE_SM}px;
-            }}
-            QPushButton:hover {{ background: {hover}; color: {Colors.TEXT}; }}
-            QPushButton:pressed {{ background: {tint(hover, 0.75)}; }}
+            QPushButton {{ background: transparent; border: none; padding: 0; }}
+            QPushButton:hover {{ background: {hover}; }}
+            QPushButton:pressed {{ background: {tint(
+                Colors.ERROR if self.kind == 'close' else color, 0.32)}; }}
         """)
+        self.update()
+
+    def set_maximized(self, value: bool) -> None:
+        self.maximized = value
+        self.update()
+
+    def paintEvent(self, event):
+        super().paintEvent(event)           # el fondo del hover lo pone la hoja
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        color = QColor(Colors.TEXT if (self.kind == 'close' and self.underMouse())
+                       else self._fg)
+        pen = QPen(color)
+        pen.setWidthF(self.STROKE)
+        pen.setCapStyle(Qt.PenCapStyle.FlatCap)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+
+        c = QRectF(self.rect()).center()
+        h = self.GLYPH / 2
+        if self.kind == 'min':
+            p.drawLine(QPointF(c.x() - h, c.y()), QPointF(c.x() + h, c.y()))
+        elif self.kind == 'max':
+            if self.maximized:
+                # Restaurar: la hoja de atras asomando por arriba y a la derecha.
+                p.drawRect(QRectF(c.x() - h, c.y() - h + 2.5, self.GLYPH - 2.5,
+                                  self.GLYPH - 2.5))
+                p.drawLine(QPointF(c.x() - h + 2.5, c.y() - h + 2.5),
+                           QPointF(c.x() - h + 2.5, c.y() - h))
+                p.drawLine(QPointF(c.x() - h + 2.5, c.y() - h),
+                           QPointF(c.x() + h, c.y() - h))
+                p.drawLine(QPointF(c.x() + h, c.y() - h),
+                           QPointF(c.x() + h, c.y() + h - 2.5))
+            else:
+                p.drawRect(QRectF(c.x() - h, c.y() - h, self.GLYPH, self.GLYPH))
+        else:
+            p.drawLine(QPointF(c.x() - h, c.y() - h), QPointF(c.x() + h, c.y() + h))
+            p.drawLine(QPointF(c.x() + h, c.y() - h), QPointF(c.x() - h, c.y() + h))
+        p.end()
+
+    def enterEvent(self, event):
+        self.update()
+        super().enterEvent(event)
+
+    def leaveEvent(self, event):
+        self.update()
+        super().leaveEvent(event)
 
 
 class TitleBar(QWidget):
@@ -123,9 +209,9 @@ class TitleBar(QWidget):
         self.tabs = tabs
         layout.addWidget(self.tabs, 1)
 
-        self.min_btn = WindowButton("─")
-        self.max_btn = WindowButton("□")
-        self.close_btn = WindowButton("✕", danger=True)
+        self.min_btn = WindowButton('min')
+        self.max_btn = WindowButton('max')
+        self.close_btn = WindowButton('close')
         for btn in (self.min_btn, self.max_btn, self.close_btn):
             btn.setFixedHeight(self.HEIGHT)
         self.min_btn.clicked.connect(self.minimize_requested.emit)
@@ -146,7 +232,7 @@ class TitleBar(QWidget):
         self.update()
 
     def set_maximized(self, value: bool) -> None:
-        self.max_btn.setText("❐" if value else "□")
+        self.max_btn.set_maximized(value)
         self.max_btn.setToolTip("Restaurar" if value else "Maximizar")
 
     # --- arrastrar la ventana ---------------------------------------------

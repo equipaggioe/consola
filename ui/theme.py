@@ -3,7 +3,7 @@ from PySide6.QtGui import QPalette, QColor, QFont
 from PySide6.QtWidgets import QApplication
 
 class Colors:
-    BRAND         = '#0a0b10'   # placa del logo y de las pestanas inactivas — el unico fondo casi negro
+    INK           = '#0a0b10'   # tinta oscura sobre un fondo claro (`on_color`). No es fondo de nada
     CHROME        = '#262d3d'   # fila de la barra de menu: una banda propia, por encima de las secciones
     BG            = '#0d1117'   # lienzo de contenido: consola y lienzo izquierdo
     PANEL         = '#1c212b'   # cuerpo de las secciones de la columna derecha
@@ -14,6 +14,7 @@ class Colors:
     BORDER_LIGHT  = '#4e586a'
     TEXT          = '#f0f4f8'
     TEXT_DIM      = '#9aa4b2'
+    TEXT_LABEL    = '#c6cfdb'   # rotulo de un campo: mas claro que TEXT_DIM, sin llegar al blanco de TEXT
     TEXT_MUTED    = '#6b7484'
     ACCENT        = '#58a6ff'
     ACCENT_PURPLE = '#bc8cff'
@@ -60,7 +61,7 @@ def on_color(hex_color: str) -> str:
         v /= 255
         return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
     lum = 0.2126 * lin(c.red()) + 0.7152 * lin(c.green()) + 0.0722 * lin(c.blue())
-    return Colors.BRAND if lum > 0.18 else Colors.TEXT
+    return Colors.INK if lum > 0.18 else Colors.TEXT
 
 def apply_theme(app: QApplication) -> None:
     font = QFont()

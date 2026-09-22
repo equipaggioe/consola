@@ -6,7 +6,7 @@ from PySide6.QtGui import (
     QPainter, QColor, QPainterPath, QFont, QAction, QPen
 )
 
-from ui.theme import Colors, Fonts
+from ui.theme import Colors, Fonts, tint
 from ui.widgets import ReorderableTab, ReorderableBar
 from ui import project_store, palettes, params_store
 from core.projects import Project
@@ -15,24 +15,29 @@ from core.projects import Project
 class ProjectTab(ReorderableTab, QWidget):
     """Pestana de nivel superior: un repositorio.
 
-    La barra de titulo se pinta entera del acento del repo activo
-    (`ui/title_bar.py`), y la pestana activa se funde con ella: sin fondo
-    propio, texto en negrita del color legible sobre ese fondo (`on_accent`).
-    Las demas son una placa oscura con el nombre en el color de SU repo: cada
-    una se reconoce por su color sin competir con la barra, y sin un mosaico
-    de fondos saturados que le quitaria protagonismo a la activa.
+    La activa se pinta de su acento, el mismo de la barra de titulo que la
+    sostiene, y va sin contorno: se funde con ella. Las demas se pintan del
+    fondo del repo ACTIVO (`chrome`, la banda de la fila de abajo) y llevan
+    contorno y nombre en el acento de SU repo — se hunden respecto de la
+    activa, que es lo que una pestana de atras tiene que hacer, y aun asi
+    cada una dice de que color es.
     """
     clicked = Signal()
     close_requested = Signal()
     theme_changed = Signal()
 
-    HEIGHT = 38
+    # Alto de la barra de titulo entera. 44 y no 38: dentro del contorno, a
+    # 38 el nombre quedaba pegado al borde de abajo.
+    HEIGHT = 44
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
         self.project = project
         # `pal` y no `palette`: `QWidget.palette()` ya existe y es otra cosa.
         self.pal = palettes.get(project.theme)
+        # La del repo activo, que es de quien esta pintada la barra: de ahi
+        # sale el fondo de esta pestana mientras NO sea la activa.
+        self.active_pal = self.pal
         self.is_active = False
         self._hovered = False
         self._closable = True
@@ -68,6 +73,13 @@ class ProjectTab(ReorderableTab, QWidget):
         self._sync_text()
         self.update()
 
+    def set_active_palette(self, pal) -> None:
+        """La paleta del repo activo: el fondo de esta pestana cuando no lo
+        es. La pone la barra al seleccionar o al recolorear (`ProjectTabBar`)."""
+        self.active_pal = pal
+        self._sync_text()
+        self.update()
+
     def set_closable(self, closable: bool) -> None:
         self._closable = closable
         self.close_btn.setVisible(closable)  # visible siempre que se pueda cerrar
@@ -78,7 +90,10 @@ class ProjectTab(ReorderableTab, QWidget):
         f.setBold(self.is_active)
         f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.6 if self.is_active else 0.0)
         self.name_label.setFont(f)
-        color = self.pal.on_accent if self.is_active else self.pal.accent
+        # Seleccionada: el acento del repo sobre su banda oscura. Las otras:
+        # la tinta que se lee sobre el acento del repo activo, que es el fondo
+        # de la barra en el que se apoyan.
+        color = self.pal.accent if self.is_active else self.active_pal.on_accent
         self.name_label.setStyleSheet(f"background: transparent; color: {color};")
         self.close_btn.setStyleSheet(f"""
             QPushButton {{
@@ -91,7 +106,7 @@ class ProjectTab(ReorderableTab, QWidget):
             }}
             QPushButton:hover {{
                 color: {Colors.ERROR};
-                background: {Colors.SURFACE_HOVER};
+                background: {tint(color, 0.16)};
             }}
         """)
         self.updateGeometry()
@@ -178,32 +193,40 @@ class ProjectTab(ReorderableTab, QWidget):
 
     # --- pintura -----------------------------------------------------
     def paintEvent(self, event):
+        """La seleccionada: `chrome`, la banda de la fila de abajo. Las demas:
+        el acento del repo activo —el color de la barra donde se apoyan— y el
+        contorno del «+», que es lo unico que las recorta; el hover lo sube."""
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect()).adjusted(1, 5, -1, -5)
+        r = QRectF(self.rect()).adjusted(1.5, 5.0, -1.5, -5.0)
+        path = QPainterPath()
+        path.addRoundedRect(r, 7, 7)
 
-        if not self.is_active:
-            # La placa lleva el casi negro de SU repo, no el del activo: es lo
-            # unico de la pestana inactiva que ya adelanta de que color es.
-            chip = QColor(self.pal.brand)
-            chip.setAlpha(245 if (self._hovered or self.is_dragging) else 200)
-            path = QPainterPath()
-            path.addRoundedRect(r, 5, 5)
-            p.fillPath(path, chip)
+        if self.is_active:
+            p.fillPath(path, QColor(self.pal.chrome))
+            p.end()
+            return
 
+        p.fillPath(path, QColor(self.active_pal.accent))
+        borde = QColor(self.active_pal.on_accent)
+        borde.setAlpha(150 if (self._hovered or self.is_dragging) else 90)
+        pen = QPen(borde)
+        pen.setWidthF(1.2)
         if self.is_dragging:
-            pen = QPen(QColor(self.pal.accent))
-            pen.setWidthF(1.4)
             pen.setStyle(Qt.PenStyle.DotLine)
-            p.setPen(pen)
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawRect(r.adjusted(1, 1, -1, -1))
-
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawPath(path)
         p.end()
 
 
 class AddProjectTab(QWidget):
-    """Pestana corta con el signo de mas: anadir repositorio."""
+    """Pestana corta con el signo de mas: anadir repositorio.
+
+    Lleva el contorno de `on_accent` sobre la barra del repo activo, que es
+    el mismo de una pestana no seleccionada: es una pestana mas, la que
+    todavia no tiene repo.
+    """
     clicked = Signal()
 
     def __init__(self, parent=None):
@@ -211,8 +234,13 @@ class AddProjectTab(QWidget):
         self.setFixedSize(48, ProjectTab.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("AddProjectTab { background: transparent; }")
+        self.pal = palettes.NEUTRAL
         self._hovered = False
         self.setToolTip("Anadir repositorio")
+
+    def set_palette(self, pal) -> None:
+        self.pal = pal
+        self.update()
 
     def enterEvent(self, event):
         self._hovered = True
@@ -232,16 +260,21 @@ class AddProjectTab(QWidget):
     def paintEvent(self, event):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect()).adjusted(7, 6, -7, -6)
-        # Placa oscura como las pestanas inactivas: sobre la barra pintada del
-        # color del repo, un contorno gris no se leia. Sin teñir, que es lo
-        # coherente: el «+» todavia no es de ningun repo.
-        chip = QColor(Colors.BRAND)
-        chip.setAlpha(245 if self._hovered else 200)
+        r = QRectF(self.rect()).adjusted(7.5, 6.5, -7.5, -6.5)
+
+        borde = QColor(self.pal.on_accent)
+        borde.setAlpha(150 if self._hovered else 90)
+        pen = QPen(borde)
+        pen.setWidthF(1.2)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
         path = QPainterPath()
-        path.addRoundedRect(r, 5, 5)
-        p.fillPath(path, chip)
-        pen = QPen(QColor(Colors.TEXT if self._hovered else Colors.TEXT_DIM))
+        path.addRoundedRect(r, 6, 6)
+        p.drawPath(path)
+
+        glifo = QColor(self.pal.on_accent)
+        glifo.setAlpha(255 if self._hovered else 190)
+        pen = QPen(glifo)
         pen.setWidth(2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(pen)
@@ -326,6 +359,8 @@ class ProjectTabBar(ReorderableBar, QWidget):
             return existente
 
         tab = ProjectTab(project)
+        if self._active is not None:
+            tab.set_active_palette(self._active.pal)
         tab.clicked.connect(lambda t=tab: self.select_tab(t))
         tab.close_requested.connect(lambda t=tab: self.remove_tab(t))
         tab.theme_changed.connect(lambda t=tab: self._on_theme_changed(t))
@@ -339,6 +374,11 @@ class ProjectTabBar(ReorderableBar, QWidget):
         return tab
 
     def _on_theme_changed(self, tab: ProjectTab) -> None:
+        if tab is self._active:
+            # Recolorear el activo repinta el fondo de TODAS las pestanas.
+            for t in self.tabs:
+                t.set_active_palette(tab.pal)
+            self.add_tab.set_palette(tab.pal)
         self._persist()
         self.project_retinted.emit(tab.project)
 
@@ -347,7 +387,9 @@ class ProjectTabBar(ReorderableBar, QWidget):
             return
         self._active = tab
         for t in self.tabs:
+            t.set_active_palette(tab.pal)
             t.set_active(t is tab)
+        self.add_tab.set_palette(tab.pal)
         self.update()
         self.project_selected.emit(tab.project)
 
@@ -375,6 +417,8 @@ class ProjectTabBar(ReorderableBar, QWidget):
             self._active = None
             if self.tabs:
                 self.select_tab(self.tabs[min(idx, len(self.tabs) - 1)])
+            else:
+                self.add_tab.set_palette(palettes.NEUTRAL)
         self.project_removed.emit(project)
 
     @property

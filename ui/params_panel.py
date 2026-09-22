@@ -302,7 +302,7 @@ class ParamsPanel(QWidget):
         # rotulo —no la lista— lo que no dejaba angostar la columna.
         label.setWordWrap(True)
         label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
+            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
         )
         return label
 
@@ -527,7 +527,7 @@ class ParamsPanel(QWidget):
 
             texto = QLabel(f'● {etiquetas.get(value, value)}')
             texto.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;")
+                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;")
             apagar = QPushButton('✕')
             apagar.setFixedSize(20, 20)
             apagar.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -563,7 +563,7 @@ class ParamsPanel(QWidget):
             row.setSpacing(4)
             label = QLabel(axis.display)
             label.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
+                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
             )
             row.addWidget(label)
 
@@ -654,7 +654,7 @@ class ParamsPanel(QWidget):
             row.setSpacing(4)
             label = QLabel(axis.display)
             label.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_SM}px;"
+                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
             )
             row.addWidget(label)
 

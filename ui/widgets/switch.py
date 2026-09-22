@@ -59,7 +59,9 @@ class ToggleSwitch(QWidget):
         self.update()
 
     def _restyle(self) -> None:
-        color = self.accent if self._checked else Colors.TEXT_MUTED
+        # Apagado va en el gris de rotulo, no en el mas apagado: «solo
+        # favoritos» es una etiqueta que hay que poder leer, no una pista.
+        color = self.accent if self._checked else Colors.TEXT_LABEL
         self.label.setStyleSheet(f"background: transparent; color: {color};")
 
     # --- interaccion ---------------------------------------------------

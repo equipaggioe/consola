@@ -106,7 +106,7 @@ class MainWindow(QMainWindow):
         # Sin repo elegido todavia: los grises pelados. Los repinta
         # `_apply_palette` en cuanto hay uno activo.
         self.pal = NEUTRAL
-        self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.BRAND}; }}")
+        self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.BG}; }}")
         self.setCentralWidget(self.central_widget)
 
         self.main_layout = QVBoxLayout(self.central_widget)
@@ -354,17 +354,18 @@ class MainWindow(QMainWindow):
         escritorio. El borde toma el color del repo activo —lo pone
         `_apply_accent`, la misma fuente que el fondo de la barra de titulo—
         y solo mientras la ventana tiene el foco, como hace Windows con su
-        propio marco. Sin foco se pinta del color del fondo y no desaparece:
-        asi el contenido no se corre un pixel al activar/desactivar.
+        propio marco. Sin foco se pinta de `border` —el mismo separador
+        teñido que usa el resto de la ventana— y no desaparece: asi el
+        contenido no se corre un pixel al activar/desactivar.
         Maximizada no hace falta: la ventana pega contra los bordes de la
         pantalla, como el marco de agarre."""
         if self.isMaximized():
             self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {self.pal.brand}; }}")
+                f"QWidget#centralWidget {{ background: {self.pal.bg}; }}")
         else:
-            color = self.pal.accent if self.isActiveWindow() else self.pal.brand
+            color = self.pal.accent if self.isActiveWindow() else self.pal.border
             self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {self.pal.brand}; "
+                f"QWidget#centralWidget {{ background: {self.pal.bg}; "
                 f"border: 1px solid {color}; }}")
 
     # --- paleta del repo activo --------------------------------------------
@@ -376,7 +377,7 @@ class MainWindow(QMainWindow):
         self.pal = pal
         self.title_bar.set_palette(pal)
         self.fav_switch.set_accent(pal.accent)
-        self.action_search.set_accent(pal.accent)
+        self.action_search.set_palette(pal)
         self.status_bar.set_palette(pal)
         self.menu_row.setStyleSheet(
             f"QWidget#menuRow {{ background: {pal.chrome}; "
