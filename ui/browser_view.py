@@ -7,6 +7,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.theme import Colors, Fonts
+from ui.palettes import Palette, NEUTRAL
 
 """
 El navegador embebido de una pestana de launcher.
@@ -44,11 +45,13 @@ class BrowserView(QWidget):
     def __init__(self, url: str = '', parent=None):
         super().__init__(parent)
         self._url = url
+        self.pal = NEUTRAL
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
         root.addWidget(self._build_bar())
+        self._fallback: QWidget | None = None
 
         if WEBENGINE:
             self.page = QWebEngineView(self)
@@ -58,6 +61,8 @@ class BrowserView(QWidget):
             self.page = None
             root.addWidget(self._build_fallback(), 1)
 
+        self._restyle()
+
         if url:
             self.load(url)
 
@@ -65,8 +70,7 @@ class BrowserView(QWidget):
     def _build_bar(self) -> QWidget:
         bar = QWidget()
         bar.setFixedHeight(34)
-        bar.setStyleSheet(
-            f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
+        self._bar = bar
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(8, 0, 8, 0)
         lay.setSpacing(4)
@@ -91,6 +95,16 @@ class BrowserView(QWidget):
         lay.addWidget(self.external_btn)
         return bar
 
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        self._bar.setStyleSheet(
+            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};")
+        if self._fallback is not None:
+            self._fallback.setStyleSheet(f"background: {self.pal.bg};")
+
     def _tool(self, glyph: str, tip: str, slot) -> QPushButton:
         btn = QPushButton(glyph)
         btn.setFixedSize(24, 24)
@@ -109,7 +123,7 @@ class BrowserView(QWidget):
     def _build_fallback(self) -> QWidget:
         """Sin QtWebEngine: se dice por que y se ofrece la salida de siempre."""
         box = QWidget()
-        box.setStyleSheet(f"background: {Colors.BG};")
+        self._fallback = box
         lay = QVBoxLayout(box)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setSpacing(10)

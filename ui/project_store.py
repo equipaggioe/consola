@@ -5,14 +5,15 @@ import os
 from PySide6.QtCore import QSettings
 
 from core.projects import Project
+from ui import palettes
 
 """
 Conjunto de repositorios abiertos como pestanas de nivel superior.
 
 La primera vez que se abre Consola no hay ninguno: la barra arranca vacia y el
 primero se anade con «+». A partir de ahi se guarda la lista entera —ruta,
-nombre, color, icono— para que la UI arranque como quedo: anadir, quitar y
-reordenar sobreviven al reinicio.
+nombre, tema, icono— para que la UI arranque como quedo: anadir, quitar,
+reordenar y cambiar de color sobreviven al reinicio.
 
 **Esto SI va en QSettings**, a diferencia de los parametros de cada accion, que
 viven en el repo (`ui/params_store.py`). La regla es de quien es la decision:
@@ -43,19 +44,28 @@ def display_path(path: str) -> str:
 
 
 def _to_dict(p: Project) -> dict:
-    return {'name': p.name, 'path': p.path, 'color': p.color, 'icon': p.icon}
+    return {'name': p.name, 'path': p.path, 'theme': p.theme, 'icon': p.icon}
 
 
 def _from_dict(d: dict) -> Project | None:
+    """Una entrada guardada, o nada si no se puede abrir tal cual esta.
+
+    Se descarta la que no trae un tema conocido: las guardadas antes de que un
+    repo eligiera tema traian un hex suelto (`color`), y una que nombre un tema
+    que ya no existe se quedo sin su paleta. En los dos casos la pestana se
+    pierde y se vuelve a anadir con «+» — inventarle un color seria darle uno
+    distinto del que tenia sin avisar.
+    """
     try:
         path = display_path(str(d['path']))
+        theme = str(d['theme'])
     except (KeyError, TypeError):
         return None
-    if not path or path == '.':
+    if not path or path == '.' or theme not in palettes.THEMES:
         return None
     return Project(str(d.get('name') or os.path.basename(path)),
                    path,
-                   str(d.get('color') or '#58a6ff'),
+                   theme,
                    str(d.get('icon') or '\U0001F4C1'))
 
 

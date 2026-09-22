@@ -4,6 +4,7 @@ from PySide6.QtWidgets import QPlainTextEdit, QLineEdit, QMenu
 from PySide6.QtGui import QTextCharFormat, QColor, QFont, QKeyEvent, QAction
 from PySide6.QtCore import Qt, QTimer
 from .theme import Colors, Fonts
+from .palettes import Palette, NEUTRAL
 
 class ConsoleView(QPlainTextEdit):
     """Terminal-like console with colored log levels and blinking cursor."""
@@ -11,15 +12,7 @@ class ConsoleView(QPlainTextEdit):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setReadOnly(True)
-        self.setStyleSheet(f"""
-            QPlainTextEdit {{
-                background-color: {Colors.BG};
-                color: {Colors.TEXT_DIM};
-                selection-background-color: rgba(88, 166, 255, 0.3);
-                border: none;
-                padding: 10px 12px;
-            }}
-        """)
+        self.pal = NEUTRAL
         font = QFont()
         font.setFamily(Fonts.MONO.split(',')[0].strip('\'"'))
         font.setPixelSize(Fonts.SIZE_MONO)
@@ -32,17 +25,33 @@ class ConsoleView(QPlainTextEdit):
         
         self.search_bar = QLineEdit(self)
         self.search_bar.setPlaceholderText("Search...")
+        self.search_bar.hide()
+        self._restyle()
+
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        self.setStyleSheet(f"""
+            QPlainTextEdit {{
+                background-color: {self.pal.bg};
+                color: {Colors.TEXT_DIM};
+                selection-background-color: {self.pal.glow(0.30)};
+                border: none;
+                padding: 10px 12px;
+            }}
+        """)
         self.search_bar.setStyleSheet(f"""
             QLineEdit {{
-                background-color: {Colors.SURFACE_ALT};
+                background-color: {self.pal.surface_alt};
                 color: {Colors.TEXT};
-                border: 1px solid {Colors.BORDER};
+                border: 1px solid {self.pal.border};
                 border-radius: 4px;
                 padding: 6px;
                 font-size: 14px;
             }}
         """)
-        self.search_bar.hide()
         
     def resizeEvent(self, event):
         super().resizeEvent(event)

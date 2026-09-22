@@ -10,6 +10,8 @@ from PySide6.QtCore import Qt, Signal, QRectF, QTimer, QEvent
 from PySide6.QtGui import QPainter, QColor, QFont, QPainterPath, QPen
 
 from ui.theme import Colors, Fonts
+from ui.palettes import Palette
+from ui import palettes
 from core import context, toolstatus
 from core import sysinfo
 from core.catalog import forget_machine_cache
@@ -41,10 +43,10 @@ class SubTabButton(ReorderableTab, QWidget):
 
     HEIGHT = 34
 
-    def __init__(self, title: str, icon: str, accent: str, parent=None):
+    def __init__(self, title: str, icon: str, pal: Palette, parent=None):
         super().__init__(parent)
         self.title = title
-        self.accent = accent
+        self.pal = pal
         self.is_active = False
         self._hovered = False
 
@@ -85,8 +87,8 @@ class SubTabButton(ReorderableTab, QWidget):
         self._init_reorder()
         self._sync_text()
 
-    def set_accent(self, accent: str) -> None:
-        self.accent = accent
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
         self.update()
 
     def set_active(self, active: bool) -> None:
@@ -134,7 +136,7 @@ class SubTabButton(ReorderableTab, QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect())
-        accent = QColor(self.accent)
+        accent = QColor(self.pal.accent)
 
         if self.is_active:
             path = QPainterPath()
@@ -146,7 +148,7 @@ class SubTabButton(ReorderableTab, QWidget):
         elif self._hovered or self.is_dragging:
             path = QPainterPath()
             path.addRoundedRect(r.adjusted(2, 4, -2, -3), 7, 7)
-            p.fillPath(path, QColor(Colors.SURFACE_HOVER))
+            p.fillPath(path, QColor(self.pal.surface_hover))
 
         if self.is_dragging:
             pen = QPen(accent)
@@ -164,12 +166,13 @@ class PadlockChip(QLabel):
     seccion Seguridad."""
     clicked = Signal()
 
-    def __init__(self, chip: str, label: str, protected: bool, parent=None):
+    def __init__(self, chip: str, label: str, protected: bool, pal: Palette,
+                 parent=None):
         super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        # Cerrado = a salvo (azul); abierto = expuesto a un destructivo sin red
-        # (rojo de alerta).
-        color = Colors.ACCENT if protected else Colors.ERROR
+        # Cerrado = a salvo (el color del repo); abierto = expuesto a un
+        # destructivo sin red, y eso es rojo en todos los repos.
+        color = pal.accent if protected else Colors.ERROR
         self.setStyleSheet(
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;")
         self.setToolTip(
@@ -192,9 +195,12 @@ class WorkspaceStatusBar(QWidget):
     """
     security_clicked = Signal()  # clic en el indicador de seguros del repo activo
 
-    def __init__(self, accent: str, parent=None):
+    def __init__(self, pal: Palette, parent=None):
         super().__init__(parent)
-        self.accent = accent
+        self.pal = pal
+        # Lo ultimo que se mostro en los candados: al cambiar de color hay que
+        # volver a pintarlos, y el estado lo tiene el repo, no la barra.
+        self._protection: dict = {}
         self.setFixedHeight(34)
         # Sin esto un QWidget derivado no pinta ni el fondo ni el borde de su
         # hoja de estilo: la linea de arriba que la separa del contenido no se
@@ -227,7 +233,8 @@ class WorkspaceStatusBar(QWidget):
         # RAM disponible: a diferencia de los SDK, cambia todo el tiempo (no
         # solo tras una instalacion), asi que tiene su propio timer.
         self.ram_label = QLabel()
-        self.ram_label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+        self.ram_label.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
         self.tools_layout.addWidget(self.ram_label)
         self._ram_timer = QTimer(self)
         self._ram_timer.timeout.connect(self.refresh_ram)
@@ -252,7 +259,8 @@ class WorkspaceStatusBar(QWidget):
         layout.addWidget(self._sep_status)
 
         self.status_label = QLabel("● 0 tareas activas  ·  00:00:00")
-        self.status_label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+        self.status_label.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
         layout.addWidget(self.status_label)
 
         self._restyle()
@@ -262,7 +270,7 @@ class WorkspaceStatusBar(QWidget):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.VLine)
         line.setFixedWidth(1)
-        line.setStyleSheet(f"background: {Colors.BORDER}; border: none;")
+        line.setStyleSheet(f"background: {self.pal.border}; border: none;")
         line.setFixedHeight(16)
         return line
 
@@ -300,7 +308,8 @@ class WorkspaceStatusBar(QWidget):
         self.ram_label.setText(f"RAM {disponible:.1f}/{total:.1f} GB")
         umbral = total * 0.15
         color = Colors.TEXT_DIM if disponible > umbral else Colors.WARNING
-        self.ram_label.setStyleSheet(f"color: {color}; font-size: {Fonts.SIZE_XS}px;")
+        self.ram_label.setStyleSheet(
+            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;")
 
     def _build_tool(self, tool) -> tuple[LedIndicator, QLabel]:
         container = QWidget()
@@ -330,14 +339,11 @@ class WorkspaceStatusBar(QWidget):
         clayout.addWidget(led)
 
         label = QLabel(name)
-        label.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+        label.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
         clayout.addWidget(label)
 
         self.services_layout.addWidget(container)
-
-    def set_accent(self, accent: str) -> None:
-        self.accent = accent
-        self._restyle()
 
     def set_status(self, text: str) -> None:
         self.status_label.setText(text)
@@ -356,6 +362,7 @@ class WorkspaceStatusBar(QWidget):
         seguro tambien es un dato, y con su candado abierto se ve de un
         vistazo. `state` es `{target_id: bool}` (`ui/security_panel.py`). Se
         llama al cambiar de repo y cada vez que se toca un interruptor."""
+        self._protection = dict(state)
         while self._security_row.count():
             item = self._security_row.takeAt(0)
             if item.widget():
@@ -365,18 +372,28 @@ class WorkspaceStatusBar(QWidget):
         self._sep_security.setVisible(True)
         for target in protection.TARGETS:
             protegido = protection.is_protected(state, target)
-            chip = PadlockChip(target.chip, target.label, protegido)
+            chip = PadlockChip(target.chip, target.label, protegido, self.pal)
             chip.clicked.connect(self.security_clicked.emit)
             self._security_row.addWidget(chip)
         self._restyle()
 
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+        # Los candados se pintan del acento cuando estan cerrados, asi que hay
+        # que rehacerlos; con la barra vacia no hay ninguno que rehacer.
+        if self.security_box.isVisible():
+            self.set_protection(self._protection)
+
     def _restyle(self) -> None:
         self.setStyleSheet(f"""
             WorkspaceStatusBar {{
-                background: {Colors.SURFACE};
-                border-top: 1px solid {Colors.BORDER};
+                background: {self.pal.surface};
+                border-top: 1px solid {self.pal.border};
             }}
         """)
+        for linea in (self._sep_tools, self._sep_security, self._sep_status):
+            linea.setStyleSheet(f"background: {self.pal.border}; border: none;")
 
 
 class TabPanel(ReorderableBar, QWidget):
@@ -399,7 +416,7 @@ class TabPanel(ReorderableBar, QWidget):
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
         self.project = project
-        self.accent = project.color
+        self.pal = palettes.get(project.theme)
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -409,12 +426,6 @@ class TabPanel(ReorderableBar, QWidget):
         self.sub_bar = QWidget()
         self.sub_bar.setObjectName("subBar")
         self.sub_bar.setFixedHeight(SubTabButton.HEIGHT + 4)
-        self.sub_bar.setStyleSheet(f"""
-            QWidget#subBar {{
-                background: {Colors.SURFACE};
-                border-bottom: 1px solid {Colors.BORDER};
-            }}
-        """)
         sub_bar_layout = QHBoxLayout(self.sub_bar)
         sub_bar_layout.setContentsMargins(10, 0, 10, 0)
         sub_bar_layout.setSpacing(2)
@@ -433,7 +444,6 @@ class TabPanel(ReorderableBar, QWidget):
 
         # --- area de contenido ---------------------------------------
         self.content_area = QStackedWidget()
-        self.content_area.setStyleSheet(f"background: {Colors.BG};")
 
         self.welcome_widget = self._build_welcome()
         self.content_area.addWidget(self.welcome_widget)
@@ -586,6 +596,10 @@ class TabPanel(ReorderableBar, QWidget):
         # guardarlas paso a paso: se guarda una vez al terminar el bucle.
         self._restoring = False
 
+        # Todo el espacio de trabajo nace con el color del repo: las
+        # cabeceras del acordeon y los paneles se construyen en gris y de aca
+        # sale su primera paleta, la misma que aplica un cambio de tema.
+        self.set_palette(self.pal)
         self._refresh_security_summary(self.security_panel.state())
         self._restore_tabs()
         QTimer.singleShot(0, self._relayout_right)
@@ -626,9 +640,6 @@ class TabPanel(ReorderableBar, QWidget):
         head = QWidget()
         # Por nombre: sin selector, la raya de abajo se heredaba a cada hijo.
         head.setObjectName("rightHeader")
-        head.setStyleSheet(
-            f"QWidget#rightHeader {{ background: {Colors.SURFACE}; "
-            f"border-bottom: 1px solid {Colors.BORDER}; }}")
         lay = QHBoxLayout(head)
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
@@ -652,7 +663,7 @@ class TabPanel(ReorderableBar, QWidget):
         # lugar donde se marca es el filete de la fila del buscador, que hay
         # que ir a buscar. Sin accion abierta la cabecera muestra el repo, y entonces
         # no hay nada que marcar.
-        self.fav_star = FavoriteStar(self.accent)
+        self.fav_star = FavoriteStar(self.pal.accent)
         self.fav_star.setEnabled(False)
         self.fav_star.marked.connect(self._on_star_marked)
 
@@ -693,7 +704,8 @@ class TabPanel(ReorderableBar, QWidget):
         lay.setSpacing(6)
 
         self.diamond_label = QLabel(self.project.icon or "◇")
-        self.diamond_label.setStyleSheet(f"color: {self.accent}; font-size: 54px;")
+        self.diamond_label.setStyleSheet(
+            f"background: transparent; color: {self.pal.accent}; font-size: 54px;")
         self.diamond_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.welcome_title = QLabel(self.project.name.upper())
@@ -703,11 +715,13 @@ class TabPanel(ReorderableBar, QWidget):
         self.welcome_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         subtitle = QLabel("Selecciona una accion del panel izquierdo")
-        subtitle.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_BASE}px;")
+        subtitle.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_BASE}px;")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.path_label = QLabel(self.project.path)
-        self.path_label.setStyleSheet(f"color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;")
+        self.path_label.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;")
         self.path_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         lay.addWidget(self.diamond_label, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -719,7 +733,7 @@ class TabPanel(ReorderableBar, QWidget):
 
     def _build_params_placeholder(self) -> QWidget:
         w = QWidget()
-        w.setStyleSheet(f"background: {Colors.SURFACE};")
+        self._params_placeholder = w
         lay = QVBoxLayout(w)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setContentsMargins(20, 20, 20, 20)
@@ -735,7 +749,7 @@ class TabPanel(ReorderableBar, QWidget):
         """Pie sin accion abierta: Ejecutar visible pero deshabilitado, para
         que la barra no cambie de alto al abrir la primera accion."""
         foot = QWidget()
-        foot.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
+        self._footer_placeholder = foot
         lay = QHBoxLayout(foot)
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
@@ -743,13 +757,7 @@ class TabPanel(ReorderableBar, QWidget):
         btn = QPushButton("▶  Ejecutar")
         btn.setFixedHeight(34)
         btn.setEnabled(False)
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT_MUTED};
-                border: none; border-radius: 6px; padding: 0 22px;
-                font-size: {Fonts.SIZE_SM}px; font-weight: 600;
-            }}
-        """)
+        self._footer_placeholder_btn = btn
         lay.addWidget(btn)
         return foot
 
@@ -800,12 +808,15 @@ class TabPanel(ReorderableBar, QWidget):
             self._activate(tab)
             return tab, self._views[tab]
 
-        tab = SubTabButton(title, capability.icon, self.accent)
+        tab = SubTabButton(title, capability.icon, self.pal)
         tab.setToolTip(capability.description)
         self.tabs_layout.addWidget(tab)
         self.tabs.append(tab)
 
         view = TabView(capability, self.project, self.content_area)
+        # La pestana nace con el color del repo, no con los grises: sin esto
+        # solo se tenia al cambiar de tema.
+        view.set_palette(self.pal)
         console = view.console
         console.append_log(f"─── {capability.name} ───", "info")
         if capability.description:
@@ -968,15 +979,58 @@ class TabPanel(ReorderableBar, QWidget):
         w = self.params_stack.currentWidget()
         return w if isinstance(w, ParamsPanel) else None
 
-    def set_accent(self, accent: str) -> None:
-        self.accent = accent
-        self.diamond_label.setStyleSheet(f"color: {accent}; font-size: 54px;")
+    def set_palette(self, pal: Palette) -> None:
+        """El repo eligio otro color: se repinta el espacio de trabajo entero.
+
+        No alcanza con el acento — la paleta son los fondos de cada panel, y
+        cada uno guarda la hoja de estilo que se le dicto al construirlo.
+        """
+        self.pal = pal
+        self._restyle()
         for tab in self.tabs:
-            tab.set_accent(accent)
+            tab.set_palette(pal)
         for panel in self._params.values():
-            panel.set_accent(accent)
-        self.env_panel.set_accent(accent)
-        self.fav_star.set_accent(accent)
+            panel.set_palette(pal)
+        for console in self._consoles.values():
+            console.set_palette(pal)
+        for view in self._views.values():
+            view.set_palette(pal)
+        self.env_panel.set_palette(pal)
+        self.security_panel.set_palette(pal)
+        self.info_panel.set_palette(pal)
+        for section in self._all_sections:
+            section.set_palette(pal)
+        for grip in self._grips.values():
+            grip.set_palette(pal)
+        self.fav_star.set_accent(pal.accent)
+
+    def _restyle(self) -> None:
+        """Los fondos que pone ESTE panel: la sub-barra de ejecuciones, el
+        lienzo de la consola, la cabecera de la columna derecha y los dos
+        marcadores de posicion. Lo de adentro lo repinta cada panel.
+        """
+        self.sub_bar.setStyleSheet(f"""
+            QWidget#subBar {{
+                background: {self.pal.surface};
+                border-bottom: 1px solid {self.pal.border};
+            }}
+        """)
+        self.content_area.setStyleSheet(f"background: {self.pal.bg};")
+        self.right_header.setStyleSheet(
+            f"QWidget#rightHeader {{ background: {self.pal.surface}; "
+            f"border-bottom: 1px solid {self.pal.border}; }}")
+        self._params_placeholder.setStyleSheet(f"background: {self.pal.panel};")
+        self._footer_placeholder.setStyleSheet(
+            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};")
+        self._footer_placeholder_btn.setStyleSheet(f"""
+            QPushButton {{
+                background: {self.pal.surface_alt}; color: {Colors.TEXT_MUTED};
+                border: none; border-radius: 6px; padding: 0 22px;
+                font-size: {Fonts.SIZE_SM}px; font-weight: 600;
+            }}
+        """)
+        self.diamond_label.setStyleSheet(
+            f"background: transparent; color: {self.pal.accent}; font-size: 54px;")
 
     def reveal_security(self) -> None:
         """Despliega la seccion Seguridad de este repo. La llama el indicador

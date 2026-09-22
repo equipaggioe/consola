@@ -7,7 +7,8 @@ from PySide6.QtCore import Qt, Signal
 from core import protection
 from core.projects import Project
 from ui import params_store
-from ui.theme import Colors, Fonts
+from ui.theme import Fonts
+from ui.palettes import Palette, NEUTRAL
 
 """
 Los seguros del repo: una casilla por tipo de objetivo (`core/protection.py`).
@@ -52,10 +53,11 @@ class SecurityPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self._scroll = scroll   # lo repinta `_restyle`
 
         self._body = QWidget()
-        self._body.setStyleSheet(f"background: {Colors.SURFACE};")
+        self.pal = NEUTRAL
+        self._restyle()
         lay = QVBoxLayout(self._body)
         lay.setContentsMargins(16, 10, 16, 12)
         lay.setSpacing(6)
@@ -75,6 +77,30 @@ class SecurityPanel(QWidget):
 
         scroll.setWidget(self._body)
         root.addWidget(scroll)
+
+    def _scroll_style(self) -> str:
+        """El scroll no tiene fondo propio: deja ver el del panel.
+
+        El canal de la barra si lo necesita. Cae bajo el mismo
+        `QScrollArea > QWidget > QWidget` que deja transparente al viewport
+        —la barra es hija del viewport—, y transparente lo pintaba el gris de
+        la paleta de Qt, no el fondo del panel: un filete gris al borde de una
+        columna teñida. Se le da el color a mano y en esta misma hoja, que es
+        la mas cercana y la que manda.
+        """
+        return (
+            "QScrollArea, QScrollArea > QWidget > QWidget "
+            "{ border: none; background: transparent; }"
+            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}")
+
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        # Cuerpo de seccion: `panel`, un escalon por debajo de su cabecera.
+        self._body.setStyleSheet(f"background: {self.pal.panel};")
+        self._scroll.setStyleSheet(self._scroll_style())
 
     def state(self) -> dict:
         """Lo que se ve, que es lo que `TabPanel._guard_ok` va a aplicar."""

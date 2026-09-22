@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from ui.theme import Colors, Fonts
+from ui.palettes import Palette, NEUTRAL
 from core.registry import Capability
 from core import command_docs
 
@@ -34,7 +35,11 @@ class CommandInfoPanel(QWidget):
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setStyleSheet(f"CommandInfoPanel {{ background: {Colors.SURFACE}; }}")
+        # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
+        # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
+        # seccion no se teñia del color del repo.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.pal = NEUTRAL
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -43,7 +48,7 @@ class CommandInfoPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self._scroll = scroll   # lo repinta `_restyle`
 
         self._content = QWidget()
         self._content.setStyleSheet("background: transparent;")
@@ -55,7 +60,32 @@ class CommandInfoPanel(QWidget):
         scroll.setWidget(self._content)
         root.addWidget(scroll)
 
+        self._restyle()
         self.set_capability(None)
+
+    def _scroll_style(self) -> str:
+        """El scroll no tiene fondo propio: deja ver el del panel.
+
+        El canal de la barra si lo necesita. Cae bajo el mismo
+        `QScrollArea > QWidget > QWidget` que deja transparente al viewport
+        —la barra es hija del viewport—, y transparente lo pintaba el gris de
+        la paleta de Qt, no el fondo del panel: un filete gris al borde de una
+        columna teñida. Se le da el color a mano y en esta misma hoja, que es
+        la mas cercana y la que manda.
+        """
+        return (
+            "QScrollArea, QScrollArea > QWidget > QWidget "
+            "{ border: none; background: transparent; }"
+            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}")
+
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        # Cuerpo de seccion: `panel`, un escalon por debajo de su cabecera.
+        self.setStyleSheet(f"CommandInfoPanel {{ background: {self.pal.panel}; }}")
+        self._scroll.setStyleSheet(self._scroll_style())
 
     # --- API ---------------------------------------------------------------
     def content_height(self) -> int:

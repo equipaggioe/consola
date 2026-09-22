@@ -15,6 +15,7 @@ from core import db_models as dbm
 from core.files import human_size
 from ui.db_worker import DbWorker
 from ui.theme import Colors, Fonts
+from ui.palettes import Palette, NEUTRAL
 
 """
 La vista de la pestana «Explorar base» (ADR-0015).
@@ -168,9 +169,12 @@ class RowsModel(QAbstractTableModel):
 class DbExplorerView(QWidget):
     """Arbol + (Datos | Estructura), sobre un `DbWorker` propio."""
 
-    def __init__(self, url: str, server_root: Path | None = None, parent=None):
+    def __init__(self, url: str, server_root: Path | None = None,
+                 pal: Palette = NEUTRAL, parent=None):
         super().__init__(parent)
         self.setObjectName('dbExplorer')
+        self.pal = pal
+        self._chips: list[QPushButton] = []
         self._relations: list[dbx.Relation] = []
         self._detail: dbx.TableDetail | None = None
         # Miga de pan: cada paso es una tabla con el filtro con que se llego.
@@ -189,24 +193,35 @@ class DbExplorerView(QWidget):
         self.worker.start()
 
         self._build()
+        self._restyle()
         self.refresh()
 
     # --- construccion ------------------------------------------------------------
-    def _build(self) -> None:
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        """La grilla, el arbol y la cabecera, en el color del repo.
+
+        Casi todo cuelga de esta hoja: los hijos no declaran fondo propio, asi
+        que cascadea. Las dos excepciones —el lado del arbol y la cabecera de
+        la derecha, que si lo declaran— y los chips se repintan aparte.
+        """
         self.setStyleSheet(f"""
-            QWidget#dbExplorer {{ background: {Colors.BG}; }}
+            QWidget#dbExplorer {{ background: {self.pal.bg}; }}
             QTreeWidget, QTableView, QTableWidget {{
-                background: {Colors.BG}; color: {Colors.TEXT};
+                background: {self.pal.bg}; color: {Colors.TEXT};
                 border: none; font-size: {Fonts.SIZE_SM}px;
-                selection-background-color: {Colors.SURFACE_HOVER};
+                selection-background-color: {self.pal.surface_hover};
                 selection-color: {Colors.TEXT};
-                gridline-color: {Colors.SURFACE};
-                alternate-background-color: #11161e;
+                gridline-color: {self.pal.surface};
+                alternate-background-color: {self.pal.panel};
             }}
             QHeaderView::section {{
-                background: {Colors.SURFACE}; color: {Colors.TEXT_DIM};
-                border: none; border-right: 1px solid {Colors.BORDER};
-                border-bottom: 1px solid {Colors.BORDER};
+                background: {self.pal.surface}; color: {Colors.TEXT_DIM};
+                border: none; border-right: 1px solid {self.pal.border};
+                border-bottom: 1px solid {self.pal.border};
                 padding: 4px 8px; font-size: {Fonts.SIZE_XS}px;
             }}
             QTabWidget::pane {{ border: none; }}
@@ -214,14 +229,24 @@ class DbExplorerView(QWidget):
                 background: transparent; color: {Colors.TEXT_DIM};
                 padding: 6px 14px; border: none; font-size: {Fonts.SIZE_SM}px;
             }}
-            QTabBar::tab:selected {{ color: {Colors.TEXT}; border-bottom: 2px solid {Colors.ACCENT}; }}
+            QTabBar::tab:selected {{ color: {Colors.TEXT}; border-bottom: 2px solid {self.pal.accent}; }}
             QLineEdit {{
-                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
-                border: 1px solid {Colors.BORDER}; border-radius: 6px;
+                background: {self.pal.surface_alt}; color: {Colors.TEXT};
+                border: 1px solid {self.pal.border}; border-radius: 6px;
                 padding: 5px 8px; font-size: {Fonts.SIZE_SM}px;
             }}
             QScrollArea {{ border: none; background: transparent; }}
         """)
+        self._tree_side.setStyleSheet(
+            f"QWidget#dbTreeSide {{ background: {self.pal.bg}; "
+            f"border-right: 1px solid {self.pal.border}; }}")
+        self._head.setStyleSheet(
+            f"background: {self.pal.surface}; "
+            f"border-bottom: 1px solid {self.pal.border};")
+        for chip in self._chips:
+            chip.setStyleSheet(self._chip_style())
+
+    def _build(self) -> None:
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         splitter = QSplitter(Qt.Orientation.Horizontal)
@@ -232,8 +257,7 @@ class DbExplorerView(QWidget):
         # Izquierda: filtro + agrupacion + resumen contra los modelos + arbol.
         left = QWidget()
         left.setObjectName('dbTreeSide')
-        left.setStyleSheet(f'QWidget#dbTreeSide {{ background: {Colors.BG}; '
-                           f'border-right: 1px solid {Colors.BORDER}; }}')
+        self._tree_side = left
         # Sin minimo, la cabecera de la derecha (titulo, subtitulo, Contar) se
         # quedaba con todo el ancho y el arbol cabia en 50 px: no se veia
         # ninguna tabla.
@@ -275,7 +299,7 @@ class DbExplorerView(QWidget):
         rl.setSpacing(0)
 
         head = QWidget()
-        head.setStyleSheet(f'background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};')
+        self._head = head
         hl = QVBoxLayout(head)
         hl.setContentsMargins(12, 8, 12, 8)
         hl.setSpacing(4)
@@ -357,16 +381,20 @@ class DbExplorerView(QWidget):
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFixedHeight(22)
-        btn.setStyleSheet(f"""
+        btn.setStyleSheet(self._chip_style())
+        self._chips.append(btn)
+        btn.clicked.connect(slot)
+        return btn
+
+    def _chip_style(self) -> str:
+        return f"""
             QPushButton {{
-                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT_DIM};
+                background: {self.pal.surface_alt}; color: {Colors.TEXT_DIM};
                 border: none; border-radius: 5px; padding: 0 10px; font-size: {Fonts.SIZE_XS}px;
             }}
             QPushButton:hover {{ color: {Colors.TEXT}; }}
             QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; background: transparent; }}
-        """)
-        btn.clicked.connect(slot)
-        return btn
+        """
 
     # --- ciclo de vida ---------------------------------------------------------------
     def refresh(self) -> None:

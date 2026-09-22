@@ -52,7 +52,15 @@ Leerlo nunca toca `os.environ`: una tarea no puede pisarle el entorno a las otra
 
 `upsert_value` es la otra escritura posible —reemplaza una sola clave conservando el resto— y la usa «Sincronizar env» ([ADR-0037](../adr/0037-sincronizar-solo-las-claves-compartidas.md)).
 
-## 5. `params.json`
+## 5. Los repos en pestañas
+
+`QSettings` guarda en `projects/list` la lista entera de repos abiertos, en orden: ruta, nombre, **tema** e icono (`ui/project_store.py`). Añadir, quitar, reordenar y cambiar de color sobreviven al reinicio. Va aquí y no en un repo porque un repo no puede saber que está en tu barra.
+
+El tema es la clave de una paleta (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)), no un color: se guarda el nombre para poder afinar la receta sin repintar a mano lo ya guardado. Una entrada que no trae un tema conocido se descarta al cargar y esa pestaña se vuelve a añadir con «+».
+
+La identidad de un repo es su ruta normalizada (`identity`): la misma carpeta escrita con otras barras o con otra caja es un solo repo, y con esa clave se indexan también su espacio de trabajo y su caché de parámetros.
+
+## 6. `params.json`
 
 Un solo archivo por repo, con tres clases de entrada:
 
@@ -71,11 +79,11 @@ Dos accesos dominan el rendimiento y los dos son calientes: `readiness` lee los 
 
 Un archivo roto a mano se trata como si no hubiera nada, y el primer guardado lo rehace.
 
-## 6. Reponer lo guardado
+## 7. Reponer lo guardado
 
 `ParamsPanel.apply_state` tolera un catálogo que cambió: los valores que ya no existen se ignoran y los ejes nuevos se quedan con su default. Un AVD borrado no fuerza una selección imposible; una cadena vacía guardada en un campo **sí** es una elección válida (significa «el default de la función»), y por eso se distingue de un eje que nunca existió.
 
-## 7. Cachés
+## 8. Cachés
 
 `core/cache.py` guarda en `%LOCALAPPDATA%\Consola\cache` (o `~/.cache/consola`) lo que es **catálogo** —listas publicadas por una herramienta, que no cambian en una sesión— y nunca lo que es **estado**:
 
@@ -88,7 +96,7 @@ Un archivo roto a mano se trata como si no hubiera nada, y el primer guardado lo
 
 Una caché ilegible es una caché vacía, nunca un error que corte una tarea. Al terminar una tarea de máquina, `forget_machine_cache()` olvida lo instalado y lo creado.
 
-## 8. El `.env` del servidor
+## 9. El `.env` del servidor
 
 Consola **no escribe** el `.env` de la aplicación administrada, con una excepción explícita: el botón «Sincronizar env», que iguala los valores de las claves que los dos archivos **ya** tienen, en la dirección elegida y con simulacro previo. No crea claves ni vuelca un archivo sobre el otro: cada uno sigue decidiendo qué le corresponde ([ADR-0037](../adr/0037-sincronizar-solo-las-claves-compartidas.md)).
 

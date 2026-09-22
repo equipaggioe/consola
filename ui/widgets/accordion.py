@@ -3,6 +3,7 @@ from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
 from PySide6.QtCore import Qt, Signal, QSize
 
 from ..theme import Colors, Fonts
+from ..palettes import Palette, NEUTRAL
 
 
 # `QWIDGETSIZE_MAX`: el valor con el que Qt entiende "sin tope de alto".
@@ -26,13 +27,8 @@ class AccordionHeader(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet(f"""
-            QWidget#accordionHeader {{
-                background: {Colors.SURFACE};
-                border-bottom: 1px solid {Colors.BORDER};
-            }}
-            QWidget#accordionHeader:hover {{ background: {Colors.SURFACE_HOVER}; }}
-        """)
+        self.pal = NEUTRAL
+        self._restyle()
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(9, 0, 12, 0)
@@ -58,6 +54,23 @@ class AccordionHeader(QWidget):
         lay.addWidget(self.title)
         lay.addStretch(1)
         lay.addWidget(self.summary)
+
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        # La cabecera va un escalon MAS CLARA que el cuerpo de su seccion
+        # (`pal.panel`): es lo que separa una seccion de la de al lado y el
+        # rotulo de su contenido. Antes las dos eran el mismo gris y la
+        # columna derecha se leia como una sola mancha.
+        self.setStyleSheet(f"""
+            QWidget#accordionHeader {{
+                background: {self.pal.surface};
+                border-bottom: 1px solid {self.pal.border};
+            }}
+            QWidget#accordionHeader:hover {{ background: {self.pal.surface_hover}; }}
+        """)
 
     def mouseReleaseEvent(self, event):
         if (event.button() == Qt.MouseButton.LeftButton
@@ -144,6 +157,11 @@ class AccordionSection(QWidget):
     def set_summary(self, text: str) -> None:
         self.header.summary.setText(text)
 
+    def set_palette(self, pal: Palette) -> None:
+        """El cuerpo lo repinta quien lo puso (cada panel tiene el suyo); de
+        aca sale solo la cabecera."""
+        self.header.set_palette(pal)
+
 
 class SectionResizeGrip(QWidget):
     """Barra fina entre dos secciones abiertas del acordeon.
@@ -166,14 +184,22 @@ class SectionResizeGrip(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.SplitVCursor)
+        self.pal = NEUTRAL
+        self._restyle()
+        self._last_y: float | None = None
+
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
         self.setStyleSheet(f"""
             QWidget#sectionGrip {{
-                background: {Colors.SURFACE};
-                border-bottom: 1px solid {Colors.BORDER};
+                background: {self.pal.surface};
+                border-bottom: 1px solid {self.pal.border};
             }}
-            QWidget#sectionGrip:hover {{ background: {Colors.SURFACE_HOVER}; }}
+            QWidget#sectionGrip:hover {{ background: {self.pal.surface_hover}; }}
         """)
-        self._last_y: float | None = None
 
     def mousePressEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton:

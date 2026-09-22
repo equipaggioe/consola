@@ -4,9 +4,10 @@ from PySide6.QtWidgets import QApplication
 
 class Colors:
     CHROME        = '#08090c'   # barra superior (nivel de repos) — la capa mas oscura
-    BG            = '#0d1117'   # lienzo de contenido
-    SURFACE       = '#1c212b'   # sub-barra de pestanas, barra de estado
-    SURFACE_HOVER = '#262d3a'
+    BG            = '#0d1117'   # lienzo de contenido: consola y lienzo izquierdo
+    PANEL         = '#1c212b'   # cuerpo de las secciones de la columna derecha
+    SURFACE       = '#232935'   # sub-barra, cabeceras de seccion, pie, barra de estado
+    SURFACE_HOVER = '#2b3240'
     SURFACE_ALT   = '#2f3745'   # campos de entrada, chips — la superficie mas clara
     BORDER        = '#3d4657'
     BORDER_LIGHT  = '#4e586a'

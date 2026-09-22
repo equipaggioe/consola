@@ -14,6 +14,7 @@ from core.registry import Capability
 from ui.browser_view import BrowserView, open_external
 from ui.console_view import ConsoleView
 from ui.theme import Colors, Fonts
+from ui.palettes import Palette, NEUTRAL
 from ui.widgets.led import LedIndicator
 
 """
@@ -28,6 +29,18 @@ La misma caja sirve para «Explorar base» (ADR-0015): arbol y
 grilla en lugar de texto, compartiendo el panel de parametros y el pie de la
 pestana. Por eso el conmutador se llama "vista" y no "navegador".
 """
+
+def _chip_style(pal: Palette) -> str:
+    return f"""
+        QPushButton {{
+            background: {pal.surface_alt}; color: {Colors.TEXT_DIM};
+            border: none; border-radius: 5px; padding: 0 10px;
+            font-size: {Fonts.SIZE_XS}px;
+        }}
+        QPushButton:hover {{ color: {Colors.TEXT}; }}
+        QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; background: transparent; }}
+    """
+
 
 CONSOLA = 'Consola'
 # El rotulo del chip que lleva a la segunda vista, segun `Capability.view`.
@@ -46,12 +59,15 @@ class TabView(QWidget):
         self._web = False
         self._browser: BrowserView | None = None
         self._explorer = None   # DbExplorerView, importada al primer uso
+        self.pal = NEUTRAL
+        self._chips: list[QPushButton] = []
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
         self.tool_bar = self._build_tool_bar()
+        self._restyle()
 
         self.console = ConsoleView(self)
         self.stack = QStackedWidget(self)
@@ -70,8 +86,6 @@ class TabView(QWidget):
         tarea, que aparece y desaparece con la URL."""
         bar = QWidget()
         bar.setFixedHeight(36)
-        bar.setStyleSheet(
-            f"background: {Colors.SURFACE}; border-bottom: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(12, 0, 10, 0)
         lay.setSpacing(8)
@@ -141,17 +155,26 @@ class TabView(QWidget):
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFixedHeight(22)
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT_DIM};
-                border: none; border-radius: 5px; padding: 0 10px;
-                font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ color: {Colors.TEXT}; }}
-            QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; background: transparent; }}
-        """)
+        btn.setStyleSheet(_chip_style(self.pal))
+        self._chips.append(btn)
         btn.clicked.connect(slot)
         return btn
+
+    # --- color del repo -------------------------------------------------
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+        self.console.set_palette(pal)
+        if self._browser is not None:
+            self._browser.set_palette(pal)
+        if self._explorer is not None:
+            self._explorer.set_palette(pal)
+
+    def _restyle(self) -> None:
+        self.tool_bar.setStyleSheet(
+            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};")
+        for chip in self._chips:
+            chip.setStyleSheet(_chip_style(self.pal))
 
     # --- endpoint ------------------------------------------------------
     def set_endpoint(self, url: str, label: str, web: bool, state: str) -> None:
@@ -227,6 +250,7 @@ class TabView(QWidget):
         """
         if self._browser is None:
             self._browser = BrowserView(self._url, self)
+            self._browser.set_palette(self.pal)
             self.stack.addWidget(self._browser)
         elif self._browser.url != self._url:
             self._browser.load(self._url)
@@ -252,7 +276,7 @@ class TabView(QWidget):
             return
         from ui.db_explorer_view import DbExplorerView
         server_root = Path(self.project.path) /             Config.for_project(self.project.path).get('SERVER_DIR', 'server')
-        self._explorer = DbExplorerView(str(url), server_root, self)
+        self._explorer = DbExplorerView(str(url), server_root, self.pal, self)
         self.stack.addWidget(self._explorer)
         self.show_explorer()
 

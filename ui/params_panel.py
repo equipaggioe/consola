@@ -10,12 +10,13 @@ from PySide6.QtCore import Qt, Signal, QThread
 from PySide6.QtGui import QIntValidator
 
 from ui.theme import Colors, Fonts
+from ui.palettes import Palette
 from core import envfile
 from core.catalog import for_project, queried_values
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
 from core.settings import relevant_keys_for, required_keys_for
-from ui import params_store
+from ui import params_store, palettes
 
 
 class SectionLabel(QLabel):
@@ -100,7 +101,7 @@ class ParamsPanel(QWidget):
         base = for_project(capability, project.path)
         self.capability = replace(base, axes=[replace(a) for a in base.axes])
         self.project = project
-        self.accent = project.color
+        self.pal = palettes.get(project.theme)
         self.env_panel = env_panel
         # Sobre la copia resuelta para ESTE repo, no sobre la del catalogo: es
         # la que ya se quedo sin los pasos que aca no existen (las migraciones
@@ -128,8 +129,10 @@ class ParamsPanel(QWidget):
                                # hay que soltar el grupo que reemplaza.
         self._step_checks: dict[str, QCheckBox] = {}
         self._restoring = True   # mientras se arma, ningun cambio se guarda
-
-        self.setStyleSheet(f"ParamsPanel {{ background: {Colors.SURFACE}; }}")
+        # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
+        # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
+        # seccion no se teñia del color del repo.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -142,6 +145,7 @@ class ParamsPanel(QWidget):
         # el. Se construye igual aca (toda la logica de bloqueos es de esta
         # clase) y el contenedor lo reparenta.
         self.footer = self._build_footer()
+        self._restyle()
 
         root.addWidget(self._body_widget, 1)
 
@@ -216,7 +220,7 @@ class ParamsPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self._scroll = scroll   # lo repinta `_restyle`
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
@@ -333,20 +337,38 @@ class ParamsPanel(QWidget):
             completer.setFilterMode(Qt.MatchFlag.MatchContains)
             completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
             combo.setCompleter(completer)
-        combo.setStyleSheet(f"""
+        combo.setStyleSheet(self._combo_style())
+        return combo
+
+    def _scroll_style(self) -> str:
+        """El scroll no tiene fondo propio: deja ver el del panel.
+
+        El canal de la barra si lo necesita. Cae bajo el mismo
+        `QScrollArea > QWidget > QWidget` que deja transparente al viewport
+        —la barra es hija del viewport—, y transparente lo pintaba el gris de
+        la paleta de Qt, no el fondo del panel: un filete gris al borde de una
+        columna teñida. Se le da el color a mano y en esta misma hoja, que es
+        la mas cercana y la que manda.
+        """
+        return (
+            "QScrollArea, QScrollArea > QWidget > QWidget "
+            "{ border: none; background: transparent; }"
+            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}")
+
+    def _combo_style(self) -> str:
+        return f"""
             QComboBox {{
-                background: {Colors.SURFACE_ALT}; border: 1px solid {Colors.BORDER};
+                background: {self.pal.surface_alt}; border: 1px solid {self.pal.border};
                 border-radius: 5px; padding: 0 8px;
                 color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
             }}
-            QComboBox:focus {{ border: 1px solid {self.accent}; }}
+            QComboBox:focus {{ border: 1px solid {self.pal.accent}; }}
             QComboBox QAbstractItemView {{
-                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
-                selection-background-color: {self.accent};
-                border: 1px solid {Colors.BORDER};
+                background: {self.pal.surface_alt}; color: {Colors.TEXT};
+                selection-background-color: {self.pal.accent};
+                border: 1px solid {self.pal.border};
             }}
-        """)
-        return combo
+        """
 
     def _build_facets(self, axis: AxisDef) -> QWidget:
         """Un eje `pick` dibujado por caracteristica: una lista corta por cada
@@ -567,14 +589,7 @@ class ParamsPanel(QWidget):
             # que va en el campo ocuparia este mismo lugar y se leeria como un
             # valor — eso va en la etiqueta, no aca.
             field.setPlaceholderText(default)
-            field.setStyleSheet(f"""
-                QLineEdit, QPlainTextEdit {{
-                    background: {Colors.SURFACE_ALT}; border: 1px solid {Colors.BORDER};
-                    border-radius: 5px; padding: {'5px 8px' if axis.multiline else '0 8px'};
-                    color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
-                }}
-                QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {self.accent}; }}
-            """)
+            field.setStyleSheet(self._field_style(axis.multiline))
             self._fields[axis.name] = field
             row.addWidget(field)
             lay.addLayout(row)
@@ -723,6 +738,16 @@ class ParamsPanel(QWidget):
             self._empty_notes[axis.name] = nota
             lay.addWidget(nota)
 
+    def _field_style(self, multiline: bool) -> str:
+        return f"""
+            QLineEdit, QPlainTextEdit {{
+                background: {self.pal.surface_alt}; border: 1px solid {self.pal.border};
+                border-radius: 5px; padding: {'5px 8px' if multiline else '0 8px'};
+                color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
+            }}
+            QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {self.pal.accent}; }}
+        """
+
     @property
     def _dry_run_axis(self) -> AxisDef | None:
         """El eje excluyente que ofrece un simulacro (`clean_artifacts`,
@@ -733,7 +758,6 @@ class ParamsPanel(QWidget):
 
     def _build_footer(self) -> QWidget:
         foot = QWidget()
-        foot.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(foot)
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
@@ -744,14 +768,7 @@ class ParamsPanel(QWidget):
         clear_btn.setFixedHeight(34)
         clear_btn.setToolTip("Vaciar el log de esta pestaña y cerrar sus túneles SSH")
         clear_btn.clicked.connect(self.clear_requested.emit)
-        clear_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {Colors.BORDER};
-                color: {Colors.TEXT_DIM}; border-radius: 6px;
-                padding: 0 16px; font-size: {Fonts.SIZE_SM}px;
-            }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
-        """)
+        self.clear_btn = clear_btn
         lay.addWidget(clear_btn)
         lay.addStretch()
 
@@ -762,15 +779,6 @@ class ParamsPanel(QWidget):
             self.dry_btn.setFixedHeight(34)
             self.dry_btn.setToolTip("Corre sin tocar nada: solo muestra qué haría")
             self.dry_btn.clicked.connect(lambda: self._emit_execute(dry_run=True))
-            self.dry_btn.setStyleSheet(f"""
-                QPushButton {{
-                    background: transparent; border: 1px solid {Colors.BORDER};
-                    color: {Colors.TEXT_DIM}; border-radius: 6px;
-                    padding: 0 16px; font-size: {Fonts.SIZE_SM}px;
-                }}
-                QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
-                QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; }}
-            """)
             lay.addWidget(self.dry_btn)
 
         self.run_btn = QPushButton("▶  Ejecutar")
@@ -962,9 +970,47 @@ class ParamsPanel(QWidget):
         self._env = values
         self._refresh_summary()
 
-    def set_accent(self, accent: str) -> None:
-        self.accent = accent
+    def set_palette(self, pal: Palette) -> None:
+        """Cambio de color del repo: se repinta el panel entero, no solo el
+        boton Ejecutar. Los campos y las listas se quedaron con la hoja de
+        estilo que se les dicto al construirlos, asi que hay que volver a
+        dictarsela una por una."""
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        # El panel es el CUERPO de la seccion «Parametros»: `panel`, un
+        # escalon por debajo de la cabecera que lo rotula.
+        # La barra de scroll se pinta aparte: su canal no es un fondo de hoja
+        # de estilo sino el color de la paleta de Qt, y se quedaba gris dentro
+        # de un panel teñido.
+        self.setStyleSheet(f"ParamsPanel {{ background: {self.pal.panel}; }}")
+        self._scroll.setStyleSheet(self._scroll_style())
+        self.footer.setStyleSheet(
+            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};")
+        for boton in (self.clear_btn, self.dry_btn):
+            if boton is not None:
+                boton.setStyleSheet(self._secondary_style())
+        for campo in self._fields.values():
+            campo.setStyleSheet(self._field_style(isinstance(campo, QPlainTextEdit)))
+        combos = list(self._picks.values())
+        combos += [c for facetas in self._facets.values() for c in facetas.values()]
+        for combo in combos:
+            combo.setStyleSheet(self._combo_style())
         self._restyle_run()
+
+    def _secondary_style(self) -> str:
+        """Limpiar y Simulacro: contorno, no relleno. El unico boton lleno del
+        pie es Ejecutar."""
+        return f"""
+            QPushButton {{
+                background: transparent; border: 1px solid {self.pal.border};
+                color: {Colors.TEXT_DIM}; border-radius: 6px;
+                padding: 0 16px; font-size: {Fonts.SIZE_SM}px;
+            }}
+            QPushButton:hover {{ background: {self.pal.surface_hover}; color: {Colors.TEXT}; }}
+            QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; }}
+        """
 
     def refresh_run_state(self) -> None:
         """Repone el boton Ejecutar segun los blockers actuales.
@@ -1086,13 +1132,13 @@ class ParamsPanel(QWidget):
         enabled = self.run_btn.isEnabled()
         self.run_btn.setStyleSheet(f"""
             QPushButton {{
-                background: {self.accent if enabled else Colors.SURFACE_ALT};
-                color: {Colors.BG if enabled else Colors.TEXT_MUTED};
+                background: {self.pal.accent if enabled else self.pal.surface_alt};
+                color: {self.pal.on_accent if enabled else Colors.TEXT_MUTED};
                 border: none; border-radius: 6px;
                 padding: 0 22px;
                 font-size: {Fonts.SIZE_SM}px; font-weight: 600;
             }}
-            QPushButton:hover {{ background: {self.accent if enabled else Colors.SURFACE_ALT}; }}
+            QPushButton:hover {{ background: {self.pal.accent if enabled else self.pal.surface_alt}; }}
         """)
 
     def _emit_execute(self, _checked: bool = False, *, dry_run: bool = False) -> bool:

@@ -8,6 +8,8 @@ from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QFontMetrics
 
 from ui.theme import Colors, Fonts
+from ui.palettes import Palette
+from ui import palettes
 from core.projects import Project
 from core import envfile
 from ui import params_store
@@ -47,11 +49,11 @@ class EnvRow(QWidget):
     """Una clave del esquema: etiqueta y campo."""
     changed = Signal()
 
-    def __init__(self, setting: Setting, value: str, accent: str, default_display: str = '',
+    def __init__(self, setting: Setting, value: str, pal: Palette, default_display: str = '',
                  label_width: int = 118, parent=None):
         super().__init__(parent)
         self.setting = setting
-        self.accent = accent
+        self.pal = pal
         self.setStyleSheet("background: transparent;")
 
         lay = QHBoxLayout(self)
@@ -118,8 +120,8 @@ class EnvRow(QWidget):
             return
         self.field.setText(value)
 
-    def set_accent(self, accent: str) -> None:
-        self.accent = accent
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
         self._restyle()
 
     # `textChanged` de QLineEdit manda el texto y el de QPlainTextEdit no manda
@@ -163,18 +165,20 @@ class EnvRow(QWidget):
             self.field.setFixedHeight(alto)
 
     def _restyle(self) -> None:
-        border = Colors.BORDER if self.value() else Colors.BORDER_LIGHT
+        # Borde mas claro = clave sin valor. Es la misma señal de antes, ahora
+        # en los bordes teñidos del repo.
+        border = self.pal.border if self.value() else self.pal.border_light
         widget = 'QPlainTextEdit' if self._is_list else 'QLineEdit'
         self.field.setStyleSheet(f"""
             {widget} {{
-                background: {Colors.SURFACE_ALT};
+                background: {self.pal.surface_alt};
                 color: {Colors.TEXT};
                 border: 1px solid {border};
                 border-radius: 5px;
                 padding: 5px 8px;
                 font-size: {Fonts.SIZE_XS}px;
             }}
-            {widget}:focus {{ border: 1px solid {self.accent}; }}
+            {widget}:focus {{ border: 1px solid {self.pal.accent}; }}
         """)
 
 
@@ -205,13 +209,15 @@ class EnvPanel(QWidget):
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
         self.project = project
-        self.accent = project.color
+        self.pal = palettes.get(project.theme)
         self.rows: dict[str, EnvRow] = {}
         self._row_group: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
         self.file_status = ''
-
-        self.setStyleSheet(f"EnvPanel {{ background: {Colors.SURFACE}; }}")
+        # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
+        # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
+        # seccion no se teñia del color del repo.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -223,14 +229,15 @@ class EnvPanel(QWidget):
         root.addWidget(self._build_body(), 1)
         self.banner = self._build_banner()
         root.addWidget(self.banner)
-        root.addWidget(self._build_file_bar())
+        self.file_bar = self._build_file_bar()
+        root.addWidget(self.file_bar)
+        self._restyle()
 
         self.reload()
 
     # --- construccion ---------------------------------------------------
     def _build_banner(self) -> QWidget:
         box = QWidget()
-        box.setStyleSheet(f"background: transparent; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(box)
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(8)
@@ -253,7 +260,6 @@ class EnvPanel(QWidget):
         Guardar es el unico camino para persistir lo editado, porque los
         cambios de fila solo emiten en memoria."""
         bar = QWidget()
-        bar.setStyleSheet(f"background: {Colors.SURFACE}; border-top: 1px solid {Colors.BORDER};")
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(8)
@@ -285,14 +291,43 @@ class EnvPanel(QWidget):
         self._restyle_create()
         return bar
 
+    def _restyle(self) -> None:
+        """Los fondos de la seccion «Configuracion del repo».
+
+        El cuerpo es `panel` —un escalon por debajo de su cabecera— y el pie
+        con Guardar/Recargar sube a `surface`, como el resto de las barras.
+        """
+        self.setStyleSheet(f"EnvPanel {{ background: {self.pal.panel}; }}")
+        self._scroll.setStyleSheet(self._scroll_style())
+        self.banner.setStyleSheet(
+            f"background: transparent; border-top: 1px solid {self.pal.border};")
+        self.file_bar.setStyleSheet(
+            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};")
+        self._restyle_create()
+
+    def _scroll_style(self) -> str:
+        """El scroll no tiene fondo propio: deja ver el del panel.
+
+        El canal de la barra si lo necesita. Cae bajo el mismo
+        `QScrollArea > QWidget > QWidget` que deja transparente al viewport
+        —la barra es hija del viewport—, y transparente lo pintaba el gris de
+        la paleta de Qt, no el fondo del panel: un filete gris al borde de una
+        columna teñida. Se le da el color a mano y en esta misma hoja, que es
+        la mas cercana y la que manda.
+        """
+        return (
+            "QScrollArea, QScrollArea > QWidget > QWidget "
+            "{ border: none; background: transparent; }"
+            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}")
+
     def _restyle_create(self) -> None:
         button_css = f"""
             QPushButton {{
-                background: transparent; border: 1px solid {self.accent};
-                color: {self.accent}; border-radius: 5px;
+                background: transparent; border: 1px solid {self.pal.accent};
+                color: {self.pal.accent}; border-radius: 5px;
                 padding: 4px 12px; font-size: {Fonts.SIZE_XS}px;
             }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; }}
+            QPushButton:hover {{ background: {self.pal.surface_hover}; }}
         """
         self.create_btn.setStyleSheet(button_css)
         self.import_btn.setStyleSheet(button_css)
@@ -317,7 +352,7 @@ class EnvPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        self._scroll = scroll   # lo repinta `_restyle`
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
@@ -344,7 +379,7 @@ class EnvPanel(QWidget):
             )
             block.addWidget(header)
             for setting in settings:
-                row = EnvRow(setting, '', self.accent, label_width=label_width)
+                row = EnvRow(setting, '', self.pal, label_width=label_width)
                 row.changed.connect(self._on_row_changed)
                 self.rows[setting.key] = row
                 self._row_group[setting.key] = block_widget
@@ -470,10 +505,11 @@ class EnvPanel(QWidget):
         self.saved.emit(self.values())
         self.values_changed.emit(self.values())
 
-    def set_accent(self, accent: str) -> None:
-        self.accent = accent
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
         for row in self.rows.values():
-            row.set_accent(accent)
+            row.set_palette(pal)
         self._restyle_create()
 
     def filter_for(self, keys: set[str] | None) -> None:

@@ -6,6 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from ui.theme import Colors, Fonts
+from ui import palettes
 from core.projects import Project
 from core.protection import Target
 
@@ -38,9 +39,12 @@ class _GuardDialog(QDialog):
                  nota: str, parent=None):
         super().__init__(parent)
         self.project = project
+        # El aviso es de ESTE repo: se pinta con su paleta, como el espacio de
+        # trabajo del que sale.
+        self.pal = palettes.get(project.theme)
         self.setWindowTitle(titulo_ventana)
         self.setMinimumWidth(460)
-        self.setStyleSheet(f"QDialog {{ background: {Colors.SURFACE}; }}")
+        self.setStyleSheet(f"QDialog {{ background: {self.pal.panel}; }}")
 
         self._lay = QVBoxLayout(self)
         self._lay.setContentsMargins(22, 20, 22, 18)
@@ -65,15 +69,15 @@ class _GuardDialog(QDialog):
     def _tarjeta_repo(self) -> QWidget:
         caja = QWidget()
         caja.setStyleSheet(
-            f"background: {Colors.SURFACE_ALT}; border-left: 3px solid "
-            f"{self.project.color}; border-radius: 4px;")
+            f"background: {self.pal.surface_alt}; border-left: 3px solid "
+            f"{self.pal.accent}; border-radius: 4px;")
         lay = QVBoxLayout(caja)
         lay.setContentsMargins(12, 9, 12, 9)
         lay.setSpacing(2)
 
         nombre = QLabel(f'{self.project.icon or chr(9671)}  {self.project.name}')
         nombre.setStyleSheet(
-            f"background: transparent; color: {self.project.color}; "
+            f"background: transparent; color: {self.pal.accent}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 700;")
         ruta = QLabel(self.project.path)
         ruta.setStyleSheet(
@@ -121,11 +125,11 @@ class BlockedDialog(_GuardDialog):
         entendido.setDefault(True)
         entendido.setStyleSheet(f"""
             QPushButton {{
-                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
+                background: {self.pal.surface_alt}; color: {Colors.TEXT};
                 border: 1px solid {Colors.BORDER}; border-radius: 5px;
                 padding: 0 18px; font-size: {Fonts.SIZE_XS}px;
             }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; }}
+            QPushButton:hover {{ background: {self.pal.surface_hover}; }}
         """)
         entendido.clicked.connect(self.reject)
         botones.addWidget(entendido)
@@ -157,7 +161,7 @@ class ReminderDialog(_GuardDialog):
                 color: {Colors.TEXT_DIM}; border-radius: 5px; padding: 0 16px;
                 font-size: {Fonts.SIZE_XS}px;
             }}
-            QPushButton:hover {{ background: {Colors.SURFACE_HOVER}; color: {Colors.TEXT}; }}
+            QPushButton:hover {{ background: {self.pal.surface_hover}; color: {Colors.TEXT}; }}
         """)
         cancelar.clicked.connect(self.reject)
 

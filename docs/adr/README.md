@@ -49,3 +49,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0039](0039-mostrar-antes-de-escribir.md) | Nada se sobrescribe a ciegas: primero se muestra qué va a cambiar |
 | [0040](0040-una-regla-es-host-mas-ruta.md) | Una regla de publicación es un host más una ruta, y cada pieza va en su propio host |
 | [0041](0041-un-repo-declara-sus-servicios.md) | Un repo declara sus servicios en una tabla; uno solo es el caso de una fila |
+| [0042](0042-una-paleta-por-repo.md) | El color de un repo es una paleta entera, se elige, y tiñe sin cambiar la luminosidad |

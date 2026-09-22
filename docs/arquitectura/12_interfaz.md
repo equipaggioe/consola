@@ -22,7 +22,25 @@ Cada repo tiene su propio `TabPanel`, indexado por la ruta normalizada de su car
 
 ## 2. El color del repo
 
-Cada repo tiene color e icono. El color pinta la barra de título, el borde de contorno de la ventana (solo con el foco, como hace Windows con su marco), el interruptor de favoritos y el subrayado de la pestaña activa. La pestaña activa se funde con la barra; las demás son placas oscuras con su nombre en **su** color.
+Cada repo tiene un **tema** y un icono. El tema es una clave (`azul`, `cian`, `verde`, `lima`, `ambar`, `coral`, `rosa`, `violeta`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo → «Color del repositorio»; al añadir un repo se le da el primer tema libre.
+
+Una paleta es un acento más la escalera de fondos que se deriva de él. Teñir **no cambia la luminosidad** del gris de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
+
+| Rol | Dónde |
+|---|---|
+| `accent` | Barra de título, borde de contorno de la ventana (solo con el foco), subrayado de la pestaña de ejecución activa, botón Ejecutar, foco de los campos, candados cerrados |
+| `chrome` | Fila de la barra de menú |
+| `bg` | Consola y lienzo izquierdo: el escalón más oscuro, el que se lee |
+| `panel` | Cuerpo de las secciones de la columna derecha |
+| `surface` | Sub-barra de ejecuciones, cabeceras de sección, cabecera derecha, pie y barra de estado |
+| `surface_alt` | Campos, listas y chips |
+| `border` | Separadores y marcos |
+
+Lo que **no** sale de la paleta: los grises del texto y los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
+
+La pestaña activa del repo se funde con la barra de título; las demás son placas oscuras con su nombre en **su** color. Cambiar de tema repinta el espacio de trabajo de ese repo aunque no sea el activo.
+
+Fuera del espacio de trabajo quedan en gris el buscador y la barra de menú: son de la aplicación, no de un repo.
 
 ## 3. Encontrar una acción
 

@@ -13,6 +13,8 @@ from ui.tab_panel import TabPanel, WorkspaceStatusBar
 from ui.project_tabs import ProjectTabBar
 from ui import project_store, params_store, readiness, favorites
 from ui.theme import Colors, Fonts
+from ui.palettes import Palette, NEUTRAL
+from ui import palettes
 from ui.widgets import ToggleSwitch
 from core.catalog import applicable_ids
 from core.registry import registry
@@ -101,7 +103,9 @@ class MainWindow(QMainWindow):
         # (`_apply_window_border`) terminaba dibujado alrededor de cada campo
         # de texto y cada boton, no solo del borde de la ventana.
         self.central_widget.setObjectName("centralWidget")
-        self._accent = Colors.ACCENT  # lo retoma `_apply_window_border` antes de tener repo
+        # Sin repo elegido todavia: los grises pelados. Los repinta
+        # `_apply_palette` en cuanto hay uno activo.
+        self.pal = NEUTRAL
         self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.CHROME}; }}")
         self.setCentralWidget(self.central_widget)
 
@@ -147,7 +151,7 @@ class MainWindow(QMainWindow):
         # Vive aca y no dentro de cada TabPanel para que llegue de borde a
         # borde. Refleja el repo activo y se refresca cuando una tarea de
         # maquina toca el entorno (`TabPanel.machine_changed`).
-        self.status_bar = WorkspaceStatusBar(Colors.ACCENT)
+        self.status_bar = WorkspaceStatusBar(NEUTRAL)
         self.status_bar.security_clicked.connect(self._on_security_clicked)
         self.main_layout.addWidget(self.status_bar)
 
@@ -167,6 +171,7 @@ class MainWindow(QMainWindow):
         self.project_tabs.project_selected.connect(self._on_project_selected)
         self.project_tabs.project_added.connect(self._on_project_added)
         self.project_tabs.project_removed.connect(self._on_project_removed)
+        self.project_tabs.project_retinted.connect(self._on_project_retinted)
 
         self.action_menu.action_requested.connect(self._on_action_requested)
         self.action_menu.focus_search_requested.connect(self.action_search.box.setFocus)
@@ -203,9 +208,7 @@ class MainWindow(QMainWindow):
         # hereda a los hijos, y el rotulo del interruptor salia subrayado con
         # el mismo `border-bottom` que cierra la fila.
         row.setObjectName("menuRow")
-        row.setStyleSheet(
-            f"QWidget#menuRow {{ background: {Colors.CHROME}; "
-            f"border-bottom: 1px solid {Colors.BORDER}; }}")
+        self.menu_row = row
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, 0, 14, 0)
         lay.setSpacing(0)
@@ -268,7 +271,7 @@ class MainWindow(QMainWindow):
         self.action_menu.set_project_active(False)
         self.action_search.set_project_active(False)
         self._refresh_readiness()
-        self._apply_accent(Colors.ACCENT)
+        self._apply_palette(NEUTRAL)
         self.status_bar.clear()
         self.setWindowTitle("Consola")
 
@@ -359,20 +362,25 @@ class MainWindow(QMainWindow):
             self.central_widget.setStyleSheet(
                 f"QWidget#centralWidget {{ background: {Colors.CHROME}; }}")
         else:
-            color = self._accent if self.isActiveWindow() else Colors.CHROME
+            color = self.pal.accent if self.isActiveWindow() else Colors.CHROME
             self.central_widget.setStyleSheet(
                 f"QWidget#centralWidget {{ background: {Colors.CHROME}; "
                 f"border: 1px solid {color}; }}")
 
-    # --- acento del repo activo --------------------------------------------
-    def _apply_accent(self, color: str) -> None:
-        """Un solo color para todo el chrome: el fondo de la barra de titulo,
-        el interruptor de favoritos y el borde de contorno de la
-        ventana (`_apply_window_border`)."""
-        self.title_bar.set_accent(color)
-        self.fav_switch.set_accent(color)
-        self.action_search.set_accent(color)
-        self._accent = color
+    # --- paleta del repo activo --------------------------------------------
+    def _apply_palette(self, pal: Palette) -> None:
+        """La paleta del repo activo, en todo lo que vive fuera de su espacio
+        de trabajo: la barra de titulo, la fila del menu, el interruptor de
+        favoritos, el buscador, la barra de estado y el borde de contorno de
+        la ventana (`_apply_window_border`)."""
+        self.pal = pal
+        self.title_bar.set_accent(pal.accent)
+        self.fav_switch.set_accent(pal.accent)
+        self.action_search.set_accent(pal.accent)
+        self.status_bar.set_palette(pal)
+        self.menu_row.setStyleSheet(
+            f"QWidget#menuRow {{ background: {pal.chrome}; "
+            f"border-bottom: 1px solid {pal.border}; }}")
         self._apply_window_border()
 
     # --- favoritas ---------------------------------------------------------
@@ -398,6 +406,18 @@ class MainWindow(QMainWindow):
     def _on_project_added(self, project: Project) -> None:
         self._ensure_workspace(project)
         self._on_project_selected(project)
+
+    def _on_project_retinted(self, project: Project) -> None:
+        """El repo eligio otro color desde el menu de su pestana. Se repinta su
+        espacio de trabajo aunque no sea el activo: el de al lado no puede
+        quedarse con los fondos del color viejo esperando a que lo miren."""
+        workspace = self.workspaces.get(project_store.identity(project.path))
+        pal = palettes.get(project.theme)
+        if workspace is not None:
+            workspace.set_palette(pal)
+        if workspace is self.current_workspace:
+            self._apply_palette(pal)
+            self._refresh_protection(workspace)
 
     def _on_project_removed(self, project: Project) -> None:
         workspace = self.workspaces.pop(project_store.identity(project.path), None)
@@ -430,8 +450,7 @@ class MainWindow(QMainWindow):
         self.action_search.set_project_active(True)
         self._refresh_applicable(project)
         self._refresh_readiness()
-        self._apply_accent(project.color)
-        self.status_bar.set_accent(project.color)
+        self._apply_palette(palettes.get(project.theme))
         self._refresh_protection(workspace)
         self.setWindowTitle(f"Consola — {project.name}")
 
