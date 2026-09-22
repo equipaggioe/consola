@@ -15,6 +15,7 @@ Hoy están vinculadas las 62 menos `dev_env`, que declara `stub=False` a mano po
 | `id` | Clave del registro, de los parámetros guardados y de las reglas del seguro |
 | `name`, `icon`, `description` | Lo que se lee: pestaña, menú, tooltip y cabecera. `description` es una línea, en presente |
 | `group` | En qué menú de la barra aparece, y bajo qué encabezado en el buscador |
+| `cut` | En el menú, una raya justo encima de este botón: abre un tramo. Sin nombre y sin agrupar nada |
 | `kind` | `live` \| `once` \| `destructive` \| `interactive` \| `background` |
 | `axes` | Los ejes: lo que se elige en cada corrida |
 | `steps` | Las casillas de una compuesta. Sin `steps`, la capacidad es un paso obligatorio y no se dibuja la sección |

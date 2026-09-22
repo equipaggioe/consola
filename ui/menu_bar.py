@@ -39,10 +39,11 @@ class ActionMenuBar(QMenuBar):
         # Todos los menus de la barra, de grupo o no: lo que hay que repintar
         # cuando cambia el repo activo.
         self._menus: list[QMenu] = []
-        # Por menu de grupo, sus dos tramos —lo que hace y lo que deshace— con
-        # la raya que los separa. Es lo que necesita `_apply_filters` para
-        # podar un menu sin dejar la raya colgando de un tramo vacio.
-        self._blocks: dict[QMenu, tuple[list[str], QAction | None, list[str]]] = {}
+        # Por menu de grupo, sus tramos: cada uno con la raya que lo abre (la
+        # del primero es None) y sus acciones. Es lo que necesita
+        # `_apply_filters` para podar un menu sin dejar rayas colgando de un
+        # tramo que quedo vacio.
+        self._blocks: dict[QMenu, list[tuple[QAction | None, list[str]]]] = {}
         self._favorites: set[str] = favorites.favorite_ids()
         self._only_favorites = favorites.only_favorites()
         # Lo que tiene sentido en el repo abierto (`core/catalog.py::applicable_ids`).
@@ -93,7 +94,13 @@ class ActionMenuBar(QMenuBar):
         cuelga: sobre `chrome` no se recortaria (1.06:1 contra la barra), y el
         item bajo el cursor necesita un escalon propio por encima del popup.
         La regla de `:disabled` es por la leyenda del menu Ayuda, que es un
-        item que no se puede apretar."""
+        item que no se puede apretar.
+
+        `QMenu::separator` es obligatoria: con una hoja de estilo puesta sobre
+        el `QMenu`, Qt deja de dibujar la linea nativa del separador y solo
+        queda su alto en blanco — la misma trampa que ya documentaba
+        `_build_action_menus` para `addSection`. Sin esta regla, los cortes de
+        ADR-0043 se ven como un espacio vacio, no como una raya."""
         return f"""
             QMenu {{
                 background: {self.pal.panel}; color: {Colors.TEXT};
@@ -104,6 +111,10 @@ class ActionMenuBar(QMenuBar):
             }}
             QMenu::item:disabled {{
                 color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;
+            }}
+            QMenu::separator {{
+                height: 1px; margin: 4px 8px;
+                background: {self.pal.border_light};
             }}
         """
 
@@ -118,18 +129,17 @@ class ActionMenuBar(QMenuBar):
         """Un menu por grupo del registro, en el orden en que el catalogo los
         declara, y dentro las acciones en ese mismo orden.
 
-        No hay encabezados de seccion. El segundo nivel dentro de un menu
-        existia porque los menus eran largos y heterogeneos; con los grupos
-        reorganizados ninguno pasa de doce items y el orden de declaracion es
-        el del uso real —preparar, usar, mirar—, asi que el rotulo no agregaba
-        nada. Que los nombres empiecen por el verbo hace el resto: los items de
-        la misma familia quedan pegados y se leen como un bloque sin que haya
-        que dibujarlo.
+        Los menus largos se cortan con rayas, no con encabezados: el rotulo de
+        una seccion obligaba a nombrar el tramo —y a inventar un nombre para
+        los tramos de un solo boton—, cuando lo unico que hace falta es que el
+        ojo vea donde el menu deja de hablar de una cosa y empieza a hablar de
+        otra. Los nombres, que empiezan por el verbo, dicen el resto.
 
-        La unica division que queda no es taxonomica sino de seguridad: una
-        raya, y debajo lo que borra (`kind == 'destructive'`). El catalogo
-        declara esas capacidades al final de su grupo, asi que la raya cae en
-        el corte y no parte ninguna familia.
+        De donde sale cada raya:
+
+        - `Capability.cut`: el catalogo declara que este boton abre un tramo.
+        - `kind == 'destructive'`: lo que borra va al fondo, siempre detras de
+          una raya, sin que nadie lo declare (ADR-0043).
 
         El titulo de la barra va sin el emoji del grupo: son ocho menus en una
         fila, y a 1000px —el minimo de la ventana— el emoji es lo primero que
@@ -138,15 +148,18 @@ class ActionMenuBar(QMenuBar):
         for group, capabilities in registry.get_groups().items():
             menu = self._add_menu(group)
             menu.setToolTipsVisible(True)
-            hacen = [c for c in capabilities if c.kind != 'destructive']
-            deshacen = [c for c in capabilities if c.kind == 'destructive']
-            for cap in hacen:
+            blocks: list[tuple[QAction | None, list[str]]] = []
+            destructivas = False
+            for cap in capabilities:
+                primera_destructiva = cap.kind == 'destructive' and not destructivas
+                destructivas = destructivas or primera_destructiva
+                if not blocks:
+                    blocks.append((None, []))
+                elif cap.cut or primera_destructiva:
+                    blocks.append((menu.addSeparator(), []))
                 menu.addAction(self._make_action(menu, cap))
-            separator = menu.addSeparator() if hacen and deshacen else None
-            for cap in deshacen:
-                menu.addAction(self._make_action(menu, cap))
-            self._blocks[menu] = ([c.id for c in hacen], separator,
-                                  [c.id for c in deshacen])
+                blocks[-1][1].append(cap.id)
+            self._blocks[menu] = blocks
             self._group_menus.append(menu)
 
     def _make_action(self, menu: QMenu, cap) -> QAction:
@@ -215,23 +228,19 @@ class ActionMenuBar(QMenuBar):
         """Los dos filtros de la barra, en una sola pasada: lo que no aplica a
         este repo y —si el interruptor esta puesto— lo que no esta marcado."""
         for menu in self._group_menus:
-            arriba, separator, abajo = self._blocks[menu]
-            visibles_arriba = self._show(arriba)
-            visibles_abajo = self._show(abajo)
-            # La raya solo separa si quedo algo de los dos lados.
-            if separator is not None:
-                separator.setVisible(bool(visibles_arriba and visibles_abajo))
-            menu.menuAction().setVisible(bool(visibles_arriba or visibles_abajo))
-
-    def _show(self, cap_ids: list[str]) -> int:
-        """Aplica los filtros a un tramo y devuelve cuantos quedaron a la vista."""
-        visibles = 0
-        for cap_id in cap_ids:
-            ver = (self._applicable is None or cap_id in self._applicable) and (
-                not self._only_favorites or cap_id in self._favorites)
-            self._actions[cap_id].setVisible(ver)
-            visibles += int(ver)
-        return visibles
+            vivos = 0
+            for separator, cap_ids in self._blocks[menu]:
+                visibles = 0
+                for cap_id in cap_ids:
+                    ver = (self._applicable is None or cap_id in self._applicable) and (
+                        not self._only_favorites or cap_id in self._favorites)
+                    self._actions[cap_id].setVisible(ver)
+                    visibles += int(ver)
+                # Una raya solo separa si quedo algo de los dos lados.
+                if separator is not None:
+                    separator.setVisible(visibles > 0 and vivos > 0)
+                vivos += visibles
+            menu.menuAction().setVisible(vivos > 0)
 
 
 def _tooltip(cap) -> str:

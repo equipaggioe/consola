@@ -654,7 +654,7 @@ def load_catalog() -> None:
     # paso, todas vivas a la vez" no significa nada dentro de `core/`
     # (ADR-0011). Por eso se declara `stub=False` a mano.
     registry.register(Capability(
-        id='dev_env', name='Levantar todo el entorno', group='Ejecutar', kind='live', icon='🧪', level='C', concurrent=True,
+        id='dev_env', name='Levantar todo el entorno', cut=True, group='Ejecutar', kind='live', icon='🧪', level='C', concurrent=True,
         description='Levanta backend, SPA y apps Python a la vez, cada uno en su pestaña.',
         steps=DEV_ENV_STEPS, composed_of=['backend', 'serve_vite', 'run_python'],
         stub=False))
@@ -782,7 +782,7 @@ def load_catalog() -> None:
     # (ADR-0018): no salen de esta maquina ni de este repo
     # de GitHub, a diferencia de un forzado contra el VPS.
     registry.register(Capability(
-        id='git_force_push', name='Sobrescribir origin con lo local', group='Repositorio',
+        id='git_force_push', name='Sobrescribir origin con lo local', cut=True, group='Repositorio',
         kind='destructive', icon='⏫',
         description='Empuja la rama local a origin con --force, aunque haya divergido.',
         stub=True))
@@ -831,9 +831,9 @@ def load_catalog() -> None:
         steps=MIGRATE_DB_STEPS, stub=True))
     # Las cuatro reciben `scope` en su funcion y el catalogo nunca les dio el
     # eje: corrian clavadas contra `local`, que es el default de la firma.
-    registry.register(Capability(id='run_seeders', name='Cargar datos base', group='Base de datos', kind='once', icon='🌱', description='Carga los datos mínimos que la app necesita para arrancar.', axes=[_SCOPE_AXIS()], stub=True))
+    registry.register(Capability(id='run_seeders', name='Cargar datos base', cut=True, group='Base de datos', kind='once', icon='🌱', description='Carga los datos mínimos que la app necesita para arrancar.', axes=[_SCOPE_AXIS()], stub=True))
     registry.register(Capability(id='run_mock_seeders', name='Cargar datos de prueba', group='Base de datos', kind='once', icon='🎭', description='Carga datos de prueba encima de los datos base.', axes=[_SCOPE_AXIS()], stub=True))
-    registry.register(Capability(id='inspect_db', name='Listar tablas y filas', group='Base de datos', kind='once', icon='🔍', description='Lista las tablas de la base con su cantidad de filas.', axes=[_SCOPE_AXIS()], stub=True))
+    registry.register(Capability(id='inspect_db', name='Listar tablas y filas', cut=True, group='Base de datos', kind='once', icon='🔍', description='Lista las tablas de la base con su cantidad de filas.', axes=[_SCOPE_AXIS()], stub=True))
     # Viva como un launcher: sostiene la conexion (y en remoto el tunel) hasta
     # cerrar la pestana, y lo que entrega es la vista de arbol y datos, no el
     # log (ADR-0015).
@@ -911,7 +911,7 @@ def load_catalog() -> None:
     # servicio haya quedado vivo, que es lo que los otros dos ya hacian: la
     # unidad es `Type=simple` con `Restart=always`, asi que un `restart` con
     # exito no significa que el backend este arriba.
-    registry.register(Capability(id='configure_service', name='Instalar el servicio del repo', group='Despliegue', kind='once', icon='📥', description='Escribe la unidad systemd del repo y deja el servicio corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], steps=_SERVICE_STEPS(), stub=True))
+    registry.register(Capability(id='configure_service', name='Instalar el servicio del repo', cut=True, group='Despliegue', kind='once', icon='📥', description='Escribe la unidad systemd del repo y deja el servicio corriendo.', composed_of=['write_systemd_unit', 'systemd_action'], steps=_SERVICE_STEPS(), stub=True))
     # Un solo eje y no dos: `systemd_action` recibe UN parametro, y el catalogo
     # lo partia en 'buttons' (start/stop/restart/status) y 'menu' (el resto).
     # La particion no existia ni siquiera en el panel, que dibuja igual los dos
@@ -924,7 +924,7 @@ def load_catalog() -> None:
     # dibujado como campo de texto libre, que ademas nunca llegaba a la funcion.
     registry.register(Capability(id='view_logs', name='Ver logs del servicio', group='Despliegue', kind='live', icon='📋', description='Muestra el journal del servicio elegido, de una o siguiéndolo en vivo.', axes=[_SERVICE_AXIS(),
                                  AxisDef('follow', ['seguir en vivo', 'de una'], 'scope', label='Modo', truthy='seguir en vivo', labels={'seguir en vivo': 'Seguir en vivo', 'de una': 'De una'})], stub=True))
-    registry.register(Capability(id='health_check', name='Probar que responde', group='Despliegue', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))
+    registry.register(Capability(id='health_check', name='Probar que responde', cut=True, group='Despliegue', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))
     registry.register(Capability(id='run_command', name='Ejecutar un comando en el VPS', group='Despliegue', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', axes=[AxisDef('command', [''], 'field', label='Comando')], stub=True))
     registry.register(Capability(id='ssh_login', name='Abrir sesión SSH', group='Despliegue', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
     registry.register(Capability(id='upload_to_vps', name='Subir el artefacto al VPS', group='Despliegue', kind='once', icon='📤', description='Copia el artefacto compilado al VPS.', hidden=True, stub=True))
@@ -940,7 +940,7 @@ def load_catalog() -> None:
               _PACKAGES_AXIS()],
         steps=BOOTSTRAP_VPS_STEPS, stub=True))
     registry.register(Capability(
-        id='install_software', name='Instalar paquetes base', group='VPS',
+        id='install_software', name='Instalar paquetes base', cut=True, group='VPS',
         kind='once', icon='📦',
         description='Instala en el VPS los paquetes que elijas, salteando los que ya estén.',
         axes=[_PACKAGES_AXIS()], stub=True))
@@ -967,7 +967,7 @@ def load_catalog() -> None:
     # en `PUBLIC_ROUTES` y no en los parametros del boton. La misma tabla la lee
     # `compile_spa` para saber con que `base` compilar cada SPA.
     registry.register(Capability(
-        id='configure_caddy', name='Configurar el proxy (Caddy)', group='VPS', kind='once', icon='🌐',
+        id='configure_caddy', name='Configurar el proxy (Caddy)', cut=True, group='VPS', kind='once', icon='🌐',
         description='Escribe el Caddyfile desde la tabla de rutas: SPA, API y estáticos, con HTTPS automático.',
         steps=_SERVICE_STEPS(), stub=True))
     # Se llamaba "Instalar coturn" y corria su propio `apt-get install`, que ya
@@ -1095,7 +1095,7 @@ def load_catalog() -> None:
     # se repite (una API nueva, otro build-tools) y no tiene por que arrastrar
     # la descarga del SDK ni tocar el PATH.
     registry.register(Capability(
-        id='install_android_tools', name='Instalar herramientas de línea de comandos', group='SDKs', kind='once', icon='🧰', scope='machine',
+        id='install_android_tools', name='Instalar herramientas de línea de comandos', cut=True, group='SDKs', kind='once', icon='🧰', scope='machine',
         description='Descarga las command-line tools del SDK y las deja en el entorno del usuario.',
         axes=[AxisDef('install_dir', [ANDROID_DIR_DEFAULT], 'field', label='Directorio')],
         stub=True))
@@ -1108,7 +1108,7 @@ def load_catalog() -> None:
         description='Verifica la virtualización que el emulador necesita, y en Windows instala el driver.',
         stub=True))
     registry.register(Capability(
-        id='install_flutter_sdk', name='Instalar SDK de Flutter', group='SDKs',
+        id='install_flutter_sdk', name='Instalar SDK de Flutter', cut=True, group='SDKs',
         kind='once', icon='🦋', scope='machine',
         description='Descarga el canal stable de Flutter y lo deja en el entorno del usuario.',
         axes=[AxisDef('install_dir', [FLUTTER_DIR_DEFAULT], 'field', label='Directorio')],

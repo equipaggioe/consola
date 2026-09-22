@@ -279,6 +279,13 @@ class Capability:
     level: str = ''        # 'A' | 'C'; vacio = se deduce de steps/composed_of
     scope: str = 'repo'    # 'repo' | 'machine': ver `is_machine_wide`
     hidden: bool = False   # capacidad atomica: existe como paso, no como boton
+    cut: bool = False       # en el menu, una raya justo encima de este boton.
+                           # No es una seccion con el rotulo apagado: no tiene
+                           # nombre, no agrupa y nadie pregunta a que tramo
+                           # pertenece un boton. Declara un borde y nada mas —
+                           # donde el menu deja de hablar de una cosa y empieza
+                           # a hablar de otra. La raya de los destructivos no se
+                           # declara aca: sale sola de `kind` (ADR-0043).
     requires_repo: str = ''  # lo mismo que en `Step`, para el boton entero: la
                            # capacidad cuyos pasos son TODOS de esa caracteristica
                            # no queda vacia, desaparece (ADR-0007).

@@ -67,7 +67,9 @@ Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` rep
 | Buscador | Filtra sobre todas las acciones, con teclado (flechas, Enter, Ctrl+Enter). Cada fila trae su filete de favorita, la marca de nivel (`◈` compuesta, `◦` atómica), la de alcance (`⌂` es de la máquina) y un **▶** que corre de una |
 | «Solo favoritos» | Poda los menús. **No** poda el buscador: buscar es ir por algo puntual, y esconder justo lo que se busca sería un chiste cruel |
 
-Los ocho menús de la barra son los grupos del catálogo, en el orden en que `core/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar. Dentro de un menú **no hay encabezados de sección**; la única raya separa, al fondo, lo que borra (`kind == 'destructive'`), que el catálogo declara al final de cada grupo. Un menú que se quedó sin acciones aplicables desaparece de la barra, y la raya solo se dibuja si quedó algo visible de los dos lados ([ADR-0043](../adr/0043-un-menu-sin-secciones.md)).
+Los ocho menús de la barra son los grupos del catálogo, en el orden en que `core/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar.
+
+Dentro de un menú **no hay encabezados de sección**: los tramos se cortan con rayas. Una raya sale de `Capability.cut` —el catálogo declara que ese botón abre un tramo— o de ser el primer destructivo del grupo, que va siempre al fondo detrás de una raya sin que nadie lo declare ([ADR-0043](../adr/0043-un-menu-sin-secciones.md)). Un menú que se quedó sin acciones aplicables desaparece de la barra, y cada raya se dibuja solo si quedó algo visible de los dos lados.
 
 Abrir una pestaña no ejecuta nada. Ejecutar es apretar Ejecutar, o el ▶ del buscador, que corre con los parámetros guardados para ese botón en ese repo ([ADR-0032](../adr/0032-abrir-no-es-ejecutar.md)).
 
