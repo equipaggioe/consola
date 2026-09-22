@@ -5,20 +5,29 @@ from PySide6.QtGui import QPainter, QColor
 
 from ui.theme import Colors, Fonts, tint, on_color
 from ui.project_tabs import ProjectTab
+from ui.palettes import NEUTRAL, Palette
 
 
 class BrandMark(QWidget):
-    """Marca de la aplicacion: `◇ CONSOLA`, sobre la barra de titulo pintada
-    del color del repo activo.
+    """Marca de la aplicacion: `◇ CONSOLA`, sobre una placa oscura.
 
     Abre la barra de titulo, a la izquierda de las pestanas de repos — el
     lugar donde un navegador pone su boton de menu o su logo.
+
+    La placa es el unico fondo casi negro de la ventana (`Palette.brand`): el
+    rombo y el nombre piden un sitio fijo donde apoyarse, y sobre la barra
+    pintada del acento el mismo texto cambiaba de peso con cada tema. Todo lo
+    demas —empezando por la fila de la barra de menu— es color, no negro.
     """
 
     def __init__(self, parent=None):
         super().__init__(parent)
+        self.setObjectName("brandMark")
+        # Sin esto un `QWidget` pelado ignora el `background` de su hoja de
+        # estilo y la placa se pierde contra la barra de titulo.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(14, 0, 14, 0)
+        layout.setContentsMargins(14, 0, 16, 0)
         layout.setSpacing(8)
 
         self.diamond = QLabel("◇")
@@ -28,15 +37,17 @@ class BrandMark(QWidget):
 
         layout.addWidget(self.diamond)
         layout.addWidget(self.title)
-        self.set_accent(Colors.ACCENT)
+        self.set_palette(NEUTRAL)
 
-    def set_accent(self, accent: str) -> None:
-        fg = on_color(accent)
+    def set_palette(self, pal: Palette) -> None:
+        """La placa toma el casi negro del repo; el rombo y el nombre, su
+        acento — que es lo que se lee sobre ella."""
+        self.setStyleSheet(f"QWidget#brandMark {{ background: {pal.brand}; }}")
         self.diamond.setStyleSheet(
-            f"background: transparent; color: {fg}; font-size: {Fonts.SIZE_LG}px;")
+            f"background: transparent; color: {pal.accent}; font-size: {Fonts.SIZE_LG}px;")
         self.title.setStyleSheet(f"""
             background: transparent;
-            color: {fg};
+            color: {pal.accent};
             font-size: {Fonts.SIZE_SM}px;
             font-weight: 700;
             letter-spacing: 3px;
@@ -123,13 +134,13 @@ class TitleBar(QWidget):
         layout.addWidget(self.min_btn)
         layout.addWidget(self.max_btn)
         layout.addWidget(self.close_btn)
-        self.set_accent(Colors.ACCENT)
+        self.set_palette(NEUTRAL)
 
     # --- estado -----------------------------------------------------------
-    def set_accent(self, accent: str) -> None:
-        self.accent = accent
-        self.brand.set_accent(accent)
-        fg = on_color(accent)
+    def set_palette(self, pal: Palette) -> None:
+        self.accent = pal.accent
+        self.brand.set_palette(pal)
+        fg = on_color(pal.accent)
         for btn in (self.min_btn, self.max_btn, self.close_btn):
             btn.set_foreground(fg)
         self.update()

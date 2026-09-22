@@ -183,7 +183,9 @@ class ProjectTab(ReorderableTab, QWidget):
         r = QRectF(self.rect()).adjusted(1, 5, -1, -5)
 
         if not self.is_active:
-            chip = QColor(Colors.CHROME)
+            # La placa lleva el casi negro de SU repo, no el del activo: es lo
+            # unico de la pestana inactiva que ya adelanta de que color es.
+            chip = QColor(self.pal.brand)
             chip.setAlpha(245 if (self._hovered or self.is_dragging) else 200)
             path = QPainterPath()
             path.addRoundedRect(r, 5, 5)
@@ -232,8 +234,9 @@ class AddProjectTab(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(7, 6, -7, -6)
         # Placa oscura como las pestanas inactivas: sobre la barra pintada del
-        # color del repo, un contorno gris no se leia.
-        chip = QColor(Colors.CHROME)
+        # color del repo, un contorno gris no se leia. Sin teñir, que es lo
+        # coherente: el «+» todavia no es de ningun repo.
+        chip = QColor(Colors.BRAND)
         chip.setAlpha(245 if self._hovered else 200)
         path = QPainterPath()
         path.addRoundedRect(r, 5, 5)

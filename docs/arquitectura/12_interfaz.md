@@ -24,15 +24,18 @@ Cada repo tiene su propio `TabPanel`, indexado por la ruta normalizada de su car
 
 Cada repo tiene un **tema** y un icono. El tema es una clave (`azul`, `indigo`, `violeta`, `rosa`, `coral`, `ambar`, `verde`, `cian`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú; al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
 
-Los ocho acentos son apagados a propósito: uno saturado pinta la barra de título entera y tiñe todos los fondos, y a ese tamaño un color que en un botón se ve vivo se ve chillón.
+Una paleta es un acento más la escalera de fondos que se deriva de él. Los fondos son **color, no gris**: el tono del acento a una saturación fija por rol, del 38 % al 55 % en HSL. Teñir **no cambia la luminosidad** del neutro de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
 
-Una paleta es un acento más la escalera de fondos que se deriva de él. Teñir **no cambia la luminosidad** del gris de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
+La saturación es absoluta, no una fracción de la del acento. Si fuera una fracción, un repo con un acento apagado (el verde) quedaría gris y uno con un acento saturado (el azul) no, sin que eso signifique nada.
+
+Los ocho acentos son claros: el acento va **encima** de los fondos —la barra de título, el rombo de la marca, los filetes, el texto de enlace— y tiene que despegarse de ellos.
 
 | Rol | Dónde |
 |---|---|
-| `accent` | Barra de título, borde de contorno de la ventana (solo con el foco), subrayado de la pestaña de ejecución activa, botón Ejecutar, foco de los campos, candados cerrados |
-| `chrome` | Fila de la barra de menú |
-| `bg` | Consola y lienzo izquierdo: el escalón más oscuro, el que se lee |
+| `accent` | Barra de título, borde de contorno de la ventana (solo con el foco), marca `◇ CONSOLA`, subrayado de la pestaña de ejecución activa, botón Ejecutar, foco de los campos, candados cerrados |
+| `brand` | Placa de la marca y placas de las pestañas de repo inactivas: el **único** fondo casi negro de la ventana |
+| `chrome` | Fila de la barra de menú: la banda más clara y más saturada de la escalera, no la más oscura |
+| `bg` | Consola y lienzo izquierdo: el escalón más oscuro del contenido, el que se lee |
 | `panel` | Cuerpo de las secciones de la columna derecha |
 | `surface` | Sub-barra de ejecuciones, cabeceras de sección, cabecera derecha, pie y barra de estado |
 | `surface_alt` | Campos, listas y chips |
@@ -44,7 +47,9 @@ La pestaña activa del repo se funde con la barra de título; las demás son pla
 
 El menú del clic derecho sobre una pestaña es la ruta y los ocho colores, nada más: quitar el repo es la × de la pestaña, y repetirlo en el menú no agregaba un camino, agregaba una lista más larga.
 
-Fuera del espacio de trabajo quedan en gris el buscador y la barra de menú: son de la aplicación, no de un repo.
+La marca `◇ CONSOLA` se apoya en una placa casi negra sobre la barra de título pintada del acento — es el único negro de la ventana. La fila de la barra de menú no lo es: toma `chrome`, la banda más clara de la escalera.
+
+Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` repite los neutros pelados de `ui/theme.py`, con la misma escalera y sin teñir.
 
 ## 3. Encontrar una acción
 

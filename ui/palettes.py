@@ -8,13 +8,14 @@ from ui.theme import Colors, on_color, tint
 
 """
 Una paleta por repositorio: un tono elegido y toda la escalera de fondos
-derivada de el.
+teñida de el **de verdad**.
 
 El color de un repo no es un acento suelto sobre un lienzo gris: es el tono
-con el que se tiñe la escalera entera de superficies, de la mas oscura
-(consola) a la mas clara (campos de entrada). Asi el espacio de trabajo se
-reconoce de un vistazo —«el repo azul», «el repo verde»— sin saturar nada: la
-mezcla mas alta es del 22 %, y el fondo sigue siendo oscuro.
+con el que se pinta la escalera entera de superficies, de la mas oscura
+(consola) a la mas clara (campos de entrada). El espacio de trabajo se
+reconoce de un vistazo —«el repo azul», «el repo verde»— porque el fondo es
+azul o verde, no un gris con una insinuacion: la saturacion va del 38 % al
+55 % en HSL. Sigue siendo un tema oscuro; lo que cambia es que el tono se ve.
 
 Dos señales, dos herramientas, y no se pisan:
 
@@ -23,6 +24,11 @@ Dos señales, dos herramientas, y no se pisan:
   oscuro, el cuerpo de las secciones uno mas claro, las cabeceras otro mas.
   Un tono por seccion anularia la primera señal: si «Parametros» fuera siempre
   verde, el verde dejaria de querer decir «repo verde».
+
+Hay **un solo fondo casi negro**, `brand`: la placa del logo y la de las
+pestañas de repo inactivas, ambas sobre la barra de titulo pintada del acento.
+La fila de la barra de menu (`chrome`) no es negra — es la banda mas clara de
+la escalera de fondos, y la mas saturada de todas.
 
 Lo que NO entra aca: `SUCCESS`, `WARNING`, `ERROR` y los LED. Un estado tiene
 que significar lo mismo en todos los repos; teñirlos haria que en un repo
@@ -38,17 +44,20 @@ def _luminance(c: QColor) -> float:
             + 0.0722 * lin(c.blueF()))
 
 
-def _tinted(base: str, accent: str, amount: float) -> str:
-    """El neutro teñido del tono del repo, **con su misma luminosidad**.
+def _tinted(base: str, accent: str, sat: float) -> str:
+    """El fondo del repo: el tono del acento a esa saturacion, con la
+    luminosidad del neutro de partida sin tocar.
 
-    Toma el tono del acento, una fraccion de su saturacion, y la luminosidad
-    de la base sin tocar. Es lo que mantiene separadas las dos señales: el
-    color dice de que repo es, la luminosidad dice que panel es, y teñir no
-    mueve ningun escalon de sitio.
+    Dos piezas, cada una con su trabajo. La **saturacion** es absoluta, no una
+    fraccion de la del acento: asi el verde (acento poco saturado) y el azul
+    (acento saturadisimo) tiñen igual de fuerte, y ningun repo queda gris
+    porque le toco un acento apagado. La **luminancia** es la del neutro, y
+    por eso teñir no mueve ningun escalon de sitio: el contraste de todo lo
+    que va encima es el mismo en los ocho temas.
 
-    Mezclar hacia el acento a secas (interpolar RGB) no servia: los acentos
-    son claros, asi que la mezcla aclaraba el fondo y el contraste del texto
-    caia — `TEXT_MUTED` sobre una cabecera pasaba de 3.4:1 a 2.5:1.
+    Mezclar hacia el acento a secas (interpolar RGB) no sirve: los acentos son
+    claros, asi que la mezcla aclara el fondo y el contraste del texto cae —
+    `TEXT_MUTED` sobre una cabecera pasaba de 3.4:1 a 2.5:1.
 
     Lo que se conserva es la **luminancia** de WCAG, no la «L» de HSL: al ojo
     y a la formula de contraste, un verde y un violeta con la misma L no
@@ -57,9 +66,8 @@ def _tinted(base: str, accent: str, amount: float) -> str:
     abajo. Se busca la L que devuelve la luminancia del gris de partida:
     monotona en L, asi que una biseccion la encuentra.
     """
-    b, a = QColor(base), QColor(accent)
-    objetivo = _luminance(b)
-    tono, sat = a.hueF(), min(1.0, a.saturationF() * amount)
+    objetivo = _luminance(QColor(base))
+    tono = QColor(accent).hueF()
     lo, hi = 0.0, 1.0
     for _ in range(24):
         medio = (lo + hi) / 2
@@ -70,18 +78,21 @@ def _tinted(base: str, accent: str, amount: float) -> str:
     return QColor.fromHslF(tono, sat, (lo + hi) / 2).name()
 
 
-# De que neutro sale cada rol y que fraccion de la saturacion del acento
-# lleva. Sube con la elevacion: el fondo donde se lee texto casi no se tiñe y
-# lo de arriba se tiñe mas, que es como se ve profundidad sin aclarar nada.
+# De que neutro sale cada rol y con cuanta saturacion se pinta. Son fondos de
+# color, no grises insinuados: por debajo del 35 % el tono deja de leerse a
+# tamaño de pantalla y todo vuelve a parecer gris. Las dos franjas que van
+# sobre la barra de titulo —la placa del logo y la fila del menu— son las mas
+# saturadas, porque son las que dicen de un vistazo en que repo estas.
 _RECIPE: tuple[tuple[str, str, float], ...] = (
-    ('chrome',        Colors.CHROME,        0.10),
-    ('bg',            Colors.BG,            0.12),
-    ('panel',         Colors.PANEL,         0.16),
-    ('surface',       Colors.SURFACE,       0.20),
-    ('surface_hover', Colors.SURFACE_HOVER, 0.22),
-    ('surface_alt',   Colors.SURFACE_ALT,   0.20),
-    ('border',        Colors.BORDER,        0.26),
-    ('border_light',  Colors.BORDER_LIGHT,  0.26),
+    ('brand',         Colors.BRAND,         0.55),
+    ('chrome',        Colors.CHROME,        0.50),
+    ('bg',            Colors.BG,            0.38),
+    ('panel',         Colors.PANEL,         0.42),
+    ('surface',       Colors.SURFACE,       0.45),
+    ('surface_hover', Colors.SURFACE_HOVER, 0.45),
+    ('surface_alt',   Colors.SURFACE_ALT,   0.45),
+    ('border',        Colors.BORDER,        0.40),
+    ('border_light',  Colors.BORDER_LIGHT,  0.38),
 )
 
 # El texto NO se tiñe: se queda en los grises de `ui/theme.py` en los ocho
@@ -95,7 +106,8 @@ class Palette:
     key: str
     label: str
     accent: str
-    chrome: str         # fila de la barra de menu
+    brand: str          # placa del logo y de las pestanas inactivas: el unico casi negro
+    chrome: str         # fila de la barra de menu: la banda mas clara y mas saturada
     bg: str             # consola y lienzo izquierdo: el escalon mas oscuro
     panel: str          # cuerpo de las secciones de la columna derecha
     surface: str        # sub-barra, cabeceras de seccion, pie, barra de estado
@@ -115,14 +127,16 @@ class Palette:
 
 def build(key: str, label: str, accent: str) -> Palette:
     return Palette(key=key, label=label, accent=accent,
-                   **{rol: _tinted(base, accent, cantidad)
-                      for rol, base, cantidad in _RECIPE})
+                   **{rol: _tinted(base, accent, saturacion)
+                      for rol, base, saturacion in _RECIPE})
 
 
-# Ocho tonos apagados, en orden por el circulo cromatico y empezando por el
-# azul. Apagados a proposito: un acento saturado pinta la barra de titulo
-# entera y tiñe cada fondo, y a ese tamaño un color que en un boton se ve vivo
-# se ve chillon. El contraste de cada uno lo comprueba `tests/test_palettes.py`.
+# Ocho tonos claros, en orden por el circulo cromatico y empezando por el azul.
+# Claros a proposito: el acento es lo que va ENCIMA de los fondos —la barra de
+# titulo, el rombo del logo, los filetes, el texto de enlace— y tiene que
+# despegarse de ellos. De el sale el tono; la fuerza con la que se tiñe cada
+# fondo la pone `_RECIPE`, no la saturacion del acento. El contraste de cada
+# uno lo comprueba `tests/test_palettes.py`.
 THEMES: dict[str, Palette] = {p.key: p for p in (
     build('azul',    'Azul',    '#58a6ff'),
     build('indigo',  'Índigo',  '#8fa0f0'),
@@ -136,7 +150,8 @@ THEMES: dict[str, Palette] = {p.key: p for p in (
 
 # Sin ningun repo abierto no hay de quien tomar el tono: los neutros pelados.
 NEUTRAL = Palette(key='', label='', accent=Colors.ACCENT,
-                  chrome=Colors.CHROME, bg=Colors.BG, panel=Colors.PANEL,
+                  brand=Colors.BRAND, chrome=Colors.CHROME,
+                  bg=Colors.BG, panel=Colors.PANEL,
                   surface=Colors.SURFACE, surface_hover=Colors.SURFACE_HOVER,
                   surface_alt=Colors.SURFACE_ALT, border=Colors.BORDER,
                   border_light=Colors.BORDER_LIGHT)

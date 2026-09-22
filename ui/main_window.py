@@ -106,7 +106,7 @@ class MainWindow(QMainWindow):
         # Sin repo elegido todavia: los grises pelados. Los repinta
         # `_apply_palette` en cuanto hay uno activo.
         self.pal = NEUTRAL
-        self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.CHROME}; }}")
+        self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.BRAND}; }}")
         self.setCentralWidget(self.central_widget)
 
         self.main_layout = QVBoxLayout(self.central_widget)
@@ -360,11 +360,11 @@ class MainWindow(QMainWindow):
         pantalla, como el marco de agarre."""
         if self.isMaximized():
             self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {Colors.CHROME}; }}")
+                f"QWidget#centralWidget {{ background: {self.pal.brand}; }}")
         else:
-            color = self.pal.accent if self.isActiveWindow() else Colors.CHROME
+            color = self.pal.accent if self.isActiveWindow() else self.pal.brand
             self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {Colors.CHROME}; "
+                f"QWidget#centralWidget {{ background: {self.pal.brand}; "
                 f"border: 1px solid {color}; }}")
 
     # --- paleta del repo activo --------------------------------------------
@@ -374,7 +374,7 @@ class MainWindow(QMainWindow):
         favoritos, el buscador, la barra de estado y el borde de contorno de
         la ventana (`_apply_window_border`)."""
         self.pal = pal
-        self.title_bar.set_accent(pal.accent)
+        self.title_bar.set_palette(pal)
         self.fav_switch.set_accent(pal.accent)
         self.action_search.set_accent(pal.accent)
         self.status_bar.set_palette(pal)
