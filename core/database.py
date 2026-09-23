@@ -13,6 +13,9 @@ SCOPES = (LOCAL, REMOTE)
 
 _PG_WINDOWS = Path(r'C:\Program Files\PostgreSQL')
 _PORT_LINE = re.compile(r"^port\s*=\s*'?(\d+)'?")
+# El primer numero suelto de una version de Postgres es el mayor, tanto en lo que
+# devuelve `version()` como en lo que imprime `pg_dump --version`.
+_VERSION_MAJOR = re.compile(r'(\d+)')
 _URL_PASSWORD = re.compile(r'://([^:/@]+):([^@]+)@')
 
 
@@ -64,6 +67,13 @@ class Connection:
     url: str
     scope: str
     tunnel: ssh.Tunnel | None = None
+    # Los mismos datos que ya van dentro de `url`, sueltos. Las herramientas de
+    # linea de comandos (`pg_dump`, `pg_restore`) no reciben la URL: la
+    # contrasena viajaria en el argv y quedaria en el log de la corrida. Toman
+    # `-h/-p/-U` y la contrasena por `PGPASSWORD`, igual que el canal de
+    # superusuario. En remoto el puerto es el del tunel, que lo elige `connect`.
+    host: str = '127.0.0.1'
+    port: int = 0
 
     @property
     def is_remote(self) -> bool:
@@ -107,10 +117,11 @@ def connect(ctx, scope: str = LOCAL) -> Connection:
     ctx.guard(password)
 
     if scope == LOCAL:
+        puerto = local_port()
         url = build_url(user=user, password=password, host='127.0.0.1',
-                        port=local_port(), name=name)
+                        port=puerto, name=name)
         ctx.info(f'Base de datos LOCAL: {mask_url(url)}')
-        return Connection(url, LOCAL)
+        return Connection(url, LOCAL, port=puerto)
 
     remote = ssh.resolve_remote(ctx.config)
     remoto = vps.postgres_port(remote)
@@ -122,7 +133,7 @@ def connect(ctx, scope: str = LOCAL) -> Connection:
     ctx.info(f'Tunel SSH abierto: {tunnel.endpoint} -> {remote.host}:{remoto}')
 
     url = build_url(user=user, password=password, host='127.0.0.1', port=local, name=name)
-    return Connection(url, REMOTE, tunnel)
+    return Connection(url, REMOTE, tunnel, port=local)
 
 
 def vps_url(ctx, remote: ssh.Remote) -> str:
@@ -196,12 +207,51 @@ class Admin:
         return [line.strip() for line in salida.splitlines() if line.strip()]
 
 
-def _windows_psql() -> Path:
+def pg_tool(name: str) -> Path:
+    """El ejecutable `name` de la instalacion local de PostgreSQL.
+
+    Lo usan tres canales: `psql` para el canal de superusuario local, y
+    `pg_dump`/`pg_restore` para el respaldo y la restauracion, que corren de este
+    lado en los dos ambitos y alcanzan la base remota por el tunel.
+
+    La version mas nueva primero: una maquina con 15 y 17 instaladas tiene que
+    usar la de 17, porque la de 15 se niega a leer un servidor 17.
+    """
     for version_dir in sorted(_PG_WINDOWS.iterdir(), reverse=True) if _PG_WINDOWS.is_dir() else []:
-        candidate = version_dir / 'bin' / 'psql.exe'
+        candidate = version_dir / 'bin' / f'{name}.exe'
         if candidate.is_file():
             return candidate
-    raise TaskError('No se encontro psql.exe: instala PostgreSQL o usa el ambito remoto.')
+    raise TaskError(f'No se encontro {name}.exe: instala PostgreSQL en esta maquina.')
+
+
+def major_of(version: str) -> int:
+    """El numero mayor de una version de Postgres, venga de donde venga.
+
+    Sirve para las dos formas en que llega: la del servidor —`version()`, que
+    devuelve 'PostgreSQL 16.2 (Debian...) on x86_64...'— y la del binario local
+    —`pg_dump --version`, que devuelve 'pg_dump (PostgreSQL) 16.2'—. En las dos
+    el primer numero suelto es el mayor.
+    """
+    match = _VERSION_MAJOR.search(version)
+    if not match:
+        raise TaskError(f'No se pudo leer la version de Postgres: {version!r}')
+    return int(match.group(1))
+
+
+def check_tool_version(ctx, tool: Path, client: str, server: str) -> None:
+    """Corta si el binario local es mas viejo que el servidor.
+
+    `pg_dump` y `pg_restore` se niegan a trabajar contra un servidor mas nuevo
+    que ellos, y lo dicen con un «server version mismatch» crudo a mitad de la
+    corrida. Comprobarlo antes deja un mensaje que nombra las dos versiones y el
+    binario exacto que se eligio, que es lo que hace falta para arreglarlo.
+    """
+    if major_of(client) >= major_of(server):
+        return
+    raise TaskError(
+        f'{tool.name} es de PostgreSQL {major_of(client)} y el servidor es {major_of(server)}: '
+        f'las herramientas cliente no leen un servidor mas nuevo. '
+        f'Instala PostgreSQL {major_of(server)} o posterior en esta maquina ({tool}).')
 
 
 def resolve_admin(ctx, scope: str = LOCAL) -> Admin:
@@ -212,5 +262,5 @@ def resolve_admin(ctx, scope: str = LOCAL) -> Admin:
     superuser = ctx.config.get('PG_SUPERUSER')  # Setting.default='postgres' ya cubre el vacio
     password = ctx.config.require('PG_PASSWORD')
     ctx.guard(password)
-    argv = [str(_windows_psql()), '-U', superuser, '-h', '127.0.0.1', '-p', str(local_port())]
+    argv = [str(pg_tool('psql')), '-U', superuser, '-h', '127.0.0.1', '-p', str(local_port())]
     return Admin(LOCAL, argv=argv, env={'PGPASSWORD': password})

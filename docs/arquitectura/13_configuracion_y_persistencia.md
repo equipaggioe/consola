@@ -44,6 +44,8 @@ La distinción entre las dos últimas es la que evita un ámbar falso: `backend`
 
 `Config` además tipa: `port()` valida el rango, `flag()` acepta las formas usuales de sí/no, `rel_path()` resuelve contra la raíz del repo y `missing()` es lo que alimenta el ámbar.
 
+Un default fijo tiene un efecto que conviene tener presente: **una clave con default nunca queda en ámbar**, así que declararla `required_by` no agrega nada. Es el caso de `BACKUP_DIR` (`.backups`) y `BACKUP_KEEP` (`7`), que van con `used_by` por eso ([ADR-0045](../adr/0045-la-carpeta-y-el-conteo-de-respaldos-son-configuracion.md)). Que no bloqueen no las vuelve inofensivas: `BACKUP_KEEP` decide cuántos archivos se borran, y por eso la tarea corta con error si lo escrito no es un entero de 1 o más, en vez de caer en el default.
+
 ## 4. El archivo `config.env`
 
 Se **regenera** entero desde el esquema al guardar: encabezado, un bloque por grupo, y un comentario por clave que dice para qué sirve y cuál es su default. Las claves ajenas que hubiera en el archivo se conservan al final, bajo «Otras claves»; las de máquina no se escriben aunque vengan en los valores.

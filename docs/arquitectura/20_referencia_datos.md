@@ -132,7 +132,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 | `<spa>/base.generated.js` | `compile_spa`, `create_spa` | `export const base = "…"` |
 | `releases/<app>/<plataforma>.json` | Los tres builders | Manifiesto de release |
 | `<app>/pyproject.toml` | `build_binary` | Solo si no había manifiesto: se crea en `0.0.0` |
-| `.backups/<base>-<sello>.dump` | `backup_db` | Volcado `pg_dump -Fc`, rotado |
+| `<BACKUP_DIR>/<base>-<sello>.dump` | `backup_db` | Volcado `pg_dump -Fc`, rotado. `BACKUP_DIR` por omisión `.backups`, y puede ser absoluta: entonces no está en el repo |
 | El manifiesto de versión | `bump_version` | Solo la línea de la versión |
 | `<spa>/` entera | `create_spa` | Una SPA nueva |
 

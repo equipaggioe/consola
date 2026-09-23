@@ -104,6 +104,11 @@ RULES: dict[str, Rule] = {
     'teardown_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
     'rebuild_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
 
+    # Pisa la base entera con lo que traiga el dump. Misma forma que sus
+    # hermanas, y por eso no lleva confirmacion escrita propia: el seguro por
+    # repo ya la cubre (ADR-0047).
+    'restore_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
+
     # Toca dos objetivos: vacia el esquema de la base que diga `scope` y borra
     # los archivos de `alembic/versions/` del repo abierto.
     'reinit_migrations': Rule(always=('db', 'local'),

@@ -81,9 +81,31 @@ Generar corre siempre en esta máquina, aunque el ámbito sea remoto: deja un ar
 
 Los dos botones tienen `requires_repo='migrations'`: en un repo sin Alembic no están ([ADR-0007](../adr/0007-lo-inaplicable-desaparece.md)).
 
-## 8. Respaldo
+## 8. Respaldo y restauración
 
-`backup_db` no tiene eje `scope`, y no es una omisión: vuelca la base **del VPS** a un archivo local. Corre `pg_dump -Fc` allá, baja el archivo a `<repo>/.backups/`, borra el temporal remoto y rota los respaldos viejos (7 por defecto).
+`backup_db` vuelca la base del ámbito a un archivo local y `restore_db` carga uno de esos archivos de vuelta. Las dos corren `pg_dump`/`pg_restore` **en esta máquina** en los dos ámbitos y alcanzan la base remota por el túnel, como cualquier otro proceso local ([ADR-0046](../adr/0046-el-volcado-corre-de-este-lado.md)).
+
+| Decisión | Por qué |
+|---|---|
+| Las herramientas corren de este lado | El volcado remoto por SSH ataba el respaldo al VPS: la base local no se podía respaldar. Además dejaba un temporal en `/tmp` que limpiar en cada camino de error |
+| Se busca el binario de la versión más nueva instalada | Una máquina con 15 y 17 tiene que usar la de 17: la de 15 se niega a leer un servidor 17 |
+| La versión se compara **antes** de volcar | El error de `pg_dump` es un «server version mismatch» crudo a mitad de la corrida; el mensaje propio nombra las dos versiones y la ruta del binario elegido |
+| La contraseña va por `PGPASSWORD`, no en el argv | Un argv queda escrito en el log de la corrida. Por eso `Connection` expone `host` y `port` sueltos además de la URL |
+| `restore_db` corre con `--clean --if-exists --no-owner --exit-on-error` | Restaura sobre la base existente sin tocar el rol ni la base, con el dueño de este repo, y corta en el primer error en vez de resumir al final |
+
+**Requisito nuevo:** respaldar el VPS ahora exige las herramientas cliente de PostgreSQL en esta máquina. Antes no hacía falta ninguna.
+
+### Dónde caen los archivos
+
+`BACKUP_DIR` (por omisión `.backups`) y `BACKUP_KEEP` (por omisión `7`) son claves de `config.env`, no ejes: son datos que la tarea lee, no decisiones de la corrida ([ADR-0045](../adr/0045-la-carpeta-y-el-conteo-de-respaldos-son-configuracion.md)). Una ruta relativa cuelga de la raíz del repo; una absoluta se usa tal cual, que es como se sacan los volcados del árbol de trabajo. `BACKUP_KEEP` corta con error si no es un entero de 1 o más.
+
+La rotación filtra por `<DB_NAME>-*.dump` y no por `*.dump`: desde que la carpeta puede ser compartida entre repos, un glob a secas borraría los respaldos de las otras bases.
+
+### Elegir qué restaurar
+
+El eje `dump` es un `pick` cuyos valores salen de mirar `BACKUP_DIR` (fuente `BACKUP_FILES`). No se cachea —es estado, no catálogo: una lista vieja ofrecería un dump que la rotación acaba de borrar— y va del más nuevo al más viejo, para que el preseleccionado sea el último respaldo. Es el único eje consultado que necesita la raíz del repo además de la configuración.
+
+`restore_db` es destructiva y entra en el seguro por repositorio con la misma forma que `teardown_db`: objetivo `db`, más `vps` si el ámbito es remoto ([14](14_seguro_de_destructivos.md)).
 
 ## 9. El explorador
 

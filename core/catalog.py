@@ -1,9 +1,10 @@
 from __future__ import annotations
 import os
 from dataclasses import replace
+from datetime import datetime
 from pathlib import Path
 
-from . import android, cache, ssh, targets, toolchain, vps
+from . import android, cache, files, ssh, targets, toolchain, vps
 from .envfile import Config
 from .errors import TaskError
 from .registry import registry, Capability, AxisDef, Facet, Step
@@ -171,6 +172,7 @@ ANDROID_IMAGES_INSTALLED = 'android_installed'  # maquinas ya instaladas
 ANDROID_AVDS = 'android_avds'                  # AVD ya creados
 ANDROID_RUNNING = 'android_running'            # emuladores vivos ahora mismo
 VPS_SERVICES = 'vps_services'                  # servicios systemd que existen en el VPS
+BACKUP_FILES = 'backup_files'                  # respaldos ya guardados de este repo
 
 # Lo instalado y lo creado cambian mientras Consola esta abierta, asi que se
 # cachean por un minuto y nada mas: alcanza para no repetir la consulta al abrir
@@ -180,7 +182,8 @@ _FRESCO = 60.0
 
 
 def queried_values(source: str, *, refresh: bool = False,
-                   config: Config | None = None) -> tuple[list[str], dict[str, str]]:
+                   config: Config | None = None,
+                   root: Path | str | None = None) -> tuple[list[str], dict[str, str]]:
     """Los valores de un eje consultado, con sus etiquetas legibles.
 
     Devuelve `([], {})` cuando el SDK no esta instalado en vez de fallar: un eje
@@ -189,6 +192,8 @@ def queried_values(source: str, *, refresh: bool = False,
     """
     if source == VPS_SERVICES:
         return _vps_services(config, refresh=refresh)
+    if source == BACKUP_FILES:
+        return _backup_files(config, root)
     try:
         sdk = android.resolve_sdk()
         if source == ANDROID_DEVICES:
@@ -248,6 +253,37 @@ def _vps_services(config: Config | None, *, refresh: bool = False) -> tuple[list
     except TaskError:
         return [], {}
     return list(valores), vps.service_labels(config)
+
+
+def _backup_files(config: Config | None, root: Path | str | None) -> tuple[list[str], dict[str, str]]:
+    """Los respaldos ya guardados de este repo, del mas nuevo al mas viejo.
+
+    **Sin cache**, por lo mismo que `ANDROID_RUNNING`: es estado, no catalogo.
+    Una lista vieja ofreceria restaurar un dump que la rotacion acaba de borrar.
+
+    Del mas nuevo al mas viejo para que el que queda preseleccionado sea el
+    ultimo respaldo, que es el que se quiere casi siempre.
+
+    Es el unico eje consultado que necesita la raiz del repo ademas de la
+    configuracion: la carpeta puede ser relativa a ella. Los demas preguntan al
+    SDK o al VPS, que no dependen de donde este el repo.
+    """
+    if config is None or not root:
+        return [], {}
+    from .tasks.database import list_backups  # circular: tasks importa el registro
+    valores = list_backups(config, Path(root))
+    return [p.name for p in valores], {p.name: _backup_label(p) for p in valores}
+
+
+def _backup_label(path: Path) -> str:
+    """`2026-09-23 14:30  ·  12,4 MB`. El valor real es el nombre del archivo,
+    que lleva el sello pegado y sin separar: ilegible en una lista."""
+    partes = path.stem.rsplit('-', 2)
+    try:
+        cuando = datetime.strptime('-'.join(partes[-2:]), '%Y%m%d-%H%M%S')
+    except ValueError:
+        return path.name
+    return f'{cuando:%Y-%m-%d %H:%M}  ·  {files.human_size(files.size_of(path))}'
 
 
 def forget_machine_cache() -> None:
@@ -837,9 +873,20 @@ def load_catalog() -> None:
     # El tunel no tiene parametros: el puerto remoto sale del VPS y el local lo
     # elige `core/ports.py` si el de enfrente esta ocupado.
     registry.register(Capability(id='ssh_tunnel', name='Abrir túnel a Postgres', group='Base de datos', kind='background', icon='🔗', description='Abre un túnel SSH al Postgres del VPS para conectarse en local.', stub=True))
-    # Sin eje `scope`: `backup_database` vuelca la base DEL VPS a un archivo
-    # local. No es una omision del catalogo, es lo que la funcion hace.
-    registry.register(Capability(id='backup_db', name='Respaldar base de datos', group='Base de datos', kind='once', icon='💾', description='Vuelca la base del VPS a un archivo local y rota los respaldos viejos.', stub=True))
+    # `pg_dump` corre de este lado en los dos ambitos y alcanza la base remota
+    # por el tunel (ADR-0046), asi que el eje `scope` significa aca lo mismo que
+    # en el resto del grupo: cual de las dos bases se toca.
+    registry.register(Capability(id='backup_db', name='Respaldar base de datos', group='Base de datos', kind='once', icon='💾', description='Vuelca la base a un archivo local y rota los respaldos viejos.', axes=[_SCOPE_AXIS()], stub=True))
+    # Destructiva: pisa la base entera con lo que traiga el dump. La lista de
+    # respaldos no se enumera ni sale del repo: sale de mirar `BACKUP_DIR`, que
+    # puede estar fuera del arbol de trabajo (ADR-0047).
+    registry.register(Capability(
+        id='restore_db', name='Restaurar base de datos', group='Base de datos',
+        kind='destructive', icon='♻️',
+        description='Carga un respaldo sobre la base, reemplazando lo que haya.',
+        axes=[_SCOPE_AXIS(),
+              AxisDef('dump', [], 'pick', label='Respaldo', source=BACKUP_FILES)],
+        stub=True))
     registry.register(Capability(
         id='rebuild_db', name='Reconstruir base', group='Base de datos', kind='destructive', icon='🔁',
         description='Vacía las tablas y vuelve a llenar la base: migraciones, particiones y seeders.',

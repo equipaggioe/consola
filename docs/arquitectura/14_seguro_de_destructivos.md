@@ -27,7 +27,7 @@ Un objetivo que no figura en el `params.json` cae en su default: agregar uno nue
 |---|---|
 | `clean_vps` | `vps` + `db` |
 | `revoke_ssh`, `revoke_github_ssh` | `vps` |
-| `teardown_db`, `rebuild_db` | `db`, y `vps` si el ámbito es `remoto` |
+| `teardown_db`, `rebuild_db`, `restore_db` | `db`, y `vps` si el ámbito es `remoto` |
 | `reinit_migrations` | `db` + `local`, y `vps` si el ámbito es `remoto` |
 | `promote_app` | `publicacion` |
 | `clean_artifacts`, `sync_server_env` | `local`, salvo en simulacro |

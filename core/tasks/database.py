@@ -21,9 +21,6 @@ la compuesta que los encadena. Lo mismo con `bootstrap_db` (crear rol, crear
 base, permisos, extensiones, migrar) y `teardown_db` (borrar base, borrar rol).
 """
 
-BACKUP_DIR = '.backups'
-
-
 # --- ciclo de vida del esquema ---------------------------------------------
 
 def create_role(ctx, scope: str = db.LOCAL) -> str:
@@ -249,47 +246,154 @@ def run_mock_seeders(ctx, scope: str = db.LOCAL) -> None:
 
 # --- respaldo y diagnostico ------------------------------------------------
 
-def backup_database(ctx, keep: int = 7) -> Path:
-    """Vuelca la base del VPS a un archivo local, en formato custom de pg_dump."""
-    remote = ssh.resolve_remote(ctx.config)
+def backup_dir(config, root: Path) -> Path:
+    """La carpeta de respaldos de este repo, ya resuelta.
+
+    Relativa se resuelve contra la raiz del repo; absoluta se usa tal cual, que
+    es como se sacan los volcados de adentro del repo: `.backups/` no esta en
+    ningun `.gitignore` por defecto, y un dump con datos reales dentro del arbol
+    de trabajo queda listo para comitearse sin que nada avise (ADR-0045).
+
+    Recibe `config` y `root` sueltos, no el contexto: el eje `dump` de
+    `restore_db` tiene que llenar su lista antes de que exista ninguna corrida
+    (`core/catalog.py::queried_values`).
+    """
+    declarada = Path(config.get('BACKUP_DIR'))
+    return declarada if declarada.is_absolute() else root / declarada
+
+
+def list_backups(config, root: Path) -> list[Path]:
+    """Los respaldos de ESTA base, del mas nuevo al mas viejo.
+
+    El patron lleva el nombre de la base y no es cosmetico: desde que
+    `BACKUP_DIR` puede apuntar a una carpeta compartida entre repos, un `*.dump`
+    a secas mezclaria los respaldos de las otras bases — y la rotacion los
+    borraria.
+
+    El nombre sale de `DB_NAME` y no de `db.credentials`, que exige ademas la
+    contrasena: listar archivos no conecta con nada, y pedirla dejaria el eje
+    vacio en un repo al que todavia no se le cargo.
+    """
+    carpeta = backup_dir(config, root)
+    name = config.get('DB_NAME')
+    if not name or not carpeta.is_dir():
+        return []
+    return sorted(carpeta.glob(f'{name}-*.dump'),
+                  key=lambda p: p.stat().st_mtime, reverse=True)
+
+
+def backup_keep(ctx) -> int:
+    """Cuantos respaldos sobreviven a la rotacion.
+
+    Falla ruidosamente si lo escrito no es un entero positivo. Caer en el 7 por
+    defecto seria esconder el error justo donde se decide cuantos archivos se
+    borran para siempre.
+    """
+    crudo = ctx.config.get('BACKUP_KEEP')
+    try:
+        keep = int(crudo)
+    except ValueError:
+        raise TaskError(f'BACKUP_KEEP tiene que ser un numero entero, y dice {crudo!r}.') from None
+    if keep < 1:
+        raise TaskError(f'BACKUP_KEEP tiene que ser 1 o mas, y dice {keep}.')
+    return keep
+
+
+def _check_version(ctx, conn, tool: Path) -> None:
+    """Comprueba el binario local contra la version del servidor del ambito.
+
+    Se llama con la conexion ya abierta porque la version del servidor sale de
+    preguntarsela. Encontrar el binario, en cambio, va ANTES de conectar: que
+    falte no tiene por que costar un tunel SSH.
+    """
+    with db_explorer.open_readonly(conn.url) as probe:
+        servidor = db_explorer.server_info(probe).version
+    db.check_tool_version(ctx, tool, ctx.capture([str(tool), '--version']), servidor)
+
+
+def _pg_argv(tool: Path, conn, user: str) -> list[str]:
+    """Los flags de conexion que comparten `pg_dump` y `pg_restore`.
+
+    La contrasena no va aca: viaja por `PGPASSWORD`, porque un argv queda
+    escrito en el log de la corrida.
+    """
+    return [str(tool), '-h', conn.host, '-p', str(conn.port), '-U', user]
+
+
+def backup_database(ctx, scope: str = db.LOCAL) -> Path:
+    """Vuelca la base del ambito a un archivo local, en formato custom de pg_dump.
+
+    `pg_dump` corre en ESTA maquina en los dos ambitos y alcanza la base remota
+    por el tunel, como cualquier otro proceso local (ADR-0046). Antes volcaba en
+    el VPS contra /tmp y bajaba el archivo por scp: eso ataba el respaldo al
+    ambito remoto —la base local no se podia respaldar— y dejaba un temporal que
+    limpiar en cada camino de error.
+    """
     user, password, name = db.credentials(ctx.config)
     ctx.guard(password)
-
-    if not ssh.succeeds(remote, 'command -v pg_dump'):
-        raise TaskError('El VPS no tiene pg_dump instalado.')
-
+    herramienta = db.pg_tool('pg_dump')
     sello = datetime.now().strftime('%Y%m%d-%H%M%S')
-    remoto = f'/tmp/{name}-{sello}.dump'
-    puerto = vps.postgres_port(remote)
+    destino = backup_dir(ctx.config, ctx.root) / f'{name}-{sello}.dump'
+    destino.parent.mkdir(parents=True, exist_ok=True)
 
-    ctx.info(f'Volcando {name} en el VPS...')
-    ssh.run(ctx, remote, (
-        f'PGPASSWORD={ssh.quote(password)} pg_dump -h 127.0.0.1 -p {puerto} '
-        f'-U {ssh.quote(user)} -Fc -f {ssh.quote(remoto)} {ssh.quote(name)}'
-    ))
-
-    destino = ctx.root / BACKUP_DIR / f'{name}-{sello}.dump'
-    ssh.download(ctx, remote, remoto, destino)
-    ssh.capture(remote, f'rm -f {ssh.quote(remoto)}')
+    with db.connect(ctx, scope) as conn:
+        _check_version(ctx, conn, herramienta)
+        ctx.info(f'Volcando {name} en {destino.name}...')
+        ctx.run([*_pg_argv(herramienta, conn, user), '-Fc', '-f', str(destino), name],
+                env={'PGPASSWORD': password})
 
     ctx.ok(f'Backup guardado: {destino} ({files.human_size(files.size_of(destino))})')
-    rotate_backups(ctx, keep=keep)
-    ctx.note(f'Backup de {name}: {destino.name}')
+    rotate_backups(ctx)
+    ctx.note(f'Backup de {name} ({scope}): {destino.name}')
     return destino
 
 
-def rotate_backups(ctx, keep: int = 7) -> list[Path]:
-    """Deja solo los `keep` respaldos mas nuevos. Separada porque a veces se
-    quiere limpiar sin volver a volcar."""
-    carpeta = ctx.root / BACKUP_DIR
-    if not carpeta.is_dir():
-        return []
-    respaldos = sorted(carpeta.glob('*.dump'), key=lambda p: p.stat().st_mtime, reverse=True)
-    sobran = respaldos[keep:]
+def rotate_backups(ctx) -> list[Path]:
+    """Deja solo los `BACKUP_KEEP` respaldos mas nuevos de esta base.
+
+    Separada porque a veces se quiere limpiar sin volver a volcar.
+    """
+    sobran = list_backups(ctx.config, ctx.root)[backup_keep(ctx):]
     for viejo in sobran:
         files.remove(viejo)
         ctx.info(f'Backup rotado: {viejo.name}')
     return sobran
+
+
+def restore_database(ctx, scope: str = db.LOCAL, dump: str = '') -> Path:
+    """Carga un respaldo sobre la base del ambito, reemplazando lo que haya.
+
+    `--clean --if-exists` restaura sobre la base que ya existe, borrando cada
+    objeto antes de recrearlo: no toca el rol ni la base en si, asi que no hace
+    falta cortar conexiones ni abrir el canal de superusuario. `--no-owner`
+    porque el dueno que trae el dump es el del otro lado, y aca el correcto es el
+    rol de este repo. `--exit-on-error` porque un restore a medias que termina
+    diciendo «38 errores» es exactamente el degradado silencioso que este repo no
+    quiere: corta en el primero.
+
+    Las extensiones tienen que existir antes — `CREATE EXTENSION` pide
+    superusuario y tiene su propio boton (ADR-0047).
+    """
+    if not dump:
+        raise TaskError('No se eligio ningun respaldo para restaurar.')
+    archivo = backup_dir(ctx.config, ctx.root) / dump
+    if not archivo.is_file():
+        raise TaskError(f'No existe el respaldo: {archivo}')
+
+    user, password, name = db.credentials(ctx.config)
+    ctx.guard(password)
+    herramienta = db.pg_tool('pg_restore')
+
+    with db.connect(ctx, scope) as conn:
+        _check_version(ctx, conn, herramienta)
+        ctx.warn(f'Restaurando {archivo.name} sobre {name}: se reemplaza lo que haya.')
+        ctx.run([*_pg_argv(herramienta, conn, user), '-d', name,
+                 '--clean', '--if-exists', '--no-owner', '--exit-on-error', str(archivo)],
+                env={'PGPASSWORD': password})
+
+    ctx.ok(f'Base {name} restaurada desde {archivo.name}.')
+    ctx.note(f'Restauracion de {name} ({scope}): {archivo.name}')
+    return archivo
 
 
 def open_db_tunnel(ctx):
@@ -517,5 +621,6 @@ def bind_all() -> None:
     registry.bind('run_seeders', run_seeders)
     registry.bind('run_mock_seeders', run_mock_seeders)
     registry.bind('backup_db', backup_database)
+    registry.bind('restore_db', restore_database)
     registry.bind('ssh_tunnel', open_db_tunnel)
     registry.bind('explore_db', explore_db)

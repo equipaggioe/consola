@@ -816,20 +816,34 @@ DOCS: dict[str, CommandDoc] = {
 
     'backup_db': CommandDoc(
         summary=(
-            'Trae a esta máquina un volcado de la base del VPS en formato custom '
-            'de pg_dump, y rota los respaldos viejos.'
+            'Deja en esta máquina un volcado de la base del ámbito, en formato '
+            'custom de pg_dump, y rota los respaldos viejos.'
         ),
         steps=[
-            'Resuelve el destino SSH y las credenciales de la base.',
-            'Comprueba que el VPS tenga pg_dump y corta si falta.',
-            'Le pregunta al Postgres del VPS en qué puerto escucha.',
-            'Corre pg_dump -Fc en el VPS contra 127.0.0.1 como el rol de la '
-            'aplicación, dejando el archivo en /tmp con la fecha y hora en el '
-            'nombre.',
-            'Lo baja por scp a la carpeta .backups del repo.',
-            'Borra el archivo temporal del VPS.',
-            'Ordena los respaldos por fecha, deja los más nuevos y borra los que '
-            'sobran, nombrando cada uno.',
+            'Resuelve la carpeta de respaldos de BACKUP_DIR: relativa cuelga de '
+            'la raíz del repo, absoluta se usa tal cual.',
+            'Abre la conexión del ámbito, levantando el túnel SSH si es remoto.',
+            'Busca pg_dump en la instalación local de PostgreSQL y corta si su '
+            'versión es más vieja que la del servidor, nombrando las dos.',
+            'Corre pg_dump -Fc como el rol de la aplicación, escribiendo directo '
+            'en el archivo local, con la fecha y hora en el nombre.',
+            'Ordena los respaldos de esta base por fecha, deja los BACKUP_KEEP '
+            'más nuevos y borra los que sobran, nombrando cada uno.',
+        ],
+    ),
+
+    'restore_db': CommandDoc(
+        summary=(
+            'Carga uno de los respaldos guardados sobre la base del ámbito, '
+            'reemplazando lo que haya.'
+        ),
+        steps=[
+            'Comprueba que el respaldo elegido exista en la carpeta de respaldos.',
+            'Abre la conexión del ámbito, levantando el túnel SSH si es remoto.',
+            'Busca pg_restore en la instalación local de PostgreSQL y corta si su '
+            'versión es más vieja que la del servidor.',
+            'Corre pg_restore como el rol de la aplicación, borrando cada objeto '
+            'antes de recrearlo y cortando en el primer error.',
         ],
     ),
 

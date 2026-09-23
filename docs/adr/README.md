@@ -52,3 +52,6 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0042](0042-una-paleta-por-repo.md) | El color de un repo es una paleta entera, se elige, y tiñe sin cambiar la luminosidad |
 | [0043](0043-un-menu-sin-secciones.md) | Un menú es un grupo sin secciones, y el nombre de un botón nombra lo que corre |
 | [0044](0044-el-lado-que-gana-es-un-eje.md) | El menú separa la máquina del código que corre en ella, y el lado que gana un forzado es un eje |
+| [0045](0045-la-carpeta-y-el-conteo-de-respaldos-son-configuracion.md) | Dónde caen los respaldos y cuántos sobreviven son configuración del repo, no ejes del botón |
+| [0046](0046-el-volcado-corre-de-este-lado.md) | El volcado y la restauración corren de este lado y alcanzan la base remota por el túnel |
+| [0047](0047-restaurar-es-un-destructivo-del-seguro-por-repo.md) | Restaurar es un destructivo del seguro por repositorio, y el respaldo se elige de una lista que se mira al abrir |

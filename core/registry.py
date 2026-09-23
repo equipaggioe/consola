@@ -218,7 +218,14 @@ class AxisDef:
         """Donde vive lo que este eje lista. Es la frase con la que el panel
         explica un eje vacio: "no hay servicio en este VPS" dice que mirar, y
         "en esta maquina" mandaria a buscar al lado equivocado."""
-        return 'en este VPS' if self.source.startswith('vps') else 'en esta máquina'
+        if self.source.startswith('vps'):
+            return 'en este VPS'
+        # Los respaldos estan en esta maquina, pero decir eso mandaria a buscar
+        # al SDK: lo que hay que mirar es la carpeta que declara BACKUP_DIR, que
+        # ni siquiera tiene por que estar dentro del repo.
+        if self.source.startswith('backup'):
+            return 'en la carpeta de respaldos'
+        return 'en esta máquina'
 
     @property
     def is_discovered(self) -> bool:

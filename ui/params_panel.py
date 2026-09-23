@@ -44,10 +44,14 @@ class AxesLoader(QThread):
     """
     ready = Signal(dict)
 
-    def __init__(self, capability: Capability, config, refresh: bool = False, parent=None):
+    def __init__(self, capability: Capability, config, root: str = '',
+                 refresh: bool = False, parent=None):
         super().__init__(parent)
         self._capability = capability
         self._config = config
+        # La raiz del repo: la pide el eje de respaldos, cuya carpeta puede
+        # declararse relativa a ella (`core/catalog.py::_backup_files`).
+        self._root = root
         self._refresh = refresh
 
     def run(self) -> None:
@@ -55,9 +59,10 @@ class AxesLoader(QThread):
         for axis in self._capability.axes:
             if axis.is_queried:
                 resuelto[axis.name] = queried_values(axis.source, refresh=self._refresh,
-                                                     config=self._config)
+                                                     config=self._config, root=self._root)
         if self._capability.live_state:
-            resuelto[_LIVE] = queried_values(self._capability.live_state, config=self._config)
+            resuelto[_LIVE] = queried_values(self._capability.live_state,
+                                             config=self._config, root=self._root)
         self.ready.emit(resuelto)
 
 
@@ -165,7 +170,7 @@ class ParamsPanel(QWidget):
         self._loading = any(a.is_queried for a in self.capability.axes)
         self._refresh_summary()
         self._loader = AxesLoader(self.capability, envfile.Config.for_project(self.project.path),
-                                  refresh, self)
+                                  self.project.path, refresh, self)
         self._loader.ready.connect(self._on_machine_ready)
         self._loader.start()
 

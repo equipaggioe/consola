@@ -50,7 +50,9 @@ _VPS_REACH = ('ssh_login', 'health_check', 'run_command',
 
 # Solo las de base sin eje `scope`: las que lo tienen declaran sus claves en el
 # eje (`core/catalog.py::_SCOPE_AXIS`), porque dependen del ambito elegido.
-_DB_REMOTE = ('backup_db', 'ssh_tunnel')
+# `backup_db` salio de aca al ganar el eje (ADR-0046): exigirle las claves desde
+# la capacidad las pedia tambien para el ambito local.
+_DB_REMOTE = ('ssh_tunnel',)
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---
@@ -72,7 +74,7 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('ROOT_USER', 'VPS', 'Usuario root', default='root',
             required_by=('setup_ssh_key', 'install_software', 'bootstrap_vps')),
     Setting('VPS_USER', 'VPS', 'Usuario de despliegue',
-            required_by=_VPS_REACH + ('backup_db',)),
+            required_by=_VPS_REACH),
     Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
     Setting('VPS_PYTHON', 'VPS', 'Python del VPS', default='server/.venv/bin/python',
             required_by=('update_remote', 'configure_service')),
@@ -104,6 +106,24 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('DB_USER', 'VPS', 'Rol de la base', required_by=_DB_REMOTE),
     Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_REMOTE),
     Setting('DB_PASSWORD', 'VPS', 'Password de la base', secret=True, required_by=_DB_REMOTE),
+    # Donde caen los volcados de `backup_db` y de donde los lee `restore_db`.
+    # Relativa se resuelve contra la raiz del repo; absoluta se usa tal cual, que
+    # es lo que permite sacarlos de adentro del repo — `.backups/` no esta en
+    # ningun `.gitignore` por defecto, y un volcado con datos reales queda listo
+    # para comitearse sin que nadie avise.
+    #
+    # `used_by` y no `required_by`: las dos tienen `default`, y una clave con
+    # default nunca cuenta como faltante (`Config.get`), asi que exigirlas no
+    # dejaria ningun boton en ambar. Lo que hace `used_by` es que aparezcan en el
+    # panel de configuracion filtrado de estos dos botones.
+    Setting('BACKUP_DIR', 'VPS', 'Carpeta de respaldos', default='.backups',
+            used_by=('backup_db', 'restore_db')),
+    # Cuantos volcados sobreviven a la rotacion. Es configuracion y no un eje por
+    # el mismo criterio que `DB_EXTENSIONS`: es un dato que la tarea lee, no una
+    # decision de la corrida. Cuantos respaldos conserva un proyecto no cambia
+    # entre dos veces que se aprieta el boton.
+    Setting('BACKUP_KEEP', 'VPS', 'Respaldos a conservar', default='7',
+            used_by=('backup_db',)),
     # El secreto con el que el backend firma las credenciales efimeras de TURN.
     # No lo escribe una persona: `configure_coturn` lo genera la primera vez y
     # lo deja aca. Esta declarado igual porque el backend tiene que leer EL
