@@ -9,7 +9,7 @@ Hay dos canales, hermanos y con el mismo reparto:
 | Canal | Qué corre | Local | Remoto |
 |---|---|---|---|
 | `database.Connection` | La aplicación conectándose | `postgresql://…@127.0.0.1:<puerto local>` | Igual, a través de un túnel SSH |
-| `database.Admin` | SQL como superusuario | `psql.exe` con `PGPASSWORD` | `sudo -u postgres psql` por SSH |
+| `database.Admin` | SQL como superusuario | `psql` local por TCP con `PGPASSWORD` | `sudo -u postgres psql` por SSH |
 | `runner.Runner` | Programas Python del repo | El venv de `<SERVER_DIR>/.venv` | El venv del repo desplegado, por SSH |
 
 El canal de superusuario existe aparte porque crear un rol, crear una base o borrarlas necesitan permisos que el rol de la aplicación no tiene, y por eso pasa por `psql` y no por el driver.
@@ -22,7 +22,9 @@ El túnel vive lo que vive la tarea: `ctx.hold_tunnel` lo anota, `Connection.clo
 
 Cuando el proceso corre **del otro lado** el túnel sobra, y su puerto local no significaría nada allá: `database.vps_url` arma la URL como la ve el VPS.
 
-En local, el puerto sale de leer `postgresql.conf` de la instalación más nueva bajo `C:\Program Files\PostgreSQL`: una máquina con varias versiones no siempre deja la buena en 5432, y el síntoma era un «no conecta» contra el puerto equivocado.
+En local, el puerto sale de leer `postgresql.conf` de la instalación más nueva —`C:\Program Files\PostgreSQL\<versión>\data` en Windows, `/etc/postgresql/<versión>/main` en Linux—: una máquina con varias versiones no siempre deja la buena en 5432, y el síntoma era un «no conecta» contra el puerto equivocado. `psql`, `pg_dump` y `pg_restore` salen de la misma versión más nueva, ordenada por número ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)).
+
+En Linux el canal de superusuario local entra por TCP igual que en Windows, así que `PG_PASSWORD` tiene que ser la contraseña real de `postgres`. Debian no le pone una al instalar: hay que dársela una vez (`sudo -u postgres psql -c '\password'`).
 
 ## 3. Dónde corre el código del repo
 

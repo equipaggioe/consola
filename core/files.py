@@ -1,13 +1,14 @@
 from __future__ import annotations
 import filecmp
 import hashlib
-import os
 import shutil
 import tarfile
 import zipfile
 from contextlib import contextmanager
 from pathlib import Path
 from typing import Iterable, Iterator
+
+from .host import HOST
 
 
 @contextmanager
@@ -135,7 +136,7 @@ def extract_zip(archive: Path, target: Path) -> Path:
         for info in bundle.infolist():
             extracted = Path(bundle.extract(info, target))
             mode = info.external_attr >> 16 & 0o7777
-            if mode and os.name != 'nt':
+            if mode and HOST.unix_modes:
                 extracted.chmod(mode)
     return target
 

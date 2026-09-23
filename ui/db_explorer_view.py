@@ -14,7 +14,7 @@ from core import db_explorer as dbx
 from core import db_models as dbm
 from core.files import human_size
 from ui.db_worker import DbWorker
-from ui.theme import Colors, Fonts
+from ui.theme import Colors, Fonts, mono
 from ui.palettes import Palette, NEUTRAL
 
 """
@@ -982,9 +982,7 @@ class DbExplorerView(QWidget):
                 if len(value) > 40:
                     item.setToolTip(value)
                 if c == 0:
-                    font = item.font()
-                    font.setFamily('Consolas')
-                    item.setFont(font)
+                    item.setFont(mono(item.font()))
                 table.setItem(r, c, item)
         table.resizeColumnsToContents()
         header = table.horizontalHeader()

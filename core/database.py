@@ -6,13 +6,12 @@ from pathlib import Path
 from . import ports, ssh, vps
 from .envfile import Config, read_value
 from .errors import TaskError
+from .host import HOST
 
 LOCAL = 'local'
 REMOTE = 'remoto'
 SCOPES = (LOCAL, REMOTE)
 
-_PG_WINDOWS = Path(r'C:\Program Files\PostgreSQL')
-_PORT_LINE = re.compile(r"^port\s*=\s*'?(\d+)'?")
 # El primer numero suelto de una version de Postgres es el mayor, tanto en lo que
 # devuelve `version()` como en lo que imprime `pg_dump --version`.
 _VERSION_MAJOR = re.compile(r'(\d+)')
@@ -31,20 +30,11 @@ def mask_url(url: str) -> str:
 def local_port() -> int:
     """Puerto de Postgres local, leido de su propia configuracion.
 
-    Una instalacion de Windows con varias versiones no siempre queda en 5432;
-    leer `postgresql.conf` evita el 'no conecta' silencioso contra el puerto
-    equivocado.
+    Una maquina con varias versiones no siempre deja la buena en 5432; leer
+    `postgresql.conf` evita el 'no conecta' silencioso contra el puerto
+    equivocado. Donde esta ese archivo lo sabe `HOST.pg_port`.
     """
-    if _PG_WINDOWS.is_dir():
-        for version_dir in sorted(_PG_WINDOWS.iterdir(), reverse=True):
-            conf = version_dir / 'data' / 'postgresql.conf'
-            if not conf.is_file():
-                continue
-            for raw in conf.read_text(encoding='utf-8', errors='replace').splitlines():
-                match = _PORT_LINE.match(raw.strip())
-                if match:
-                    return int(match.group(1))
-    return 5432
+    return HOST.pg_port()
 
 
 def server_url(root: Path) -> str:
@@ -215,13 +205,10 @@ def pg_tool(name: str) -> Path:
     lado en los dos ambitos y alcanzan la base remota por el tunel.
 
     La version mas nueva primero: una maquina con 15 y 17 instaladas tiene que
-    usar la de 17, porque la de 15 se niega a leer un servidor 17.
+    usar la de 17, porque la de 15 se niega a leer un servidor 17. Donde se
+    instala cada version lo sabe `HOST.pg_tool`.
     """
-    for version_dir in sorted(_PG_WINDOWS.iterdir(), reverse=True) if _PG_WINDOWS.is_dir() else []:
-        candidate = version_dir / 'bin' / f'{name}.exe'
-        if candidate.is_file():
-            return candidate
-    raise TaskError(f'No se encontro {name}.exe: instala PostgreSQL en esta maquina.')
+    return HOST.pg_tool(name)
 
 
 def major_of(version: str) -> int:

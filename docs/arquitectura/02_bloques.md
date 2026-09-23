@@ -46,6 +46,7 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `github.py` | Llaves SSH de la cuenta, por título |
 | `android.py` | SDK, catálogos de dispositivos e imágenes, AVD, arranque y apagado de emuladores |
 | `userenv.py` | Variables y PATH persistentes a nivel usuario, sin administrador |
+| `host.py` | Lo que cambia entre Windows y Linux en esta máquina: nombres de ejecutables, venv, procesos, terminal, Postgres local, entorno, RAM, caché |
 | `toolstatus.py`, `sysinfo.py` | Qué herramientas hay en la máquina y cuánta RAM queda, para la barra de estado |
 | `cache.py` | Caché en disco de los catálogos caros |
 | `session.py` | Estado de sesión en memoria: endpoints y valores que una tarea publica para otra |

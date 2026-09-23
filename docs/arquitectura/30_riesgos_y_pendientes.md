@@ -24,6 +24,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | H2 | **«Actualizar Cloudflare» no usa la IP detectada.** La función tiene `ip_mode`, `custom_ip`, `ttl` y `proxied`, y el catálogo no declara ningún eje: corre siempre con `ip_mode='vps'`, o sea con `VPS_IP`. La descripción del botón dice «a la IP pública actual», y `detect_public_ip` queda sin alcanzar | `core/catalog.py` (registro de `update_cloudflare`), `core/tasks/utils.py::update_cloudflare` |
 | H3 | **«Ver logs» no ofrece sus filtros.** `view_logs` acepta `lines`, `since`, `priority` y `grep`, y `vps.journal_command` los arma; el catálogo solo declara `service` y `follow`, así que siempre son 200 líneas sin filtrar | `core/catalog.py`, `core/tasks/vps_server.py::view_logs` |
 | H4 | **«Migrar» no deja escribir el mensaje de la revisión.** `migrate_db(message=...)` existe y no tiene eje: toda revisión autogenerada se llama `auto` | `core/catalog.py`, `core/tasks/database.py::migrate_db` |
+| H7 | **«Limpiar VPS» termina en `NameError`.** La nota final de `clean_vps` usa `host`, que no está definido en la función. `pyflakes` lo marca: los pasos corren y la tarea muere en la última línea | `core/tasks/vps_ops.py::clean_vps` |
 | H6 | **El paso `push` de `publish_code`/`update_remote` arranca marcado en el panel y en `False` en la firma.** El catálogo lo declara sin `default=False`, así que la casilla viene marcada; la firma tiene `push: bool = False`, que es lo que vale cuando la llama `bootstrap_vps`. Los dos comportamientos parecen deliberados, pero el mismo nombre significa cosas distintas en cada camino | `core/catalog.py::PUBLISH_CODE_STEPS`, `core/tasks/vps_server.py` |
 
 ## 3. Pendientes abiertos
@@ -50,6 +51,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 Construido y nunca probado en condiciones reales:
 
+- **Consola en Linux**, entera ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)). Hay que correr `pytest` allá —las tres pruebas de `tests/test_host.py` marcadas `solo_posix` se saltan en Windows— y una pasada a mano: detener una tarea y una «App Python» que relanza al guardar, respaldar y restaurar contra la base local y la remota, «SSH Login», instalar los SDK y ver la fuente de la consola.
 - La **instalación completa de los SDK** de punta a punta: bajar los cientos de megas, escribir el registro o el perfil y que el emulador acelere. Las URL y los hashes sí se verificaron contra las fuentes oficiales.
 - `configure_caddy` y `configure_coturn` **contra un VPS real**: el Caddyfile se prueba por su función sin efectos, no contra Caddy.
 - `git_force_push` con el eje `side` en `vps`: la deploy key que instala `setup_github_ssh` suele ser de solo lectura, así que este botón puede fallar con el error de git sin que haya forma de saberlo antes de intentarlo. Lo dice su propio docstring.
@@ -62,7 +64,9 @@ Construido y nunca probado en condiciones reales:
 - **La interfaz asume una sola ventana.** `favorites`, `section_visibility` y `project_store` escriben en `QSettings` global, sin instancia.
 - **`ui/tab_panel.py` tiene 1.511 líneas** y concentra el espacio de trabajo entero: sub-pestañas, acordeón, barra de estado, despacho de la ejecución y los diálogos de las preguntas.
 - **La app móvil solo se ejecuta contra Android.** `run_mobile` busca emuladores Android y `pick_emulator` filtra por `targetPlatform` que empiece con `android`.
-- **Windows no multiplexa SSH** (`core/ssh.py::_control_args`), así que cada consulta remota paga un handshake nuevo contra un timeout de 30 s. Por eso hay funciones que agrupan preguntas que se contestan juntas (`_remote_state`), y no es microoptimización.
+- **En Linux un túnel sobrevive a una caída de Consola.** `PosixHost.bind_to_app` no hace nada; al cerrar normalmente lo apaga `TabPanel.shutdown()`. El camino es `PR_SET_PDEATHSIG` lanzando los túneles desde un hilo que viva lo que la aplicación ({ADR}, Descartado).
+- **En Linux el PATH de los SDK va a `~/.bashrc` o `~/.zshrc`**, que solo leen las terminales. Consola abierta desde el menú del escritorio no lo ve hasta que se lanza desde una terminal.
+- **Windows no multiplexa SSH** (`core/host.py::WindowsHost.ssh_multiplex`), así que cada consulta remota paga un handshake nuevo contra un timeout de 30 s. Por eso hay funciones que agrupan preguntas que se contestan juntas (`_remote_state`), y no es microoptimización.
 
 ## 5. Glosario
 

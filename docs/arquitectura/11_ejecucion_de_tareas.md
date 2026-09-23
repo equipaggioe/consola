@@ -55,7 +55,7 @@ La distinción entre cancelar y responder vacío importa: en `create_avd` el vac
 | `spawn` + `bind_to_app` | Un proceso que sobrevive a su `ctx.run` pero no a la aplicación |
 | `kill_tree` | Terminar el árbol de abajo hacia arriba |
 
-Tres detalles que se pagaron caros y están fijados en el código: `stdin` va siempre a `DEVNULL` (un handle heredado deja colgada a la GUI), los shims `.bat`/`.cmd` de Windows se envuelven en `cmd /c`, y el nivel de cada línea se adivina por su propia etiqueta (`[ERROR]`, `warn`, `success`).
+Tres detalles que se pagaron caros y están fijados en el código: `stdin` va siempre a `DEVNULL` (un handle heredado deja colgada a la GUI), los shims `.bat`/`.cmd` de Windows se envuelven en `cmd /c`, en Linux cada proceso arranca en su propia sesión para que `kill_tree` mate su grupo y no el de Consola, y el nivel de cada línea se adivina por su propia etiqueta (`[ERROR]`, `warn`, `success`).
 
 ## 5. Lo que una tarea le deja a otra
 

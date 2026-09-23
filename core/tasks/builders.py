@@ -8,6 +8,7 @@ from pathlib import Path
 
 from .. import files, ssh, targets, toolchain, versioning, vps
 from ..errors import TaskError
+from ..host import HOST
 from ..registry import registry
 
 """
@@ -598,14 +599,14 @@ def _binary_label(app_dir: Path, fuente: Path, name: str) -> str:
     base = name.strip()
     if not base:
         base = app_dir.name if fuente.stem in _NOMBRES_GENERICOS else fuente.stem
-    return f'{base}-{platform.system().lower()}-{platform.machine().lower()}'
+    return f'{base}-{HOST.system.lower()}-{platform.machine().lower()}'
 
 
 def _binary_output(app_dir: Path, etiqueta: str, onefile: bool) -> Path:
     """Donde queda lo que deja PyInstaller: un archivo con `--onefile`, una
     carpeta sin el. Sirve para leer lo recien compilado y para encontrar lo que
     ya estaba, igual que `_last_output` y `_spa_output`."""
-    sufijo = '.exe' if platform.system() == 'Windows' and onefile else ''
+    sufijo = HOST.executable_suffix if onefile else ''
     return app_dir / 'dist' / f'{etiqueta}{sufijo}'
 
 
@@ -701,7 +702,7 @@ def _publish_binary(ctx, app: str, artifact: Path, manifest: Path, checksum: Pat
     upload_artifact(ctx, manifest)
     if checksum is not None:
         upload_artifact(ctx, checksum)
-    _publish_release(ctx, app, platform.system().lower(), artifact, manifest)
+    _publish_release(ctx, app, HOST.system.lower(), artifact, manifest)
 
 
 # --- promocion -------------------------------------------------------------

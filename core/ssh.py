@@ -11,6 +11,7 @@ from typing import Sequence
 from . import process
 from .envfile import Config
 from .errors import TaskError
+from .host import HOST
 
 CONNECT_TIMEOUT = ['-o', 'ConnectTimeout=15']
 BATCH = ['-o', 'BatchMode=yes']
@@ -31,10 +32,9 @@ def _control_args(identity: Path, target: str) -> list[str]:
     """Multiplexado: una sola conexion TCP para una rafaga de ssh/scp seguidos.
 
     Sin esto, subir cinco archivos abre cinco conexiones y el VPS puede cortarlas
-    por rate-limiting. Se apaga en Windows: el ControlMaster de Win32-OpenSSH
-    emula sockets Unix con pipes y falla al reusar el socket entre invocaciones.
+    por rate-limiting. No todos los sistemas lo soportan (`HOST.ssh_multiplex`).
     """
-    if os.name == 'nt':
+    if not HOST.ssh_multiplex:
         return []
     digest = hashlib.sha1(f'{target}:{identity}'.encode('utf-8')).hexdigest()[:16]
     control_dir = Path(tempfile.gettempdir()) / 'consola_ssh'
@@ -116,17 +116,7 @@ def _askpass_helper() -> Path:
     """Script que solo reimprime la contrasena que le llega por el entorno."""
     directory = Path(tempfile.gettempdir()) / 'consola_ssh'
     directory.mkdir(parents=True, exist_ok=True)
-    if os.name == 'nt':
-        # `!VAR!` y no `%VAR%`: con expansion retardada cmd no vuelve a parsear
-        # el valor, asi que una contrasena con & | > ^ % ! llega entera.
-        helper = directory / 'askpass.bat'
-        helper.write_text('@echo off\r\nsetlocal EnableDelayedExpansion\r\n'
-                          f'echo !{_PASSWORD_VAR}!\r\n', encoding='utf-8')
-    else:
-        helper = directory / 'askpass.sh'
-        helper.write_text(f'#!/bin/sh\nprintf "%s\\n" "${_PASSWORD_VAR}"\n', encoding='utf-8')
-        helper.chmod(0o700)
-    return helper
+    return HOST.askpass_helper(directory, _PASSWORD_VAR)
 
 
 def password_env(password: str) -> dict[str, str]:
@@ -311,7 +301,4 @@ def forget_host(ctx, host: str) -> None:
 
 def terminal_argv(remote: Remote) -> list[str]:
     """Sesion interactiva en terminal externa: necesita TTY real (ADR-0005)."""
-    ssh = ['ssh', '-i', str(remote.identity), remote.target]
-    if os.name == 'nt':
-        return ['wt.exe', *ssh]
-    return ssh
+    return HOST.terminal_argv(['ssh', '-i', str(remote.identity), remote.target])

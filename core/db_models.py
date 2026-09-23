@@ -1,12 +1,12 @@
 from __future__ import annotations
 import json
-import os
 import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
 from . import db_explorer, process
 from .errors import TaskError
+from .host import HOST
 
 """
 Los modelos del repo contra la base viva (ADR-0015).
@@ -106,7 +106,7 @@ def signature(server_root: Path) -> tuple:
 
 def _python(server_root: Path) -> str:
     for venv in ('.venv', 'venv'):
-        exe = server_root / venv / ('Scripts/python.exe' if os.name == 'nt' else 'bin/python')
+        exe = HOST.venv_python(server_root / venv)
         if exe.is_file():
             return str(exe)
     found = process.which_any(['python', 'python3'])

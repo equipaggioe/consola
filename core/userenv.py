@@ -4,6 +4,8 @@ import re
 from pathlib import Path
 from typing import Callable, Iterable, Mapping
 
+from .host import HOST
+
 """
 Variables de entorno persistentes, a nivel usuario y sin permisos de administrador.
 
@@ -51,10 +53,7 @@ def configure(
     values = dict(variables or {})
     added = [str(Path(p)) for p in path_add]
 
-    if os.name == 'nt':
-        _configure_windows(ctx, values, added, path_drop)
-    else:
-        _configure_posix(ctx, values, added, path_drop)
+    _STORES[HOST.env_store](ctx, values, added, path_drop)
 
     _apply_to_process(values, added)
 
@@ -234,3 +233,7 @@ def _broadcast_change() -> None:
         )
     except (AttributeError, OSError):
         pass
+
+
+# Uno por valor de `HOST.env_store`.
+_STORES = {'profile': _configure_posix, 'registry': _configure_windows}

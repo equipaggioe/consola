@@ -7,6 +7,7 @@ from pathlib import Path
 
 from . import cache, ports
 from .errors import TaskError
+from .host import HOST
 from .process import capture, which_any
 
 _TOOLS = {
@@ -40,11 +41,10 @@ class Sdk:
         if subpath is None:
             raise TaskError(f'Herramienta desconocida del SDK: {name}')
 
-        exe = f'{name}.exe' if os.name == 'nt' else name
-        bat = f'{name}.bat' if os.name == 'nt' else name
+        nombres = HOST.executable_names(name)
 
         if self.root:
-            for candidate in (self.root.joinpath(*subpath, exe), self.root.joinpath(*subpath, bat)):
+            for candidate in (self.root.joinpath(*subpath, n) for n in nombres):
                 if candidate.is_file():
                     return str(candidate)
             raise TaskError(
@@ -52,7 +52,7 @@ class Sdk:
                 f'Esperado en: {self.root.joinpath(*subpath)}'
             )
 
-        found = which_any([exe, bat])
+        found = which_any(nombres)
         if found:
             return found
         raise TaskError(

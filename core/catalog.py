@@ -1,5 +1,4 @@
 from __future__ import annotations
-import os
 from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
@@ -7,6 +6,7 @@ from pathlib import Path
 from . import android, cache, files, ssh, targets, toolchain, vps
 from .envfile import Config
 from .errors import TaskError
+from .host import HOST
 from .registry import registry, Capability, AxisDef, Facet, Step
 
 # La lista de archivos a copiar era un eje repetido en los cuatro botones del
@@ -297,8 +297,8 @@ def forget_machine_cache() -> None:
 # llama sin parametros: asi el panel y la funcion no pueden discrepar.
 # En Linux se usan las rutas convencionales bajo el home; en Windows, las
 # unidades que ya usaban los scripts.
-ANDROID_DIR_DEFAULT = r'D:\Android' if os.name == 'nt' else '~/Android/Sdk'
-FLUTTER_DIR_DEFAULT = r'D:\flutter' if os.name == 'nt' else '~/flutter'
+ANDROID_DIR_DEFAULT = HOST.android_dir_default
+FLUTTER_DIR_DEFAULT = HOST.flutter_dir_default
 API_LEVEL_DEFAULT = '36'
 BUILD_TOOLS_DEFAULT = '36.0.0'
 

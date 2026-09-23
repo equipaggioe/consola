@@ -27,7 +27,7 @@ Varias tareas conviven: cada pestaña de ejecución tiene la suya, y un repo pue
 
 `MainWindow.closeEvent` baja a disco los parámetros pendientes (`params_store.flush`) y llama a `TabPanel.shutdown()` de cada repo. Ese apagado cancela cada tarea como lo haría cerrar su pestaña —con sus ganchos limpios, por ejemplo `adb emu kill`— y espera hasta 5 s.
 
-Lo que no alcance a cerrarse lo mata el sistema: en Windows cada proceso lanzado con `detach`/`spawn` entra en un **Job Object** con `KILL_ON_JOB_CLOSE` (`core/process.py::bind_to_app`), así que un túnel `ssh -L` no sobrevive a la aplicación ni cuando esta se cae.
+Lo que no alcance a cerrarse lo mata el sistema, solo en Windows: un túnel `ssh -L` entra en un **Job Object** con `KILL_ON_JOB_CLOSE` (`core/host.py::WindowsHost.bind_to_app`) y no sobrevive a la aplicación ni cuando esta se cae. En Linux no hay equivalente todavía: si Consola se cae de golpe, el túnel sigue vivo ([30](30_riesgos_y_pendientes.md)).
 
 ## 4. Dónde queda el estado
 
@@ -63,5 +63,6 @@ Consola nunca escribe a nivel sistema en la máquina local: el PATH y las variab
 | App móvil y builds | Flutter o Flet, y el SDK de Android para emular |
 | Binario | PyInstaller, preferido del venv de la app |
 | Todo lo del VPS | `ssh`/`scp` en el PATH y las claves `VPS_*` cargadas |
-| Base local | Postgres instalado; en Windows se busca `psql.exe` bajo `C:\Program Files\PostgreSQL` |
+| Base local, respaldo y restauración | Postgres instalado en esta máquina: la versión más nueva bajo `C:\Program Files\PostgreSQL` en Windows o `/usr/lib/postgresql` en Linux (`core/host.py::pg_tool`) |
+| Sesión SSH interactiva | Windows Terminal (`wt.exe`) en Windows; `x-terminal-emulator` en Linux |
 | Explorador | `psycopg`; la importación es diferida, así que su ausencia solo rompe ese botón |

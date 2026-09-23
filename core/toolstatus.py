@@ -5,6 +5,7 @@ from pathlib import Path
 
 from . import android
 from .errors import TaskError
+from .host import HOST
 from .process import which_any
 
 """
@@ -41,9 +42,7 @@ class Tool:
 
 def _binary(name: str) -> list[str]:
     """Los nombres que puede tener un ejecutable segun el sistema."""
-    if os.name != 'nt':
-        return [name]
-    return [f'{name}.exe', f'{name}.bat', f'{name}.cmd']
+    return HOST.executable_names(name)
 
 
 def _under(home: str, *parts: str) -> str:

@@ -1,9 +1,10 @@
 from __future__ import annotations
 import json
-import os
 import time
 from pathlib import Path
 from typing import Any, Callable
+
+from .host import HOST
 
 """
 Cache en disco para catalogos caros de consultar.
@@ -27,11 +28,7 @@ repos: es historia de la maquina, igual que el SQLite de docs/arquitectura/30_ri
 
 def app_dir() -> Path:
     """Carpeta de datos de Consola en esta maquina."""
-    if os.name == 'nt':
-        base = os.environ.get('LOCALAPPDATA') or (Path.home() / 'AppData' / 'Local')
-        return Path(base) / 'Consola'
-    base = os.environ.get('XDG_CACHE_HOME') or (Path.home() / '.cache')
-    return Path(base) / 'consola'
+    return HOST.data_dir()
 
 
 def _file(name: str) -> Path:

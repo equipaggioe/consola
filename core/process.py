@@ -1,18 +1,16 @@
 from __future__ import annotations
 import os
 import shutil
-import signal
 import subprocess
 import threading
 from pathlib import Path
 from typing import Callable, Iterable, Sequence
 
 from .errors import Cancelled, TaskError
+from .host import HOST
 
 Argv = Sequence[str]
 LineSink = Callable[[str], None]
-
-_NO_WINDOW = subprocess.CREATE_NO_WINDOW if os.name == 'nt' else 0
 
 
 def format_argv(argv: Argv) -> str:
@@ -30,14 +28,8 @@ def which_any(names: Iterable[str]) -> str | None:
 
 
 def as_argv(executable: str) -> list[str]:
-    """Envuelve los shims `.bat`/`.cmd` de Windows, que no son ejecutables reales.
-
-    En Windows, `flutter.bat` o `npm.cmd` solo corren a traves de `cmd.exe /c`;
-    en el resto de los sistemas el ejecutable se invoca tal cual.
-    """
-    if os.name == 'nt' and executable.lower().endswith(('.bat', '.cmd')):
-        return ['cmd.exe', '/c', executable]
-    return [executable]
+    """Envuelve los shims `.bat`/`.cmd` de Windows, que no son ejecutables reales."""
+    return HOST.wrap_script(executable)
 
 
 def resolve_executable(
@@ -74,10 +66,6 @@ def spawn(
     detached: bool = False,
 ) -> subprocess.Popen:
     """Arranca un proceso con la salida unificada y lista para leer linea a linea."""
-    creation = _NO_WINDOW
-    if detached and os.name == 'nt':
-        creation |= subprocess.CREATE_NEW_PROCESS_GROUP
-
     return subprocess.Popen(
         [str(a) for a in argv],
         cwd=str(cwd) if cwd else None,
@@ -89,74 +77,20 @@ def spawn(
         encoding='utf-8',
         errors='replace',
         bufsize=1,
-        creationflags=creation,
-        start_new_session=detached and os.name != 'nt',
+        **HOST.spawn_options(detached=detached),
     )
-
-
-_job = None
-_job_lock = threading.Lock()
 
 
 def bind_to_app(proc: subprocess.Popen) -> None:
     """El proceso muere con Consola, aunque Consola se cierre de golpe o se caiga.
 
-    En Windows lo mete en un Job Object con KILL_ON_JOB_CLOSE: el handle del job
-    lo tiene solo este proceso, y cuando muere el sistema cierra el handle y mata
-    lo que hay adentro. Un tunel `ssh -L` que sobrevive a su Consola sigue
-    ocupando el puerto local y la proxima conexion entra por el.
+    Un tunel `ssh -L` que sobrevive a su Consola sigue ocupando el puerto local
+    y la proxima conexion entra por el.
 
     No es para todo hijo: un emulador muerto de golpe deja el AVD a medio
     escribir, y ese se apaga por adb (`core/tasks/emulators.py`).
     """
-    if os.name != 'nt':
-        return
-    import ctypes
-    from ctypes import wintypes
-
-    global _job
-    kernel32 = ctypes.WinDLL('kernel32', use_last_error=True)
-    kernel32.CreateJobObjectW.restype = wintypes.HANDLE
-    kernel32.SetInformationJobObject.argtypes = [wintypes.HANDLE, ctypes.c_int,
-                                                 ctypes.c_void_p, wintypes.DWORD]
-    kernel32.AssignProcessToJobObject.argtypes = [wintypes.HANDLE, wintypes.HANDLE]
-
-    with _job_lock:
-        if _job is None:
-            class _Basic(ctypes.Structure):
-                _fields_ = [('PerProcessUserTimeLimit', ctypes.c_int64),
-                            ('PerJobUserTimeLimit', ctypes.c_int64),
-                            ('LimitFlags', wintypes.DWORD),
-                            ('MinimumWorkingSetSize', ctypes.c_size_t),
-                            ('MaximumWorkingSetSize', ctypes.c_size_t),
-                            ('ActiveProcessLimit', wintypes.DWORD),
-                            ('Affinity', ctypes.c_size_t),
-                            ('PriorityClass', wintypes.DWORD),
-                            ('SchedulingClass', wintypes.DWORD)]
-
-            class _Io(ctypes.Structure):
-                _fields_ = [(n, ctypes.c_uint64) for n in (
-                    'ReadOperationCount', 'WriteOperationCount', 'OtherOperationCount',
-                    'ReadTransferCount', 'WriteTransferCount', 'OtherTransferCount')]
-
-            class _Extended(ctypes.Structure):
-                _fields_ = [('BasicLimitInformation', _Basic), ('IoInfo', _Io),
-                            ('ProcessMemoryLimit', ctypes.c_size_t),
-                            ('JobMemoryLimit', ctypes.c_size_t),
-                            ('PeakProcessMemoryUsed', ctypes.c_size_t),
-                            ('PeakJobMemoryUsed', ctypes.c_size_t)]
-
-            job = kernel32.CreateJobObjectW(None, None)
-            if not job:
-                return
-            info = _Extended()
-            info.BasicLimitInformation.LimitFlags = 0x2000   # KILL_ON_JOB_CLOSE
-            if not kernel32.SetInformationJobObject(job, 9, ctypes.byref(info),  # Extended
-                                                    ctypes.sizeof(info)):
-                kernel32.CloseHandle(job)
-                return
-            _job = job
-        kernel32.AssignProcessToJobObject(_job, int(proc._handle))
+    HOST.bind_to_app(proc)
 
 
 def stream(
@@ -224,7 +158,7 @@ def capture(
             encoding='utf-8',
             errors='replace',
             timeout=timeout,
-            creationflags=_NO_WINDOW,
+            **HOST.run_options(),
         )
     except FileNotFoundError as exc:
         raise TaskError(f"No se encontro el ejecutable: {argv[0]}") from exc
@@ -254,7 +188,7 @@ def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
             encoding='utf-8',
             errors='replace',
             timeout=timeout,
-            creationflags=_NO_WINDOW,
+            **HOST.run_options(),
         )
     except FileNotFoundError as exc:
         raise TaskError(f"No se encontro el ejecutable: {argv[0]}") from exc
@@ -274,14 +208,7 @@ def kill_tree(proc: subprocess.Popen, *, grace: float = 5.0) -> None:
         return
 
     try:
-        if os.name == 'nt':
-            subprocess.run(
-                ['taskkill', '/PID', str(proc.pid), '/T', '/F'],
-                capture_output=True,
-                creationflags=_NO_WINDOW,
-            )
-        else:
-            os.killpg(os.getpgid(proc.pid), signal.SIGTERM)
+        HOST.kill_group(proc)
     except (OSError, subprocess.SubprocessError):
         proc.terminate()
 

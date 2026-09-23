@@ -3,7 +3,6 @@ import getpass
 import json
 import os
 import re
-import sys
 import tempfile
 import urllib.request
 from pathlib import Path
@@ -12,6 +11,7 @@ from .. import android, envfile, files, runner, userenv
 from ..catalog import ANDROID_DIR_DEFAULT, API_LEVEL_DEFAULT, BUILD_TOOLS_DEFAULT, FLUTTER_DIR_DEFAULT
 from ..context import Level
 from ..errors import TaskError
+from ..host import HOST
 from ..process import as_argv, feed, format_argv, which_any
 from ..registry import registry
 
@@ -338,17 +338,6 @@ FLUTTER_RELEASES_JSON = {
 }
 
 
-def _os_key() -> str:
-    if os.name == 'nt':
-        return 'windows'
-    return 'mac' if sys.platform == 'darwin' else 'linux'
-
-
-def _script(name: str) -> str:
-    """El nombre real del lanzador: los del SDK son `.bat` en Windows."""
-    return f'{name}.bat' if os.name == 'nt' else name
-
-
 def _fetch_text(url: str) -> str:
     request = urllib.request.Request(url, headers={'User-Agent': 'Mozilla/5.0'})
     try:
@@ -464,14 +453,14 @@ def install_android_tools(ctx, install_dir: str = '') -> Path:
     usuario. No instala paquetes: de eso se ocupa `install_android_packages`,
     que se corre solo cada vez que hace falta otra API o otro build-tools.
     """
-    os_key = _os_key()
+    os_key = HOST.sdk_key
     if os_key not in ('windows', 'linux'):
         raise TaskError(f'Google no publica cmdline-tools para este sistema: {os_key}.')
     _ensure_java(ctx)
 
     root = _android_root(install_dir)
     latest = root / 'cmdline-tools' / 'latest'
-    sdkmanager = latest / 'bin' / _script('sdkmanager')
+    sdkmanager = latest / 'bin' / HOST.script_name('sdkmanager')
 
     if sdkmanager.is_file():
         ctx.ok(f'Las cmdline-tools ya estaban en {latest}.')
@@ -576,9 +565,11 @@ def install_android_hypervisor(ctx) -> bool:
     Y es lo que se rompe solo: una actualizacion del sistema deja el emulador
     lentisimo sin que el resto del SDK haya cambiado.
     """
-    if os.name != 'nt':
-        return _check_kvm(ctx)
+    return _ACCELERATIONS[HOST.emulator_acceleration](ctx)
 
+
+def _install_hypervisor_driver(ctx) -> bool:
+    """En Windows la aceleracion es un driver de kernel que se instala."""
     try:
         ctx.capture(['sc', 'query', 'gvm'], timeout=30)
         ctx.ok('El Hypervisor Driver ya esta instalado (servicio gvm).')
@@ -622,6 +613,10 @@ def _check_kvm(ctx) -> bool:
     ctx.warn(f'Corre:  sudo usermod -aG kvm {usuario}')
     ctx.warn('Y vuelve a iniciar sesion para que el grupo tome efecto.')
     return False
+
+
+# Uno por valor de `HOST.emulator_acceleration`.
+_ACCELERATIONS = {'driver': _install_hypervisor_driver, 'kvm': _check_kvm}
 
 
 def _run_elevated(ctx, program: Path) -> None:
@@ -742,11 +737,11 @@ def install_flutter_sdk(ctx, install_dir: str = '') -> Path:
     paquetes sueltos que se agreguen despues, se actualiza entero con
     `flutter upgrade`.
     """
-    os_key = _os_key()
+    os_key = HOST.sdk_key
     _ensure_git(ctx)
 
     home = Path(install_dir or FLUTTER_DIR_DEFAULT).expanduser()
-    flutter = home / 'bin' / _script('flutter')
+    flutter = home / 'bin' / HOST.script_name('flutter')
 
     if flutter.is_file():
         ctx.ok(f'Flutter ya estaba instalado en {home}.')

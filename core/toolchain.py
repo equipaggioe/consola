@@ -1,12 +1,11 @@
 from __future__ import annotations
 import json
-import os
-import platform
 from dataclasses import dataclass
 from pathlib import Path
 
 from .errors import TaskError
 from .files import read_text
+from .host import HOST
 from .process import resolve_executable
 
 FLUTTER = 'flutter'
@@ -61,7 +60,7 @@ BUILD_PLATFORMS: dict[str, BuildPlatform] = {
 
 def host_platforms() -> list[str]:
     """Las plataformas que se pueden compilar en esta maquina."""
-    return [k for k, p in BUILD_PLATFORMS.items() if not p.host or p.host == platform.system()]
+    return [k for k, p in BUILD_PLATFORMS.items() if not p.host or p.host == HOST.system]
 
 
 def out_key(platform_id: str) -> str:
@@ -118,10 +117,8 @@ def pyinstaller_cmd(app_dir: Path | None = None, override: str = '') -> list[str
 
 def _venv_tool(venv_dir: Path, name: str) -> Path | None:
     """Un ejecutable dentro de un venv, o None si ese venv no lo tiene."""
-    carpeta = venv_dir / ('Scripts' if os.name == 'nt' else 'bin')
-    nombres = (f'{name}.exe', f'{name}.cmd', name) if os.name == 'nt' else (name,)
-    for nombre in nombres:
-        ruta = carpeta / nombre
+    for nombre in HOST.executable_names(name):
+        ruta = HOST.venv_bin(venv_dir) / nombre
         if ruta.is_file():
             return ruta
     return None
@@ -143,7 +140,7 @@ def venv_python(venv_dir: Path) -> Path:
     otro Python (`os.execv`) porque aca el venv es el entorno de un subproceso,
     no el de la app.
     """
-    exe = venv_dir / ('Scripts' if os.name == 'nt' else 'bin') / ('python.exe' if os.name == 'nt' else 'python')
+    exe = HOST.venv_python(venv_dir)
     if not exe.is_file():
         raise TaskError(f'No existe el Python del venv: {exe}')
     return exe
@@ -156,7 +153,7 @@ def app_python(app_dir: Path, repo_root: Path) -> list[str]:
     para todo), y si no hay ninguno el Python del PATH.
     """
     for venv in (app_dir / '.venv', repo_root / '.venv'):
-        exe = venv / ('Scripts' if os.name == 'nt' else 'bin') / ('python.exe' if os.name == 'nt' else 'python')
+        exe = HOST.venv_python(venv)
         if exe.is_file():
             return [str(exe)]
     return resolve_executable(

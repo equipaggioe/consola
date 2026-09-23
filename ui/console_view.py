@@ -3,7 +3,7 @@ import datetime
 from PySide6.QtWidgets import QPlainTextEdit, QLineEdit, QMenu
 from PySide6.QtGui import QTextCharFormat, QColor, QFont, QKeyEvent, QAction
 from PySide6.QtCore import Qt, QTimer
-from .theme import Colors, Fonts
+from .theme import Colors, Fonts, mono
 from .palettes import Palette, NEUTRAL
 
 class ConsoleView(QPlainTextEdit):
@@ -13,8 +13,7 @@ class ConsoleView(QPlainTextEdit):
         super().__init__(parent)
         self.setReadOnly(True)
         self.pal = NEUTRAL
-        font = QFont()
-        font.setFamily(Fonts.MONO.split(',')[0].strip('\'"'))
+        font = mono(QFont())
         font.setPixelSize(Fonts.SIZE_MONO)
         self.setFont(font)
         

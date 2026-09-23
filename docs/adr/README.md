@@ -55,3 +55,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0045](0045-la-carpeta-y-el-conteo-de-respaldos-son-configuracion.md) | Dónde caen los respaldos y cuántos sobreviven son configuración del repo, no ejes del botón |
 | [0046](0046-el-volcado-corre-de-este-lado.md) | El volcado y la restauración corren de este lado y alcanzan la base remota por el túnel |
 | [0047](0047-restaurar-es-un-destructivo-del-seguro-por-repo.md) | Restaurar es un destructivo del seguro por repositorio, y el respaldo se elige de una lista que se mira al abrir |
+| [0048](0048-las-diferencias-de-sistema-viven-en-host.md) | Las diferencias entre Windows y Linux viven en un solo módulo, con una clase por sistema |

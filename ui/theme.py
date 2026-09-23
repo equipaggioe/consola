@@ -63,6 +63,18 @@ def on_color(hex_color: str) -> str:
     lum = 0.2126 * lin(c.red()) + 0.7152 * lin(c.green()) + 0.0722 * lin(c.blue())
     return Colors.INK if lum > 0.18 else Colors.TEXT
 
+def mono(font: QFont) -> QFont:
+    """`font` con la familia de ancho fijo del tema (`Fonts.MONO`).
+
+    Las familias van todas, en orden, y el tipo como ultima palabra: en una
+    maquina que no tiene ninguna —un Linux sin Cascadia ni Consolas— Qt elige
+    otra de ancho fijo en vez de caer en la proporcional por defecto.
+    """
+    familias = [f.strip().strip('"') for f in Fonts.MONO.split(',')]
+    font.setFamilies([f for f in familias if f != 'monospace'])
+    font.setStyleHint(QFont.StyleHint.Monospace)
+    return font
+
 def apply_theme(app: QApplication) -> None:
     font = QFont()
     font.setFamily("Inter")
