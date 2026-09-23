@@ -304,19 +304,6 @@ def open_db_tunnel(ctx):
     return tunnel
 
 
-def inspect_database(ctx, scope: str = db.LOCAL) -> list[str]:
-    """Diagnostico de solo lectura: tablas con su cantidad de filas estimada."""
-    admin = db.resolve_admin(ctx, scope)
-    _, _, name = db.credentials(ctx.config)
-    filas = admin.query(ctx, (
-        "SELECT relname || ' | ' || n_live_tup FROM pg_stat_user_tables "
-        'ORDER BY n_live_tup DESC;'
-    ), database=name)
-    for linea in filas:
-        ctx.info(linea)
-    return filas
-
-
 def explore_db(ctx, scope: str = db.LOCAL) -> None:
     """Conecta el explorador y lo mantiene conectado hasta cerrar la pestana.
 
@@ -531,5 +518,4 @@ def bind_all() -> None:
     registry.bind('run_mock_seeders', run_mock_seeders)
     registry.bind('backup_db', backup_database)
     registry.bind('ssh_tunnel', open_db_tunnel)
-    registry.bind('inspect_db', inspect_database)
     registry.bind('explore_db', explore_db)

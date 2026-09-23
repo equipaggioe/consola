@@ -865,15 +865,6 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    'inspect_db': CommandDoc(
-        summary='Lista las tablas de la base con su cantidad de filas.',
-        steps=[
-            'Abre el canal de superusuario del ámbito elegido.',
-            'Consulta pg_stat_user_tables ordenando por filas vivas.',
-            'Vuelca el resultado en la consola, una tabla por línea.',
-        ],
-    ),
-
     # --- Utils -------------------------------------------------------------
 
     'clean_artifacts': CommandDoc(

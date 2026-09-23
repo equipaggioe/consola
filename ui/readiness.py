@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from core.catalog import applicable_ids, for_project
 from core.registry import registry
+from core import targets
 from core.settings import required_keys_for
 from core import envfile
 from ui import params_store
@@ -64,8 +65,12 @@ def ready_ids(project) -> set[str]:
         return set()
     env = envfile.load_config(project.path)
     path = project.path
-    aplicables = applicable_ids(path)
-    return {
-        cap.id for cap in registry.get_all()
-        if cap.id in aplicables and not missing_keys(cap, env, path)
-    }
+    # Las 62 capacidades se resuelven contra el MISMO repo, y cada una lo
+    # volvia a recorrer entera: `one_scan` reparte un solo recorrido entre
+    # todas (`core/targets.py`).
+    with targets.one_scan():
+        aplicables = applicable_ids(path)
+        return {
+            cap.id for cap in registry.get_all()
+            if cap.id in aplicables and not missing_keys(cap, env, path)
+        }

@@ -4,7 +4,7 @@ from PySide6.QtWidgets import (
     QPushButton
 )
 from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut, QIcon, QPixmap, QFont
-from PySide6.QtCore import Qt, QEvent
+from PySide6.QtCore import Qt, QEvent, QTimer
 
 from ui.menu_bar import ActionMenuBar
 from ui.action_search import ActionSearch
@@ -19,6 +19,11 @@ from ui.widgets import ToggleSwitch
 from core.catalog import applicable_ids
 from core.registry import registry
 from core.projects import Project
+
+# Cuanto se espera antes de recontar que acciones estan listas. Corto: es lo
+# que tarda en pararse una rafaga de tecleo, y lo que se recalcula no es nada
+# que se este mirando mientras se escribe (el ▶ de las filas del buscador).
+_READINESS_MS = 200
 
 
 def _brand_icon() -> QIcon:
@@ -88,6 +93,13 @@ class MainWindow(QMainWindow):
         # redimensionado por los bordes — `_EdgeGrip`, apoyado en
         # `startSystemMove/Resize` para que Windows siga dando su encaje a los lados.
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
+
+        # Junta en una sola pasada las peticiones de recuento del ▶ del
+        # buscador (`_refresh_readiness`).
+        self._readiness_timer = QTimer(self)
+        self._readiness_timer.setSingleShot(True)
+        self._readiness_timer.setInterval(_READINESS_MS)
+        self._readiness_timer.timeout.connect(self._do_refresh_readiness)
 
         # Barra de menu: el catalogo entero de acciones, sin ocupar ancho.
         # Junto con el buscador de la misma fila, emite las mismas senales y
@@ -506,7 +518,17 @@ class MainWindow(QMainWindow):
 
         La cuenta vive en `ui/readiness.py`; la muestra el ▶ de cada fila del
         buscador.
+
+        Se pide, no se hace: la cuenta recorre el repo para las 62 acciones y
+        quien la dispara es, entre otros, cada tecla de un campo de texto
+        (`ui/params_panel.py::_persist`, `ui/env_panel.py`). Calculada en el
+        acto, una rafaga de tecleo encolaba una pasada por tecla y las letras
+        aparecian segundos despues. El temporizador junta la rafaga en una sola
+        pasada, como hace `ui/params_store.py` con la bajada a disco.
         """
+        self._readiness_timer.start()
+
+    def _do_refresh_readiness(self) -> None:
         ready = readiness.ready_ids(self.project_tabs.active_project)
         self.action_search.set_ready(ready)
 

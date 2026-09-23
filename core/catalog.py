@@ -833,11 +833,10 @@ def load_catalog() -> None:
     # eje: corrian clavadas contra `local`, que es el default de la firma.
     registry.register(Capability(id='run_seeders', name='Cargar datos base', cut=True, group='Base de datos', kind='once', icon='🌱', description='Carga los datos mínimos que la app necesita para arrancar.', axes=[_SCOPE_AXIS()], stub=True))
     registry.register(Capability(id='run_mock_seeders', name='Cargar datos de prueba', group='Base de datos', kind='once', icon='🎭', description='Carga datos de prueba encima de los datos base.', axes=[_SCOPE_AXIS()], stub=True))
-    registry.register(Capability(id='inspect_db', name='Listar tablas y filas', cut=True, group='Base de datos', kind='once', icon='🔍', description='Lista las tablas de la base con su cantidad de filas.', axes=[_SCOPE_AXIS()], stub=True))
     # Viva como un launcher: sostiene la conexion (y en remoto el tunel) hasta
     # cerrar la pestana, y lo que entrega es la vista de arbol y datos, no el
     # log (ADR-0015).
-    registry.register(Capability(id='explore_db', name='Explorar datos', group='Base de datos', kind='live', view='db', icon='🗂️', description='Navega esquemas, tablas y datos de la base, en solo lectura.', axes=[_SCOPE_AXIS()], stub=True))
+    registry.register(Capability(id='explore_db', name='Explorar datos', cut=True, group='Base de datos', kind='live', view='db', icon='🗂️', description='Navega esquemas, tablas y datos de la base, en solo lectura.', axes=[_SCOPE_AXIS()], stub=True))
     # El tunel no tiene parametros: el puerto remoto sale del VPS y el local lo
     # elige `core/ports.py` si el de enfrente esta ocupado.
     registry.register(Capability(id='ssh_tunnel', name='Abrir túnel a Postgres', group='Base de datos', kind='background', icon='🔗', description='Abre un túnel SSH al Postgres del VPS para conectarse en local.', stub=True))

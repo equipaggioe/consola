@@ -33,7 +33,7 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `envfile.py` | `.consola/config.env`: leer, regenerar, y `Config` con acceso tipado y defaults |
 | `settings.py` | El esquema de claves: quién las exige y quién solo las usa |
 | `registry.py` | `Registry`, `Capability`, `AxisDef`, `Facet`, `Step`, y el puente a los kwargs |
-| `catalog.py` | La declaración de las 62 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
+| `catalog.py` | La declaración de las 61 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
 | `targets.py` | Qué subproyectos y qué características tiene el repo abierto |
 | `toolchain.py` | Ubicar `flutter`, `flet`, `npm`, `pyinstaller` y el Python de un venv; las plataformas de build |
 | `ssh.py` | `Remote`, ejecución remota, `scp`, túneles, llaves, contraseña sin consola |

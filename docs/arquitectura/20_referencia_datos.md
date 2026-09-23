@@ -176,7 +176,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 
 ## 7. El catálogo, de un vistazo
 
-62 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
+61 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
 
 | Grupo | Id | Botón | Tipo | |
 |---|---|---|---|---|
@@ -204,7 +204,6 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |  | `migrate_db` | Migrar esquema | C | `requires_repo: migrations` |
 |  | `run_seeders` | Cargar datos base | A |  |
 |  | `run_mock_seeders` | Cargar datos de prueba | A |  |
-|  | `inspect_db` | Listar tablas y filas | A |  |
 |  | `explore_db` | Explorar datos | A | `live`, vista db |
 |  | `ssh_tunnel` | Abrir túnel a Postgres | A | `background` |
 |  | `backup_db` | Respaldar base | A |  |

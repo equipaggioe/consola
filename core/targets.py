@@ -1,5 +1,6 @@
 from __future__ import annotations
 from collections.abc import Sequence
+from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -106,12 +107,53 @@ def python_entrypoint(directory: Path) -> Path | None:
     return None
 
 
+# --- un solo recorrido por pasada -----------------------------------------
+# Mirar el repo cuesta: `discover` hace un `stat` por cada archivo que examina
+# para tipar cada carpeta. Una pregunta suelta es barata, pero hay pasadas que
+# repiten la MISMA pregunta decenas de veces seguidas —`ui/readiness.py`
+# resuelve las 62 capacidades contra el mismo repo, y cada una vuelve a
+# recorrerlo— y ahi el recorrido pasaba a medirse en decimas de segundo. Como
+# eso corria en cada tecla de un campo de texto, escribir se atrasaba segundos.
+#
+# `one_scan()` comparte el recorrido entre las preguntas de UNA pasada y lo
+# suelta al salir: no es cache entre eventos, que mentiria si se agrega un
+# subproyecto con Consola abierta. Cada pasada sigue mirando el disco de nuevo.
+_pass: dict | None = None
+
+
+@contextmanager
+def one_scan():
+    """Dentro de este bloque, el repo se recorre una vez por pregunta y no una
+    vez por quien la hace. Anidarlo no abre una pasada nueva."""
+    global _pass
+    if _pass is not None:
+        yield
+        return
+    _pass = {}
+    try:
+        yield
+    finally:
+        _pass = None
+
+
+def _shared(key, produce):
+    if _pass is None:
+        return produce()
+    if key not in _pass:
+        _pass[key] = produce()
+    return _pass[key]
+
+
 def discover(root: Path) -> list[Target]:
     """Recorre el repo y devuelve los subproyectos tipados que encuentra.
 
     Se corta a dos niveles: mas abajo solo hay dependencias y artefactos, y
     recorrer `node_modules` entero por cada apertura de proyecto no vale nada.
     """
+    return _shared(('discover', str(root)), lambda: _discover(root))
+
+
+def _discover(root: Path) -> list[Target]:
     found: list[Target] = []
     for directory in _walk(root, _DEPTH):
         kind = _detect(directory)
@@ -197,8 +239,9 @@ def has_migrations(root: Path) -> bool:
     versions`), porque la pregunta es exactamente esa: si el boton apretara,
     ¿habria historial contra el que generar o aplicar algo?
     """
-    return any((d / 'alembic.ini').is_file() or (d / 'alembic' / 'versions').is_dir()
-               for d in _walk(root, _DEPTH))
+    return _shared(('migrations', str(root)), lambda: any(
+        (d / 'alembic.ini').is_file() or (d / 'alembic' / 'versions').is_dir()
+        for d in _walk(root, _DEPTH)))
 
 
 def features(root: Path) -> frozenset[str]:
