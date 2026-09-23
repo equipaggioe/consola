@@ -209,7 +209,7 @@ def clean_vps(
     if user:
         ctx.step('user')
         remove_vps_user(ctx)
-    ctx.note(f'Limpieza completa del VPS {host}.')
+    ctx.note(f'Limpieza completa del VPS {ctx.config.require("VPS_IP")}.')
 
 
 def bind_all() -> None:
