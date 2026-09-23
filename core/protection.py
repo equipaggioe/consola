@@ -119,15 +119,13 @@ RULES: dict[str, Rule] = {
     # simulacro no toca nada, igual que los dos de arriba.
     'sync_server_env': Rule(always=('local',), dry_run={'apply': ('simulacro',)}),
 
-    # `git_force_push` y `git_force_origin_from_vps` reescriben origin -- no
-    # tocan ni esta maquina ni el VPS -- asi que van con 'origin', no con
-    # 'local' ni 'vps'. `git_force_reset` si descarta commits y archivos DE
-    # ESTA maquina: 'local' es correcto ahi. `git_force_vps` si descarta lo
-    # que el VPS tenga sin commitear: 'vps' es correcto ahi.
+    # Los dos forzados reescriben el lado que diga su eje `side`. `push` toca
+    # solo origin en los dos casos -- no deja distinto ni esta maquina ni el
+    # VPS -- y por eso su objetivo es fijo. `reset` si descarta commits y
+    # archivos del lado elegido, asi que el objetivo sale del eje: 'local' no
+    # sale de esta maquina, 'vps' alcanza una maquina remota.
     'git_force_push': Rule(always=('origin',)),
-    'git_force_reset': Rule(always=('local',)),
-    'git_force_vps': Rule(always=('vps',)),
-    'git_force_origin_from_vps': Rule(always=('origin',)),
+    'git_force_reset': Rule(when={'side': {'local': ('local',), 'vps': ('vps',)}}),
 }
 
 

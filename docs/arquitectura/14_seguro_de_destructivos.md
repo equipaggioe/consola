@@ -32,9 +32,8 @@ Un objetivo que no figura en el `params.json` cae en su default: agregar uno nue
 | `promote_app` | `publicacion` |
 | `clean_artifacts`, `sync_server_env` | `local`, salvo en simulacro |
 | `sync_common_files` | `otros_repos`, salvo en simulacro |
-| `git_force_push`, `git_force_origin_from_vps` | `origin` |
-| `git_force_reset` | `local` |
-| `git_force_vps` | `vps` |
+| `git_force_push` | `origin`, con cualquier lado |
+| `git_force_reset` | `local` o `vps`, según el eje `side` |
 
 `purge_emulators` no está en la tabla: es `scope='machine'` —borra AVD e imágenes del SDK, que no son de ningún repo— así que un interruptor por repositorio no tendría a qué repositorio pertenecer. Se queda con su propia confirmación escrita.
 

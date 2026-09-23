@@ -66,13 +66,13 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los nueve y reemplaza c
 | `emulators.py` | `install_system_image`, `create_avd`, `launch_emulator`, `stop_emulator`, `purge_emulators` |
 | `git.py` | `git_force_push`, `git_force_reset`, `clone_repo` |
 | `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh`, `revoke_github_ssh`, `clean_vps` |
-| `vps_server.py` | `upload_secret_files`, `systemd_action`, `view_logs`, `configure_service`, `publish_code`, `update_remote`, `git_force_vps`, `git_force_origin_from_vps` |
+| `vps_server.py` | `upload_secret_files`, `systemd_action`, `view_logs`, `configure_service`, `publish_code`, `update_remote` |
 | `vps_setup.py` | `refresh_known_host`, `setup_ssh_key`, `setup_github_ssh`, `install_software`, `configure_coturn`, `configure_caddy`, `bootstrap_vps` |
 | `database.py` | Los doce del grupo Base de datos |
 | `utils.py` | Limpieza, Cloudflare, sincronización y los cinco de SDK |
 | `payloads.py` | La excepción deliberada: programas Python que viajan por `-c` al intérprete del proyecto |
 
-Dos funciones de `vps_server.py` sirven a botones del grupo Git: `sync_repository` es `git_force_vps` y `force_push_from_vps` es `git_force_origin_from_vps`. Están ahí porque son la otra mitad del despliegue, no una operación de git suelta.
+Dos funciones de `vps_server.py` sirven al grupo Repositorio: con el eje `side` en `vps`, `force_reset` llama a `sync_repository` y `force_push` a `force_push_from_vps`. Están en `vps_server.py` porque son la otra mitad del despliegue, no una operación de git suelta; `git.py` las importa en vez de duplicar el SSH.
 
 ## 4. Qué hay en `ui/`
 

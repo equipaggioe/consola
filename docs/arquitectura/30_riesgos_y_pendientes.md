@@ -53,7 +53,7 @@ Construido y nunca probado en condiciones reales:
 
 - La **instalación completa de los SDK** de punta a punta: bajar los cientos de megas, escribir el registro o el perfil y que el emulador acelere. Las URL y los hashes sí se verificaron contra las fuentes oficiales.
 - `configure_caddy` y `configure_coturn` **contra un VPS real**: el Caddyfile se prueba por su función sin efectos, no contra Caddy.
-- `git_force_origin_from_vps`: la deploy key que instala `setup_github_ssh` suele ser de solo lectura, así que este botón puede fallar con el error de git sin que haya forma de saberlo antes de intentarlo. Lo dice su propio docstring.
+- `git_force_push` con el eje `side` en `vps`: la deploy key que instala `setup_github_ssh` suele ser de solo lectura, así que este botón puede fallar con el error de git sin que haya forma de saberlo antes de intentarlo. Lo dice su propio docstring.
 - Los builds de **escritorio, macOS e iOS**: `BUILD_PLATFORMS` los declara y el eje solo ofrece los del sistema anfitrión.
 
 ## 4. Deuda estructural declarada

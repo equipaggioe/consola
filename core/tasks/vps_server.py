@@ -583,5 +583,3 @@ def bind_all() -> None:
     registry.bind('configure_service', configure_service)
     registry.bind('publish_code', publish_code)
     registry.bind('update_remote', update_remote)
-    registry.bind('git_force_vps', sync_repository)
-    registry.bind('git_force_origin_from_vps', force_push_from_vps)

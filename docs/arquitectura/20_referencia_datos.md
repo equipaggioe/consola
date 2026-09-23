@@ -181,63 +181,61 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 | Grupo | Id | Botón | Tipo | |
 |---|---|---|---|---|
 | Ejecutar | `backend` | Levantar backend | A | `live`, vista web |
-|  | `serve_vite` | Levantar SPA | A | `live`, vista web, `fanout` |
+|  | `serve_vite` | Levantar SPA con Vite | A | `live`, vista web, `fanout` |
 |  | `run_mobile` | Levantar app móvil | A | `live` |
 |  | `run_python` | Levantar app de escritorio | C | `live`, `fanout` |
 |  | `dev_env` | Levantar todo el entorno | C | `live`, concurrente, sin cuerpo |
-| Compilar | `create_spa` | Crear SPA nueva | A |  |
+| Compilar | `create_spa` | Crear SPA SvelteKit | A |  |
 |  | `build_flutter` | Compilar app Flutter | C |  |
 |  | `build_vite` | Compilar SPA | C |  |
 |  | `build_binary` | Compilar ejecutable | C |  |
-|  | `bump_version` | Subir el número de versión | A | oculta |
+|  | `bump_version` | Subir número de versión | A | oculta |
 |  | `promote_app` | Publicar en producción | A | destructiva |
 |  | `clean_artifacts` | Borrar artefactos de build | A | destructiva |
 | Repositorio | `clone_repo` | Clonar repositorio de GitHub | A | `opens_repo`, ⌂ |
 |  | `sync_server_env` | Igualar claves de config.env y .env | A | destructiva |
 |  | `sync_common_files` | Copiar archivos comunes a otros repos | A | destructiva |
-|  | `git_force_push` | Sobrescribir origin con lo local | A | destructiva |
-|  | `git_force_reset` | Sobrescribir lo local con origin | A | destructiva |
-|  | `git_force_vps` | Sobrescribir el VPS con origin | A | destructiva |
-|  | `git_force_origin_from_vps` | Sobrescribir origin con el VPS | A | destructiva |
-| Base de datos | `bootstrap_db` | Crear base desde cero | C |  |
+|  | `git_force_push` | Force push | A | destructiva |
+|  | `git_force_reset` | Force reset | A | destructiva |
+| Base de datos | `bootstrap_db` | Configurar base de datos | C |  |
 |  | `enable_extensions` | Habilitar extensiones | A |  |
-|  | `migrate_db` | Migrar esquema | C | `requires_repo: migrations` |
-|  | `run_seeders` | Cargar datos base | A |  |
-|  | `run_mock_seeders` | Cargar datos de prueba | A |  |
+|  | `migrate_db` | Correr migraciones | C | `requires_repo: migrations` |
+|  | `run_seeders` | Correr seeders | A |  |
+|  | `run_mock_seeders` | Correr mock seeders | A |  |
 |  | `explore_db` | Explorar datos | A | `live`, vista db |
 |  | `ssh_tunnel` | Abrir túnel a Postgres | A | `background` |
-|  | `backup_db` | Respaldar base | A |  |
+|  | `backup_db` | Respaldar base de datos | A |  |
 |  | `rebuild_db` | Reconstruir base | C | destructiva |
 |  | `reinit_migrations` | Reiniciar historial de migraciones | C | destructiva, `requires_repo: migrations` |
 |  | `teardown_db` | Borrar base y rol | C | destructiva |
-| Despliegue | `publish_code` | Publicar código | C | `live` |
-|  | `update_remote` | Actualizar lo publicado | C | `live` |
-|  | `upload_secret_files` | Copiar los archivos secretos | A |  |
-|  | `configure_service` | Instalar el servicio del repo | C |  |
-|  | `systemd_action` | Controlar el servicio | A |  |
+| Despliegue | `publish_code` | Desplegar | C | `live` |
+|  | `update_remote` | Actualizar despliegue | C | `live` |
+|  | `upload_secret_files` | Copiar archivos secretos | A |  |
+|  | `configure_service` | Crear servicio systemd | C |  |
+|  | `systemd_action` | Control del servicio | A |  |
 |  | `view_logs` | Ver logs del servicio | A | `live` |
-|  | `health_check` | Probar que responde | A |  |
-|  | `run_command` | Ejecutar un comando en el VPS | A |  |
-|  | `ssh_login` | Abrir sesión SSH | A | interactiva |
-|  | `upload_to_vps` | Subir el artefacto al VPS | A | oculta |
-| VPS | `bootstrap_vps` | Preparar el VPS desde cero | C |  |
+|  | `upload_to_vps` | Subir artefacto al VPS | A | oculta |
+| VPS | `bootstrap_vps` | Configurar VPS | C |  |
 |  | `install_software` | Instalar paquetes base | A |  |
 |  | `setup_ssh_key` | Crear usuario y acceso SSH | C |  |
-|  | `refresh_known_host` | Olvidar la huella vieja del VPS | A |  |
+|  | `refresh_known_host` | Refrescar known_hosts | A |  |
 |  | `setup_github_ssh` | Dar acceso a GitHub | C |  |
-|  | `configure_caddy` | Configurar el proxy (Caddy) | C |  |
-|  | `configure_coturn` | Configurar el TURN (coturn) | C |  |
-|  | `update_cloudflare` | Apuntar el DNS a esta IP | A |  |
-|  | `revoke_ssh` | Quitar el acceso SSH | C | destructiva |
-|  | `revoke_github_ssh` | Quitar el acceso a GitHub | C | destructiva |
-|  | `clean_vps` | Vaciar el VPS | C | destructiva |
+|  | `configure_caddy` | Configurar Caddy | C |  |
+|  | `configure_coturn` | Configurar Coturn | C |  |
+|  | `update_cloudflare` | Actualizar Cloudflare | A |  |
+|  | `health_check` | Health check | A |  |
+|  | `run_command` | Ejecutar comando | A |  |
+|  | `ssh_login` | Abrir sesión SSH | A | interactiva |
+|  | `revoke_ssh` | Quitar acceso SSH | C | destructiva |
+|  | `revoke_github_ssh` | Revocar acceso a GitHub | C | destructiva |
+|  | `clean_vps` | Vaciar VPS | C | destructiva |
 | Emuladores | `install_system_image` | Instalar imagen de sistema | A | ⌂ |
-|  | `create_avd` | Crear dispositivo virtual | A | ⌂ |
+|  | `create_avd` | Crear AVD | A | ⌂ |
 |  | `launch_emulator` | Abrir emulador | A | `live`, ⌂ |
-|  | `stop_emulator` | Apagar el emulador | A | oculta, ⌂ |
-|  | `purge_emulators` | Borrar imágenes y dispositivos | A | destructiva, ⌂ |
+|  | `stop_emulator` | Apagar emulador | A | oculta, ⌂ |
+|  | `purge_emulators` | Borrar AVDs e imágenes | A | destructiva, ⌂ |
 | SDKs | `install_android_sdk` | Instalar SDK de Android | C | ⌂ |
-|  | `install_android_tools` | Instalar herramientas de línea de comandos | A | ⌂ |
+|  | `install_android_tools` | Instalar command-line tools | A | ⌂ |
 |  | `install_android_packages` | Instalar paquetes del SDK | A | ⌂ |
 |  | `install_android_hypervisor` | Instalar aceleración del emulador | A | ⌂ |
 |  | `install_flutter_sdk` | Instalar SDK de Flutter | A | ⌂ |

@@ -137,7 +137,7 @@ Existen las dos porque en un servidor recién armado los dos últimos pasos no s
 
 El paso de migraciones de `update_remote` **solo aplica** (`alembic upgrade head`). El script original además generaba contra la base del VPS, lo que autogenera revisiones en producción a partir de un modelo que quizá ni se commiteó ([ADR-0013](../adr/0013-generar-en-local-aplicar-donde-este-la-base.md)).
 
-El `reset --hard` del VPS es la única parte destructiva, y el eje `discard_changes` ofrece las dos respuestas legítimas: preguntar con la lista de archivos a la vista, o descartar sin preguntar.
+El `reset --hard` del VPS es la única parte destructiva, y el eje `discard_changes` ofrece las dos respuestas legítimas: preguntar con la lista de archivos a la vista, o descartar sin preguntar. El botón `git_force_reset` (grupo Repositorio) es esa misma función con el eje `side` en `vps`.
 
 ## 10. Deshacer
 
