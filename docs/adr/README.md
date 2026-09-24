@@ -57,3 +57,5 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0047](0047-restaurar-es-un-destructivo-del-seguro-por-repo.md) | Restaurar es un destructivo del seguro por repositorio, y el respaldo se elige de una lista que se mira al abrir |
 | [0048](0048-las-diferencias-de-sistema-viven-en-host.md) | Las diferencias entre Windows y Linux viven en un solo módulo, con una clase por sistema |
 | [0049](0049-la-camara-de-capturas-es-un-script-del-repo.md) | La cámara de capturas es un script del repo que Consola corre con argumentos |
+| [0050](0050-las-capturas-no-tocan-la-base.md) | Las capturas no tocan la base: los datos salen de un escenario servido por un servidor ficticio |
+| [0051](0051-el-kit-de-la-camara-viaja-en-un-argumento.md) | La plomería de las cámaras es un kit de Consola que la cámara recibe en `--kit` |

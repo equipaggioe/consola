@@ -94,6 +94,10 @@ Dos funciones de `vps_server.py` sirven al grupo Repositorio: con el eje `side` 
 
 51 archivos Python (9 carpetas temáticas más `common.py`) que son **la especificación de comportamiento, no código que se ejecute**. Ningún módulo de `core/`, `ui/` o `main.py` los importa ni los invoca: se conservan para poder comparar contra el original lo que cada capacidad reimplementa ([ADR-0001](../adr/0001-reimplementar-no-ejecutar-scripts.md)).
 
-## 6. Arranque
+## 6. `camara/`
+
+El kit de las cámaras de capturas: JS sin dependencias que no corre dentro de Consola, sino dentro del script de cámara de cada repo, que lo recibe en `--kit` ([19](19_imagenes.md) §6, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
+
+## 7. Arranque
 
 `main.py` hace cinco cosas, en orden: fija el escalado de alta densidad, crea la `QApplication`, llama a `load_catalog()` y a `bind_all()`, aplica el tema y muestra la ventana. El catálogo se arma una sola vez por proceso; lo que depende del repo se resuelve después, cada vez que se dibuja un panel ([10](10_catalogo_de_capacidades.md)).

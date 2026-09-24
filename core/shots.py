@@ -30,6 +30,8 @@ SHOT_KINDS = (targets.SPA_VITE, *targets.MOBILE_APP)
 _RAW_NAME = re.compile(r'^(?P<screen>[^.]+)\.(?P<theme>[^.]+)\.(?P<language>[^.]+)\.png$')
 
 PRESETS_FILE = Path(__file__).with_name('shots_presets.json')
+# La plomeria que comparten las camaras (ADR-0051). Viaja en `--kit`.
+KIT = Path(__file__).resolve().parents[1] / 'camara' / 'index.mjs'
 MANIFEST = 'capturas.json'
 
 
@@ -56,9 +58,9 @@ def resolve_dir(root: Path, value: str) -> Path:
 
 def camera_args(apps: Iterable[str], themes: Iterable[str], languages: Iterable[str],
                 output: Path, device: str = '') -> list[str]:
-    """Los argumentos que Consola le agrega a `SHOTS_CMD` (ADR-0049)."""
+    """Los argumentos que Consola le agrega a `SHOTS_CMD` (ADR-0049, ADR-0051)."""
     args = ['--apps', ','.join(apps), '--themes', ','.join(themes),
-            '--languages', ','.join(languages), '--output', str(output)]
+            '--languages', ','.join(languages), '--output', str(output), '--kit', str(KIT)]
     if device:
         args += ['--device', device]
     return args

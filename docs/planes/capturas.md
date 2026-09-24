@@ -1,14 +1,16 @@
 # Plan — capturas publicables de las apps de un repo
 
 > **Estado (verificado 2026-09-24).** Construido en Consola: `shoot_screens`, `render_shots` con
-> los siete destinos, el manifiesto por destino con la comparación contra la corrida anterior, y la
-> compuesta `screenshots`, en `core/tasks/images.py` y `core/shots.py`. Lo construido se describe
-> en [arquitectura 19](../arquitectura/19_imagenes.md), que manda sobre este plan.
+> los siete destinos, el manifiesto con la comparación contra la corrida anterior, la compuesta
+> `screenshots` y el kit de la cámara (`camara/`, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
+> Lo construido se describe en [arquitectura 19](../arquitectura/19_imagenes.md), que manda sobre
+> este plan. La cámara de vettore ya usa el kit, y su panel se capturó y reveló de verdad.
 >
-> Pendiente en Consola: los marcos de dispositivo, sin especificar (qué destinos, qué aspecto).
-> Pendiente en los repos: la etapa 2 (vettore al contrato), la landing leyendo el manifiesto (resto
-> de la 5) y la 7. Sin verificar ([30](../arquitectura/30_riesgos_y_pendientes.md)): el camino con
-> app móvil, que enciende el emulador, y una tanda subida de verdad a una tienda.
+> Pendiente en Consola: los marcos de dispositivo, sin especificar (qué destinos, qué aspecto), y
+> decidir dónde vive la parte Dart del kit. Pendiente en vettore: correr la app en un emulador y
+> publicar en la landing (§6). Pendiente en los repos: la landing leyendo el manifiesto (resto de
+> la 5) y el segundo repo (7). Sin verificar ([30](../arquitectura/30_riesgos_y_pendientes.md)): el
+> camino con app móvil y una tanda subida de verdad a una tienda.
 >
 > **El corte cambió el 2026-09-23.** La versión anterior de este plan ponía la cámara en Consola:
 > un guion `demo/capturas.json` con rutas y gestos, y Playwright manejado desde Python. Se
@@ -74,8 +76,7 @@ Un guion declarativo habría necesitado primitivas nuevas desde el primer repo, 
 que el contrato está mal. Para navegar, el lenguaje correcto es el del propio repo (Playwright o
 Dart), no un JSON que termina siendo un lenguaje de programación.
 
-La cámara genérica puede volver a tener sentido para los repos web cuyos datos vienen de Postgres
-o de una API. Eso se evalúa en §8, con datos.
+Lo que sí se repite entre cámaras es la plomería, y va en un kit compartido (§8).
 
 ---
 
@@ -113,12 +114,13 @@ revelar lo que ya está en `SHOTS_RAW`.
 ### 3.3 Qué recibe la cámara ([ADR-0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md))
 
 Consola corre `SHOTS_CMD` desde la raíz del repo y le añade los argumentos de lo que se marcó en
-el botón. Van como argumentos y no como variables de entorno ni como un archivo: son cinco valores
+el botón. Van como argumentos y no como variables de entorno ni como un archivo: son valores
 simples, se ven en el comando y el script se puede probar a mano.
 
 ```
-node demo/capturar.mjs --apps panel,app --themes oscuro,claro --languages es \
-                       --output E:/Git/vettore/demo/capturas --device emulator-5554
+node demo/capturar.mjs --apps panel,app --themes oscuro --languages es \
+                       --output E:/Git/vettore/demo/capturas \
+                       --kit E:/Git/consola/camara/index.mjs --device emulator-5554
 ```
 
 | Argumento | Obligatorio | Contenido | De dónde sale |
@@ -127,6 +129,7 @@ node demo/capturar.mjs --apps panel,app --themes oscuro,claro --languages es \
 | `--themes` | sí | `claro` y/o `oscuro` | eje `themes` |
 | `--languages` | sí | los idiomas marcados | eje `languages`, con valores de `SHOTS_LANGS` |
 | `--output` | sí | ruta absoluta de la carpeta de crudos | `SHOTS_RAW` resuelta contra la raíz del repo |
+| `--kit` | sí | ruta absoluta del kit de la cámara | `camara/index.mjs` de la Consola que corre ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)) |
 | `--device` | solo con app móvil | serial del emulador, ya encendido | eje `avd`: Consola arranca ese AVD si no está vivo |
 
 Reglas para el script:
@@ -231,18 +234,29 @@ publicación.** Por eso son dato: se corrigen editando el JSON, sin tocar códig
 
 ---
 
-## 6. Qué cambia en vettore
+## 6. Vettore al contrato
+
+Hecho (sin commitear en vettore):
 
 | Archivo | Cambio |
 |---|---|
-| `demo/capturar.mjs` | lee `--apps`, `--themes`, `--languages`, `--output` y `--device` en vez del objetivo posicional; nombra los crudos `<pantalla>.<tema>.<idioma>.png`; deja de buscar el emulador; se borra `publicar()` y el objetivo `publicar` |
-| `demo/package.json` | sale `sharp` |
-| `landing/src/lib/content/capturas.ts` | las rutas pasan a `/capturas/<app>/<pantalla>.oscuro.es.webp`, porque el revelado conserva tema e idioma en el nombre; pasa a leer el manifiesto en la etapa 5 |
-| `landing/static/capturas/` | se borran los `.webp` viejos, con el nombre sin tema ni idioma |
+| `demo/capturar.mjs` | lee el contrato con el kit (`--apps`, `--themes`, `--languages`, `--output`, `--kit`, `--device`); declara que panel y app solo tienen `oscuro` y `es`; nombra los crudos `<pantalla>.<tema>.<idioma>.png`; no busca el emulador; sin `publicar()` |
+| `demo/servidor.mjs` | solo quedan las rutas y el protocolo del WebSocket; el servidor es el del kit. Se agregó `/auth/mobile/prekeys`, que el panel pedía y el servidor viejo contestaba 404 en silencio |
+| `demo/package.json` | sale `sharp` y salen los scripts |
+| `app/test_driver/capturas.dart` | guarda en `SHOTS_DIR` con `SHOTS_SUFFIX`, que pone `flutterDrive` del kit |
+| `app/integration_test/capturas_test.dart` | baja el escenario de `/__demo/scenario` |
+| `landing/src/lib/content/capturas.ts` | rutas `/capturas/<app>/<pantalla>.oscuro.es.webp` |
 | `.consola/config.env` | `SHOTS_CMD=node demo/capturar.mjs` y `SHOTS_LANGS=es` |
 
-El ancho por app de `publicar()` (`{ app: 540, panel: 1920 }`) ya está en el preset `landing`, por
-tipo de app.
+Verificado: el panel se capturó con los argumentos que arma Consola y se reveló con `render_shots`
+(landing, OG, redes, manual), todo en carpetas temporales.
+
+Falta:
+
+- Renombrar una vez a mano los crudos de la app en `demo/capturas/app/` (`chat.png` →
+  `chat.oscuro.es.png`: son oscuros y en español) y borrar los del panel, que se vuelven a sacar.
+- Borrar los `.webp` viejos de `landing/static/capturas/` y revelar con «Capturar y publicar».
+- Correr la app en un emulador dedicado: la parte Android del kit y el driver no se probaron.
 
 ---
 
@@ -256,7 +270,8 @@ Esto no lo construye Consola: es lo que aprendió vettore y le ahorra trabajo al
 | Ids fijos | una ruta `/chats/<uuid>` no se puede escribir si el sembrado usa `uuid4()`. `escenario.json` los trae escritos a mano |
 | Selectores | `data-captura="..."` en los contenedores que se tocan, no clases de Tailwind (`.relative.h-8.cursor-pointer` se rompe en el próximo retoque) |
 | Esperar | por `data-captura`, no por texto: `"Recorrido en curso"` no aparece en el segundo idioma |
-| Datos ficticios | Postgres → `run_mock_seeders` · API → interceptor `page.route` (solo web) o servidor ficticio (web y móvil) · base local del cliente → sembrado propio |
+| Datos ficticios | **nunca en la base** ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)): un escenario JSON del repo, servido por un servidor ficticio que la cámara levanta. Los clientes de verdad apuntan a ese servidor (web: `VITE_SERVER_URL`; emulador: `10.0.2.2`). Lo que el cliente guarda localmente (IndexedDB, base del teléfono) se siembra aparte, como en vettore |
+| Ruta no mapeada | el servidor ficticio la anota y la cámara termina con error nombrándola ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)). Nunca un 404: la pantalla saldría vacía sin aviso |
 | Reloj y zona horaria | web: `page.clock.install` y `timezoneId` · Android: `adb` (necesita `adb root`) |
 
 Trampas ya pagadas en vettore:
@@ -273,20 +288,31 @@ Trampas ya pagadas en vettore:
 
 ---
 
-## 8. Cuándo volver a mirar la cámara genérica
+## 8. Las partes genéricas de la cámara
 
-Hoy hay un solo script de capturas, y no se puede medir qué se repite entre repos. Candidatos para
-el segundo: los paneles y backoffices de banditore, cadenza, concordia, navetta y presenze. Ninguno
-usa IndexedDB, así que sus datos vienen de Postgres o de la API.
+Con los datos en un escenario y un servidor ficticio (ADR-0050), toda cámara tiene la misma
+plomería. Inventario, contado sobre `vettore/demo/` y `app/test_driver/`:
 
-Con dos scripts escritos:
+| Pieza | Qué hace | Líneas hoy en vettore |
+|---|---|---|
+| Lado cliente del contrato | leer `--apps`, `--themes`, `--languages`, `--output`, `--device`; fallar ante lo que no soporta; nombrar `<output>/<app>/<pantalla>.<tema>.<idioma>.png` | no existe (§6) |
+| Esqueleto del servidor ficticio | HTTP, CORS, `OPTIONS`, JSON, escrituras → 204, `/__demo/sembrado` para el emulador con su aviso, ruta no mapeada → error | ~50 de `servidor.mjs` |
+| Vite apuntado al servidor | lanzar el `vite.js` del repo con el mismo Node, sin `VSCODE_CWD`, esperar la URL, matarlo | ~35 |
+| Página | viewport, escala, `colorScheme` por tema, `locale`, zona horaria, `clock.install` | ~15 |
+| Navegar y fotografiar | ir a una ruta y reintentar si Vite recargó; esperar y guardar con el nombre del contrato | ~30 |
+| Emulador | zona horaria y reloj por `adb` después de entregar el escenario; restaurar `auto_time`; `flutter drive` con `API_BASE_URL` | ~45 |
+| Lado Dart | bajar el escenario con reintentos, esperar el reloj, driver que guarda en `--output` con el nombre del contrato | ~50 de Dart |
 
-1. Contar las líneas que se repiten entre los dos, separando la navegación (propia de cada app) de
-   la plomería (levantar Vite, esperar, reintentar, fijar el reloj).
-2. Si lo repetido es plomería, extraer un helper compartido.
-3. Si también se repite la **forma** de la navegación (ruta → esperar → gesto → foto), evaluar el
-   guion JSON de la versión anterior de este plan (en el historial de git), pero solo para esos
-   repos. Vettore queda con su script.
+Lo propio de cada repo: el escenario, el mapa de rutas del servidor ficticio, lo que se siembre en
+el cliente, el truco para entrar sin login y la navegación.
+
+La parte JS está construida en `camara/index.mjs` y la cámara la recibe en `--kit`
+([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md), [arquitectura 19](../arquitectura/19_imagenes.md) §6).
+
+Sin decidir: la parte Dart. Se compila dentro de la prueba y no puede recibir una ruta al correr:
+o es un paquete de Consola con una dependencia `path:` en cada `pubspec.yaml` (exige los repos
+clonados uno al lado del otro), o se copia en cada app Flutter (vettore, las dos de navetta, la
+terminal de posta). Hoy vive en vettore.
 
 ---
 
@@ -303,12 +329,12 @@ recorren, no se generan.
 | # | Etapa | Entregable verificable | Esfuerzo |
 |---|---|---|---|
 | 1 | ~~**`shoot_screens`**~~ | construida | — |
-| 2 | **Vettore al contrato** (§6) | en vettore, «Capturar y publicar» deja la landing con las pantallas nuevas | 2 h |
+| 2 | **Vettore al contrato** (§6): hecho y verificado el panel; faltan la app y publicar | en vettore, «Capturar y publicar» deja la landing con las pantallas nuevas | 1 h |
 | 3 | ~~**`render_shots` para la landing**~~ | construida | — |
 | 4 | ~~**Compuesta `screenshots`**~~ | construida | — |
 | 5 | ~~Manifiesto~~ (construido) y **landing que lo consume** (del repo) | una captura nueva aparece en la landing sin tocar `capturas.ts` | medio día |
 | 6 | ~~Presets de tienda, tablet/iPad y press kit~~ (construidos); **marcos de dispositivo** pendientes | sale la tanda para Play, verificada contra la ficha vigente | 1 día |
-| 7 | **Segundo repo** con cámara propia (§8) | sus capturas en su landing; la medición de §8 escrita | 1 día |
+| 7 | ~~Kit genérico~~ (construido, JS) y **segundo repo** con escenario y servidor ficticio | el segundo repo usa el kit; sus capturas en su landing | 1 día |
 | 8 | ~~Regresión visual~~ (construida): diff de hashes contra la corrida anterior | avisa qué pantalla cambió entre dos versiones | medio día |
 
 Las etapas 1 a 4 reemplazan a lo que hoy hace `publicar()`: la conversión a la landing deja de
@@ -332,5 +358,6 @@ antes de cada publicación.
 sin que nadie se entere hasta la próxima publicación. Los selectores `data-captura` (§7) reducen el
 riesgo; no lo eliminan.
 
-**Plomería copiada entre repos.** Levantar Vite, esperar y reintentar se va a repetir en cada
-cámara web. §8 fija cuándo medirlo y extraerlo.
+**El mapa de rutas del servidor ficticio se desalinea con la API.** Una pantalla que empieza a
+pedir un endpoint nuevo rompe la próxima corrida (ADR-0050): se entera quien captura, no quien ve la
+landing.

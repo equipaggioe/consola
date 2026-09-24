@@ -37,7 +37,8 @@ def test_los_argumentos_llevan_la_seleccion_y_el_dispositivo_solo_si_hay():
     salida = Path('/repo/demo/capturas')
     assert shots.camera_args(['panel', 'app'], ['oscuro'], ['es', 'en'], salida) == [
         '--apps', 'panel,app', '--themes', 'oscuro', '--languages', 'es,en',
-        '--output', str(salida)]
+        '--output', str(salida), '--kit', str(shots.KIT)]
+    assert shots.KIT.is_file()
     assert shots.camera_args(['app'], ['claro'], ['es'], salida, 'emulator-5554')[-2:] == [
         '--device', 'emulator-5554']
 

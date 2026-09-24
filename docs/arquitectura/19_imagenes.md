@@ -6,12 +6,13 @@ El grupo **Imágenes** produce el material gráfico de las apps de un repo. Hoy 
 
 | Parte | Quién | Dónde |
 |---|---|---|
-| Sembrar datos ficticios, entrar sin login, navegar, sacar el PNG | el script del repo | lo que declara `SHOTS_CMD` |
+| El escenario, las rutas del servidor ficticio, entrar sin login, navegar | el script del repo | lo que declara `SHOTS_CMD` |
+| Leer el contrato, servidor ficticio, Vite, página, reintentos, emulador | el kit de Consola, que corre dentro de la cámara | `camara/index.mjs` (§6) |
 | Elegir apps, temas, idiomas y emulador; encender el emulador | Consola | `core/tasks/images.py::shoot_screens` |
 | Validar lo que dejó la cámara | Consola | `core/shots.py::collect`, `missing_combinations` |
 | Convertir cada crudo para cada destino y escribir el manifiesto | Consola | `core/shots.py` (`render_*`, `write_manifest`), `core/shots_presets.json` |
 
-La cámara es código del repo porque solo el repo sabe navegar su app ([ADR-0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md)).
+La cámara es código del repo porque solo el repo sabe navegar su app ([ADR-0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md)). Los datos salen de un escenario servido por un servidor ficticio, nunca de una base ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)), y la plomería que comparten todas las cámaras es un kit de Consola ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 
 ## 2. Los botones
 
@@ -37,7 +38,7 @@ Eje de `render_shots` y de la compuesta: `destinations` (`landing`, `play`, `app
 1. Si hay una app móvil marcada y no se eligió AVD, corta antes de empezar.
 2. Borra de `SHOTS_RAW` los crudos de las combinaciones pedidas (`clear_raw`): una pantalla que el script dejó de sacar no sobrevive a la corrida siguiente. Las combinaciones no pedidas no se tocan.
 3. Con app móvil: si el AVD ya está encendido, usa su serial; si no, lo enciende en un hilo aparte con un puerto elegido de antemano, espera el arranque, y lo apaga por adb al terminar. De su salida solo pasan al log los avisos y los errores.
-4. Corre `SHOTS_CMD` desde la raíz del repo con los argumentos de §2 y `--output` con `SHOTS_RAW` absoluta. El primer token se resuelve en el PATH; el resto va tal cual.
+4. Corre `SHOTS_CMD` desde la raíz del repo con los argumentos de §2, `--output` con `SHOTS_RAW` absoluta y `--kit` con la ruta de `camara/index.mjs` (`shots.KIT`). El primer token se resuelve en el PATH; el resto va tal cual. Con app móvil, la carpeta del `adb` del SDK va primera en el PATH de la cámara.
 5. Lee los crudos de las apps pedidas y corta si un archivo no sigue el nombre, o si alguna combinación app × tema × idioma quedó sin captura.
 
 ## 4. El nombre de los crudos
@@ -77,3 +78,23 @@ Cada destino deja un `capturas.json` en su carpeta: `{destination, items}` con a
 Se planean todos los destinos marcados antes de convertir ninguno. El revelado no borra nada de lo que ya hay en `SHOTS_PUBLISH` ni en `SHOTS_DIST`: un archivo de una pantalla que ya no existe queda ahí hasta que alguien lo borre, y el manifiesto es la lista de lo vigente.
 
 La conversión usa Pillow.
+
+## 6. El kit de la cámara
+
+`camara/index.mjs`, JS sin dependencias. La cámara lo importa desde la ruta que recibe en `--kit` y le pasa lo que necesite de Playwright.
+
+| Export | Qué hace |
+|---|---|
+| `parseArgs(argv, soportado)` | Lee `--apps`, `--themes`, `--languages`, `--output`, `--device` y `--kit`. `soportado` dice, por app, qué temas e idiomas tiene y si es móvil. Un argumento desconocido o faltante, una app, tema o idioma no soportado, o una app móvil sin `--device` son error: la cámara termina sin sacar nada |
+| `combinations(args)` | Cada par tema × idioma pedido |
+| `shotPath(output, app, pantalla, tema, idioma)` | `<output>/<app>/<pantalla>.<tema>.<idioma>.png`, creando la carpeta. Una pantalla con punto o barra es error |
+| `main(fn)` | Corre la cámara; un error se imprime y sale con código 1 |
+| `startFakeServer({port, routes, scenario, onScenario, websockets})` | El servidor ficticio. Las rutas son `[ruta exacta o RegExp, handler]` y solo atienden GET; `reply(status, cuerpo)` contesta otro estado. Las escrituras contestan 204. Entrega el escenario en `/__demo/scenario` y llama a `onScenario` después. Un GET o un WebSocket sin ruta contesta 500 y queda anotado; `assertComplete()` falla nombrándolos |
+| `startVite({appDir, port, env, readyPath})` | El `vite.js` del repo con el mismo Node, sin `VSCODE_CWD`, hasta que `readyPath` contesta |
+| `openPage(browser, {theme, language, timezoneId, now, viewport})` | Un contexto con `colorScheme` del tema (`claro` → `light`, `oscuro` → `dark`), `locale`, zona horaria y el reloj puesto en `now` |
+| `retryOnReload(page, fn)`, `visit(page, url, listo)` | Reintentan cuando Vite recarga la página en frío |
+| `shoot(page, ruta, esperaMs)` | Espera y guarda la captura |
+| `android(device)` | `adb` sobre el dispositivo: zona horaria, `root`, reloj fijo y restaurarlo |
+| `flutterDrive({...})` | `flutter drive` para un tema e idioma. A la prueba le pasa `SHOTS_THEME` y `SHOTS_LANGUAGE` por `--dart-define`; al driver, `SHOTS_DIR` y `SHOTS_SUFFIX` en el entorno, para que guarde `<SHOTS_DIR>/<pantalla>.<SHOTS_SUFFIX>.png` |
+
+Las pruebas del kit están en `camara/index.test.mjs` (`node --test`), y `tests/test_camara.py` las corre dentro de pytest.

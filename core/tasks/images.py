@@ -1,4 +1,5 @@
 from __future__ import annotations
+import os
 import shlex
 import threading
 from pathlib import Path
@@ -44,10 +45,15 @@ def shoot_screens(ctx, apps: Sequence[str] = (), themes: Sequence[str] = (),
     ejecutable = process.resolve_executable([comando[0]], label=comando[0],
                                             hint='Revisa SHOTS_CMD.')
     serial, encendido = _emulator(ctx, avd) if moviles else ('', False)
+    # La camara maneja el dispositivo con `adb` (ADR-0051): el del SDK que
+    # encontro Consola, este o no en el PATH de la maquina.
+    entorno = ({'PATH': os.pathsep.join([str(Path(android.resolve_sdk().adb).parent),
+                                         os.environ.get('PATH', '')])}
+               if moviles else None)
     try:
         ctx.run([*ejecutable, *comando[1:],
                  *shots.camera_args(apps, themes, languages, raw, serial)],
-                cwd=ctx.root)
+                cwd=ctx.root, env=entorno)
     finally:
         if encendido:
             android.stop(ctx, android.resolve_sdk(), serial)

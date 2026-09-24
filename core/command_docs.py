@@ -258,7 +258,9 @@ DOCS: dict[str, CommandDoc] = {
             'Si hay una app móvil: usa el AVD elegido si ya está encendido; si '
             'no, lo enciende y espera a que termine de arrancar.',
             'Corre SHOTS_CMD desde la raíz del repo, agregándole --apps, '
-            '--themes, --languages, --output y, con app móvil, --device.',
+            '--themes, --languages, --output, --kit con la ruta del kit de '
+            'la cámara y, con app móvil, --device. Con app móvil, el adb del '
+            'SDK va primero en el PATH de la cámara.',
             'Si encendió el emulador, lo apaga por adb.',
             'Lee SHOTS_RAW y corta si un archivo no se llama '
             '<pantalla>.<tema>.<idioma>.png o si falta alguna combinación.',
