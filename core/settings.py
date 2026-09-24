@@ -286,6 +286,11 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('SHOTS_PUBLISH', 'Capturas', 'Carpeta de la landing',
             default='landing/static/capturas',
             used_by=('render_shots', 'screenshots')),
+    # Todo destino que no es la landing (tiendas, manual, redes, press kit): una
+    # carpeta por destino, con su manifiesto. Son entregables, no del sitio.
+    Setting('SHOTS_DIST', 'Capturas', 'Carpeta de los demás destinos',
+            default='demo/publicables',
+            used_by=('render_shots', 'screenshots')),
 
     # --- Maquina ---
     # El `PYINSTALLER_BIN` del script original, y por el mismo motivo: `pip

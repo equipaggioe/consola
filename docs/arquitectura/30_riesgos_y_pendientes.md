@@ -35,7 +35,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | Bitácora, historial y presets en un SQLite de la máquina (`core/store.py`) | — | — |
 | Que la confirmación escrita de un destructivo sea **el nombre del repo** y no una palabra fija, para que el automatismo no erosione la comprobación | [0018](../adr/0018-seguro-por-repo-y-objetivo.md) | — |
 | Botón de Detener en la pestaña | — | — |
-| Capturas: revelado para tiendas, Open Graph, redes, manual y press kit; manifiesto de salida; regresión visual | [0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md) | [capturas.md](../planes/capturas.md) |
+| Capturas: marcos de dispositivo, y la landing leyendo el manifiesto (del repo) | [0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md) | [capturas.md](../planes/capturas.md) |
 | Íconos de las apps generados a partir del logo del repo | — | [marca.md](../planes/marca.md) |
 | `build_binary` con eje `many` descubierto y `install_python_deps` | — | [apps-python.md](../planes/apps-python.md) |
 
@@ -56,6 +56,7 @@ Construido y nunca probado en condiciones reales:
 - `configure_caddy` y `configure_coturn` **contra un VPS real**: el Caddyfile se prueba por su función sin efectos, no contra Caddy.
 - `git_force_push` con el eje `side` en `vps`: la deploy key que instala `setup_github_ssh` suele ser de solo lectura, así que este botón puede fallar con el error de git sin que haya forma de saberlo antes de intentarlo. Lo dice su propio docstring.
 - **Capturas con app móvil**: encender el AVD elegido, pasarle `--device` a la cámara y apagarlo al terminar (`core/tasks/images.py::_emulator`). La cámara y el revelado se probaron con un repo falso y una cámara en Python; el emulador no.
+- **El revelado para tiendas con capturas reales.** Las reglas de Play y las medidas de App Store se tomaron de las fichas oficiales el 2026-09-24, pero ninguna tanda se subió a una tienda. El tope de recorte de App Store (`max_crop` 3 %) es un número elegido para que un teléfono 1080×2400 pase; nadie miró todavía qué se pierde en esa franja.
 - **Capturas contra un repo real**: ningún repo tiene todavía una cámara que acepte los argumentos de [ADR-0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md). La de vettore (`demo/capturar.mjs`) toma un objetivo posicional y nombra los crudos sin tema ni idioma.
 - Los builds de **escritorio, macOS e iOS**: `BUILD_PLATFORMS` los declara y el eje solo ofrece los del sistema anfitrión.
 - **`backup_db` y `restore_db` contra una base real**, en los dos ámbitos. Se verificaron la resolución de `BACKUP_DIR`, el filtrado de la rotación por nombre de base, la validación de `BACKUP_KEEP` y el armado del eje `dump`; no se corrió ningún `pg_dump` ni `pg_restore`. Falta confirmar en particular la comprobación de versión —que compara `<tool> --version` contra `version()`— y que `--exit-on-error` no corte por objetos de PostGIS que el rol de la aplicación no posee ([ADR-0046](../adr/0046-el-volcado-corre-de-este-lado.md), [ADR-0047](../adr/0047-restaurar-es-un-destructivo-del-seguro-por-repo.md)).

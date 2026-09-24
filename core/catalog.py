@@ -614,15 +614,15 @@ TEARDOWN_DB_STEPS = [
     Step('role', 'Borrar rol de la aplicación'),
 ]
 
-_SHOT_DESTINATION_LABELS = {
+SHOT_DESTINATION_LABELS = {
     'landing': 'Landing', 'play': 'Google Play', 'appstore': 'App Store',
     'manual': 'Manual', 'og': 'Open Graph', 'social': 'Redes sociales',
     'presskit': 'Press kit',
 }
-_SHOT_DESTINATIONS_AXIS = lambda: AxisDef('destinations', list(_SHOT_DESTINATION_LABELS),
+_SHOT_DESTINATIONS_AXIS = lambda: AxisDef('destinations', list(SHOT_DESTINATION_LABELS),
                                           'checks', select='many', label='Destinos',
                                           defaults={'landing'},
-                                          labels=_SHOT_DESTINATION_LABELS)
+                                          labels=SHOT_DESTINATION_LABELS)
 
 # Lo que Consola le pasa a la camara del repo como argumentos (`--apps`,
 # `--themes`, `--languages`, y `--device` con el serial del AVD elegido). Las pantallas no se eligen aca: solo

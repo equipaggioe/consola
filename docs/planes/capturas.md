@@ -1,12 +1,14 @@
 # Plan — capturas publicables de las apps de un repo
 
-> **Estado (verificado 2026-09-24).** Construidas las etapas 1, 3 y 4 de §10: `shoot_screens`,
-> `render_shots` (solo el destino `landing`) y la compuesta `screenshots`, en
-> `core/tasks/images.py` y `core/shots.py`. Lo construido se describe en
-> [arquitectura 19](../arquitectura/19_imagenes.md), que manda sobre este plan.
+> **Estado (verificado 2026-09-24).** Construido en Consola: `shoot_screens`, `render_shots` con
+> los siete destinos, el manifiesto por destino con la comparación contra la corrida anterior, y la
+> compuesta `screenshots`, en `core/tasks/images.py` y `core/shots.py`. Lo construido se describe
+> en [arquitectura 19](../arquitectura/19_imagenes.md), que manda sobre este plan.
 >
-> Pendiente: la etapa 2 (la cámara de vettore al contrato), y de la 5 en adelante. Sin verificar:
-> el camino con app móvil, que enciende el emulador ([30](../arquitectura/30_riesgos_y_pendientes.md)).
+> Pendiente en Consola: los marcos de dispositivo, sin especificar (qué destinos, qué aspecto).
+> Pendiente en los repos: la etapa 2 (vettore al contrato), la landing leyendo el manifiesto (resto
+> de la 5) y la 7. Sin verificar ([30](../arquitectura/30_riesgos_y_pendientes.md)): el camino con
+> app móvil, que enciende el emulador, y una tanda subida de verdad a una tienda.
 >
 > **El corte cambió el 2026-09-23.** La versión anterior de este plan ponía la cámara en Consola:
 > un guion `demo/capturas.json` con rutas y gestos, y Playwright manejado desde Python. Se
@@ -89,6 +91,7 @@ Son datos que las tareas leen ([ADR-0017](../adr/0017-datos-en-el-env-decisiones
 | `SHOTS_LANGS` | — | los idiomas que la app soporta y la cámara sabe capturar. Consola no puede descubrirlos: llenan el eje `languages` |
 | `SHOTS_RAW` | `demo/capturas` | dónde deja la cámara los PNG crudos |
 | `SHOTS_PUBLISH` | `landing/static/capturas` | dónde deja el revelado los derivados de la landing |
+| `SHOTS_DIST` | `demo/publicables` | dónde deja el revelado los demás destinos, una carpeta por destino. Clave y valor por defecto elegidos al implementar |
 
 Sin `SHOTS_CMD` o sin `SHOTS_LANGS`, `shoot_screens` y el paso `shoot` de la compuesta quedan en ámbar
 ([ADR-0007](../adr/0007-lo-inaplicable-desaparece.md)). `render_shots` no lo necesita: se puede
@@ -207,9 +210,9 @@ regresión visual (comparar hashes entre corridas).
 
 ### 5.1 Los presets de destino
 
-Un archivo de datos de Consola (`core/shots_presets.json`):
-
-Hoy solo tiene `landing` (`max_width` por tipo de app y `quality`). Los demás destinos, propuesta:
+Un archivo de datos de Consola (`core/shots_presets.json`). Lo construido está en
+[arquitectura 19](../arquitectura/19_imagenes.md) §5. La propuesta original, reemplazada por las
+reglas de las fichas oficiales (Play no pide medida exacta sino proporción ≤ 2:1; App Store sí):
 
 ```jsonc
 {
@@ -303,10 +306,10 @@ recorren, no se generan.
 | 2 | **Vettore al contrato** (§6) | en vettore, «Capturar y publicar» deja la landing con las pantallas nuevas | 2 h |
 | 3 | ~~**`render_shots` para la landing**~~ | construida | — |
 | 4 | ~~**Compuesta `screenshots`**~~ | construida | — |
-| 5 | **Manifiesto** y landing que lo consume | una captura nueva aparece en la landing sin tocar `capturas.ts` | medio día |
-| 6 | **Presets de tienda, marcos de dispositivo y press kit** | sale la tanda para Play, verificada contra la ficha vigente | 1 día |
+| 5 | ~~Manifiesto~~ (construido) y **landing que lo consume** (del repo) | una captura nueva aparece en la landing sin tocar `capturas.ts` | medio día |
+| 6 | ~~Presets de tienda, tablet/iPad y press kit~~ (construidos); **marcos de dispositivo** pendientes | sale la tanda para Play, verificada contra la ficha vigente | 1 día |
 | 7 | **Segundo repo** con cámara propia (§8) | sus capturas en su landing; la medición de §8 escrita | 1 día |
-| 8 | **Regresión visual** (opcional): diff de hashes contra la corrida anterior | avisa qué pantalla cambió entre dos versiones | medio día |
+| 8 | ~~Regresión visual~~ (construida): diff de hashes contra la corrida anterior | avisa qué pantalla cambió entre dos versiones | medio día |
 
 Las etapas 1 a 4 reemplazan a lo que hoy hace `publicar()`: la conversión a la landing deja de
 estar copiada en el repo. La etapa 2 es la que lo verifica contra un repo real. Las etapas 5 y 6 tienen

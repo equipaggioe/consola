@@ -268,16 +268,27 @@ DOCS: dict[str, CommandDoc] = {
     'render_shots': CommandDoc(
         summary=(
             'Convierte las capturas crudas de SHOTS_RAW al formato de cada '
-            'destino marcado. Hoy solo la landing.'
+            'destino marcado y deja un manifiesto por destino.'
         ),
         steps=[
-            'Corta si algún destino marcado todavía no tiene preset en '
-            'core/shots_presets.json.',
+            'Corta si algún destino marcado no tiene preset en '
+            'core/shots_presets.json, si ninguna captura es de un tipo que le '
+            'sirva, o si una captura no cumple sus reglas (Play) o no cabe en '
+            'ninguna de sus medidas sin recortar de más (App Store). Lo revisa '
+            'para todos los destinos antes de convertir nada.',
             'Lee SHOTS_RAW y corta ante una carpeta que no es una app del repo '
             'o un archivo con otro nombre.',
             'Landing: por cada captura, la achica al ancho tope de su tipo de '
             'app (nunca la agranda) y la guarda como .webp en SHOTS_PUBLISH, '
             'con el mismo nombre.',
+            'Play y Manual: PNG a resolución nativa, sin canal alfa, en '
+            'SHOTS_DIST.',
+            'App Store, Open Graph y Redes sociales: escala hasta cubrir la '
+            'medida exacta del preset y recorta del centro, en SHOTS_DIST.',
+            'Press kit: los crudos sin comprimir en un ZIP.',
+            'Escribe un capturas.json por destino con el hash de cada archivo, '
+            'y dice qué archivos cambiaron, cuáles son nuevos y cuáles ya no '
+            'están respecto de la corrida anterior.',
         ],
     ),
 

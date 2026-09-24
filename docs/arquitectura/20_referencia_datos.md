@@ -54,6 +54,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `SHOTS_LANGS` | Capturas | Idiomas disponibles | lista | | exige |
 | `SHOTS_RAW` | Capturas | Carpeta de capturas crudas | | `demo/capturas` | usa |
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |
+| `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `demo/publicables` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |
 
 Una clave `kind='list'` se edita multilínea y se guarda separada por comas; al leerla, `envfile.split_list` acepta comas y saltos de línea.

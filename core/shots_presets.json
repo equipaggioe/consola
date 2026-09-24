@@ -2,5 +2,31 @@
   "landing": {
     "max_width": { "spa-vite": 1920, "flutter-app": 540, "flet-app": 540 },
     "quality": 82
-  }
+  },
+  "play": {
+    "kinds": ["flutter-app", "flet-app"],
+    "limits": { "min_side": 320, "max_side": 3840, "max_ratio": 2 }
+  },
+  "appstore": {
+    "kinds": ["flutter-app", "flet-app"],
+    "max_crop": 0.03,
+    "sizes": [
+      { "name": "iphone", "width": 1290, "height": 2796 },
+      { "name": "ipad", "width": 2064, "height": 2752 }
+    ]
+  },
+  "manual": {},
+  "og": {
+    "kinds": ["spa-vite"],
+    "max_crop": 1,
+    "sizes": [{ "name": "og", "width": 1200, "height": 630 }]
+  },
+  "social": {
+    "max_crop": 1,
+    "sizes": [
+      { "name": "square", "width": 1080, "height": 1080 },
+      { "name": "story", "width": 1080, "height": 1920, "kinds": ["flutter-app", "flet-app"] }
+    ]
+  },
+  "presskit": { "archive": true }
 }

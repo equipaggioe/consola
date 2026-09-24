@@ -4,7 +4,7 @@ import threading
 from pathlib import Path
 from typing import Sequence
 
-from .. import android, process, shots, targets
+from .. import android, catalog, process, shots, targets
 from ..context import Level
 from ..errors import TaskError
 from ..registry import registry
@@ -100,28 +100,56 @@ def _run_quietly(func, *args, **kwargs) -> None:
 
 
 def render_shots(ctx, destinations: Sequence[str] = (LANDING,)) -> None:
-    """Convierte los crudos para cada destino marcado."""
+    """Convierte los crudos para cada destino marcado y deja un manifiesto por destino."""
     if not destinations:
         raise TaskError('Marca al menos un destino.')
     presets = shots.load_presets()
     sin_preset = [d for d in destinations if d not in presets]
     if sin_preset:
-        raise TaskError(f'Todavía no se puede revelar para: {", ".join(sin_preset)}.')
+        raise TaskError(f'No hay preset para: {", ".join(sin_preset)} ({shots.PRESETS_FILE.name}).')
 
     raw = shots.resolve_dir(ctx.root, ctx.config.get('SHOTS_RAW'))
     crudos = shots.collect(ctx.root, raw)
     if not crudos:
         raise TaskError(f'No hay capturas en {raw}. Sácalas primero.')
 
-    for destino in destinations:
-        if destino == LANDING:
-            salida = shots.resolve_dir(ctx.root, ctx.config.get('SHOTS_PUBLISH'))
-            for indice, shot in enumerate(crudos, start=1):
+    # Se planea todo antes de convertir nada: un destino al que no le sirven
+    # los crudos corta la corrida, no la deja a medias con unas carpetas hechas
+    # y otras no.
+    trabajos = {d: shots.plan(_label(d), presets[d], crudos) for d in destinations}
+    for destino, trabajo in trabajos.items():
+        salida = _out_dir(ctx, destino)
+        ctx.info(f'{_label(destino)}: {_files(len(trabajo))} en {salida}')
+        if presets[destino].get('archive'):
+            derivados = shots.render_archive([shot for shot, _ in trabajo], salida, destino)
+        else:
+            derivados = []
+            for indice, (shot, medida) in enumerate(trabajo, start=1):
                 ctx.raise_if_cancelled()
-                ctx.progress(indice, len(crudos), shot.stem)
-                hecho = shots.render_landing(shot, presets[LANDING], salida)
-                ctx.info(f'{shot.app}/{hecho.name}')
-            ctx.ok(f'Landing: {len(crudos)} capturas en {salida}')
+                ctx.progress(indice, len(trabajo), f'{destino} · {shot.stem}')
+                derivados.append(shots.render_landing(shot, presets[LANDING], salida)
+                                 if destino == LANDING
+                                 else shots.render_sized(shot, medida, salida, destino))
+        cambios = shots.write_manifest(salida, destino, derivados)
+        for titulo, lista in (('Cambiaron', cambios.changed), ('Nuevas', cambios.added),
+                              ('Ya no están', cambios.removed)):
+            if lista:
+                ctx.info(f'{titulo}: {", ".join(lista)}')
+        ctx.ok(f'{_label(destino)}: {_files(len(derivados))} y {shots.MANIFEST}')
+
+
+def _files(n: int) -> str:
+    return f'{n} archivo' if n == 1 else f'{n} archivos'
+
+
+def _label(destino: str) -> str:
+    return catalog.SHOT_DESTINATION_LABELS[destino]
+
+
+def _out_dir(ctx, destino: str) -> Path:
+    if destino == LANDING:
+        return shots.resolve_dir(ctx.root, ctx.config.get('SHOTS_PUBLISH'))
+    return shots.resolve_dir(ctx.root, ctx.config.get('SHOTS_DIST')) / destino
 
 
 def screenshots(ctx, apps: Sequence[str] = (), themes: Sequence[str] = (),
