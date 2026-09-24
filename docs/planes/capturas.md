@@ -4,13 +4,12 @@
 > los siete destinos, el manifiesto con la comparación contra la corrida anterior, la compuesta
 > `screenshots` y el kit de la cámara (`camara/`, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 > Lo construido se describe en [arquitectura 19](../arquitectura/19_imagenes.md), que manda sobre
-> este plan. La cámara de vettore ya usa el kit, y su panel se capturó y reveló de verdad.
+> este plan. Vettore ya corre de punta a punta con el kit, app y panel (§6).
 >
 > Pendiente en Consola: los marcos de dispositivo, sin especificar (qué destinos, qué aspecto), y
-> decidir dónde vive la parte Dart del kit. Pendiente en vettore: correr la app en un emulador y
-> publicar en la landing (§6). Pendiente en los repos: la landing leyendo el manifiesto (resto de
-> la 5) y el segundo repo (7). Sin verificar ([30](../arquitectura/30_riesgos_y_pendientes.md)): el
-> camino con app móvil y una tanda subida de verdad a una tienda.
+> decidir dónde vive la parte Dart del kit. Pendiente en los repos: la landing leyendo el
+> manifiesto (resto de la 5) y el segundo repo (7, guía en §7). Sin verificar
+> ([30](../arquitectura/30_riesgos_y_pendientes.md)): una tanda subida de verdad a una tienda.
 >
 > **El corte cambió el 2026-09-23.** La versión anterior de este plan ponía la cámara en Consola:
 > un guion `demo/capturas.json` con rutas y gestos, y Playwright manejado desde Python. Se
@@ -236,33 +235,44 @@ publicación.** Por eso son dato: se corrigen editando el JSON, sin tocar códig
 
 ## 6. Vettore al contrato
 
-Hecho (sin commitear en vettore):
+Hecho en vettore (`1d7a28d`) y corrido de punta a punta con «Capturar y publicar»: panel y app,
+tema oscuro, español, destino landing, en el AVD `capturas`. Salieron 12 capturas, la landing las
+sirve con los nombres nuevos y `capturas.json`.
 
-| Archivo | Cambio |
+| Pieza | Dónde |
 |---|---|
-| `demo/capturar.mjs` | lee el contrato con el kit (`--apps`, `--themes`, `--languages`, `--output`, `--kit`, `--device`); declara que panel y app solo tienen `oscuro` y `es`; nombra los crudos `<pantalla>.<tema>.<idioma>.png`; no busca el emulador; sin `publicar()` |
-| `demo/servidor.mjs` | solo quedan las rutas y el protocolo del WebSocket; el servidor es el del kit. Se agregó `/auth/mobile/prekeys`, que el panel pedía y el servidor viejo contestaba 404 en silencio |
-| `demo/package.json` | sale `sharp` y salen los scripts |
-| `app/test_driver/capturas.dart` | guarda en `SHOTS_DIR` con `SHOTS_SUFFIX`, que pone `flutterDrive` del kit |
-| `app/integration_test/capturas_test.dart` | baja el escenario de `/__demo/scenario` |
-| `landing/src/lib/content/capturas.ts` | rutas `/capturas/<app>/<pantalla>.oscuro.es.webp` |
-| `.consola/config.env` | `SHOTS_CMD=node demo/capturar.mjs` y `SHOTS_LANGS=es` |
+| Cámara | `demo/camara/capturar.mjs` (`SHOTS_CMD=node demo/camara/capturar.mjs`, `SHOTS_LANGS=es`) |
+| Rutas y WebSocket del servidor ficticio | `demo/camara/servidor.mjs` |
+| Escenario | `demo/escenario.json` y `demo/sembrado.mjs` |
+| Prueba y driver de la app | `app/integration_test/capturas_kit_test.dart`, `app/test_driver/capturas_kit.dart` |
 
-Verificado: el panel se capturó con los argumentos que arma Consola y se reveló con `render_shots`
-(landing, OG, redes, manual), todo en carpetas temporales.
-
-Falta:
-
-- Renombrar una vez a mano los crudos de la app en `demo/capturas/app/` (`chat.png` →
-  `chat.oscuro.es.png`: son oscuros y en español) y borrar los del panel, que se vuelven a sacar.
-- Borrar los `.webp` viejos de `landing/static/capturas/` y revelar con «Capturar y publicar».
-- Correr la app en un emulador dedicado: la parte Android del kit y el driver no se probaron.
+La cámara anterior (`demo/capturar.mjs`, `demo/servidor.mjs`, `capturas_test.dart`,
+`test_driver/capturas.dart`) sigue en vettore sin que nadie la corra.
 
 ---
 
 ## 7. Guía para escribir la cámara de un repo
 
-Esto no lo construye Consola: es lo que aprendió vettore y le ahorra trabajo al próximo repo.
+Esto no lo construye Consola: es lo que aprendió vettore y le ahorra trabajo al próximo repo. La
+cámara de vettore (`demo/camara/`) es el ejemplo a copiar.
+
+Pasos, en orden:
+
+1. **Escenario**: un JSON del repo con los datos de las pantallas, con ids escritos a mano.
+2. **Rutas del servidor ficticio**: una función que devuelva `[ruta, handler]` con la forma de los
+   esquemas del backend, y el WebSocket si el cliente lo usa. Empezar vacío: la primera corrida
+   falla nombrando cada ruta que el cliente pide, y se agregan una por una.
+3. **Cámara**: `capturar.mjs` importa el kit desde `--kit`, declara qué temas e idiomas tiene cada
+   app en `parseArgs`, levanta el servidor ficticio y, por cada combinación, siembra lo local,
+   navega y llama a `shoot` con `shotPath`. Termina con `servidor.assertComplete()`.
+4. **App Flutter**: una prueba de integración que baja el escenario de `/__demo/scenario`, siembra
+   la base local y navega; y un driver que guarda en `SHOTS_DIR` con `SHOTS_SUFFIX`. Hoy se copian
+   de vettore ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
+5. **`config.env`**: `SHOTS_CMD` y `SHOTS_LANGS`.
+6. **Landing**: sus rutas a `/capturas/<app>/<pantalla>.<tema>.<idioma>.webp`.
+7. Correr «Capturar y publicar». Con app móvil, en un AVD dedicado: imagen Google APIs (la de
+   Google Play no permite `adb root`) y una pantalla de 2:1 como máximo, o Play rechaza las
+   capturas. El de vettore es `capturas`: Pixel 3, 1080×2160, Android 36.
 
 | Tema | Qué hacer |
 |---|---|
@@ -270,9 +280,9 @@ Esto no lo construye Consola: es lo que aprendió vettore y le ahorra trabajo al
 | Ids fijos | una ruta `/chats/<uuid>` no se puede escribir si el sembrado usa `uuid4()`. `escenario.json` los trae escritos a mano |
 | Selectores | `data-captura="..."` en los contenedores que se tocan, no clases de Tailwind (`.relative.h-8.cursor-pointer` se rompe en el próximo retoque) |
 | Esperar | por `data-captura`, no por texto: `"Recorrido en curso"` no aparece en el segundo idioma |
-| Datos ficticios | **nunca en la base** ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)): un escenario JSON del repo, servido por un servidor ficticio que la cámara levanta. Los clientes de verdad apuntan a ese servidor (web: `VITE_SERVER_URL`; emulador: `10.0.2.2`). Lo que el cliente guarda localmente (IndexedDB, base del teléfono) se siembra aparte, como en vettore |
-| Ruta no mapeada | el servidor ficticio la anota y la cámara termina con error nombrándola ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)). Nunca un 404: la pantalla saldría vacía sin aviso |
-| Reloj y zona horaria | web: `page.clock.install` y `timezoneId` · Android: `adb` (necesita `adb root`) |
+| Datos ficticios | **nunca en la base** ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)): un escenario JSON del repo, servido por el servidor ficticio del kit. Los clientes de verdad apuntan a ese servidor (web: `VITE_SERVER_URL`; emulador: `10.0.2.2`). Lo que el cliente guarda localmente (IndexedDB, base del teléfono) se siembra aparte, como en vettore |
+| Ruta no mapeada | el servidor ficticio la anota y la cámara termina con error nombrándola ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)). En vettore encontró dos que el servidor anterior contestaba 404 en silencio |
+| Reloj y zona horaria | web: `openPage` con `timezoneId` y `now` · Android: `android(device)` del kit, que necesita `adb root` |
 
 Trampas ya pagadas en vettore:
 
@@ -329,7 +339,7 @@ recorren, no se generan.
 | # | Etapa | Entregable verificable | Esfuerzo |
 |---|---|---|---|
 | 1 | ~~**`shoot_screens`**~~ | construida | — |
-| 2 | **Vettore al contrato** (§6): hecho y verificado el panel; faltan la app y publicar | en vettore, «Capturar y publicar» deja la landing con las pantallas nuevas | 1 h |
+| 2 | ~~Vettore al contrato~~ (hecho, §6) | en vettore, «Capturar y publicar» deja la landing con las pantallas nuevas | — |
 | 3 | ~~**`render_shots` para la landing**~~ | construida | — |
 | 4 | ~~**Compuesta `screenshots`**~~ | construida | — |
 | 5 | ~~Manifiesto~~ (construido) y **landing que lo consume** (del repo) | una captura nueva aparece en la landing sin tocar `capturas.ts` | medio día |
