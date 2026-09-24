@@ -261,6 +261,16 @@ SETTINGS: tuple[Setting, ...] = (
           ('IPA', 'iOS', 'build/ios/ipa · en Flet: build/ipa'),
       )),
 
+    # --- Marca ---
+    # El logo es del repo y Consola lo rasteriza para cada app. Sin default:
+    # un repo sin logo no tiene iconos que generar.
+    Setting('BRAND_ICON', 'Marca', 'Logo (SVG)', required_by=('generate_icons',)),
+    # La capa de adelante del icono adaptativo de Android: el mismo logo, con el
+    # margen que exige el recorte del sistema. Solo la pide la app Flutter cuyo
+    # pubspec declara `adaptive_icon_foreground`, y ahi falta es error.
+    Setting('BRAND_ICON_FOREGROUND', 'Marca', 'Capa frontal Android (SVG)',
+            used_by=('generate_icons',)),
+
     # --- Capturas ---
     # La camara es un script del repo (Playwright, `flutter drive`): Consola lo
     # corre y no pregunta que hace por dentro. Sin default: ningun repo tiene
@@ -290,7 +300,7 @@ SETTINGS: tuple[Setting, ...] = (
             used_by=('build_binary',)),
 )
 
-GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'Web', 'GitHub', 'Systemd', 'Builds', 'Capturas', 'Máquina')
+GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'Web', 'GitHub', 'Systemd', 'Builds', 'Marca', 'Capturas', 'Máquina')
 
 # Los seguros del repo (`PROTECT_*`) NO estan aca y no son un `Setting`: no son
 # un dato que una tarea consuma —ningun paso lee uno— sino una decision de la

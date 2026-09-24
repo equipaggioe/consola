@@ -148,7 +148,7 @@ payloads que importan `seeders.` (la excepción que ese ADR declara) o el `npm r
 
 ## 4. Las capacidades *(propuesta)*
 
-Grupo nuevo **Capturas** (`📸`), entre Compilar y Repositorio, con el corte de
+Grupo nuevo **Marca y capturas** (`📸`), entre Compilar y Repositorio, compartido con `generate_icons` ([marca.md](marca.md)), con el corte de
 [ADR-0004](../adr/0004-un-boton-por-capacidad.md). Ya están declaradas en `core/catalog.py` como
 stub (sin `bind`): el panel las dibuja y al apretarlas solo reporta lo que correría.
 

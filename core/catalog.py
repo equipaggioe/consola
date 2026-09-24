@@ -824,14 +824,26 @@ def load_catalog() -> None:
         ],
         stub=True))
 
-    # --- Capturas ------------------------------------------------------------
+    # --- Marca y capturas ----------------------------------------------------
+    # Los iconos salen del logo del repo: Consola lo rasteriza y lo deja donde
+    # cada app lo toma (el `flutter_launcher_icons` del pubspec, el favicon de
+    # la SPA). A diferencia de las capturas no hace falta un script del repo:
+    # el repo solo pone el SVG.
+    registry.register(Capability(
+        id='generate_icons', name='Generar íconos', group='Marca y capturas',
+        kind='once', icon='🎨',
+        description='Genera los íconos de las apps a partir del logo del repo.',
+        axes=[AxisDef('apps', [], 'checks', select='many', label='Apps',
+                      discover=(targets.FLUTTER_APP, targets.SPA_VITE))],
+        stub=True))
+
     # El repo pone la camara y Consola el revelado: navegar la app, sembrar sus
     # datos y sacar el PNG es codigo del repo (importa sus modulos, conoce sus
     # selectores); convertir cada PNG a las medidas de cada destino es igual en
     # todos. Consola le pasa al script que apps, temas e idiomas capturar
     # (`_SHOT_CAMERA_AXES`); que pantallas hay lo decide el script.
     registry.register(Capability(
-        id='shoot_screens', name='Sacar capturas', group='Capturas',
+        id='shoot_screens', name='Sacar capturas', cut=True, group='Marca y capturas',
         kind='once', icon='📷',
         description='Corre la cámara del repo, que deja las capturas crudas de sus apps.',
         axes=_SHOT_CAMERA_AXES(),
@@ -840,7 +852,7 @@ def load_catalog() -> None:
     # Solo arranca marcada la landing: las tiendas se publican de vez en cuando
     # y sus medidas hay que verificarlas antes contra la ficha vigente.
     registry.register(Capability(
-        id='render_shots', name='Revelar capturas', group='Capturas',
+        id='render_shots', name='Revelar capturas', group='Marca y capturas',
         kind='once', icon='🎞️',
         description='Convierte las capturas crudas a las medidas y formatos de cada destino.',
         axes=[_SHOT_DESTINATIONS_AXIS()],
@@ -849,7 +861,7 @@ def load_catalog() -> None:
     # disco, que es lo que se hace cuando cambia la medida de una tienda y no la
     # app. Mismo criterio que la compilacion desmarcable de los builders.
     registry.register(Capability(
-        id='screenshots', name='Capturar y publicar', cut=True, group='Capturas',
+        id='screenshots', name='Capturar y publicar', cut=True, group='Marca y capturas',
         kind='once', icon='🖼️', level='C',
         description='Saca las capturas de las apps del repo y las deja listas en cada destino.',
         composed_of=['shoot_screens', 'render_shots'],

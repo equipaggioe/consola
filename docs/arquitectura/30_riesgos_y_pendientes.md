@@ -36,6 +36,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | Que la confirmación escrita de un destructivo sea **el nombre del repo** y no una palabra fija, para que el automatismo no erosione la comprobación | [0018](../adr/0018-seguro-por-repo-y-objetivo.md) | — |
 | Botón de Detener en la pestaña | — | — |
 | Capturas de pantalla publicables de las apps de un repo | [0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md) | [capturas.md](../planes/capturas.md) |
+| Íconos de las apps generados a partir del logo del repo | — | [marca.md](../planes/marca.md) |
 | `build_binary` con eje `many` descubierto y `install_python_deps` | — | [apps-python.md](../planes/apps-python.md) |
 
 ### Sin decidir
