@@ -48,6 +48,9 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `BUILD_OUT_LINUX` | Builds | Carpeta del build Linux | | ídem | usa |
 | `BUILD_OUT_MACOS` | Builds | Carpeta del build macOS | | ídem | usa |
 | `BUILD_OUT_IPA` | Builds | Carpeta del build iOS | | ídem | usa |
+| `SHOTS_CMD` | Capturas | Comando de la cámara | | | exige |
+| `SHOTS_RAW` | Capturas | Carpeta de capturas crudas | | `demo/capturas` | usa |
+| `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |
 
 Una clave `kind='list'` se edita multilínea y se guarda separada por comas; al leerla, `envfile.split_list` acepta comas y saltos de línea.
@@ -176,7 +179,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 
 ## 7. El catálogo, de un vistazo
 
-61 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
+63 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
 
 | Grupo | Id | Botón | Tipo | |
 |---|---|---|---|---|
@@ -192,6 +195,9 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |  | `bump_version` | Subir número de versión | A | oculta |
 |  | `promote_app` | Publicar en producción | A | destructiva |
 |  | `clean_artifacts` | Borrar artefactos de build | A | destructiva |
+| Capturas | `shoot_screens` | Sacar capturas | A | stub |
+|  | `render_shots` | Revelar capturas | A | stub |
+|  | `screenshots` | Capturar y publicar | C | stub |
 | Repositorio | `clone_repo` | Clonar repositorio de GitHub | A | `opens_repo`, ⌂ |
 |  | `sync_server_env` | Igualar claves de config.env y .env | A | destructiva |
 |  | `sync_common_files` | Copiar archivos comunes a otros repos | A | destructiva |

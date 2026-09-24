@@ -261,6 +261,18 @@ SETTINGS: tuple[Setting, ...] = (
           ('IPA', 'iOS', 'build/ios/ipa · en Flet: build/ipa'),
       )),
 
+    # --- Capturas ---
+    # La camara es un script del repo (Playwright, `flutter drive`): Consola lo
+    # corre y no pregunta que hace por dentro. Sin default: ningun repo tiene
+    # camara hasta que la escribe.
+    Setting('SHOTS_CMD', 'Capturas', 'Comando de la cámara',
+            required_by=('shoot_screens',)),
+    Setting('SHOTS_RAW', 'Capturas', 'Carpeta de capturas crudas', default='demo/capturas',
+            used_by=('shoot_screens', 'render_shots', 'screenshots')),
+    Setting('SHOTS_PUBLISH', 'Capturas', 'Carpeta de la landing',
+            default='landing/static/capturas',
+            used_by=('render_shots', 'screenshots')),
+
     # --- Maquina ---
     # El `PYINSTALLER_BIN` del script original, y por el mismo motivo: `pip
     # install pyinstaller` deja el ejecutable en el Scripts del usuario, que en
@@ -274,7 +286,7 @@ SETTINGS: tuple[Setting, ...] = (
             used_by=('build_binary',)),
 )
 
-GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'Web', 'GitHub', 'Systemd', 'Builds', 'Máquina')
+GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'Web', 'GitHub', 'Systemd', 'Builds', 'Capturas', 'Máquina')
 
 # Los seguros del repo (`PROTECT_*`) NO estan aca y no son un `Setting`: no son
 # un dato que una tarea consuma —ningun paso lee uno— sino una decision de la

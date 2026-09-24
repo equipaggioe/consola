@@ -599,6 +599,21 @@ TEARDOWN_DB_STEPS = [
     Step('role', 'Borrar rol de la aplicación'),
 ]
 
+_SHOT_DESTINATION_LABELS = {
+    'landing': 'Landing', 'play': 'Google Play', 'appstore': 'App Store',
+    'manual': 'Manual', 'og': 'Open Graph', 'social': 'Redes sociales',
+    'presskit': 'Press kit',
+}
+_SHOT_DESTINATIONS_AXIS = lambda: AxisDef('destinations', list(_SHOT_DESTINATION_LABELS),
+                                          'checks', select='many', label='Destinos',
+                                          defaults={'landing'},
+                                          labels=_SHOT_DESTINATION_LABELS)
+
+SCREENSHOTS_STEPS = [
+    Step('shoot', 'Sacar capturas', requires_env={'SHOTS_CMD'}),
+    Step('render', 'Revelar capturas'),
+]
+
 DEV_ENV_STEPS = [
     Step('backend', 'Backend', optional=False),
     Step('serve_vite', 'SPA'),
@@ -774,6 +789,37 @@ def load_catalog() -> None:
                     truthy='borrar', labels={'simulacro': 'Simulacro', 'borrar': 'Borrar'}),
         ],
         stub=True))
+
+    # --- Capturas ------------------------------------------------------------
+    # El repo pone la camara y Consola el revelado: navegar la app, sembrar sus
+    # datos y sacar el PNG es codigo del repo (importa sus modulos, conoce sus
+    # selectores); convertir cada PNG a las medidas de cada destino es igual en
+    # todos. `shoot_screens` no tiene ejes: que apps, temas e idiomas captura lo
+    # decide el script del repo.
+    registry.register(Capability(
+        id='shoot_screens', name='Sacar capturas', group='Capturas',
+        kind='once', icon='📷',
+        description='Corre la cámara del repo, que deja las capturas crudas de sus apps.',
+        stub=True))
+    # Un destino es un preset de medidas y formato (landing, tiendas, redes).
+    # Solo arranca marcada la landing: las tiendas se publican de vez en cuando
+    # y sus medidas hay que verificarlas antes contra la ficha vigente.
+    registry.register(Capability(
+        id='render_shots', name='Revelar capturas', group='Capturas',
+        kind='once', icon='🎞️',
+        description='Convierte las capturas crudas a las medidas y formatos de cada destino.',
+        axes=[_SHOT_DESTINATIONS_AXIS()],
+        stub=True))
+    # Los dos pasos se desmarcan: sin fotografiar queda revelar lo que ya esta en
+    # disco, que es lo que se hace cuando cambia la medida de una tienda y no la
+    # app. Mismo criterio que la compilacion desmarcable de los builders.
+    registry.register(Capability(
+        id='screenshots', name='Capturar y publicar', cut=True, group='Capturas',
+        kind='once', icon='🖼️', level='C',
+        description='Saca las capturas de las apps del repo y las deja listas en cada destino.',
+        composed_of=['shoot_screens', 'render_shots'],
+        axes=[_SHOT_DESTINATIONS_AXIS()],
+        steps=SCREENSHOTS_STEPS, stub=True))
 
     # --- Repositorio ---------------------------------------------------------
     # Clonar es la unica accion del catalogo que no le pasa al repo abierto sino
