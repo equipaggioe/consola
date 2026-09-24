@@ -1,9 +1,12 @@
 # Plan — capturas publicables de las apps de un repo
 
-> **Estado (verificado 2026-09-24): solo están los botones, sin cuerpo.** `core/catalog.py` declara
-> las tres capacidades de §4 con sus ejes, como stub (ninguna tiene `bind`), y `core/settings.py`
-> las cuatro claves de §3.1. Nada las implementa: ningún módulo usa Pillow y `requirements.txt`
-> solo trae PySide6 y psycopg.
+> **Estado (verificado 2026-09-24).** Construidas las etapas 1, 3 y 4 de §10: `shoot_screens`,
+> `render_shots` (solo el destino `landing`) y la compuesta `screenshots`, en
+> `core/tasks/images.py` y `core/shots.py`. Lo construido se describe en
+> [arquitectura 19](../arquitectura/19_imagenes.md), que manda sobre este plan.
+>
+> Pendiente: la etapa 2 (la cámara de vettore al contrato), y de la 5 en adelante. Sin verificar:
+> el camino con app móvil, que enciende el emulador ([30](../arquitectura/30_riesgos_y_pendientes.md)).
 >
 > **El corte cambió el 2026-09-23.** La versión anterior de este plan ponía la cámara en Consola:
 > un guion `demo/capturas.json` con rutas y gestos, y Playwright manejado desde Python. Se
@@ -146,11 +149,10 @@ payloads que importan `seeders.` (la excepción que ese ADR declara) o el `npm r
 
 ---
 
-## 4. Las capacidades *(propuesta)*
+## 4. Las capacidades
 
-Grupo nuevo **Marca y capturas** (`📸`), entre Compilar y Repositorio, compartido con `generate_icons` ([marca.md](marca.md)), con el corte de
-[ADR-0004](../adr/0004-un-boton-por-capacidad.md). Ya están declaradas en `core/catalog.py` como
-stub (sin `bind`): el panel las dibuja y al apretarlas solo reporta lo que correría.
+Grupo **Imágenes** (`🖼️`), entre Compilar y Repositorio, compartido con `generate_icons`
+([marca.md](marca.md)), con el corte de [ADR-0004](../adr/0004-un-boton-por-capacidad.md).
 
 | id | Nombre | kind | Qué hace | Por qué sola |
 |---|---|---|---|---|
@@ -190,7 +192,7 @@ Ejes de `shoot_screens` y del paso `shoot` de `screenshots` (los argumentos de �
 ```
 crudos (del repo)                         derivados (de Consola)
 ────────────────────────────────          ──────────────────────────────
-<app>/<pantalla>.<tema>.<idioma>.png ─┬─► landing/   <app>/<pantalla>.webp → SHOTS_PUBLISH
+<app>/<pantalla>.<tema>.<idioma>.png ─┬─► landing/   <app>/<pantalla>.<tema>.<idioma>.webp → SHOTS_PUBLISH
                                       ├─► play/      medidas de Play
                                       ├─► appstore/  medidas de App Store
                                       ├─► manual/    PNG 2x
@@ -207,17 +209,17 @@ regresión visual (comparar hashes entre corridas).
 
 Un archivo de datos de Consola (`core/shots_presets.json`):
 
+Hoy solo tiene `landing` (`max_width` por tipo de app y `quality`). Los demás destinos, propuesta:
+
 ```jsonc
 {
-  "play":     { "tipos": ["flutter-app"], "medidas": [[1080,1920],[1920,1200]], "formato": "png" },
-  "appstore": { "tipos": ["flutter-app"], "medidas": [[1290,2796],[2048,2732]], "formato": "png" },
-  "landing":  { "tipos": ["spa-vite", "flutter-app"], "ancho": { "spa-vite": 1920, "flutter-app": 540 },
-                "formato": "webp", "calidad": 82 },
-  "og":       { "tipos": ["spa-vite"], "medidas": [[1200,630]], "recorte": "centro", "formato": "png" }
+  "play":     { "kinds": ["flutter-app"], "sizes": [[1080,1920],[1920,1200]], "format": "png" },
+  "appstore": { "kinds": ["flutter-app"], "sizes": [[1290,2796],[2048,2732]], "format": "png" },
+  "og":       { "kinds": ["spa-vite"], "sizes": [[1200,630]], "crop": "center", "format": "png" }
 }
 ```
 
-`tipos` dice de qué crudos sale cada destino: una captura de escritorio no se convierte en una de
+`kinds` dice de qué crudos sale cada destino: una captura de escritorio no se convierte en una de
 teléfono. Si un destino marcado no tiene ningún crudo de su tipo, el revelado lo dice y termina con
 error; no deja la carpeta vacía en silencio.
 
@@ -230,13 +232,14 @@ publicación.** Por eso son dato: se corrigen editando el JSON, sin tocar códig
 
 | Archivo | Cambio |
 |---|---|
-| `demo/capturar.mjs` | nombra los crudos como `<pantalla>.oscuro.es.png`; se borra `publicar()` y el objetivo `publicar` |
+| `demo/capturar.mjs` | lee `--apps`, `--themes`, `--languages`, `--output` y `--device` en vez del objetivo posicional; nombra los crudos `<pantalla>.<tema>.<idioma>.png`; deja de buscar el emulador; se borra `publicar()` y el objetivo `publicar` |
 | `demo/package.json` | sale `sharp` |
-| `landing/src/lib/content/capturas.ts` | sin cambios mientras los derivados de la landing conserven la ruta `/capturas/<app>/<pantalla>.webp`; pasa a leer el manifiesto en la etapa 5 |
-| `.consola/config.env` | `SHOTS_CMD=node demo/capturar.mjs` |
+| `landing/src/lib/content/capturas.ts` | las rutas pasan a `/capturas/<app>/<pantalla>.oscuro.es.webp`, porque el revelado conserva tema e idioma en el nombre; pasa a leer el manifiesto en la etapa 5 |
+| `landing/static/capturas/` | se borran los `.webp` viejos, con el nombre sin tema ni idioma |
+| `.consola/config.env` | `SHOTS_CMD=node demo/capturar.mjs` y `SHOTS_LANGS=es` |
 
-Hoy `publicar()` también fija el ancho por app (`{ app: 540, panel: 1920 }`). Ese dato pasa al
-preset `landing`, por tipo de target (§5.1). *(Propuesta.)*
+El ancho por app de `publicar()` (`{ app: 540, panel: 1920 }`) ya está en el preset `landing`, por
+tipo de app.
 
 ---
 
@@ -296,17 +299,17 @@ recorren, no se generan.
 
 | # | Etapa | Entregable verificable | Esfuerzo |
 |---|---|---|---|
-| 1 | **Claves y `shoot_screens`**: `SHOTS_*` en `core/settings.py`, la atómica corre `SHOTS_CMD` y valida los nombres de los crudos | en vettore, el botón corre `capturar.mjs` y la pestaña muestra su salida | medio día |
-| 2 | **Vettore al contrato**: nombres `<pantalla>.<tema>.<idioma>.png`, fuera `publicar()` y `sharp` | `demo/capturas/` con los nombres nuevos | 1 h |
-| 3 | **`render_shots` para la landing**: Pillow en `requirements.txt`, preset `landing`, `.webp` en `SHOTS_PUBLISH` | la landing de vettore se ve igual que antes | medio día |
-| 4 | **Compuesta `screenshots`** y su entrada en `docs/arquitectura/` | un botón, de repo limpio a landing actualizada | 2 h |
+| 1 | ~~**`shoot_screens`**~~ | construida | — |
+| 2 | **Vettore al contrato** (§6) | en vettore, «Capturar y publicar» deja la landing con las pantallas nuevas | 2 h |
+| 3 | ~~**`render_shots` para la landing**~~ | construida | — |
+| 4 | ~~**Compuesta `screenshots`**~~ | construida | — |
 | 5 | **Manifiesto** y landing que lo consume | una captura nueva aparece en la landing sin tocar `capturas.ts` | medio día |
 | 6 | **Presets de tienda, marcos de dispositivo y press kit** | sale la tanda para Play, verificada contra la ficha vigente | 1 día |
 | 7 | **Segundo repo** con cámara propia (§8) | sus capturas en su landing; la medición de §8 escrita | 1 día |
 | 8 | **Regresión visual** (opcional): diff de hashes contra la corrida anterior | avisa qué pantalla cambió entre dos versiones | medio día |
 
-Las etapas 1 a 4 reemplazan a lo que hoy hace `publicar()`, así que el síntoma que eliminan es
-concreto: la conversión a la landing deja de estar copiada en el repo. Las etapas 5 y 6 tienen
+Las etapas 1 a 4 reemplazan a lo que hoy hace `publicar()`: la conversión a la landing deja de
+estar copiada en el repo. La etapa 2 es la que lo verifica contra un repo real. Las etapas 5 y 6 tienen
 síntoma solo cuando haya que publicar en una tienda o mantener un manual; conviene no empezarlas
 antes.
 

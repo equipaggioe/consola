@@ -1,7 +1,7 @@
 # Plan — íconos de las apps a partir del logo del repo
 
 > **Estado (verificado 2026-09-24): solo está el botón, sin cuerpo.** `core/catalog.py` declara
-> `generate_icons` como stub (sin `bind`) en el grupo **Marca y capturas**, y `core/settings.py`
+> `generate_icons` como stub (sin `bind`) en el grupo **Imágenes**, y `core/settings.py`
 > las claves `BRAND_ICON` y `BRAND_ICON_FOREGROUND`. Nada las implementa.
 >
 > Origen: `vettore/brand/generate.py`. Este plan decide qué parte de ese script pasa a Consola.
@@ -96,17 +96,26 @@ Falla con error, sin adivinar:
 
 ---
 
-## 4. Rasterizar sin dependencias nuevas
+## 4. Con qué rasterizar *(sin decidir)*
 
-`generate.py` usa `resvg-py`. Consola ya trae PySide6, que incluye `QtSvg`.
+`generate.py` usa `resvg-py`. Consola ya trae PySide6, que incluye `QtSvg`, y Pillow (para las
+capturas), que no lee SVG.
 
 **Verificado el 2026-09-24:** `QSvgRenderer` con antialiasing, sobre `brand/logomark.svg` y
 `brand/android_foreground.svg` de vettore a 1024×1024, da un PNG visualmente igual al que
 `generate.py` dejó en `app/assets/launcher_icon/`. Diferencia media por canal: 0,24 de 255; solo
 el 0,3 % de los canales difiere en más de 8, todos en los bordes del antialiasing.
 
-Límite conocido: `QtSvg` implementa SVG Tiny 1.2. Un logo con filtros, máscaras o CSS se vería
-distinto. Si aparece uno, la decisión es cambiar a `resvg-py`, no mantener los dos.
+**Choca con una regla escrita:** [arquitectura 01](../arquitectura/01_contexto.md) dice que el
+núcleo no importa PySide6. [Arquitectura 04](../arquitectura/04_conceptos_transversales.md) exceptúa
+`core/tasks/`, así que las dos no coinciden. Las opciones:
+
+| Opción | Costo |
+|---|---|
+| `QtSvg` desde `core/tasks/` | sin dependencia nueva; hay que decidir y escribir si `core/tasks/` puede usar Qt como biblioteca de imágenes |
+| `resvg-py` | una dependencia más, fiel al renderizador que usa hoy vettore |
+
+Límite de `QtSvg`: implementa SVG Tiny 1.2. Un logo con filtros, máscaras o CSS se vería distinto.
 
 ---
 
@@ -127,11 +136,11 @@ distinto. Si aparece uno, la decisión es cambiar a `resvg-py`, no mantener los 
 | # | Etapa | Entregable verificable | Esfuerzo |
 |---|---|---|---|
 | 1 | **SPA**: copiar el logo a `src/lib/assets/favicon.svg` | el panel de vettore muestra su logo en la pestaña | 2 h |
-| 2 | **Flutter**: rasterizar con `QtSvg`, leer las rutas del pubspec, correr `flutter_launcher_icons` | el ícono de la app de vettore sale igual que con `generate.py` | medio día |
+| 2 | **Flutter**: rasterizar (§4), leer las rutas del pubspec, correr `flutter_launcher_icons` | el ícono de la app de vettore sale igual que con `generate.py` | medio día |
 | 3 | En vettore: `BRAND_ICON` y `BRAND_ICON_FOREGROUND` en su `config.env`; se borra `brand/generate.py` y el comentario del pubspec que lo nombra | `generate.py` ya no existe y los íconos se regeneran desde Consola | 1 h |
 | 4 | `docs/arquitectura/` al día | — | 1 h |
 
 ### Preguntas abiertas
 
-- ¿El nombre del grupo, **Marca y capturas**, queda así?
+- ¿Con qué se rasteriza (§4)?
 - ¿Las imágenes del logo dentro de la app Flutter (§5) entran en este botón?

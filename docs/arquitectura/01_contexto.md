@@ -29,7 +29,8 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 | Base de datos | `psycopg[binary]` ≥ 3.2, solo para el explorador y sus consultas de introspección |
 | Sistemas | Windows y Linux (Debian/Ubuntu para Postgres y la terminal). Todo lo que difiere vive en `core/host.py`, una clase por sistema; nadie más pregunta `os.name` ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)). Nunca se corrió en Linux ([30](30_riesgos_y_pendientes.md)) |
 | VPS soportado | Debian/Ubuntu con systemd, apt, ufw y Postgres (`core/vps.py`) |
-| Sin dependencias de terceros más allá de esas dos | La RAM se lee sin `psutil`, el HTTP se hace con la biblioteca estándar (`core/github.py`, `core/tasks/utils.py`) |
+| Imágenes | `Pillow`, solo para revelar las capturas ([19](19_imagenes.md)) |
+| Sin dependencias de terceros más allá de esas tres | La RAM se lee sin `psutil`, el HTTP se hace con la biblioteca estándar (`core/github.py`, `core/tasks/utils.py`) |
 | Pruebas solo de lo que no toca otras máquinas | `tests/` cubre lógica pura y las respuestas de `core/host.py` para los dos sistemas ([30](30_riesgos_y_pendientes.md)) |
 | Sin telemetría ni red propia | Solo sale a internet para la API de GitHub, la de Cloudflare y las descargas de los SDK |
 

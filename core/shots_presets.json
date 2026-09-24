@@ -1,0 +1,6 @@
+{
+  "landing": {
+    "max_width": { "spa-vite": 1920, "flutter-app": 540, "flet-app": 540 },
+    "quality": 82
+  }
+}

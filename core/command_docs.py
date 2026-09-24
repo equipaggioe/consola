@@ -241,6 +241,59 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
+    # --- Imágenes -----------------------------------------------------------
+
+    'shoot_screens': CommandDoc(
+        summary=(
+            'Corre la cámara del repo, el script de SHOTS_CMD, con las apps, '
+            'temas e idiomas marcados, y comprueba que dejó una captura por '
+            'cada combinación.'
+        ),
+        steps=[
+            'Ubica cada app marcada entre las SPA y las apps móviles del repo.',
+            'Si hay una app móvil marcada y no se eligió emulador, corta antes '
+            'de empezar.',
+            'Borra de SHOTS_RAW las capturas de las combinaciones que se van a '
+            'volver a sacar.',
+            'Si hay una app móvil: usa el AVD elegido si ya está encendido; si '
+            'no, lo enciende y espera a que termine de arrancar.',
+            'Corre SHOTS_CMD desde la raíz del repo, agregándole --apps, '
+            '--themes, --languages, --output y, con app móvil, --device.',
+            'Si encendió el emulador, lo apaga por adb.',
+            'Lee SHOTS_RAW y corta si un archivo no se llama '
+            '<pantalla>.<tema>.<idioma>.png o si falta alguna combinación.',
+        ],
+    ),
+
+    'render_shots': CommandDoc(
+        summary=(
+            'Convierte las capturas crudas de SHOTS_RAW al formato de cada '
+            'destino marcado. Hoy solo la landing.'
+        ),
+        steps=[
+            'Corta si algún destino marcado todavía no tiene preset en '
+            'core/shots_presets.json.',
+            'Lee SHOTS_RAW y corta ante una carpeta que no es una app del repo '
+            'o un archivo con otro nombre.',
+            'Landing: por cada captura, la achica al ancho tope de su tipo de '
+            'app (nunca la agranda) y la guarda como .webp en SHOTS_PUBLISH, '
+            'con el mismo nombre.',
+        ],
+    ),
+
+    'screenshots': CommandDoc(
+        summary=(
+            'Saca las capturas de las apps del repo y las revela para los '
+            'destinos marcados, en un solo log.'
+        ),
+        steps=[
+            'Si Sacar capturas está marcado, corre la cámara del repo como el '
+            'botón Sacar capturas.',
+            'Si Revelar capturas está marcado, convierte lo que haya en '
+            'SHOTS_RAW como el botón Revelar capturas.',
+        ],
+    ),
+
     # --- Emuladores ---------------------------------------------------------
 
     'install_system_image': CommandDoc(

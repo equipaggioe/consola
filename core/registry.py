@@ -471,7 +471,7 @@ class Capability:
 GROUP_ICONS = {
     'Ejecutar': '🚀',
     'Compilar': '🔨',
-    'Marca y capturas': '📸',
+    'Imágenes': '🖼️',
     'Repositorio': '🐙',
     'Base de datos': '🗄️',
     'Despliegue': '🖥️',

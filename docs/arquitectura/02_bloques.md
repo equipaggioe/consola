@@ -45,6 +45,7 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `versioning.py` | Leer y subir la versión de `pubspec.yaml`, `package.json` o `pyproject.toml` |
 | `github.py` | Llaves SSH de la cuenta, por título |
 | `android.py` | SDK, catálogos de dispositivos e imágenes, AVD, arranque y apagado de emuladores |
+| `shots.py` | Capturas: argumentos de la cámara, nombre y validación de los crudos, revelado (`shots_presets.json`) |
 | `userenv.py` | Variables y PATH persistentes a nivel usuario, sin administrador |
 | `host.py` | Lo que cambia entre Windows y Linux en esta máquina: nombres de ejecutables, venv, procesos, terminal, Postgres local, entorno, RAM, caché |
 | `toolstatus.py`, `sysinfo.py` | Qué herramientas hay en la máquina y cuánta RAM queda, para la barra de estado |
@@ -58,12 +59,13 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 
 ## 3. Qué hay en `core/tasks/` (niveles 1 y 2)
 
-Un módulo por grupo del catálogo. `bind_all()` recorre los nueve y reemplaza cada stub por su función.
+Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza cada stub por su función.
 
 | Módulo | Capacidades |
 |---|---|
 | `launchers.py` | `backend`, `serve_vite`, `run_mobile`, `run_python`, `ssh_login` |
 | `builders.py` | `build_flutter`, `build_vite`, `build_binary`, `create_spa`, `promote_app`, `bump_version`, `upload_to_vps` |
+| `images.py` | `shoot_screens`, `render_shots`, `screenshots` |
 | `emulators.py` | `install_system_image`, `create_avd`, `launch_emulator`, `stop_emulator`, `purge_emulators` |
 | `git.py` | `git_force_push`, `git_force_reset`, `clone_repo` |
 | `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh`, `revoke_github_ssh`, `clean_vps` |

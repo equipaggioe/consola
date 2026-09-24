@@ -198,10 +198,10 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |  | `bump_version` | Subir número de versión | A | oculta |
 |  | `promote_app` | Publicar en producción | A | destructiva |
 |  | `clean_artifacts` | Borrar artefactos de build | A | destructiva |
-| Marca y capturas | `generate_icons` | Generar íconos | A | stub |
-|  | `shoot_screens` | Sacar capturas | A | stub |
-|  | `render_shots` | Revelar capturas | A | stub |
-|  | `screenshots` | Capturar y publicar | C | stub |
+| Imágenes | `generate_icons` | Generar íconos | A | stub |
+|  | `shoot_screens` | Sacar capturas | A |  |
+|  | `render_shots` | Revelar capturas | A |  |
+|  | `screenshots` | Capturar y publicar | C |  |
 | Repositorio | `clone_repo` | Clonar repositorio de GitHub | A | `opens_repo`, ⌂ |
 |  | `sync_server_env` | Igualar claves de config.env y .env | A | destructiva |
 |  | `sync_common_files` | Copiar archivos comunes a otros repos | A | destructiva |
