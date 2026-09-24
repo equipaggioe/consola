@@ -48,7 +48,8 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `BUILD_OUT_LINUX` | Builds | Carpeta del build Linux | | ídem | usa |
 | `BUILD_OUT_MACOS` | Builds | Carpeta del build macOS | | ídem | usa |
 | `BUILD_OUT_IPA` | Builds | Carpeta del build iOS | | ídem | usa |
-| `SHOTS_CMD` | Capturas | Comando de la cámara | | | exige |
+| `SHOTS_CMD` | Capturas | Comando que saca las capturas | | | exige |
+| `SHOTS_LANGS` | Capturas | Idiomas que se capturan | lista | | exige |
 | `SHOTS_RAW` | Capturas | Carpeta de capturas crudas | | `demo/capturas` | usa |
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |

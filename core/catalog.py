@@ -4,7 +4,7 @@ from datetime import datetime
 from pathlib import Path
 
 from . import android, cache, files, ssh, targets, toolchain, vps
-from .envfile import Config
+from .envfile import Config, split_list
 from .errors import TaskError
 from .host import HOST
 from .registry import registry, Capability, AxisDef, Facet, Step
@@ -173,6 +173,7 @@ ANDROID_AVDS = 'android_avds'                  # AVD ya creados
 ANDROID_RUNNING = 'android_running'            # emuladores vivos ahora mismo
 VPS_SERVICES = 'vps_services'                  # servicios systemd que existen en el VPS
 BACKUP_FILES = 'backup_files'                  # respaldos ya guardados de este repo
+SHOTS_LANGUAGES = 'shots_languages'            # idiomas que declara este repo para sus capturas
 
 # Lo instalado y lo creado cambian mientras Consola esta abierta, asi que se
 # cachean por un minuto y nada mas: alcanza para no repetir la consulta al abrir
@@ -194,6 +195,8 @@ def queried_values(source: str, *, refresh: bool = False,
         return _vps_services(config, refresh=refresh)
     if source == BACKUP_FILES:
         return _backup_files(config, root)
+    if source == SHOTS_LANGUAGES:
+        return _shots_languages(config)
     try:
         sdk = android.resolve_sdk()
         if source == ANDROID_DEVICES:
@@ -273,6 +276,18 @@ def _backup_files(config: Config | None, root: Path | str | None) -> tuple[list[
     from .tasks.database import list_backups  # circular: tasks importa el registro
     valores = list_backups(config, Path(root))
     return [p.name for p in valores], {p.name: _backup_label(p) for p in valores}
+
+
+def _shots_languages(config: Config | None) -> tuple[list[str], dict[str, str]]:
+    """Los idiomas que el repo declara en `SHOTS_LANGS`.
+
+    Consola no puede descubrirlos: solo el script de captura sabe cuales soporta
+    la app. Sin cache, porque es una clave de configuracion local y editarla
+    debe verse al abrir la pestana.
+    """
+    if config is None:
+        return [], {}
+    return split_list(config.get('SHOTS_LANGS')), {}
 
 
 def _backup_label(path: Path) -> str:
@@ -609,8 +624,27 @@ _SHOT_DESTINATIONS_AXIS = lambda: AxisDef('destinations', list(_SHOT_DESTINATION
                                           defaults={'landing'},
                                           labels=_SHOT_DESTINATION_LABELS)
 
+# Lo que Consola le pasa a la camara del repo como argumentos (`--apps`,
+# `--themes`, `--languages`, y `--device` con el serial del AVD elegido). Las pantallas no se eligen aca: solo
+# el script sabe cuales existen. Los idiomas salen de `SHOTS_LANGS` por lo
+# mismo: Consola no puede adivinar los que tiene la app.
+_SHOT_CAMERA_AXES = lambda: [
+    AxisDef('apps', [], 'checks', select='many', label='Apps',
+            discover=(targets.SPA_VITE, *targets.MOBILE_APP)),
+    AxisDef('themes', ['claro', 'oscuro'], 'checks', select='many', label='Temas',
+            labels={'claro': 'Claro', 'oscuro': 'Oscuro'}),
+    AxisDef('languages', [], 'checks', select='many', label='Idiomas',
+            source=SHOTS_LANGUAGES),
+    # El emulador lo elige y lo arranca Consola, no el script (ADR-0049): se
+    # elige un AVD creado, y si no esta vivo se levanta antes de correr la
+    # camara. Vacio vale solo si no se marco ninguna app movil; si se marco
+    # una, la corrida corta antes de sacar la primera foto.
+    AxisDef('avd', [], 'pick', label='Emulador', source=ANDROID_AVDS,
+            allow_empty=True, labels={'': 'Ninguno (solo apps web)'}),
+]
+
 SCREENSHOTS_STEPS = [
-    Step('shoot', 'Sacar capturas', requires_env={'SHOTS_CMD'}),
+    Step('shoot', 'Sacar capturas', requires_env={'SHOTS_CMD', 'SHOTS_LANGS'}),
     Step('render', 'Revelar capturas'),
 ]
 
@@ -794,12 +828,13 @@ def load_catalog() -> None:
     # El repo pone la camara y Consola el revelado: navegar la app, sembrar sus
     # datos y sacar el PNG es codigo del repo (importa sus modulos, conoce sus
     # selectores); convertir cada PNG a las medidas de cada destino es igual en
-    # todos. `shoot_screens` no tiene ejes: que apps, temas e idiomas captura lo
-    # decide el script del repo.
+    # todos. Consola le pasa al script que apps, temas e idiomas capturar
+    # (`_SHOT_CAMERA_AXES`); que pantallas hay lo decide el script.
     registry.register(Capability(
         id='shoot_screens', name='Sacar capturas', group='Capturas',
         kind='once', icon='📷',
         description='Corre la cámara del repo, que deja las capturas crudas de sus apps.',
+        axes=_SHOT_CAMERA_AXES(),
         stub=True))
     # Un destino es un preset de medidas y formato (landing, tiendas, redes).
     # Solo arranca marcada la landing: las tiendas se publican de vez en cuando
@@ -818,7 +853,7 @@ def load_catalog() -> None:
         kind='once', icon='🖼️', level='C',
         description='Saca las capturas de las apps del repo y las deja listas en cada destino.',
         composed_of=['shoot_screens', 'render_shots'],
-        axes=[_SHOT_DESTINATIONS_AXIS()],
+        axes=[*_SHOT_CAMERA_AXES(), _SHOT_DESTINATIONS_AXIS()],
         steps=SCREENSHOTS_STEPS, stub=True))
 
     # --- Repositorio ---------------------------------------------------------

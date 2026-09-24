@@ -225,6 +225,8 @@ class AxisDef:
         # ni siquiera tiene por que estar dentro del repo.
         if self.source.startswith('backup'):
             return 'en la carpeta de respaldos'
+        if self.source.startswith('shots'):
+            return 'en SHOTS_LANGS'
         return 'en esta máquina'
 
     @property

@@ -1,9 +1,9 @@
 # Plan — capturas publicables de las apps de un repo
 
-> **Estado (verificado 2026-09-23): solo están los botones, sin cuerpo.** `core/catalog.py` declara
-> las tres capacidades de §4 como stub (ninguna tiene `bind`) y `core/settings.py` las tres claves
-> de §3.1. Nada las implementa: ningún módulo usa Pillow y `requirements.txt` solo trae PySide6 y
-> psycopg.
+> **Estado (verificado 2026-09-24): solo están los botones, sin cuerpo.** `core/catalog.py` declara
+> las tres capacidades de §4 con sus ejes, como stub (ninguna tiene `bind`), y `core/settings.py`
+> las cuatro claves de §3.1. Nada las implementa: ningún módulo usa Pillow y `requirements.txt`
+> solo trae PySide6 y psycopg.
 >
 > **El corte cambió el 2026-09-23.** La versión anterior de este plan ponía la cámara en Consola:
 > un guion `demo/capturas.json` con rutas y gestos, y Playwright manejado desde Python. Se
@@ -83,10 +83,11 @@ Son datos que las tareas leen ([ADR-0017](../adr/0017-datos-en-el-env-decisiones
 | Clave | Por defecto | Qué es |
 |---|---|---|
 | `SHOTS_CMD` | — | el comando que corre la cámara del repo, desde su raíz. En vettore: `node demo/capturar.mjs` |
+| `SHOTS_LANGS` | — | los idiomas que la app soporta y la cámara sabe capturar. Consola no puede descubrirlos: llenan el eje `languages` |
 | `SHOTS_RAW` | `demo/capturas` | dónde deja la cámara los PNG crudos |
 | `SHOTS_PUBLISH` | `landing/static/capturas` | dónde deja el revelado los derivados de la landing |
 
-Sin `SHOTS_CMD`, `shoot_screens` y el paso `shoot` de la compuesta quedan en ámbar
+Sin `SHOTS_CMD` o sin `SHOTS_LANGS`, `shoot_screens` y el paso `shoot` de la compuesta quedan en ámbar
 ([ADR-0007](../adr/0007-lo-inaplicable-desaparece.md)). `render_shots` no lo necesita: se puede
 revelar lo que ya está en `SHOTS_RAW`.
 
@@ -103,11 +104,37 @@ revelar lo que ya está en `SHOTS_RAW`.
 - Los crudos se sacan **a resolución nativa, una sola vez**. Todo lo demás es recorte y escalado
   sobre ese PNG.
 
-### 3.3 Qué recibe la cámara
+### 3.3 Qué recibe la cámara ([ADR-0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md))
 
-Consola corre `SHOTS_CMD` sin argumentos y en v1 no le pasa variables. Elegir qué app o qué
-pantallas capturar es asunto del script (vettore ya tiene `node capturar.mjs panel`). Que Consola
-le pase la selección de temas e idiomas como variables de entorno es una pregunta abierta (§10).
+Consola corre `SHOTS_CMD` desde la raíz del repo y le añade los argumentos de lo que se marcó en
+el botón. Van como argumentos y no como variables de entorno ni como un archivo: son cinco valores
+simples, se ven en el comando y el script se puede probar a mano.
+
+```
+node demo/capturar.mjs --apps panel,app --themes oscuro,claro --languages es \
+                       --output E:/Git/vettore/demo/capturas --device emulator-5554
+```
+
+| Argumento | Obligatorio | Contenido | De dónde sale |
+|---|---|---|---|
+| `--apps` | sí | nombres de carpeta separados por coma | eje `apps`: SPA Vite y apps móviles de `core/targets.py` |
+| `--themes` | sí | `claro` y/o `oscuro` | eje `themes` |
+| `--languages` | sí | los idiomas marcados | eje `languages`, con valores de `SHOTS_LANGS` |
+| `--output` | sí | ruta absoluta de la carpeta de crudos | `SHOTS_RAW` resuelta contra la raíz del repo |
+| `--device` | solo con app móvil | serial del emulador, ya encendido | eje `avd`: Consola arranca ese AVD si no está vivo |
+
+Reglas para el script:
+
+- Captura exactamente esas combinaciones de app, tema e idioma.
+- Guarda como `<output>/<app>/<pantalla>.<tema>.<idioma>.png` (§3.2).
+- Si no soporta algo de lo pedido, termina con código distinto de cero. No lo ignora en silencio.
+
+El emulador **no** lo busca el script: lo elige quien aprieta el botón y lo enciende Consola, que
+ya sabe arrancar AVD (`launch_emulator`). Si se marcó una app móvil y no se eligió emulador, la
+corrida corta antes de sacar la primera foto.
+
+Lo que Consola **no** puede elegir son las pantallas: solo el script sabe cuáles existen, así que
+capturar una sola pantalla se hace desde el script.
 
 ### 3.4 ¿Choca con ADR-0001?
 
@@ -115,7 +142,7 @@ le pase la selección de temas e idiomas como variables de entorno es una pregun
 propia** lógica en scripts copiados; el único subproceso permitido es un binario externo. Aquí el
 subproceso es `node` o `flutter`, y el script es código del repo administrado, igual que los
 payloads que importan `seeders.` (la excepción que ese ADR declara) o el `npm run build` de
-`build_vite`. *(Propuesta: escribir un ADR que lo diga, para que nadie lo lea como una violación.)*
+`build_vite`. Decidido en [ADR-0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md).
 
 ---
 
@@ -127,7 +154,7 @@ stub (sin `bind`): el panel las dibuja y al apretarlas solo reporta lo que corre
 
 | id | Nombre | kind | Qué hace | Por qué sola |
 |---|---|---|---|---|
-| `shoot_screens` | Sacar capturas | `once` | corre `SHOTS_CMD` y comprueba que dejó crudos con nombres válidos | cambió una pantalla |
+| `shoot_screens` | Sacar capturas | `once` | corre `SHOTS_CMD` con los ejes como argumentos y comprueba que dejó crudos con nombres válidos | cambió una pantalla |
 | `render_shots` | Revelar capturas | `once` | de los crudos saca los derivados de cada destino marcado y el manifiesto | cambió la medida de una tienda, no la app |
 | `screenshots` | Capturar y publicar | `once`, `level='C'` | pasos `shoot` → `render`, los dos desmarcables | el botón que se aprieta de verdad |
 
@@ -146,7 +173,15 @@ Eje `destinations` de `render_shots` y `screenshots` (va a `params.json`), `chec
 El paso `shoot` de la compuesta exige `SHOTS_CMD`: sin él queda en ámbar, y se puede desmarcar para
 revelar lo que ya está en disco.
 
-`shoot_screens` no tiene ejes en v1 (§3.3).
+Ejes de `shoot_screens` y del paso `shoot` de `screenshots` (los argumentos de §3.3), todos
+`checks` salvo `avd`:
+
+| Eje | Valores | Arranca |
+|---|---|---|
+| `apps` | descubiertos: SPA Vite y apps móviles del repo | todas marcadas |
+| `themes` | Claro · Oscuro | todos marcados |
+| `languages` | los de `SHOTS_LANGS` | todos marcados |
+| `avd` | AVD creados (`pick`); vacío = ninguno, solo vale sin apps móviles marcadas | vacío |
 
 ---
 
@@ -277,11 +312,8 @@ antes.
 
 ### Preguntas abiertas
 
-- ¿Consola le pasa a la cámara la selección de temas, idiomas y apps (variables de entorno y ejes
-  en `shoot_screens`), o eso queda en el script?
-- ¿`SHOTS_CMD` vacío deja el botón en ámbar, o el botón no existe en ese repo
-  ([ADR-0007](../adr/0007-lo-inaplicable-desaparece.md))?
-- ¿Hace falta el ADR de §3.4, o alcanza con citar la excepción de payloads de ADR-0001?
+- El eje `avd` se dibuja también en repos sin app móvil. `Step.requires_repo` oculta pasos, pero
+  no hay nada equivalente para un eje.
 
 ---
 

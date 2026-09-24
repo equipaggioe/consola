@@ -56,3 +56,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0046](0046-el-volcado-corre-de-este-lado.md) | El volcado y la restauración corren de este lado y alcanzan la base remota por el túnel |
 | [0047](0047-restaurar-es-un-destructivo-del-seguro-por-repo.md) | Restaurar es un destructivo del seguro por repositorio, y el respaldo se elige de una lista que se mira al abrir |
 | [0048](0048-las-diferencias-de-sistema-viven-en-host.md) | Las diferencias entre Windows y Linux viven en un solo módulo, con una clase por sistema |
+| [0049](0049-la-camara-de-capturas-es-un-script-del-repo.md) | La cámara de capturas es un script del repo que Consola corre con argumentos |
