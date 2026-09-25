@@ -1,6 +1,6 @@
 # ADR-0056 · Cada tecnología declara dónde va su ícono, y todos salen de `brand/`
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-09-25
 - **Alcance:** `core/icons.py`, `core/tasks/raster.py`, `core/tasks/images.py::generate_icons`, `core/tasks/builders.py::compile_binary`, la clave `BRAND_ICON_MASKABLE`; extiende [ADR-0055](0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md) y quita el campo `icon` de «Compilar ejecutable»
 
