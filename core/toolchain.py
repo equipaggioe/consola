@@ -76,6 +76,14 @@ def flutter_cmd(override: str = '') -> list[str]:
     )
 
 
+def dart_cmd() -> list[str]:
+    """El `dart` que trae el SDK Flutter, en la misma carpeta que `flutter`."""
+    return resolve_executable(
+        ['dart', 'dart.bat', 'dart.exe'], label='Dart',
+        hint='Instala el SDK Flutter con su capacidad, o agrega flutter al PATH.',
+    )
+
+
 def flet_cmd(override: str = '') -> list[str]:
     return resolve_executable(
         ['flet', 'flet.bat', 'flet.cmd', 'flet.exe'],

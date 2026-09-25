@@ -198,7 +198,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |  | `bump_version` | Subir número de versión | A | oculta |
 |  | `promote_app` | Publicar en producción | A | destructiva |
 |  | `clean_artifacts` | Borrar artefactos de build | A | destructiva |
-| Imágenes | `generate_icons` | Generar íconos | A | stub |
+| Imágenes | `generate_icons` | Generar íconos | A |  |
 |  | `shoot_screens` | Sacar capturas | A |  |
 |  | `render_shots` | Revelar capturas | A |  |
 |  | `screenshots` | Capturar y publicar | C |  |

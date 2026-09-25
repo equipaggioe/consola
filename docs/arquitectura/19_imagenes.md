@@ -1,6 +1,6 @@
 # 19 · Imágenes
 
-El grupo **Imágenes** produce el material gráfico de las apps de un repo. Hoy tiene las capturas publicables; `generate_icons` está declarado sin cuerpo ([30](30_riesgos_y_pendientes.md)).
+El grupo **Imágenes** produce el material gráfico de las apps de un repo: sus íconos (§7) y sus capturas publicables (§1–§6).
 
 ## 1. El corte: el repo pone la cámara, Consola el revelado
 
@@ -101,3 +101,32 @@ La conversión usa Pillow.
 | `flutterDrive({...})` | `flutter drive` para un tema e idioma. A la prueba le pasa `SHOTS_THEME` y `SHOTS_LANGUAGE` por `--dart-define`; al driver, `SHOTS_DIR` y `SHOTS_SUFFIX` en el entorno, para que guarde `<SHOTS_DIR>/<pantalla>.<SHOTS_SUFFIX>.png` |
 
 Las pruebas del kit están en `camara/index.test.mjs` (`node --test`), y `tests/test_camara.py` las corre dentro de pytest.
+
+## 7. Los íconos
+
+`generate_icons` · Generar íconos deja el logo del repo como ícono de cada app marcada ([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md)). El repo pone el SVG y cada app dice dónde va su ícono.
+
+| Clave | Qué es |
+|---|---|
+| `BRAND_ICON` | El logo, SVG cuadrado, relativo a la raíz. Sin ella el botón queda en ámbar |
+| `BRAND_ICON_FOREGROUND` | La capa frontal del ícono adaptativo de Android, SVG. Solo se exige al correr sobre una app Flutter cuyo pubspec declara `adaptive_icon_foreground` |
+
+El eje `apps` es consultado contra el repo (`catalog.ICON_APPS`, `core/icons.py::icon_apps`), sin caché. Ofrece:
+
+| Tipo | Se ofrece si | Qué recibe |
+|---|---|---|
+| SPA Vite | tiene `src/lib/assets/favicon.svg`, el que importa el `+layout.svelte` de la plantilla | `BRAND_ICON` copiado tal cual |
+| Flutter | su `pubspec.yaml` tiene sección `flutter_launcher_icons:` | `BRAND_ICON` rasterizado en cada `image_path` (también `image_path_android`, `image_path_ios` y los anidados en `web`, `windows`, `macos`), `BRAND_ICON_FOREGROUND` en `adaptive_icon_foreground`, como PNG de 1024×1024. Después corre `dart run flutter_launcher_icons` desde la carpeta de la app |
+
+Las rutas de Flutter se leen del pubspec, relativas a la app. El lector (`icons.yaml_section`) solo entiende mapas de escalares, que es lo que tiene esa sección.
+
+La corrida planea todas las apps marcadas antes de escribir ninguna (`icons.plan`) y corta si:
+
+- `BRAND_ICON`, o `BRAND_ICON_FOREGROUND` cuando está escrita, no es un `.svg` que exista.
+- Una app Flutter no tiene `flutter_launcher_icons` en `dev_dependencies`, no declara ningún `image_path`, declara `adaptive_icon_foreground` sin `BRAND_ICON_FOREGROUND` (abre la configuración filtrada a esa clave), o pide una imagen en otra clave (`adaptive_icon_monochrome`, `image_path_ios_dark_transparent`…).
+- Una misma ruta recibiría el logo y la capa frontal.
+- Un SVG a rasterizar no es cuadrado: Qt estira el `viewBox` hasta llenar la imagen.
+
+Cada archivo se escribe solo si cambia, y el log dice si es nuevo, actualizado o sin cambios. `flutter_launcher_icons` corre siempre en las apps Flutter marcadas: reparte el ícono por plataforma, y Consola no compara esos archivos.
+
+Rasteriza `core/tasks/images.py::_rasterize` con QtSvg (`QSvgRenderer` sobre un `QImage` con antialiasing), sin aplicación Qt. QtSvg implementa SVG Tiny 1.2: filtros, máscaras o CSS saldrían distintos que en el navegador.

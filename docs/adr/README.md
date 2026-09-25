@@ -62,3 +62,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0052](0052-la-camara-dice-que-apps-necesitan-emulador.md) | Qué apps necesitan emulador lo dice la cámara, no el tipo de la app |
 | [0053](0053-el-servidor-ficticio-tambien-mapea-las-escrituras.md) | El servidor ficticio también mapea las escrituras |
 | [0054](0054-la-camara-dice-que-sabe-capturar.md) | Lo que se ofrece capturar lo dice la cámara |
+| [0055](0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md) | Los íconos salen del logo del repo, los rasteriza Qt y van donde cada app declara |

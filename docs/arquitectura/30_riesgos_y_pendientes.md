@@ -36,11 +36,11 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | Que la confirmación escrita de un destructivo sea **el nombre del repo** y no una palabra fija, para que el automatismo no erosione la comprobación | [0018](../adr/0018-seguro-por-repo-y-objetivo.md) | — |
 | Botón de Detener en la pestaña | — | — |
 | Capturas: marcos de dispositivo, y la landing leyendo el manifiesto (del repo) | [0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md) | [capturas.md](../planes/capturas.md) |
-| Íconos de las apps generados a partir del logo del repo | — | [marca.md](../planes/marca.md) |
 | `build_binary` con eje `many` descubierto y `install_python_deps` | — | [apps-python.md](../planes/apps-python.md) |
 
 ### Sin decidir
 
+- **Íconos que «Generar íconos» no cubre.** Las apps Flet (`flet build` toma `src/assets/icon.png`: `banditore/mobile_customer` y `mobile_vendor`, sin logo SVG), los íconos PWA y `apple-touch-icon` de las SPA (hoy solo `posta/clientes` es PWA), el escritorio, y las imágenes del logo dentro de la app Flutter: `vettore/mobile/assets/brand/logomark.png` y `logo.png`, que usan la pantalla de bloqueo, el registro y la barra principal. No se sabe si alguien las regenera; falta decidir si entran en el botón ([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md)).
 - **El repo que es su propia app.** `resolve_entrypoint` cae en la raíz del repo cuando no hay ningún `python-app` que descubrir. Falta elegir entre reconocer la raíz como app en `_detect` o conservar el campo de texto como escape ([planes/apps-python.md](../planes/apps-python.md) §3.3).
 - **`API_URL` gana sobre el backend de la sesión en `run_mobile`.** Con un backend local corriendo y `API_URL` apuntando al VPS, la app del emulador va al VPS. Es lo que hacía el script original.
 - **`BACKEND_WAIT = 90 s`** es un número puesto a ojo para un uvicorn con `--reload` y base remota por túnel. Falta uso real para saber si sobra o falta.

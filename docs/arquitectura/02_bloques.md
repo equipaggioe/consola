@@ -46,6 +46,7 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `github.py` | Llaves SSH de la cuenta, por título |
 | `android.py` | SDK, catálogos de dispositivos e imágenes, AVD, arranque y apagado de emuladores |
 | `shots.py` | Capturas: argumentos de la cámara, nombre y validación de los crudos, revelado (`shots_presets.json`) |
+| `icons.py` | Íconos: qué apps toman el suyo del logo, qué archivo va a cada ruta del pubspec o al favicon |
 | `userenv.py` | Variables y PATH persistentes a nivel usuario, sin administrador |
 | `host.py` | Lo que cambia entre Windows y Linux en esta máquina: nombres de ejecutables, venv, procesos, terminal, Postgres local, entorno, RAM, caché |
 | `toolstatus.py`, `sysinfo.py` | Qué herramientas hay en la máquina y cuánta RAM queda, para la barra de estado |
@@ -65,7 +66,7 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 |---|---|
 | `launchers.py` | `backend`, `serve_vite`, `run_mobile`, `run_python`, `ssh_login` |
 | `builders.py` | `build_flutter`, `build_vite`, `build_binary`, `create_spa`, `promote_app`, `bump_version`, `upload_to_vps` |
-| `images.py` | `shoot_screens`, `render_shots`, `screenshots` |
+| `images.py` | `generate_icons`, `shoot_screens`, `render_shots`, `screenshots` |
 | `emulators.py` | `install_system_image`, `create_avd`, `launch_emulator`, `stop_emulator`, `purge_emulators` |
 | `git.py` | `git_force_push`, `git_force_reset`, `clone_repo` |
 | `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh`, `revoke_github_ssh`, `clean_vps` |

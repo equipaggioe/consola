@@ -3,7 +3,7 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
-from . import android, cache, files, shots, ssh, targets, toolchain, vps
+from . import android, cache, files, icons, shots, ssh, targets, toolchain, vps
 from .envfile import Config
 from .errors import TaskError
 from .host import HOST
@@ -177,6 +177,7 @@ SHOTS_APPS = 'shots_apps'                      # lo que la camara del repo dice 
 SHOTS_THEMES = 'shots_themes'                  # sus apps, sus temas y sus idiomas (ADR-0054)
 SHOTS_LANGUAGES = 'shots_languages'
 _SHOTS_AXES = {SHOTS_APPS: 'apps', SHOTS_THEMES: 'themes', SHOTS_LANGUAGES: 'languages'}
+ICON_APPS = 'icon_apps'                        # apps del repo que toman su icono del logo
 
 # Lo instalado y lo creado cambian mientras Consola esta abierta, asi que se
 # cachean por un minuto y nada mas: alcanza para no repetir la consulta al abrir
@@ -204,6 +205,8 @@ def queried_values(source: str, *, refresh: bool = False,
         return _backup_files(config, root)
     if source in _SHOTS_AXES:
         return _shots_axis(source, config, root, refresh=refresh)
+    if source == ICON_APPS:
+        return _icon_apps(root)
     try:
         sdk = android.resolve_sdk()
         if source == ANDROID_DEVICES:
@@ -283,6 +286,19 @@ def _backup_files(config: Config | None, root: Path | str | None) -> tuple[list[
     from .tasks.database import list_backups  # circular: tasks importa el registro
     valores = list_backups(config, Path(root))
     return [p.name for p in valores], {p.name: _backup_label(p) for p in valores}
+
+
+def _icon_apps(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
+    """Las apps que dicen donde va su icono (ADR-0055).
+
+    Mira el repo y no una herramienta, pero no alcanza con el tipo de la app:
+    una SPA que importa el logo por su cuenta (la landing de vettore) no lleva
+    `favicon.svg`, y ofrecerla marcada era fallar en cada corrida hasta que
+    alguien la desmarcara. Sin cache: es leer dos archivos por app.
+    """
+    if not root or not Path(root).is_dir():
+        return [], {}
+    return [t.name for t in icons.icon_apps(Path(root))], {}
 
 
 def _shots_axis(source: str, config: Config | None, root: Path | str | None, *,
@@ -843,13 +859,14 @@ def load_catalog() -> None:
     # Los iconos salen del logo del repo: Consola lo rasteriza y lo deja donde
     # cada app lo toma (el `flutter_launcher_icons` del pubspec, el favicon de
     # la SPA). A diferencia de las capturas no hace falta un script del repo:
-    # el repo solo pone el SVG.
+    # el repo solo pone el SVG. Se ofrecen solo las apps que dicen donde va su
+    # icono (ADR-0055).
     registry.register(Capability(
         id='generate_icons', name='Generar íconos', group='Imágenes',
         kind='once', icon='🎨',
         description='Genera los íconos de las apps a partir del logo del repo.',
         axes=[AxisDef('apps', [], 'checks', select='many', label='Apps',
-                      discover=(targets.FLUTTER_APP, targets.SPA_VITE))],
+                      source=ICON_APPS)],
         stub=True))
 
     # El repo pone la camara y Consola el revelado: navegar la app, sembrar sus

@@ -5,13 +5,20 @@ import threading
 from pathlib import Path
 from typing import Sequence
 
-from .. import android, catalog, process, shots, targets
+from PySide6.QtCore import QBuffer, QIODevice, Qt
+from PySide6.QtGui import QImage, QPainter
+from PySide6.QtSvg import QSvgRenderer
+
+from .. import android, catalog, icons, process, shots, targets, toolchain
 from ..context import Level
 from ..errors import TaskError
 from ..registry import registry
 
 """
-Grupo Imágenes: las capturas publicables de las apps del repo.
+Grupo Imágenes: los iconos y las capturas publicables de las apps del repo.
+
+Los iconos salen del logo del repo: Consola lo rasteriza con Qt, que ya trae
+como biblioteca de imagenes (ADR-0055), y lo deja donde cada app lo toma.
 
 La camara es un script del repo y Consola solo la dispara (ADR-0049): le pasa
 que apps, temas e idiomas capturar, y el emulador ya encendido si se eligio uno
@@ -22,6 +29,72 @@ LANDING = 'landing'
 # Lo que tarda la camara en decir que captura: arrancar node y cargar su modulo,
 # sin levantar nada.
 _SUPPORTED_TIMEOUT = 60
+
+
+def generate_icons(ctx, apps: Sequence[str] = ()) -> None:
+    """Deja el logo del repo como icono de cada app marcada."""
+    ctx.require_config('BRAND_ICON')
+    if not apps:
+        raise TaskError('Marca al menos una app.')
+    logo = icons.brand_file(ctx.root, ctx.config.get('BRAND_ICON'), 'BRAND_ICON')
+    frente = (icons.brand_file(ctx.root, ctx.config.get('BRAND_ICON_FOREGROUND'),
+                               'BRAND_ICON_FOREGROUND')
+              if ctx.config.get('BRAND_ICON_FOREGROUND') else None)
+
+    # Se planean todas antes de escribir ninguna: una app mal declarada corta
+    # la corrida, no la deja con unos iconos nuevos y otros viejos.
+    trabajos = [icons.plan(ctx.root, nombre, logo, frente) for nombre in apps]
+    dart = toolchain.dart_cmd() if any(t.is_flutter for t in trabajos) else []
+    for trabajo in trabajos:
+        ctx.raise_if_cancelled()
+        ctx.info(f'{trabajo.app}:')
+        for origen, destino in trabajo.writes:
+            contenido = (origen.read_bytes() if destino.suffix.lower() == '.svg'
+                         else _rasterize(origen, icons.RASTER_SIZE))
+            _write(ctx, destino, contenido)
+        if trabajo.is_flutter:
+            ctx.run([*dart, 'run', icons.SECTION], cwd=trabajo.path)
+        ctx.ok(f'{trabajo.app}: ícono listo.')
+
+
+def _rasterize(svg: Path, lado: int) -> bytes:
+    """El SVG como PNG cuadrado de `lado` pixeles, con antialiasing.
+
+    QtSvg implementa SVG Tiny 1.2: un logo con filtros, mascaras o CSS sale
+    distinto que en el navegador (ADR-0055).
+    """
+    renderer = QSvgRenderer(str(svg))
+    if not renderer.isValid():
+        raise TaskError(f'Qt no pudo leer {svg.name} como SVG.')
+    caja = renderer.viewBoxF()
+    # Qt estira el viewBox hasta llenar la imagen: uno que no es cuadrado sale
+    # deformado.
+    if abs(caja.width() - caja.height()) > 1e-6:
+        raise TaskError(f'{svg.name} no es cuadrado: su viewBox mide '
+                        f'{caja.width():g}×{caja.height():g}.')
+    imagen = QImage(lado, lado, QImage.Format.Format_ARGB32)
+    imagen.fill(Qt.GlobalColor.transparent)
+    pintor = QPainter(imagen)
+    pintor.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pintor.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    renderer.render(pintor)
+    pintor.end()
+    buffer = QBuffer()
+    buffer.open(QIODevice.OpenModeFlag.WriteOnly)
+    imagen.save(buffer, 'PNG')
+    return bytes(buffer.data())
+
+
+def _write(ctx, destino: Path, contenido: bytes) -> None:
+    """Escribe el archivo solo si cambia, y dice que paso (ADR-0039)."""
+    nombre = destino.relative_to(ctx.root).as_posix()
+    if destino.is_file() and destino.read_bytes() == contenido:
+        ctx.info(f'  sin cambios: {nombre}')
+        return
+    estado = 'actualizado' if destino.exists() else 'nuevo'
+    destino.parent.mkdir(parents=True, exist_ok=True)
+    destino.write_bytes(contenido)
+    ctx.info(f'  {estado}: {nombre}')
 
 
 def camera_command(config) -> list[str]:
@@ -202,6 +275,7 @@ def screenshots(ctx, apps: Sequence[str] = (), themes: Sequence[str] = (),
 
 
 def bind_all() -> None:
+    registry.bind('generate_icons', generate_icons)
     registry.bind('shoot_screens', shoot_screens)
     registry.bind('render_shots', render_shots)
     registry.bind('screenshots', screenshots)

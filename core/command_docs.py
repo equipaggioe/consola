@@ -243,6 +243,32 @@ DOCS: dict[str, CommandDoc] = {
 
     # --- Imágenes -----------------------------------------------------------
 
+    'generate_icons': CommandDoc(
+        summary=(
+            'Deja el logo del repo, BRAND_ICON, como ícono de cada app marcada. '
+            'Se ofrecen las apps Flutter con sección flutter_launcher_icons en '
+            'su pubspec.yaml y las SPA con src/lib/assets/favicon.svg.'
+        ),
+        steps=[
+            'Corta si BRAND_ICON, o BRAND_ICON_FOREGROUND cuando está escrita, '
+            'no es un SVG que exista.',
+            'Por cada app marcada, antes de escribir nada: en una SPA, ubica '
+            'src/lib/assets/favicon.svg. En una app Flutter, lee la sección '
+            'flutter_launcher_icons del pubspec.yaml y corta si falta el '
+            'paquete en dev_dependencies, si no declara image_path, si declara '
+            'adaptive_icon_foreground sin BRAND_ICON_FOREGROUND, o si pide otra '
+            'imagen que Consola no sabe dibujar.',
+            'SPA: copia BRAND_ICON tal cual sobre src/lib/assets/favicon.svg.',
+            'Flutter: rasteriza con Qt BRAND_ICON en cada image_path y '
+            'BRAND_ICON_FOREGROUND en adaptive_icon_foreground, como PNG de '
+            '1024×1024. Corta si el SVG no es cuadrado.',
+            'Escribe cada archivo solo si cambió, y dice si es nuevo, '
+            'actualizado o sin cambios.',
+            'Flutter: corre dart run flutter_launcher_icons desde la carpeta de '
+            'la app, que reparte el ícono en cada plataforma.',
+        ],
+    ),
+
     'shoot_screens': CommandDoc(
         summary=(
             'Corre la cámara del repo, el script de SHOTS_CMD, con las apps, '

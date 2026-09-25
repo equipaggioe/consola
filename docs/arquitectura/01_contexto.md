@@ -12,14 +12,14 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 | La capacidad se declara y se implementa por separado | `core/catalog.py` declara la forma; `core/tasks/` le da cuerpo con `Registry.bind` ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)) |
 | Lo que varía es un eje del panel, no otro botón | `systemd_action` tiene nueve acciones y un eje; no hay nueve botones ([ADR-0004](../adr/0004-un-boton-por-capacidad.md)) |
 | La forma del repo decide qué se ofrece | Las apps, las SPA y el servidor salen de mirar las carpetas (`core/targets.py`); un repo sin migraciones no tiene el botón «Migrar» |
-| Nada del núcleo conoce Qt | `core/` no importa PySide6: informa por el `TaskContext` que recibe ([ADR-0005](../adr/0005-todo-pasa-por-taskcontext.md)) |
+| Nada del núcleo conoce la interfaz | `core/` informa por el `TaskContext` que recibe ([ADR-0005](../adr/0005-todo-pasa-por-taskcontext.md)). No importa PySide6, salvo `core/tasks/`, que usa QtGui y QtSvg como biblioteca de imágenes ([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md)) |
 | Lo destructivo se frena por repo | El seguro mira qué rompe la corrida con esos parámetros, no si el botón «es peligroso» ([ADR-0018](../adr/0018-seguro-por-repo-y-objetivo.md)) |
 
 ## 2. Qué no es
 
 - **No es un servidor ni un agente.** No corre nada propio en el VPS: lo que deja allá es configuración en `/etc`, el código del repo clonado de GitHub y artefactos compilados.
 - **No es multiusuario ni remoto.** Corre en la máquina de una persona, con sus llaves SSH (`~/.ssh`) y sus SDK.
-- **No edita el código de los repos que administra.** Los únicos archivos que escribe dentro de un repo son suyos: `.consola/`, `base.generated.js` de una SPA, `releases/<app>/<plataforma>.json` y el manifiesto de versión al subirlo ([ADR-0021](../adr/0021-configuracion-en-etc-no-en-el-repo.md)).
+- **No edita el código de los repos que administra.** Los únicos archivos que escribe dentro de un repo son suyos: `.consola/`, `base.generated.js` de una SPA, `releases/<app>/<plataforma>.json` y el manifiesto de versión al subirlo ([ADR-0021](../adr/0021-configuracion-en-etc-no-en-el-repo.md)). Aparte están las imágenes del grupo Imágenes: las capturas reveladas y los íconos de las apps ([19](19_imagenes.md)).
 
 ## 3. Restricciones
 
@@ -29,7 +29,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 | Base de datos | `psycopg[binary]` ≥ 3.2, solo para el explorador y sus consultas de introspección |
 | Sistemas | Windows y Linux (Debian/Ubuntu para Postgres y la terminal). Todo lo que difiere vive en `core/host.py`, una clase por sistema; nadie más pregunta `os.name` ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)). Nunca se corrió en Linux ([30](30_riesgos_y_pendientes.md)) |
 | VPS soportado | Debian/Ubuntu con systemd, apt, ufw y Postgres (`core/vps.py`) |
-| Imágenes | `Pillow`, solo para revelar las capturas ([19](19_imagenes.md)) |
+| Imágenes | `Pillow` para revelar las capturas; QtSvg, que viene con PySide6, para rasterizar el logo ([19](19_imagenes.md)) |
 | Sin dependencias de terceros más allá de esas tres | La RAM se lee sin `psutil`, el HTTP se hace con la biblioteca estándar (`core/github.py`, `core/tasks/utils.py`) |
 | Pruebas solo de lo que no toca otras máquinas | `tests/` cubre lógica pura y las respuestas de `core/host.py` para los dos sistemas ([30](30_riesgos_y_pendientes.md)) |
 | Sin telemetría ni red propia | Solo sale a internet para la API de GitHub, la de Cloudflare y las descargas de los SDK |

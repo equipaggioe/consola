@@ -4,7 +4,7 @@ Reglas que valen para todo el código, no para un dominio. Cada una se puede com
 
 ## 1. El nivel 0 no habla con nadie más que con su contexto
 
-Nada de `core/` (fuera de `core/tasks/`) importa Qt, imprime a stdout, lee de stdin ni sale del proceso. Informa por el `TaskContext` que recibe y levanta `TaskError` cuando no puede seguir. Es lo que permite que la misma función sirva para la consola de una pestaña, para un paso interno de una compuesta y para un test sin ventana ([ADR-0005](../adr/0005-todo-pasa-por-taskcontext.md)).
+Nada de `core/` (fuera de `core/tasks/`) importa Qt, imprime a stdout, lee de stdin ni sale del proceso. En `core/tasks/`, Qt entra solo como biblioteca de imágenes (QtGui y QtSvg, sin aplicación ni widgets) para rasterizar el logo ([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md)). Informa por el `TaskContext` que recibe y levanta `TaskError` cuando no puede seguir. Es lo que permite que la misma función sirva para la consola de una pestaña, para un paso interno de una compuesta y para un test sin ventana ([ADR-0005](../adr/0005-todo-pasa-por-taskcontext.md)).
 
 - `print` + `SystemExit(1)` se reemplazó por `TaskError` (`core/errors.py`).
 - `input()` se reemplazó por `ctx.ask` / `ctx.confirm`, que abren el diálogo que corresponde.

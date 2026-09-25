@@ -157,7 +157,7 @@ payloads que importan `seeders.` (la excepción que ese ADR declara) o el `npm r
 ## 4. Las capacidades
 
 Grupo **Imágenes** (`🖼️`), entre Compilar y Repositorio, compartido con `generate_icons`
-([marca.md](marca.md)), con el corte de [ADR-0004](../adr/0004-un-boton-por-capacidad.md).
+([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md)), con el corte de [ADR-0004](../adr/0004-un-boton-por-capacidad.md).
 
 | id | Nombre | kind | Qué hace | Por qué sola |
 |---|---|---|---|---|

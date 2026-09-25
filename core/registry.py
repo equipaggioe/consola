@@ -230,6 +230,10 @@ class AxisDef:
             return 'en la carpeta de respaldos'
         if self.source.startswith('shots'):
             return 'en la cámara del repo'
+        # Las apps estan en el repo, pero no todas: solo las que dicen donde va
+        # su icono. "En este repo" mandaria a buscar una app que si esta.
+        if self.source.startswith('icon'):
+            return 'con ícono a cargo de Consola'
         return 'en esta máquina'
 
     @property
