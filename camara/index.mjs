@@ -15,7 +15,7 @@
 
 import { execFileSync, spawn } from 'node:child_process';
 import { createHash } from 'node:crypto';
-import { mkdirSync } from 'node:fs';
+import { mkdirSync, writeSync } from 'node:fs';
 import { createServer } from 'node:http';
 import { join } from 'node:path';
 
@@ -28,6 +28,26 @@ const LIST_FLAGS = ['apps', 'themes', 'languages'];
 const VALUE_FLAGS = ['output', 'device', 'kit'];
 
 /**
+ * Checks what a camera declares it can shoot. A mistake in it is the camera's
+ * error, found before Consola offers anything from it.
+ */
+export const checkSupported = (supported) => {
+	const problems = [];
+	const apps = Object.entries(supported ?? {});
+	if (apps.length === 0) problems.push('no declara ninguna app');
+	for (const [app, spec] of apps) {
+		const { themes, languages, mobile, ...rest } = spec ?? {};
+		if (!Array.isArray(themes) || themes.length === 0) problems.push(`${app}: falta themes`);
+		else for (const theme of themes.filter((t) => !(t in COLOR_SCHEMES))) problems.push(`${app}: ${theme} no es un tema del contrato`);
+		if (!Array.isArray(languages) || languages.length === 0) problems.push(`${app}: falta languages`);
+		if (mobile !== undefined && typeof mobile !== 'boolean') problems.push(`${app}: mobile tiene que ser true o false`);
+		for (const key of Object.keys(rest)) problems.push(`${app}: clave desconocida ${key}`);
+	}
+	if (problems.length) throw new Error(`Lo que declara la cámara no es válido:\n  ${problems.join('\n  ')}`);
+	return supported;
+};
+
+/**
  * Reads the arguments Consola passes and checks them against what the camera
  * can take.
  *
@@ -38,8 +58,18 @@ const VALUE_FLAGS = ['output', 'device', 'kit'];
  *     app: { themes: ['oscuro'], languages: ['es'], mobile: true } }
  *
  * Anything asked for that is not supported is an error, never skipped.
+ *
+ * With `--supported`, Consola is asking what to offer (ADR-0054): the camera
+ * prints `supported` as JSON and exits here, before starting anything. That is
+ * why a camera calls this first.
  */
 export const parseArgs = (argv, supported) => {
+	checkSupported(supported);
+	if (argv.includes('--supported')) {
+		// Synchronous: an exit right after an asynchronous write can cut a pipe short.
+		writeSync(1, `${JSON.stringify(supported)}\n`);
+		process.exit(0);
+	}
 	const args = { device: '' };
 	for (let i = 0; i < argv.length; i += 2) {
 		const flag = argv[i].replace(/^--/, '');

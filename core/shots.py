@@ -66,6 +66,41 @@ def camera_args(apps: Iterable[str], themes: Iterable[str], languages: Iterable[
     return args
 
 
+def parse_supported(text: str) -> dict[str, dict]:
+    """Lo que la camara dice que sabe capturar, leido de su `--supported` (ADR-0054).
+
+    El kit ya lo revisa antes de imprimirlo; esto revisa lo que Consola usa de
+    ahi, porque una camara escrita sin el kit tambien puede contestar.
+    """
+    try:
+        declarado = json.loads(text)
+    except json.JSONDecodeError as exc:
+        raise TaskError(f'La cámara no contestó JSON a --supported: {text[:200]!r}') from exc
+    if not isinstance(declarado, dict) or not declarado:
+        raise TaskError('La cámara no declara ninguna app.')
+    for app, spec in declarado.items():
+        temas = spec.get('themes') if isinstance(spec, dict) else None
+        idiomas = spec.get('languages') if isinstance(spec, dict) else None
+        if not temas or not isinstance(temas, list) or not idiomas or not isinstance(idiomas, list):
+            raise TaskError(f'La cámara declara {app} sin temas o sin idiomas.')
+        ajenos = [t for t in temas if t not in THEMES]
+        if ajenos:
+            raise TaskError(f'La cámara declara para {app} temas fuera del contrato: {", ".join(ajenos)}.')
+    return declarado
+
+
+def supported_values(declarado: dict[str, dict], axis: str) -> list[str]:
+    """Los valores de un eje de la camara: sus apps, o todos los temas o idiomas
+    que tiene alguna. Los temas en el orden del contrato; lo demas, como lo
+    escribio la camara."""
+    if axis == 'apps':
+        return list(declarado)
+    vistos = [v for spec in declarado.values() for v in spec[axis]]
+    if axis == 'themes':
+        return [t for t in THEMES if t in vistos]
+    return list(dict.fromkeys(vistos))
+
+
 def clear_raw(raw: Path, apps: Iterable[str], themes: Iterable[str],
               languages: Iterable[str]) -> int:
     """Borra los crudos de las combinaciones que se van a volver a sacar.

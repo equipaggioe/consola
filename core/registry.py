@@ -63,6 +63,9 @@ class AxisDef:
                                 # SDK; los servicios systemd, de preguntarle al
                                 # VPS del repo. Se resuelve igual que `discover`,
                                 # pero contra esa fuente y no contra la carpeta.
+    query_error: str = ''       # por que la fuente consultada no contesto, cuando lo que
+                                # dijo es lo que hay que arreglar (la camara del repo,
+                                # ADR-0054). Lo llena el panel; manda sobre "no hay ninguno".
     labels: dict = field(default_factory=dict)  # valor -> como se lee. Para las
                                 # listas largas de `expand='pick'`, donde el
                                 # valor real es un id feo
@@ -226,7 +229,7 @@ class AxisDef:
         if self.source.startswith('backup'):
             return 'en la carpeta de respaldos'
         if self.source.startswith('shots'):
-            return 'en SHOTS_LANGS'
+            return 'en la cámara del repo'
         return 'en esta máquina'
 
     @property

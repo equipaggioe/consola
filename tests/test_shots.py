@@ -43,6 +43,26 @@ def test_los_argumentos_llevan_la_seleccion_y_el_dispositivo_solo_si_hay():
         '--device', 'emulator-5554']
 
 
+def test_los_ejes_salen_de_lo_que_la_camara_dice_que_captura():
+    declarado = shots.parse_supported(
+        '{"panel": {"themes": ["oscuro"], "languages": ["es"]},'
+        ' "app": {"themes": ["oscuro", "claro"], "languages": ["es", "en"], "mobile": true}}')
+    assert shots.supported_values(declarado, 'apps') == ['panel', 'app']
+    assert shots.supported_values(declarado, 'themes') == ['claro', 'oscuro']
+    assert shots.supported_values(declarado, 'languages') == ['es', 'en']
+
+
+@pytest.mark.parametrize('texto, error', [
+    ('listo', 'no contestó JSON'),
+    ('{}', 'ninguna app'),
+    ('{"panel": {"themes": ["oscuro"]}}', 'panel sin temas o sin idiomas'),
+    ('{"panel": {"themes": ["sepia"], "languages": ["es"]}}', 'fuera del contrato: sepia'),
+])
+def test_lo_que_declara_la_camara_se_revisa(texto, error):
+    with pytest.raises(TaskError, match=error):
+        shots.parse_supported(texto)
+
+
 def test_una_carpeta_relativa_cuelga_del_repo_y_una_absoluta_va_tal_cual(tmp_path):
     assert shots.resolve_dir(tmp_path, 'demo/capturas') == tmp_path / 'demo' / 'capturas'
     assert shots.resolve_dir(tmp_path, str(tmp_path / 'x')) == tmp_path / 'x'

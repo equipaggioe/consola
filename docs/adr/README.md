@@ -61,3 +61,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0051](0051-el-kit-de-la-camara-viaja-en-un-argumento.md) | La plomería de las cámaras es un kit de Consola que la cámara recibe en `--kit` |
 | [0052](0052-la-camara-dice-que-apps-necesitan-emulador.md) | Qué apps necesitan emulador lo dice la cámara, no el tipo de la app |
 | [0053](0053-el-servidor-ficticio-tambien-mapea-las-escrituras.md) | El servidor ficticio también mapea las escrituras |
+| [0054](0054-la-camara-dice-que-sabe-capturar.md) | Lo que se ofrece capturar lo dice la cámara |

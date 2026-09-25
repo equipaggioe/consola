@@ -13,6 +13,7 @@ from ui.theme import Colors, Fonts
 from ui.palettes import Palette
 from core import envfile
 from core.catalog import for_project, queried_values
+from core.errors import TaskError
 from core.registry import Capability, AxisDef, Step, registry
 from core.projects import Project
 from core.settings import relevant_keys_for, required_keys_for
@@ -56,10 +57,19 @@ class AxesLoader(QThread):
 
     def run(self) -> None:
         resuelto = {}
+        errores = {}
         for axis in self._capability.axes:
-            if axis.is_queried:
+            if not axis.is_queried:
+                continue
+            try:
                 resuelto[axis.name] = queried_values(axis.source, refresh=self._refresh,
                                                      config=self._config, root=self._root)
+            except TaskError as exc:
+                # Solo sube lo que el repo tiene que arreglar (la camara que no
+                # contesta): el eje queda vacio y el panel dice por que.
+                resuelto[axis.name] = ([], {})
+                errores[axis.name] = str(exc)
+        resuelto[_ERRORS] = errores
         if self._capability.live_state:
             resuelto[_LIVE] = queried_values(self._capability.live_state,
                                              config=self._config, root=self._root)
@@ -69,6 +79,8 @@ class AxesLoader(QThread):
 # Clave con la que viaja el inventario de "lo que esta corriendo" dentro del
 # resultado del loader. No es un eje: no se elige, se mira y se apaga.
 _LIVE = '@live'
+# Y la de los ejes cuya consulta fallo, con el porque de cada uno.
+_ERRORS = '@errors'
 
 # Ancho de la etiqueta de cada caracteristica de un eje `pick` con `facets`.
 # Fijo y compartido para que las listas queden alineadas en columna: tres combos
@@ -183,6 +195,7 @@ class ParamsPanel(QWidget):
                 if axis.name not in resuelto:
                     continue
                 axis.values, axis.labels = resuelto[axis.name]
+                axis.query_error = resuelto[_ERRORS].get(axis.name, '')
                 if axis.name in self._facets:
                     self._fill_facets(axis)
                 elif axis.name in self._picks:
@@ -494,6 +507,10 @@ class ParamsPanel(QWidget):
         for check in self._checks.get(axis.name, {}).values():
             lay.removeWidget(check)
             check.deleteLater()
+        nota = self._empty_notes.pop(axis.name, None)
+        if nota is not None:
+            lay.removeWidget(nota)
+            nota.deleteLater()
         self._checks[axis.name] = {}
         for value in axis.values:
             check = QCheckBox(axis.text_of(value))
@@ -502,6 +519,19 @@ class ParamsPanel(QWidget):
             check.stateChanged.connect(self._refresh_summary)
             self._checks[axis.name][value] = check
             lay.addWidget(check)
+        texto = axis.query_error or f'no hay ninguno {axis.query_place}'
+        # Los ejes de la camara fallan juntos y con el mismo mensaje: lo dice el
+        # primero y los demas quedan vacios.
+        repetido = any(n.text() == texto for n in self._empty_notes.values())
+        if not axis.values and not repetido:
+            # Como en los ejes de botones: el hueco dice por que esta vacio. Si
+            # la fuente fallo, lo que dijo, que es lo que hay que arreglar.
+            nota = QLabel(texto)
+            nota.setWordWrap(True)
+            nota.setStyleSheet(f"background: transparent; color: {Colors.TEXT_MUTED}; "
+                               f"font-size: {Fonts.SIZE_XS}px;")
+            self._empty_notes[axis.name] = nota
+            lay.addWidget(nota)
 
     def _build_live(self) -> QWidget:
         """Cabecera con lo que esta corriendo ahora, y su ✕ para apagarlo."""
@@ -955,7 +985,22 @@ class ParamsPanel(QWidget):
     def _persist(self) -> None:
         if self._restoring:
             return
-        params_store.save(self.project.path, self.capability.id, self.state())
+        estado = self.state()
+        # Un eje consultado sin valores (todavia leyendo, o su fuente fallo) no
+        # dice nada de lo elegido: se conserva lo guardado. Guardar su vacio lo
+        # borraba, y al llegar los valores se reponia la nada.
+        guardado = params_store.load(self.project.path, self.capability.id) or {}
+        for axis in self.capability.axes:
+            if not (axis.is_queried and not axis.values):
+                continue
+            for balde in ('variants', 'picks'):
+                previo = guardado.get(balde) or {}
+                if axis.name in previo:
+                    estado[balde][axis.name] = previo[axis.name]
+                else:
+                    # Sin nada guardado, al llegar sus valores manda el default.
+                    estado[balde].pop(axis.name, None)
+        params_store.save(self.project.path, self.capability.id, estado)
         self.params_changed.emit()
 
     def payload(self) -> dict:
@@ -1095,6 +1140,11 @@ class ParamsPanel(QWidget):
         vacios = {a.name for a in self.capability.axes if a.is_discovered and not a.values}
         for axis in self.capability.axes:
             if axis.name not in vacios:
+                continue
+            if axis.query_error:
+                # Los tres ejes de la camara fallan con el mismo mensaje: una vez basta.
+                if axis.query_error not in reasons:
+                    reasons.append(axis.query_error)
                 continue
             donde = axis.query_place if axis.is_queried else 'en este repo'
             # Un eje opcional que ademas admite estar vacio (las dos listas de

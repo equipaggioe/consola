@@ -88,12 +88,11 @@ Son datos que las tareas leen ([ADR-0017](../adr/0017-datos-en-el-env-decisiones
 | Clave | Por defecto | Qué es |
 |---|---|---|
 | `SHOTS_CMD` | — | el comando que corre la cámara del repo, desde su raíz. En vettore: `node demo/capturar.mjs` |
-| `SHOTS_LANGS` | — | los idiomas que la app soporta y la cámara sabe capturar. Consola no puede descubrirlos: llenan el eje `languages` |
 | `SHOTS_RAW` | `demo/capturas` | dónde deja la cámara los PNG crudos |
 | `SHOTS_PUBLISH` | `landing/static/capturas` | dónde deja el revelado los derivados de la landing |
 | `SHOTS_DIST` | `demo/publicables` | dónde deja el revelado los demás destinos, una carpeta por destino. Clave y valor por defecto elegidos al implementar |
 
-Sin `SHOTS_CMD` o sin `SHOTS_LANGS`, `shoot_screens` y el paso `shoot` de la compuesta quedan en ámbar
+Sin `SHOTS_CMD`, `shoot_screens` y el paso `shoot` de la compuesta quedan en ámbar
 ([ADR-0007](../adr/0007-lo-inaplicable-desaparece.md)). `render_shots` no lo necesita: se puede
 revelar lo que ya está en `SHOTS_RAW`.
 
@@ -124,9 +123,9 @@ node demo/capturar.mjs --apps panel,app --themes oscuro --languages es \
 
 | Argumento | Obligatorio | Contenido | De dónde sale |
 |---|---|---|---|
-| `--apps` | sí | nombres de carpeta separados por coma | eje `apps`: SPA Vite y apps móviles de `core/targets.py` |
+| `--apps` | sí | nombres de carpeta separados por coma | eje `apps`: las que declara la cámara ([ADR-0054](../adr/0054-la-camara-dice-que-sabe-capturar.md)) |
 | `--themes` | sí | `claro` y/o `oscuro` | eje `themes` |
-| `--languages` | sí | los idiomas marcados | eje `languages`, con valores de `SHOTS_LANGS` |
+| `--languages` | sí | los idiomas marcados | eje `languages`, con los que declara la cámara |
 | `--output` | sí | ruta absoluta de la carpeta de crudos | `SHOTS_RAW` resuelta contra la raíz del repo |
 | `--kit` | sí | ruta absoluta del kit de la cámara | `camara/index.mjs` de la Consola que corre ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)) |
 | `--device` | solo con app móvil | serial del emulador, ya encendido | eje `avd`: Consola arranca ese AVD si no está vivo |
@@ -186,9 +185,9 @@ Ejes de `shoot_screens` y del paso `shoot` de `screenshots` (los argumentos de �
 
 | Eje | Valores | Arranca |
 |---|---|---|
-| `apps` | descubiertos: SPA Vite y apps móviles del repo | todas marcadas |
-| `themes` | Claro · Oscuro | todos marcados |
-| `languages` | los de `SHOTS_LANGS` | todos marcados |
+| `apps` | las que declara la cámara con `--supported` (ADR-0054) | todas marcadas |
+| `themes` | los que tiene alguna de ellas | todos marcados |
+| `languages` | los que tiene alguna de ellas | todos marcados |
 | `avd` | AVD creados (`pick`); vacío = ninguno, y la cámara dice si hacía falta (ADR-0052) | vacío |
 
 ---
@@ -242,7 +241,7 @@ sirve con los nombres nuevos y `capturas.json`.
 
 | Pieza | Dónde |
 |---|---|
-| Cámara | `demo/camara/capturar.mjs` (`SHOTS_CMD=node demo/camara/capturar.mjs`, `SHOTS_LANGS=es`) |
+| Cámara | `demo/camara/capturar.mjs` (`SHOTS_CMD=node demo/camara/capturar.mjs`) |
 | Rutas y WebSocket del servidor ficticio | `demo/camara/servidor.mjs` |
 | Escenario | `demo/escenario.json` y `demo/sembrado.mjs` |
 | Prueba y driver de la app | `app/integration_test/capturas_kit_test.dart`, `app/test_driver/capturas_kit.dart` |
@@ -252,12 +251,12 @@ La cámara anterior (`demo/capturar.mjs`, `demo/servidor.mjs`, `capturas_test.da
 
 **Banditore** (2026-09-24), el segundo repo y el primero con apps Flet. «Capturar y publicar»
 no se apretó desde Consola: la cámara se corrió con los mismos argumentos y el revelado de la
-landing con las funciones de `core/shots.py`. Salieron 16 capturas (panel, app de cliente y app
+landing con las funciones de `core/shots.py`. Salieron 17 capturas (panel, app de cliente y app
 de vendedor, tema oscuro, español), y la landing muestra una en inicio leyendo `capturas.json`.
 
 | Pieza | Dónde |
 |---|---|
-| Cámara | `demo/camera/shoot.mjs` (`SHOTS_CMD=node demo/camera/shoot.mjs`, `SHOTS_LANGS=es`) |
+| Cámara | `demo/camera/shoot.mjs` (`SHOTS_CMD=node demo/camera/shoot.mjs`) |
 | Rutas del servidor ficticio, lecturas y escrituras | `demo/camera/routes.mjs` |
 | Escenario | `demo/scenario.json` y `demo/scenario.mjs` |
 | Apps Flet | `demo/camera/flet_camera.py` y un recorrido por app (`tour_customer.py`, `tour_vendor.py`) |
@@ -286,15 +285,14 @@ Pasos, en orden:
      página en Chromium a 360 × 720. Un recorrido en Python toca por texto con el despacho de
      eventos de Flet y guarda con `page.take_screenshot` a 3x. No hace falta emulador. Hoy se
      copia de banditore (`flet_camera.py`).
-5. **`config.env`**: `SHOTS_CMD` y `SHOTS_LANGS`.
+5. **`config.env`**: `SHOTS_CMD`. Las apps, temas e idiomas que Consola ofrece los toma de
+   `parseArgs` con `--supported` (ADR-0054): la cámara lo llama antes de levantar nada.
 6. **Landing**: que lea `capturas.json` para encontrar cada imagen y falle al compilar si falta
    una (banditore: `landing/src/lib/screenshots.ts`). Si la landing tiene un presupuesto de
    peso, elegir una pantalla que entre: en banditore el mapa pesaba 116 KB y no entraba.
 7. Correr «Capturar y publicar». Si alguna app necesita emulador, en un AVD dedicado: imagen
    Google APIs (la de Google Play no permite `adb root`) y una pantalla de 2:1 como máximo, o
    Play rechaza las capturas. El de vettore es `capturas`: Pixel 3, 1080×2160, Android 36.
-   Desmarcar del eje `apps` lo que no es una app (en banditore: `mobile_common`, `flet_fcm`,
-   `background_gps`, `landing`): la cámara falla nombrándolas.
 
 | Tema | Qué hacer |
 |---|---|

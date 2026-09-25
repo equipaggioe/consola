@@ -47,7 +47,6 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 - **El explorador conecta como el rol de la aplicación.** Una tabla sin `GRANT` aparece en el árbol —sale de `pg_catalog`— pero sus datos dan «permission denied». Conectar como superusuario lo vería todo, pero en remoto ese canal es `psql` por SSH y no el driver ([ADR-0015](../adr/0015-explorador-de-solo-lectura.md)).
 - **Dónde vive la parte Dart del kit de la cámara**: un paquete de Consola con dependencia `path:` o una copia por app Flutter ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 - **Dónde vive la parte Flet del kit de la cámara.** `banditore/demo/camera/flet_camera.py` corre una app Flet en modo web y le da al recorrido `tap`, `wait_for_text` y `shoot`. No depende de banditore, salvo por cómo siembra la sesión. Se importa desde la app, así que tampoco puede llegar como ruta en `--kit` ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
-- **Qué es una `flet-app`.** `targets._detect` llama así a toda carpeta cuyo `pyproject.toml` nombra `flet`. En banditore eso incluye una librería (`mobile_common`), una extensión (`flet_fcm`) y un spike (`spikes/background_gps`), y el eje `apps` de las capturas las ofrece marcadas junto a las dos apps. El mismo tipo alimenta los ejes de compilación móvil, así que el alcance del cambio está sin medir.
 - **Una sola base por repo.** `DB_NAME` es una. Si un repo tuviera dos sería otro eje, y no hace falta decidirlo antes de que pase.
 
 ### Sin verificar

@@ -68,11 +68,14 @@ def _detect(directory: Path) -> str:
         return SPA_VITE
     if (directory / 'pubspec.yaml').is_file():
         return FLUTTER_APP
-    pyproject = directory / 'pyproject.toml'
-    if pyproject.is_file() and 'flet' in read_text(pyproject).lower():
-        return FLET_APP
     if not any((directory / m).exists() for m in _PYTHON_MARKERS):
         return ''
+    # Nombrar `flet` no basta: una libreria o una extension de Flet tambien lo
+    # nombran. La app es la que arranca, como la que `flet build` compila.
+    pyproject = directory / 'pyproject.toml'
+    if (pyproject.is_file() and 'flet' in read_text(pyproject).lower()
+            and python_entrypoint(directory)):
+        return FLET_APP
     if asgi_app(directory):
         return FASTAPI
     # Ultimo porque es el marcador mas debil: un servidor tambien tiene su

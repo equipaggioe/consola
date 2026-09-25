@@ -6,9 +6,11 @@ import { existsSync, mkdtempSync } from 'node:fs';
 import { connect } from 'node:net';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { execFileSync } from 'node:child_process';
+import { pathToFileURL } from 'node:url';
 import { test } from 'node:test';
 
-import { combinations, parseArgs, reply, SCENARIO_PATH, shotPath, startFakeServer } from './index.mjs';
+import { checkSupported, combinations, parseArgs, reply, SCENARIO_PATH, shotPath, startFakeServer } from './index.mjs';
 
 const supported = {
 	panel: { themes: ['oscuro'], languages: ['es'] },
@@ -35,6 +37,24 @@ test('lo que la cámara no soporta es error, no se salta', () => {
 	assert.throws(() => parseArgs(['--apps', 'app', '--themes', 'oscuro', '--languages', 'es', '--output', '/r', '--kit', '/k'], supported), /falta --device/);
 	assert.throws(() => parseArgs(argv(['--pantalla', 'chat']), supported), /Argumento desconocido: --pantalla/);
 	assert.throws(() => parseArgs(['--apps', 'panel', '--themes', 'oscuro', '--languages', 'es', '--kit', '/k'], supported), /Falta --output/);
+});
+
+test('con --supported imprime lo que captura y termina (ADR-0054)', () => {
+	const kit = pathToFileURL(join(import.meta.dirname, 'index.mjs')).href;
+	const camera = `const kit = await import(${JSON.stringify(kit)});
+		kit.parseArgs(process.argv.slice(1), ${JSON.stringify(supported)});
+		console.log('no debería llegar aquí');`;
+	const out = execFileSync(process.execPath, ['--input-type=module', '-e', camera, '--', '--supported', '--kit', '/k.mjs'], { encoding: 'utf8' });
+	assert.deepEqual(JSON.parse(out), supported);
+});
+
+test('lo que declara la cámara se revisa antes de usarlo', () => {
+	assert.equal(checkSupported(supported), supported);
+	assert.throws(() => checkSupported({}), /no declara ninguna app/);
+	assert.throws(() => checkSupported({ panel: { themes: ['sepia'], languages: ['es'] } }), /panel: sepia no es un tema del contrato/);
+	assert.throws(() => checkSupported({ panel: { themes: ['oscuro'], languages: [] } }), /panel: falta languages/);
+	assert.throws(() => checkSupported({ panel: { themes: ['oscuro'], languages: ['es'], movil: true } }), /clave desconocida movil/);
+	assert.throws(() => parseArgs(argv(), { panel: { themes: ['oscuro'] } }), /panel: falta languages/);
 });
 
 test('el nombre del crudo es el del contrato', () => {

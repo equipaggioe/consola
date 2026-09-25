@@ -277,10 +277,6 @@ SETTINGS: tuple[Setting, ...] = (
     # camara hasta que la escribe.
     Setting('SHOTS_CMD', 'Capturas', 'Comando para capturas',
             required_by=('shoot_screens',)),
-    # Los idiomas que la app soporta y el script sabe capturar. Consola no puede
-    # descubrirlos: alimenta el eje `languages`. Sin default, como el comando.
-    Setting('SHOTS_LANGS', 'Capturas', 'Idiomas disponibles', kind='list',
-            required_by=('shoot_screens',)),
     Setting('SHOTS_RAW', 'Capturas', 'Carpeta de capturas crudas', default='demo/capturas',
             used_by=('shoot_screens', 'render_shots', 'screenshots')),
     Setting('SHOTS_PUBLISH', 'Capturas', 'Carpeta de la landing',

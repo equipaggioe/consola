@@ -26,10 +26,12 @@ Ejes de `shoot_screens` (y del paso `shoot` de la compuesta):
 
 | Eje | Valores | Argumento |
 |---|---|---|
-| `apps` | descubiertos: SPA Vite y apps móviles (`shots.SHOT_KINDS`) | `--apps` |
-| `themes` | `claro`, `oscuro` | `--themes` |
-| `languages` | los de `SHOTS_LANGS` (fuente consultada `SHOTS_LANGUAGES`, sin caché) | `--languages` |
+| `apps` | las que declara la cámara (fuente consultada `SHOTS_APPS`) | `--apps` |
+| `themes` | los que tiene alguna de ellas, en el orden `claro`, `oscuro` (`SHOTS_THEMES`) | `--themes` |
+| `languages` | los que tiene alguna de ellas (`SHOTS_LANGUAGES`) | `--languages` |
 | `avd` | AVD creados, o ninguno. Si una app lo necesita lo dice la cámara (ADR-0052) | `--device` con el serial, solo si se eligió uno |
+
+Los tres primeros salen de preguntarle a la cámara con `--supported` (`tasks/images.py::camera_supported`), con caché de un minuto por repo. Si no contesta, el panel muestra lo que dijo en lugar de las casillas y el botón queda bloqueado. Un eje consultado que está vacío, leyendo o con error, conserva lo elegido la última vez (`ui/params_panel.py::_persist`).
 
 Eje de `render_shots` y de la compuesta: `destinations` (`landing`, `play`, `appstore`, `manual`, `og`, `social`, `presskit`). Un destino sin preset, o sin ningún crudo de un tipo que le sirva, corta la corrida antes de convertir nada.
 
@@ -85,7 +87,8 @@ La conversión usa Pillow.
 
 | Export | Qué hace |
 |---|---|
-| `parseArgs(argv, soportado)` | Lee `--apps`, `--themes`, `--languages`, `--output`, `--device` y `--kit`. `soportado` dice, por app, qué temas e idiomas tiene y si es móvil. Un argumento desconocido o faltante, una app, tema o idioma no soportado, o una app móvil sin `--device` son error: la cámara termina sin sacar nada |
+| `parseArgs(argv, soportado)` | Lee `--apps`, `--themes`, `--languages`, `--output`, `--device` y `--kit`. `soportado` dice, por app, qué temas e idiomas tiene y si es móvil. Un argumento desconocido o faltante, una app, tema o idioma no soportado, o una app móvil sin `--device` son error: la cámara termina sin sacar nada. Con `--supported` imprime `soportado` como JSON y termina: es lo que Consola ofrece en los ejes (ADR-0054) |
+| `checkSupported(soportado)` | Revisa lo que declara la cámara: al menos una app, y en cada una temas del contrato, idiomas y `mobile` booleano. `parseArgs` lo llama siempre |
 | `combinations(args)` | Cada par tema × idioma pedido |
 | `shotPath(output, app, pantalla, tema, idioma)` | `<output>/<app>/<pantalla>.<tema>.<idioma>.png`, creando la carpeta. Una pantalla con punto o barra es error |
 | `main(fn)` | Corre la cámara; un error se imprime y sale con código 1 |

@@ -19,12 +19,43 @@ que apps, temas e idiomas capturar, y el emulador ya encendido si se eligio uno
 """
 
 LANDING = 'landing'
+# Lo que tarda la camara en decir que captura: arrancar node y cargar su modulo,
+# sin levantar nada.
+_SUPPORTED_TIMEOUT = 60
+
+
+def camera_command(config) -> list[str]:
+    """`SHOTS_CMD` listo para correr, con su ejecutable ubicado."""
+    if not config.get('SHOTS_CMD'):
+        raise TaskError('Falta SHOTS_CMD en la configuración: es el comando de la cámara del repo.')
+    comando = shlex.split(config.get('SHOTS_CMD'))
+    ejecutable = process.resolve_executable([comando[0]], label=comando[0],
+                                            hint='Revisa SHOTS_CMD.')
+    return [*ejecutable, *comando[1:]]
+
+
+def camera_supported(root: Path, config) -> dict[str, dict]:
+    """Las apps, temas e idiomas que la camara sabe capturar (ADR-0054).
+
+    Se le pregunta a ella con `--supported`: lo declara en su codigo, donde
+    tambien lo usa para rechazar lo que no sabe, y asi no hay una segunda copia
+    que pueda quedar distinta.
+    """
+    argv = [*camera_command(config), '--supported', '--kit', str(shots.KIT)]
+    try:
+        salida = process.capture(argv, cwd=root, timeout=_SUPPORTED_TIMEOUT)
+    except TaskError as exc:
+        # El mensaje de `capture` empieza con la linea de comando entera; lo
+        # que sirve es lo que dijo la camara.
+        detalle = str(exc).split('\n', 1)[-1].strip()
+        raise TaskError(f'La cámara no dijo qué sabe capturar: {detalle}') from exc
+    return shots.parse_supported(salida)
 
 
 def shoot_screens(ctx, apps: Sequence[str] = (), themes: Sequence[str] = (),
                   languages: Sequence[str] = (), avd: str = '') -> Path:
     """Corre la camara del repo y comprueba que dejo lo que se le pidio."""
-    ctx.require_config('SHOTS_CMD', 'SHOTS_LANGS')
+    ctx.require_config('SHOTS_CMD')
     if not (apps and themes and languages):
         raise TaskError('Marca al menos una app, un tema y un idioma.')
 
@@ -36,9 +67,7 @@ def shoot_screens(ctx, apps: Sequence[str] = (), themes: Sequence[str] = (),
     if borrados:
         ctx.info(f'Se borraron {borrados} capturas de la corrida anterior.')
 
-    comando = shlex.split(ctx.config.get('SHOTS_CMD'))
-    ejecutable = process.resolve_executable([comando[0]], label=comando[0],
-                                            hint='Revisa SHOTS_CMD.')
+    comando = camera_command(ctx.config)
     # ADR-0052: si una app necesita emulador lo sabe la camara, no Consola. Se
     # enciende el que se eligio; sin ninguno, la camara corta antes de la
     # primera foto si alguna app pedida lo necesita.
@@ -49,8 +78,7 @@ def shoot_screens(ctx, apps: Sequence[str] = (), themes: Sequence[str] = (),
                                          os.environ.get('PATH', '')])}
                if avd else None)
     try:
-        ctx.run([*ejecutable, *comando[1:],
-                 *shots.camera_args(apps, themes, languages, raw, serial)],
+        ctx.run([*comando, *shots.camera_args(apps, themes, languages, raw, serial)],
                 cwd=ctx.root, env=entorno)
     finally:
         if encendido:

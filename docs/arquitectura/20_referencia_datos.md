@@ -51,7 +51,6 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `BRAND_ICON` | Marca | Logo (SVG) | | | exige |
 | `BRAND_ICON_FOREGROUND` | Marca | Capa frontal Android (SVG) | | | usa |
 | `SHOTS_CMD` | Capturas | Comando para capturas | | | exige |
-| `SHOTS_LANGS` | Capturas | Idiomas disponibles | lista | | exige |
 | `SHOTS_RAW` | Capturas | Carpeta de capturas crudas | | `demo/capturas` | usa |
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |
 | `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `demo/publicables` | usa |
@@ -259,7 +258,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |---|---|
 | `spa-vite` | `package.json` + un `vite.config.*` |
 | `flutter-app` | `pubspec.yaml` |
-| `flet-app` | `pyproject.toml` que menciona `flet` |
+| `flet-app` | `pyproject.toml` que menciona `flet`, más `src/main.py` o `main.py` |
 | `fastapi-server` | `FastAPI(` en `app/main.py` o `main.py`, o `alembic.ini` + `app/main.py` |
 | `python-app` | Manifiesto o `.venv`, más `src/main.py` o `main.py`, y que no sea servidor |
 

@@ -3,8 +3,8 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
-from . import android, cache, files, ssh, targets, toolchain, vps
-from .envfile import Config, split_list
+from . import android, cache, files, shots, ssh, targets, toolchain, vps
+from .envfile import Config
 from .errors import TaskError
 from .host import HOST
 from .registry import registry, Capability, AxisDef, Facet, Step
@@ -173,7 +173,10 @@ ANDROID_AVDS = 'android_avds'                  # AVD ya creados
 ANDROID_RUNNING = 'android_running'            # emuladores vivos ahora mismo
 VPS_SERVICES = 'vps_services'                  # servicios systemd que existen en el VPS
 BACKUP_FILES = 'backup_files'                  # respaldos ya guardados de este repo
-SHOTS_LANGUAGES = 'shots_languages'            # idiomas que declara este repo para sus capturas
+SHOTS_APPS = 'shots_apps'                      # lo que la camara del repo dice que captura:
+SHOTS_THEMES = 'shots_themes'                  # sus apps, sus temas y sus idiomas (ADR-0054)
+SHOTS_LANGUAGES = 'shots_languages'
+_SHOTS_AXES = {SHOTS_APPS: 'apps', SHOTS_THEMES: 'themes', SHOTS_LANGUAGES: 'languages'}
 
 # Lo instalado y lo creado cambian mientras Consola esta abierta, asi que se
 # cachean por un minuto y nada mas: alcanza para no repetir la consulta al abrir
@@ -190,13 +193,17 @@ def queried_values(source: str, *, refresh: bool = False,
     Devuelve `([], {})` cuando el SDK no esta instalado en vez de fallar: un eje
     vacio ya se explica solo en el panel ("no hay ... en esta maquina"), y una
     excepcion aca dejaria sin dibujar toda la pestana.
+
+    La excepcion es la camara de capturas: si no contesta, el `TaskError` sube
+    con lo que dijo, y el panel lo muestra en lugar del eje. Un eje vacio
+    escondería un error del repo que hay que arreglar.
     """
     if source == VPS_SERVICES:
         return _vps_services(config, refresh=refresh)
     if source == BACKUP_FILES:
         return _backup_files(config, root)
-    if source == SHOTS_LANGUAGES:
-        return _shots_languages(config)
+    if source in _SHOTS_AXES:
+        return _shots_axis(source, config, root, refresh=refresh)
     try:
         sdk = android.resolve_sdk()
         if source == ANDROID_DEVICES:
@@ -278,16 +285,24 @@ def _backup_files(config: Config | None, root: Path | str | None) -> tuple[list[
     return [p.name for p in valores], {p.name: _backup_label(p) for p in valores}
 
 
-def _shots_languages(config: Config | None) -> tuple[list[str], dict[str, str]]:
-    """Los idiomas que el repo declara en `SHOTS_LANGS`.
+def _shots_axis(source: str, config: Config | None, root: Path | str | None, *,
+                refresh: bool = False) -> tuple[list[str], dict[str, str]]:
+    """Un eje de la camara, con lo que ella dice que captura (ADR-0054).
 
-    Consola no puede descubrirlos: solo el script de captura sabe cuales soporta
-    la app. Sin cache, porque es una clave de configuracion local y editarla
-    debe verse al abrir la pestana.
+    Preguntarle es arrancar node, y los tres ejes preguntan lo mismo: se cachea
+    por repo un minuto, como los AVD. Cambiar la camara se ve al minuto o con
+    Recargar.
     """
-    if config is None:
+    if config is None or not root:
         return [], {}
-    return split_list(config.get('SHOTS_LANGS')), {}
+    from .tasks.images import camera_supported  # circular: tasks importa el registro
+    clave = ''.join(c if c.isalnum() else '-' for c in str(Path(root).resolve()))
+    declarado = cache.cached(f'shots-supported-{clave}',
+                             lambda: camera_supported(Path(root), config),
+                             max_age=_FRESCO, refresh=refresh)
+    eje = _SHOTS_AXES[source]
+    etiquetas = SHOT_THEME_LABELS if eje == 'themes' else {}
+    return shots.supported_values(declarado, eje), etiquetas
 
 
 def _backup_label(path: Path) -> str:
@@ -624,15 +639,15 @@ _SHOT_DESTINATIONS_AXIS = lambda: AxisDef('destinations', list(SHOT_DESTINATION_
                                           defaults={'landing'},
                                           labels=SHOT_DESTINATION_LABELS)
 
+SHOT_THEME_LABELS = {'claro': 'Claro', 'oscuro': 'Oscuro'}
+
 # Lo que Consola le pasa a la camara del repo como argumentos (`--apps`,
-# `--themes`, `--languages`, y `--device` con el serial del AVD elegido). Las pantallas no se eligen aca: solo
-# el script sabe cuales existen. Los idiomas salen de `SHOTS_LANGS` por lo
-# mismo: Consola no puede adivinar los que tiene la app.
+# `--themes`, `--languages`, y `--device` con el serial del AVD elegido). Las
+# apps, los temas y los idiomas los ofrece la propia camara (ADR-0054): se
+# ofrece solo lo que sabe capturar. Las pantallas no se eligen: son suyas.
 _SHOT_CAMERA_AXES = lambda: [
-    AxisDef('apps', [], 'checks', select='many', label='Apps',
-            discover=(targets.SPA_VITE, *targets.MOBILE_APP)),
-    AxisDef('themes', ['claro', 'oscuro'], 'checks', select='many', label='Temas',
-            labels={'claro': 'Claro', 'oscuro': 'Oscuro'}),
+    AxisDef('apps', [], 'checks', select='many', label='Apps', source=SHOTS_APPS),
+    AxisDef('themes', [], 'checks', select='many', label='Temas', source=SHOTS_THEMES),
     AxisDef('languages', [], 'checks', select='many', label='Idiomas',
             source=SHOTS_LANGUAGES),
     # El emulador lo elige y lo arranca Consola, no el script (ADR-0049): se
@@ -644,7 +659,7 @@ _SHOT_CAMERA_AXES = lambda: [
 ]
 
 SCREENSHOTS_STEPS = [
-    Step('shoot', 'Sacar capturas', requires_env={'SHOTS_CMD', 'SHOTS_LANGS'}),
+    Step('shoot', 'Sacar capturas', requires_env={'SHOTS_CMD'}),
     Step('render', 'Revelar capturas'),
 ]
 
