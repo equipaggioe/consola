@@ -65,7 +65,7 @@ def ready_ids(project) -> set[str]:
         return set()
     env = envfile.load_config(project.path)
     path = project.path
-    # Las 62 capacidades se resuelven contra el MISMO repo, y cada una lo
+    # Todas las capacidades se resuelven contra el MISMO repo, y cada una lo
     # volvia a recorrer entera: `one_scan` reparte un solo recorrido entre
     # todas (`core/targets.py`).
     with targets.one_scan():

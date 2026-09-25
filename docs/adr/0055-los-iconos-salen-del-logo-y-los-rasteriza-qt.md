@@ -1,6 +1,6 @@
 # ADR-0055 · Los íconos salen del logo del repo, los rasteriza Qt y van donde cada app declara
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-09-25
 - **Alcance:** `core/icons.py`, `core/tasks/images.py::generate_icons`, el eje `apps` de «Generar íconos»; exceptúa `core/tasks/` del punto 2 de [ADR-0005](0005-todo-pasa-por-taskcontext.md) para Qt como biblioteca de imágenes
 

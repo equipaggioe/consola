@@ -117,7 +117,7 @@ def python_entrypoint(directory: Path) -> Path | None:
 # Mirar el repo cuesta: `discover` hace un `stat` por cada archivo que examina
 # para tipar cada carpeta. Una pregunta suelta es barata, pero hay pasadas que
 # repiten la MISMA pregunta decenas de veces seguidas —`ui/readiness.py`
-# resuelve las 62 capacidades contra el mismo repo, y cada una vuelve a
+# resuelve todas las capacidades contra el mismo repo, y cada una vuelve a
 # recorrerlo— y ahi el recorrido pasaba a medirse en decimas de segundo. Como
 # eso corria en cada tecla de un campo de texto, escribir se atrasaba segundos.
 #

@@ -54,16 +54,17 @@ flowchart LR
 
 ## 5. Alcance del catálogo
 
-61 capacidades registradas: 58 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 39 atómicas y 22 compuestas. Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
+64 capacidades registradas: 61 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 41 atómicas y 23 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
 
 | Grupo | Botones | Qué resuelve |
 |---|---|---|
 | Ejecutar | 5 | Levantar lo que corre en desarrollo: backend, SPA, app móvil, app de escritorio, y todo junto |
 | Compilar | 6 | Compilar y publicar: Flutter/Flet, Vite, ejecutable, promoción, SPA nueva, limpieza de artefactos |
-| Repositorio | 7 | Clonar, los cuatro sobrescritos entre local, origin y VPS, y la sincronización de archivos y claves entre repos |
+| Imágenes | 4 | Los íconos de las apps a partir del logo, y las capturas publicables: sacarlas, revelarlas y las dos juntas |
+| Repositorio | 5 | Clonar, los dos forzados contra origin con el lado que gana como eje ([ADR-0044](../adr/0044-el-lado-que-gana-es-un-eje.md)), y la sincronización de archivos y claves entre repos |
 | Base de datos | 12 | Ciclo de vida del esquema, migraciones, datos, respaldo, túnel y explorador |
-| Despliegue | 9 | Publicar el código, el servicio systemd, logs y diagnóstico del VPS |
-| VPS | 11 | Aprovisionamiento y desmontaje: paquetes, SSH, GitHub, coturn, Caddy, DNS, bootstrap y revocaciones |
+| Despliegue | 6 | Publicar y actualizar el código, los archivos secretos, el servicio systemd y sus logs |
+| VPS | 14 | Aprovisionamiento, diagnóstico y desmontaje: paquetes, SSH, GitHub, coturn, Caddy, DNS, salud, comandos sueltos, bootstrap y revocaciones |
 | Emuladores | 4 | Imágenes de sistema, dispositivos virtuales, arranque y limpieza de disco |
 | SDKs | 5 | Dejar esta máquina lista para compilar: Android y Flutter |
 
