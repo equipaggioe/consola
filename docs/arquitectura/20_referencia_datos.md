@@ -252,7 +252,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 
 ## 8. Características y tipos de subproyecto
 
-`core/targets.py` reconoce, hasta dos niveles de profundidad y salteando `node_modules`, `.git`, `.venv`, `build`, `dist`, `.consola`, `__pycache__`, `.dart_tool`, `android`, `ios` y `web`:
+`core/targets.py` reconoce, hasta dos niveles de profundidad y salteando `node_modules`, `.git`, `.venv`, `build`, `dist`, `.consola`, `__pycache__` y `.dart_tool`, y dentro de una app Flutter también `android`, `ios` y `web`:
 
 | Tipo | Marcador |
 |---|---|

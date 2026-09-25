@@ -41,7 +41,10 @@ MOBILE_APP = (FLUTTER_APP, FLET_APP)
 MIGRATIONS = 'migrations'
 
 IGNORED = {'node_modules', '.git', '.venv', 'venv', 'build', 'dist', '.consola',
-           '__pycache__', '.dart_tool', 'android', 'ios', 'web'}
+           '__pycache__', '.dart_tool'}
+# Las carpetas de plataforma de una app Flutter. Se saltan solo dentro de una:
+# en la raiz del repo, `web/` es la SPA (vettore, concordia, navetta).
+_FLUTTER_PLATFORMS = {'android', 'ios', 'web'}
 _DEPTH = 2
 
 
@@ -174,8 +177,11 @@ def _walk(root: Path, depth: int):
         entries = sorted(p for p in root.iterdir() if p.is_dir())
     except OSError:
         return
+    flutter_app = (root / 'pubspec.yaml').is_file()
     for entry in entries:
         if entry.name in IGNORED or entry.name.startswith('.'):
+            continue
+        if flutter_app and entry.name in _FLUTTER_PLATFORMS:
             continue
         yield from _walk(entry, depth - 1)
 

@@ -261,6 +261,19 @@ de vendedor, tema oscuro, español), y la landing muestra una en inicio leyendo 
 | Escenario | `demo/scenario.json` y `demo/scenario.mjs` |
 | Apps Flet | `demo/camera/flet_camera.py` y un recorrido por app (`tour_customer.py`, `tour_vendor.py`) |
 
+**Navetta** (2026-09-25), el tercero: apps Flutter sin `android/` versionado. La cámara corrió con
+las tareas de Consola (`shoot_screens` y `render_shots` llamadas desde Python, sin la ventana).
+Salieron 18 capturas: 4 del panel `web` en oscuro, y 4 y 3 de las dos apps en claro y oscuro; la
+landing muestra cuatro en su showroom. Al correrla apareció que Consola no veía ninguna SPA llamada
+`web` en la raíz del repo: saltaba esa carpeta pensando en la de una app Flutter.
+
+| Pieza | Dónde |
+|---|---|
+| Cámara | `demo/camera/shoot.mjs` (`SHOTS_CMD=node demo/camera/shoot.mjs`) |
+| Rutas del servidor ficticio | `demo/camera/routes.mjs` |
+| Escenario | `demo/scenario.json` y `demo/scenario.mjs` |
+| Apps Flutter | Su `flutter build web`, servida por la cámara; el recorrido va en `shoot.mjs` |
+
 ---
 
 ## 7. Guía para escribir la cámara de un repo
@@ -285,6 +298,10 @@ Pasos, en orden:
      página en Chromium a 360 × 720. Un recorrido en Python toca por texto con el despacho de
      eventos de Flet y guarda con `page.take_screenshot` a 3x. No hace falta emulador. Hoy se
      copia de banditore (`flet_camera.py`).
+   - **Flutter sin proyecto Android**: `flutter build web` y Chromium a 360 × 720 a 3x. Se prende
+     la accesibilidad de Flutter (clic en `flt-semantics-placeholder`) y se toca con
+     `getByRole`. Un `IconButton` sin `tooltip` no tiene nombre: se le pone uno. Hoy se copia de
+     navetta.
 5. **`config.env`**: `SHOTS_CMD`. Las apps, temas e idiomas que Consola ofrece los toma de
    `parseArgs` con `--supported` (ADR-0054): la cámara lo llama antes de levantar nada.
 6. **Landing**: que lea `capturas.json` para encontrar cada imagen y falle al compilar si falta
@@ -302,6 +319,7 @@ Pasos, en orden:
 | Ids fijos | una ruta `/chats/<uuid>` no se puede escribir si el sembrado usa `uuid4()`. `escenario.json` los trae escritos a mano |
 | Selectores | `data-captura="..."` en los contenedores que se tocan, no clases de Tailwind (`.relative.h-8.cursor-pointer` se rompe en el próximo retoque) |
 | Esperar | por `data-captura`, no por texto: `"Recorrido en curso"` no aparece en el segundo idioma. En Flet no hay DOM: se espera por texto en el árbol de controles, lo que obliga a un recorrido por idioma |
+| Escribir en Flutter web | `fill` no llega a Flutter, y lo que se teclea antes de que el campo se conecte se pierde sin que el DOM avise. Navetta teclea un carácter hasta que queda, lo borra y escribe |
 | Datos ficticios | **nunca en la base** ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)): un escenario JSON del repo, servido por el servidor ficticio del kit. Los clientes de verdad apuntan a ese servidor (web: `VITE_SERVER_URL`; emulador: `10.0.2.2`). Lo que el cliente guarda localmente (IndexedDB, base del teléfono) se siembra aparte, como en vettore |
 | Ruta no mapeada | el servidor ficticio la anota y la cámara termina con error nombrándola ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)). En vettore encontró dos que el servidor anterior contestaba 404 en silencio |
 | Reloj y zona horaria | web: `openPage` con `timezoneId` y `now` · Android: `android(device)` del kit, que necesita `adb root` |
