@@ -73,6 +73,7 @@ Vacío no es «falta un dato»: `resolve_entrypoint` prueba `src/main.py`, `main
 | Si no hay manifiesto, se crea en `0.0.0` | Un script suelto que se empieza a distribuir no tiene por qué traer uno escrito de antemano |
 | PyInstaller se prefiere del venv de la app | Congela el entorno desde el que corre: el global no ve las dependencias del proyecto y deja un binario que muere al primer import |
 | `--specpath build` | El `.spec` es derivado; en la raíz aparecía como cambio sin commitear después de cada compilación |
+| El ícono es `BRAND_ICON`, como `build/icon.ico` | Es el mismo logo que el de las otras apps del repo; un campo propio era una segunda fuente ([ADR-0056](../adr/0056-cada-tecnologia-declara-donde-va-su-icono.md)). Va a `build/` porque es derivado. Sin la clave, sale sin ícono |
 | Sin `--clean` | Borra la caché y vuelve a analizar todo en cada corrida. Para el build limpio de verdad está «Limpiar artefactos» |
 | El nombre lleva sistema y arquitectura | PyInstaller no compila cruzado, y sin la etiqueta el de Windows y el de Linux se pisan en la misma ruta del VPS |
 | El nombre **no** lleva la versión | La URL de descarga se mantiene estable; qué versión es lo dice el manifiesto que se publica al lado |

@@ -262,13 +262,20 @@ SETTINGS: tuple[Setting, ...] = (
       )),
 
     # --- Marca ---
-    # El logo es del repo y Consola lo rasteriza para cada app. Sin default:
-    # un repo sin logo no tiene iconos que generar.
-    Setting('BRAND_ICON', 'Marca', 'Logo (SVG)', required_by=('generate_icons',)),
+    # El logo es del repo y Consola lo rasteriza para cada app y para el
+    # ejecutable. Sin default: un repo sin logo no tiene iconos que generar.
+    # Por convencion los tres SVG viven en `brand/` (ADR-0056).
+    Setting('BRAND_ICON', 'Marca', 'Logo (SVG)', required_by=('generate_icons',),
+            used_by=('build_binary',)),
     # La capa de adelante del icono adaptativo de Android: el mismo logo, con el
     # margen que exige el recorte del sistema. Solo la pide la app Flutter cuyo
     # pubspec declara `adaptive_icon_foreground`, y ahi falta es error.
     Setting('BRAND_ICON_FOREGROUND', 'Marca', 'Capa frontal Android (SVG)',
+            used_by=('generate_icons',)),
+    # El icono maskable de una PWA: fondo a sangre y el logo dentro del circulo
+    # central del 80 %, que es lo que Android no recorta. Solo lo pide la SPA
+    # cuyo manifest declara un icono `maskable`.
+    Setting('BRAND_ICON_MASKABLE', 'Marca', 'Ícono maskable de PWA (SVG)',
             used_by=('generate_icons',)),
 
     # --- Capturas ---

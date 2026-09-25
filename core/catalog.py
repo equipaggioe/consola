@@ -818,7 +818,6 @@ def load_catalog() -> None:
         composed_of=['bump_version', 'upload_to_vps'],
         axes=[AxisDef('entrypoint', [''], 'field', label='Punto de entrada'),
               AxisDef('name', [''], 'field', label='Nombre del ejecutable'),
-              AxisDef('icon', [''], 'field', label='Ícono'),
               # Las dos decisiones de PyInstaller que cambian *que* se entrega:
               # un archivo suelto o una carpeta, y con o sin consola detras.
               AxisDef('onefile', ['un archivo', 'carpeta'], 'scope',

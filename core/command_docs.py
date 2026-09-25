@@ -214,9 +214,11 @@ DOCS: dict[str, CommandDoc] = {
             'Escribe la versión nueva en el manifiesto, según el modo elegido.',
             'Arma la etiqueta del ejecutable: el nombre escrito o el de la app, '
             'más sistema y arquitectura.',
-            'Corre pyinstaller con --noconfirm, --name, --specpath build y, '
-            'según los ejes, --onefile, --windowed e --icon, desde la carpeta de '
-            'la app.',
+            'Si hay BRAND_ICON, lo rasteriza como build/icon.ico con los lados '
+            'de 16 a 256.',
+            'Corre pyinstaller con --noconfirm, --name, --specpath build, '
+            '--onefile y --windowed según los ejes, e --icon si hay BRAND_ICON, '
+            'desde la carpeta de la app.',
             'Comprueba que el artefacto haya quedado en dist/ y corta si no '
             'está.',
             'Calcula su SHA-256 y lo escribe al lado como .sha256, en formato '
@@ -245,23 +247,31 @@ DOCS: dict[str, CommandDoc] = {
 
     'generate_icons': CommandDoc(
         summary=(
-            'Deja el logo del repo, BRAND_ICON, como ícono de cada app marcada. '
-            'Se ofrecen las apps Flutter con sección flutter_launcher_icons en '
-            'su pubspec.yaml y las SPA con src/lib/assets/favicon.svg.'
+            'Deja el logo del repo, BRAND_ICON, como ícono de cada app marcada, '
+            'con la capa frontal de Android y la maskable de PWA donde la app '
+            'las pida. Se ofrecen las apps que declaran dónde va su ícono: '
+            'Flutter con sección flutter_launcher_icons, Flet con '
+            'src/assets/icon.png, y SPA con un <link rel="icon"> o '
+            '"apple-touch-icon", o con íconos en el manifest de VitePWA.'
         ),
         steps=[
-            'Corta si BRAND_ICON, o BRAND_ICON_FOREGROUND cuando está escrita, '
-            'no es un SVG que exista.',
-            'Por cada app marcada, antes de escribir nada: en una SPA, ubica '
-            'src/lib/assets/favicon.svg. En una app Flutter, lee la sección '
-            'flutter_launcher_icons del pubspec.yaml y corta si falta el '
-            'paquete en dev_dependencies, si no declara image_path, si declara '
-            'adaptive_icon_foreground sin BRAND_ICON_FOREGROUND, o si pide otra '
-            'imagen que Consola no sabe dibujar.',
-            'SPA: copia BRAND_ICON tal cual sobre src/lib/assets/favicon.svg.',
-            'Flutter: rasteriza con Qt BRAND_ICON en cada image_path y '
-            'BRAND_ICON_FOREGROUND en adaptive_icon_foreground, como PNG de '
-            '1024×1024. Corta si el SVG no es cuadrado.',
+            'Corta si BRAND_ICON, o una capa escrita (BRAND_ICON_FOREGROUND, '
+            'BRAND_ICON_MASKABLE), no es un SVG que exista.',
+            'Por cada app marcada, antes de escribir nada, junta sus archivos '
+            'de ícono. Flutter: las rutas image_path y adaptive_icon_foreground '
+            'del pubspec.yaml; corta si falta el paquete en dev_dependencies, si '
+            'no declara image_path o si pide otra imagen. Flet: '
+            'src/assets/icon.png. SPA: el <link> del +layout.svelte cuando '
+            'importa de $lib/, los de app.html e index.html resueltos en static/ '
+            'o public/, y los íconos del manifest de VitePWA en vite.config.',
+            'Un PNG sin sizes="NxN", o no cuadrado, corta. Un archivo que el '
+            'manifest declara maskable lleva la capa maskable.',
+            'Corta si la app pide una capa que no está configurada, y abre la '
+            'configuración en esa clave.',
+            'Escribe cada archivo según su extensión: .svg copia la capa tal '
+            'cual; .png la rasteriza con Qt al lado declarado (1024 en Flutter '
+            'y Flet); .ico la rasteriza con los lados de 16 a 256. Corta si el '
+            'SVG no es cuadrado.',
             'Escribe cada archivo solo si cambió, y dice si es nuevo, '
             'actualizado o sin cambios.',
             'Flutter: corre dart run flutter_launcher_icons desde la carpeta de '

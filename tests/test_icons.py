@@ -1,9 +1,11 @@
 """Los iconos que salen del logo del repo.
 
-Se arma un repo falso con las formas que hay en los repos reales: una SPA con
-el favicon de la plantilla, una que toma su icono de otro lado, y una app
-Flutter con su seccion `flutter_launcher_icons:`.
+Se arma un repo falso con las formas que hay en los repos reales: SPA con el
+favicon de la plantilla, con `static/favicon.svg` en su `app.html`, con el
+logo importado de otro lado y con manifest de PWA; una app Flutter con su
+seccion `flutter_launcher_icons:`, y una app Flet con su `icon.png`.
 """
+import io
 import sys
 from pathlib import Path
 
@@ -17,7 +19,7 @@ from core.context import TaskContext
 from core.envfile import Config
 from core.errors import MissingConfig, TaskError
 from core.projects import Project
-from core.tasks import images
+from core.tasks import images, raster
 
 LOGO = ('<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">'
         '<rect x="4" y="4" width="56" height="56" rx="16" fill="#0b1224"/></svg>')
@@ -38,37 +40,80 @@ flutter:
   uses-material-design: true
 """
 
+LAYOUT = """<script>
+	import favicon from '$lib/assets/favicon.svg';
+</script>
+<svelte:head>
+	<link rel="icon" href={favicon} />
+</svelte:head>
+"""
 
-def spa(root: Path, name: str, favicon: bool) -> Path:
+VITE_PWA = """import { SvelteKitPWA } from '@vite-pwa/sveltekit';
+export default defineConfig({
+  plugins: [SvelteKitPWA({
+    manifest: {
+      name: 'Web',
+      icons: [
+        { src: `${base}/icons/icon-192.png`, sizes: '192x192', type: 'image/png' },
+        { src: `${base}/icons/icon-512.png`, sizes: '512x512', type: 'image/png' },
+        { src: `${base}/icons/icon-512.png`, sizes: '512x512', purpose: 'maskable' }
+      ],
+      screenshots: [{ src: '/wide.png', sizes: '1280x720' }]
+    }
+  })]
+});
+"""
+
+
+def write(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text, encoding='utf-8')
+    return path
+
+
+def spa(root: Path, name: str, sveltekit: bool = True, **archivos: str) -> Path:
     carpeta = root / name
-    carpeta.mkdir()
-    (carpeta / 'package.json').write_text('{}', encoding='utf-8')
-    (carpeta / 'vite.config.ts').write_text('', encoding='utf-8')
-    if favicon:
-        destino = carpeta / icons.SPA_FAVICON
-        destino.parent.mkdir(parents=True)
-        destino.write_text('<svg>svelte</svg>', encoding='utf-8')
+    kit = '"@sveltejs/kit": "^2.0.0", ' if sveltekit else ''
+    write(carpeta / 'package.json', f'{{"devDependencies": {{{kit}"svelte": "^5.0.0"}}}}')
+    write(carpeta / 'vite.config.ts', archivos.pop('vite', ''))
+    # Una app de Svelte sin Kit tambien tiene su svelte.config.js.
+    write(carpeta / 'svelte.config.js', '')
+    for relativo, texto in archivos.items():
+        write(carpeta / relativo.replace('__', '/'), texto)
     return carpeta
 
 
 def flutter(root: Path, name: str, pubspec: str) -> Path:
-    carpeta = root / name
-    carpeta.mkdir()
-    (carpeta / 'pubspec.yaml').write_text(pubspec, encoding='utf-8')
-    return carpeta
+    return write(root / name / 'pubspec.yaml', pubspec).parent
 
 
 @pytest.fixture
 def repo(tmp_path):
-    spa(tmp_path, 'panel', favicon=True)
-    spa(tmp_path, 'landing', favicon=False)
+    spa(tmp_path, 'panel', **{'src__routes__+layout.svelte': LAYOUT,
+                              'src__lib__assets__favicon.svg': '<svg>svelte</svg>'})
+    spa(tmp_path, 'landing', **{'src__app.html':
+                                '<link rel="icon" href="%sveltekit.assets%/favicon.svg" />'})
+    spa(tmp_path, 'externa', **{'src__routes__+layout.svelte':
+                                LAYOUT.replace('$lib/assets/favicon.svg', '$brand/logomark.svg')})
+    spa(tmp_path, 'pwa', vite=VITE_PWA)
+    spa(tmp_path, 'vite', sveltekit=False,
+        **{'index.html': '<link rel="icon" type="image/svg+xml" href="/vite.svg" />'})
+    spa(tmp_path, 'sin_icono')
     flutter(tmp_path, 'mobile', PUBSPEC)
     flutter(tmp_path, 'suelta', 'name: suelta\n')
-    marca = tmp_path / 'brand'
-    marca.mkdir()
-    (marca / 'logomark.svg').write_text(LOGO, encoding='utf-8')
-    (marca / 'foreground.svg').write_text(LOGO, encoding='utf-8')
+    flet = tmp_path / 'cliente'
+    write(flet / 'pyproject.toml', '[tool.flet]\n')
+    write(flet / 'src' / 'main.py', 'import flet\n')
+    (flet / 'src' / 'assets').mkdir()
+    Image.new('RGB', (8, 8)).save(flet / icons.FLET_ICON)
+    for nombre in ('logomark', 'foreground', 'maskable'):
+        write(tmp_path / 'brand' / f'{nombre}.svg', LOGO)
     return tmp_path
+
+
+def layers(repo: Path, *capas: str) -> dict[str, Path]:
+    archivos = {icons.LOGO: 'logomark', icons.FOREGROUND: 'foreground', icons.MASKABLE: 'maskable'}
+    return {c: repo / 'brand' / f'{archivos[c]}.svg' for c in capas}
 
 
 def test_la_seccion_se_lee_con_las_claves_anidadas_y_sin_comentarios():
@@ -87,36 +132,52 @@ def test_la_seccion_se_lee_con_las_claves_anidadas_y_sin_comentarios():
 
 
 def test_se_ofrecen_solo_las_apps_que_dicen_donde_va_su_icono(repo):
-    assert [t.name for t in icons.icon_apps(repo)] == ['mobile', 'panel']
+    assert [t.name for t in icons.icon_apps(repo)] == [
+        'cliente', 'landing', 'mobile', 'panel', 'pwa', 'vite']
 
 
-def test_la_spa_recibe_el_logo_en_su_favicon(repo):
-    logo = repo / 'brand' / 'logomark.svg'
-    trabajo = icons.plan(repo, 'panel', logo, None)
-    assert trabajo.writes == ((logo, repo / 'panel' / icons.SPA_FAVICON),)
+def test_cada_spa_toma_el_icono_donde_lo_declara(repo):
+    def lugares(nombre):
+        target = icons.targets.pick(repo, icons.ICON_KINDS, nombre)
+        return [(p.path.relative_to(repo).as_posix(), p.layer, p.size)
+                for p in icons.places(target)]
+    assert lugares('panel') == [('panel/src/lib/assets/favicon.svg', 'logo', 0)]
+    assert lugares('landing') == [('landing/static/favicon.svg', 'logo', 0)]
+    assert lugares('vite') == [('vite/public/vite.svg', 'logo', 0)]
+    # El 512 se declara `any` y `maskable`: lleva la maskable, que sirve para los dos.
+    assert lugares('pwa') == [('pwa/static/icons/icon-192.png', 'logo', 192),
+                              ('pwa/static/icons/icon-512.png', 'maskable', 512)]
+
+
+def test_la_capa_que_pide_la_app_se_exige_solo_si_la_pide(repo):
+    with pytest.raises(MissingConfig) as error:
+        icons.plan(repo, 'pwa', layers(repo, icons.LOGO))
+    assert error.value.keys == ['BRAND_ICON_MASKABLE']
+    with pytest.raises(MissingConfig) as error:
+        icons.plan(repo, 'mobile', layers(repo, icons.LOGO))
+    assert error.value.keys == ['BRAND_ICON_FOREGROUND']
+    assert len(icons.plan(repo, 'panel', layers(repo, icons.LOGO)).writes) == 1
 
 
 def test_flutter_toma_las_rutas_del_pubspec_una_vez_cada_una(repo):
-    logo, frente = repo / 'brand' / 'logomark.svg', repo / 'brand' / 'foreground.svg'
-    trabajo = icons.plan(repo, 'mobile', logo, frente)
+    capas = layers(repo, icons.LOGO, icons.FOREGROUND)
+    trabajo = icons.plan(repo, 'mobile', capas)
     assert trabajo.is_flutter
     assert trabajo.writes == (
-        (logo, repo / 'mobile' / 'assets/launcher_icon/icon.png'),
-        (frente, repo / 'mobile' / 'assets/launcher_icon/icon_foreground.png'),
+        (capas[icons.LOGO], icons.Place(repo / 'mobile' / 'assets/launcher_icon/icon.png',
+                                        icons.LOGO, 1024)),
+        (capas[icons.FOREGROUND], icons.Place(
+            repo / 'mobile' / 'assets/launcher_icon/icon_foreground.png', icons.FOREGROUND, 1024)),
     )
 
 
-def test_la_capa_frontal_se_exige_solo_si_el_pubspec_la_pide(repo):
-    with pytest.raises(MissingConfig) as error:
-        icons.plan(repo, 'mobile', repo / 'brand' / 'logomark.svg', None)
-    assert error.value.keys == ['BRAND_ICON_FOREGROUND']
-    sin_frente = PUBSPEC.replace('  adaptive_icon_foreground: "assets/launcher_icon/icon_foreground.png"\n', '')
-    flutter(repo, 'otra', sin_frente)
-    assert len(icons.plan(repo, 'otra', repo / 'brand' / 'logomark.svg', None).writes) == 1
+def test_flet_recibe_el_logo_en_su_icon_png(repo):
+    trabajo = icons.plan(repo, 'cliente', layers(repo, icons.LOGO))
+    assert [(p.path, p.size) for _, p in trabajo.writes] == [
+        (repo / 'cliente' / icons.FLET_ICON, 1024)]
 
 
 @pytest.mark.parametrize('nombre, pubspec, error', [
-    ('suelta', None, 'no tiene sección flutter_launcher_icons'),
     ('sin_dep', PUBSPEC.replace('  flutter_launcher_icons: ^0.14.3', '  flutter_lints: ^5.0.0'),
      'falta flutter_launcher_icons en dev_dependencies'),
     ('monocromo', PUBSPEC.replace('  android: true\n',
@@ -125,16 +186,30 @@ def test_la_capa_frontal_se_exige_solo_si_el_pubspec_la_pide(repo):
     ('sin_logo', ''.join(l for l in PUBSPEC.splitlines(keepends=True) if 'image_path' not in l),
      'no declara image_path'),
 ])
-def test_lo_que_consola_no_sabe_llenar_corta(repo, nombre, pubspec, error):
-    if pubspec is not None:
-        flutter(repo, nombre, pubspec)
+def test_lo_que_consola_no_sabe_llenar_en_flutter_corta(repo, nombre, pubspec, error):
+    flutter(repo, nombre, pubspec)
+    assert nombre in [t.name for t in icons.icon_apps(repo)]
     with pytest.raises(TaskError, match=error):
-        icons.plan(repo, nombre, repo / 'brand' / 'logomark.svg', repo / 'brand' / 'foreground.svg')
+        icons.plan(repo, nombre, layers(repo, icons.LOGO, icons.FOREGROUND))
 
 
-def test_una_spa_sin_favicon_corta(repo):
-    with pytest.raises(TaskError, match='toma su ícono de otro lado'):
-        icons.plan(repo, 'landing', repo / 'brand' / 'logomark.svg', None)
+@pytest.mark.parametrize('link, error', [
+    ('<link rel="icon" href="/favicon.png" />', 'PNG sin sizes'),
+    ('<link rel="apple-touch-icon" sizes="180x120" href="/t.png" />', 'no es cuadrado'),
+    ('<link rel="icon" href="https://cdn.x/f.svg" />', 'apunta fuera de la app'),
+    ('<link rel="icon" href="/favicon.gif" />', 'solo genera .svg, .png e .ico'),
+])
+def test_lo_que_consola_no_sabe_llenar_en_una_spa_corta(repo, link, error):
+    spa(repo, 'rota', **{'src__app.html': link})
+    with pytest.raises(TaskError, match=error):
+        icons.plan(repo, 'rota', layers(repo, icons.LOGO))
+
+
+def test_una_app_sin_declaracion_corta(repo):
+    with pytest.raises(TaskError, match='no declara dónde va su ícono'):
+        icons.plan(repo, 'externa', layers(repo, icons.LOGO))
+    with pytest.raises(TaskError, match='no declara dónde va su ícono'):
+        icons.plan(repo, 'suelta', layers(repo, icons.LOGO))
 
 
 def test_el_logo_tiene_que_ser_un_svg_que_exista(repo):
@@ -144,29 +219,35 @@ def test_el_logo_tiene_que_ser_un_svg_que_exista(repo):
         icons.brand_file(repo, 'brand/otro.svg', 'BRAND_ICON')
 
 
-def test_rasteriza_cuadrado_con_el_color_del_logo(repo, tmp_path):
-    salida = tmp_path / 'icon.png'
-    salida.write_bytes(images._rasterize(repo / 'brand' / 'logomark.svg', 256))
-    imagen = Image.open(salida).convert('RGBA')
+def test_rasteriza_cuadrado_con_el_color_del_logo(repo):
+    imagen = Image.open(io.BytesIO(raster.svg_to_png(repo / 'brand' / 'logomark.svg', 256)))
+    imagen = imagen.convert('RGBA')
     assert imagen.size == (256, 256)
     assert imagen.getpixel((128, 128)) == (0x0b, 0x12, 0x24, 255)
     assert imagen.getpixel((0, 0))[3] == 0
 
 
+def test_el_ico_lleva_todos_los_lados(repo):
+    ico = Image.open(io.BytesIO(raster.svg_to_ico(repo / 'brand' / 'logomark.svg')))
+    assert sorted(ico.info['sizes']) == [(n, n) for n in raster.ICO_SIZES]
+
+
 def test_un_svg_que_no_es_cuadrado_corta(tmp_path):
-    ancho = tmp_path / 'ancho.svg'
-    ancho.write_text(LOGO.replace('viewBox="0 0 64 64"', 'viewBox="0 0 128 64"'), encoding='utf-8')
+    ancho = write(tmp_path / 'ancho.svg', LOGO.replace('viewBox="0 0 64 64"', 'viewBox="0 0 128 64"'))
     with pytest.raises(TaskError, match='no es cuadrado'):
-        images._rasterize(ancho, 256)
+        raster.svg_to_png(ancho, 256)
 
 
 def test_la_corrida_escribe_solo_lo_que_cambia(repo):
     mensajes = []
     ctx = TaskContext('generate_icons', project=Project('repo', str(repo), '', ''),
-                      config=Config({'BRAND_ICON': 'brand/logomark.svg'}),
+                      config=Config({'BRAND_ICON': 'brand/logomark.svg',
+                                     'BRAND_ICON_MASKABLE': 'brand/maskable.svg'}),
                       log_sink=lambda msg, nivel: mensajes.append(msg))
-    images.generate_icons(ctx, ['panel'])
-    assert (repo / 'panel' / icons.SPA_FAVICON).read_text(encoding='utf-8') == LOGO
+    images.generate_icons(ctx, ['panel', 'pwa'])
+    assert (repo / 'panel' / 'src/lib/assets/favicon.svg').read_text(encoding='utf-8') == LOGO
+    assert Image.open(repo / 'pwa' / 'static/icons/icon-192.png').size == (192, 192)
     assert '  actualizado: panel/src/lib/assets/favicon.svg' in mensajes
+    assert '  nuevo: pwa/static/icons/icon-512.png' in mensajes
     images.generate_icons(ctx, ['panel'])
     assert mensajes[-2] == '  sin cambios: panel/src/lib/assets/favicon.svg'

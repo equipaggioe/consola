@@ -50,6 +50,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `BUILD_OUT_IPA` | Builds | Carpeta del build iOS | | ídem | usa |
 | `BRAND_ICON` | Marca | Logo (SVG) | | | exige |
 | `BRAND_ICON_FOREGROUND` | Marca | Capa frontal Android (SVG) | | | usa |
+| `BRAND_ICON_MASKABLE` | Marca | Ícono maskable de PWA (SVG) | | | usa |
 | `SHOTS_CMD` | Capturas | Comando para capturas | | | exige |
 | `SHOTS_RAW` | Capturas | Carpeta de capturas crudas | | `demo/capturas` | usa |
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |

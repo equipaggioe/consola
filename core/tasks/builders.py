@@ -6,7 +6,8 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
-from .. import files, ssh, targets, toolchain, versioning, vps
+from .. import files, icons, ssh, targets, toolchain, versioning, vps
+from . import raster
 from ..errors import TaskError
 from ..host import HOST
 from ..registry import registry
@@ -611,7 +612,7 @@ def _binary_output(app_dir: Path, etiqueta: str, onefile: bool) -> Path:
 
 
 def compile_binary(ctx, entrypoint: str = '', name: str = '', *, onefile: bool = True,
-                   windowed: bool = False, icon: str = '') -> Path:
+                   windowed: bool = False) -> Path:
     """Empaqueta un ejecutable con PyInstaller.
 
     Corre con la carpeta de la app como directorio de trabajo, no con la raiz
@@ -639,12 +640,15 @@ def compile_binary(ctx, entrypoint: str = '', name: str = '', *, onefile: bool =
         # Sin consola: en Windows una app de ventana abre ademas una cmd negra
         # detras si se empaqueta sin esto.
         argv.append('--windowed')
-    if icon:
-        ruta_icono = ctx.path(icon)
-        if not ruta_icono.is_file():
-            raise TaskError(f'No existe el icono: {ruta_icono}')
-        argv += ['--icon', str(ruta_icono)]
     (app_dir / 'build').mkdir(parents=True, exist_ok=True)
+    if ctx.config.get('BRAND_ICON'):
+        # El icono del ejecutable es el logo del repo, como el de sus otras
+        # apps (ADR-0056). Va a `build/`, que es derivado: lo cubre 'Limpiar
+        # artefactos' y no aparece como cambio del repo.
+        logo = icons.brand_file(ctx.root, ctx.config.get('BRAND_ICON'), 'BRAND_ICON')
+        ico = app_dir / 'build' / 'icon.ico'
+        ico.write_bytes(raster.svg_to_ico(logo))
+        argv += ['--icon', str(ico)]
     ctx.run([*argv, str(fuente)], cwd=app_dir)
 
     artefacto = _binary_output(app_dir, etiqueta, onefile)
@@ -893,7 +897,6 @@ def build_binary(
     *,
     onefile: bool = True,
     windowed: bool = False,
-    icon: str = '',
     bump: bool = True,
     build: bool = True,
     checksum: bool = True,
@@ -937,7 +940,7 @@ def build_binary(
             bump_version(ctx, rel, bump_mode)
         ctx.step('build')
         artefacto = compile_binary(ctx, str(fuente), name, onefile=onefile,
-                                   windowed=windowed, icon=icon)
+                                   windowed=windowed)
 
     firma = None
     if checksum:
