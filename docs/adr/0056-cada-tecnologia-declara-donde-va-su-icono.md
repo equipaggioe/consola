@@ -1,6 +1,7 @@
 # ADR-0056 · Cada tecnología declara dónde va su ícono, y todos salen de `brand/`
 
 - **Estado:** Aceptada
+- **Modificada por:** [ADR-0057](0057-el-manifest-de-la-pwa-es-un-archivo-estatico.md), que lee el manifest de la PWA de un archivo estático y no de `vite.config`. Cambia el punto 1 en lo que hace al manifest y el punto 3 en el archivo `any` y `maskable`; el resto sigue en pie.
 - **Fecha:** 2026-09-25
 - **Alcance:** `core/icons.py`, `core/tasks/raster.py`, `core/tasks/images.py::generate_icons`, `core/tasks/builders.py::compile_binary`, la clave `BRAND_ICON_MASKABLE`; extiende [ADR-0055](0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md) y quita el campo `icon` de «Compilar ejecutable»
 

@@ -2,10 +2,11 @@
 
 Se arma un repo falso con las formas que hay en los repos reales: SPA con el
 favicon de la plantilla, con `static/favicon.svg` en su `app.html`, con el
-logo importado de otro lado y con manifest de PWA; una app Flutter con su
+logo importado de otro lado y con el manifest estatico de una PWA; una app Flutter con su
 seccion `flutter_launcher_icons:`, y una app Flet con su `icon.png`.
 """
 import io
+import json
 import sys
 from pathlib import Path
 
@@ -50,19 +51,24 @@ LAYOUT = """<script>
 
 VITE_PWA = """import { SvelteKitPWA } from '@vite-pwa/sveltekit';
 export default defineConfig({
-  plugins: [SvelteKitPWA({
-    manifest: {
-      name: 'Web',
-      icons: [
-        { src: `${base}/icons/icon-192.png`, sizes: '192x192', type: 'image/png' },
-        { src: `${base}/icons/icon-512.png`, sizes: '512x512', type: 'image/png' },
-        { src: `${base}/icons/icon-512.png`, sizes: '512x512', purpose: 'maskable' }
-      ],
-      screenshots: [{ src: '/wide.png', sizes: '1280x720' }]
-    }
-  })]
+  plugins: [SvelteKitPWA({ registerType: 'autoUpdate', manifest: false })]
 });
 """
+
+MANIFEST_LINK = '<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />'
+
+
+def manifest(*iconos: dict) -> str:
+    return json.dumps({'name': 'Web', 'start_url': './', 'icons': list(iconos),
+                       'screenshots': [{'src': 'wide.png', 'sizes': '1280x720'}]})
+
+
+MANIFEST = manifest(
+    {'src': 'icons/icon-192.png', 'sizes': '192x192', 'type': 'image/png'},
+    {'src': 'icons/icon-512.png', 'sizes': '512x512', 'purpose': 'any'},
+    {'src': 'icons/icon-512-maskable.png', 'sizes': '512x512', 'purpose': 'maskable'},
+    {'src': '/apple.png', 'sizes': '180x180'},
+)
 
 
 def write(path: Path, text: str) -> Path:
@@ -95,7 +101,8 @@ def repo(tmp_path):
                                 '<link rel="icon" href="%sveltekit.assets%/favicon.svg" />'})
     spa(tmp_path, 'externa', **{'src__routes__+layout.svelte':
                                 LAYOUT.replace('$lib/assets/favicon.svg', '$brand/logomark.svg')})
-    spa(tmp_path, 'pwa', vite=VITE_PWA)
+    spa(tmp_path, 'pwa', vite=VITE_PWA, **{'src__app.html': MANIFEST_LINK,
+                                          'static__manifest.webmanifest': MANIFEST})
     spa(tmp_path, 'vite', sveltekit=False,
         **{'index.html': '<link rel="icon" type="image/svg+xml" href="/vite.svg" />'})
     spa(tmp_path, 'sin_icono')
@@ -144,9 +151,11 @@ def test_cada_spa_toma_el_icono_donde_lo_declara(repo):
     assert lugares('panel') == [('panel/src/lib/assets/favicon.svg', 'logo', 0)]
     assert lugares('landing') == [('landing/static/favicon.svg', 'logo', 0)]
     assert lugares('vite') == [('vite/public/vite.svg', 'logo', 0)]
-    # El 512 se declara `any` y `maskable`: lleva la maskable, que sirve para los dos.
+    # Un `src` relativo cuelga de la carpeta del manifest; uno absoluto, de `static/`.
     assert lugares('pwa') == [('pwa/static/icons/icon-192.png', 'logo', 192),
-                              ('pwa/static/icons/icon-512.png', 'maskable', 512)]
+                              ('pwa/static/icons/icon-512.png', 'logo', 512),
+                              ('pwa/static/icons/icon-512-maskable.png', 'maskable', 512),
+                              ('pwa/static/apple.png', 'logo', 180)]
 
 
 def test_la_capa_que_pide_la_app_se_exige_solo_si_la_pide(repo):
@@ -203,6 +212,22 @@ def test_lo_que_consola_no_sabe_llenar_en_una_spa_corta(repo, link, error):
     spa(repo, 'rota', **{'src__app.html': link})
     with pytest.raises(TaskError, match=error):
         icons.plan(repo, 'rota', layers(repo, icons.LOGO))
+
+
+@pytest.mark.parametrize('vite, estaticos, error', [
+    (VITE_PWA.replace('manifest: false', 'manifest: { icons: [] }'), {}, 'genera el manifest'),
+    (VITE_PWA.replace(', manifest: false', ''), {}, 'genera el manifest'),
+    (VITE_PWA, {}, 'no existe el manifest'),
+    (VITE_PWA, {'static__manifest.webmanifest': '{"icons": ['}, 'no es JSON'),
+    (VITE_PWA, {'static__manifest.webmanifest': manifest(
+        {'src': 'i.png', 'sizes': '512x512', 'purpose': 'any maskable'})}, 'cada uno en su archivo'),
+    (VITE_PWA, {'static__manifest.webmanifest': manifest({'sizes': '512x512'})}, 'no tiene src'),
+])
+def test_lo_que_consola_no_sabe_llenar_en_una_pwa_corta(repo, vite, estaticos, error):
+    spa(repo, 'rota', vite=vite, **{'src__app.html': MANIFEST_LINK}, **estaticos)
+    assert 'rota' in [t.name for t in icons.icon_apps(repo)]
+    with pytest.raises(TaskError, match=error):
+        icons.plan(repo, 'rota', layers(repo, icons.LOGO, icons.MASKABLE))
 
 
 def test_una_app_sin_declaracion_corta(repo):

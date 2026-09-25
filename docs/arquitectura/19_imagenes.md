@@ -104,7 +104,7 @@ Las pruebas del kit están en `camara/index.test.mjs` (`node --test`), y `tests/
 
 ## 7. Los íconos
 
-`generate_icons` · Generar íconos deja el logo del repo, y sus capas, como ícono de cada app marcada. El repo pone los SVG y cada app dice dónde va su ícono ([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md), [ADR-0056](../adr/0056-cada-tecnologia-declara-donde-va-su-icono.md)). Por convención los SVG viven en `brand/`.
+`generate_icons` · Generar íconos deja el logo del repo, y sus capas, como ícono de cada app marcada. El repo pone los SVG y cada app dice dónde va su ícono ([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md), [ADR-0056](../adr/0056-cada-tecnologia-declara-donde-va-su-icono.md), [ADR-0057](../adr/0057-el-manifest-de-la-pwa-es-un-archivo-estatico.md)). Por convención los SVG viven en `brand/`.
 
 | Clave | Capa | Qué es |
 |---|---|---|
@@ -123,15 +123,16 @@ El eje `apps` es consultado contra el repo (`catalog.ICON_APPS`, `core/icons.py:
 | Flet | `src/assets/icon.png`, si existe, a 1024 | `logo` |
 | SPA | Cada `<link rel="icon">` y `rel="apple-touch-icon"` del `src/routes/+layout.svelte`. Si el `href` es una variable, cuenta cuando se importa de `$lib/`; si se importa de otro lado, la app ya lee el logo de la fuente | `logo` |
 | | Los mismos `<link>` de `src/app.html` e `index.html`. `%sveltekit.assets%/x` y `/x` van a `static/x` en SvelteKit (paquete `@sveltejs/kit`) y a `public/x` si no | `logo` |
-| | Cada ícono de `icons: [...]` en el manifest de `VitePWA(` o `SvelteKitPWA(` en `vite.config.*`, sin el `${...}` inicial del `src` | `maskable` si su `purpose` lo nombra, `logo` si no |
+| | Cada ícono de `icons` del manifest que enlaza el `<link rel="manifest">` de `src/app.html` o `index.html`, leído como JSON. Un `src` relativo cuelga de la carpeta del manifest; uno con `/`, de `static/` o `public/` | `maskable` si su `purpose` es `maskable`, `logo` si es `any` o no tiene |
 
-El formato sale de la extensión: `.svg` recibe la capa tal cual, `.png` se rasteriza al lado de su `sizes`, `.ico` lleva los lados de 16 a 256 (`raster.ICO_SIZES`). Si un archivo aparece dos veces, se deja uno: el que se declara `any` y `maskable` lleva la maskable, y dos tamaños o dos capas distintas cortan.
+El formato sale de la extensión: `.svg` recibe la capa tal cual, `.png` se rasteriza al lado de su `sizes`, `.ico` lleva los lados de 16 a 256 (`raster.ICO_SIZES`). Si un archivo aparece dos veces, se deja uno; dos tamaños o dos capas distintas cortan.
 
 Una app se ofrece aunque su declaración esté rota: la corrida dice qué tiene mal. La corrida planea todas las apps marcadas antes de escribir ninguna (`icons.plan`) y corta si:
 
 - Una capa escrita no es un `.svg` que exista.
 - Una app Flutter no tiene `flutter_launcher_icons` en `dev_dependencies`, no declara ningún `image_path` o pide una imagen en otra clave (`adaptive_icon_monochrome`, `image_path_ios_dark_transparent`…).
-- Un PNG no tiene `sizes="NxN"` o no es cuadrado; un ícono apunta a otro dominio; un archivo no es `.svg`, `.png` ni `.ico`; un ícono del manifest no tiene `src` y `sizes` escritos como texto.
+- Un PNG no tiene `sizes="NxN"` o no es cuadrado; un ícono apunta a otro dominio; un archivo no es `.svg`, `.png` ni `.ico`.
+- El plugin de PWA (`VitePWA(` o `SvelteKitPWA(` en `vite.config.*`) genera el manifest, porque no tiene `manifest: false`; el manifest enlazado no existe o no es JSON; un ícono del manifest no tiene `src`, o su `purpose` no es solo `any` o solo `maskable`.
 - Un SVG a rasterizar no es cuadrado: Qt estira el `viewBox` hasta llenar la imagen.
 
 Cada archivo se escribe solo si cambia, y el log dice si es nuevo, actualizado o sin cambios. `flutter_launcher_icons` corre siempre en las apps Flutter marcadas: reparte el ícono por plataforma, y Consola no compara esos archivos.

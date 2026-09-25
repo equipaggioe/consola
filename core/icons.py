@@ -1,4 +1,5 @@
 from __future__ import annotations
+import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
@@ -16,7 +17,7 @@ El repo pone los SVG y cada app dice donde va su icono (ADR-0055, ADR-0056):
 - una app Flet, con el `src/assets/icon.png` que toma `flet build`;
 - una SPA, con los `<link rel="icon">` y `<link rel="apple-touch-icon">` de su
   `+layout.svelte`, su `app.html` o su `index.html`, y con los `icons` del
-  manifest de `VitePWA` en su `vite.config`.
+  manifest que enlaza su `<link rel="manifest">` (ADR-0057).
 
 Aca vive todo lo que no es rasterizar: que apps toman su icono de Consola y que
 capa va a cada archivo. Rasterizar usa Qt y vive en `core/tasks/raster.py`.
@@ -56,12 +57,10 @@ _LINK = re.compile(r'<link\b[^>]*>', re.IGNORECASE | re.DOTALL)
 _ATTR = re.compile(r'([\w-]+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|\{([^}]*)\})')
 _ICON_RELS = ('icon', 'apple-touch-icon')
 _SIZE = re.compile(r'(\d+)x(\d+)')
+# El plugin de PWA (`VitePWA` de `vite-plugin-pwa`, `SvelteKitPWA` de
+# `@vite-pwa/sveltekit`) genera el manifest salvo que se le diga `manifest: false`.
 _PWA_PLUGIN = re.compile(r'\b(?:VitePWA|SvelteKitPWA)\(')
-_PWA_ICONS = re.compile(r'\bicons\s*:\s*\[(.*?)\]', re.DOTALL)
-_PWA_ENTRY = re.compile(r'\{([^{}]*)\}')
-# Una propiedad de un objeto de JS con texto literal: entre comillas o entre
-# acentos graves.
-_JS_PROP = re.compile(r'\b(src|sizes|purpose)\s*:\s*([\'"`])(.*?)\2', re.DOTALL)
+_MANIFEST_OFF = re.compile(r'\bmanifest\s*:\s*false\b')
 
 
 @dataclass(frozen=True)
@@ -137,7 +136,7 @@ def places(target: targets.Target) -> list[Place]:
         return [Place(target.path / FLET_ICON, LOGO, RASTER_SIZE)] if (
             target.path / FLET_ICON).is_file() else []
     if target.kind == targets.SPA_VITE:
-        return _merge(target.name, [*_link_places(target), *_pwa_places(target)])
+        return _merge(target.name, [*_link_places(target), *_manifest_places(target)])
     return []
 
 
@@ -190,23 +189,27 @@ def _link_places(target: targets.Target) -> list[Place]:
             if importado and importado.group(1).startswith('$lib/'):
                 ruta = target.path / 'src' / 'lib' / importado.group(1)[len('$lib/'):]
                 lugares.append(_place(target, ruta, tamano, f'el <link> de {href}'))
-    for html in ('src/app.html', 'index.html'):
-        archivo = target.path / html
-        if archivo.is_file():
-            lugares += [_static_place(target, href, tamano)
-                        for href, tamano, literal in _icon_links(read_text(archivo)) if literal]
+    for texto in _html(target):
+        lugares += [_static_place(target, href, tamano)
+                    for href, tamano, literal in _icon_links(texto) if literal]
     return lugares
 
 
-def _icon_links(texto: str) -> list[tuple[str, str, bool]]:
-    """(href, sizes, si el href es texto literal) de cada `<link>` de icono."""
+def _html(target: targets.Target) -> list[str]:
+    """El `app.html` de SvelteKit y el `index.html` de Vite que tenga la app."""
+    archivos = (target.path / 'src' / 'app.html', target.path / 'index.html')
+    return [read_text(a) for a in archivos if a.is_file()]
+
+
+def _icon_links(texto: str, rels: tuple[str, ...] = _ICON_RELS) -> list[tuple[str, str, bool]]:
+    """(href, sizes, si el href es texto literal) de cada `<link>` con uno de `rels`."""
     salida = []
     for etiqueta in _LINK.findall(texto):
         attrs = {m.group(1).lower(): (m.group(2) if m.group(2) is not None else m.group(3),
                                       m.group(4))
                  for m in _ATTR.finditer(etiqueta)}
         rel = (attrs.get('rel') or ('', None))[0] or ''
-        if rel.lower() not in _ICON_RELS or 'href' not in attrs:
+        if rel.lower() not in rels or 'href' not in attrs:
             continue
         literal, variable = attrs['href']
         tamano = (attrs.get('sizes') or ('', None))[0] or ''
@@ -224,11 +227,19 @@ def _static_dir(target: targets.Target) -> Path:
     return target.path / ('static' if sveltekit else 'public')
 
 
-def _static_place(target: targets.Target, href: str, tamano: str) -> Place:
-    if re.match(r'^[a-z]+:', href, re.IGNORECASE) or href.startswith('//'):
+def _static_path(target: targets.Target, href: str) -> Path:
+    """El archivo de `static/` o `public/` que sirve un `href` de la app."""
+    if _external(href):
         raise TaskError(f'{target.name}: el ícono apunta fuera de la app: {href}')
-    relativo = re.sub(r'^%sveltekit\.assets%', '', href).lstrip('/')
-    return _place(target, _static_dir(target) / relativo, tamano, href)
+    return _static_dir(target) / re.sub(r'^%sveltekit\.assets%', '', href).lstrip('/')
+
+
+def _external(href: str) -> bool:
+    return bool(re.match(r'^[a-z]+:', href, re.IGNORECASE)) or href.startswith('//')
+
+
+def _static_place(target: targets.Target, href: str, tamano: str) -> Place:
+    return _place(target, _static_path(target, href), tamano, href)
 
 
 def _place(target: targets.Target, ruta: Path, tamano: str, origen: str) -> Place:
@@ -248,55 +259,72 @@ def _place(target: targets.Target, ruta: Path, tamano: str, origen: str) -> Plac
                     'y Consola solo genera .svg, .png e .ico.')
 
 
-def _pwa_places(target: targets.Target) -> list[Place]:
+def _manifest_places(target: targets.Target) -> list[Place]:
     """Los iconos del manifest de la PWA, con su capa segun el `purpose`.
 
-    El plugin es `VitePWA` de `vite-plugin-pwa`, o `SvelteKitPWA` de
-    `@vite-pwa/sveltekit`: el mismo manifest con otro envoltorio.
+    El manifest es un archivo estatico que la app enlaza con `<link
+    rel="manifest">`, y se lee como JSON (ADR-0057). Un `src` relativo se
+    resuelve contra la carpeta del manifest, como en el navegador.
+    """
+    _no_generated_manifest(target)
+    lugares = []
+    for texto in _html(target):
+        for href, _, literal in _icon_links(texto, ('manifest',)):
+            if not literal:
+                continue
+            manifest = _static_path(target, href)
+            if not manifest.is_file():
+                raise TaskError(f'{target.name}: no existe el manifest {href}.')
+            try:
+                datos = json.loads(read_text(manifest))
+            except ValueError as error:
+                raise TaskError(f'{target.name}: {manifest.name} no es JSON: {error}') from None
+            lugares += [_manifest_place(target, manifest, icono) for icono in datos.get('icons', [])]
+    return lugares
+
+
+def _manifest_place(target: targets.Target, manifest: Path, icono: dict) -> Place:
+    src, tamano = icono.get('src', ''), icono.get('sizes', '')
+    if not src:
+        raise TaskError(f'{target.name}: un ícono de {manifest.name} no tiene src.')
+    if _external(src):
+        raise TaskError(f'{target.name}: el ícono apunta fuera de la app: {src}')
+    ruta = _static_path(target, src) if src.startswith('/') else manifest.parent / src
+    lugar = _place(target, ruta, tamano, src)
+    # Android recorta el maskable y el `any` se ve entero: el mismo dibujo no
+    # sirve para los dos, y cada uno va en su archivo.
+    proposito = icono.get('purpose', 'any').split()
+    if proposito not in (['any'], ['maskable']):
+        raise TaskError(f'{target.name}: {src} tiene purpose "{" ".join(proposito)}", y '
+                        'Consola genera "any" o "maskable", cada uno en su archivo.')
+    return Place(lugar.path, MASKABLE if proposito == ['maskable'] else LOGO, lugar.size)
+
+
+def _no_generated_manifest(target: targets.Target) -> None:
+    """Corta si el plugin de PWA genera el manifest desde `vite.config`.
+
+    Ese manifest es un objeto de TypeScript que Consola no lee: sus iconos se
+    quedarian viejos sin que nadie lo note.
     """
     for config in sorted(target.path.glob('vite.config.*')):
         texto = read_text(config)
-        if not _PWA_PLUGIN.search(texto):
-            continue
-        bloque = _PWA_ICONS.search(texto)
-        if not bloque:
-            return []
-        # El `${base}` de la ruta es la base de la app, que no cambia donde esta
-        # el archivo; fuera, deja de cortar las llaves de cada entrada.
-        entradas = re.sub(r'\$\{[^}]*\}', '', bloque.group(1))
-        lugares = []
-        for entrada in _PWA_ENTRY.findall(entradas):
-            props = {m.group(1): m.group(3) for m in _JS_PROP.finditer(entrada)}
-            if 'src' not in props or 'sizes' not in props:
-                raise TaskError(f'{target.name}: un ícono del manifest en {config.name} no '
-                                'tiene src y sizes escritos como texto.')
-            lugar = _static_place(target, props['src'], props['sizes'])
-            capa = MASKABLE if 'maskable' in props.get('purpose', '').split() else LOGO
-            lugares.append(Place(lugar.path, capa, lugar.size))
-        return lugares
-    return []
+        if _PWA_PLUGIN.search(texto) and not _MANIFEST_OFF.search(texto):
+            raise TaskError(f'{target.name}: el plugin de PWA de {config.name} genera el '
+                            'manifest. Va en un archivo de static/ enlazado con <link '
+                            'rel="manifest">, y el plugin con manifest: false.')
 
 
 def _merge(app: str, lugares: list[Place]) -> list[Place]:
-    """Un lugar por archivo.
-
-    Un archivo que el manifest declara `any` y `maskable` lleva la capa
-    maskable: sirve para los dos usos, y el logo recortado por Android no.
-    """
+    """Un lugar por archivo. Un archivo declarado dos veces pide lo mismo las dos."""
     por_ruta: dict[Path, Place] = {}
     for lugar in lugares:
-        previo = por_ruta.get(lugar.path)
-        if previo is None or previo == lugar:
-            por_ruta[lugar.path] = lugar
-            continue
+        previo = por_ruta.setdefault(lugar.path, lugar)
         if previo.size != lugar.size:
             raise TaskError(f'{app}: {lugar.path.name} se declara de dos tamaños: '
                             f'{previo.size} y {lugar.size}.')
-        capas = {previo.layer, lugar.layer}
-        if capas != {LOGO, MASKABLE}:
+        if previo.layer != lugar.layer:
             raise TaskError(f'{app}: {lugar.path.name} lleva dos capas distintas: '
-                            f'{", ".join(sorted(capas))}.')
-        por_ruta[lugar.path] = Place(lugar.path, MASKABLE, lugar.size)
+                            f'{", ".join(sorted({previo.layer, lugar.layer}))}.')
     return list(por_ruta.values())
 
 

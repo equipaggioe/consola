@@ -252,7 +252,7 @@ DOCS: dict[str, CommandDoc] = {
             'las pida. Se ofrecen las apps que declaran dónde va su ícono: '
             'Flutter con sección flutter_launcher_icons, Flet con '
             'src/assets/icon.png, y SPA con un <link rel="icon"> o '
-            '"apple-touch-icon", o con íconos en el manifest de VitePWA.'
+            '"apple-touch-icon", o con un <link rel="manifest"> a su manifest.'
         ),
         steps=[
             'Corta si BRAND_ICON, o una capa escrita (BRAND_ICON_FOREGROUND, '
@@ -263,9 +263,12 @@ DOCS: dict[str, CommandDoc] = {
             'no declara image_path o si pide otra imagen. Flet: '
             'src/assets/icon.png. SPA: el <link> del +layout.svelte cuando '
             'importa de $lib/, los de app.html e index.html resueltos en static/ '
-            'o public/, y los íconos del manifest de VitePWA en vite.config.',
-            'Un PNG sin sizes="NxN", o no cuadrado, corta. Un archivo que el '
-            'manifest declara maskable lleva la capa maskable.',
+            'o public/, y los íconos del manifest que enlaza <link '
+            'rel="manifest">, leído como JSON. Corta si el plugin de PWA genera '
+            'el manifest desde vite.config (le falta manifest: false).',
+            'Un PNG sin sizes="NxN", o no cuadrado, corta. Un ícono del '
+            'manifest con purpose maskable lleva la capa maskable; uno que es '
+            'any y maskable a la vez corta.',
             'Corta si la app pide una capa que no está configurada, y abre la '
             'configuración en esa clave.',
             'Escribe cada archivo según su extensión: .svg copia la capa tal '
