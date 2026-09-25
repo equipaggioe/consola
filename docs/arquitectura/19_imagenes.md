@@ -29,16 +29,16 @@ Ejes de `shoot_screens` (y del paso `shoot` de la compuesta):
 | `apps` | descubiertos: SPA Vite y apps móviles (`shots.SHOT_KINDS`) | `--apps` |
 | `themes` | `claro`, `oscuro` | `--themes` |
 | `languages` | los de `SHOTS_LANGS` (fuente consultada `SHOTS_LANGUAGES`, sin caché) | `--languages` |
-| `avd` | AVD creados; vacío solo vale sin apps móviles marcadas | `--device` con el serial |
+| `avd` | AVD creados, o ninguno. Si una app lo necesita lo dice la cámara (ADR-0052) | `--device` con el serial, solo si se eligió uno |
 
 Eje de `render_shots` y de la compuesta: `destinations` (`landing`, `play`, `appstore`, `manual`, `og`, `social`, `presskit`). Un destino sin preset, o sin ningún crudo de un tipo que le sirva, corta la corrida antes de convertir nada.
 
 ## 3. La corrida de la cámara
 
-1. Si hay una app móvil marcada y no se eligió AVD, corta antes de empezar.
+1. Comprueba que cada app marcada sea una app del repo con pantalla. No mira si hace falta emulador: eso lo decide la cámara (ADR-0052), que corta antes de la primera foto si una app lo necesita y no llegó `--device`.
 2. Borra de `SHOTS_RAW` los crudos de las combinaciones pedidas (`clear_raw`): una pantalla que el script dejó de sacar no sobrevive a la corrida siguiente. Las combinaciones no pedidas no se tocan.
-3. Con app móvil: si el AVD ya está encendido, usa su serial; si no, lo enciende en un hilo aparte con un puerto elegido de antemano, espera el arranque, y lo apaga por adb al terminar. De su salida solo pasan al log los avisos y los errores.
-4. Corre `SHOTS_CMD` desde la raíz del repo con los argumentos de §2, `--output` con `SHOTS_RAW` absoluta y `--kit` con la ruta de `camara/index.mjs` (`shots.KIT`). El primer token se resuelve en el PATH; el resto va tal cual. Con app móvil, la carpeta del `adb` del SDK va primera en el PATH de la cámara.
+3. Con un AVD elegido: si ya está encendido, usa su serial; si no, lo enciende en un hilo aparte con un puerto elegido de antemano, espera el arranque, y lo apaga por adb al terminar. De su salida solo pasan al log los avisos y los errores.
+4. Corre `SHOTS_CMD` desde la raíz del repo con los argumentos de §2, `--output` con `SHOTS_RAW` absoluta y `--kit` con la ruta de `camara/index.mjs` (`shots.KIT`). El primer token se resuelve en el PATH; el resto va tal cual. Con un AVD elegido, la carpeta del `adb` del SDK va primera en el PATH de la cámara.
 5. Lee los crudos de las apps pedidas y corta si un archivo no sigue el nombre, o si alguna combinación app × tema × idioma quedó sin captura.
 
 ## 4. El nombre de los crudos
@@ -89,7 +89,7 @@ La conversión usa Pillow.
 | `combinations(args)` | Cada par tema × idioma pedido |
 | `shotPath(output, app, pantalla, tema, idioma)` | `<output>/<app>/<pantalla>.<tema>.<idioma>.png`, creando la carpeta. Una pantalla con punto o barra es error |
 | `main(fn)` | Corre la cámara; un error se imprime y sale con código 1 |
-| `startFakeServer({port, routes, scenario, onScenario, websockets})` | El servidor ficticio. Las rutas son `[ruta exacta o RegExp, handler]` y solo atienden GET; `reply(status, cuerpo)` contesta otro estado. Las escrituras contestan 204. Entrega el escenario en `/__demo/scenario` y llama a `onScenario` después. Un GET o un WebSocket sin ruta contesta 500 y queda anotado; `assertComplete()` falla nombrándolos |
+| `startFakeServer({port, routes, scenario, onScenario, websockets})` | El servidor ficticio. Las rutas son `[método, ruta exacta o RegExp, handler]`, lecturas y escrituras por igual (ADR-0053); el handler recibe `(url, match, req, cuerpo)`, con el cuerpo JSON ya leído. `reply(status, cuerpo)` contesta otro estado y `reply(204)`, sin cuerpo. Solo el `OPTIONS` del CORS se contesta sin ruta. Entrega el escenario en `/__demo/scenario` y llama a `onScenario` después. Un pedido o un WebSocket sin ruta contesta 500 y queda anotado, igual que un handler que falla o no devuelve nada; `assertComplete()` falla nombrándolos |
 | `startVite({appDir, port, env, readyPath})` | El `vite.js` del repo con el mismo Node, sin `VSCODE_CWD`, hasta que `readyPath` contesta |
 | `openPage(browser, {theme, language, timezoneId, now, viewport})` | Un contexto con `colorScheme` del tema (`claro` → `light`, `oscuro` → `dark`), `locale`, zona horaria y el reloj puesto en `now` |
 | `retryOnReload(page, fn)`, `visit(page, url, listo)` | Reintentan cuando Vite recarga la página en frío |

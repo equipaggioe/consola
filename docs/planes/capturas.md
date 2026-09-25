@@ -4,11 +4,11 @@
 > los siete destinos, el manifiesto con la comparación contra la corrida anterior, la compuesta
 > `screenshots` y el kit de la cámara (`camara/`, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 > Lo construido se describe en [arquitectura 19](../arquitectura/19_imagenes.md), que manda sobre
-> este plan. Vettore ya corre de punta a punta con el kit, app y panel (§6).
+> este plan. Vettore y banditore corren de punta a punta con el kit (§6).
 >
 > Pendiente en Consola: los marcos de dispositivo, sin especificar (qué destinos, qué aspecto), y
-> decidir dónde vive la parte Dart del kit. Pendiente en los repos: la landing leyendo el
-> manifiesto (resto de la 5) y el segundo repo (7, guía en §7). Sin verificar
+> decidir dónde viven las partes Dart y Flet del kit. Pendiente en vettore: la landing leyendo el
+> manifiesto (resto de la 5); banditore ya lo lee. Sin verificar
 > ([30](../arquitectura/30_riesgos_y_pendientes.md)): una tanda subida de verdad a una tienda.
 >
 > **El corte cambió el 2026-09-23.** La versión anterior de este plan ponía la cámara en Consola:
@@ -138,8 +138,9 @@ Reglas para el script:
 - Si no soporta algo de lo pedido, termina con código distinto de cero. No lo ignora en silencio.
 
 El emulador **no** lo busca el script: lo elige quien aprieta el botón y lo enciende Consola, que
-ya sabe arrancar AVD (`launch_emulator`). Si se marcó una app móvil y no se eligió emulador, la
-corrida corta antes de sacar la primera foto.
+ya sabe arrancar AVD (`launch_emulator`). Si una app lo necesita lo dice la cámara, no el tipo de
+la app ([ADR-0052](../adr/0052-la-camara-dice-que-apps-necesitan-emulador.md)): sin `--device`,
+corta antes de sacar la primera foto. Las apps Flet de banditore se capturan sin emulador.
 
 Lo que Consola **no** puede elegir son las pantallas: solo el script sabe cuáles existen, así que
 capturar una sola pantalla se hace desde el script.
@@ -188,7 +189,7 @@ Ejes de `shoot_screens` y del paso `shoot` de `screenshots` (los argumentos de �
 | `apps` | descubiertos: SPA Vite y apps móviles del repo | todas marcadas |
 | `themes` | Claro · Oscuro | todos marcados |
 | `languages` | los de `SHOTS_LANGS` | todos marcados |
-| `avd` | AVD creados (`pick`); vacío = ninguno, solo vale sin apps móviles marcadas | vacío |
+| `avd` | AVD creados (`pick`); vacío = ninguno, y la cámara dice si hacía falta (ADR-0052) | vacío |
 
 ---
 
@@ -249,6 +250,18 @@ sirve con los nombres nuevos y `capturas.json`.
 La cámara anterior (`demo/capturar.mjs`, `demo/servidor.mjs`, `capturas_test.dart`,
 `test_driver/capturas.dart`) sigue en vettore sin que nadie la corra.
 
+**Banditore** (2026-09-24), el segundo repo y el primero con apps Flet. «Capturar y publicar»
+no se apretó desde Consola: la cámara se corrió con los mismos argumentos y el revelado de la
+landing con las funciones de `core/shots.py`. Salieron 16 capturas (panel, app de cliente y app
+de vendedor, tema oscuro, español), y la landing muestra una en inicio leyendo `capturas.json`.
+
+| Pieza | Dónde |
+|---|---|
+| Cámara | `demo/camera/shoot.mjs` (`SHOTS_CMD=node demo/camera/shoot.mjs`, `SHOTS_LANGS=es`) |
+| Rutas del servidor ficticio, lecturas y escrituras | `demo/camera/routes.mjs` |
+| Escenario | `demo/scenario.json` y `demo/scenario.mjs` |
+| Apps Flet | `demo/camera/flet_camera.py` y un recorrido por app (`tour_customer.py`, `tour_vendor.py`) |
+
 ---
 
 ## 7. Guía para escribir la cámara de un repo
@@ -265,21 +278,32 @@ Pasos, en orden:
 3. **Cámara**: `capturar.mjs` importa el kit desde `--kit`, declara qué temas e idiomas tiene cada
    app en `parseArgs`, levanta el servidor ficticio y, por cada combinación, siembra lo local,
    navega y llama a `shoot` con `shotPath`. Termina con `servidor.assertComplete()`.
-4. **App Flutter**: una prueba de integración que baja el escenario de `/__demo/scenario`, siembra
-   la base local y navega; y un driver que guarda en `SHOTS_DIR` con `SHOTS_SUFFIX`. Hoy se copian
-   de vettore ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
+4. **App móvil**, según el framework:
+   - **Flutter**: una prueba de integración que baja el escenario de `/__demo/scenario`, siembra
+     la base local y navega; y un driver que guarda en `SHOTS_DIR` con `SHOTS_SUFFIX`. Hoy se
+     copian de vettore ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
+   - **Flet**: la app corre en modo web con su propio `main` y su `.venv`, y la cámara abre la
+     página en Chromium a 360 × 720. Un recorrido en Python toca por texto con el despacho de
+     eventos de Flet y guarda con `page.take_screenshot` a 3x. No hace falta emulador. Hoy se
+     copia de banditore (`flet_camera.py`).
 5. **`config.env`**: `SHOTS_CMD` y `SHOTS_LANGS`.
-6. **Landing**: sus rutas a `/capturas/<app>/<pantalla>.<tema>.<idioma>.webp`.
-7. Correr «Capturar y publicar». Con app móvil, en un AVD dedicado: imagen Google APIs (la de
-   Google Play no permite `adb root`) y una pantalla de 2:1 como máximo, o Play rechaza las
-   capturas. El de vettore es `capturas`: Pixel 3, 1080×2160, Android 36.
+6. **Landing**: que lea `capturas.json` para encontrar cada imagen y falle al compilar si falta
+   una (banditore: `landing/src/lib/screenshots.ts`). Si la landing tiene un presupuesto de
+   peso, elegir una pantalla que entre: en banditore el mapa pesaba 116 KB y no entraba.
+7. Correr «Capturar y publicar». Si alguna app necesita emulador, en un AVD dedicado: imagen
+   Google APIs (la de Google Play no permite `adb root`) y una pantalla de 2:1 como máximo, o
+   Play rechaza las capturas. El de vettore es `capturas`: Pixel 3, 1080×2160, Android 36.
+   Desmarcar del eje `apps` lo que no es una app (en banditore: `mobile_common`, `flet_fcm`,
+   `background_gps`, `landing`): la cámara falla nombrándolas.
 
 | Tema | Qué hacer |
 |---|---|
-| Entrar sin login | de menos a más robusto: sembrar la sesión antes de navegar (vettore: JWT ficticio en IndexedDB) · falsear el endpoint de login · un modo demo en la app (`VITE_DEMO=1`) |
+| Entrar sin login | de menos a más robusto: sembrar la sesión antes de navegar (vettore: JWT ficticio en IndexedDB; banditore: `localStorage` en el panel y `SecureTokenStore` antes de llamar al `main` de la app Flet) · falsear el endpoint de login · un modo demo en la app (`VITE_DEMO=1`) |
+| Escrituras | se mapean como las lecturas ([ADR-0053](../adr/0053-el-servidor-ficticio-tambien-mapea-las-escrituras.md)): la primera corrida falla nombrando las que el cliente hace al arrancar. Contestar lo que contesta el servidor de verdad; `reply(204)` si no tiene cuerpo |
+| Varios clientes, un servidor | un token ficticio distinto por cliente, y `/auth/me` contesta el usuario de ese token |
 | Ids fijos | una ruta `/chats/<uuid>` no se puede escribir si el sembrado usa `uuid4()`. `escenario.json` los trae escritos a mano |
 | Selectores | `data-captura="..."` en los contenedores que se tocan, no clases de Tailwind (`.relative.h-8.cursor-pointer` se rompe en el próximo retoque) |
-| Esperar | por `data-captura`, no por texto: `"Recorrido en curso"` no aparece en el segundo idioma |
+| Esperar | por `data-captura`, no por texto: `"Recorrido en curso"` no aparece en el segundo idioma. En Flet no hay DOM: se espera por texto en el árbol de controles, lo que obliga a un recorrido por idioma |
 | Datos ficticios | **nunca en la base** ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)): un escenario JSON del repo, servido por el servidor ficticio del kit. Los clientes de verdad apuntan a ese servidor (web: `VITE_SERVER_URL`; emulador: `10.0.2.2`). Lo que el cliente guarda localmente (IndexedDB, base del teléfono) se siembra aparte, como en vettore |
 | Ruta no mapeada | el servidor ficticio la anota y la cámara termina con error nombrándola ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)). En vettore encontró dos que el servidor anterior contestaba 404 en silencio |
 | Reloj y zona horaria | web: `openPage` con `timezoneId` y `now` · Android: `android(device)` del kit, que necesita `adb root` |
@@ -306,7 +330,7 @@ plomería. Inventario, contado sobre `vettore/demo/` y `app/test_driver/`:
 | Pieza | Qué hace | Líneas hoy en vettore |
 |---|---|---|
 | Lado cliente del contrato | leer `--apps`, `--themes`, `--languages`, `--output`, `--device`; fallar ante lo que no soporta; nombrar `<output>/<app>/<pantalla>.<tema>.<idioma>.png` | no existe (§6) |
-| Esqueleto del servidor ficticio | HTTP, CORS, `OPTIONS`, JSON, escrituras → 204, `/__demo/sembrado` para el emulador con su aviso, ruta no mapeada → error | ~50 de `servidor.mjs` |
+| Esqueleto del servidor ficticio | HTTP, CORS, `OPTIONS`, JSON, lecturas y escrituras por ruta (ADR-0053), `/__demo/sembrado` para el emulador con su aviso, ruta no mapeada → error | ~50 de `servidor.mjs` |
 | Vite apuntado al servidor | lanzar el `vite.js` del repo con el mismo Node, sin `VSCODE_CWD`, esperar la URL, matarlo | ~35 |
 | Página | viewport, escala, `colorScheme` por tema, `locale`, zona horaria, `clock.install` | ~15 |
 | Navegar y fotografiar | ir a una ruta y reintentar si Vite recargó; esperar y guardar con el nombre del contrato | ~30 |
@@ -323,6 +347,10 @@ Sin decidir: la parte Dart. Se compila dentro de la prueba y no puede recibir un
 o es un paquete de Consola con una dependencia `path:` en cada `pubspec.yaml` (exige los repos
 clonados uno al lado del otro), o se copia en cada app Flutter (vettore, las dos de navetta, la
 terminal de posta). Hoy vive en vettore.
+
+Sin decidir también: la parte Flet (`flet_camera.py`). Se importa desde la app, que corre con su
+propio `.venv`, así que tiene la misma disyuntiva: una dependencia `path:` en cada `pyproject.toml`
+o una copia por app. Hoy vive en banditore.
 
 ---
 
@@ -344,7 +372,7 @@ recorren, no se generan.
 | 4 | ~~**Compuesta `screenshots`**~~ | construida | — |
 | 5 | ~~Manifiesto~~ (construido) y **landing que lo consume** (del repo) | una captura nueva aparece en la landing sin tocar `capturas.ts` | medio día |
 | 6 | ~~Presets de tienda, tablet/iPad y press kit~~ (construidos); **marcos de dispositivo** pendientes | sale la tanda para Play, verificada contra la ficha vigente | 1 día |
-| 7 | ~~Kit genérico~~ (construido, JS) y **segundo repo** con escenario y servidor ficticio | el segundo repo usa el kit; sus capturas en su landing | 1 día |
+| 7 | ~~Kit genérico~~ (construido, JS) y ~~segundo repo~~ (banditore, §6) | el segundo repo usa el kit; sus capturas en su landing | — |
 | 8 | ~~Regresión visual~~ (construida): diff de hashes contra la corrida anterior | avisa qué pantalla cambió entre dos versiones | medio día |
 
 Las etapas 1 a 4 reemplazan a lo que hoy hace `publicar()`: la conversión a la landing deja de

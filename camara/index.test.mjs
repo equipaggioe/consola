@@ -54,20 +54,31 @@ const withServer = async (options, fn) => {
 	}
 };
 
-test('el servidor ficticio contesta sus rutas y deja pasar las escrituras', () =>
+test('el servidor ficticio contesta sus rutas, lecturas y escrituras', () =>
 	withServer(
 		{
 			routes: [
-				['/rooms', (url) => [{ offset: url.searchParams.get('offset') }]],
-				[/^\/rooms\/([^/]+)$/, (_, m) => ({ id: m[1] })],
-				['/resolve', () => reply(404, { detail: 'no' })]
+				['GET', '/rooms', (url) => [{ offset: url.searchParams.get('offset') }]],
+				['GET', /^\/rooms\/([^/]+)$/, (_, m) => ({ id: m[1] })],
+				['GET', '/resolve', () => reply(404, { detail: 'no' })],
+				['POST', '/rooms', (_, __, ___, body) => ({ created: body.title })],
+				['DELETE', /^\/rooms\/[^/]+$/, () => reply(204)]
 			]
 		},
 		async (server) => {
 			assert.deepEqual(await (await fetch(`${server.url}/rooms?offset=2`)).json(), [{ offset: '2' }]);
 			assert.deepEqual(await (await fetch(`${server.url}/rooms/abc`)).json(), { id: 'abc' });
 			assert.equal((await fetch(`${server.url}/resolve`)).status, 404);
-			assert.equal((await fetch(`${server.url}/preferences`, { method: 'PUT', body: '{}' })).status, 204);
+			const created = await fetch(`${server.url}/rooms`, {
+				method: 'POST',
+				headers: { 'Content-Type': 'application/json' },
+				body: JSON.stringify({ title: 'sala' })
+			});
+			assert.deepEqual(await created.json(), { created: 'sala' });
+			const deleted = await fetch(`${server.url}/rooms/abc`, { method: 'DELETE' });
+			assert.equal(deleted.status, 204);
+			assert.equal(await deleted.text(), '');
+			assert.equal((await fetch(`${server.url}/rooms`, { method: 'OPTIONS' })).status, 204);
 			server.assertComplete();
 		}
 	));
@@ -77,6 +88,18 @@ test('una ruta sin mapear contesta 500 y hace fallar la corrida (ADR-0050)', () 
 		assert.equal((await fetch(`${server.url}/organizations`)).status, 500);
 		await fetch(`${server.url}/organizations`);
 		assert.throws(() => server.assertComplete(), /GET \/organizations \(2\)/);
+	}));
+
+test('una escritura sin mapear también hace fallar la corrida (ADR-0053)', () =>
+	withServer({ routes: [['GET', '/preferences', () => ({})]] }, async (server) => {
+		assert.equal((await fetch(`${server.url}/preferences`, { method: 'PUT', body: '{}' })).status, 500);
+		assert.throws(() => server.assertComplete(), /PUT \/preferences \(1\)/);
+	}));
+
+test('un handler roto hace fallar la corrida, no el proceso', () =>
+	withServer({ routes: [['POST', '/read', () => undefined]] }, async (server) => {
+		assert.equal((await fetch(`${server.url}/read`, { method: 'POST' })).status, 500);
+		assert.throws(() => server.assertComplete(), /POST \/read: el handler no devolvió nada/);
 	}));
 
 test('entrega el escenario y avisa después', async () => {

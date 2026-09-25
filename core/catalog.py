@@ -637,10 +637,10 @@ _SHOT_CAMERA_AXES = lambda: [
             source=SHOTS_LANGUAGES),
     # El emulador lo elige y lo arranca Consola, no el script (ADR-0049): se
     # elige un AVD creado, y si no esta vivo se levanta antes de correr la
-    # camara. Vacio vale solo si no se marco ninguna app movil; si se marco
-    # una, la corrida corta antes de sacar la primera foto.
+    # camara. Si una app lo necesita lo sabe la camara (ADR-0052): sin
+    # ninguno, es ella la que corta antes de sacar la primera foto.
     AxisDef('avd', [], 'pick', label='Emulador', source=ANDROID_AVDS,
-            allow_empty=True, labels={'': 'Ninguno (solo apps web)'}),
+            allow_empty=True, labels={'': 'Ninguno'}),
 ]
 
 SCREENSHOTS_STEPS = [

@@ -128,31 +128,67 @@ const REPLY = Symbol('reply');
 /** The path the mobile test downloads the expanded scenario from. */
 export const SCENARIO_PATH = '/__demo/scenario';
 
+/** `body` undefined sends no body: `reply(204)`. */
 const sendJson = (res, status, body) => {
+	if (body === undefined) {
+		res.writeHead(status);
+		res.end();
+		return;
+	}
 	res.writeHead(status, { 'Content-Type': 'application/json' });
 	res.end(JSON.stringify(body));
+};
+
+/** The request body: parsed if it is JSON, the text otherwise, null if empty. */
+const readBody = (req, text) => {
+	if (!text) return null;
+	return (req.headers['content-type'] ?? '').includes('json') ? JSON.parse(text) : text;
 };
 
 /**
  * Starts the fake API server.
  *
- * - `routes`: `[pattern, handler]` pairs. `pattern` is an exact pathname or a
- *   RegExp; `handler(url, match, req)` returns the JSON body, or `reply()`.
- *   Only GET goes through them: writes are answered 204 and dropped.
+ * - `routes`: `[method, pattern, handler]` triples. `pattern` is an exact
+ *   pathname or a RegExp; `handler(url, match, req, body)` returns the JSON
+ *   body, or `reply()`; `reply(204)` answers without one. `body` is the
+ *   request's JSON (its text if it is not JSON), or null without one.
+ *   Writes are routes like any other (ADR-0053): a client that reads the
+ *   answer of a write gets what the repo wrote for it.
  * - `scenario`: served at `SCENARIO_PATH` for the mobile test, which cannot
  *   take it by `--dart-define` (Windows caps the command line). `onScenario`
  *   is called after serving it: the app is up, and the device can be touched.
  * - `websockets`: `{ pathname: (socket, req) => {} }`; `socket` has
  *   `send(text)` and `onText(fn)`.
  *
- * A GET or an upgrade no route matches answers 500 and is recorded;
- * `assertComplete()` then fails naming them.
+ * A request or an upgrade no route matches answers 500 and is recorded;
+ * `assertComplete()` then fails naming them. Only the CORS preflight
+ * (`OPTIONS`) is answered without a route.
  */
 export const startFakeServer = ({ port, routes, scenario, onScenario = () => {}, websockets = {} }) => {
 	const unmapped = new Map();
 	const miss = (what) => {
-		if (!unmapped.has(what)) console.error(`[servidor ficticio] sin mapear: ${what}`);
+		if (!unmapped.has(what)) console.error(`[servidor ficticio] sin contestar: ${what}`);
 		unmapped.set(what, (unmapped.get(what) ?? 0) + 1);
+	};
+
+	const answer = (req, res, text) => {
+		const url = new URL(req.url, 'http://localhost');
+		if (req.method === 'GET' && url.pathname === SCENARIO_PATH) {
+			sendJson(res, 200, scenario);
+			onScenario();
+			return;
+		}
+		for (const [method, pattern, handler] of routes) {
+			if (method !== req.method) continue;
+			const match = typeof pattern === 'string' ? (url.pathname === pattern ? [url.pathname] : null) : url.pathname.match(pattern);
+			if (!match) continue;
+			const result = handler(url, match, req, readBody(req, text));
+			if (result === undefined) throw new Error(`${req.method} ${url.pathname}: el handler no devolvió nada; usa reply(204).`);
+			if (result?.[REPLY]) return sendJson(res, result.status, result.body);
+			return sendJson(res, 200, result);
+		}
+		miss(`${req.method} ${url.pathname}`);
+		sendJson(res, 500, { detail: `Ruta sin mapear en el servidor ficticio: ${req.method} ${url.pathname}` });
 	};
 
 	const server = createServer((req, res) => {
@@ -160,26 +196,22 @@ export const startFakeServer = ({ port, routes, scenario, onScenario = () => {},
 		res.setHeader('Access-Control-Allow-Origin', '*');
 		res.setHeader('Access-Control-Allow-Headers', '*');
 		res.setHeader('Access-Control-Allow-Methods', '*');
-		if (req.method !== 'GET') {
+		if (req.method === 'OPTIONS') {
 			res.writeHead(204);
 			res.end();
 			return;
 		}
-		const url = new URL(req.url, 'http://localhost');
-		if (url.pathname === SCENARIO_PATH) {
-			sendJson(res, 200, scenario);
-			onScenario();
-			return;
-		}
-		for (const [pattern, handler] of routes) {
-			const match = typeof pattern === 'string' ? (url.pathname === pattern ? [url.pathname] : null) : url.pathname.match(pattern);
-			if (!match) continue;
-			const answer = handler(url, match, req);
-			if (answer?.[REPLY]) return sendJson(res, answer.status, answer.body);
-			return sendJson(res, 200, answer);
-		}
-		miss(`GET ${url.pathname}`);
-		sendJson(res, 500, { detail: `Ruta sin mapear en el servidor ficticio: ${url.pathname}` });
+		const chunks = [];
+		req.on('data', (chunk) => chunks.push(chunk));
+		req.on('end', () => {
+			try {
+				answer(req, res, Buffer.concat(chunks).toString('utf8'));
+			} catch (error) {
+				// A broken handler is the repo's bug: it fails the run, not the process.
+				miss(`${req.method} ${req.url}: ${error.message}`);
+				sendJson(res, 500, { detail: error.message });
+			}
+		});
 	});
 
 	// Upgraded sockets leave the HTTP server's bookkeeping: `close` drops them itself.
@@ -202,11 +234,11 @@ export const startFakeServer = ({ port, routes, scenario, onScenario = () => {},
 		server.listen(port, '127.0.0.1', () =>
 			resolve({
 				url: `http://127.0.0.1:${server.address().port}`,
-				/** Fails naming every request no route answered. */
+				/** Fails naming every request no route answered, or whose handler broke. */
 				assertComplete() {
 					if (unmapped.size === 0) return;
 					const list = [...unmapped].map(([what, n]) => `${what} (${n})`).join('\n  ');
-					throw new Error(`El servidor ficticio recibió pedidos que no tiene mapeados (ADR-0050):\n  ${list}`);
+					throw new Error(`El servidor ficticio no pudo contestar estos pedidos (ADR-0050, ADR-0053):\n  ${list}`);
 				},
 				/** Stops listening and drops open connections: a WebSocket would keep it waiting. */
 				close() {

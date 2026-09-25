@@ -59,3 +59,5 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0049](0049-la-camara-de-capturas-es-un-script-del-repo.md) | La cámara de capturas es un script del repo que Consola corre con argumentos |
 | [0050](0050-las-capturas-no-tocan-la-base.md) | Las capturas no tocan la base: los datos salen de un escenario servido por un servidor ficticio |
 | [0051](0051-el-kit-de-la-camara-viaja-en-un-argumento.md) | La plomería de las cámaras es un kit de Consola que la cámara recibe en `--kit` |
+| [0052](0052-la-camara-dice-que-apps-necesitan-emulador.md) | Qué apps necesitan emulador lo dice la cámara, no el tipo de la app |
+| [0053](0053-el-servidor-ficticio-tambien-mapea-las-escrituras.md) | El servidor ficticio también mapea las escrituras |

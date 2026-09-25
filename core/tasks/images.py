@@ -14,8 +14,8 @@ from ..registry import registry
 Grupo Imágenes: las capturas publicables de las apps del repo.
 
 La camara es un script del repo y Consola solo la dispara (ADR-0049): le pasa
-que apps, temas e idiomas capturar, y el emulador ya encendido si hay una app
-movil. Despues lee los crudos que dejo y los revela para cada destino.
+que apps, temas e idiomas capturar, y el emulador ya encendido si se eligio uno
+(ADR-0052). Despues lee los crudos que dejo y los revela para cada destino.
 """
 
 LANDING = 'landing'
@@ -28,13 +28,8 @@ def shoot_screens(ctx, apps: Sequence[str] = (), themes: Sequence[str] = (),
     if not (apps and themes and languages):
         raise TaskError('Marca al menos una app, un tema y un idioma.')
 
-    elegidas = [targets.pick(ctx.root, shots.SHOT_KINDS, nombre) for nombre in apps]
-    moviles = [t.name for t in elegidas if t.kind in targets.MOBILE_APP]
-    # ADR-0049: el emulador lo elige quien aprieta el boton, no el script. Se
-    # corta antes de la primera foto, no a mitad de la corrida.
-    if moviles and not avd:
-        raise TaskError(f'Marcaste {", ".join(moviles)}, que es una app móvil: '
-                        'elige el emulador donde capturarla.')
+    for nombre in apps:
+        targets.pick(ctx.root, shots.SHOT_KINDS, nombre)
 
     raw = shots.resolve_dir(ctx.root, ctx.config.get('SHOTS_RAW'))
     borrados = shots.clear_raw(raw, apps, themes, languages)
@@ -44,12 +39,15 @@ def shoot_screens(ctx, apps: Sequence[str] = (), themes: Sequence[str] = (),
     comando = shlex.split(ctx.config.get('SHOTS_CMD'))
     ejecutable = process.resolve_executable([comando[0]], label=comando[0],
                                             hint='Revisa SHOTS_CMD.')
-    serial, encendido = _emulator(ctx, avd) if moviles else ('', False)
+    # ADR-0052: si una app necesita emulador lo sabe la camara, no Consola. Se
+    # enciende el que se eligio; sin ninguno, la camara corta antes de la
+    # primera foto si alguna app pedida lo necesita.
+    serial, encendido = _emulator(ctx, avd) if avd else ('', False)
     # La camara maneja el dispositivo con `adb` (ADR-0051): el del SDK que
     # encontro Consola, este o no en el PATH de la maquina.
     entorno = ({'PATH': os.pathsep.join([str(Path(android.resolve_sdk().adb).parent),
                                          os.environ.get('PATH', '')])}
-               if moviles else None)
+               if avd else None)
     try:
         ctx.run([*ejecutable, *comando[1:],
                  *shots.camera_args(apps, themes, languages, raw, serial)],
