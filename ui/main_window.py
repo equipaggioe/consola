@@ -327,6 +327,8 @@ class MainWindow(QMainWindow):
             workspace.favorite_changed.connect(self._on_favorites_changed)
             workspace.sections_changed.connect(self._on_sections_changed)
             workspace.repo_ready.connect(self.project_tabs.open_path)
+            workspace.logo_changed.connect(
+                lambda logo, p=project.path: self._on_logo_changed(p, logo))
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -542,6 +544,11 @@ class MainWindow(QMainWindow):
         """Apagar un paso puede dejar de reclamar claves (y encenderlo,
         volver a pedirlas): el ▶ del buscador se recalcula."""
         self._refresh_readiness()
+
+    def _on_logo_changed(self, path: str, logo) -> None:
+        tab = self.project_tabs.find_tab(path)
+        if tab is not None:
+            tab.set_logo(logo)
 
     def _on_env_saved(self, *_args) -> None:
         """La configuracion guardada cambio: puede haber acciones nuevas

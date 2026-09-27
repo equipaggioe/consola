@@ -8,7 +8,7 @@ from PySide6.QtGui import (
 
 from ui.theme import Colors, Fonts, tint
 from ui.widgets import ReorderableTab, ReorderableBar
-from ui import project_store, palettes, params_store
+from ui import project_store, palettes, params_store, repo_logo
 from core.projects import Project
 
 
@@ -29,6 +29,7 @@ class ProjectTab(ReorderableTab, QWidget):
     # Alto de la barra de titulo entera. 44 y no 38: dentro del contorno, a
     # 38 el nombre quedaba pegado al borde de abajo.
     HEIGHT = 44
+    LOGO = 18
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
@@ -49,8 +50,12 @@ class ProjectTab(ReorderableTab, QWidget):
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
-        layout.setContentsMargins(16, 0, 10, 0)
+        layout.setContentsMargins(12, 0, 10, 0)
         layout.setSpacing(8)
+
+        # A la izquierda del nombre: a la derecha esta la ×, y el logo pegado a
+        # ella se leeria como otro boton.
+        self.logo = repo_logo.RepoLogoView(self.LOGO, repo_logo.resolve(project.path))
 
         self.name_label = QLabel(project.name)
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
@@ -60,6 +65,7 @@ class ProjectTab(ReorderableTab, QWidget):
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.clicked.connect(self.close_requested.emit)
 
+        layout.addWidget(self.logo)
         layout.addWidget(self.name_label)
         layout.addWidget(self.close_btn)
 
@@ -79,6 +85,9 @@ class ProjectTab(ReorderableTab, QWidget):
         self.active_pal = pal
         self._sync_text()
         self.update()
+
+    def set_logo(self, logo: repo_logo.RepoLogo) -> None:
+        self.logo.set_logo(logo)
 
     def set_closable(self, closable: bool) -> None:
         self._closable = closable
@@ -320,7 +329,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
 
     # --- conjunto persistente ----------------------------------------
     def _persist(self) -> None:
-        """Guarda la lista entera de repos (ruta, nombre, tema, icono) en el
+        """Guarda la lista entera de repos (ruta y nombre) en el
         orden actual: anadir, quitar y reordenar sobreviven al reinicio
         (`ui/project_store.py`)."""
         if self._loading:
@@ -442,8 +451,8 @@ class ProjectTabBar(ReorderableBar, QWidget):
 
         Lo llaman el «+» y lo que deja una carpeta de repo nueva sin que nadie
         la elija: clonar de GitHub (`Capability.opens_repo`). Es el mismo
-        camino en los dos casos — primer tema libre, icono por defecto y
-        aviso de repo anadido — porque un repo clonado no es un repo distinto
+        camino en los dos casos — primer tema libre y aviso de repo
+        anadido — porque un repo clonado no es un repo distinto
         de uno elegido a mano.
         """
         if not path:
@@ -458,7 +467,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
         # El color se guarda en el repo desde el primer momento, no al
         # cambiarlo: abrirlo en otra maquina tiene que dar el mismo color.
         params_store.save_theme(limpia, theme)
-        project = Project(name, limpia, theme, '📁')
+        project = Project(name, limpia, theme)
         self.add_project(project, select=True)
         self.project_added.emit(project)
 

@@ -83,7 +83,7 @@ Dos funciones de `vps_server.py` sirven al grupo Repositorio: con el eje `side` 
 
 | Bloque | Archivos | Qué hace |
 |---|---|---|
-| Ventana | `main_window.py`, `title_bar.py`, `project_tabs.py` | Ventana sin marco, repos como pestañas de nivel 1, acento por repo |
+| Ventana | `main_window.py`, `title_bar.py`, `project_tabs.py`, `repo_logo.py`, `assets/` | Ventana sin marco, repos como pestañas de nivel 1, acento y logo por repo |
 | Catálogo a la vista | `menu_bar.py`, `action_search.py`, `widgets/action_row.py`, `favorites.py` | El catálogo entero en una barra de menú y un buscador con ▶ |
 | Espacio de trabajo | `tab_panel.py`, `tab_view.py`, `console_view.py`, `browser_view.py` | Pestañas de ejecución de un repo, consola, segunda vista |
 | Panel derecho | `params_panel.py`, `env_panel.py`, `security_panel.py`, `command_info_panel.py`, `widgets/accordion.py` | Parámetros, configuración, seguros y ficha, en un acordeón |

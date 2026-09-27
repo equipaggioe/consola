@@ -7,7 +7,6 @@ class Project:
     name: str
     path: str
     theme: str  # clave de una paleta de `ui/palettes.py`
-    icon: str   # emoji
 
 
 # No hay lista de repos de fabrica. La primera vez que se abre Consola la barra

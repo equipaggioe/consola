@@ -6,7 +6,7 @@ from PySide6.QtWidgets import (
 from PySide6.QtCore import Qt
 
 from ui.theme import Colors, Fonts
-from ui import palettes
+from ui import palettes, repo_logo
 from core.projects import Project
 from core.protection import Target
 
@@ -75,7 +75,7 @@ class _GuardDialog(QDialog):
         lay.setContentsMargins(12, 9, 12, 9)
         lay.setSpacing(2)
 
-        nombre = QLabel(f'{self.project.icon or chr(9671)}  {self.project.name}')
+        nombre = QLabel(self.project.name)
         nombre.setStyleSheet(
             f"background: transparent; color: {self.pal.accent}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 700;")
@@ -83,7 +83,11 @@ class _GuardDialog(QDialog):
         ruta.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; "
             f"font-size: {Fonts.SIZE_XS}px;")
-        lay.addWidget(nombre)
+        fila = QHBoxLayout()
+        fila.setSpacing(8)
+        fila.addWidget(repo_logo.RepoLogoView(18, repo_logo.resolve(self.project.path)))
+        fila.addWidget(nombre, 1)
+        lay.addLayout(fila)
         lay.addWidget(ruta)
         return caja
 

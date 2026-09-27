@@ -65,3 +65,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0055](0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md) | Los íconos salen del logo del repo, los rasteriza Qt y van donde cada app declara |
 | [0056](0056-cada-tecnologia-declara-donde-va-su-icono.md) | Cada tecnología declara dónde va su ícono, y todos salen de `brand/` |
 | [0057](0057-el-manifest-de-la-pwa-es-un-archivo-estatico.md) | El manifest de la PWA es un archivo estático que la app enlaza |
+| [0058](0058-el-logo-del-repo-en-la-interfaz.md) | La interfaz muestra el logo del repo, y un repo sin logo lleva la marca de Equipaggio |

@@ -265,7 +265,7 @@ def test_un_svg_que_no_es_cuadrado_corta(tmp_path):
 
 def test_la_corrida_escribe_solo_lo_que_cambia(repo):
     mensajes = []
-    ctx = TaskContext('generate_icons', project=Project('repo', str(repo), '', ''),
+    ctx = TaskContext('generate_icons', project=Project('repo', str(repo), ''),
                       config=Config({'BRAND_ICON': 'brand/logomark.svg',
                                      'BRAND_ICON_MASKABLE': 'brand/maskable.svg'}),
                       log_sink=lambda msg, nivel: mensajes.append(msg))

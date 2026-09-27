@@ -11,8 +11,8 @@ from ui import palettes, params_store
 Conjunto de repositorios abiertos como pestanas de nivel superior.
 
 La primera vez que se abre Consola no hay ninguno: la barra arranca vacia y el
-primero se anade con «+». A partir de ahi se guarda la lista entera —ruta,
-nombre, icono— para que la UI arranque como quedo: anadir, quitar y reordenar
+primero se anade con «+». A partir de ahi se guarda la lista entera —ruta y
+nombre— para que la UI arranque como quedo: anadir, quitar y reordenar
 sobreviven al reinicio.
 
 **Esto SI va en QSettings**, a diferencia de los parametros de cada accion, que
@@ -48,7 +48,7 @@ def display_path(path: str) -> str:
 
 
 def _to_dict(p: Project) -> dict:
-    return {'name': p.name, 'path': p.path, 'icon': p.icon}
+    return {'name': p.name, 'path': p.path}
 
 
 def _from_dict(d: dict) -> Project | None:
@@ -61,8 +61,7 @@ def _from_dict(d: dict) -> Project | None:
         return None
     return Project(str(d.get('name') or os.path.basename(path)),
                    path,
-                   '',
-                   str(d.get('icon') or '\U0001F4C1'))
+                   '')
 
 
 def _resolve_themes(projects: list[Project]) -> list[Project]:

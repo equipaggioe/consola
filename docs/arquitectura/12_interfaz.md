@@ -22,7 +22,7 @@ Cada repo tiene su propio `TabPanel`, indexado por la ruta normalizada de su car
 
 ## 2. El color del repo
 
-Cada repo tiene un **tema** y un icono. El tema es una clave (`azul`, `indigo`, `violeta`, `rosa`, `coral`, `ambar`, `verde`, `cian`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú; al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
+Cada repo tiene un **tema** y un **logo**. El tema es una clave (`azul`, `indigo`, `violeta`, `rosa`, `coral`, `ambar`, `verde`, `cian`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú; al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
 
 Una paleta es un acento más la escalera de fondos que se deriva de él. Los fondos son **color, no gris**: el tono del acento a una saturación fija por rol, del 38 % al 55 % en HSL. Teñir **no cambia la luminosidad** del neutro de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
 
@@ -48,6 +48,17 @@ Lo que **no** sale de la paleta: los grises del texto, los colores de estado (`S
 Las pestañas de repo **no seleccionadas** llevan de fondo el acento del repo activo —el color con el que queda pintada la barra de título— y el contorno de `on_accent`, el mismo del «+», que es lo único que las recorta; el hover lo sube de 90 a 150 de alfa. La **seleccionada** se pinta de `chrome`, la banda de la fila del menú, que es la que va justo debajo: la pestaña queda conectada con el contenido que abre, como en un navegador, con el nombre en el acento del repo y sin contorno. El «+» es una pestaña más, la que todavía no tiene repo. Cambiar el color del repo activo repinta la fila entera.
 
 El menú del clic derecho sobre una pestaña es la ruta y los ocho colores, nada más: quitar el repo es la × de la pestaña, y repetirlo en el menú no agregaba un camino, agregaba una lista más larga.
+
+El **logo** es `BRAND_ICON`, el mismo SVG del que salen los íconos de las apps del repo ([19](19_imagenes.md)), leído de su `config.env` (`ui/repo_logo.py`, [ADR-0058](../adr/0058-el-logo-del-repo-en-la-interfaz.md)). Un repo sin `BRAND_ICON` lleva la marca de Equipaggio (`ui/assets/equipaggio.png`); uno cuyo `BRAND_ICON` no existe, no es SVG o Qt no lo lee muestra ⚠, con el error en el tooltip.
+
+| Dónde | Lado |
+|---|---|
+| Pestaña del repo, a la izquierda del nombre | 18 px |
+| Cabecera de la columna derecha, sin acción abierta (con una, va el emoji de la acción) | 20 px |
+| Bienvenida del repo, sin pestañas de ejecución | 64 px |
+| Tarjeta del repo en los avisos del seguro ([14](14_seguro_de_destructivos.md)) | 18 px |
+
+Se pinta con `QIcon.paint`, a la densidad del monitor. Se relee al guardar o recargar `config.env` en Configuración del repo; la pestaña lo recibe de su `TabPanel` por `logo_changed`.
 
 **Ningún fondo es negro.** La marca se apoya directamente en la barra de título, en `on_accent`, sin placa: su rombo se **pinta** con trazo de 2.2 px y el nombre va en negro de imprenta, que es lo que la sostiene sin una placa debajo. El casi negro `#0a0b10` sobrevive solo como tinta (`Colors.INK`, lo que `on_color` pone sobre un fondo claro), nunca como fondo. El contorno de la ventana sin foco es `border`.
 

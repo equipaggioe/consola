@@ -28,7 +28,7 @@ from ui.widgets.led import LedIndicator
 from ui.widgets import (ReorderableTab, ReorderableBar,
                         AccordionSection, SectionResizeGrip, FavoriteStar)
 from ui.guard_dialog import BlockedDialog, ReminderDialog
-from ui import params_store, favorites, section_visibility
+from ui import params_store, favorites, section_visibility, repo_logo
 from ui.task_runner import TaskRunner
 
 
@@ -409,6 +409,7 @@ class TabPanel(ReorderableBar, QWidget):
     sections_changed = Signal()  # se mostro/oculto una seccion de la columna lateral
     repo_ready = Signal(str)    # una tarea dejo un repo nuevo en disco (clonar):
                                 # su carpeta, para abrirla como pestana
+    logo_changed = Signal(object)  # se releyo config.env: el `RepoLogo`, para la pestana del repo
 
     # Piso del cuerpo de una seccion del acordeon al arrastrarla a mano.
     MIN_BODY = 48
@@ -417,6 +418,7 @@ class TabPanel(ReorderableBar, QWidget):
         super().__init__(parent)
         self.project = project
         self.pal = palettes.get(project.theme)
+        self.logo = repo_logo.resolve(project.path)
 
         self.layout = QVBoxLayout(self)
         self.layout.setContentsMargins(0, 0, 0, 0)
@@ -459,6 +461,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.env_panel = EnvPanel(project)
         self.env_panel.values_changed.connect(self._on_env_changed)
         self.env_panel.reloaded.connect(self._on_env_reloaded)
+        self.env_panel.saved.connect(self._refresh_logo)
 
         # Los seguros no salen de `config.env`: viven en `.consola/params.json`
         # y se guardan al tocarlos, sin pasar por el boton Guardar de
@@ -644,8 +647,11 @@ class TabPanel(ReorderableBar, QWidget):
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
 
-        self.right_header_icon = QLabel(self.project.icon or "◇")
+        # Sin accion abierta, el logo del repo; con una, el emoji de la accion.
+        self.right_header_logo = repo_logo.RepoLogoView(20, self.logo)
+        self.right_header_icon = QLabel()
         self.right_header_icon.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_LG}px;")
+        self.right_header_icon.setVisible(False)
 
         titles = QVBoxLayout()
         titles.setContentsMargins(0, 0, 0, 0)
@@ -667,6 +673,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.fav_star.setEnabled(False)
         self.fav_star.marked.connect(self._on_star_marked)
 
+        lay.addWidget(self.right_header_logo, 0, Qt.AlignmentFlag.AlignTop)
         lay.addWidget(self.right_header_icon, 0, Qt.AlignmentFlag.AlignTop)
         lay.addLayout(titles, 1)
         lay.addWidget(self.fav_star, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -685,13 +692,15 @@ class TabPanel(ReorderableBar, QWidget):
         if self._header_cap_id:
             self.fav_star.set_favorite(favorites.is_favorite(self._header_cap_id))
 
-    def _set_right_header(self, icon: str, name: str,
-                          capability: Capability | None = None) -> None:
-        # `capability` se sigue recibiendo por compatibilidad con quien llama;
-        # el nivel (atómica/compuesta) ya no se muestra aquí — vive en el
-        # tooltip de la fila del buscador y en la sección «Acción».
-        self.right_header_icon.setText(icon or "◇")
-        self.right_header_name.setText(name)
+    def _set_right_header(self, capability: Capability | None) -> None:
+        """La accion abierta, o el repo si no hay ninguna."""
+        self.right_header_logo.setVisible(capability is None)
+        self.right_header_icon.setVisible(capability is not None)
+        if capability is None:
+            self.right_header_name.setText(self.project.name)
+        else:
+            self.right_header_icon.setText(capability.icon)
+            self.right_header_name.setText(capability.name)
         self._header_cap_id = capability.id if capability is not None else ''
         self.fav_star.setEnabled(bool(self._header_cap_id))
         self.fav_star.set_favorite(
@@ -703,10 +712,7 @@ class TabPanel(ReorderableBar, QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setSpacing(6)
 
-        self.diamond_label = QLabel(self.project.icon or "◇")
-        self.diamond_label.setStyleSheet(
-            f"background: transparent; color: {self.pal.accent}; font-size: 54px;")
-        self.diamond_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.welcome_logo = repo_logo.RepoLogoView(64, self.logo)
 
         self.welcome_title = QLabel(self.project.name.upper())
         self.welcome_title.setStyleSheet(
@@ -724,7 +730,8 @@ class TabPanel(ReorderableBar, QWidget):
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;")
         self.path_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        lay.addWidget(self.diamond_label, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addWidget(self.welcome_logo, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addSpacing(8)
         lay.addWidget(self.welcome_title, 0, Qt.AlignmentFlag.AlignHCenter)
         lay.addWidget(subtitle, 0, Qt.AlignmentFlag.AlignHCenter)
         lay.addSpacing(18)
@@ -952,7 +959,7 @@ class TabPanel(ReorderableBar, QWidget):
             self.params_stack.setCurrentIndex(0)
             self.run_footer.setCurrentIndex(0)
             self.env_panel.filter_for(None)
-            self._set_right_header(self.project.icon, self.project.name)
+            self._set_right_header(None)
             self.info_panel.set_capability(None)
             self.info_section.set_expanded(False, announce=False)
             # Parametros se queda desplegada: es su estado por defecto (aunque
@@ -1031,8 +1038,6 @@ class TabPanel(ReorderableBar, QWidget):
                 font-size: {Fonts.SIZE_SM}px; font-weight: 600;
             }}
         """)
-        self.diamond_label.setStyleSheet(
-            f"background: transparent; color: {self.pal.accent}; font-size: 54px;")
 
     def reveal_security(self) -> None:
         """Despliega la seccion Seguridad de este repo. La llama el indicador
@@ -1058,8 +1063,7 @@ class TabPanel(ReorderableBar, QWidget):
             # grandes del SDK siguen saliendo de la cache.
             panel.reload_catalogs()
             self.env_panel.filter_for(panel.relevant_keys())
-            self._set_right_header(panel.capability.icon, panel.capability.name,
-                                   panel.capability)
+            self._set_right_header(panel.capability)
             self.info_panel.set_capability(panel.capability)
             # Abrir una accion despliega sus parametros; si la habias plegado
             # a mano, vuelve a abrirse — es lo que fuiste a buscar al clic.
@@ -1280,6 +1284,14 @@ class TabPanel(ReorderableBar, QWidget):
         """
         for panel in self._params.values():
             panel.refresh_machine()
+        self._refresh_logo()
+
+    def _refresh_logo(self, *_args) -> None:
+        """`BRAND_ICON` pudo cambiar: el logo se relee del archivo guardado."""
+        self.logo = repo_logo.resolve(self.project.path)
+        self.right_header_logo.set_logo(self.logo)
+        self.welcome_logo.set_logo(self.logo)
+        self.logo_changed.emit(self.logo)
 
     def _run(self, tab: SubTabButton, payload: dict) -> None:
         """Punto unico de 'Ejecutar': corre de verdad lo que ya tiene cuerpo

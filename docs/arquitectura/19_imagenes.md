@@ -140,3 +140,5 @@ Cada archivo se escribe solo si cambia, y el log dice si es nuevo, actualizado o
 Rasteriza `core/tasks/raster.py` con QtSvg (`QSvgRenderer` sobre un `QImage` con antialiasing), sin aplicación Qt; el `.ico` lo arma Pillow a partir del PNG de 256. QtSvg implementa SVG Tiny 1.2: filtros, máscaras o CSS saldrían distintos que en el navegador.
 
 El ejecutable de «Compilar ejecutable» toma el mismo logo: con `BRAND_ICON`, `compile_binary` escribe `build/icon.ico` y lo pasa en `--icon` ([17](17_builds_y_artefactos.md)).
+
+La interfaz de Consola también lo muestra como logo del repo, en su pestaña y en su espacio de trabajo ([12](12_interfaz.md) §2).
