@@ -48,3 +48,22 @@ def test_un_logo_que_no_se_lee_muestra_el_error(repo, value, error):
     logo = repo_logo.resolve(str(repo))
     assert logo.source is None
     assert error in logo.error
+
+
+def test_el_logo_se_recorta_a_lo_que_se_dibuja(repo):
+    # Como el de vettore: un cuadrado de 56 con 4 de margen en un lienzo de 64.
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    imagen = repo_logo.trimmed(repo / 'brand' / 'logomark.svg')
+    lado = repo_logo._RASTER * 56 / 64
+    assert imagen.width() == pytest.approx(lado, abs=2)
+    assert imagen.height() == pytest.approx(lado, abs=2)
+
+
+def test_la_marca_de_equipaggio_se_recorta():
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    # En el PNG de 400 el dibujo ocupa 292 de ancho y 378 de alto.
+    imagen = repo_logo.trimmed(repo_logo.EQUIPAGGIO)
+    assert imagen.width() == pytest.approx(repo_logo._RASTER * 292 / 400, abs=3)
+    assert imagen.height() == pytest.approx(repo_logo._RASTER * 378 / 400, abs=3)

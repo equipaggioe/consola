@@ -17,12 +17,13 @@ El logo del repo ya existe en la configuración: `BRAND_ICON`, el SVG del que sa
 3. **Un `BRAND_ICON` que no se puede leer se muestra como ⚠**, con el error en el tooltip. La marca de Equipaggio diría que no hay logo, cuando lo que hay es una ruta rota.
 4. **Va en la pestaña del repo, a la izquierda del nombre**; a la derecha está la ×, y el logo pegado a ella se leería como otro botón. También en la cabecera de la columna derecha cuando no hay acción abierta, en la bienvenida y en la tarjeta del aviso del seguro.
 5. **Se relee al guardar o recargar `config.env`**, desde Configuración del repo.
+6. **El logo se recorta a lo que dibuja** y llena su cuadrado por el lado largo. El margen transparente lo pone el diseño del logo para otros usos (el de vettore deja 4 de 64 unidades por lado para el recorte de los íconos de app); en la barra de pestañas hacía que ese logo y la marca de Equipaggio se vieran más chicos que los demás.
 
 ## Consecuencias
 
 - `Project` pierde `icon`, y `projects/list` guarda solo ruta y nombre.
 - Declarar `BRAND_ICON` cambia lo que se ve en la barra de pestañas, no solo lo que genera «Generar íconos».
-- La marca de Equipaggio existe solo como PNG de 400 × 400; se dibuja escalada, y no hay SVG de la marca.
+- La marca de Equipaggio existe solo como PNG de 400 × 400; se dibuja escalada, y no hay SVG de la marca. Es más alta que ancha, así que aun recortada ocupa menos ancho que un logo cuadrado.
 
 ## Descartado
 

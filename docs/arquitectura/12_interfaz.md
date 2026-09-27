@@ -58,7 +58,7 @@ El **logo** es `BRAND_ICON`, el mismo SVG del que salen los íconos de las apps 
 | Bienvenida del repo, sin pestañas de ejecución | 64 px |
 | Tarjeta del repo en los avisos del seguro ([14](14_seguro_de_destructivos.md)) | 18 px |
 
-Se pinta con `QIcon.paint`, a la densidad del monitor. Se relee al guardar o recargar `config.env` en Configuración del repo; la pestaña lo recibe de su `TabPanel` por `logo_changed`.
+El logo se recorta a lo que dibuja y llena el cuadrado por su lado largo: el margen transparente es del diseño del logo (el de vettore deja 4 de 64 unidades por lado para los íconos de app), y sin recortarlo ese logo y la marca de Equipaggio salían más chicos que los demás. Se rasteriza a 256 px, se recorta donde el alfa pasa de 8 y se escala con `SmoothTransformation` a la densidad del monitor. Se relee al guardar o recargar `config.env` en Configuración del repo; la pestaña lo recibe de su `TabPanel` por `logo_changed`.
 
 **Ningún fondo es negro.** La marca se apoya directamente en la barra de título, en `on_accent`, sin placa: su rombo se **pinta** con trazo de 2.2 px y el nombre va en negro de imprenta, que es lo que la sostiene sin una placa debajo. El casi negro `#0a0b10` sobrevive solo como tinta (`Colors.INK`, lo que `on_color` pone sobre un fondo claro), nunca como fondo. El contorno de la ventana sin foco es `border`.
 
