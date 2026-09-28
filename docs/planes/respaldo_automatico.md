@@ -5,7 +5,8 @@
 > ([16](../arquitectura/16_base_de_datos.md), §8).
 >
 > **Decidido el 2026-09-28:** cada VPS se respalda solo, fuera de su máquina, y todo lo del
-> respaldo es configurable por repo. Lo demás es propuesta.
+> respaldo es configurable por repo. Si un respaldo no llega, avisa el monitor de Equipaggio, y el
+> mismo monitor avisa cuando un VPS se queda sin disco. Lo demás es propuesta.
 
 ## 1. Síntoma
 
@@ -51,11 +52,21 @@ Ninguna tiene valor por omisión: sin ellas, el botón que instala el respaldo n
 | Servicio de respaldo | `pg_dump -Fc`, cifrado, subida al destino y rotación por `<DB_NAME>-*.dump`, igual que `backup_db` |
 | Restaurar desde el destino | Baja un volcado del destino a `BACKUP_DIR` y lo carga con el `restore_db` de hoy *(propuesta)* |
 | Borrado | `remove_systemd_service` también borra el servicio y el temporizador del respaldo |
+| Aviso al monitor | Al terminar bien, el servicio de respaldo le avisa al monitor de Equipaggio. Si el aviso no llega a tiempo, el monitor avisa por push (plan `construccion_inicial.md` de `equipaggio`, sección 3) |
+| Reporte de disco | Un temporizador aparte le reporta al monitor el espacio libre del VPS *(propuesta: cada hora)*. Va aparte del respaldo porque un VPS sin base también tiene disco, y un día es mucho para un disco que se llena con logs |
+
+### Claves del aviso *(propuesta)*
+
+| Clave | Qué dice |
+|---|---|
+| `MONITOR_URL` | A dónde se reportan el respaldo y el disco |
+| `MONITOR_TOKEN` | Con qué se identifica el VPS ante el monitor. `secret` |
 
 ## 5. Preguntas abiertas
 
 1. **¿Qué destino usa cada repo?** Es configurable, así que no hay que decidirlo de una vez para
    todos; sí para el primero que lo use.
 2. **¿Con qué se cifra?** `rclone crypt` o `age`. Los volcados llevan datos personales.
-3. **¿Quién avisa si un respaldo no se hizo?** Un temporizador que falla no se nota hasta el día en
-   que se necesita el respaldo. Candidato: el monitor de Equipaggio (su ADR-0003).
+3. **¿Cómo sabe el monitor cuánto esperar?** El horario es configurable por repo, así que la espera
+   de cada VPS no puede ser fija. Candidatos: que el aviso diga cuándo toca el siguiente, o que el
+   registro del monitor guarde la espera de cada VPS.
