@@ -43,23 +43,20 @@ class Setting:
 
 # Claves VPS que necesita cualquier operacion que alcance el servidor.
 _VPS_REACH = ('ssh_login', 'health_check', 'run_command',
-              'update_remote', 'upload_to_vps', 'install_software', 'setup_ssh_key',
-              'setup_github_ssh', 'configure_coturn', 'configure_caddy',
-              'bootstrap_vps', 'view_logs',
-              'systemd_action', 'configure_service', 'clean_vps', 'revoke_ssh')
+              'upload_to_vps', 'install_software', 'setup_ssh_key', 'view_logs',
+              'systemd_action', 'clean_vps', 'revoke_ssh')
 
 # Solo las de base sin eje `scope`: las que lo tienen declaran sus claves en el
-# eje (`core/catalog.py::_SCOPE_AXIS`), porque dependen del ambito elegido.
-# `backup_db` salio de aca al ganar el eje (ADR-0046): exigirle las claves desde
-# la capacidad las pedia tambien para el ambito local.
-_DB_REMOTE = ('ssh_tunnel',)
+# eje (`core/catalog.py::_SCOPE_AXIS`), porque dependen del ambito elegido. El
+# tunel va siempre al VPS; las otras cuatro, siempre a la base local (ADR-0060).
+_DB_FIXED = ('ssh_tunnel', 'bootstrap_db', 'migrate_db', 'backup_db', 'restore_db')
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---
-    # No la exige nadie: el build de Flutter la pide por paso (`BUILD_FLUTTER_STEPS`) y
-    # `run_mobile` cae en la URL del backend de esta sesion si esta vacia.
-    Setting('API_URL', 'Server', 'URL publica de la API',
-            used_by=('backend', 'run_mobile', 'build_flutter')),
+    # La exige el build de Flutter, que la compila adentro de la app. `run_mobile`
+    # cae en la URL del backend de esta sesion si esta vacia.
+    Setting('API_URL', 'Server', 'URL publica de la API', required_by=('build_flutter',),
+            used_by=('backend', 'run_mobile')),
 
     # --- Cloudflare ---
     Setting('CF_API_TOKEN', 'Cloudflare', 'API token', secret=True,
@@ -72,40 +69,20 @@ SETTINGS: tuple[Setting, ...] = (
     # --- VPS ---
     Setting('VPS_IP', 'VPS', 'IP del servidor', required_by=_VPS_REACH),
     Setting('ROOT_USER', 'VPS', 'Usuario root', default='root',
-            required_by=('setup_ssh_key', 'install_software', 'bootstrap_vps')),
+            required_by=('setup_ssh_key', 'install_software')),
     Setting('VPS_USER', 'VPS', 'Usuario de despliegue',
             required_by=_VPS_REACH),
     Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
+    # Los dos los lee el ambito remoto de la base (`core/runner.py`), que corre
+    # el Python del repo desplegado.
     Setting('VPS_PYTHON', 'VPS', 'Python del VPS', default='server/.venv/bin/python',
-            required_by=('update_remote', 'configure_service')),
+            used_by=('rebuild_db', 'run_seeders', 'run_mock_seeders')),
     Setting('VPS_DEPLOY_DIR', 'VPS', 'Directorio de despliegue',
-            required_by=('update_remote', 'upload_to_vps')),
-    # El nombre con el que se llega al VPS desde afuera: el realm de coturn y la
-    # direccion del sitio de Caddy son el mismo dato, no dos. Su default sale de
-    # lo que ya esta cargado —el registro DNS de Cloudflare, si no el dominio, si
-    # no la IP— y el panel lo muestra resuelto, igual que el usuario de
-    # despliegue muestra el nombre del repo.
-    Setting('PUBLIC_HOST', 'VPS', 'Nombre publico del VPS',
-            used_by=('configure_coturn',)),
-    # Ya no la lee Caddy: cada regla de `PUBLIC_ROUTES` nombra su host. Le quedo
-    # coturn, que la usa de realm.
-    # Los archivos que nunca viajan por git. Era un eje repetido en los cuatro
-    # botones del deploy, con su propio valor guardado en cada uno: cambiar la
-    # lista obligaba a escribirla cuatro veces y nada avisaba cuando dos
-    # discrepaban. Que archivos secretos tiene un repo no es una decision de
-    # quien aprieta el boton, es una propiedad del proyecto — o sea,
-    # configuracion.
-    #
-    # `kind='list'` la dibuja multilinea, una ruta por renglon. En el archivo va
-    # separada por comas, que es lo unico que entra en un renglon de .env;
-    # `envfile.split_list` acepta las dos formas al leerla.
-    Setting('SECRET_FILES', 'VPS', 'Archivos a copiar', kind='list',
-            used_by=('publish_code', 'update_remote', 'upload_secret_files',
-                     'bootstrap_vps')),
+            required_by=('upload_to_vps',)),
     # Vacio, el rol es el mismo usuario de despliegue (`Config._dynamic_default`).
-    Setting('DB_USER', 'VPS', 'Rol de la base', required_by=_DB_REMOTE),
-    Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_REMOTE),
-    Setting('DB_PASSWORD', 'VPS', 'Password de la base', secret=True, required_by=_DB_REMOTE),
+    Setting('DB_USER', 'VPS', 'Rol de la base', required_by=_DB_FIXED),
+    Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_FIXED),
+    Setting('DB_PASSWORD', 'VPS', 'Password de la base', secret=True, required_by=_DB_FIXED),
     # Donde caen los volcados de `backup_db` y de donde los lee `restore_db`.
     # Relativa se resuelve contra la raiz del repo; absoluta se usa tal cual, que
     # es lo que permite sacarlos de adentro del repo — `.backups/` no esta en
@@ -124,30 +101,12 @@ SETTINGS: tuple[Setting, ...] = (
     # entre dos veces que se aprieta el boton.
     Setting('BACKUP_KEEP', 'VPS', 'Respaldos a conservar', default='7',
             used_by=('backup_db',)),
-    # El secreto con el que el backend firma las credenciales efimeras de TURN.
-    # No lo escribe una persona: `configure_coturn` lo genera la primera vez y
-    # lo deja aca. Esta declarado igual porque el backend tiene que leer EL
-    # MISMO valor que quedo en /etc/turnserver.conf, y sin una casa el boton lo
-    # regeneraba en cada corrida — cada reconfiguracion tiraba abajo las
-    # llamadas sin decir por que. `used_by` y no `required_by`: vacio significa
-    # "todavia no se genero", no "falta un dato".
-    Setting('TURN_SECRET', 'VPS', 'Secreto TURN', secret=True,
-            used_by=('configure_coturn',)),
-    # Los puertos del TURN son datos y no parametros por la misma razon que el
-    # secreto: el backend tiene que anunciar en sus `turn:` URLs exactamente los
-    # que quedaron en /etc/turnserver.conf. El rango de relay va en una sola
-    # clave porque es un solo dato —coturn pide un puerto por sesion de medios
-    # viva— y partirlo en dos claves permitiria guardarlas cruzadas.
-    Setting('TURN_PORT', 'VPS', 'Puerto TURN', default='3478',
-            used_by=('configure_coturn',)),
-    Setting('TURN_RELAY_RANGE', 'VPS', 'Rango de relay', default='49160-49360',
-            used_by=('configure_coturn',)),
     Setting('PG_SUPERUSER', 'VPS', 'Superusuario Postgres', default='postgres',
             required_by=('bootstrap_db', 'teardown_db', 'rebuild_db')),
     Setting('PG_PASSWORD', 'VPS', 'Password del superusuario', secret=True,
             required_by=('bootstrap_db', 'teardown_db', 'rebuild_db')),
     # Configuracion y no parametro de la corrida: que extensiones necesita el
-    # esquema es una propiedad del proyecto, igual que `SECRET_FILES`. No sale
+    # esquema es una propiedad del proyecto. No sale
     # de ningun catalogo de Postgres —`pg_available_extensions` dice lo que se
     # PUEDE crear (cientos con contrib) y `pg_extension` lo que YA esta creado—
     # ni de las migraciones, que con `--autogenerate` nunca escriben un
@@ -159,96 +118,47 @@ SETTINGS: tuple[Setting, ...] = (
     # esta, `enable_extensions` avisa y sigue en vez de romper el bootstrap.
     Setting('DB_EXTENSIONS', 'VPS', 'Extensiones de Postgres', kind='list',
             default='postgis',
-            used_by=('bootstrap_db', 'enable_extensions', 'bootstrap_vps')),
+            used_by=('bootstrap_db', 'enable_extensions')),
 
     # --- Web ---
-    # La tabla de ruteo del reverse proxy: un renglon por regla, en orden, gana
-    # la primera que matchea. Es la misma forma que tienen por dentro los
-    # `handle` de Caddy, los `rewrites` de Vercel y los `paths` de un Ingress, y
-    # esta aca —y no en `params.json`— porque es estructura del despliegue: esas
-    # rutas serian las mismas si el Caddyfile se escribiera a mano.
+    # Bajo que ruta se publica cada cosa: un renglon por regla, en orden, gana la
+    # primera que matchea. La lee el build para saber con que `base` compilar
+    # cada SPA (`vps.spa_base`).
     #
-    # `<patron> <tipo> <destino>`, siempre los tres:
-    #   proxy <host:puerto> -> reverse_proxy a esa direccion (no recorta)
-    #   spa <carpeta>       -> el build de esa SPA del repo (recorta el prefijo)
-    #   static <ruta>       -> una carpeta del VPS (recorta el prefijo)
-    # Cada `$CLAVE` del destino se resuelve contra esta configuracion. El patron
-    # `*` es el catch-all y va ultimo. Sin comas en ningun valor: son el
-    # separador con el que se guarda la lista.
-    # El nombre no menciona a Caddy a proposito: la tabla dice bajo que ruta se
-    # publica cada cosa, y quien la sirva —un proxy o el backend del propio
-    # repo— es otra pregunta. El build la necesita en los dos casos.
+    # `<patron> <tipo> <destino>`, siempre los tres: `proxy <host:puerto>`,
+    # `spa <carpeta>` o `static <ruta>`. El patron `*` es el catch-all y va
+    # ultimo. Sin comas en ningun valor: son el separador con el que se guarda
+    # la lista.
     Setting('PUBLIC_ROUTES', 'Web', 'Rutas publicas', kind='list',
-            required_by=('configure_caddy',)),
-    # La unica cabecera de seguridad que cambia entre proyectos, y la unica que
-    # cambia ENTRE SITIOS del mismo repo: el backoffice puede necesitar tres CDN
-    # y la landing ninguno. Una sola politica para los dos termina siendo la mas
-    # permisiva de ambas, que no protege a ninguno; por eso es una tabla
-    # «<host> <politica>», con `*` para los sitios que no tengan la suya.
-    #
-    # Las otras tres —HSTS, nosniff, Referrer-Policy— tienen un solo valor
-    # sensato y las escribe `configure_caddy` sin preguntar: son de las que se
-    # olvidan, no de las que se eligen. Vacia significa no emitir CSP, que es lo
-    # que corresponde mientras el sitio todavia no la tenga pensada.
-    Setting('CSP', 'Web', 'Content-Security-Policy por sitio', kind='list',
-            used_by=('configure_caddy',)),
+            used_by=('build_vite', 'build_flutter')),
 
     # --- GitHub ---
+    # De ahi sale el nombre del repo en el VPS (`vps.repo_name`), que nombra sus
+    # unidades systemd.
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
-            required_by=('update_remote', 'setup_github_ssh', 'bootstrap_vps')),
-    Setting('GITHUB_TOKEN', 'GitHub', 'Token', secret=True,
-            required_by=('setup_github_ssh', 'revoke_github_ssh')),
-    Setting('GITHUB_KEY_TITLE', 'GitHub', 'Titulo de la llave',
-            required_by=('setup_github_ssh', 'revoke_github_ssh')),
+            used_by=('systemd_action', 'view_logs', 'health_check')),
+    # Las pide la casilla «Revocar llave de GitHub» de `clean_vps`.
+    Setting('GITHUB_TOKEN', 'GitHub', 'Token', secret=True, used_by=('clean_vps',)),
+    Setting('GITHUB_KEY_TITLE', 'GitHub', 'Titulo de la llave', used_by=('clean_vps',)),
 
     # --- Systemd ---
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
-            required_by=('configure_service',), used_by=('sync_server_env',)),
-    # Donde escucha el backend DENTRO del VPS. Lo escribe `write_systemd_unit` y
-    # lo leen las reglas `proxy $BACKEND_HOST:$BACKEND_PORT` de `configure_caddy`:
-    # es un dato de a dos, y tenerlo en cada boton por separado seria dejar que
-    # un lado quede apuntando a donde el otro ya no escucha.
-    #
-    # El default sale de si la tabla tiene alguna regla `proxy`
-    # (`envfile.Config._dynamic_default`) y no es fijo: con proxy adelante el
-    # backend solo tiene que ser alcanzable desde el propio VPS, y sin proxy el
-    # unico que contesta afuera es el. Era `127.0.0.1` para todos "porque Caddy
-    # viene en DEFAULT_GROUPS" — o sea, el unico repo con proxy decidiendo por
-    # los que no lo tienen.
-    Setting('BACKEND_HOST', 'Systemd', 'Escucha del backend',
-            used_by=('configure_service', 'configure_caddy')),
-    Setting('BACKEND_PORT', 'Systemd', 'Puerto del backend', default='8000',
-            used_by=('configure_service', 'configure_caddy')),
-    Setting('CERT_FILE_PATH', 'Systemd', 'Certificado', default='server/certs/cert.pem',
-            required_by=('configure_service',)),
-    Setting('KEY_FILE_PATH', 'Systemd', 'Llave privada', default='server/certs/key.pem',
-            required_by=('configure_service',)),
+            used_by=('sync_server_env',)),
+    # `SERVICES` da los valores del eje `service` (`vps.managed_services`): una
+    # tabla «<sufijo> <tipo> <destino>», y cada unidad se llama
+    # `<repo>-<sufijo>`. Vacia, hay un solo servicio, llamado como el repo, que
+    # corre `UVICORN_APP`.
     Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
-            required_by=('configure_service',)),
-    # Un repo puede tener mas de un proceso largo —una API y un enviador de
-    # avisos, un servidor y un consumidor de cola— y para systemd son dos
-    # unidades sin nada que las distinga salvo su comando. Misma forma que
-    # `PUBLIC_ROUTES`: «<sufijo> <tipo> <destino>», con tipos `uvicorn`, `python`
-    # y `command`.
-    #
-    # Vacia = un solo servicio, llamado como el repo y corriendo `UVICORN_APP`,
-    # que es lo que habia antes de que la tabla existiera. Con tabla, cada
-    # unidad se llama `<repo>-<sufijo>`.
+            used_by=('systemd_action', 'view_logs')),
     Setting('SERVICES', 'Systemd', 'Servicios del repo', kind='list',
-            used_by=('configure_service', 'remove_systemd_service')),
-    # Las carpetas que el servicio necesita fuera del repo, `<ruta> <modo>` por
-    # renglon, a nombre del usuario del servicio. Las crea `configure_service`
-    # con un `tmpfiles.d`, que systemd vuelve a aplicar en cada arranque. Vacia
-    # si el repo no guarda nada fuera del codigo.
-    Setting('SERVICE_DIRS', 'Systemd', 'Carpetas del servicio', kind='list',
-            used_by=('configure_service',)),
+            used_by=('systemd_action', 'view_logs')),
 
     # --- Builds ---
     # Donde queda cada build de `build_flutter`, relativo a la carpeta de la app.
     # Vacia, donde lo deja el framework: la marca de agua dice cual es. Con valor,
-    # el build se copia ahi y la subida al VPS lo toma de ahi. Sin `used_by`: las
-    # reclama la casilla de cada plataforma (`AxisDef.uses_env` del catalogo), y
-    # solo se muestran las de las plataformas marcadas.
+    # el build se copia ahi. Sin `used_by`: las reclama la casilla de cada
+    # plataforma (`AxisDef.uses_env` del catalogo), y solo se muestran las de
+    # las plataformas marcadas.
     *(Setting(f'BUILD_OUT_{clave}', 'Builds', f'Carpeta del build {nombre}',
               default_hint=defecto)
       for clave, nombre, defecto in (

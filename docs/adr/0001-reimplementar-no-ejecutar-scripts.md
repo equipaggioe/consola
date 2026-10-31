@@ -1,6 +1,6 @@
 # ADR-0001 · Los scripts se reimplementan como funciones; el único subproceso es un binario externo
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0059](0059-desplegar-con-los-programas-de-canone.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** todo el repositorio
 

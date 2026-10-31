@@ -146,18 +146,10 @@ DOCS: dict[str, CommandDoc] = {
     'build_flutter': CommandDoc(
         summary=(
             'Compila la app Flutter o Flet del repo para las plataformas '
-            'marcadas (APK, AAB, web, escritorio, iOS), con el número de versión '
-            'al día y publicada en el VPS junto a su manifiesto.'
+            'marcadas (APK, AAB, web, escritorio, iOS).'
         ),
         steps=[
-            'Ubica la app elegida y su manifiesto de versión (pubspec.yaml o '
-            'pyproject.toml).',
-            'Si el paso de compilar está desmarcado, toma los builds que ya están '
-            'en disco y salta directo a la subida.',
-            'Abre una copia reversible del manifiesto, que se restaura si algo '
-            'falla antes de terminar los builds.',
-            'Escribe la versión nueva en el manifiesto, una sola vez para todas '
-            'las plataformas: patch, minor, major, +build o ninguno.',
+            'Ubica la app elegida.',
             'Detecta si la app es Flutter o Flet y lee API_URL de la '
             'configuración.',
             'Por cada plataforma corre flutter build <plataforma> --release, o '
@@ -165,25 +157,17 @@ DOCS: dict[str, CommandDoc] = {
             'agrega la ruta bajo la que el proxy sirve la app.',
             'Busca el build donde lo deja el framework y, si BUILD_OUT_<PLATAFORMA> '
             'tiene una carpeta, lo copia ahí.',
-            'Copia por scp cada build al VPS, a la misma ruta relativa que tiene '
-            'en el repo.',
-            'Copia por scp el manifiesto de versión a su ruta relativa.',
         ],
     ),
 
     'build_vite': CommandDoc(
         summary=(
-            'Deja compiladas las SPA marcadas del repo, con su versión al día y '
-            'publicadas en el VPS. Las recorre de a una, en un solo log.'
+            'Deja compiladas las SPA marcadas del repo. Las recorre de a una, en '
+            'un solo log.'
         ),
         steps=[
-            'Ubica la carpeta y el package.json de la primera SPA marcada.',
-            'Si el paso de compilar está desmarcado, toma la carpeta dist/ o '
-            'build/ que ya está en disco y salta a la subida.',
-            'Abre una copia reversible del package.json.',
+            'Ubica la carpeta de la primera SPA marcada.',
             'Corre npm install en la carpeta de la SPA.',
-            'Escribe la versión nueva en el package.json, según el modo '
-            'elegido.',
             'Escribe base.generated.js con la ruta pública que PUBLIC_ROUTES le '
             'asigna a esa app.',
             'Corre npm run build.',
@@ -191,8 +175,6 @@ DOCS: dict[str, CommandDoc] = {
             'Lee el index.html compilado y compara sus href y src contra esa '
             'ruta pública; corta si el build pide sus assets en la raíz del '
             'dominio.',
-            'Copia por scp la carpeta compilada y después el package.json, a '
-            'sus rutas relativas en el VPS.',
             'Vuelve al primer paso con la siguiente SPA marcada.',
         ],
     ),
@@ -225,21 +207,6 @@ DOCS: dict[str, CommandDoc] = {
             'sha256sum.',
             'Copia por scp el binario con chmod 755, después el manifiesto y '
             'después el checksum.',
-        ],
-    ),
-
-    'promote_app': CommandDoc(
-        summary=(
-            'Reemplaza la carpeta estable del repo con la de la última versión '
-            'publicada.'
-        ),
-        steps=[
-            'Ubica las dos carpetas dentro del repo y corta si la de origen no '
-            'existe.',
-            'Compara árbol contra árbol y termina si son idénticas.',
-            'Informa qué carpeta va a ser reemplazada y con qué diferencia.',
-            'Borra la carpeta estable entera.',
-            'Copia la carpeta de origen en su lugar.',
         ],
     ),
 
@@ -482,29 +449,13 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    'revoke_github_ssh': CommandDoc(
-        summary=(
-            'Borra la deploy key del disco del VPS y la da de baja en la cuenta '
-            'de GitHub.'
-        ),
-        steps=[
-            'Borra en el VPS ~/.ssh/id_ed25519 y su .pub.',
-            'Busca en GitHub, con GITHUB_TOKEN, la llave cuyo título sea '
-            'GITHUB_KEY_TITLE.',
-            'La elimina por su id.',
-        ],
-    ),
-
     'clean_vps': CommandDoc(
         summary=(
-            'Deja el VPS como recién formateado: saca el servicio, la base, el '
-            'repo desplegado, la deploy key, los paquetes y el usuario de '
-            'despliegue.'
+            'Deja el VPS como recién formateado: saca la base, el repo '
+            'desplegado, la deploy key, los paquetes y el usuario de despliegue. '
+            'No borra unidades systemd.'
         ),
         steps=[
-            'Servicio: borra /etc/tmpfiles.d/<servicio>.conf (las carpetas se '
-            'quedan), comprueba que la unidad exista, corre systemctl stop y '
-            'disable, borra el archivo .service y corre daemon-reload.',
             'Base: corta las conexiones vivas y corre DROP DATABASE y DROP ROLE '
             'contra el Postgres del VPS.',
             'Repo: comprueba que la carpeta de despliegue exista y corre rm -rf '
@@ -546,103 +497,6 @@ DOCS: dict[str, CommandDoc] = {
             'Arma el journalctl con la cantidad de líneas, -f si es en vivo, y '
             'los filtros de fecha, prioridad y patrón que estén cargados.',
             'Lo corre por SSH con sudo -n y vuelca la salida a medida que llega.',
-        ],
-    ),
-
-    'configure_service': CommandDoc(
-        summary=(
-            'Escribe la unidad systemd del backend del repo en el VPS y lo deja '
-            'corriendo.'
-        ),
-        steps=[
-            'Comprueba que en el VPS existan la carpeta del servidor y el python '
-            'de su venv, y corta si falta alguno.',
-            'Si SERVICE_DIRS tiene carpetas, escribe /etc/tmpfiles.d/<servicio>.conf '
-            '(mostrando el diff) y corre systemd-tmpfiles --create: crea las que '
-            'faltan y corrige dueño y modo. Si está vacía, borra ese archivo.',
-            'Lee BACKEND_HOST y BACKEND_PORT, y comprueba si el certificado está '
-            'en el VPS cuando el backend escucha fuera de loopback.',
-            'Arma la unidad con el usuario de despliegue, WorkingDirectory en la '
-            'carpeta del servidor y un ExecStart que corre uvicorn con el python '
-            'del venv, más --ssl-certfile y --ssl-keyfile si corresponde.',
-            'Lee la unidad que ya está en el VPS y muestra el diff contra la '
-            'nueva.',
-            'Si cambió, la escribe con tee y corre systemctl daemon-reload.',
-            'Si el backend escucha fuera de loopback, abre su puerto en ufw.',
-            'Corre systemctl enable.',
-            'Corre systemctl restart si la unidad cambió, o systemctl start si '
-            'quedó igual.',
-            'Consulta systemctl is-active y corta si el servicio no quedó '
-            'activo.',
-            'Informa en qué dirección y puerto quedó escuchando el backend.',
-        ],
-    ),
-
-    'publish_code': CommandDoc(
-        summary=(
-            'Deja en el VPS el código de la rama abierta, sus dependencias y los '
-            'archivos que no viajan por git.'
-        ),
-        steps=[
-            'Comprueba que haya git en el PATH y que la carpeta abierta sea un '
-            'repo.',
-            'Lee la rama actual e informa los cambios sin commitear, sin '
-            'commitearlos.',
-            'Corre git fetch y compara la rama local con su upstream.',
-            'Corre git push, o git push -u origin RAMA si la rama no tiene '
-            'upstream, y salta el push si ya estaba al día.',
-            'Pregunta al VPS, en una sola conexión, si el repo está clonado y '
-            'qué tiene sin commitear.',
-            'Si no está clonado, crea la carpeta de despliegue a nombre del '
-            'usuario y corre git clone de GIT_REPO_URL.',
-            'Si está clonado y sucio, muestra la lista de archivos y pregunta '
-            'antes de descartarlos.',
-            'Corre en el VPS, en un solo comando, el git reset --hard y '
-            'git clean -fd aceptados, el git fetch --all y el git reset --hard '
-            'al upstream.',
-            'Crea el venv del servidor con python3 -m venv si no existe.',
-            'Comprueba que requirements.txt esté en el VPS y corre el pip de ese '
-            'venv con -r.',
-            'Copia por scp cada ruta de SECRET_FILES que exista en el repo a la '
-            'misma ruta relativa del VPS, con chmod 600.',
-        ],
-    ),
-
-    'update_remote': CommandDoc(
-        summary=(
-            'Deja corriendo en el VPS el código de la rama abierta, con la base '
-            'al día y el servicio reiniciado.'
-        ),
-        steps=[
-            'Comprueba git y la rama, informa los cambios sin commitear y corre '
-            'git fetch y git push.',
-            'Pregunta al VPS si el repo está clonado y qué tiene sin commitear.',
-            'Clona GIT_REPO_URL, o corre git fetch --all y git reset --hard al '
-            'upstream, descartando antes los cambios locales del VPS si se '
-            'aceptó.',
-            'Crea el venv del servidor si falta y corre su pip install -r '
-            'requirements.txt.',
-            'Copia por scp los archivos de SECRET_FILES con chmod 600.',
-            'Corre alembic upgrade head en el VPS, con el python de su venv y la '
-            'base vista desde ahí.',
-            'Comprueba que la unidad exista y corre systemctl restart del '
-            'servicio del repo.',
-        ],
-    ),
-
-    'upload_secret_files': CommandDoc(
-        summary=(
-            'Copia al VPS los archivos que no viajan por git: el .env, los '
-            'certificados, las credenciales.'
-        ),
-        steps=[
-            'Resuelve el destino SSH del repo.',
-            'Lee SECRET_FILES de la configuración y termina si está vacía.',
-            'Recorre las rutas una por una y saltea con aviso las que no existen '
-            'en el repo.',
-            'Copia por scp cada una a la misma ruta relativa del VPS, con chmod '
-            '600.',
-            'Informa cuántos de los archivos pedidos viajaron.',
         ],
     ),
 
@@ -689,117 +543,16 @@ DOCS: dict[str, CommandDoc] = {
         ],
     ),
 
-    'setup_github_ssh': CommandDoc(
-        summary=(
-            'Genera la deploy key en el VPS y la registra en la cuenta de '
-            'GitHub.'
-        ),
-        steps=[
-            'Comprueba si el VPS ya tiene ~/.ssh/id_ed25519.pub.',
-            'Si falta, prepara ~/.ssh en 700 y corre ssh-keygen -t ed25519 sin '
-            'passphrase.',
-            'Lee la clave pública del VPS.',
-            'Busca en GitHub una llave con el título GITHUB_KEY_TITLE.',
-            'La deja como está si coincide, la borra y la vuelve a crear si '
-            'difiere, o la crea si no existe.',
-            'Corre ssh -T contra github.com desde el VPS y confirma que la '
-            'respuesta diga que autenticó.',
-        ],
-    ),
-
-    'configure_coturn': CommandDoc(
-        summary=(
-            'Escribe /etc/turnserver.conf con el realm, los puertos y el secreto '
-            'del repo, abre sus puertos y deja coturn corriendo.'
-        ),
-        steps=[
-            'Comprueba que el paquete coturn esté instalado en el VPS y corta si '
-            'no está.',
-            'Toma el realm de PUBLIC_HOST, el puerto de TURN_PORT y el rango de '
-            'TURN_RELAY_RANGE, y corta si el rango está invertido.',
-            'Toma TURN_SECRET de la configuración del repo, o lo genera y lo '
-            'guarda ahí.',
-            'Arma el turnserver.conf con el puerto de escucha, fingerprint, '
-            'use-auth-secret con ese secreto, el realm, el rango de relay y la '
-            'IP pública como external-ip.',
-            'Si se pidió TLS, comprueba el certificado y la clave en el VPS y '
-            'agrega tls-listening-port 5349 con cert y pkey.',
-            'Muestra el diff contra el archivo actual y lo escribe con tee si '
-            'cambió.',
-            'Descomenta TURNSERVER_ENABLED en /etc/default/coturn.',
-            'Abre en ufw el puerto de escucha en TCP y UDP, el rango de relay en '
-            'UDP y el 5349 si hay TLS.',
-            'Corre systemctl enable de coturn.',
-            'Corre systemctl restart si la configuración cambió, o systemctl '
-            'start si quedó igual.',
-            'Consulta systemctl is-active y corta si coturn no quedó activo.',
-            'Imprime las URLs turn: para cargar en el backend.',
-        ],
-    ),
-
-    'configure_caddy': CommandDoc(
-        summary=(
-            'Escribe /etc/caddy/Caddyfile desde la tabla PUBLIC_ROUTES, abre el 80 '
-            'y el 443 y deja Caddy sirviendo con HTTPS automático.'
-        ),
-        steps=[
-            'Comprueba que el paquete caddy esté instalado en el VPS y que haya '
-            'PUBLIC_HOST.',
-            'Lee PUBLIC_ROUTES y resuelve el destino de cada regla: la dirección '
-            'de un proxy, la ruta de subida del build para una SPA, la carpeta '
-            'declarada para un estático. Cada $CLAVE se reemplaza por su valor.',
-            'Comprueba que existan en el VPS las carpetas de las reglas '
-            'estáticas y corta si falta alguna.',
-            'Agrupa las reglas por host y arma un bloque de sitio por cada uno, '
-            'con la compresión, las cabeceras de seguridad, la CSP de ese sitio '
-            'si está cargada, y un handle por regla en el orden de la tabla.',
-            'Guarda una copia de referencia en .consola/.',
-            'Corre mkdir -p /etc/caddy.',
-            'Si /etc/caddy/Caddyfile es un symlink, lo informa y lo borra.',
-            'Muestra el diff contra el archivo actual y lo escribe con tee si '
-            'cambió.',
-            'Corre caddy validate sobre el archivo, si cambió.',
-            'Abre 80/tcp, 443/tcp y 443/udp en ufw.',
-            'Corre systemctl enable de caddy.',
-            'Corre systemctl restart si el archivo cambió, o systemctl start si '
-            'quedó igual.',
-            'Consulta systemctl is-active y corta si Caddy no quedó activo.',
-            'Imprime qué URL termina en qué app.',
-        ],
-    ),
-
-    'bootstrap_vps': CommandDoc(
-        summary=(
-            'Lleva un VPS recién creado hasta la app del repo sirviendo: acceso, '
-            'software, deploy key, código, base y servicio.'
-        ),
-        steps=[
-            'Corre ssh-keygen -R contra VPS_IP.',
-            'Crea la cuenta de despliegue como root, le instala la clave, '
-            'escribe su regla de sudo y prueba el login.',
-            'Instala con apt los paquetes de los grupos marcados.',
-            'Genera la llave del VPS, la registra en GitHub y comprueba el '
-            'acceso con ssh -T.',
-            'Publica el código: git push local, clon o git reset --hard en el '
-            'VPS, venv con dependencias y archivos de SECRET_FILES.',
-            'Crea la base contra el VPS: rol, base, permisos, extensiones, '
-            'alembic upgrade, particiones y seeders.',
-            'Escribe la unidad systemd, abre el puerto si corresponde, corre '
-            'enable y restart, y comprueba is-active.',
-        ],
-    ),
-
     # --- Base de datos -----------------------------------------------------
 
     'bootstrap_db': CommandDoc(
         summary=(
-            'Deja una base usable desde cero: rol, base, permisos, extensiones, '
-            'migraciones, particiones y datos. Lo que crea objetos va por el '
-            'canal de superusuario: psql local, o sudo -u postgres psql por SSH '
-            'contra el VPS.'
+            'Deja la base local usable desde cero: rol, base, permisos, '
+            'extensiones, migraciones, particiones y datos. Lo que crea objetos '
+            'va por psql como superusuario.'
         ),
         steps=[
-            'Abre el canal de superusuario del ámbito elegido.',
+            'Abre el canal de superusuario local.',
             'Crea el rol de la aplicación si no existe.',
             'Corre ALTER ROLE con la contraseña de la configuración.',
             'Crea la base con ese rol como dueño, o le cambia el dueño si ya '
@@ -809,7 +562,7 @@ DOCS: dict[str, CommandDoc] = {
             'Por cada nombre de DB_EXTENSIONS consulta pg_available_extensions y '
             'corre CREATE EXTENSION IF NOT EXISTS, salteando las que el sistema '
             'no tiene.',
-            'Corre alembic upgrade head, del lado que diga el ámbito.',
+            'Corre alembic upgrade head.',
             'Corre el mantenimiento de particiones del proyecto con el python de '
             'su venv.',
             'Ejecuta en orden las funciones seed_ del paquete seeders/, con un '
@@ -845,16 +598,15 @@ DOCS: dict[str, CommandDoc] = {
     ),
 
     'migrate_db': CommandDoc(
-        summary='Genera con Alembic la revisión pendiente y la aplica.',
+        summary='Genera con Alembic la revisión pendiente y la aplica en la base local.',
         steps=[
             'Anota qué archivos hay en alembic/versions.',
-            'Abre la base del ámbito, con túnel SSH si es la del VPS.',
-            'Corre alembic revision --autogenerate en esta máquina, con el '
-            'python del venv del servidor.',
+            'Abre la base local.',
+            'Corre alembic revision --autogenerate con el python del venv del '
+            'servidor.',
             'Compara los archivos de alembic/versions e informa la revisión '
             'generada, o que el modelo no cambió.',
-            'Corre alembic upgrade head, en esta máquina o en el VPS según el '
-            'ámbito.',
+            'Corre alembic upgrade head.',
         ],
     ),
 
@@ -921,13 +673,13 @@ DOCS: dict[str, CommandDoc] = {
 
     'backup_db': CommandDoc(
         summary=(
-            'Deja en esta máquina un volcado de la base del ámbito, en formato '
-            'custom de pg_dump, y rota los respaldos viejos.'
+            'Deja un volcado de la base local, en formato custom de pg_dump, y '
+            'rota los respaldos viejos.'
         ),
         steps=[
             'Resuelve la carpeta de respaldos de BACKUP_DIR: relativa cuelga de '
             'la raíz del repo, absoluta se usa tal cual.',
-            'Abre la conexión del ámbito, levantando el túnel SSH si es remoto.',
+            'Abre la conexión a la base local.',
             'Busca pg_dump en la instalación local de PostgreSQL y corta si su '
             'versión es más vieja que la del servidor, nombrando las dos.',
             'Corre pg_dump -Fc como el rol de la aplicación, escribiendo directo '
@@ -939,12 +691,12 @@ DOCS: dict[str, CommandDoc] = {
 
     'restore_db': CommandDoc(
         summary=(
-            'Carga uno de los respaldos guardados sobre la base del ámbito, '
+            'Carga uno de los respaldos guardados sobre la base local, '
             'reemplazando lo que haya.'
         ),
         steps=[
             'Comprueba que el respaldo elegido exista en la carpeta de respaldos.',
-            'Abre la conexión del ámbito, levantando el túnel SSH si es remoto.',
+            'Abre la conexión a la base local.',
             'Busca pg_restore en la instalación local de PostgreSQL y corta si su '
             'versión es más vieja que la del servidor.',
             'Corre pg_restore como el rol de la aplicación, borrando cada objeto '

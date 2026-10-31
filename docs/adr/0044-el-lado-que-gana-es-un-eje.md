@@ -1,6 +1,6 @@
 # ADR-0044 · El menú separa la máquina del código que corre en ella, y el lado que gana un forzado es un eje
 
-- **Estado:** Propuesta
+- **Estado:** Reemplazada por [ADR-0061](0061-los-forzados-corren-en-esta-maquina.md)
 - **Fecha:** 2026-09-23
 - **Alcance:** core/catalog.py, core/protection.py, core/tasks/git.py, core/tasks/vps_server.py
 

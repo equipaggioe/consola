@@ -60,8 +60,6 @@ TARGETS: tuple[Target, ...] = (
            'los datos borrados no vuelven sin un backup'),
     Target('otros_repos', 'otros repositorios', 'otros repos', 'Proteger otros repos', True,
            'escribe fuera de este repo, en carpetas que no estas mirando'),
-    Target('publicacion', 'el canal de publicacion', 'publicacion', 'Proteger publicacion', True,
-           'lo que se promueve queda a la vista de los usuarios'),
     Target('local', 'archivos de este repo', 'local', 'Proteger archivos locales', False,
            'apagado por defecto: un artefacto borrado se rehace con un build'),
     Target('origin', 'origin en GitHub', 'origin', 'Proteger origin (GitHub)', False,
@@ -93,28 +91,24 @@ class Rule:
 
 
 RULES: dict[str, Rule] = {
-    # Deja el VPS como estaba: servicio, base, repo, claves, paquetes y usuario.
-    # Toca DOS objetivos, y por eso el seguro no puede ser por boton.
+    # Deja el VPS como estaba: base, repo, claves, paquetes y usuario. Toca DOS
+    # objetivos, y por eso el seguro no puede ser por boton.
     'clean_vps': Rule(always=('vps', 'db')),
     'revoke_ssh': Rule(always=('vps',)),
-    'revoke_github_ssh': Rule(always=('vps',)),
 
     # `local` no sale de esta maquina; `remoto` alcanza al servidor. El mismo
     # boton, dos radios de dano distintos.
     'teardown_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
     'rebuild_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
 
-    # Pisa la base entera con lo que traiga el dump. Misma forma que sus
-    # hermanas, y por eso no lleva confirmacion escrita propia: el seguro por
-    # repo ya la cubre (ADR-0047).
-    'restore_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
+    # Pisa la base local entera con lo que traiga el dump. No lleva confirmacion
+    # escrita propia: el seguro por repo ya la cubre (ADR-0047).
+    'restore_db': Rule(always=('db',)),
 
     # Toca dos objetivos: vacia el esquema de la base que diga `scope` y borra
     # los archivos de `alembic/versions/` del repo abierto.
     'reinit_migrations': Rule(always=('db', 'local'),
                               when={'scope': {'remoto': ('vps',)}}),
-
-    'promote_app': Rule(always=('publicacion',)),
 
     'clean_artifacts': Rule(always=('local',), dry_run={'apply': ('simulacro',)}),
     'sync_common_files': Rule(always=('otros_repos',), dry_run={'apply': ('simulacro',)}),
@@ -124,13 +118,10 @@ RULES: dict[str, Rule] = {
     # simulacro no toca nada, igual que los dos de arriba.
     'sync_server_env': Rule(always=('local',), dry_run={'apply': ('simulacro',)}),
 
-    # Los dos forzados reescriben el lado que diga su eje `side`. `push` toca
-    # solo origin en los dos casos -- no deja distinto ni esta maquina ni el
-    # VPS -- y por eso su objetivo es fijo. `reset` si descarta commits y
-    # archivos del lado elegido, asi que el objetivo sale del eje: 'local' no
-    # sale de esta maquina, 'vps' alcanza una maquina remota.
+    # `push` reescribe origin y no deja distinta esta maquina; `reset` descarta
+    # commits y archivos de esta maquina.
     'git_force_push': Rule(always=('origin',)),
-    'git_force_reset': Rule(when={'side': {'local': ('local',), 'vps': ('vps',)}}),
+    'git_force_reset': Rule(always=('local',)),
 }
 
 

@@ -1,6 +1,6 @@
 # ADR-0046 · El volcado y la restauración corren de este lado y alcanzan la base remota por el túnel
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0060](0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md)
 - **Fecha:** 2026-09-23
 - **Alcance:** core/database.py, core/tasks/database.py, core/catalog.py, core/settings.py
 

@@ -13,7 +13,6 @@ Lo que importa es el radio de daño. Un mismo botón puede tocar dos objetivos (
 | `vps` | el VPS | sí | Alcanza a una máquina remota y no hay deshacer |
 | `db` | la base de datos | sí | Los datos borrados no vuelven sin un backup |
 | `otros_repos` | otros repositorios | sí | Escribe fuera de este repo, en carpetas que no estás mirando |
-| `publicacion` | el canal de publicación | sí | Lo que se promueve queda a la vista de los usuarios |
 | `local` | archivos de este repo | **no** | Un artefacto borrado se rehace con un build |
 | `origin` | origin en GitHub | **no** | Reescribe el historial que ven quienes clonaron, pero no toca esta máquina ni el VPS |
 
@@ -26,14 +25,14 @@ Un objetivo que no figura en el `params.json` cae en su default: agregar uno nue
 | Acción | Objetivos |
 |---|---|
 | `clean_vps` | `vps` + `db` |
-| `revoke_ssh`, `revoke_github_ssh` | `vps` |
-| `teardown_db`, `rebuild_db`, `restore_db` | `db`, y `vps` si el ámbito es `remoto` |
+| `revoke_ssh` | `vps` |
+| `teardown_db`, `rebuild_db` | `db`, y `vps` si el ámbito es `remoto` |
+| `restore_db` | `db`: actúa solo sobre la base local |
 | `reinit_migrations` | `db` + `local`, y `vps` si el ámbito es `remoto` |
-| `promote_app` | `publicacion` |
 | `clean_artifacts`, `sync_server_env` | `local`, salvo en simulacro |
 | `sync_common_files` | `otros_repos`, salvo en simulacro |
-| `git_force_push` | `origin`, con cualquier lado |
-| `git_force_reset` | `local` o `vps`, según el eje `side` |
+| `git_force_push` | `origin` |
+| `git_force_reset` | `local` |
 
 `purge_emulators` no está en la tabla: es `scope='machine'` —borra AVD e imágenes del SDK, que no son de ningún repo— así que un interruptor por repositorio no tendría a qué repositorio pertenecer. Se queda con su propia confirmación escrita.
 

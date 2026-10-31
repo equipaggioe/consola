@@ -27,7 +27,7 @@ Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0017](../ad
 | `required_by` | Sin ella, esas acciones no pueden correr |
 | `used_by` | Esas acciones la miran, pero corren igual sin ella |
 
-La distinción entre las dos últimas es la que evita un ámbar falso: `backend` nunca lee `API_URL` —quien la lee es el build de Flutter, y ese ya la pide por paso—, así que exigirla dejaba el Backend bloqueado por una clave que jamás iba a mirar.
+La distinción entre las dos últimas es la que evita un ámbar falso: `backend` nunca lee `API_URL` —quien la lee es el build de Flutter, que la exige—, así que exigirla dejaba el Backend bloqueado por una clave que jamás iba a mirar.
 
 ## 3. Defaults: fijos y dinámicos
 
@@ -39,8 +39,6 @@ La distinción entre las dos últimas es la que evita un ámbar falso: `backend`
 | `DB_USER` | `VPS_USER` ya resuelto |
 | `DB_NAME` | `<VPS_USER>_db` |
 | `GITHUB_KEY_TITLE` | `<repo>-vps`. Se deriva del repo y no del VPS: cambiar de servidor dejaría huérfana la llave vieja en la cuenta |
-| `PUBLIC_HOST` | `CF_RECORD_NAME`, si no `CF_DOMAIN_NAME`, si no `VPS_IP` |
-| `BACKEND_HOST` | `127.0.0.1` si la tabla de rutas tiene alguna regla `proxy`, si no `0.0.0.0` ([ADR-0020](../adr/0020-ruta-publica-no-implica-proxy.md)) |
 
 `Config` además tipa: `port()` valida el rango, `flag()` acepta las formas usuales de sí/no, `rel_path()` resuelve contra la raíz del repo y `missing()` es lo que alimenta el ámbar.
 
@@ -69,9 +67,9 @@ Un solo archivo por repo, con tres clases de entrada:
 ```json
 {
   "@theme":     { "key": "azul" },
-  "@tabs":      { "open": ["update_remote", "backend"] },
+  "@tabs":      { "open": ["build_vite", "backend"] },
   "@protection":{ "vps": true, "db": true, "local": false },
-  "update_remote": { "variants": {...}, "options": {...},
+  "build_vite": { "variants": {...}, "options": {...},
                      "fields": {...}, "picks": {...}, "steps": [...] }
 }
 ```

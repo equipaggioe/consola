@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-import difflib
 import re
 
 from .envfile import Config, split_list
@@ -12,11 +11,8 @@ SUDO = 'sudo -n'
 
 # --- tabla de rutas publicas -----------------------------------------------
 #
-# Vive aca y no en `core/tasks/vps_setup.py`, que es quien escribe el Caddyfile,
-# porque la misma tabla la lee el build: si una SPA se publica bajo `/admin`,
-# Vite tiene que compilarla con ese `base` o sus assets se piden en la raiz.
-# Ese es todo el motivo por el que la ruta de cada SPA es un dato y no un eje —
-# dos botones distintos tienen que leer exactamente el mismo valor.
+# La lee el build: si una SPA se publica bajo `/admin`, Vite tiene que
+# compilarla con ese `base` o sus assets se piden en la raiz.
 #
 # La tabla dice bajo que ruta se publica cada cosa. NO dice quien la sirve: un
 # repo puede publicar su SPA en `/terminal` porque un proxy la mapea ahi o
@@ -25,22 +21,6 @@ SUDO = 'sudo -n'
 # consumidor de la tabla, no su dueño. Haberlas confundido hacia que un repo sin
 # proxy no tuviera donde declarar su ruta publica, y sus builds salian apuntando
 # a la raiz.
-
-# `$CLAVE` en una tabla de la configuracion, para no repetir un valor que ya
-# esta cargado en otra clave (`$BACKEND_HOST:$BACKEND_PORT`).
-_REF = re.compile(r'\$([A-Za-z_][A-Za-z0-9_]*)')
-
-
-def expand_refs(config: Config, texto: str, donde: str) -> str:
-    """`texto` con cada `$CLAVE` reemplazada por su valor; `donde` nombra la fila en el error."""
-    def resolve(ref: re.Match) -> str:
-        clave = ref.group(1)
-        resuelto = config.get(clave).strip()
-        if not resuelto:
-            raise TaskError(f'«{donde}» usa ${clave}, y esa clave esta vacia en Configuracion.')
-        return resuelto.rstrip('/')
-    return _REF.sub(resolve, texto)
-
 
 ROUTE_KINDS = ('proxy', 'spa', 'static')
 
@@ -141,122 +121,6 @@ def route_lines(config: Config) -> list[str]:
     return split_list(config.get('PUBLIC_ROUTES'))
 
 
-def resolve_target(config: Config, route: Route) -> str:
-    """El destino de una regla con cada `$CLAVE` reemplazada por su valor."""
-    fila = f'{route.pattern} {route.kind} {route.target}'
-    return expand_refs(config, route.target, fila).rstrip('/')
-
-
-def sites(config: Config) -> list[tuple[str, list[Route]]]:
-    """La tabla agrupada por host, en el orden en que cada host aparece.
-
-    Es lo que un proxy necesita: un bloque de sitio por host, con sus reglas
-    adentro y en el orden escrito. Agrupar aca y no en quien escribe el archivo
-    deja la decision de "que es un sitio" del lado del modelo.
-    """
-    agrupado: dict[str, list[Route]] = {}
-    for route in routes(config):
-        agrupado.setdefault(route.host, []).append(route)
-    return list(agrupado.items())
-
-
-# `CSP` es por sitio y no por VPS: cada pieza carga lo suyo. El backoffice de un
-# repo puede necesitar tres CDN y su landing ninguno, y una sola politica para
-# los dos termina siendo la mas permisiva de ambas, que no protege a ninguno.
-# Una fila es «<host> <politica>»; el host `*` es la politica de los sitios que
-# no tienen la suya. Sin filas no se emite CSP, que es lo que corresponde
-# mientras el sitio todavia no la tenga pensada.
-CSP_DEFAULT_HOST = '*'
-
-
-def csp_by_host(config: Config) -> dict[str, str]:
-    """`CSP` interpretada: host -> politica, con `*` como la de los demas.
-
-    El host va escrito, igual que en un patron. Una politica pelada se leia antes
-    como "la de todos", y eso hacia que una fila con el host mal escrito se
-    aplicara callada a sitios que no eran.
-    """
-    politicas: dict[str, str] = {}
-    for linea in split_list(config.get('CSP')):
-        linea = linea.strip()
-        if not linea:
-            continue
-        host, _, politica = linea.partition(' ')
-        politica = politica.strip()
-        if not politica:
-            raise TaskError(f'CSP mal formada: «{linea}». Va «<host> <politica>», y el host '
-                            f'puede ser {CSP_DEFAULT_HOST} para todos los sitios.')
-        if host != CSP_DEFAULT_HOST and not _HOST.match(host):
-            raise TaskError(f'CSP: «{host}» no es un nombre de host ni {CSP_DEFAULT_HOST}. '
-                            f'Una politica sola no alcanza: escribe «{CSP_DEFAULT_HOST} '
-                            f'{linea}» si va para todos los sitios.')
-        politicas[host] = politica
-    return politicas
-
-
-def csp_for(politicas: dict[str, str], host: str) -> str:
-    """La politica de ese sitio, la general, o vacio si no hay ninguna."""
-    return politicas.get(host) or politicas.get(CSP_DEFAULT_HOST, '')
-
-
-# --- carpetas del servicio -------------------------------------------------
-#
-# Las que el servicio necesita fuera del repo —datos que suben los usuarios,
-# exportaciones— con el permiso de cada una. Fuera del repo porque el deploy
-# corre `git clean`, y lo que viva adentro esta a un flag de borrarse.
-
-_MODE = re.compile(r'^[0-7]{3,4}$')
-
-
-def service_dirs(config: Config) -> list[tuple[str, str]]:
-    """`SERVICE_DIRS` interpretada: `(ruta, modo)` por fila, con `$CLAVE` resuelta."""
-    carpetas = []
-    for linea in split_list(config.get('SERVICE_DIRS')):
-        partes = linea.split()
-        if len(partes) != 2:
-            raise TaskError(f'Carpeta mal formada: «{linea}». Va «<ruta> <modo>».')
-        ruta = expand_refs(config, partes[0], linea).rstrip('/')
-        modo = partes[1]
-        if not ruta.startswith('/'):
-            raise TaskError(f'«{linea}»: la ruta tiene que ser absoluta.')
-        if not _MODE.match(modo):
-            raise TaskError(f'«{linea}»: el modo va en octal, como 755 o 750.')
-        carpetas.append((ruta, modo))
-    return carpetas
-
-
-def tmpfiles_path(service: str) -> str:
-    return f'/etc/tmpfiles.d/{service}.conf'
-
-
-def render_tmpfiles(carpetas: list[tuple[str, str]], user: str) -> str:
-    """El `tmpfiles.d` que crea las carpetas y les deja dueno y modo.
-
-    `d` crea lo que falta y corrige dueno y modo de lo que ya esta, sin tocar el
-    contenido; el `-` final es sin limpieza por antiguedad.
-    """
-    return ''.join(f'd {ruta} {modo} {user} {user} -\n' for ruta, modo in carpetas)
-
-
-def uses_proxy(config: Config) -> bool:
-    """Si algo se interpone entre internet y el backend de este repo.
-
-    La respuesta es "la tabla tiene alguna regla `proxy`", y no "la tabla existe".
-    Una regla `proxy` es, por definicion, alguien adelante que reenvia al
-    backend; si no hay ninguna, el backend contesta por si mismo aunque el repo
-    publique diez SPA bajo diez rutas distintas.
-
-    Antes esto era `hay tabla`, y de ahi salia que un repo sin proxy tampoco
-    tenia rutas publicas. Son dos preguntas: esta contesta quien escucha, y
-    `spa_base` contesta bajo que ruta se publica cada app.
-    """
-    try:
-        tabla = routes(config)
-    except TaskError:
-        return False
-    return any(route.kind == 'proxy' for route in tabla)
-
-
 def declares_routes(config: Config) -> bool:
     """Si el repo declaro su tabla. Sin ella no hay ninguna ruta publica escrita."""
     return bool(route_lines(config))
@@ -285,6 +149,7 @@ def spa_base(config: Config, name: str) -> str | None:
         if route.kind == 'spa' and route.target == name:
             return '' if route.catch_all else route.prefix
     return ''
+
 
 # Los paquetes que el despliegue da por dados, agrupados por lo que significan
 # para quien elige (no por como se llaman en apt: `python` son tres paquetes).
@@ -330,35 +195,6 @@ def deploy_root(config: Config) -> str:
     return f'{base}/{repo_name(config)}'
 
 
-def ensure_deploy_dir(ctx, remote: Remote, config: Config) -> str:
-    """Deja la carpeta del despliegue creada y a nombre del usuario que clona.
-
-    `VPS_DEPLOY_DIR` suele apuntar a un lugar del sistema (`/srv`, `/opt`) que
-    es de root. Un `mkdir -p` del padre no alcanza y ademas no falla —el padre
-    ya existe—, asi que el problema recien aparecia en el `git clone`, con un
-    "Permission denied" que no dice que lo que faltaba era el dueno.
-
-    Por eso la carpeta se crea aca con sudo y se le pasa al usuario de
-    despliegue: `git clone` acepta un directorio vacio como destino.
-    """
-    destino = deploy_root(config)
-    if succeeds(remote, f'test -w {quote(destino)}'):
-        return destino
-
-    user = config.get('VPS_USER') or remote.user
-    run(ctx, remote,
-        f'{SUDO} mkdir -p {quote(destino)} && '
-        f'{SUDO} chown {quote(user)}:{quote(user)} {quote(destino)}',
-        check=False)
-    if not succeeds(remote, f'test -w {quote(destino)}'):
-        raise TaskError(
-            f'{destino} no se pudo crear a nombre de {user}: el directorio padre '
-            f'es de root y sudo sin contrasena no respondio. Corre "Configurar '
-            f'sudo" para el usuario de despliegue, o crea la carpeta a mano.')
-    ctx.ok(f'Carpeta de despliegue lista: {destino} (dueno {user}).')
-    return destino
-
-
 def remote_path(config: Config, *parts: str) -> str:
     """Ruta remota que respeta la misma jerarquia relativa que el repo local."""
     tail = '/'.join(p.strip('/').replace('\\', '/') for p in parts if p)
@@ -369,25 +205,6 @@ def remote_path(config: Config, *parts: str) -> str:
 def remote_python(config: Config) -> str:
     """Interprete del venv del server, dentro del repo desplegado."""
     return remote_path(config, config.require('VPS_PYTHON'))
-
-
-def backend_listen(config: Config) -> tuple[str, int]:
-    """Donde escucha el backend DENTRO del VPS.
-
-    Lo usa `write_systemd_unit`, que es quien lo pone a escuchar. Estaba clavado
-    en su firma (`host='0.0.0.0', port=443`) sin eje que lo ofreciera, asi que
-    no habia forma de moverlo. Las reglas `proxy` de `PUBLIC_ROUTES` apuntan aca
-    con `$BACKEND_HOST:$BACKEND_PORT`.
-
-    Sin fallback propio: el default de `BACKEND_HOST` depende de si el repo
-    tiene proxy y lo resuelve el esquema (`envfile.Config._dynamic_default`).
-    Repetir aca un `127.0.0.1` era el mismo valor decidido en dos lugares.
-    """
-    return config.get('BACKEND_HOST'), config.port('BACKEND_PORT', 8000)
-
-
-def is_loopback(host: str) -> bool:
-    return host in ('127.0.0.1', 'localhost', '::1')
 
 
 # --- cuentas y paquetes ----------------------------------------------------
@@ -409,39 +226,6 @@ def install_packages(ctx, remote: Remote, packages: list[str]) -> None:
     lista = ' '.join(quote(p) for p in faltan)
     run(ctx, remote, f'{SUDO} DEBIAN_FRONTEND=noninteractive apt-get update -qq')
     run(ctx, remote, f'{SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y {lista}')
-
-
-def require_package(remote: Remote, package: str, group: str) -> None:
-    """Corta si el paquete no esta, en vez de instalarlo por su cuenta.
-
-    Instalar es `install_base_software` y el paquete es uno de sus grupos, igual
-    que `postgresql`: los botones de configurar son el `bootstrap_db` de su
-    servicio — la configuracion, no la instalacion. Que un boton de configurar
-    corriera su propio `apt-get install` era la unica parte del catalogo donde
-    la misma accion vivia en dos lugares (ADR-0022).
-
-    Vive aca y no en `core/tasks/vps_setup.py`, donde nacio, porque la misma
-    pregunta —¿esta puesto lo que este boton da por dado?— se la hacen los tres
-    botones de configurar un servicio, y uno de ellos esta en el otro modulo.
-    """
-    if succeeds(remote, f'dpkg -s {quote(package)}'):
-        return
-    raise TaskError(f'{package} no esta instalado en el VPS. '
-                    f'Corre "Software base" con el grupo "{group}" marcado.')
-
-
-def open_ports(ctx, remote: Remote, ports: list[str]) -> None:
-    """Abre puertos en ufw si ufw manda; si no, los dice.
-
-    Callar cuando ufw no esta activo no es "no hacer nada": el firewall puede
-    estar en el panel del proveedor, y ahi los puertos siguen cerrados.
-    """
-    if not succeeds(remote, f'{SUDO} ufw status | grep -q active'):
-        ctx.warn(f'ufw no esta activo: abre {", ".join(ports)} donde corresponda.')
-        return
-    for puerto in ports:
-        run(ctx, remote, f'{SUDO} ufw allow {puerto}', check=False)
-    ctx.ok(f'Puertos abiertos en ufw: {", ".join(ports)}')
 
 
 # --- systemd ---------------------------------------------------------------
@@ -521,20 +305,15 @@ def unit_name(config: Config, service: Service) -> str:
     return f'{base}-{service.suffix}' if service.suffix else base
 
 
-def unit_path(service: str) -> str:
-    return f'/etc/systemd/system/{service}.service'
-
-
 # Los servicios systemd que Consola administra en el VPS. `proyecto` es el
 # unico cuyo nombre sale del repo abierto; los otros dos son paquetes con
-# nombre fijo, y son servicios de Consola porque Consola los configura
-# (`configure_coturn`, `configure_caddy`). Reiniciarlos o leerles el journal no
-# pide botones nuevos: pide que los que ya existen sepan a cual apuntar.
+# nombre fijo. Reiniciarlos o leerles el journal no pide botones nuevos: pide
+# que los que ya existen sepan a cual apuntar.
 PACKAGE_SERVICES = ('coturn', 'caddy')
 PACKAGE_LABELS = {'coturn': 'Coturn', 'caddy': 'Caddy'}
 # El valor historico del eje: "el servicio del repo", cuando el repo tiene uno
-# solo. Se sigue aceptando porque es el default de `systemd_action`, `view_logs`
-# y `bring_up_service`, y porque un repo sin tabla no tiene otro nombre.
+# solo. Se sigue aceptando porque es el default de `systemd_action` y
+# `view_logs`, y porque un repo sin tabla no tiene otro nombre.
 MAIN_SERVICE = 'proyecto'
 
 
@@ -542,7 +321,7 @@ def managed_services(config: Config) -> list[str]:
     """Los valores del eje `service` de ESTE repo.
 
     Los del repo primero —uno por fila de `SERVICES`, o `proyecto` si no hay
-    tabla— y despues los dos paquetes que Consola configura.
+    tabla— y despues los dos paquetes.
     """
     try:
         propios = [s.suffix or MAIN_SERVICE for s in services(config)]
@@ -601,22 +380,12 @@ def installed_services(remote: Remote, config: Config) -> list[str]:
     return [nombres[linea] for linea in salida.split() if linea in nombres]
 
 
-def service_exists(remote: Remote, service: str) -> bool:
-    """Si el archivo de unidad que escribe Consola esta en su lugar.
-
-    Es la pregunta que se hacen escribir y borrar la unidad del proyecto, no la
-    de "systemd conoce este servicio": para eso esta `unit_installed`.
-    """
-    return succeeds(remote, f'test -f {quote(unit_path(service))}')
-
-
 def unit_installed(remote: Remote, service: str) -> bool:
     """Si systemd conoce la unidad, este donde este su archivo.
 
-    `service_exists` mira /etc/systemd/system, que es donde Consola escribe la
-    del proyecto. Las de un paquete apt —coturn, caddy— viven en
-    /lib/systemd/system, y con aquella pregunta daban `missing` estando
-    instaladas y corriendo.
+    Las de un paquete apt —coturn, caddy— viven en /lib/systemd/system: mirar
+    solo /etc/systemd/system las daba por `missing` estando instaladas y
+    corriendo.
     """
     return succeeds(remote, f'systemctl cat {quote(service)}')
 
@@ -633,13 +402,7 @@ def service_state(remote: Remote, service: str) -> str:
 
 
 def systemctl(ctx, remote: Remote, action: str, service: str, *, check: bool = True) -> int:
-    """Una accion de systemd sobre el servicio del proyecto.
-
-    Es la atomica que reusan `configure_service` y `update_remote` en vez de
-    reimplementar `enable`/`start` cada uno por su lado (ADR-0004).
-    `configure_coturn` y `configure_caddy` tambien, desde que los tres cierran
-    por `vps_server.bring_up_service`.
-    """
+    """Una accion de systemd sobre un servicio del VPS."""
     if action not in ALL_ACTIONS:
         raise TaskError(f'Accion de systemd desconocida: {action}')
     if action == 'daemon-reload':
@@ -650,96 +413,6 @@ def systemctl(ctx, remote: Remote, action: str, service: str, *, check: bool = T
 BUTTON_ACTIONS = ('start', 'stop', 'restart', 'status')
 MENU_ACTIONS = ('enable', 'disable', 'reload', 'is-active', 'is-enabled', 'daemon-reload')
 ALL_ACTIONS = BUTTON_ACTIONS + MENU_ACTIONS
-
-
-def render_unit(
-    *,
-    description: str,
-    user: str,
-    working_dir: str,
-    exec_start: str,
-    environment: dict[str, str] | None = None,
-) -> str:
-    """Texto de la unidad systemd. Se arma aca y se sube; no se edita a mano en el VPS."""
-    env_lines = ''.join(
-        f'Environment="{k}={v}"\n' for k, v in (environment or {}).items()
-    )
-    return (
-        '[Unit]\n'
-        f'Description={description}\n'
-        'After=network.target postgresql.service\n'
-        '\n'
-        '[Service]\n'
-        'Type=simple\n'
-        f'User={user}\n'
-        f'WorkingDirectory={working_dir}\n'
-        f'{env_lines}'
-        f'ExecStart={exec_start}\n'
-        'Restart=always\n'
-        'RestartSec=3\n'
-        '\n'
-        '[Install]\n'
-        'WantedBy=multi-user.target\n'
-    )
-
-
-def write_config(ctx, remote: Remote, path: str, content: str) -> bool:
-    """Escribe un archivo de configuracion del VPS solo si cambia. Dice si cambio.
-
-    Los tres botones que configuran un servicio eran los unicos escritores de
-    Consola que sobrescribian a ciegas: escribian siempre y reiniciaban siempre,
-    aunque el archivo saliera identico al que ya estaba. El resto ya cumple la
-    regla (`core/files.py::compare`, ADR-0039): se muestra que va a cambiar
-    antes de tocar nada.
-
-    El `cat` va sin sudo porque los tres archivos son legibles, y no por sudo:
-    `SUDO_SPECIFIC` no lista `cat`. Si no se pudiera leer vuelve vacio y el
-    archivo se escribe igual, que es lo que pasaba siempre.
-    """
-    # `ssh.capture` devuelve la salida ya sin bordes, asi que el lado nuevo se
-    # compara igual: si no, el `\n` final lo daria siempre por distinto.
-    actual = capture(remote, f'cat {quote(path)}', check=False)
-    nuevo = content.strip()
-    if actual == nuevo:
-        ctx.info(f'Sin cambios: {path}')
-        return False
-
-    for linea in difflib.unified_diff(actual.splitlines(), nuevo.splitlines(),
-                                      fromfile=f'{path} (ahora)',
-                                      tofile=f'{path} (nuevo)', lineterm=''):
-        ctx.info(linea)
-    heredoc = f'{SUDO} tee {quote(path)} > /dev/null <<"CONSOLA_CONF"\n{content}CONSOLA_CONF'
-    run(ctx, remote, heredoc)
-    ctx.ok(f'Escrito: {path}')
-    return True
-
-
-def write_service_dirs(ctx, remote: Remote, service: str, user: str,
-                       carpetas: list[tuple[str, str]]) -> bool:
-    """Escribe el `tmpfiles.d` del servicio y lo aplica. Dice si el archivo cambio.
-
-    Se aplica aunque no cambie: `systemd-tmpfiles --create` es idempotente, y
-    asi tambien repone una carpeta que alguien borro a mano.
-    """
-    conf = tmpfiles_path(service)
-    if not carpetas:
-        if succeeds(remote, f'test -f {quote(conf)}'):
-            run(ctx, remote, f'{SUDO} rm -f {quote(conf)}')
-            ctx.warn(f'SERVICE_DIRS esta vacia: se borro {conf}. Las carpetas quedan donde estaban.')
-        return False
-    cambio = write_config(ctx, remote, conf, render_tmpfiles(carpetas, user))
-    run(ctx, remote, f'{SUDO} systemd-tmpfiles --create {quote(conf)}')
-    for ruta, modo in carpetas:
-        ctx.ok(f'Carpeta lista: {ruta} ({modo}, dueno {user})')
-    return cambio
-
-
-def write_unit(ctx, remote: Remote, service: str, content: str) -> bool:
-    """Escribe la unidad en el VPS y recarga systemd si cambio. No la habilita ni la arranca."""
-    cambio = write_config(ctx, remote, unit_path(service), content)
-    if cambio:
-        run(ctx, remote, f'{SUDO} systemctl daemon-reload')
-    return cambio
 
 
 def journal_command(

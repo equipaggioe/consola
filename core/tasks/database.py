@@ -90,8 +90,7 @@ def enable_extensions(ctx, scope: str = db.LOCAL) -> list[str]:
 
     Va en `DB_EXTENSIONS` y no en un eje del panel porque es un dato que la
     tarea lee, no una decision de la corrida: no cambia entre dos veces que se
-    aprieta el boton. Es el mismo caso que `SECRET_FILES`, y como el se edita
-    multilinea y se guarda separada por comas.
+    aprieta el boton. Se edita multilinea y se guarda separada por comas.
 
     Antes de crear cada extension se chequea `pg_available_extensions`: no todo
     VPS tiene el paquete de sistema instalado (postgis no esta en
@@ -320,14 +319,11 @@ def _pg_argv(tool: Path, conn, user: str) -> list[str]:
     return [str(tool), '-h', conn.host, '-p', str(conn.port), '-U', user]
 
 
-def backup_database(ctx, scope: str = db.LOCAL) -> Path:
-    """Vuelca la base del ambito a un archivo local, en formato custom de pg_dump.
+def backup_database(ctx) -> Path:
+    """Vuelca la base local a un archivo, en formato custom de pg_dump.
 
-    `pg_dump` corre en ESTA maquina en los dos ambitos y alcanza la base remota
-    por el tunel, como cualquier otro proceso local (ADR-0046). Antes volcaba en
-    el VPS contra /tmp y bajaba el archivo por scp: eso ataba el respaldo al
-    ambito remoto —la base local no se podia respaldar— y dejaba un temporal que
-    limpiar en cada camino de error.
+    Solo la local: la base del VPS la respalda la receptora de canone
+    (ADR-0060).
     """
     user, password, name = db.credentials(ctx.config)
     ctx.guard(password)
@@ -336,7 +332,7 @@ def backup_database(ctx, scope: str = db.LOCAL) -> Path:
     destino = backup_dir(ctx.config, ctx.root) / f'{name}-{sello}.dump'
     destino.parent.mkdir(parents=True, exist_ok=True)
 
-    with db.connect(ctx, scope) as conn:
+    with db.connect(ctx, db.LOCAL) as conn:
         _check_version(ctx, conn, herramienta)
         ctx.info(f'Volcando {name} en {destino.name}...')
         ctx.run([*_pg_argv(herramienta, conn, user), '-Fc', '-f', str(destino), name],
@@ -344,7 +340,7 @@ def backup_database(ctx, scope: str = db.LOCAL) -> Path:
 
     ctx.ok(f'Backup guardado: {destino} ({files.human_size(files.size_of(destino))})')
     rotate_backups(ctx)
-    ctx.note(f'Backup de {name} ({scope}): {destino.name}')
+    ctx.note(f'Backup de {name}: {destino.name}')
     return destino
 
 
@@ -360,8 +356,8 @@ def rotate_backups(ctx) -> list[Path]:
     return sobran
 
 
-def restore_database(ctx, scope: str = db.LOCAL, dump: str = '') -> Path:
-    """Carga un respaldo sobre la base del ambito, reemplazando lo que haya.
+def restore_database(ctx, dump: str = '') -> Path:
+    """Carga un respaldo sobre la base local, reemplazando lo que haya.
 
     `--clean --if-exists` restaura sobre la base que ya existe, borrando cada
     objeto antes de recrearlo: no toca el rol ni la base en si, asi que no hace
@@ -384,7 +380,7 @@ def restore_database(ctx, scope: str = db.LOCAL, dump: str = '') -> Path:
     ctx.guard(password)
     herramienta = db.pg_tool('pg_restore')
 
-    with db.connect(ctx, scope) as conn:
+    with db.connect(ctx, db.LOCAL) as conn:
         _check_version(ctx, conn, herramienta)
         ctx.warn(f'Restaurando {archivo.name} sobre {name}: se reemplaza lo que haya.')
         ctx.run([*_pg_argv(herramienta, conn, user), '-d', name,
@@ -392,7 +388,7 @@ def restore_database(ctx, scope: str = db.LOCAL, dump: str = '') -> Path:
                 env={'PGPASSWORD': password})
 
     ctx.ok(f'Base {name} restaurada desde {archivo.name}.')
-    ctx.note(f'Restauracion de {name} ({scope}): {archivo.name}')
+    ctx.note(f'Restauracion de {name}: {archivo.name}')
     return archivo
 
 
@@ -454,9 +450,8 @@ def populate_db(
     existe, sin importar como llego a existir.
 
     La llaman `bootstrap_db` (que antes la creo) y `rebuild_db` (que antes la
-    vacio), por lo mismo que `bootstrap_vps` llama a `bootstrap_db`: una
-    compuesta puede encadenar a otra. Antes estos cuatro pasos estaban copiados
-    tal cual en las dos, etiquetas incluidas.
+    vacio): una compuesta puede encadenar a otra (ADR-0038). Antes estos cuatro
+    pasos estaban copiados tal cual en las dos, etiquetas incluidas.
 
     No tiene boton propio y no es un olvido: lo que se elige en el rail es por
     cual de los dos caminos se llega —crear de cero o reconstruir—, y "llenar una
@@ -483,7 +478,6 @@ def populate_db(
 
 def bootstrap_db(
     ctx,
-    scope: str = db.LOCAL,
     *,
     role: bool = True,
     database: bool = True,
@@ -501,22 +495,25 @@ def bootstrap_db(
     esquema creado pero sin los datos minimos obliga a apretar Reconstruir DB
     —una destructiva, que la consola frena o avisa segun el seguro del repo—
     para completar algo que no tiene nada de destructivo la primera vez.
+
+    Solo la base local: en el VPS la base y sus roles los crea el `install.py`
+    de canone (ADR-0060).
     """
     if role:
         ctx.step('role')
-        create_role(ctx, scope)
+        create_role(ctx, db.LOCAL)
     if database:
         ctx.step('database')
-        create_database(ctx, scope)
+        create_database(ctx, db.LOCAL)
     if privileges:
         ctx.step('privileges')
-        grant_privileges(ctx, scope)
+        grant_privileges(ctx, db.LOCAL)
     if extensions:
         ctx.step('extensions')
-        enable_extensions(ctx, scope)
-    populate_db(ctx, scope, migrate=migrate, partitions=partitions,
+        enable_extensions(ctx, db.LOCAL)
+    populate_db(ctx, db.LOCAL, migrate=migrate, partitions=partitions,
                 seeders=seeders, mock_seeders=mock_seeders)
-    ctx.note(f'Bootstrap de base ({scope}) completado.')
+    ctx.note('Bootstrap de la base local completado.')
 
 
 def rebuild_db(
@@ -595,20 +592,22 @@ def teardown_db(ctx, scope: str = db.LOCAL, *, database: bool = True, role: bool
     ctx.note(f'Teardown de {name} ({scope}).')
 
 
-def migrate_db(ctx, scope: str = db.LOCAL, message: str = 'auto', *,
+def migrate_db(ctx, message: str = 'auto', *,
                generate: bool = True, apply: bool = True) -> None:
     """Compuesta corta: generar la revision pendiente y/o aplicar lo que haya.
 
     Los dos pasos son casillas sueltas porque se piden sueltos: 'Generar' para
     revisar el diff antes de tocar nada, 'Aplicar' para poner al dia una base
     que quedo atras con migraciones que ya estan en el repo.
+
+    Solo la base local: en el VPS migra el `deploy.py` de canone (ADR-0060).
     """
     if generate:
         ctx.step('generate')
-        generate_migration(ctx, scope, message=message)
+        generate_migration(ctx, db.LOCAL, message=message)
     if apply:
         ctx.step('apply')
-        apply_migrations(ctx, scope)
+        apply_migrations(ctx, db.LOCAL)
 
 
 def bind_all() -> None:

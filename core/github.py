@@ -56,26 +56,6 @@ def find_key(token: str, title: str) -> dict | None:
     return None
 
 
-def register_key(ctx, token: str, *, title: str, public_key: str) -> dict:
-    """Sube la llave publica del VPS a la cuenta de GitHub.
-
-    Idempotente: si ya hay una con ese titulo y la misma llave, no hace nada;
-    si el contenido cambio, reemplaza la vieja en vez de dejar dos homonimas.
-    """
-    existing = find_key(token, title)
-    if existing:
-        if existing.get('key', '').split()[:2] == public_key.split()[:2]:
-            ctx.ok(f'La llave "{title}" ya estaba registrada en GitHub.')
-            return existing
-        ctx.warn(f'La llave "{title}" existe con otro contenido: se reemplaza.')
-        _checked('DELETE', f'/user/keys/{existing["id"]}', token=token)
-
-    created = _checked('POST', '/user/keys', token=token,
-                       body={'title': title, 'key': public_key})
-    ctx.ok(f'Llave "{title}" registrada en GitHub.')
-    return created if isinstance(created, dict) else {}
-
-
 def revoke_key(ctx, token: str, *, title: str) -> bool:
     """Borra la llave por titulo. Devuelve False si no habia nada que borrar."""
     existing = find_key(token, title)

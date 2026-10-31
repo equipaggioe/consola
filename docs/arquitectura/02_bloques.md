@@ -21,7 +21,7 @@ flowchart TD
 | **1 — atómicas** | Una responsabilidad, construida sobre el nivel 0. Casi todas son de tres a diez líneas | Sí, si alguien la pide sola | `core/tasks/*.py` |
 | **2 — compuestas** | Encadenan atómicas en un orden fijo. No reimplementan nada: llaman | Sí, además del botón de cada paso | `core/tasks/*.py` |
 
-La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `core/`, y `core/` no importa ni de `ui/` ni de `core/tasks/`. Las dos excepciones son importaciones diferidas dentro de una función, no de módulo: `core/envfile.py` pide `vps.uses_proxy` para resolver el default de `BACKEND_HOST`, y `core/context.py` pide el registro para traducir el id de un paso a su etiqueta.
+La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `core/`, y `core/` no importa ni de `ui/` ni de `core/tasks/`. La excepción es una importación diferida dentro de una función, no de módulo: `core/context.py` pide el registro para traducir el id de un paso a su etiqueta.
 
 ## 2. Qué hay en `core/` (nivel 0)
 
@@ -33,17 +33,17 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `envfile.py` | `.consola/config.env`: leer, regenerar, y `Config` con acceso tipado y defaults |
 | `settings.py` | El esquema de claves: quién las exige y quién solo las usa |
 | `registry.py` | `Registry`, `Capability`, `AxisDef`, `Facet`, `Step`, y el puente a los kwargs |
-| `catalog.py` | La declaración de las 64 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
+| `catalog.py` | La declaración de las 54 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
 | `targets.py` | Qué subproyectos y qué características tiene el repo abierto |
 | `toolchain.py` | Ubicar `flutter`, `flet`, `npm`, `pyinstaller` y el Python de un venv; las plataformas de build |
 | `ssh.py` | `Remote`, ejecución remota, `scp`, túneles, llaves, contraseña sin consola |
-| `vps.py` | Rutas del despliegue, paquetes, systemd, journal, tabla de rutas públicas, escritura idempotente |
+| `vps.py` | Rutas del repo desplegado, paquetes, los servicios systemd y su journal, tabla de rutas públicas |
 | `database.py` | Resolver la base local o la remota por túnel, y el canal de superusuario |
 | `runner.py` | Dónde corre el código del repo: el venv de acá o el del VPS |
 | `db_explorer.py` | Introspección de solo lectura sobre `pg_catalog` |
 | `db_models.py` | Los modelos del repo, importados con su propio Python, para comparar contra la base |
 | `versioning.py` | Leer y subir la versión de `pubspec.yaml`, `package.json` o `pyproject.toml` |
-| `github.py` | Llaves SSH de la cuenta, por título |
+| `github.py` | Dar de baja una llave SSH de la cuenta, por título |
 | `android.py` | SDK, catálogos de dispositivos e imágenes, AVD, arranque y apagado de emuladores |
 | `shots.py` | Capturas: argumentos de la cámara, nombre y validación de los crudos, revelado (`shots_presets.json`) |
 | `icons.py` | Íconos: qué apps toman el suyo del logo y qué capa va a cada archivo que declaran (pubspec, `icon.png` de Flet, `<link>` y manifest de PWA de una SPA) |
@@ -65,19 +65,17 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 | Módulo | Capacidades |
 |---|---|
 | `launchers.py` | `backend`, `serve_vite`, `run_mobile`, `run_python`, `ssh_login` |
-| `builders.py` | `build_flutter`, `build_vite`, `build_binary`, `create_spa`, `promote_app`, `bump_version`, `upload_to_vps` |
+| `builders.py` | `build_flutter`, `build_vite`, `build_binary`, `create_spa`, `bump_version`, `upload_to_vps` |
 | `images.py` | `generate_icons`, `shoot_screens`, `render_shots`, `screenshots` |
 | `raster.py` | No es un grupo: el SVG como PNG o como ICO, con QtSvg y Pillow. Lo usan `images.py` y `builders.py` |
 | `emulators.py` | `install_system_image`, `create_avd`, `launch_emulator`, `stop_emulator`, `purge_emulators` |
 | `git.py` | `git_force_push`, `git_force_reset`, `clone_repo` |
-| `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh`, `revoke_github_ssh`, `clean_vps` |
-| `vps_server.py` | `upload_secret_files`, `systemd_action`, `view_logs`, `configure_service`, `publish_code`, `update_remote` |
-| `vps_setup.py` | `refresh_known_host`, `setup_ssh_key`, `setup_github_ssh`, `install_software`, `configure_coturn`, `configure_caddy`, `bootstrap_vps` |
+| `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh`, `clean_vps` |
+| `vps_server.py` | `systemd_action`, `view_logs` |
+| `vps_setup.py` | `refresh_known_host`, `setup_ssh_key`, `install_software` |
 | `database.py` | Los doce del grupo Base de datos |
 | `utils.py` | Limpieza, Cloudflare, sincronización y los cinco de SDK |
 | `payloads.py` | La excepción deliberada: programas Python que viajan por `-c` al intérprete del proyecto |
-
-Dos funciones de `vps_server.py` sirven al grupo Repositorio: con el eje `side` en `vps`, `force_reset` llama a `sync_repository` y `force_push` a `force_push_from_vps`. Están en `vps_server.py` porque son la otra mitad del despliegue, no una operación de git suelta; `git.py` las importa en vez de duplicar el SSH.
 
 ## 4. Qué hay en `ui/`
 
@@ -94,7 +92,7 @@ Dos funciones de `vps_server.py` sirven al grupo Repositorio: con el eje `side` 
 
 ## 5. `scripts/`
 
-51 archivos Python (9 carpetas temáticas más `common.py`) que son **la especificación de comportamiento, no código que se ejecute**. Ningún módulo de `core/`, `ui/` o `main.py` los importa ni los invoca: se conservan para poder comparar contra el original lo que cada capacidad reimplementa ([ADR-0001](../adr/0001-reimplementar-no-ejecutar-scripts.md)).
+51 archivos Python (9 carpetas temáticas más `common.py`) que son **la especificación de comportamiento, no código que se ejecute**. Ningún módulo de `core/`, `ui/` o `main.py` los importa ni los invoca: se conservan para poder comparar contra el original lo que cada capacidad reimplementa ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
 
 ## 6. `camara/`
 

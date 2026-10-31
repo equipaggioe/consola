@@ -23,9 +23,9 @@ Este modulo es la mitad que faltaba del eje `scope`, y es lo que
 directorio del proyecto —los de aca o los del repo desplegado— y correr ahi.
 
 No copia nada al otro lado. El programa viaja en la linea de comandos (`-m
-alembic ...`, `-c <fuente>`) y el interprete es el que `install_remote_deps` ya
-dejo instalado en el VPS; cualquier cosa que el servidor tenga en su venv se
-puede correr asi, sin subir un archivo primero.
+alembic ...`, `-c <fuente>`) y el interprete es el del venv que ya este en el
+repo desplegado; cualquier cosa que el servidor tenga en su venv se puede correr
+asi, sin subir un archivo primero.
 """
 
 
@@ -100,8 +100,8 @@ def resolve(ctx, scope: str = db.LOCAL) -> Runner:
     interprete = vps.remote_python(ctx.config)
     if not ssh.path_exists(remote, interprete):
         raise TaskError(
-            f'No existe el Python del venv en el VPS: {interprete}. '
-            'Corre "Actualizar remoto" para crearlo e instalar las dependencias.')
+            f'No existe el Python del venv en el VPS: {interprete}. Lo dejaba el '
+            'despliegue propio de Consola, que ya no existe (ADR-0059).')
 
     destino = vps.remote_path(ctx.config, ctx.config.get('SERVER_DIR', 'server'))
     ctx.info(f'Se ejecuta en el VPS: {remote.target}:{destino}')
@@ -114,8 +114,8 @@ def here(ctx, conn: db.Connection) -> Runner:
 
     Es para lo que ademas de tocar la base escribe en el repo abierto: Alembic
     `revision --autogenerate` deja un archivo en `alembic/versions/` que hay que
-    revisar y comitear. Generado en el VPS caeria en el repo desplegado, donde
-    el `git reset --hard` de "Actualizar remoto" se lo lleva puesto.
+    revisar y comitear. Generado en el VPS caeria en el repo desplegado, que no
+    es el que se commitea.
     """
     raiz = server_root(ctx)
     return Runner(str(venv_python(raiz / '.venv')), str(raiz), conn.url)

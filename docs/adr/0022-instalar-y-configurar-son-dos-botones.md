@@ -1,6 +1,6 @@
 # ADR-0022 · Instalar un paquete y configurar su servicio son dos acciones distintas
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0059](0059-desplegar-con-los-programas-de-canone.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/vps.py, core/tasks/vps_setup.py
 

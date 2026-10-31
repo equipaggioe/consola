@@ -1,6 +1,6 @@
 # ADR-0021 · La configuración de los servicios se escribe en `/etc` del VPS; en el repo solo queda una copia de referencia
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0059](0059-desplegar-con-los-programas-de-canone.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/vps.py, core/tasks/vps_setup.py, core/tasks/vps_server.py
 

@@ -161,7 +161,7 @@ def sync_common_files(ctx, targets: list[str] | None = None,
     """Copia los archivos compartidos a los otros repos gestionados.
 
     Ya no incluye `scripts/`: esa carpeta deja de existir cuando Consola es la
-    herramienta, y era la unica razon original de este script (ADR-0001).
+    herramienta, y era la unica razon original de este script (ADR-0059).
     """
     if not targets:
         raise TaskError('No hay repos destino seleccionados.')

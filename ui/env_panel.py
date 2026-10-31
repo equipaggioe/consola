@@ -100,8 +100,8 @@ class EnvRow(QWidget):
 
     def set_default_display(self, default_display: str) -> None:
         """Actualiza la marca de agua con el default recalculado — el de
-        `PUBLIC_HOST` o `DB_NAME` cambia con lo que se escriba en otras
-        claves, asi que no queda fijo desde que se construyo la fila."""
+        `DB_NAME` cambia con lo que se escriba en otras claves, asi que no
+        queda fijo desde que se construyo la fila."""
         self.field.setPlaceholderText(default_display or self.setting.default_hint)
 
     @property
@@ -420,12 +420,10 @@ class EnvPanel(QWidget):
         """Recalcula la marca de agua de cada campo con el default que le
         tocaria si quedara vacio.
 
-        No alcanza con resolverlo una vez al abrir: `PUBLIC_HOST` sale de
-        `CF_RECORD_NAME`/`CF_DOMAIN_NAME`/`VPS_IP` y `DB_NAME` de `VPS_USER`,
-        asi que su default cambia con lo que se escriba en esas otras claves.
-        Por eso antes se veia vacio (`PUBLIC_HOST` se resolvia contra un
-        `Config` en blanco) en vez de mostrar, como el resto, lo que de verdad
-        se va a usar.
+        No alcanza con resolverlo una vez al abrir: `DB_NAME` sale de
+        `VPS_USER`, asi que su default cambia con lo que se escriba en esa otra
+        clave. Resuelto contra un `Config` en blanco se veia vacio, en vez de
+        mostrar, como el resto, lo que de verdad se va a usar.
 
         Se calcula sin el valor propio de la clave: `Config.get` devuelve lo
         ya escrito antes que el default, y lo que se quiere aca es "que

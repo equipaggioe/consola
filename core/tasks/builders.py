@@ -22,7 +22,9 @@ artefacto al VPS. Cada uno traia su propia copia del bump (uno para
 propia copia del scp.
 
 Aca el bump es una sola atomica que sirve para los tres manifiestos, la subida
-es otra, y lo unico propio de cada builder es el paso de compilacion.
+es otra, y lo unico propio de cada builder es el paso de compilacion. Solo el
+ejecutable sigue subiendo la version y publicando en el VPS: la app movil y las
+SPA compilan y nada mas (ADR-0059).
 """
 
 
@@ -160,46 +162,6 @@ def _deliver(ctx, app_dir: Path, platform_id: str, salida: Path) -> Path:
     return destino
 
 
-def _last_output(ctx, app_dir: Path, platform_id: str) -> Path:
-    """El build que ya esta en disco, sin volver a compilarlo.
-
-    Con carpeta configurada se busca ahi, que es donde `_deliver` lo dejo; sin
-    ella, donde lo deja el framework.
-    """
-    destino = toolchain.BUILD_PLATFORMS[platform_id]
-    carpeta = _out_dir(ctx, app_dir, platform_id)
-    if carpeta is not None:
-        encontrado = (_newest(carpeta, f'*{destino.suffix}') if destino.suffix
-                      else carpeta if carpeta.is_dir() else None)
-        donde = carpeta
-    else:
-        patron = destino.output(toolchain.detect_app_kind(app_dir))
-        encontrado = _newest(app_dir, patron)
-        donde = app_dir / patron
-    if encontrado is None:
-        raise TaskError(f'No hay ningun build {destino.label} en {donde}.')
-    return encontrado
-
-
-def _publish(ctx, app: str, platforms: Sequence[str], salidas: Sequence[Path],
-             manifest: Path) -> None:
-    """Sube los builds junto con su manifiesto de version y el de release.
-
-    Van todos o no va ninguno: un APK o una carpeta web no dicen de que version
-    son, y del lado del VPS el manifiesto es lo unico que los identifica. Subir
-    solo los builds deja al servidor anunciando la version anterior.
-
-    El manifiesto de release es lo que lee la app para saber si hay algo nuevo,
-    y se escribe uno por plataforma: el APK y el build web se publican por
-    separado y pueden ir en versiones distintas.
-    """
-    for salida in salidas:
-        upload_artifact(ctx, salida)
-    upload_artifact(ctx, manifest)
-    for platform_id, salida in zip(platforms, salidas):
-        _publish_release(ctx, app, platform_id, salida, manifest)
-
-
 # --- manifiesto de release -------------------------------------------------
 #
 # Que version esta publicada es un hecho del artefacto, no configuracion del
@@ -262,12 +224,11 @@ BASE_FILE = 'base.generated.js'
 def _write_base(ctx, spa: targets.Target, base: str) -> None:
     """Deja en la SPA el modulo con su ruta publica, para que su config lo importe.
 
-    La fuente de verdad de bajo que ruta vive cada SPA es `PUBLIC_ROUTES`, la
-    misma tabla con la que `configure_caddy` escribe el proxy. Pero el repo tiene
-    que poder compilarse sin Consola, asi que el valor no viaja por el entorno
-    del build: se escribe como un literal en un archivo que se commitea. Consola
-    lo genera igual que generaria cualquier otro archivo — despues es del repo, y
-    editarlo a mano funciona.
+    La fuente de verdad de bajo que ruta vive cada SPA es `PUBLIC_ROUTES`. Pero
+    el repo tiene que poder compilarse sin Consola, asi que el valor no viaja
+    por el entorno del build: se escribe como un literal en un archivo que se
+    commitea. Consola lo genera igual que generaria cualquier otro archivo —
+    despues es del repo, y editarlo a mano funciona.
 
     Es un archivo propio y no un parche sobre `svelte.config.js` o
     `vite.config.*`: Consola no edita codigo que no escribio ella.
@@ -289,10 +250,10 @@ def _write_base(ctx, spa: targets.Target, base: str) -> None:
 def compile_spa(ctx, directory: str = '') -> Path:
     """`npm run build`, con la ruta publica escrita antes y comprobada despues.
 
-    Bajo que ruta vive cada SPA lo dice `PUBLIC_ROUTES`, la misma tabla que lee
-    `configure_caddy`. Los dos lados tienen que decir lo mismo, y el desacuerdo
-    no da error: el proxy sirve la app, el navegador pide sus assets en la raiz
-    del dominio —donde vive la OTRA app— y lo que se ve es una pagina en blanco.
+    Bajo que ruta vive cada SPA lo dice `PUBLIC_ROUTES`, y el proxy que la sirve
+    tiene que decir lo mismo. El desacuerdo no da error: el proxy sirve la app,
+    el navegador pide sus assets en la raiz del dominio —donde vive la OTRA
+    app— y lo que se ve es una pagina en blanco.
 
     Por eso hay dos pasos y no uno. Escribir `base.generated.js` pone el valor
     donde el repo lo va a leer; comprobar el HTML confirma que de verdad lo leyo,
@@ -348,27 +309,12 @@ def _spa_output(spa: targets.Target) -> Path:
     adaptadores de SvelteKit. Se mira el disco y no `vite.config.*` porque la
     salida puede venir declarada desde un plugin.
 
-    Es el homologo de `_last_output`: sirve para leer lo recien compilado y
-    tambien para encontrar lo que ya estaba, cuando se sube sin recompilar.
     """
     for candidata in ('dist', 'build'):
         salida = spa.path / candidata
         if salida.is_dir():
             return salida
     raise TaskError(f'{spa.name} no tiene carpeta dist/ ni build/.')
-
-
-def _publish_spa(ctx, app: str, salida: Path, manifest: Path) -> None:
-    """Sube la carpeta del build junto con su `package.json`.
-
-    Homologo de `_publish` en Flutter: van los dos o no va ninguno. La carpeta
-    compilada no lleva su version adentro, y si el `package.json` del VPS
-    queda con el numero viejo, todo lo que lo lea (health check, la propia
-    SPA) va a anunciar una version que ya no es la que esta servida.
-    """
-    upload_artifact(ctx, salida)
-    upload_artifact(ctx, manifest)
-    _publish_release(ctx, app, 'web', salida, manifest)
 
 
 # El esqueleto lo pone `sv create`, que es el generador oficial de Svelte: trae
@@ -606,7 +552,7 @@ def _binary_label(app_dir: Path, fuente: Path, name: str) -> str:
 def _binary_output(app_dir: Path, etiqueta: str, onefile: bool) -> Path:
     """Donde queda lo que deja PyInstaller: un archivo con `--onefile`, una
     carpeta sin el. Sirve para leer lo recien compilado y para encontrar lo que
-    ya estaba, igual que `_last_output` y `_spa_output`."""
+    ya estaba."""
     sufijo = HOST.executable_suffix if onefile else ''
     return app_dir / 'dist' / f'{etiqueta}{sufijo}'
 
@@ -692,8 +638,7 @@ def _maybe_checksum(ctx, artifact: Path) -> Path | None:
 def _publish_binary(ctx, app: str, artifact: Path, manifest: Path, checksum: Path | None) -> None:
     """Sube el binario con su manifiesto (y su checksum, si se genero).
 
-    Homologo de `_publish` y `_publish_spa`: van juntos o no va ninguno. El
-    ejecutable no dice de que version es, y del lado del VPS el manifiesto es lo
+    Van juntos o no va ninguno. El ejecutable no dice de que version es, y del lado del VPS el manifiesto es lo
     unico que lo identifica. El script original subia los dos solo en su rama
     `BUILD_BINARY=false`; en la normal dejaba el manifiesto remoto viejo.
 
@@ -709,118 +654,43 @@ def _publish_binary(ctx, app: str, artifact: Path, manifest: Path, checksum: Pat
     _publish_release(ctx, app, HOST.system.lower(), artifact, manifest)
 
 
-# --- promocion -------------------------------------------------------------
-
-def promote_app(ctx, source: str = 'app_web_ultima', target: str = 'app_web_estable') -> None:
-    """Copia la version recien publicada sobre la estable. Destructivo: pisa
-    la carpeta anterior entera, asi que muestra el cambio antes de aplicar. El
-    seguro `publicacion` lo frena o lo avisa desde la consola (`core/protection.py`)."""
-    origen, destino = ctx.path(source), ctx.path(target)
-    if not origen.is_dir():
-        raise TaskError(f'No existe la carpeta de origen: {origen}')
-
-    estado = files.compare(origen, destino)
-    if estado == 'SAME':
-        ctx.ok('La version estable ya es identica a la ultima. No hay nada que promover.')
-        return
-
-    ctx.warn(f'{destino} va a ser reemplazada por {origen} ({estado}).')
-    files.remove(destino)
-    files.copy(origen, destino)
-    ctx.ok(f'Promovido: {origen.name} -> {destino.name}')
-    ctx.note(f'Promocion de app: {origen.name} -> {destino.name}')
-
-
 # --- compuestas ------------------------------------------------------------
 
 def build_flutter(
     ctx,
     directory: str = '',
     platforms: Sequence[str] = ('apk',),
-    bump_mode: str = 'patch',
-    *,
-    bump: bool = True,
-    build: bool = True,
-    upload: bool = False,
 ) -> list[Path]:
-    """Compuesta: bump -> compilar cada plataforma -> subir builds + manifiesto.
+    """Compila la app para cada plataforma marcada.
 
-    Es el `build_flutter.py` de posta. Un solo boton para Flutter y para Flet:
-    `directory` nombra *cual* app del repo, no con que esta escrita, y el
-    framework sale de la carpeta. Lo unico que no se comparte es el `+build` de
-    `bump_mode` (subir el build number), que necesita el `+N` de `pubspec.yaml`
-    y falla con ese mensaje en un `pyproject.toml` de Flet.
+    Es el `build_flutter.py` de posta, sin el bump ni la subida al VPS: la
+    version sale del tag y el APK no se publica en el VPS (ADR-0059). Un solo
+    boton para Flutter y para Flet: `directory` nombra *cual* app del repo, no
+    con que esta escrita, y el framework sale de la carpeta.
 
-    El bump es uno solo por mas plataformas que se marquen: el APK y la web de
-    la misma corrida son la misma version. Si cualquiera de los builds falla, la
-    version vuelve a lo que era y no se sube nada.
-
-    Sin `build` no se compila nada: se suben los builds que ya estan en disco.
-    Es el `BUILD_APP=false` del script original, para retomar un scp cortado
-    sin pagar otra compilacion.
-
-    No hay paso de `pub get`: `flutter build` resuelve dependencias solo, y el
-    bump acaba de tocar `pubspec.yaml`, asi que las re-resuelve siempre.
+    No hay paso de `pub get`: `flutter build` resuelve dependencias solo.
     """
     app = _mobile(ctx, directory)
-    manifiesto = versioning.find_manifest(app.path)
     nombres = ', '.join(toolchain.BUILD_PLATFORMS[p].label for p in platforms)
-
-    if not build:
-        if not upload:
-            raise TaskError('Sin compilar y sin subir no queda nada por hacer.')
-        if bump:
-            ctx.warn('Bump ignorado: lo que hay en disco se compilo con la '
-                     'version que ya tiene el manifiesto, y subirlo cambiado lo '
-                     'anunciaria como otra cosa.')
-        salidas = [_last_output(ctx, app.path, p) for p in platforms]
-        ctx.step('upload')
-        _publish(ctx, app.name, platforms, salidas, manifiesto)
-        ctx.note(f'Re-subida {app.name} ({nombres}) {versioning.read_version(manifiesto)}')
-        return salidas
-
     salidas: list[Path] = []
-    with files.reversible(manifiesto):
-        if bump:
-            ctx.step('bump')
-            bump_version(ctx, app.name, bump_mode)
-        ctx.step('build')
-        for plataforma in platforms:
-            ctx.raise_if_cancelled()
-            salidas.append(compile_flutter(ctx, app.name, plataforma))
-
-    if upload:
-        ctx.step('upload')
-        _publish(ctx, app.name, platforms, salidas, manifiesto)
-
-    ctx.note(f'Build {app.name} ({nombres}) {versioning.read_version(manifiesto)}')
+    for plataforma in platforms:
+        ctx.raise_if_cancelled()
+        salidas.append(compile_flutter(ctx, app.name, plataforma))
+    ctx.note(f'Build {app.name} ({nombres})')
     return salidas
 
 
-def build_vite(
-    ctx,
-    directories: Sequence[str] = (),
-    bump_mode: str = 'patch',
-    *,
-    bump: bool = True,
-    build: bool = True,
-    upload: bool = False,
-) -> list[Path]:
-    """Compuesta: por cada SPA elegida, npm install -> bump -> build -> subida.
+def build_vite(ctx, directories: Sequence[str] = ()) -> list[Path]:
+    """Por cada SPA elegida: npm install y build.
 
-    Mismo esqueleto que `build_flutter`, con la unica diferencia que declara el
-    catalogo: su eje es `many`. Un repo tiene una app movil pero suele tener
-    tres SPA (`panel`, `backoffice`, `landing`), y compilarlas es una tarea que
-    termina — asi que las marcadas se recorren en un bucle aca dentro, N builds
-    en fila en un solo log, y no una pestana por cada una como hace el launcher
-    de dev servers (ADR-0010).
+    Su eje es `many`: un repo tiene una app movil pero suele tener tres SPA
+    (`panel`, `backoffice`, `landing`), y compilarlas es una tarea que termina
+    — asi que las marcadas se recorren en un bucle aca dentro, N builds en fila
+    en un solo log, y no una pestana por cada una como hace el launcher de dev
+    servers (ADR-0010).
 
     La lista vacia significa "la unica SPA que haya", igual que el `directory`
     vacio de `build_flutter`: en un repo con una sola, el eje ni se dibuja.
-
-    Cada SPA se compila y se sube entera antes de pasar a la siguiente, y su
-    bump es reversible por separado: si la tercera revienta, las dos que ya se
-    publicaron conservan la version con la que salieron.
     """
     elegidas = [_target(ctx, targets.SPA_VITE, nombre) for nombre in (directories or [''])]
     salidas: list[Path] = []
@@ -828,65 +698,10 @@ def build_vite(
         ctx.raise_if_cancelled()
         if len(elegidas) > 1:
             ctx.step(f'{spa.name} ({indice} de {len(elegidas)})')
-        salidas.append(_build_spa(ctx, spa, bump_mode, bump=bump, build=build, upload=upload))
-    return salidas
-
-
-def _build_spa(
-    ctx,
-    spa: targets.Target,
-    bump_mode: str,
-    *,
-    bump: bool,
-    build: bool,
-    upload: bool,
-) -> Path:
-    """Una SPA. Es el cuerpo de `build_flutter` con `npm` en vez de `flutter`.
-
-    Sin `build` no se compila nada: se sube la carpeta que ya esta en disco.
-    Es el modo que el script original activaba con `BUILD_SPA=false`, y la
-    razon es la misma que en el APK — retomar un scp cortado no deberia costar
-    otro `npm install` y otro build.
-
-    A diferencia del APK, aca si hay paso de dependencias: `npm run build` no
-    instala nada, y el bump acaba de tocar `package.json` sin agregar ninguna.
-
-    Se sube la carpeta del build Y el `package.json` recien bumpeado, igual
-    que `_publish` sube el APK con su manifiesto. El script original solo
-    subia el manifiesto en su rama `BUILD_SPA=false`; que el build normal lo
-    dejara sin actualizar del lado del VPS era un descuido, no una decision:
-    la carpeta compilada no dice de que version es.
-    """
-    manifiesto = versioning.find_manifest(spa.path)
-
-    if not build:
-        if not upload:
-            raise TaskError('Sin compilar y sin subir no queda nada por hacer.')
-        if bump:
-            ctx.warn('Bump ignorado: la carpeta que hay en disco se compilo con la '
-                     'version que ya tiene el manifiesto, y subirla cambiada la '
-                     'anunciaria como otra cosa.')
-        salida = _spa_output(spa)
-        ctx.step('upload')
-        _publish_spa(ctx, spa.name, salida, manifiesto)
-        ctx.note(f'Re-subida SPA {spa.name} {versioning.read_version(manifiesto)}')
-        return salida
-
-    with files.reversible(manifiesto):
-        ctx.step('Dependencias')
         install_node_modules(ctx, spa.name)
-        if bump:
-            ctx.step('bump')
-            bump_version(ctx, spa.name, bump_mode)
-        ctx.step('build')
-        salida = compile_spa(ctx, spa.name)
-
-    if upload:
-        ctx.step('upload')
-        _publish_spa(ctx, spa.name, salida, manifiesto)
-
-    ctx.note(f'Build Vite {spa.name} {versioning.read_version(manifiesto)}')
-    return salida
+        salidas.append(compile_spa(ctx, spa.name))
+        ctx.note(f'Build Vite {spa.name}')
+    return salidas
 
 
 def build_binary(
@@ -960,6 +775,5 @@ def bind_all() -> None:
     registry.bind('build_vite', build_vite)
     registry.bind('create_spa', create_spa)
     registry.bind('build_binary', build_binary)
-    registry.bind('promote_app', promote_app)
     registry.bind('bump_version', bump_version)
     registry.bind('upload_to_vps', upload_artifact)

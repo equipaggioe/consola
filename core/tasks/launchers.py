@@ -77,8 +77,7 @@ def resolve_tls(ctx, server: Path) -> tuple[Path, Path] | None:
     """Los certificados del backend, si estan. Sin ellos arranca en texto plano.
 
     Se buscan en `certs/` de la carpeta del servidor, como hacia el script
-    original: `CERT_FILE_PATH` y `KEY_FILE_PATH` son las rutas del servicio en
-    el VPS, no las de esta maquina.
+    original.
     """
     cert = server / 'certs' / 'cert.pem'
     key = server / 'certs' / 'key.pem'

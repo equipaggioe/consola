@@ -1,42 +1,40 @@
 # 17 · Builds y artefactos
 
-## 1. Un esqueleto, tres builders
+## 1. Tres builders
 
-Los tres builders son la misma secuencia con un paso propio en el medio:
+| Builder | Paso propio | Eje del objetivo |
+|---|---|---|
+| `build_flutter` | `flutter build` o `flet build`, una vez por plataforma marcada | `directory`: una app móvil |
+| `build_vite` | `npm install` + `npm run build` | `directories`: varias SPA, en bucle |
+| `build_binary` | PyInstaller | Campos: punto de entrada y nombre |
+
+`build_flutter` y `build_vite` compilan y nada más: no suben la versión del manifiesto ni publican en el VPS ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). `build_binary` es el único que recorre la secuencia entera:
 
 ```
-bump del manifiesto → compilar → (checksum) → subir artefacto + manifiesto
+bump del manifiesto → compilar → checksum → subir artefacto + manifiesto
 ```
 
-| Builder | Manifiesto | Paso propio | Eje del objetivo |
-|---|---|---|---|
-| `build_flutter` | `pubspec.yaml` | `flutter build` o `flet build`, una vez por plataforma marcada | `directory`: una app móvil |
-| `build_vite` | `package.json` | `npm install` + `npm run build` | `directories`: varias SPA, en bucle |
-| `build_binary` | `pyproject.toml` | PyInstaller | Campos: punto de entrada y nombre |
-
-El bump y la subida son **atómicas compartidas** (`bump_version`, `upload_artifact`), no tres copias. Lo único propio de cada builder es cómo compila.
+El bump y la subida son atómicas (`bump_version`, `upload_artifact`) que hoy usa solo él.
 
 ## 2. El bump es reversible
 
 Todo el tramo que toca el manifiesto va dentro de `files.reversible(manifiesto)`: si el build revienta después de subir la versión, el archivo vuelve a lo que era y el repo no queda marcado con un número que nunca se publicó ([ADR-0025](../adr/0025-bump-reversible.md)).
 
-Un solo bump por corrida por más plataformas que se marquen: el APK y la web de la misma corrida son la misma versión. En `build_vite`, cada SPA es reversible por separado: si la tercera falla, las dos que ya se publicaron conservan la versión con la que salieron.
-
-`versioning.bump` entiende dos partes combinables: el componente SemVer (`major`/`minor`/`patch`/`none`) y, con `+build`, el build number de Flutter (`1.4.22+318`). El `+N` solo existe en `pubspec.yaml`, así que Vite y el binario usan un eje SemVer pelado: ofrecer ahí la casilla `build` sería ofrecer una elección que siempre termina en error.
+El eje `bump_mode` ofrece el componente SemVer (`major`/`minor`/`patch`/`none`). `versioning.bump` entiende además `+build`, el build number de Flutter (`1.4.22+318`), que ningún botón ofrece.
 
 ## 3. Compilar es desmarcable
 
-Sin el paso «Compilar», el builder **sube lo que ya está en disco**. Es el `BUILD_APP=false` / `BUILD_SPA=false` / `BUILD_BINARY=false` de los scripts originales, y la razón es económica: retomar un `scp` cortado no debería costar otro build entero ([ADR-0026](../adr/0026-compilar-es-desmarcable.md)).
+Sin el paso «Compilar binario», `build_binary` **sube lo que ya está en disco**. Es el `BUILD_BINARY=false` del script original, y la razón es económica: retomar un `scp` cortado no debería costar otro empaquetado entero ([ADR-0026](../adr/0026-compilar-es-desmarcable.md)).
 
 En ese modo el bump se ignora con un aviso: lo que hay en disco se compiló con la versión que ya tiene el manifiesto, y subirlo cambiado lo anunciaría como otra cosa. Sin compilar y sin subir no queda nada por hacer, y el botón lo dice.
 
 ## 4. Un artefacto nunca viaja solo
 
-Cada `_publish*` sube el artefacto **y** su manifiesto, y después escribe el manifiesto de release. Van todos o no va ninguno: un APK o una carpeta web no dicen de qué versión son, y del lado del VPS el manifiesto es lo único que los identifica ([ADR-0024](../adr/0024-publicar-escribe-un-manifiesto-de-release.md)).
+`_publish_binary` sube el binario **y** su manifiesto, el checksum si se generó, y después escribe el manifiesto de release. Van todos o no va ninguno: el ejecutable no dice de qué versión es, y del lado del VPS el manifiesto es lo único que lo identifica ([ADR-0024](../adr/0024-publicar-escribe-un-manifiesto-de-release.md)).
 
-`releases/<app>/<plataforma>.json` es lo que lee una app para saber si hay algo nuevo: app, plataforma, versión, build, nombre del artefacto, `sha256` si es un archivo, y fecha. Se escribe uno por plataforma, porque el APK y el build web se publican por separado y pueden ir en versiones distintas.
+`releases/<app>/<plataforma>.json` es lo que lee una app para saber si hay algo nuevo: app, plataforma, versión, build, nombre del artefacto, `sha256` si es un archivo, y fecha.
 
-No es una fuente de verdad nueva: se deriva del manifiesto del subproyecto en el momento de publicar. Es la convención de siempre para actualizaciones —el appcast de Sparkle, el `latest.yml` de electron-updater, el `version.json` que Flutter ya emite para web—.
+No es una fuente de verdad nueva: se deriva del manifiesto del subproyecto en el momento de publicar. Es la convención de siempre para actualizaciones —el appcast de Sparkle, el `latest.yml` de electron-updater—.
 
 ## 5. Flutter y Flet son el mismo botón
 
@@ -50,7 +48,7 @@ La URL de la API se inyecta por `--dart-define` desde la configuración, la mism
 
 ## 6. La ruta pública de una SPA
 
-Bajo qué ruta vive cada SPA lo dice `PUBLIC_ROUTES` — la misma tabla que lee `configure_caddy` ([15](15_vps_y_despliegue.md)). El proxy y el build tienen que decir lo mismo, y el desacuerdo **no da error**: el proxy sirve la app, el navegador pide sus assets en la raíz del dominio —donde vive la otra app— y lo que se ve es una página en blanco.
+Bajo qué ruta vive cada SPA lo dice `PUBLIC_ROUTES` ([ADR-0019](../adr/0019-tabla-de-rutas-publicas.md)). El proxy que la sirve y el build tienen que decir lo mismo, y el desacuerdo **no da error**: el proxy sirve la app, el navegador pide sus assets en la raíz del dominio —donde vive la otra app— y lo que se ve es una página en blanco.
 
 Por eso hay dos pasos y no uno:
 
@@ -86,7 +84,3 @@ El checksum SHA-256 es propio de este builder: un ejecutable que alguien descarg
 `create_spa` levanta el esqueleto con `sv create` —el generador oficial de Svelte: TypeScript, runas y adaptador estático— y escribe encima lo que falta para dejarla lista: UnoCSS, `ssr = false`, y, **solo si el repo tiene tabla de rutas**, la base leída de `base.generated.js`. Sin tabla, esa parte de la config sobra y no se escribe.
 
 El nombre de la carpeta se pregunta al correr (`ctx.ask`), no se guarda: es distinto en cada corrida, así que como parámetro guardado la segunda arrancaba con el nombre de la primera — o sea, con una carpeta que ya existe.
-
-## 9. Promover
-
-`promote_app` copia lo último publicado sobre el canal estable. Es destructivo —pisa la carpeta anterior entera— así que compara antes, avisa si ya eran idénticas y queda bajo el objetivo `publicacion` del seguro ([14](14_seguro_de_destructivos.md)).

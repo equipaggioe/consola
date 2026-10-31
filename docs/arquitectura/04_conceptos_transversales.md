@@ -10,9 +10,9 @@ Nada de `core/` (fuera de `core/tasks/`) importa Qt, imprime a stdout, lee de st
 - `input()` se reemplazó por `ctx.ask` / `ctx.confirm`, que abren el diálogo que corresponde.
 - `subprocess.run` se reemplazó por `ctx.run` / `ctx.capture`, que transmiten en vivo y atienden la cancelación.
 
-## 2. El único `subprocess` es a un binario externo real
+## 2. El único `subprocess` es a un binario externo real o a un programa de canone
 
-`flutter`, `npm`, `git`, `ssh`, `scp`, `adb`, `emulator`, `sdkmanager`, `psql`, `pyinstaller`, `uvicorn`. Ninguna capacidad lanza otro script de Consola como proceso: si necesita lo que hace otra, la llama como función con `ctx.child(...)` ([ADR-0001](../adr/0001-reimplementar-no-ejecutar-scripts.md)).
+`flutter`, `npm`, `git`, `ssh`, `scp`, `adb`, `emulator`, `sdkmanager`, `psql`, `pyinstaller`, `uvicorn`, o un programa de canone. Ninguna capacidad lanza otro script de Consola como proceso: si necesita lo que hace otra, la llama como función con `ctx.child(...)` ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
 
 La excepción declarada son los **payloads** (`core/tasks/payloads.py`): programas Python cortos que viajan por `-c` al intérprete del proyecto —el de acá o el del VPS— porque necesitan importar `app.` y `seeders.` del repo administrado. No se copia ningún archivo al otro lado.
 
@@ -25,12 +25,11 @@ Consecuencia práctica: renombrar un parámetro de una función de `core/tasks/`
 ## 4. Detectar antes de actuar, y mostrar antes de escribir
 
 - Lo que ya está no se rehace: `install_packages` saltea lo instalado, `ensure_local_keypair` no pisa una llave existente, `create_database` solo cambia el dueño si la base ya existe.
-- Lo que se sobrescribe se compara primero: `core/files.py::compare` devuelve `NEW`/`DIFF`/`SAME` y alimenta los modos simulacro; `core/vps.py::write_config` imprime un `diff` unificado y no escribe si el contenido es idéntico.
-- Un archivo que no cambió no reinicia nada: `write_config` devuelve si hubo cambio, y `bring_up_service` usa eso para elegir entre `restart` y `start` ([ADR-0039](../adr/0039-mostrar-antes-de-escribir.md)).
+- Lo que se sobrescribe se compara primero: `core/files.py::compare` devuelve `NEW`/`DIFF`/`SAME` y alimenta los modos simulacro ([ADR-0039](../adr/0039-mostrar-antes-de-escribir.md)).
 
 ## 5. Los secretos no se ven ni se escriben
 
-`ctx.guard(valor)` marca un valor y `ctx.mask` lo reemplaza por `******` en todo lo que pase por el log. Lo usan las contraseñas de base, el secreto de TURN y lo que se pide con `ask(secret=True)`. Una contraseña de SSH viaja por el entorno de un helper `SSH_ASKPASS`, nunca por la línea de comandos ni por disco (`core/ssh.py::password_env`).
+`ctx.guard(valor)` marca un valor y `ctx.mask` lo reemplaza por `******` en todo lo que pase por el log. Lo usan las contraseñas de base, el token de GitHub y lo que se pide con `ask(secret=True)`. Una contraseña de SSH viaja por el entorno de un helper `SSH_ASKPASS`, nunca por la línea de comandos ni por disco (`core/ssh.py::password_env`).
 
 ## 6. Cancelar es parte del contrato
 

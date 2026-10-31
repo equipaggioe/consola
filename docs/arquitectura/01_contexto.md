@@ -2,7 +2,7 @@
 
 ## 1. Qué es
 
-Aplicación de escritorio (PySide6) que ejecuta las operaciones de desarrollo y de despliegue de **los repositorios que se le abren como pestañas**: levantar los servidores de desarrollo, compilar y publicar artefactos, aprovisionar y actualizar un VPS, administrar la base de datos y el SDK de Android.
+Aplicación de escritorio (PySide6) que ejecuta las operaciones de desarrollo y de operación de **los repositorios que se le abren como pestañas**: levantar los servidores de desarrollo, compilar, aprovisionar y operar un VPS, administrar la base de datos y el SDK de Android. Hoy no despliega: el despliegue lo hacen los programas de canone, que Consola todavía no corre ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
 
 Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La lógica vive una sola vez, en la app, y se aplica a cualquier repo abierto.
 
@@ -17,9 +17,9 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 
 ## 2. Qué no es
 
-- **No es un servidor ni un agente.** No corre nada propio en el VPS: lo que deja allá es configuración en `/etc`, el código del repo clonado de GitHub y artefactos compilados.
+- **No es un servidor ni un agente.** No corre nada propio en el VPS: lo que deja allá son paquetes de apt, la cuenta de despliegue con su llave y el ejecutable que sube «Compilar ejecutable».
 - **No es multiusuario ni remoto.** Corre en la máquina de una persona, con sus llaves SSH (`~/.ssh`) y sus SDK.
-- **No edita el código de los repos que administra.** Los únicos archivos que escribe dentro de un repo son suyos: `.consola/`, `base.generated.js` de una SPA, `releases/<app>/<plataforma>.json` y el manifiesto de versión al subirlo ([ADR-0021](../adr/0021-configuracion-en-etc-no-en-el-repo.md)). Aparte están las imágenes del grupo Imágenes: las capturas reveladas y los íconos de las apps ([19](19_imagenes.md)).
+- **No edita el código de los repos que administra.** Los únicos archivos que escribe dentro de un repo son suyos: `.consola/`, `base.generated.js` de una SPA, `releases/<app>/<plataforma>.json` y el manifiesto de versión del ejecutable ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Aparte están las imágenes del grupo Imágenes: las capturas reveladas y los íconos de las apps ([19](19_imagenes.md)).
 
 ## 3. Restricciones
 
@@ -42,8 +42,6 @@ flowchart LR
     C <--> REPO[(Repos abiertos<br/>carpetas locales)]
     C -- "ssh · scp · túnel -L" --> VPS[VPS Debian<br/>systemd · apt · ufw]
     VPS --> PG[(Postgres del VPS)]
-    VPS --> CADDY[Caddy]
-    VPS --> TURN[coturn]
     C -- "git clone/push/fetch" --> GH[GitHub]
     C -- "API de llaves" --> GHAPI[API de GitHub]
     C -- "registro A" --> CF[API de Cloudflare]
@@ -54,17 +52,17 @@ flowchart LR
 
 ## 5. Alcance del catálogo
 
-64 capacidades registradas: 61 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 41 atómicas y 23 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
+54 capacidades registradas: 51 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 41 atómicas y 13 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
 
 | Grupo | Botones | Qué resuelve |
 |---|---|---|
 | Ejecutar | 5 | Levantar lo que corre en desarrollo: backend, SPA, app móvil, app de escritorio, y todo junto |
-| Compilar | 6 | Compilar y publicar: Flutter/Flet, Vite, ejecutable, promoción, SPA nueva, limpieza de artefactos |
+| Compilar | 5 | Compilar: Flutter/Flet, Vite y el ejecutable, que además se publica; SPA nueva y limpieza de artefactos |
 | Imágenes | 4 | Los íconos de las apps a partir del logo, y las capturas publicables: sacarlas, revelarlas y las dos juntas |
-| Repositorio | 5 | Clonar, los dos forzados contra origin con el lado que gana como eje ([ADR-0044](../adr/0044-el-lado-que-gana-es-un-eje.md)), y la sincronización de archivos y claves entre repos |
+| Repositorio | 5 | Clonar, los dos forzados contra origin desde esta máquina ([ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)), y la sincronización de archivos y claves entre repos |
 | Base de datos | 12 | Ciclo de vida del esquema, migraciones, datos, respaldo, túnel y explorador |
-| Despliegue | 6 | Publicar y actualizar el código, los archivos secretos, el servicio systemd y sus logs |
-| VPS | 14 | Aprovisionamiento, diagnóstico y desmontaje: paquetes, SSH, GitHub, coturn, Caddy, DNS, salud, comandos sueltos, bootstrap y revocaciones |
+| Despliegue | 2 | Los servicios systemd del VPS: acciones y logs |
+| VPS | 9 | Aprovisionamiento, diagnóstico y desmontaje: paquetes, SSH, DNS, salud, comandos sueltos y revocación |
 | Emuladores | 4 | Imágenes de sistema, dispositivos virtuales, arranque y limpieza de disco |
 | SDKs | 5 | Dejar esta máquina lista para compilar: Android y Flutter |
 
@@ -74,4 +72,4 @@ flowchart LR
 |---|---|
 | El desarrollador que la usa | Que un botón haga lo que dice, sobre el repo que tiene abierto, y que lo destructivo no se dispare en el repo equivocado |
 | Los repos administrados | Que Consola no les escriba código: solo su carpeta `.consola/` y lo que declaran como generado |
-| El VPS | Que lo que se le escriba sea idempotente y que un archivo no cambie si no cambió su contenido (`core/vps.py::write_config`) |
+| El VPS | Que Consola no escriba encima de lo que instalan los programas de canone ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)) |

@@ -2,7 +2,7 @@
 
 ## 1. El eje `scope`
 
-Una docena de botones tienen el eje `local` / `remoto`. No significa «corré este script allá», como hacía el `RUN_REMOTE` de los scripts: la función corre siempre en Consola y lo que cambia es contra qué base apunta, y con qué intérprete ([ADR-0012](../adr/0012-el-eje-scope.md)).
+Ocho botones tienen el eje `local` / `remoto`: «Levantar backend», «Correr seeders», «Correr mock seeders», «Habilitar extensiones», «Explorar datos», «Reconstruir base», «Reiniciar historial de migraciones» y «Borrar base y rol». No significa «corré este script allá», como hacía el `RUN_REMOTE` de los scripts: la función corre siempre en Consola y lo que cambia es contra qué base apunta, y con qué intérprete ([ADR-0012](../adr/0012-el-eje-scope.md)).
 
 Hay dos canales, hermanos y con el mismo reparto:
 
@@ -13,6 +13,8 @@ Hay dos canales, hermanos y con el mismo reparto:
 | `runner.Runner` | Programas Python del repo | El venv de `<SERVER_DIR>/.venv` | El venv del repo desplegado, por SSH |
 
 El canal de superusuario existe aparte porque crear un rol, crear una base o borrarlas necesitan permisos que el rol de la aplicación no tiene, y por eso pasa por `psql` y no por el driver.
+
+«Configurar base de datos», «Correr migraciones», «Respaldar base de datos» y «Restaurar base de datos» no tienen el eje: actúan solo sobre la base local. En un VPS de canone la base la crea `install.py`, migra `deploy.py` y respalda la receptora ([ADR-0060](../adr/0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md)). Sus claves de base las exige la capacidad (`_DB_FIXED` de `core/settings.py`), porque no hay eje que las declare.
 
 ## 2. Nunca por la IP pública
 
@@ -28,7 +30,7 @@ En Linux el canal de superusuario local entra por TCP igual que en Windows, así
 
 ## 3. Dónde corre el código del repo
 
-`core/runner.py` es la mitad que faltaba del eje. Lo que solo toca la base —aplicar migraciones, sembrar, asegurar particiones— corre **del lado de la base**: con ámbito remoto, en el VPS, sin túnel y con el intérprete que `publish_code` ya dejó instalado. Reconstruir la base del VPS borraba las tablas por SSH y después moría buscando un `python.exe` local que en un equipo que solo opera el servidor no tiene por qué existir.
+`core/runner.py` es la mitad que faltaba del eje. Lo que solo toca la base —aplicar migraciones, sembrar, asegurar particiones— corre **del lado de la base**: con ámbito remoto, en el VPS, sin túnel y con el intérprete del venv del repo desplegado (`vps.remote_python`). Reconstruir la base del VPS borraba las tablas por SSH y después moría buscando un `python.exe` local que en un equipo que solo opera el servidor no tiene por qué existir.
 
 No se copia nada al otro lado: el programa viaja en la línea de comandos (`-m alembic …`, `-c <fuente>`) y `DATABASE_URL` va por el entorno, nunca escrita a un archivo.
 
@@ -79,23 +81,20 @@ Antes de crear cada una se mira `pg_available_extensions`: no todo VPS tiene el 
 
 Vaciar la base es un paso **de** `reinit_migrations`, no una precondición que haya que recordar: el autogenerate compara contra la base viva, así que sobre una base con tablas la «inicial» sale vacía.
 
-Generar corre siempre en esta máquina, aunque el ámbito sea remoto: deja un archivo que hay que revisar y comitear, y generado en el VPS caería en el repo desplegado, donde el `reset --hard` del próximo despliegue se lo lleva puesto. La base remota la alcanza por el túnel, como cualquier otro proceso local.
+Generar corre siempre en esta máquina: deja un archivo que hay que revisar y comitear. `migrate_db` genera y aplica contra la base local; `reinit_migrations` genera contra la base de su ámbito, y la remota la alcanza por el túnel.
 
 Los dos botones tienen `requires_repo='migrations'`: en un repo sin Alembic no están ([ADR-0007](../adr/0007-lo-inaplicable-desaparece.md)).
 
 ## 8. Respaldo y restauración
 
-`backup_db` vuelca la base del ámbito a un archivo local y `restore_db` carga uno de esos archivos de vuelta. Las dos corren `pg_dump`/`pg_restore` **en esta máquina** en los dos ámbitos y alcanzan la base remota por el túnel, como cualquier otro proceso local ([ADR-0046](../adr/0046-el-volcado-corre-de-este-lado.md)).
+`backup_db` vuelca la base local a un archivo y `restore_db` carga uno de esos archivos de vuelta. Las dos corren `pg_dump`/`pg_restore` en esta máquina, contra la URL de `db.connect` ([ADR-0060](../adr/0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md)).
 
 | Decisión | Por qué |
 |---|---|
-| Las herramientas corren de este lado | El volcado remoto por SSH ataba el respaldo al VPS: la base local no se podía respaldar. Además dejaba un temporal en `/tmp` que limpiar en cada camino de error |
 | Se busca el binario de la versión más nueva instalada | Una máquina con 15 y 17 tiene que usar la de 17: la de 15 se niega a leer un servidor 17 |
 | La versión se compara **antes** de volcar | El error de `pg_dump` es un «server version mismatch» crudo a mitad de la corrida; el mensaje propio nombra las dos versiones y la ruta del binario elegido |
 | La contraseña va por `PGPASSWORD`, no en el argv | Un argv queda escrito en el log de la corrida. Por eso `Connection` expone `host` y `port` sueltos además de la URL |
 | `restore_db` corre con `--clean --if-exists --no-owner --exit-on-error` | Restaura sobre la base existente sin tocar el rol ni la base, con el dueño de este repo, y corta en el primer error en vez de resumir al final |
-
-**Requisito nuevo:** respaldar el VPS ahora exige las herramientas cliente de PostgreSQL en esta máquina. Antes no hacía falta ninguna.
 
 ### Dónde caen los archivos
 
@@ -107,7 +106,7 @@ La rotación filtra por `<DB_NAME>-*.dump` y no por `*.dump`: desde que la carpe
 
 El eje `dump` es un `pick` cuyos valores salen de mirar `BACKUP_DIR` (fuente `BACKUP_FILES`). No se cachea —es estado, no catálogo: una lista vieja ofrecería un dump que la rotación acaba de borrar— y va del más nuevo al más viejo, para que el preseleccionado sea el último respaldo. Es el único eje consultado que necesita la raíz del repo además de la configuración.
 
-`restore_db` es destructiva y entra en el seguro por repositorio con la misma forma que `teardown_db`: objetivo `db`, más `vps` si el ámbito es remoto ([14](14_seguro_de_destructivos.md)).
+`restore_db` es destructiva y entra en el seguro por repositorio con el objetivo `db` ([14](14_seguro_de_destructivos.md)).
 
 ## 9. El explorador
 

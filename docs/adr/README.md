@@ -66,3 +66,6 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0056](0056-cada-tecnologia-declara-donde-va-su-icono.md) | Cada tecnología declara dónde va su ícono, y todos salen de `brand/` |
 | [0057](0057-el-manifest-de-la-pwa-es-un-archivo-estatico.md) | El manifest de la PWA es un archivo estático que la app enlaza |
 | [0058](0058-el-logo-del-repo-en-la-interfaz.md) | La interfaz muestra el logo del repo, y un repo sin logo lleva la marca de Equipaggio |
+| [0059](0059-desplegar-con-los-programas-de-canone.md) | Consola despliega con los programas de canone y no reimplementa el despliegue |
+| [0060](0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md) | Crear, migrar, respaldar y restaurar actúan solo sobre la base local |
+| [0061](0061-los-forzados-corren-en-esta-maquina.md) | Los forzados de git corren solo en esta máquina |

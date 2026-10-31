@@ -5,22 +5,14 @@ from pathlib import Path
 from ..errors import TaskError
 from ..process import which_any
 from ..registry import registry
-from . import vps_server
 
 """
 Grupo Git.
 
-Los dos forzados de aca abajo son la mitad que le falta a lo que ya hacen
-`push_repository`/`sync_repository` (`vps_server.py`): esos dos nunca pisan
-historia ajena a proposito -- avisan y frenan si algo no calza. Aca la
-decision ya esta tomada de antemano: un lado gana, aunque el otro tenga
-commits que el ganador no conoce.
-
-Viven en su propio modulo, y no en `vps_server.py` junto a `push_repository`,
-porque no son la mitad de ningun despliegue: son un forzado contra GitHub y
-nada mas. Desde que lado se fuerza es un parametro (`side`), no dos funciones:
-con 'vps' el mismo comando corre dentro del VPS, y para eso se apoyan en las
-dos funciones que ya hablaban SSH (`vps_server.py`).
+Los dos forzados de aca abajo existen para el caso en que alguien ya decidio
+que esta maquina gana contra origin, o que origin gana contra esta maquina,
+aunque el otro lado tenga commits que el ganador no conoce. Corren solo en esta
+maquina: el VPS no tiene clon del repo (ADR-0059).
 
 `clone_repo` es del mismo grupo por la misma razon: es git contra GitHub y
 nada mas. Es la unica del modulo que no trabaja sobre el repo abierto.
@@ -45,15 +37,13 @@ def _current_branch(ctx) -> str:
     return rama
 
 
-def force_push(ctx, side: str = 'local') -> str:
-    """Fuerza a que origin quede igual a la rama del lado elegido.
+def force_push(ctx) -> str:
+    """Fuerza a que origin quede igual a la rama de esta maquina.
 
     `--force` y no `--force-with-lease`: la lease rechaza el push justo cuando
-    origin tiene commits que ese lado no vio, que es exactamente el caso para
+    origin tiene commits que esta maquina no vio, que es exactamente el caso para
     el que existe este boton.
     """
-    if side == 'vps':
-        return vps_server.force_push_from_vps(ctx)
     _ensure_git(ctx)
     rama = _current_branch(ctx)
     ctx.run(['git', 'fetch', '--quiet'], check=False, echo=False)
@@ -63,20 +53,14 @@ def force_push(ctx, side: str = 'local') -> str:
     return revision
 
 
-def force_reset(ctx, side: str = 'local', discard_changes: bool = False) -> str | None:
-    """Fuerza a que el lado elegido quede igual a origin, descartando lo propio.
+def force_reset(ctx, discard_changes: bool = False) -> str:
+    """Fuerza a que esta maquina quede igual a origin, descartando lo propio.
 
     Tira los commits que origin no tiene y lo que haya sin trackear
-    (`git clean -fd`). `discard_changes` elige que hacer si ese lado tiene
-    cambios sin commitear: False pregunta con la lista de archivos a la vista,
-    True los descarta sin preguntar.
-
-    Con 'vps' es `sync_repository` (`vps_server.py`), que termina justo en
-    `git reset --hard "@{u}"`: ya era este mismo forzado, corriendo por SSH.
+    (`git clean -fd`). `discard_changes` elige que hacer si hay cambios sin
+    commitear: False pregunta con la lista de archivos a la vista, True los
+    descarta sin preguntar.
     """
-    if side == 'vps':
-        vps_server.sync_repository(ctx, discard_changes=discard_changes)
-        return None
     _ensure_git(ctx)
     rama = _current_branch(ctx)
     sucio = ctx.capture(['git', 'status', '--porcelain'])

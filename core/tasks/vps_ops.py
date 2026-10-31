@@ -7,12 +7,14 @@ from ..registry import registry
 """
 Grupo VPS - ops.
 
-`clean_vps.py` ya tenia sus seis pasos declarados como un diccionario `STEPS`,
-pero eran funciones internas del archivo: no habia forma de correr solo una.
-Aca las seis son atomicas de verdad — `remove_systemd_service` sirve suelta
-cuando se renombra un servicio, `remove_deployed_repo` cuando se cambia de rama
-de despliegue — y `clean_vps` sigue siendo el boton que las corre todas, porque
-"dejar el VPS como recien formateado" casi siempre se pide entero.
+`clean_vps.py` ya tenia sus pasos declarados como un diccionario `STEPS`, pero
+eran funciones internas del archivo: no habia forma de correr solo una. Aca son
+atomicas de verdad — `remove_deployed_repo` sirve suelta cuando se cambia de
+rama de despliegue — y `clean_vps` sigue siendo el boton que las corre todas,
+porque "dejar el VPS como recien formateado" casi siempre se pide entero.
+
+`clean_vps` no borra unidades systemd: las que tiene un VPS instalado con canone
+se llaman como las que escribia Consola, y las borraria (ADR-0059).
 """
 
 PACKAGES_TO_REMOVE = ('postgresql', 'postgresql-contrib', 'postgis',
@@ -89,47 +91,7 @@ def revoke_github_key(ctx) -> bool:
     return github.revoke_key(ctx, token, title=ctx.config.require('GITHUB_KEY_TITLE'))
 
 
-def revoke_github_ssh(ctx, *, remote_files: bool = True, github_side: bool = True) -> None:
-    """Compuesta: borrar la llave del VPS y darla de baja en GitHub."""
-    if remote_files:
-        ctx.step('remote_files')
-        remove_remote_key_files(ctx)
-    if github_side:
-        ctx.step('github_side')
-        revoke_github_key(ctx)
-
-
 # --- limpieza del VPS ------------------------------------------------------
-
-def remove_systemd_service(ctx) -> bool:
-    """Para, deshabilita y borra las unidades del repo. Detecta antes de actuar.
-
-    Borra tambien su `tmpfiles.d`, pero no las carpetas: tienen datos de usuarios.
-
-    Son todas las que el repo declara en `SERVICES`, no una: dejar viva la mitad
-    de un repo "eliminado" es peor que no borrar nada, porque nada lo dice.
-    """
-    remote = _remote(ctx)
-    ssh.run(ctx, remote,
-            f'sudo -n rm -f {ssh.quote(vps.tmpfiles_path(vps.service_name(ctx.config)))}',
-            check=False)
-
-    borrado = False
-    for servicio in vps.services(ctx.config):
-        nombre = vps.unit_name(ctx.config, servicio)
-        if vps.service_state(remote, nombre) == 'missing':
-            ctx.info(f'No hay servicio {nombre} para borrar.')
-            continue
-        vps.systemctl(ctx, remote, 'stop', nombre, check=False)
-        vps.systemctl(ctx, remote, 'disable', nombre, check=False)
-        ssh.run(ctx, remote, f'sudo -n rm -f {ssh.quote(vps.unit_path(nombre))}')
-        ctx.ok(f'Servicio {nombre} eliminado.')
-        borrado = True
-
-    if borrado:
-        ssh.run(ctx, remote, 'sudo -n systemctl daemon-reload')
-    return borrado
-
 
 def remove_deployed_repo(ctx) -> bool:
     """Borra la copia del repo en el VPS."""
@@ -177,7 +139,6 @@ def remove_vps_user(ctx) -> bool:
 def clean_vps(
     ctx,
     *,
-    service: bool = True,
     database: bool = True,
     repo: bool = True,
     github_key: bool = True,
@@ -186,14 +147,11 @@ def clean_vps(
 ) -> None:
     """Compuesta destructiva: dejar el VPS como recien formateado.
 
-    Los seis pasos son casillas del formulario, no botones sueltos del rail:
-    esta operacion casi siempre se pide entera (ADR-0004).
+    Los pasos son casillas del formulario, no botones sueltos del rail: esta
+    operacion casi siempre se pide entera (ADR-0004).
     """
     from . import database as db_tasks
 
-    if service:
-        ctx.step('service')
-        remove_systemd_service(ctx)
     if database:
         ctx.step('database')
         db_tasks.teardown_db(ctx.child('teardown_db'), scope='remoto')
@@ -202,7 +160,8 @@ def clean_vps(
         remove_deployed_repo(ctx)
     if github_key:
         ctx.step('github_key')
-        revoke_github_ssh(ctx)
+        remove_remote_key_files(ctx)
+        revoke_github_key(ctx)
     if packages:
         ctx.step('packages')
         uninstall_packages(ctx)
@@ -216,5 +175,4 @@ def bind_all() -> None:
     registry.bind('health_check', health_check)
     registry.bind('run_command', run_command)
     registry.bind('revoke_ssh', revoke_ssh_key)
-    registry.bind('revoke_github_ssh', revoke_github_ssh)
     registry.bind('clean_vps', clean_vps)
