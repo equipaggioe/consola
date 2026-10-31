@@ -41,7 +41,7 @@ def server_url(root: Path) -> str:
     """La DATABASE_URL que el propio server declara en `server/.env`.
 
     Es la unica lectura permitida de ese archivo: Consola nunca lo escribe
-    (ADR-0017). Sirve para precargar el formulario del explorador.
+    (ADR-0064). Sirve para precargar el formulario del explorador.
     """
     return read_value(str(root / 'server' / '.env'), 'DATABASE_URL')
 
@@ -86,7 +86,7 @@ class Connection:
 
 
 def credentials(config: Config) -> tuple[str, str, str]:
-    # Los defaults de DB_USER (el usuario de despliegue) y DB_NAME (`{VPS_USER}_db`)
+    # Los defaults de DB_USER (el nombre del repo) y DB_NAME (`<repo>_db`)
     # los resuelve `Config.get` solo; no hay que repetirlos aca.
     user = config.get('DB_USER')
     password = config.require('DB_PASSWORD')

@@ -153,8 +153,7 @@ DOCS: dict[str, CommandDoc] = {
             'Detecta si la app es Flutter o Flet y lee API_URL de la '
             'configuración.',
             'Por cada plataforma corre flutter build <plataforma> --release, o '
-            'flet build <plataforma>, con --dart-define=API_BASE_URL. En web '
-            'agrega la ruta bajo la que el proxy sirve la app.',
+            'flet build <plataforma>, con --dart-define=API_BASE_URL.',
             'Busca el build donde lo deja el framework y, si BUILD_OUT_<PLATAFORMA> '
             'tiene una carpeta, lo copia ahí.',
         ],
@@ -168,13 +167,8 @@ DOCS: dict[str, CommandDoc] = {
         steps=[
             'Ubica la carpeta de la primera SPA marcada.',
             'Corre npm install en la carpeta de la SPA.',
-            'Escribe base.generated.js con la ruta pública que PUBLIC_ROUTES le '
-            'asigna a esa app.',
             'Corre npm run build.',
             'Busca la salida en dist/ o en build/.',
-            'Lee el index.html compilado y compara sus href y src contra esa '
-            'ruta pública; corta si el build pide sus assets en la raíz del '
-            'dominio.',
             'Vuelve al primer paso con la siguiente SPA marcada.',
         ],
     ),
@@ -446,27 +440,6 @@ DOCS: dict[str, CommandDoc] = {
             'Reescribe ~/.ssh/authorized_keys del VPS sin esa línea exacta, '
             'pasando por un temporal que después reemplaza al original.',
             'Borra en esta máquina la clave privada y su .pub.',
-        ],
-    ),
-
-    'clean_vps': CommandDoc(
-        summary=(
-            'Deja el VPS como recién formateado: saca la base, el repo '
-            'desplegado, la deploy key, los paquetes y el usuario de despliegue. '
-            'No borra unidades systemd.'
-        ),
-        steps=[
-            'Base: corta las conexiones vivas y corre DROP DATABASE y DROP ROLE '
-            'contra el Postgres del VPS.',
-            'Repo: comprueba que la carpeta de despliegue exista y corre rm -rf '
-            'sobre ella.',
-            'Llaves: borra ~/.ssh/id_ed25519 del VPS y da de baja esa llave en '
-            'GitHub.',
-            'Paquetes: consulta con dpkg -s cuáles de la lista están, los '
-            'informa, corre apt-get purge -y sobre ellos y después '
-            'apt-get autoremove -y.',
-            'Usuario: como root, mata sus procesos, corre userdel -r y borra su '
-            'archivo de /etc/sudoers.d.',
         ],
     ),
 

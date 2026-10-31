@@ -4,9 +4,12 @@
 > el último commit con el despliegue propio, los botones que salen en el §3 ya no están y
 > [ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md),
 > [ADR-0060](../adr/0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md) y
-> [ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md) registran el corte. Consola no
-> despliega ningún repo hasta las fases 1 a 3. Lo que hay está en
-> [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura.
+> [ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md) registran el corte. Construida
+> la fase 1 salvo las claves que esperan otra fase o una pregunta (§6): las claves nuevas del §4
+> se guardan y todavía no las lee ningún botón. «Vaciar VPS» salió
+> ([ADR-0062](../adr/0062-vaciar-vps-sale.md), *propuesta*). Consola no despliega ningún repo
+> hasta las fases 2 y 3. Lo que hay está en [13](../arquitectura/13_configuracion_y_persistencia.md)
+> y [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura.
 >
 > Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
 > fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
@@ -30,6 +33,10 @@
 > **Decidido el 2026-10-31:** la pregunta 8 del §8; los nombres de los botones y sus casillas
 > (§3), `--without` (§4) y las fases (§6) quedan como dice el plan; el repo piloto es `equipaggio`
 > (§6).
+>
+> **Prioridad (decidido el 2026-10-31):** el objetivo de este plan es desplegar. Lo que no
+> despliega (los botones de base con ámbito remoto, «Compilar ejecutable», la plataforma web,
+> `sync_server_env`, borrar `scripts/`) es secundario y espera, sin bloquear las fases 2 y 3.
 >
 > Lo que fija canone está decidido en sus ADR. Lo demás que este plan dice sobre Consola es
 > *propuesta* hasta que se responda su pregunta en el §8.
@@ -61,10 +68,10 @@
 |---|---|---|
 | C6 | `setup_ssh_key.py` crea `VPS_USER` (por defecto el nombre del repo, que es `<app>`) con `sudo NOPASSWD`. El ADR-0087 prohíbe que la cuenta que administra sea `<app>`, y el 0084 pide `sudo` con contraseña. Tras `install.py`, root ya no entra y `setup_ssh_key.py` deja de servir | `setup_ssh_key.py`, `core/vps.py` |
 | C5 | El launcher `backend` pasa la base en la variable `DATABASE_URL`. `Settings` de canone lee solo `CREDENTIALS_DIRECTORY`, así que en un repo de canone el valor se ignora | `launchers.py::serve_backend`, «Configuración» de `fastapi.md` |
-| C7 | El paso «Borrar usuario de despliegue» de `clean_vps` corre `userdel -r` sobre `VPS_USER`, que en un VPS de canone es la cuenta de `--admin`: la máquina queda sin entrada. «Purgar paquetes apt» quita `caddy`, `coturn` y `postgresql` | `vps_ops.py::remove_vps_user`, `uninstall_packages` |
 
 C1 a C3 se resolvieron en la fase 0: `configure_caddy`, `configure_service` y el paso que borraba
-las unidades salieron.
+las unidades salieron. C7 —«Vaciar VPS» borraba la cuenta que administra y dejaba la máquina sin
+entrada— se resolvió en la fase 1: el botón salió (ADR-0062).
 
 ## 3. Botones
 
@@ -86,7 +93,7 @@ Decidido el 2026-10-31: los nombres de los botones y qué es casilla de una comp
 | **Instalar paquetes base** (`install_software`) | Se queda | `redis` pasa a `valkey-server`; se suman `restic`, `nftables`, `unattended-upgrades`, `systemd-timesyncd` y `ca-certificates`, y `coturn`, `postgresql-17-postgis-3` o `systemd-journal-remote` y `wireguard-tools` según el repo. Después de los paquetes, sube `canone/plantilla/infra/uv.py` y corre `sudo python3 uv.py`, que instala `uv` (ADR-0110). Se vuelve a correr cuando canone cambia la versión de uv |
 | **Control del servicio** (`systemd_action`), **Ver logs del servicio** (`view_logs`) | Se quedan | El eje lista los nombres de canone: `<app>`, `<app>-sweep`, `-purge`, `-dump`, `-backup`, `valkey-server@<app>`, `caddy`, `coturn` |
 | **Health check** (`health_check`) | Se queda | `GET /api/health` en el 8000, que responde 204 |
-| **Vaciar VPS** (`clean_vps`) | Se queda, cuando canone traiga el programa que desinstala (§5) | Borra unidades de canone, `/srv/<app>`, `/var/lib/<app>*`, credstore, sitios de Caddy, Valkey, `sshd_config.d`, la base y sus roles, y los usuarios `<app>`, `<app>_owner` y `<app>-receiver`. Queda en pie `00-<app>.conf` y la cuenta que administra, o la máquina queda sin entrada (sin confirmar) |
+| **Vaciar VPS** (`clean_vps`) | Salió en la fase 1 (ADR-0062). Vuelve cuando canone traiga el programa que desinstala (§5) | Borra unidades de canone, `/srv/<app>`, `/var/lib/<app>*`, credstore, sitios de Caddy, Valkey, `sshd_config.d`, la base y sus roles, y los usuarios `<app>`, `<app>_owner` y `<app>-receiver`. Queda en pie `00-<app>.conf` y la cuenta que administra, o la máquina queda sin entrada (sin confirmar) |
 | **Configurar Coturn** (`configure_coturn`) | Casilla de **Configurar VPS** | `install.py --turn [--turn-ip]`: sin TLS, y el secreto lo genera `install.py` (ADR-0096) |
 | **Configurar base de datos** (`bootstrap_db`) en el VPS | Sin reemplazo | `install.py` crea la base y los dos roles. En local sigue igual |
 | **Correr migraciones** (`migrate_db`) en el VPS | **Desplegar versión** | En el VPS migra `deploy.py`. En local sigue igual |
@@ -120,7 +127,7 @@ Las atómicas ocultas `upload_to_vps` y `bump_version` salen con los botones que
 |---|---|
 | Launcher `backend` | Escribe en `server/credentials/` un archivo `app_<campo>` por cada campo de `Settings`, con los valores de `config.env` y el `DATABASE_URL` local, y arranca con `CREDENTIALS_DIRECTORY` apuntando ahí (C5, pregunta 8) |
 | Contraseña de `sudo` | Cada operación con `sudo` (desplegar, cargar credenciales, `systemctl`, vaciar) la pasa por `sudo -S` desde `SUDO_PASSWORD`. Si está vacía, la pide una vez por sesión y la tiene solo en memoria |
-| `.consola/` | Consola escribe `.consola/.gitignore` con `*` al crear la carpeta, en vez de agregar `.consola/` al `.gitignore` del repo (`envfile.py::ensure_gitignored`), y falla si no puede escribirlo |
+| `.consola/` | Hecho en la fase 1: `envfile.ensure_ignored` escribe `.consola/.gitignore` con `*` y falla si no puede (ADR-0064) |
 
 ## 4. Configuración (`core/settings.py`)
 
@@ -147,6 +154,23 @@ Sin clave, porque salen del repo:
 | `--without` | Lo que el repo tiene (`web/`, `panel/`, `landing/`) |
 Para `sweep` no hay una señal en el repo: la plantilla trae la tarea siempre.
 
+Construido en la fase 1 *(propuesta, sin confirmar en lo que no responde una pregunta)*:
+
+| Clave | Estado |
+|---|---|
+| `SECRET_FILES`, `CSP`, `SERVICE_DIRS`, `BACKEND_HOST`, `BACKEND_PORT`, `CERT_FILE_PATH`, `KEY_FILE_PATH` | Salieron en la fase 0 |
+| `PUBLIC_ROUTES` | Salió, con `base.generated.js` y la comprobación del HTML (ADR-0065, *propuesta*) |
+| `GITHUB_KEY_TITLE` | Salió con «Vaciar VPS» |
+| `VPS_USER` | Sin default. `DB_USER` y `DB_NAME` pasan a salir del nombre del repo, que es lo que daban cuando `VPS_USER` estaba vacío |
+| `VPS_DEPLOY_DIR`, `VPS_PYTHON` | Quedan: las lee la subida de «Compilar ejecutable» (sin decidir) y el ámbito remoto de la base (pregunta 15) |
+| `SERVICES`, `UVICORN_APP`, `GIT_REPO_URL` | Quedan: dan los nombres del eje `service`, que la fase 4 cambia por los de canone |
+| `BUILD_OUT_WEB` | Queda (pregunta 17) |
+| `DOMAIN`, `VALKEY_MEMORY`, `PERMISSIONS_ALLOW`, `TURN`, `TURN_IP`, `LOGS_IP`, `PRIVATE`, `SUDO_PASSWORD` | Entraron, en el grupo VPS o GitHub. Las lee la fase 2 |
+| `RESTIC_PASSWORD`, `GITHUB_TOKEN` | En el grupo «Credenciales» |
+| Los campos de `Settings` | `core/fields.py` los lee con `ast` y el formulario los suma a «Credenciales» (ADR-0063) |
+| `OFFLINE_KEY`, `LOGS`, `LOGS_KEY` | Entraron como claves de la máquina (`scope='machine'`), porque son las mismas para todos los VPS (*propuesta*) |
+| `--owner`, `--desktop`, `--without` | Van con su consumidor, en la fase 2 |
+
 ## 5. Bloqueos en canone
 
 El `README.md` de canone dice que lo que una convención exige en una máquina, canone lo da como el
@@ -160,6 +184,7 @@ como la llave de una receptora.
 |---|---|
 | Restaurar desde la receptora. `despliegue.md` describe el `restic restore`, el `pg_restore` y después `ANALYZE`, pero canone no trae un programa | Un reemplazo de `restore_db` |
 | Desinstalar lo que instala `install.py` | **Vaciar VPS** |
+| Operar la base del VPS desde esta máquina: los roles entran por `peer` y no tienen contraseña, así que el túnel al 5432 no se autentica *(sin confirmar)* | El ámbito remoto de «Reconstruir base», «Borrar base y rol», «Reiniciar historial de migraciones», los seeders, «Habilitar extensiones», «Explorar datos» y «Abrir túnel a Postgres» (pregunta 15) |
 
 Hallazgo de lectura en canone *(sin confirmar)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
 `-i`, así que usan la llave por defecto de la receptora y no una con nombre como `VPS_KEY_NAME`.
@@ -195,12 +220,12 @@ confirmar)*:
 | «Compilar ejecutable» | Queda con el bump, la subida al VPS y el manifiesto de release, porque su reemplazo está sin decidir; por eso `bump_version` y `upload_to_vps` siguen |
 | «Compilar app Flutter», «Compilar SPA» | Sin bump ni subida: solo compilan |
 | Los cuatro botones de base del §3 | Sin eje `scope`: solo la base local (ADR-0060) |
-| Los demás botones de base con ámbito remoto | Quedan como estaban (pregunta 15) |
+| Los demás botones de base con ámbito remoto | Quedan como estaban hasta resolverlos en canone (pregunta 15, §5) |
 | «Force push», «Force reset» | Sin eje `side` (ADR-0061) |
-| «Vaciar VPS» | Sin el paso de las unidades. Los pasos de la base, el repo, la llave de GitHub, los paquetes y el usuario quedan (C7) |
+| «Vaciar VPS» | Sin el paso de las unidades. En la fase 1 salió entero (ADR-0062) |
 | `sync_server_env` | Queda hasta la fase 5 |
 | Claves de configuración | Salieron las que solo leían los botones que salen (ADR-0059). Las demás del §4 salen en la fase 1 |
-| `scripts/` | Quedan los scripts del despliegue propio (`update_remote.py`, `install_systemd_service.py`…), aunque ya no especifican ningún botón (pregunta 16) |
+| `scripts/` | Se queda entera hasta que el despliegue con canone funcione; después se borra (pregunta 16) |
 
 El repo piloto es `equipaggio`. Ningún repo con `server/` puede publicar hoy una versión
 (verificado el 2026-10-31): ninguno tiene `release.yml`, solo banditore, comande y concordia tienen
@@ -215,15 +240,13 @@ Cada fase actualiza en su commit los documentos del §7 que toca.
 ## 7. Documentación de Consola afectada
 
 La fase 0 reemplazó los ADR 0001, 0021 y 0022 con el 0059, el 0046 con el 0060 y el 0044 con el
-0061. Lo que sigue falta.
+0061. La fase 1 escribió el 0062 («Vaciar VPS» sale) y el 0063 (pregunta 7), y reemplazó el 0017
+con el 0064 y los 0019, 0020 y 0040 con el 0065. Lo que sigue falta.
 
 | Qué | Cambio |
 |---|---|
 | ADR nuevo | La regla de la pregunta 14, con su alcance |
-| ADR nuevo | Las líneas de `config.env` se clasifican por fuente (pregunta 7) |
-| ADR-0017 | Reemplazar el punto 5: `.consola/.gitignore` en vez del `.gitignore` del repo |
 | ADR-0013, 0016 | Reemplazar en lo del VPS: ahí no se migra por túnel |
-| ADR-0019, 0020, 0040 | Reemplazar: la tabla de rutas sale |
 | ADR-0023, 0041 | Reemplazar: los servicios los fija canone |
 | ADR-0024 | Reemplazar: el manifiesto de release sale |
 | ADR-0037 | Reemplazar: `sync_server_env` sale, y desarrollo usa los valores de `config.env` salvo `database_url` (pregunta 8) |
@@ -248,5 +271,6 @@ La fase 0 reemplazó los ADR 0001, 0021 y 0022 con el 0059, el 0046 con el 0060 
 | 12 | ~~¿Cómo corre Consola `install.py` la primera vez? ¿Qué cuenta y qué llaves? ¿De dónde salen `--owner` y `--desktop`? ¿Reemplaza a `setup_ssh_key.py`?~~ | Resuelta el 2026-10-30. `VPS_USER` sin valor por defecto. Root entra con `VPS_KEY_NAME`, puesta al crear el VPS. La contraseña de la cuenta va en `SUDO_PASSWORD` y, vacía, Consola la pide una vez por sesión y la tiene solo en memoria; se escribe en el `ssh -tt` cuando aparece la petición. `setup_ssh_key.py` se borra. `--owner` sale de `git remote get-url origin` y `--desktop` del `release.yml` (§4). Con la contraseña guardada en claro, quien se lleve esta máquina tiene la llave y la contraseña |
 | 13 | ~~¿Algún VPS envía su journal a Equipaggio? ¿De dónde salen `--logs`, `--logs-key` y `--logs-ip`?~~ | Resuelta el 2026-10-30: hoy ninguno, porque Equipaggio no está desplegado. Cuando lo esté, `LOGS` y `LOGS_KEY` en la configuración global de Consola y `LOGS_IP` por repo, desde el panel. Consola muestra la llave que imprime `install.py` para pegarla en el panel. Agregar `--logs` después no falla; quitarlo sí (ADR-0100) |
 | 14 | ~~¿Adopta Consola como regla propia que lo que no tiene plantilla se agrega primero a canone?~~ | Resuelta el 2026-10-30: sí, con el alcance del §5. Lleva un ADR de Consola (§7) |
-| 15 | ¿Qué pasa con el ámbito remoto de los botones de base que lo conservan («Reconstruir base», «Borrar base y rol», «Reiniciar historial de migraciones», los seeders, «Habilitar extensiones», «Explorar datos», «Abrir túnel a Postgres»)? | Pendiente. Contra un VPS de canone fallarían por lo mismo que los cuatro del §3: los roles entran por `peer` *(sin confirmar)*. En un VPS con el despliegue propio, como el de `pze`, siguen sirviendo |
-| 16 | ¿Se borran de `scripts/` los scripts del despliegue propio? | Pendiente. `scripts/` es la especificación de lo que Consola reimplementa (ADR-0059), y esos scripts ya no especifican ningún botón; el tag `despliegue-propio` los conserva |
+| 15 | ~~¿Qué pasa con el ámbito remoto de los botones de base que lo conservan?~~ | Resuelta el 2026-10-31: se quedan, porque siguen haciendo falta, y su solución se busca primero en canone (§5). Hasta entonces quedan como están: contra un VPS de canone no se autentican *(sin confirmar)* |
+| 16 | ~~¿Se borran de `scripts/` los scripts del despliegue propio?~~ | Resuelta el 2026-10-31: `scripts/` entera es código viejo, y se borra cuando el despliegue con canone funcione. Hasta entonces no se toca |
+| 17 | ¿Sale `BUILD_OUT_WEB`, como dice el §4? | Pendiente, y secundaria. «Compilar app Flutter» en web sirve: la clave se queda hasta decidir cómo se sigue |

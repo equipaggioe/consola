@@ -19,7 +19,7 @@ def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
 
     La pregunta final se la hace a un `Config`, igual que
     `ui/params_panel.py::_missing_keys`: una clave con default fijo
-    (`SERVER_DIR='server'`) o dinamico (`VPS_USER` -> nombre del repo) se
+    (`SERVER_DIR='server'`) o dinamico (`DB_USER` -> nombre del repo) se
     resuelve sola al correr, y mirando el texto crudo del campo el ▶ la
     marcaba como faltante mientras el panel la daba por buena.
     """

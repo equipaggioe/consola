@@ -59,7 +59,7 @@ def create_avd(ctx, device: str = '', image: str = '') -> str:
 
     El nombre se pregunta al correr y no llega como parametro: dos AVD no se
     pueden llamar igual, asi que un nombre guardado solo sirve para la primera
-    vez (`ADR-0017` 5). Dejarlo vacio es la respuesta
+    vez (`ADR-0064` 6). Dejarlo vacio es la respuesta
     normal: entonces se deriva del dispositivo y la API (`pixel_4_api36`), que
     es lo que se quiere casi siempre. Se pregunta igual —y no solo cuando hay
     colision— porque el derivado se muestra ahi mismo: se ve con que nombre va

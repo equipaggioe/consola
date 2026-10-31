@@ -1,5 +1,6 @@
 from __future__ import annotations
 import os
+from pathlib import Path
 from PySide6.QtWidgets import (
     QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
     QScrollArea, QFrame, QFileDialog, QPlainTextEdit
@@ -11,7 +12,8 @@ from ui.theme import Colors, Fonts
 from ui.palettes import Palette
 from ui import palettes
 from core.projects import Project
-from core import envfile
+from core import envfile, fields
+from core.errors import TaskError
 from ui import params_store
 from core.settings import settings_by_group, Setting
 
@@ -80,7 +82,7 @@ class EnvRow(QWidget):
             self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         # `default_display` es el default ya resuelto para ESTE repo (fijo o
-        # dinamico, ej. VPS_USER -> nombre de carpeta): dejar el campo vacio
+        # dinamico, ej. DB_USER -> nombre de carpeta): dejar el campo vacio
         # no es un error, corre con lo que se ve de marca de agua aca.
         #
         # Y solo eso —o el `default_hint` de las que no tienen default que
@@ -100,7 +102,7 @@ class EnvRow(QWidget):
 
     def set_default_display(self, default_display: str) -> None:
         """Actualiza la marca de agua con el default recalculado — el de
-        `DB_NAME` cambia con lo que se escriba en otras claves, asi que no
+        `DOMAIN` cambia con lo que se escriba en otras claves, asi que no
         queda fijo desde que se construyo la fila."""
         self.field.setPlaceholderText(default_display or self.setting.default_hint)
 
@@ -198,6 +200,10 @@ class EnvPanel(QWidget):
     que se guarda en QSettings (`ui/params_store.py::machine_env`). Se edita
     aca porque es donde uno busca un valor con nombre de clave; que no sea del
     repo lo dice el nombre del grupo.
+
+    El grupo «Credenciales» suma los campos de `Settings` del repo
+    (`core/fields.py`), que se leen al abrir el panel: un campo nuevo en
+    `config.py` aparece al volver a abrir el repo.
     """
     saved = Signal(dict)
     values_changed = Signal(dict)
@@ -214,6 +220,7 @@ class EnvPanel(QWidget):
         self._row_group: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
         self.file_status = ''
+        self.fields, self.fields_error = self._read_fields()
         # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
         # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
         # seccion no se teñia del color del repo.
@@ -236,6 +243,19 @@ class EnvPanel(QWidget):
         self.reload()
 
     # --- construccion ---------------------------------------------------
+    def _read_fields(self) -> tuple[tuple[Setting, ...], str]:
+        """Los campos de `Settings` del repo, o el error que impide leerlos.
+
+        El error no tumba el panel: se muestra arriba del formulario, y las
+        claves que hubiera en el archivo siguen bajo «Otras claves».
+        """
+        servidor = Path(self.project.path) / envfile.Config.for_project(
+            self.project.path).get('SERVER_DIR')
+        try:
+            return fields.field_settings(servidor), ''
+        except TaskError as error:
+            return (), str(error)
+
     def _build_banner(self) -> QWidget:
         box = QWidget()
         lay = QHBoxLayout(box)
@@ -344,7 +364,8 @@ class EnvPanel(QWidget):
         font = QFont()
         font.setPixelSize(Fonts.SIZE_XS)
         metrics = QFontMetrics(font)
-        mas_larga = max((s.display for group in settings_by_group().values() for s in group),
+        mas_larga = max((s.display for group in settings_by_group(self.fields).values()
+                         for s in group),
                         key=len, default='')
         return metrics.horizontalAdvance(mas_larga) + 12
 
@@ -366,7 +387,14 @@ class EnvPanel(QWidget):
         # superusuario" no entraba en los 118px de antes y se cortaba.
         label_width = self._label_width()
 
-        for group, settings in settings_by_group().items():
+        if self.fields_error:
+            aviso = QLabel(self.fields_error)
+            aviso.setWordWrap(True)
+            aviso.setStyleSheet(f"background: transparent; color: {Colors.ERROR}; "
+                                f"font-size: {Fonts.SIZE_XS}px;")
+            lay.addWidget(aviso)
+
+        for group, settings in settings_by_group(self.fields).items():
             block_widget = QWidget()
             block_widget.setStyleSheet("background: transparent;")
             block = QVBoxLayout(block_widget)
@@ -420,9 +448,9 @@ class EnvPanel(QWidget):
         """Recalcula la marca de agua de cada campo con el default que le
         tocaria si quedara vacio.
 
-        No alcanza con resolverlo una vez al abrir: `DB_NAME` sale de
-        `VPS_USER`, asi que su default cambia con lo que se escriba en esa otra
-        clave. Resuelto contra un `Config` en blanco se veia vacio, en vez de
+        No alcanza con resolverlo una vez al abrir: `DOMAIN` sale de
+        `CF_DOMAIN_NAME`, asi que su default cambia con lo que se escriba en esa
+        otra clave. Resuelto contra un `Config` en blanco se veia vacio, en vez de
         mostrar, como el resto, lo que de verdad se va a usar.
 
         Se calcula sin el valor propio de la clave: `Config.get` devuelve lo
@@ -482,7 +510,7 @@ class EnvPanel(QWidget):
         (escritos o importados), se conservan y solo se agregan en blanco
         las claves que falten.
         """
-        path = envfile.save_config(self.project.path, self.values())
+        path = envfile.save_config(self.project.path, self.values(), self.fields)
         self.reload()
         self._notify(f"Archivo creado en {path}")
         self.saved.emit(self.values())
@@ -498,7 +526,7 @@ class EnvPanel(QWidget):
         escrituras no se pisan (`core/envfile.render_config`).
         """
         params_store.save_machine_env(self.values())
-        envfile.save_config(self.project.path, self.values())
+        envfile.save_config(self.project.path, self.values(), self.fields)
         self.banner.setVisible(False)
         self.saved.emit(self.values())
         self.values_changed.emit(self.values())

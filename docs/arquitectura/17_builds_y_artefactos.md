@@ -46,18 +46,9 @@ La URL de la API se inyecta por `--dart-define` desde la configuración, la mism
 
 `BUILD_OUT_<PLATAFORMA>` mueve el build a una carpeta elegida. Se **copia** y no se le pide al framework que compile ahí: Flutter solo acepta `--output` en web, y así las siete funcionan igual en los dos frameworks.
 
-## 6. La ruta pública de una SPA
+## 6. Cada SPA va en la raíz de su host
 
-Bajo qué ruta vive cada SPA lo dice `PUBLIC_ROUTES` ([ADR-0019](../adr/0019-tabla-de-rutas-publicas.md)). El proxy que la sirve y el build tienen que decir lo mismo, y el desacuerdo **no da error**: el proxy sirve la app, el navegador pide sus assets en la raíz del dominio —donde vive la otra app— y lo que se ve es una página en blanco.
-
-Por eso hay dos pasos y no uno:
-
-1. **Escribir** `<spa>/base.generated.js`, un módulo con la base como literal, que la config del repo importa. No viaja por el entorno del build porque el repo tiene que poder compilarse sin Consola; es un archivo propio y no un parche sobre `svelte.config.js`, porque Consola no edita código que no escribió ella.
-2. **Comprobar** el HTML compilado: se buscan los `href`/`src` absolutos y, si alguno no cuelga de la base, se corta con el mensaje que explica qué se va a ver. Se mira el resultado y no la config, porque cómo resuelve cada repo su base es asunto suyo y parsear JS sería adivinar.
-
-Los dos pasos son de los repos **con tabla**. `vps.spa_base` devuelve `None` cuando no hay ninguna, y entonces Consola compila y no le deja nada adentro al repo ([ADR-0020](../adr/0020-ruta-publica-no-implica-proxy.md)).
-
-En web, `compile_flutter` usa la misma base con `--base-href` (Flutter) o `--base-url` (Flet).
+`compile_spa` corre `npm run build` y no le deja nada adentro al repo, y `compile_flutter` no pasa ninguna base: en un VPS de canone cada pieza tiene su host (`app.<dominio>`, `panel.<dominio>`, la landing en el dominio), así que ninguna se publica bajo una ruta ([ADR-0065](../adr/0065-cada-spa-va-en-la-raiz-de-su-host.md)).
 
 ## 7. El binario
 
@@ -81,6 +72,6 @@ El checksum SHA-256 es propio de este builder: un ejecutable que alguien descarg
 
 ## 8. SPA nueva
 
-`create_spa` levanta el esqueleto con `sv create` —el generador oficial de Svelte: TypeScript, runas y adaptador estático— y escribe encima lo que falta para dejarla lista: UnoCSS, `ssr = false`, y, **solo si el repo tiene tabla de rutas**, la base leída de `base.generated.js`. Sin tabla, esa parte de la config sobra y no se escribe.
+`create_spa` levanta el esqueleto con `sv create` —el generador oficial de Svelte: TypeScript, runas y adaptador estático— y escribe encima lo que falta para dejarla lista: UnoCSS y `ssr = false`.
 
 El nombre de la carpeta se pregunta al correr (`ctx.ask`), no se guarda: es distinto en cada corrida, así que como parámetro guardado la segunda arrancaba con el nombre de la primera — o sea, con una carpeta que ya existe.

@@ -100,7 +100,7 @@ def ensure_deploy_access(ctx) -> str:
     Fusionarlas ademas baja de tres a dos las conexiones de root que abre la
     compuesta, y con eso las veces que pide la contrasena.
     """
-    user = ctx.config.get('VPS_USER')
+    user = ctx.config.require('VPS_USER')
     quoted = ssh.quote(user)
     key_name = ctx.config.require('VPS_KEY_NAME')
     privada = ssh.ensure_local_keypair(ctx, key_name, comment=ctx.config.repo_name)
@@ -136,7 +136,7 @@ def configure_sudo(ctx, mode: str = 'all') -> str:
         ctx.info('Modo "none": no se toca el sudoers.')
         return mode
 
-    user = ctx.config.get('VPS_USER')
+    user = ctx.config.require('VPS_USER')
     archivo = f'/etc/sudoers.d/consola-{user}'
     if mode == 'all':
         reglas = f'{user} ALL=(ALL) NOPASSWD: ALL'

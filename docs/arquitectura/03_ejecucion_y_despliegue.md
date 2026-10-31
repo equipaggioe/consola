@@ -46,7 +46,7 @@ Detalle de cada formato en [20](20_referencia_datos.md); el reparto entre repo y
 | Destino | Con qué | Qué escribe |
 |---|---|---|
 | VPS | `ssh`, `scp`, túneles `-L` | La cuenta de despliegue con su llave y su archivo de `/etc/sudoers.d`, los paquetes de apt, y el ejecutable de «Compilar ejecutable» con sus manifiestos bajo `VPS_DEPLOY_DIR`. No escribe configuración de servicios ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)) |
-| GitHub | `git` y la API v3 | Empuja ramas; da de baja llaves de despliegue por título |
+| GitHub | `git` | Empuja ramas y clona repos |
 | Cloudflare | API v4 | Un registro A |
 | Esta máquina | `~/.ssh`, entorno del usuario | Pares de llaves, `known_hosts`, `HKCU\Environment` o el perfil del shell |
 

@@ -13,9 +13,10 @@ Tres decisiones sostienen el diseno:
 
 1. **El seguro es por tipo de objetivo, no por boton.** Lo que importa es el
    radio de dano: el VPS, la base, los otros repos. Un mismo boton puede tocar
-   dos objetivos (`clean_vps` borra la base ademas del servidor) y un mismo
-   boton puede tocar objetivos distintos segun sus parametros (`teardown_db`
-   contra `local` no sale de esta maquina; contra `remoto` alcanza al VPS).
+   dos objetivos (`reinit_migrations` vacia la base y borra archivos del repo)
+   y un mismo boton puede tocar objetivos distintos segun sus parametros
+   (`teardown_db` contra `local` no sale de esta maquina; contra `remoto`
+   alcanza al VPS).
 
 2. **El interruptor vive en su propia seccion, no en el panel de parametros.**
    Es deliberado: un seguro que se quita en el mismo gesto con el que se aprieta
@@ -91,9 +92,6 @@ class Rule:
 
 
 RULES: dict[str, Rule] = {
-    # Deja el VPS como estaba: base, repo, claves, paquetes y usuario. Toca DOS
-    # objetivos, y por eso el seguro no puede ser por boton.
-    'clean_vps': Rule(always=('vps', 'db')),
     'revoke_ssh': Rule(always=('vps',)),
 
     # `local` no sale de esta maquina; `remoto` alcanza al servidor. El mismo

@@ -378,25 +378,6 @@ BUILD_BINARY_STEPS = [
     Step('upload', 'Subir al VPS', default=False, requires_env=_VPS_KEYS),
 ]
 
-# Los pasos de la limpieza son casillas del formulario, no botones del rail
-# (ADR-0004): "dejar el VPS como recien formateado" casi siempre se pide
-# entero. Los ids son los de los parametros de `vps_ops.clean_vps`, no los de
-# `composed_of`: ese lista las atomicas que encadena, que no son capacidades del
-# catalogo y por eso derivaban etiquetas en ingles.
-#
-# El orden es el de la funcion y no es cosmetico: los paquetes se purgan con el
-# sudo del usuario de despliegue, asi que borrar el usuario va ultimo. No borra
-# unidades systemd: en un VPS instalado con canone se llaman como las que
-# escribia Consola (ADR-0059).
-CLEAN_VPS_STEPS = [
-    Step('database', 'Borrar base de datos', requires_env={'DB_NAME'}),
-    Step('repo', 'Borrar repo desplegado', requires_env={'VPS_DEPLOY_DIR'}),
-    Step('github_key', 'Revocar llave de GitHub', requires_env={'GITHUB_TOKEN', 'GITHUB_KEY_TITLE'}),
-    Step('packages', 'Purgar paquetes apt'),
-    Step('user', 'Borrar usuario de despliegue', requires_env={'ROOT_USER'}),
-]
-
-
 # Los ocho pasos de `database.bootstrap_db` son sus ocho booleanos: termina
 # en una base usable, con particiones y datos, no solo en el esquema creado.
 #
@@ -909,7 +890,6 @@ def load_catalog() -> None:
     registry.register(Capability(id='run_command', name='Ejecutar comando', group='VPS', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', axes=[AxisDef('command', [''], 'field', label='Comando')], stub=True))
     registry.register(Capability(id='ssh_login', name='Abrir sesión SSH', group='VPS', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
     registry.register(Capability(id='revoke_ssh', name='Quitar acceso SSH', group='VPS', kind='destructive', icon='🔓', description='Quita del VPS la clave pública con la que entra esta máquina.', steps=REVOKE_SSH_STEPS, stub=True))
-    registry.register(Capability(id='clean_vps', name='Vaciar VPS', group='VPS', kind='destructive', icon='💣', description='Deja el VPS como recién formateado: deshace todo lo que Consola puso ahí.', composed_of=['drop_database', 'remove_deployed_repo', 'revoke_github_key', 'uninstall_packages', 'remove_vps_user'], steps=CLEAN_VPS_STEPS, stub=True))
 
     # --- Emuladores ----------------------------------------------------------
     # Los cuatro botones son de la maquina, no del repo: un AVD sirve para

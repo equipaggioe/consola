@@ -2,15 +2,15 @@
 
 ## 1. La regla de reparto
 
-Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0017](../adr/0017-datos-en-el-env-decisiones-en-el-json.md), [ADR-0033](../adr/0033-que-es-de-la-app-y-que-del-repo.md)):
+Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md), [ADR-0033](../adr/0033-que-es-de-la-app-y-que-del-repo.md)):
 
 | Dónde | Qué | Por qué ahí |
 |---|---|---|
-| `<repo>/.consola/config.env` | **Datos que las tareas leen**: la IP, el usuario, el token, las rutas, la tabla de rutas públicas | Es lo que un paso consume para hacer su trabajo |
+| `<repo>/.consola/config.env` | **Datos que las tareas leen**: la IP, el usuario, los argumentos de `install.py` y las credenciales | Es lo que un paso consume para hacer su trabajo |
 | `<repo>/.consola/params.json` | **Decisiones de la consola sobre ese repo**: lo marcado en cada botón, los seguros, las pestañas abiertas | Ningún paso lee un `PROTECT_*` ni una casilla; son decisiones, no datos |
 | `QSettings` | **Decisiones de esta máquina**: qué repos están en pestañas, las favoritas, las secciones ocultas, los parámetros de las acciones `scope='machine'` | Un repo no puede opinar sobre dónde va el SDK de Android ni sobre qué hay en tu barra |
 
-`.consola/` se agrega al `.gitignore` del repo la primera vez que se escribe (`core/envfile.py::ensure_gitignored`). Un fallo al tocar el `.gitignore` nunca rompe el guardado.
+`.consola/.gitignore`, con `*`, ignora la carpeta entera. Lo escribe `core/envfile.py::ensure_ignored` la primera vez que se escribe en `.consola/`, y si no puede, el guardado falla: sin él, `config.env` queda listo para commitearse. El `.gitignore` del repo no se toca ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md)).
 
 ## 2. El esquema de claves
 
@@ -29,16 +29,29 @@ Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0017](../ad
 
 La distinción entre las dos últimas es la que evita un ámbar falso: `backend` nunca lee `API_URL` —quien la lee es el build de Flutter, que la exige—, así que exigirla dejaba el Backend bloqueado por una clave que jamás iba a mirar.
 
+### Las tres fuentes de una clave
+
+Cada línea de `config.env` es de una de tres fuentes ([ADR-0063](../adr/0063-las-lineas-de-config-env-se-clasifican-por-fuente.md)):
+
+| Fuente | Qué claves | Adónde van |
+|---|---|---|
+| Los campos de `Settings` del repo | Uno por campo de `<SERVER_DIR>/src/app/config.py`, en mayúsculas, salvo `database_url` y `turn_secret`. Los lee `core/fields.py` con `ast` | A `credentials.py` |
+| Nombre fijo | `RESTIC_PASSWORD` y `GITHUB_TOKEN` | A `credentials.py` |
+| El registro de `core/settings.py` | Los argumentos de `install.py` y las claves propias de Consola | A `install.py`, o las lee Consola |
+
+El formulario muestra las dos primeras en el grupo «Credenciales». Los campos se leen al abrir el repo; un campo que se llame como una clave del registro corta, y un `config.py` sin la clase `Settings` se avisa arriba del formulario.
+
 ## 3. Defaults: fijos y dinámicos
 
 `Config.get` resuelve en orden: el valor escrito, el `default` del esquema, y el default dinámico que depende de **este** repo. Una clave con cualquiera de los dos nunca cuenta como faltante, porque igual se va a resolver sola.
 
 | Clave | Default dinámico |
 |---|---|
-| `VPS_USER` | El nombre de la carpeta del repo |
-| `DB_USER` | `VPS_USER` ya resuelto |
-| `DB_NAME` | `<VPS_USER>_db` |
-| `GITHUB_KEY_TITLE` | `<repo>-vps`. Se deriva del repo y no del VPS: cambiar de servidor dejaría huérfana la llave vieja en la cuenta |
+| `DB_USER` | El nombre de la carpeta del repo |
+| `DB_NAME` | `<repo>_db` |
+| `DOMAIN` | `CF_DOMAIN_NAME` |
+
+`VPS_USER` no tiene default: es la cuenta que administra el VPS, y canone no deja que se llame como la app.
 
 `Config` además tipa: `port()` valida el rango, `flag()` acepta las formas usuales de sí/no, `rel_path()` resuelve contra la raíz del repo y `missing()` es lo que alimenta el ámbar.
 

@@ -27,7 +27,7 @@ def split_list(value: str) -> list[str]:
 
 
 def repo_name_of(repo_path: str) -> str:
-    """El nombre que `VPS_USER`/`DB_NAME` usan como default cuando el repo no
+    """El nombre que `DB_USER`/`DB_NAME` usan como default cuando el repo no
     especifica otra cosa: la carpeta del proyecto, igual que hacian los
     scripts (`repo_root.name`)."""
     return os.path.basename(os.path.normpath(repo_path))
@@ -71,10 +71,9 @@ def has_config(repo_path: str) -> bool:
 # Descripcion generica del default dinamico, para el archivo plantilla (que no
 # es de ningun repo en particular y no puede resolverlo a un valor concreto).
 _DYNAMIC_DEFAULT_HINTS = {
-    'VPS_USER': 'nombre del repo',
-    'DB_USER': '<VPS_USER>',
-    'DB_NAME': '<VPS_USER>_db',
-    'GITHUB_KEY_TITLE': '<nombre del repo>-vps',
+    'DB_USER': 'nombre del repo',
+    'DB_NAME': '<nombre del repo>_db',
+    'DOMAIN': '<CF_DOMAIN_NAME>',
 }
 
 
@@ -98,18 +97,20 @@ def describe(setting) -> str:
     return ' · '.join(bits)
 
 
-def render_config(values: dict[str, str]) -> str:
+def render_config(values: dict[str, str], fields: tuple = ()) -> str:
     """Regenera el archivo agrupado por categoria; las claves ajenas se conservan al final.
 
     Solo las `scope='repo'`: lo que es de la maquina y no del proyecto no se
-    escribe aca aunque venga en `values` (`core/settings.py`).
+    escribe aca aunque venga en `values` (`core/settings.py`). `fields` son los
+    campos de `Settings` del repo (`core/fields.py`), que van en su grupo.
     """
     # Las de maquina cuentan como conocidas para NO caer en «Otras claves»:
     # el archivo no las escribe, ni en su grupo ni al final.
-    known = {s.key for s in SETTINGS}
+    known = {s.key for s in (*SETTINGS, *fields)}
+    grupos = settings_by_group(fields)
     out = [HEADER]
     for group in GROUP_ORDER:
-        items = [s for s in settings_by_group().get(group, []) if s.scope == 'repo']
+        items = [s for s in grupos.get(group, []) if s.scope == 'repo']
         if not items:
             continue
         out.append(f"\n# --- {group} ---\n")
@@ -126,36 +127,35 @@ def render_config(values: dict[str, str]) -> str:
     return ''.join(out)
 
 
-def save_config(repo_path: str, values: dict[str, str]) -> str:
+def save_config(repo_path: str, values: dict[str, str], fields: tuple = ()) -> str:
     """Escribe `.consola/config.env` y devuelve la ruta. Crea la carpeta si falta."""
     path = config_path(repo_path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, 'w', encoding='utf-8', newline='\n') as fh:
-        fh.write(render_config(values))
-    ensure_gitignored(repo_path)
+        fh.write(render_config(values, fields))
+    ensure_ignored(repo_path)
     return path
 
 
-def ensure_gitignored(repo_path: str) -> None:
-    """`.consola/` nunca se commitea (ADR-0017).
+def ensure_ignored(repo_path: str) -> None:
+    """`.consola/` nunca se commitea: su propio `.gitignore` la ignora entera (ADR-0064).
+
+    Va dentro de la carpeta y no en el `.gitignore` del repo, que es de la
+    plantilla de canone y no de Consola. Si no se puede escribir, la excepcion
+    sube: guardar sin ese archivo deja `config.env`, con sus secretos, listo
+    para commitearse.
 
     Publica porque ya no la usa solo `save_config`: `ui/params_store.py`
     escribe ahi `params.json` y necesita la misma garantia.
     """
-    gitignore = os.path.join(repo_path, '.gitignore')
-    entry = f"{CONSOLA_DIR}/"
-    try:
-        existing = ''
-        if os.path.isfile(gitignore):
-            with open(gitignore, 'r', encoding='utf-8') as fh:
-                existing = fh.read()
-            if any(line.strip().rstrip('/') == CONSOLA_DIR for line in existing.splitlines()):
+    path = os.path.join(repo_path, CONSOLA_DIR, '.gitignore')
+    if os.path.isfile(path):
+        with open(path, 'r', encoding='utf-8') as fh:
+            if fh.read() == '*\n':
                 return
-        prefix = '' if (not existing or existing.endswith('\n')) else '\n'
-        with open(gitignore, 'a', encoding='utf-8', newline='\n') as fh:
-            fh.write(f"{prefix}{entry}\n")
-    except OSError:
-        pass  # no poder tocar .gitignore nunca debe romper el guardado
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    with open(path, 'w', encoding='utf-8', newline='\n') as fh:
+        fh.write('*\n')
 
 
 def import_from(path: str) -> dict[str, str]:
@@ -233,7 +233,7 @@ class Config:
 
         Dos clases de default, en orden: el fijo de `Setting.default` (mismo
         para cualquier repo, ej. `ROOT_USER='root'`) y el dinamico de abajo,
-        que depende de ESTE repo (ej. `VPS_USER` -> su nombre de carpeta). Los
+        que depende de ESTE repo (ej. `DB_USER` -> su nombre de carpeta). Los
         dos son "lo que la accion va a usar si el campo queda vacio", asi que
         una clave con cualquiera de los dos nunca cuenta como faltante
         (`missing()`, y con ella `ui/params_panel.py::_missing_keys`) — bloquear
@@ -251,26 +251,19 @@ class Config:
         return default
 
     def _dynamic_default(self, key: str) -> str:
-        """Los valores que los scripts originales derivaban a mano en vez
-        de pedirlos (`optional_env('VPS_USER', repo_root.name)`, y desde ahi
-        `f'{vps_user}_db'`): el nombre del repo, y el de la base a partir del
-        usuario ya resuelto — por eso `DB_NAME` llama de vuelta a `self.get`.
+        """Los valores que se derivan del repo o de otra clave en vez de pedirlos.
 
-        `GITHUB_KEY_TITLE` sigue la misma idea pero se deriva del repo y NO del
-        VPS: el titulo es el identificador con el que `core/github.py` busca la
-        llave para reemplazarla o revocarla, asi que atarlo a `VPS_IP` haria
-        que cambiar de servidor dejara huerfana la llave vieja en la cuenta.
-        El sufijo distingue la llave del VPS de una llave personal homonima.
+        El rol y la base local salen del nombre del repo, como en los scripts
+        originales (`repo_root.name`). `VPS_USER` no tiene default: es la cuenta
+        que administra el VPS, y canone no deja que se llame como la app
+        (ADR-0087 de canone). `DOMAIN` sale del dominio de Cloudflare.
         """
-        if key == 'VPS_USER':
-            return self.repo_name
         if key == 'DB_USER':
-            return self.get('VPS_USER')
+            return self.repo_name
         if key == 'DB_NAME':
-            user = self.get('VPS_USER')
-            return f'{user}_db' if user else ''
-        if key == 'GITHUB_KEY_TITLE':
-            return f'{self.repo_name}-vps' if self.repo_name else ''
+            return f'{self.repo_name}_db' if self.repo_name else ''
+        if key == 'DOMAIN':
+            return self.get('CF_DOMAIN_NAME')
         return ''
 
     def require(self, key: str) -> str:
@@ -307,6 +300,6 @@ class Config:
         return [k for k in keys if not self.get(k)]
 
     def secrets(self) -> list[str]:
-        """Valores a enmascarar en la consola (ADR-0017)."""
+        """Valores a enmascarar en la consola (ADR-0064)."""
         return [self.values[s.key] for s in SETTINGS
                 if s.secret and self.values.get(s.key, '').strip()]

@@ -32,18 +32,18 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `process.py` | Correr binarios externos: streaming, captura, alimentar stdin, matar el árbol, atar al proceso |
 | `envfile.py` | `.consola/config.env`: leer, regenerar, y `Config` con acceso tipado y defaults |
 | `settings.py` | El esquema de claves: quién las exige y quién solo las usa |
+| `fields.py` | Los campos de `Settings` del repo administrado, leídos con `ast` |
 | `registry.py` | `Registry`, `Capability`, `AxisDef`, `Facet`, `Step`, y el puente a los kwargs |
-| `catalog.py` | La declaración de las 54 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
+| `catalog.py` | La declaración de las 53 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
 | `targets.py` | Qué subproyectos y qué características tiene el repo abierto |
 | `toolchain.py` | Ubicar `flutter`, `flet`, `npm`, `pyinstaller` y el Python de un venv; las plataformas de build |
 | `ssh.py` | `Remote`, ejecución remota, `scp`, túneles, llaves, contraseña sin consola |
-| `vps.py` | Rutas del repo desplegado, paquetes, los servicios systemd y su journal, tabla de rutas públicas |
+| `vps.py` | Rutas del repo desplegado, paquetes, los servicios systemd y su journal |
 | `database.py` | Resolver la base local o la remota por túnel, y el canal de superusuario |
 | `runner.py` | Dónde corre el código del repo: el venv de acá o el del VPS |
 | `db_explorer.py` | Introspección de solo lectura sobre `pg_catalog` |
 | `db_models.py` | Los modelos del repo, importados con su propio Python, para comparar contra la base |
 | `versioning.py` | Leer y subir la versión de `pubspec.yaml`, `package.json` o `pyproject.toml` |
-| `github.py` | Dar de baja una llave SSH de la cuenta, por título |
 | `android.py` | SDK, catálogos de dispositivos e imágenes, AVD, arranque y apagado de emuladores |
 | `shots.py` | Capturas: argumentos de la cámara, nombre y validación de los crudos, revelado (`shots_presets.json`) |
 | `icons.py` | Íconos: qué apps toman el suyo del logo y qué capa va a cada archivo que declaran (pubspec, `icon.png` de Flet, `<link>` y manifest de PWA de una SPA) |
@@ -70,7 +70,7 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 | `raster.py` | No es un grupo: el SVG como PNG o como ICO, con QtSvg y Pillow. Lo usan `images.py` y `builders.py` |
 | `emulators.py` | `install_system_image`, `create_avd`, `launch_emulator`, `stop_emulator`, `purge_emulators` |
 | `git.py` | `git_force_push`, `git_force_reset`, `clone_repo` |
-| `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh`, `clean_vps` |
+| `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh` |
 | `vps_server.py` | `systemd_action`, `view_logs` |
 | `vps_setup.py` | `refresh_known_host`, `setup_ssh_key`, `install_software` |
 | `database.py` | Los doce del grupo Base de datos |

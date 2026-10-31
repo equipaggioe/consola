@@ -92,10 +92,8 @@ def compile_flutter(ctx, directory: str = '', platform_id: str = 'apk') -> Path:
     apunten a servidores distintos por descuido. Flet no tiene `--dart-define`
     propio: se lo pasa a su `flutter build` de abajo con `--flutter-build-args`.
 
-    En web va ademas la ruta bajo la que el proxy sirve la app (`vps.spa_base`,
-    la misma que usa `compile_spa`): es de donde el navegador pide los assets, y
-    si no coincide lo que se ve es una pagina en blanco. En un repo sin proxy no
-    va ninguna, y el default de Flutter —la raiz— es justamente el correcto.
+    En web la app va en la raiz de su host, que es el default de Flutter: cada
+    pieza tiene el suyo (ADR-0065).
 
     Offline no hay: el service worker que genera Flutter se des-registra solo
     (su `--pwa-strategy` esta deprecado y ya no cachea nada), asi que la app es
@@ -106,21 +104,15 @@ def compile_flutter(ctx, directory: str = '', platform_id: str = 'apk') -> Path:
     destino = toolchain.BUILD_PLATFORMS[platform_id]
     api = ctx.config.require('API_URL')
     define = f'--dart-define=API_BASE_URL={api}'
-    publica = vps.spa_base(ctx.config, app.name)
-    base = None if publica is None else f'{publica}/'
 
     if kind == toolchain.FLUTTER:
-        argv = [*toolchain.flutter_cmd(), 'build', destino.flutter, '--release', define]
-        if platform_id == 'web' and base:
-            argv.append(f'--base-href={base}')
-        ctx.run(argv, cwd=app.path)
+        ctx.run([*toolchain.flutter_cmd(), 'build', destino.flutter, '--release', define],
+                cwd=app.path)
     else:
-        argv = [*toolchain.flet_cmd(), 'build', destino.flet,
-                f'--flutter-build-args={define}']
-        if platform_id == 'web' and base:
-            argv.append(f'--base-url={base}')
         # La variable de entorno queda para el codigo Python que la lea al empaquetar.
-        ctx.run(argv, cwd=app.path, env={'API_BASE_URL': api})
+        ctx.run([*toolchain.flet_cmd(), 'build', destino.flet,
+                 f'--flutter-build-args={define}'],
+                cwd=app.path, env={'API_BASE_URL': api})
 
     patron = destino.output(kind)
     salida = _newest(app.path, patron)
@@ -218,90 +210,14 @@ def install_node_modules(ctx, directory: str = '') -> None:
     ctx.run([*toolchain.npm_cmd(), 'install'], cwd=spa.path)
 
 
-BASE_FILE = 'base.generated.js'
-
-
-def _write_base(ctx, spa: targets.Target, base: str) -> None:
-    """Deja en la SPA el modulo con su ruta publica, para que su config lo importe.
-
-    La fuente de verdad de bajo que ruta vive cada SPA es `PUBLIC_ROUTES`. Pero
-    el repo tiene que poder compilarse sin Consola, asi que el valor no viaja
-    por el entorno del build: se escribe como un literal en un archivo que se
-    commitea. Consola lo genera igual que generaria cualquier otro archivo —
-    despues es del repo, y editarlo a mano funciona.
-
-    Es un archivo propio y no un parche sobre `svelte.config.js` o
-    `vite.config.*`: Consola no edita codigo que no escribio ella.
-
-    Solo se llama en los repos que tienen tabla: la ruta publica existe cuando
-    hay un proxy que la publica. Quien lo decide es `vps.spa_base`, que devuelve
-    `None` cuando no lo hay.
-    """
-    contenido = ('// Generado por Consola desde PUBLIC_ROUTES. Se sobrescribe al compilar.\n'
-                 '// Ruta bajo la que el reverse proxy publica esta app.\n'
-                 f'export const base = "{base}";\n')
-    destino = spa.path / BASE_FILE
-    if destino.is_file() and destino.read_text(encoding='utf-8') == contenido:
-        return
-    destino.write_text(contenido, encoding='utf-8', newline='\n')
-    ctx.ok(f'{spa.name}/{BASE_FILE}: base = {base or "/"}')
-
-
 def compile_spa(ctx, directory: str = '') -> Path:
-    """`npm run build`, con la ruta publica escrita antes y comprobada despues.
-
-    Bajo que ruta vive cada SPA lo dice `PUBLIC_ROUTES`, y el proxy que la sirve
-    tiene que decir lo mismo. El desacuerdo no da error: el proxy sirve la app,
-    el navegador pide sus assets en la raiz del dominio —donde vive la OTRA
-    app— y lo que se ve es una pagina en blanco.
-
-    Por eso hay dos pasos y no uno. Escribir `base.generated.js` pone el valor
-    donde el repo lo va a leer; comprobar el HTML confirma que de verdad lo leyo,
-    que es lo unico que no se puede dar por hecho — una config con la ruta
-    escrita a mano ignora el archivo y el build sale apuntando a otro lado.
-
-    Los dos pasos son de los repos con proxy. Sin tabla no hay ruta publica que
-    escribir ni contra que comparar, y el build es el del repo tal cual: Consola
-    compila y no le deja nada adentro.
-    """
+    """`npm run build`. La SPA va en la raiz de su host, asi que Consola no le
+    deja nada adentro: el build es el del repo tal cual (ADR-0065)."""
     spa = _target(ctx, targets.SPA_VITE, directory)
-    base = vps.spa_base(ctx.config, spa.name)
-    if base is not None:
-        _write_base(ctx, spa, base)
     ctx.run([*toolchain.npm_cmd(), 'run', 'build'], cwd=spa.path)
     salida = _spa_output(spa)
-    _check_base(ctx, spa.name, salida, base)
     ctx.ok(f'Build de {spa.name}: {salida} ({files.human_size(files.size_of(salida))})')
     return salida
-
-
-def _check_base(ctx, name: str, salida: Path, base: str | None) -> None:
-    """Compara la ruta que publica la SPA contra la que quedo en su HTML.
-
-    Se mira el resultado y no la config del repo: como resuelve cada uno su base
-    es asunto suyo, y parsear JS para averiguarlo seria adivinar. El HTML
-    compilado, en cambio, dice sin ambiguedad donde va a pedir los assets.
-
-    Sin proxy (`base is None`) no hay contra que comparar: donde pide sus assets
-    esa SPA es asunto del repo.
-    """
-    if base is None:
-        return
-    index = salida / 'index.html'
-    if not index.is_file():
-        return
-    enlaces = re.findall(r'(?:href|src)="(/[^"]*)"',
-                         index.read_text(encoding='utf-8', errors='replace'))
-    if not enlaces:
-        return
-    fuera = [e for e in enlaces if not e.startswith(f'{base}/')] if base else []
-    if fuera:
-        raise TaskError(
-            f'{name} se publica en {base} pero su build pide {fuera[0]}, en la raiz del '
-            f'dominio: ahi vive otra app y lo que se ve es una pagina en blanco. '
-            f'Su config tiene que importar la base de {BASE_FILE}.')
-    if base:
-        ctx.ok(f'{name} compilado para {base}.')
 
 
 def _spa_output(spa: targets.Target) -> Path:
@@ -320,9 +236,7 @@ def _spa_output(spa: targets.Target) -> Path:
 # El esqueleto lo pone `sv create`, que es el generador oficial de Svelte: trae
 # TypeScript, runes forzadas y el adaptador estatico instalado. UnoCSS no es un
 # add-on oficial de `sv`, asi que lo que falta para dejarla lista para Consola
-# se escribe encima: el plugin, el `ssr = false` de una SPA estatica y, si el
-# repo tiene proxy, la base leida de `base.generated.js` (la que `compile_spa`
-# comprueba).
+# se escribe encima: el plugin y el `ssr = false` de una SPA estatica.
 # Son archivos que Consola acaba de generar, no codigo del repo que se parchea.
 _SPA_NAME = re.compile(r'[a-z0-9][a-z0-9._-]*')
 
@@ -332,8 +246,8 @@ import adapter from '@sveltejs/adapter-static';
 import { sveltekit } from '@sveltejs/kit/vite';
 import UnoCSS from 'unocss/vite';
 import { defineConfig } from 'vite';
-{BASE_IMPORT}
-export default defineConfig({BASE_OPEN}{
+
+export default defineConfig({
 	plugins: [
 		UnoCSS(),
 		sveltekit({
@@ -342,10 +256,10 @@ export default defineConfig({BASE_OPEN}{
 				runes: ({ filename }) => (filename.split(/[/\\\\]/).includes('node_modules') ? undefined : true)
 			},
 			// SPA estatica: el HTML se sirve tal cual y el enrutamiento es del cliente.
-			adapter: adapter({ fallback: 'index.html' }){BASE_PATHS}
+			adapter: adapter({ fallback: 'index.html' })
 		})
 	]
-}{BASE_CLOSE});
+});
 """,
     'uno.config.ts': """\
 import { defineConfig, presetWind3 } from 'unocss';
@@ -383,30 +297,11 @@ export const ssr = false;
 }
 
 
-# Lo unico de la config que depende de si el repo tiene reverse proxy. Con
-# tabla, la base sale de `base.generated.js` y `vite dev` la ignora, asi que la
-# config es una funcion de `command`; sin tabla no hay base que leer —ni archivo
-# que importar— y la funcion sobra: `command` quedaria declarado y sin usar.
-_BASE_WIRING = {
-    True: {
-        '{BASE_IMPORT}': "import { base as deployedBase } from './base.generated.js';\n",
-        '{BASE_OPEN}': '({ command }) => (',
-        '{BASE_CLOSE}': ')',
-        '{BASE_PATHS}': """,
-			// La base la escribe Consola desde PUBLIC_ROUTES; en `vite dev` la app va en la raiz.
-			paths: { base: command === 'build' ? deployedBase : '' }""",
-    },
-    False: {'{BASE_IMPORT}': '', '{BASE_OPEN}': '', '{BASE_CLOSE}': '', '{BASE_PATHS}': ''},
-}
-
-
 def create_spa(ctx) -> Path:
     """Crea en el repo una SPA en blanco: SvelteKit + TypeScript + runes + UnoCSS.
 
     Queda lista para los otros botones de Vite: `serve_vite` y `build_vite` la
-    descubren por su `vite.config.ts`. La base publica la lee solo si el repo
-    tiene tabla de rutas: en uno sin proxy, la SPA no se publica bajo ninguna
-    ruta y su config no tiene por que hablar de una.
+    descubren por su `vite.config.ts`.
 
     El nombre de la carpeta se pregunta aca y no llega como parametro: es el
     unico dato de la corrida y es distinto en cada una, asi que no tiene donde
@@ -429,17 +324,9 @@ def create_spa(ctx) -> Path:
             cwd=ctx.root)
     ctx.run([*npm, 'install', '--save-dev', 'unocss', '@unocss/reset'], cwd=destino)
 
-    # La SPA recien creada todavia no esta en la tabla, asi que su base es la
-    # raiz; lo que se pregunta aca es si el repo tiene tabla, y eso es
-    # exactamente `base is not None`.
-    base = vps.spa_base(ctx.config, nombre)
-    reemplazos = {'{NAME}': nombre, **_BASE_WIRING[base is not None]}
     for rel, contenido in _SPA_FILES.items():
-        for clave, valor in reemplazos.items():
-            contenido = contenido.replace(clave, valor)
-        (destino / rel).write_text(contenido, encoding='utf-8', newline='\n')
-    if base is not None:
-        _write_base(ctx, targets.Target(nombre, targets.SPA_VITE, destino), base)
+        (destino / rel).write_text(contenido.replace('{NAME}', nombre),
+                                   encoding='utf-8', newline='\n')
 
     ctx.ok(f'SPA creada en {destino}')
     ctx.note(f'Nueva SPA {nombre}')

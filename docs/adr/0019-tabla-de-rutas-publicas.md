@@ -1,6 +1,6 @@
 # ADR-0019 · Bajo qué ruta se publica cada cosa es una tabla ordenada de reglas, y es un dato del despliegue
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0065](0065-cada-spa-va-en-la-raiz-de-su-host.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/vps.py, core/settings.py, core/tasks/vps_setup.py, core/tasks/builders.py
 - **Modificada por:** [ADR-0040](0040-una-regla-es-host-mas-ruta.md), que hace del host parte de la regla. Cambia los puntos 1 y 6; el resto sigue en pie.

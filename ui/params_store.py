@@ -5,7 +5,7 @@ import tempfile
 
 from PySide6.QtCore import QSettings, QTimer
 
-from core.envfile import CONSOLA_DIR, ensure_gitignored
+from core.envfile import CONSOLA_DIR, ensure_ignored
 
 """
 Parametros elegidos en el panel de una accion: por repositorio Y por boton.
@@ -309,7 +309,7 @@ def _write(repo_norm: str, data: dict) -> None:
         # Un repo en un disco desconectado o de solo lectura no debe tumbar la
         # interfaz: lo elegido sigue en el cache y vale para esta sesion.
         return
-    ensure_gitignored(repo_norm)
+    ensure_ignored(repo_norm)
 
 
 def forget(repo_path: str) -> None:

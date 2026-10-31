@@ -1,24 +1,13 @@
 from __future__ import annotations
 
-from .. import github, ssh, vps
+from .. import ssh, vps
 from ..errors import TaskError
 from ..registry import registry
 
 """
-Grupo VPS - ops.
-
-`clean_vps.py` ya tenia sus pasos declarados como un diccionario `STEPS`, pero
-eran funciones internas del archivo: no habia forma de correr solo una. Aca son
-atomicas de verdad — `remove_deployed_repo` sirve suelta cuando se cambia de
-rama de despliegue — y `clean_vps` sigue siendo el boton que las corre todas,
-porque "dejar el VPS como recien formateado" casi siempre se pide entero.
-
-`clean_vps` no borra unidades systemd: las que tiene un VPS instalado con canone
-se llaman como las que escribia Consola, y las borraria (ADR-0059).
+Grupo VPS - ops: diagnostico, un comando suelto y quitar la llave de esta
+maquina. Ninguno escribe la configuracion del VPS.
 """
-
-PACKAGES_TO_REMOVE = ('postgresql', 'postgresql-contrib', 'postgis',
-                      'postgresql-postgis-scripts', 'caddy', 'coturn')
 
 
 def _remote(ctx) -> ssh.Remote:
@@ -78,101 +67,7 @@ def revoke_ssh_key(ctx, *, remote_side: bool = True, local_side: bool = True) ->
         ctx.ok(f'Par de llaves local borrado: {privada}')
 
 
-def remove_remote_key_files(ctx) -> None:
-    """Borra la llave SSH que el VPS usa contra GitHub."""
-    ssh.run(ctx, _remote(ctx), 'rm -f ~/.ssh/id_ed25519 ~/.ssh/id_ed25519.pub', check=False)
-    ctx.ok('Llave de GitHub borrada del VPS.')
-
-
-def revoke_github_key(ctx) -> bool:
-    """Borra la llave del VPS de la cuenta de GitHub, por titulo."""
-    token = ctx.config.require('GITHUB_TOKEN')
-    ctx.guard(token)
-    return github.revoke_key(ctx, token, title=ctx.config.require('GITHUB_KEY_TITLE'))
-
-
-# --- limpieza del VPS ------------------------------------------------------
-
-def remove_deployed_repo(ctx) -> bool:
-    """Borra la copia del repo en el VPS."""
-    remote = _remote(ctx)
-    destino = vps.deploy_root(ctx.config)
-    if not ssh.path_exists(remote, destino):
-        ctx.info(f'No hay nada en {destino}.')
-        return False
-    ssh.run(ctx, remote, f'rm -rf {ssh.quote(destino)}')
-    ctx.ok(f'Repo borrado del VPS: {destino}')
-    return True
-
-
-def uninstall_packages(ctx, packages: list[str] | None = None) -> list[str]:
-    """Desinstala los paquetes que instalo el aprovisionamiento."""
-    remote = _remote(ctx)
-    objetivo = list(packages or PACKAGES_TO_REMOVE)
-    presentes = [p for p in objetivo if ssh.succeeds(remote, f'dpkg -s {ssh.quote(p)}')]
-    if not presentes:
-        ctx.info('No hay paquetes de la lista instalados.')
-        return []
-
-    ctx.warn(f'Se van a desinstalar: {", ".join(presentes)}')
-    lista = ' '.join(ssh.quote(p) for p in presentes)
-    ssh.run(ctx, remote, f'sudo -n DEBIAN_FRONTEND=noninteractive apt-get purge -y {lista}')
-    ssh.run(ctx, remote, 'sudo -n apt-get autoremove -y', check=False)
-    return presentes
-
-
-def remove_vps_user(ctx) -> bool:
-    """Borra el usuario de despliegue y su home. Se corre como root."""
-    from .vps_setup import _root_run
-
-    user = ctx.config.get('VPS_USER')
-    _root_run(ctx, (
-        f'if id -u {ssh.quote(user)} >/dev/null 2>&1; then '
-        f'  pkill -u {ssh.quote(user)} || true; '
-        f'  userdel -r {ssh.quote(user)} && echo "[OK] Usuario eliminado."; '
-        'else echo "[INFO] El usuario no existe."; fi; '
-        f'rm -f /etc/sudoers.d/consola-{user}'
-    ), check=False)
-    return True
-
-
-def clean_vps(
-    ctx,
-    *,
-    database: bool = True,
-    repo: bool = True,
-    github_key: bool = True,
-    packages: bool = True,
-    user: bool = True,
-) -> None:
-    """Compuesta destructiva: dejar el VPS como recien formateado.
-
-    Los pasos son casillas del formulario, no botones sueltos del rail: esta
-    operacion casi siempre se pide entera (ADR-0004).
-    """
-    from . import database as db_tasks
-
-    if database:
-        ctx.step('database')
-        db_tasks.teardown_db(ctx.child('teardown_db'), scope='remoto')
-    if repo:
-        ctx.step('repo')
-        remove_deployed_repo(ctx)
-    if github_key:
-        ctx.step('github_key')
-        remove_remote_key_files(ctx)
-        revoke_github_key(ctx)
-    if packages:
-        ctx.step('packages')
-        uninstall_packages(ctx)
-    if user:
-        ctx.step('user')
-        remove_vps_user(ctx)
-    ctx.note(f'Limpieza completa del VPS {ctx.config.require("VPS_IP")}.')
-
-
 def bind_all() -> None:
     registry.bind('health_check', health_check)
     registry.bind('run_command', run_command)
     registry.bind('revoke_ssh', revoke_ssh_key)
-    registry.bind('clean_vps', clean_vps)

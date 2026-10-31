@@ -4,7 +4,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 
 ## 1. Claves de `.consola/config.env`
 
-40 claves declaradas en `core/settings.py`, 39 del repo y una de la máquina. «Exige» significa que alguna acción no puede correr sin ella (su botón queda en ámbar); «usa» que la miran pero corren igual. `GITHUB_TOKEN` y `GITHUB_KEY_TITLE` las exige solo la casilla «Revocar llave de GitHub» de «Vaciar VPS».
+50 claves declaradas en `core/settings.py`, 46 del repo y cuatro de la máquina, más una por campo de `Settings` del repo, en el grupo «Credenciales» ([13](13_configuracion_y_persistencia.md) §2). «Exige» significa que alguna acción no puede correr sin ella (su botón queda en ámbar); «usa» que la miran pero corren igual; «—», que todavía no la lee ninguna acción: son los argumentos de `install.py` y las credenciales, que lee el despliegue con canone cuando exista ([30](30_riesgos_y_pendientes.md)).
 
 | Clave | Grupo | Etiqueta | Tipo | Default | |
 |---|---|---|---|---|---|
@@ -14,22 +14,29 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `CF_RECORD_NAME` | Cloudflare | Registro DNS | | | exige |
 | `VPS_IP` | VPS | IP del servidor | | | exige |
 | `ROOT_USER` | VPS | Usuario root | | `root` | exige |
-| `VPS_USER` | VPS | Usuario de despliegue | | nombre del repo | exige |
+| `VPS_USER` | VPS | Usuario de despliegue | | | exige |
+| `SUDO_PASSWORD` | VPS | Contraseña de sudo | secreto | | — |
 | `VPS_KEY_NAME` | VPS | Nombre de la llave SSH | | | exige |
 | `VPS_PYTHON` | VPS | Python del VPS | | `server/.venv/bin/python` | usa |
 | `VPS_DEPLOY_DIR` | VPS | Directorio de despliegue | | | exige |
-| `DB_USER` | VPS | Rol de la base | | `VPS_USER` | exige |
-| `DB_NAME` | VPS | Base de datos | | `<VPS_USER>_db` | exige |
+| `DOMAIN` | VPS | Dominio | | `CF_DOMAIN_NAME` | — |
+| `VALKEY_MEMORY` | VPS | Memoria de Valkey | | | — |
+| `PERMISSIONS_ALLOW` | VPS | Permisos del navegador | lista | | — |
+| `TURN` | VPS | Llamadas con coturn | sí/no | | — |
+| `TURN_IP` | VPS | IP pública para TURN | | | — |
+| `LOGS_IP` | VPS | IP del túnel de logs | | | — |
+| `DB_USER` | VPS | Rol de la base | | nombre del repo | exige |
+| `DB_NAME` | VPS | Base de datos | | `<repo>_db` | exige |
 | `DB_PASSWORD` | VPS | Password de la base | secreto | | exige |
 | `BACKUP_DIR` | VPS | Carpeta de respaldos | | `.backups` | usa |
 | `BACKUP_KEEP` | VPS | Respaldos a conservar | | `7` | usa |
 | `PG_SUPERUSER` | VPS | Superusuario Postgres | | `postgres` | exige |
 | `PG_PASSWORD` | VPS | Password del superusuario | secreto | | exige |
 | `DB_EXTENSIONS` | VPS | Extensiones de Postgres | lista | `postgis` | usa |
-| `PUBLIC_ROUTES` | Web | Rutas públicas | lista | | usa |
 | `GIT_REPO_URL` | GitHub | URL del repositorio | | | usa |
-| `GITHUB_TOKEN` | GitHub | Token | secreto | | exige |
-| `GITHUB_KEY_TITLE` | GitHub | Título de la llave | | `<repo>-vps` | exige |
+| `PRIVATE` | GitHub | Repo privado | sí/no | | — |
+| `RESTIC_PASSWORD` | Credenciales | Contraseña de restic | secreto | | — |
+| `GITHUB_TOKEN` | Credenciales | Token de GitHub | secreto | | — |
 | `SERVER_DIR` | Systemd | Carpeta del server | | `server` | usa |
 | `UVICORN_APP` | Systemd | Entrypoint uvicorn | | `app.main:app` | usa |
 | `SERVICES` | Systemd | Servicios del repo | lista | | usa |
@@ -48,31 +55,15 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |
 | `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `demo/publicables` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |
+| `OFFLINE_KEY` | Máquina | Llave pública guardada fuera | `scope='machine'` | | — |
+| `LOGS` | Máquina | Destino de logs | `scope='machine'` | | — |
+| `LOGS_KEY` | Máquina | Llave de logs | `scope='machine'` | | — |
 
 Una clave `kind='list'` se edita multilínea y se guarda separada por comas; al leerla, `envfile.split_list` acepta comas y saltos de línea.
 
 Un valor envuelto en comillas las pierde al leerse, pero solo si el **par** envuelve todo el valor: `strip("'")` se comía la última de `… frame-ancestors 'none'`.
 
 ## 2. Gramáticas de las claves compuestas
-
-### `PUBLIC_ROUTES` — una regla por renglón
-
-```
-<patrón> <tipo> <destino>
-```
-
-- `patrón`: un host más una ruta ([ADR-0040](../adr/0040-una-regla-es-host-mas-ruta.md)). `ejemplo.net` o `ejemplo.net/*` es el catch-all de ese host, y va último entre sus reglas; `ejemplo.net/admin/*` publica bajo `/admin`.
-- `tipo`: `proxy` \| `spa` \| `static`.
-- `destino`: `host:puerto` para `proxy`, el nombre de la carpeta de la SPA para `spa`, una ruta absoluta del VPS para `static`.
-- Sin comas en ningún valor: es el separador con el que se guarda la lista.
-
-```
-api.ejemplo.net/*      proxy  127.0.0.1:8000
-ejemplo.net/admin/*    spa    backoffice
-ejemplo.net/*          spa    landing
-```
-
-Hoy la lee solo el build, para saber con qué `base` compilar cada SPA (`vps.spa_base`).
 
 ### `SERVICES` — un servicio por renglón
 
@@ -128,8 +119,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |---|---|---|
 | `.consola/config.env` | `envfile.save_config` | Regenerado desde el esquema |
 | `.consola/params.json` | `ui/params_store.py` | Parámetros, seguros y pestañas |
-| `.gitignore` | `envfile.ensure_gitignored` | Agrega `.consola/` si falta |
-| `<spa>/base.generated.js` | `compile_spa`, `create_spa` | `export const base = "…"` |
+| `.consola/.gitignore` | `envfile.ensure_ignored` | `*`: ignora la carpeta entera |
 | `releases/<app>/<plataforma>.json` | `build_binary` | Manifiesto de release |
 | `<app>/pyproject.toml` | `build_binary` | Solo si no había manifiesto: se crea en `0.0.0` |
 | `<BACKUP_DIR>/<base>-<sello>.dump` | `backup_db` | Volcado `pg_dump -Fc`, rotado. `BACKUP_DIR` por omisión `.backups`, y puede ser absoluta: entonces no está en el repo |
@@ -172,7 +162,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 
 ## 7. El catálogo, de un vistazo
 
-54 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
+53 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
 
 | Grupo | Id | Botón | Tipo | |
 |---|---|---|---|---|
@@ -219,7 +209,6 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |  | `run_command` | Ejecutar comando | A |  |
 |  | `ssh_login` | Abrir sesión SSH | A | interactiva |
 |  | `revoke_ssh` | Quitar acceso SSH | C | destructiva |
-|  | `clean_vps` | Vaciar VPS | C | destructiva |
 | Emuladores | `install_system_image` | Instalar imagen de sistema | A | ⌂ |
 |  | `create_avd` | Crear AVD | A | ⌂ |
 |  | `launch_emulator` | Abrir emulador | A | `live`, ⌂ |

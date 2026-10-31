@@ -5,7 +5,7 @@ from dataclasses import dataclass, field
 class Setting:
     """Una clave de `.consola/config.env`, declarada una sola vez.
 
-    Dos consumidores (ADR-0017): el formulario de Configuracion y la
+    Dos consumidores (ADR-0064): el formulario de Configuracion y la
     validacion previa que marca en ambar lo que le falta a una accion.
     """
     key: str
@@ -44,7 +44,7 @@ class Setting:
 # Claves VPS que necesita cualquier operacion que alcance el servidor.
 _VPS_REACH = ('ssh_login', 'health_check', 'run_command',
               'upload_to_vps', 'install_software', 'setup_ssh_key', 'view_logs',
-              'systemd_action', 'clean_vps', 'revoke_ssh')
+              'systemd_action', 'revoke_ssh')
 
 # Solo las de base sin eje `scope`: las que lo tienen declaran sus claves en el
 # eje (`core/catalog.py::_SCOPE_AXIS`), porque dependen del ambito elegido. El
@@ -70,8 +70,14 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('VPS_IP', 'VPS', 'IP del servidor', required_by=_VPS_REACH),
     Setting('ROOT_USER', 'VPS', 'Usuario root', default='root',
             required_by=('setup_ssh_key', 'install_software')),
+    # La cuenta que administra el VPS: la de `--admin` de `install.py`. Sin
+    # default, porque canone no deja que se llame como la app (ADR-0087 de
+    # canone), que era el default de antes.
     Setting('VPS_USER', 'VPS', 'Usuario de despliegue',
             required_by=_VPS_REACH),
+    # La contraseña de esa cuenta, que pide `sudo`. Vacia, Consola la pide una
+    # vez por sesion y la tiene solo en memoria.
+    Setting('SUDO_PASSWORD', 'VPS', 'Contraseña de sudo', secret=True),
     Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
     # Los dos los lee el ambito remoto de la base (`core/runner.py`), que corre
     # el Python del repo desplegado.
@@ -79,6 +85,22 @@ SETTINGS: tuple[Setting, ...] = (
             used_by=('rebuild_db', 'run_seeders', 'run_mock_seeders')),
     Setting('VPS_DEPLOY_DIR', 'VPS', 'Directorio de despliegue',
             required_by=('upload_to_vps',)),
+    # Los argumentos de `install.py` que cambian entre despliegues (ADR-0063).
+    # El dominio es el de la landing; las demas piezas cuelgan de el
+    # (`app.<dominio>`, `panel.<dominio>`).
+    Setting('DOMAIN', 'VPS', 'Dominio'),
+    # El `maxmemory` de su Valkey, como `256mb`. Sin default: depende de la
+    # maquina y de la app, y canone no fija uno.
+    Setting('VALKEY_MEMORY', 'VPS', 'Memoria de Valkey'),
+    # Las funciones del navegador que se permiten (`--allow`), una por renglon.
+    Setting('PERMISSIONS_ALLOW', 'VPS', 'Permisos del navegador', kind='list'),
+    # `--turn`: si la app retransmite llamadas con coturn. `si` o `no`.
+    Setting('TURN', 'VPS', 'Llamadas con coturn'),
+    # `--turn-ip`: la IPv4 publica, cuando la interfaz solo tiene una privada.
+    Setting('TURN_IP', 'VPS', 'IP pública para TURN'),
+    # `--logs-ip`: la direccion que Equipaggio le dio a esta maquina. El
+    # destino y la llave son de Equipaggio, y van en el grupo Maquina.
+    Setting('LOGS_IP', 'VPS', 'IP del túnel de logs'),
     # Vacio, el rol es el mismo usuario de despliegue (`Config._dynamic_default`).
     Setting('DB_USER', 'VPS', 'Rol de la base', required_by=_DB_FIXED),
     Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_FIXED),
@@ -120,26 +142,22 @@ SETTINGS: tuple[Setting, ...] = (
             default='postgis',
             used_by=('bootstrap_db', 'enable_extensions')),
 
-    # --- Web ---
-    # Bajo que ruta se publica cada cosa: un renglon por regla, en orden, gana la
-    # primera que matchea. La lee el build para saber con que `base` compilar
-    # cada SPA (`vps.spa_base`).
-    #
-    # `<patron> <tipo> <destino>`, siempre los tres: `proxy <host:puerto>`,
-    # `spa <carpeta>` o `static <ruta>`. El patron `*` es el catch-all y va
-    # ultimo. Sin comas en ningun valor: son el separador con el que se guarda
-    # la lista.
-    Setting('PUBLIC_ROUTES', 'Web', 'Rutas publicas', kind='list',
-            used_by=('build_vite', 'build_flutter')),
-
     # --- GitHub ---
     # De ahi sale el nombre del repo en el VPS (`vps.repo_name`), que nombra sus
     # unidades systemd.
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
             used_by=('systemd_action', 'view_logs', 'health_check')),
-    # Las pide la casilla «Revocar llave de GitHub» de `clean_vps`.
-    Setting('GITHUB_TOKEN', 'GitHub', 'Token', secret=True, used_by=('clean_vps',)),
-    Setting('GITHUB_KEY_TITLE', 'GitHub', 'Titulo de la llave', used_by=('clean_vps',)),
+    # `--private`: el VPS baja el release con un token. `si` o `no`.
+    Setting('PRIVATE', 'GitHub', 'Repo privado'),
+
+    # --- Credenciales ---
+    # Las dos que `credentials.py` recibe con nombre fijo, ademas de los campos
+    # de `Settings` del repo, que se suman a este grupo al abrirlo
+    # (`core/fields.py`, ADR-0063).
+    Setting('RESTIC_PASSWORD', 'Credenciales', 'Contraseña de restic', secret=True),
+    # El token de solo lectura con el que el VPS baja el release de un repo
+    # privado.
+    Setting('GITHUB_TOKEN', 'Credenciales', 'Token de GitHub', secret=True),
 
     # --- Systemd ---
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
@@ -216,9 +234,17 @@ SETTINGS: tuple[Setting, ...] = (
     # repo, y nueve copias de un dato son ocho oportunidades de que discrepen.
     Setting('PYINSTALLER_BIN', 'Máquina', 'Ruta de PyInstaller', scope='machine',
             used_by=('build_binary',)),
+    # La llave publica guardada fuera de esta maquina (una llave fisica, por
+    # ejemplo): con la de `VPS_KEY_NAME`, son las dos `--key` y las dos
+    # `--signer` de `install.py`. Es una sola para todos los VPS.
+    Setting('OFFLINE_KEY', 'Máquina', 'Llave pública guardada fuera', scope='machine'),
+    # `--logs` y `--logs-key`: el endpoint WireGuard de Equipaggio y su llave
+    # publica. Son los mismos para todos los VPS que le mandan su journal.
+    Setting('LOGS', 'Máquina', 'Destino de logs', scope='machine'),
+    Setting('LOGS_KEY', 'Máquina', 'Llave de logs', scope='machine'),
 )
 
-GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'Web', 'GitHub', 'Systemd', 'Builds', 'Marca', 'Capturas', 'Máquina')
+GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Credenciales', 'Systemd', 'Builds', 'Marca', 'Capturas', 'Máquina')
 
 # Los seguros del repo (`PROTECT_*`) NO estan aca y no son un `Setting`: no son
 # un dato que una tarea consuma —ningun paso lee uno— sino una decision de la
@@ -237,9 +263,10 @@ def machine_settings() -> tuple[Setting, ...]:
     return tuple(s for s in SETTINGS if s.scope == 'machine')
 
 
-def settings_by_group() -> dict[str, list[Setting]]:
+def settings_by_group(fields: tuple[Setting, ...] = ()) -> dict[str, list[Setting]]:
+    """El esquema por grupo, con los campos de `Settings` del repo si se pasan."""
     groups: dict[str, list[Setting]] = {g: [] for g in GROUP_ORDER}
-    for s in SETTINGS:
+    for s in (*SETTINGS, *fields):
         groups.setdefault(s.group, []).append(s)
     return {g: items for g, items in groups.items() if items}
 

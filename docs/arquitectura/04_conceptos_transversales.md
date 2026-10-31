@@ -43,7 +43,7 @@ Una compuesta comparte contexto con sus pasos (`ctx.child`), así que hay un sol
 - Lo que se **elige al apretar** es un parámetro: va al eje del panel y se guarda en `.consola/params.json`.
 - Lo que es de la **máquina** y no del repo va a `QSettings`.
 
-La regla completa, con sus casos límite, está en [13](13_configuracion_y_persistencia.md) y en [ADR-0017](../adr/0017-datos-en-el-env-decisiones-en-el-json.md).
+La regla completa, con sus casos límite, está en [13](13_configuracion_y_persistencia.md) y en [ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md).
 
 ## 8. Errores que dicen qué hacer
 

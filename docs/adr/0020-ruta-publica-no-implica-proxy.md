@@ -1,6 +1,6 @@
 # ADR-0020 · Declarar una ruta pública no significa que haya un reverse proxy delante
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0065](0065-cada-spa-va-en-la-raiz-de-su-host.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/vps.py, core/envfile.py, core/tasks/builders.py
 

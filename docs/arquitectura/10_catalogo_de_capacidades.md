@@ -21,7 +21,7 @@ Hoy están vinculadas todas. `dev_env` no se vincula: declara `stub=False` a man
 | `steps` | Las casillas de una compuesta. Sin `steps`, la capacidad es un paso obligatorio y no se dibuja la sección |
 | `composed_of` | **Documentación**: de qué botones está hecho este botón. No deriva casillas |
 | `level` | `'C'` a mano cuando una compuesta no publica sus pasos; si no, se deduce de `steps`/`composed_of` |
-| `scope` | `repo` o `machine` ([ADR-0017](../adr/0017-datos-en-el-env-decisiones-en-el-json.md)) |
+| `scope` | `repo` o `machine` ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md)) |
 | `hidden` | Existe como paso o como acción de la interfaz, no como botón |
 | `requires_repo` | Sin esa característica del repo, el botón no existe |
 | `opens_repo` | Lo que entrega es una carpeta de repo: la ventana la abre como pestaña ([ADR-0035](../adr/0035-clonar-abre-el-repo.md)) |
@@ -104,7 +104,7 @@ Un paso que el panel no dibujó no viene marcado en el payload, así que llega a
 
 1. El `name` del eje y el `id` del paso son el nombre del parámetro. Sin excepciones.
 2. Una variación que solo cambia una constante es un eje, no un botón nuevo ([ADR-0004](../adr/0004-un-boton-por-capacidad.md)).
-3. Un dato que la tarea lee y que no cambia entre dos corridas es configuración, no eje ([ADR-0017](../adr/0017-datos-en-el-env-decisiones-en-el-json.md)).
+3. Un dato que la tarea lee y que no cambia entre dos corridas es configuración, no eje ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md)).
 4. Un dato distinto en cada corrida y sin default posible se pregunta al correr con `ctx.ask`, no se guarda.
 5. Si la capacidad es destructiva, hay que declarar qué rompe en `core/protection.py::RULES` ([14](14_seguro_de_destructivos.md)).
 6. Un botón nuevo entra en la tabla de [20](20_referencia_datos.md) y, si merece texto largo, en `core/command_docs.py`.

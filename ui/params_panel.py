@@ -1110,7 +1110,7 @@ class ParamsPanel(QWidget):
         sin texto en el campo.
 
         Antes miraba el texto crudo del campo: una clave con default fijo
-        (`ROOT_USER='root'`) o dinamico (`VPS_USER` -> nombre del repo, ya
+        (`ROOT_USER='root'`) o dinamico (`DB_USER` -> nombre del repo, ya
         resuelto por `Config.get`) quedaba en ambar aunque la funcion real
         jamas la fuera a extranar. Envolver `self._env` en un `Config` hace
         la misma pregunta que se hace en tiempo de ejecucion.

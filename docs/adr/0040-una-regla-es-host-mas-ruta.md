@@ -1,6 +1,6 @@
 # ADR-0040 · Una regla de publicación es un host más una ruta, y cada pieza va en su propio host
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0065](0065-cada-spa-va-en-la-raiz-de-su-host.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/vps.py, core/settings.py, core/tasks/vps_setup.py
 

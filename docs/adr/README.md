@@ -69,3 +69,7 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0059](0059-desplegar-con-los-programas-de-canone.md) | Consola despliega con los programas de canone y no reimplementa el despliegue |
 | [0060](0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md) | Crear, migrar, respaldar y restaurar actúan solo sobre la base local |
 | [0061](0061-los-forzados-corren-en-esta-maquina.md) | Los forzados de git corren solo en esta máquina |
+| [0062](0062-vaciar-vps-sale.md) | «Vaciar VPS» sale hasta que canone traiga el programa que desinstala |
+| [0063](0063-las-lineas-de-config-env-se-clasifican-por-fuente.md) | Las líneas de `config.env` se clasifican por la fuente que declara cada clave |
+| [0064](0064-consola-se-ignora-con-su-propio-gitignore.md) | En `config.env` van los datos que las tareas leen, y `.consola/` se ignora con su propio `.gitignore` |
+| [0065](0065-cada-spa-va-en-la-raiz-de-su-host.md) | Cada SPA se compila para la raíz de su host, y la tabla de rutas públicas sale |

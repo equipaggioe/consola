@@ -33,7 +33,7 @@ Este documento describe los botones que siguen alcanzando el VPS.
 | `vps.remote_path(config, *partes)` | La misma jerarquía relativa que en el repo local |
 | `vps.remote_python` | El intérprete del venv del servidor, dentro del repo desplegado |
 
-Las leen el ámbito remoto de la base ([16](16_base_de_datos.md)), la subida de «Compilar ejecutable» ([17](17_builds_y_artefactos.md)) y el paso «Borrar repo desplegado» de `clean_vps`.
+Las leen el ámbito remoto de la base ([16](16_base_de_datos.md)) y la subida de «Compilar ejecutable» ([17](17_builds_y_artefactos.md)).
 
 ## 4. Paquetes
 
@@ -53,9 +53,7 @@ Cuántas son las del repo lo dice el repo: `SERVICES` es una tabla de filas `<su
 
 ## 6. Deshacer
 
-`clean_vps` borra la base, el repo desplegado, la llave de GitHub, los paquetes y el usuario. Los cinco son casillas del mismo formulario porque la operación casi siempre se pide entera, y el orden importa: los paquetes se purgan con el sudo del usuario de despliegue, así que borrar el usuario va último.
-
-No borra unidades systemd: las que instala canone se llaman como las que escribía Consola, y las borraría ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
+No hay un botón que vacíe el VPS: desarmar uno es reinstalarlo desde el panel del proveedor ([ADR-0062](../adr/0062-vaciar-vps-sale.md)).
 
 `revoke_ssh` muestra la huella exacta que va a sacar antes de tocar nada: revocar la llave equivocada deja el servidor inalcanzable. Sus dos lados son desmarcables por separado.
 

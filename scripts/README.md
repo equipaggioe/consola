@@ -15,5 +15,7 @@ No forman parte del programa:
   código de la Consola, y lo que corresponde revisar es si la reimplementación dejó
   algo afuera.
 
+Se borran enteros cuando el despliegue con canone funcione (decidido el 2026-10-31).
+
 El porqué está en [ADR-0059](../docs/adr/0059-desplegar-con-los-programas-de-canone.md). Lo
 que la Consola hace hoy está en [`docs/arquitectura/`](../docs/arquitectura/).

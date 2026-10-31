@@ -1,6 +1,6 @@
 # ADR-0017 · En `config.env` van los datos que las tareas leen; las decisiones van a `params.json` o a QSettings
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0064](0064-consola-se-ignora-con-su-propio-gitignore.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/settings.py, ui/params_store.py, ui/project_store.py
 
