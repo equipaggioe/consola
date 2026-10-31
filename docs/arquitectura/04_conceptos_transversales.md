@@ -29,7 +29,7 @@ Consecuencia práctica: renombrar un parámetro de una función de `core/tasks/`
 
 ## 5. Los secretos no se ven ni se escriben
 
-`ctx.guard(valor)` marca un valor y `ctx.mask` lo reemplaza por `******` en todo lo que pase por el log. Lo usan las contraseñas de base, el token de GitHub y lo que se pide con `ask(secret=True)`. Una contraseña de SSH viaja por el entorno de un helper `SSH_ASKPASS`, nunca por la línea de comandos ni por disco (`core/ssh.py::password_env`).
+`ctx.guard(valor)` marca un valor y `ctx.mask` lo reemplaza por `******` en todo lo que pase por el log. Lo usan las contraseñas de base y de `sudo`, los tokens, las credenciales y lo que se pide con `ask(secret=True)`. Lo que va por stdin (`ctx.run(..., stdin_text=...)`, `ctx.converse`) no pasa por el log.
 
 ## 6. Cancelar es parte del contrato
 
@@ -47,7 +47,7 @@ La regla completa, con sus casos límite, está en [13](13_configuracion_y_persi
 
 ## 8. Errores que dicen qué hacer
 
-`TaskError` se levanta con la frase que resuelve el problema, no con el síntoma: «Corre "Publicar codigo" antes de instalar el servicio», «Corre "Software base" con el grupo "Coturn" marcado», «Hay mas de un spa-vite en X: panel, backoffice. Elige uno». `MissingConfig` es aparte para que la interfaz pueda abrir la configuración filtrada a las claves que faltan en vez de mostrar un texto suelto.
+`TaskError` se levanta con la frase que resuelve el problema, no con el síntoma: «La cuenta que administra todavía no existe: corre «Configurar VPS» con «Instalar infraestructura» primero», «Hay mas de un spa-vite en X: panel, backoffice. Elige uno». `MissingConfig` es aparte para que la interfaz pueda abrir la configuración filtrada a las claves que faltan en vez de mostrar un texto suelto.
 
 ## 9. Idioma y forma del código
 

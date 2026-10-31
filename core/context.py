@@ -149,8 +149,12 @@ class TaskContext:
         env: dict[str, str] | None = None,
         check: bool = True,
         echo: bool = True,
+        stdin_text: str | None = None,
     ) -> int:
-        """Corre un binario externo con streaming en vivo y cancelacion."""
+        """Corre un binario externo con streaming en vivo y cancelacion.
+
+        `stdin_text` va a la entrada del proceso y no al log.
+        """
         self.raise_if_cancelled()
         if echo:
             self.log(process.format_argv(argv), Level.CMD)
@@ -160,6 +164,26 @@ class TaskContext:
             on_line=lambda line: self.log(line, _guess_level(line)),
             cwd=cwd or self._default_cwd(),
             env=env,
+            cancel=self._cancel,
+            register=self._children.append,
+            stdin_text=stdin_text,
+        )
+        if check and code != 0:
+            raise TaskError(f'El comando termino con codigo {code}.')
+        return code
+
+    def converse(self, argv: Sequence[str], answers: Sequence[tuple[str, str]], *,
+                 check: bool = True) -> int:
+        """Corre un programa que pregunta y le contesta cada pregunta al verla
+        (`process.converse`). Las respuestas no pasan por el log."""
+        self.raise_if_cancelled()
+        self.log(process.format_argv(argv), Level.CMD)
+        for _, respuesta in answers:
+            self.guard(respuesta)
+        code = process.converse(
+            argv,
+            on_line=lambda line: self.log(line, _guess_level(line)),
+            answers=answers,
             cancel=self._cancel,
             register=self._children.append,
         )

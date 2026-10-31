@@ -17,7 +17,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 
 ## 2. Qué no es
 
-- **No es un servidor ni un agente.** No corre nada propio en el VPS: lo que deja allá son paquetes de apt, la cuenta de despliegue con su llave y el ejecutable que sube «Compilar ejecutable».
+- **No es un servidor ni un agente.** No corre nada propio en el VPS: lo que deja allá son paquetes de apt, uv, el swap, lo que instalan `install.py` y `credentials.py`, y el ejecutable que sube «Compilar ejecutable».
 - **No es multiusuario ni remoto.** Corre en la máquina de una persona, con sus llaves SSH (`~/.ssh`) y sus SDK.
 - **No edita el código de los repos que administra.** Los únicos archivos que escribe dentro de un repo son suyos: `.consola/`, `releases/<app>/<plataforma>.json` y el manifiesto de versión del ejecutable ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Aparte están las imágenes del grupo Imágenes: las capturas reveladas y los íconos de las apps ([19](19_imagenes.md)).
 
@@ -28,7 +28,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 | Lenguaje y GUI | Python, PySide6 ≥ 6.7 (`requirements.txt`) |
 | Base de datos | `psycopg[binary]` ≥ 3.2, solo para el explorador y sus consultas de introspección |
 | Sistemas | Windows y Linux (Debian/Ubuntu para Postgres y la terminal). Todo lo que difiere vive en `core/host.py`, una clase por sistema; nadie más pregunta `os.name` ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)). Nunca se corrió en Linux ([30](30_riesgos_y_pendientes.md)) |
-| VPS soportado | Debian/Ubuntu con systemd, apt, ufw y Postgres (`core/vps.py`) |
+| VPS soportado | Debian 13, como lo fija canone (`core/canone.py`) |
 | Imágenes | `Pillow` para revelar las capturas y armar el `.ico`; QtSvg, que viene con PySide6, para rasterizar el logo ([19](19_imagenes.md)) |
 | Sin dependencias de terceros más allá de esas tres | La RAM se lee sin `psutil`, el HTTP se hace con la biblioteca estándar (`core/tasks/utils.py`) |
 | Pruebas solo de lo que no toca otras máquinas | `tests/` cubre lógica pura y las respuestas de `core/host.py` para los dos sistemas ([30](30_riesgos_y_pendientes.md)) |
@@ -40,7 +40,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 flowchart LR
     U([Desarrollador]) --> C[Consola<br/>PySide6]
     C <--> REPO[(Repos abiertos<br/>carpetas locales)]
-    C -- "ssh · scp · túnel -L" --> VPS[VPS Debian<br/>systemd · apt · ufw]
+    C -- "ssh · scp · túnel -L" --> VPS[VPS Debian 13<br/>programas de canone]
     VPS --> PG[(Postgres del VPS)]
     C -- "git clone/push/fetch" --> GH[GitHub]
     C -- "registro A" --> CF[API de Cloudflare]
@@ -51,7 +51,7 @@ flowchart LR
 
 ## 5. Alcance del catálogo
 
-53 capacidades registradas: 50 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 41 atómicas y 12 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
+54 capacidades registradas: 51 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 41 atómicas y 13 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
 
 | Grupo | Botones | Qué resuelve |
 |---|---|---|
@@ -61,7 +61,7 @@ flowchart LR
 | Repositorio | 5 | Clonar, los dos forzados contra origin desde esta máquina ([ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)), y la sincronización de archivos y claves entre repos |
 | Base de datos | 12 | Ciclo de vida del esquema, migraciones, datos, respaldo, túnel y explorador |
 | Despliegue | 2 | Los servicios systemd del VPS: acciones y logs |
-| VPS | 8 | Aprovisionamiento y diagnóstico: paquetes, SSH, DNS, salud, comandos sueltos y revocación |
+| VPS | 9 | Preparar el VPS con los programas de canone, diagnóstico: paquetes, credenciales, DNS, salud, comandos sueltos y revocación |
 | Emuladores | 4 | Imágenes de sistema, dispositivos virtuales, arranque y limpieza de disco |
 | SDKs | 5 | Dejar esta máquina lista para compilar: Android y Flutter |
 

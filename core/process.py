@@ -64,15 +64,19 @@ def spawn(
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
     detached: bool = False,
+    stdin: bool = False,
 ) -> subprocess.Popen:
-    """Arranca un proceso con la salida unificada y lista para leer linea a linea."""
+    """Arranca un proceso con la salida unificada y lista para leer linea a linea.
+
+    `stdin=True` le deja la entrada abierta para escribirle; si no, lee EOF.
+    """
     return subprocess.Popen(
         [str(a) for a in argv],
         cwd=str(cwd) if cwd else None,
         env={**os.environ, **env} if env else None,
         stdout=subprocess.PIPE,
         stderr=subprocess.STDOUT,
-        stdin=subprocess.DEVNULL,
+        stdin=subprocess.PIPE if stdin else subprocess.DEVNULL,
         text=True,
         encoding='utf-8',
         errors='replace',
@@ -101,15 +105,24 @@ def stream(
     env: dict[str, str] | None = None,
     cancel: threading.Event | None = None,
     register: Callable[[subprocess.Popen], None] | None = None,
+    stdin_text: str | None = None,
 ) -> int:
     """Corre un proceso volcando su salida linea a linea, cancelable.
 
     Reemplaza el `subprocess.run(...)` a secas de los scripts: alli la salida
     aparecia recien al terminar y no habia forma de frenar a mitad de camino.
+
+    `stdin_text` se escribe entero al arrancar y la entrada se cierra: es para
+    lo que el programa lee de stdin (la contraseña de `sudo -S`, las lineas de
+    `credentials.py`), nunca se vuelca al log.
     """
-    proc = spawn(argv, cwd=cwd, env=env)
+    proc = spawn(argv, cwd=cwd, env=env, stdin=stdin_text is not None)
     if register:
         register(proc)
+    if stdin_text is not None:
+        assert proc.stdin is not None
+        proc.stdin.write(stdin_text)
+        proc.stdin.close()
 
     try:
         assert proc.stdout is not None
@@ -129,6 +142,64 @@ def stream(
     finally:
         if proc.stdout and not proc.stdout.closed:
             proc.stdout.close()
+
+
+def converse(
+    argv: Argv,
+    *,
+    on_line: LineSink,
+    answers: Sequence[tuple[str, str]],
+    cancel: threading.Event | None = None,
+    register: Callable[[subprocess.Popen], None] | None = None,
+) -> int:
+    """Corre un proceso que pregunta, y contesta cada pregunta cuando aparece.
+
+    `answers` son pares (texto de la pregunta, respuesta), en el orden en que
+    el programa pregunta. La respuesta se escribe recien cuando la pregunta
+    aparece en la salida: escrita antes, una terminal remota (`ssh -tt`) la
+    repite y queda en el log, y `getpass` la descarta. La pregunta no termina
+    en salto de linea, asi que la salida se lee por bloques y no por lineas.
+    Las respuestas nunca pasan por `on_line`.
+    """
+    proc = subprocess.Popen(
+        [str(a) for a in argv], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE, **HOST.spawn_options(detached=False))
+    if register:
+        register(proc)
+    pendientes = list(answers)
+    resto = ''
+    try:
+        assert proc.stdout is not None and proc.stdin is not None
+        fd = proc.stdout.fileno()
+        while True:
+            if cancel is not None and cancel.is_set():
+                kill_tree(proc)
+                raise Cancelled('Detenido por el usuario.')
+            bloque = os.read(fd, 4096)
+            if not bloque:
+                break
+            resto += bloque.decode('utf-8', errors='replace').replace('\r', '')
+            *lineas, resto = resto.split('\n')
+            for linea in lineas:
+                if linea:
+                    on_line(linea)
+            if pendientes and pendientes[0][0] in resto:
+                on_line(resto)
+                resto = ''
+                proc.stdin.write((pendientes.pop(0)[1] + '\n').encode('utf-8'))
+                proc.stdin.flush()
+        if resto:
+            on_line(resto)
+        return proc.wait()
+    except Cancelled:
+        raise
+    except BaseException:
+        kill_tree(proc)
+        raise
+    finally:
+        for canal in (proc.stdout, proc.stdin):
+            if canal and not canal.closed:
+                canal.close()
 
 
 def capture(

@@ -9,26 +9,6 @@ from .errors import TaskError
 from .host import HOST
 from .registry import registry, Capability, AxisDef, Facet, Step
 
-# Ocho grupos, cinco marcados. Un solo eje y no dos ("base" / "opcionales")
-# porque abajo hay un solo parametro (`install_base_software(groups)`): partirlo
-# obligaria al adaptador a concatenar dos listas para reconstruir la unica que
-# existe, y convertiria un default en una categoria. La categoria seria ademas
-# falsa — `postgis` es tan base como `postgresql` en un repo con datos
-# geograficos — y `allow_empty=False` dejaria de poder decir lo unico que hay
-# que validar aca: al menos un paquete.
-# `coturn` y `caddy` estan en la lista por lo mismo que `postgresql`: el paquete
-# se instala aca y su configuracion no es de este boton. Marcarlo solo deja el
-# servicio inerte, que es un estado legitimo — no uno roto.
-_PACKAGE_LABELS = {
-    'python': 'Python', 'git': 'Git', 'postgresql': 'PostgreSQL',
-    'postgis': 'PostGIS', 'caddy': 'Caddy', 'ufw': 'UFW',
-    'redis': 'Redis', 'coturn': 'Coturn',
-}
-_PACKAGES_AXIS = lambda: AxisDef('groups', list(vps.PACKAGE_GROUPS), 'checks',
-                                 select='many', label='Paquetes',
-                                 defaults=set(vps.DEFAULT_GROUPS),
-                                 labels=_PACKAGE_LABELS)
-
 _VPS_KEYS = {'VPS_IP', 'VPS_USER', 'VPS_KEY_NAME', 'VPS_DEPLOY_DIR'}
 
 # Las tres cosas que de verdad se eligen de una system image. El id del SDK las
@@ -381,9 +361,9 @@ BUILD_BINARY_STEPS = [
 # Los ocho pasos de `database.bootstrap_db` son sus ocho booleanos: termina
 # en una base usable, con particiones y datos, no solo en el esquema creado.
 #
-# 'Extensiones' arranca desmarcado por la misma razon por la que `postgis` no
-# esta en `vps.DEFAULT_GROUPS`: el paquete de sistema no se instala salvo que se
-# pida, asi que marcarlo por default prometia una extension que el VPS no tenia.
+# 'Extensiones' arranca desmarcado porque el paquete de sistema de PostGIS no
+# siempre esta: marcarlo por default prometia una extension que la maquina no
+# tenia.
 # Antes ni siquiera era una casilla y `enable_extensions` corria siempre.
 #
 # Cuales extensiones son sale de `DB_EXTENSIONS`, no se deduce. Salian de los
@@ -445,21 +425,16 @@ MIGRATE_DB_STEPS = [
 ]
 
 
-# La verificacion final NO nombra una atomica: es `ssh.reachable`, la plomeria
-# que comparten las once puertas de `resolve_remote`. Un paso puede existir sin
-# ser un atomo del dominio; lo que no puede es fingir que lo es. Antes estos
-# pasos salian de `composed_of`, que derivaba cinco casillas ('ensure_keypair',
-# 'install_pubkey') contra una funcion de cuatro parametros, y dos de esos ids
-# no correspondian a ninguna capacidad ni a ninguna funcion.
-#
-# 'Prueba de login' es desmarcable porque hay un caso real: preparar un VPS al
-# que todavia no se llega desde esta maquina (firewall, VPN pendiente).
-SETUP_SSH_STEPS = [
-    Step('access', 'Crear cuenta de despliegue',
-         requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
-    Step('sudo', 'Configurar sudo sin contraseña', requires_env={'VPS_IP'}),
-    Step('verify', 'Verificar login por SSH',
-         requires_env={'VPS_IP', 'VPS_KEY_NAME'}),
+# Configurar VPS, en el orden en que la maquina lo necesita: `install.py` falla
+# sin los paquetes o sin swap, y `credentials.py` lo instala `install.py`. Refrescar
+# la huella arranca desmarcado: hace falta solo despues de reinstalar el VPS.
+BOOTSTRAP_VPS_STEPS = [
+    Step('known_host', 'Refrescar known_hosts', default=False),
+    Step('software', 'Instalar paquetes y uv'),
+    Step('swap', 'Crear swap'),
+    Step('infra', 'Instalar infraestructura',
+         requires_env={'DOMAIN', 'VALKEY_MEMORY', 'OFFLINE_KEY'}),
+    Step('credentials', 'Cargar credenciales', requires_env={'RESTIC_PASSWORD'}),
 ]
 
 
@@ -866,24 +841,20 @@ def load_catalog() -> None:
     registry.register(Capability(id='upload_to_vps', name='Subir artefacto al VPS', group='Despliegue', kind='once', icon='📤', description='Copia el artefacto compilado al VPS.', hidden=True, stub=True))
 
     # --- VPS -----------------------------------------------------------------
+    # Lo que se instala y como sale del repo (ADR-0059): no hay ejes que elegir.
+    registry.register(Capability(
+        id='bootstrap_vps', name='Configurar VPS', group='VPS', kind='once', icon='🚀',
+        description='Deja el VPS listo con los programas de canone: paquetes, swap, install.py y credenciales.',
+        steps=BOOTSTRAP_VPS_STEPS, stub=True))
     registry.register(Capability(
         id='install_software', name='Instalar paquetes base', cut=True, group='VPS',
         kind='once', icon='📦',
-        description='Instala en el VPS los paquetes que elijas, salteando los que ya estén.',
-        axes=[_PACKAGES_AXIS()], stub=True))
-    # `SUDO_NOPASSWD_MODE` era una constante que se editaba en el script; al
-    # portarlo quedo como parametro de `configure_sudo` sin eje que lo ofreciera,
-    # o sea clavado en 'all'. Es una eleccion excluyente de tres valores, igual
-    # que `bump_mode`: 'specific' escribe solo los comandos de `SUDO_SPECIFIC`,
-    # 'none' no toca el sudoers.
+        description='Instala en el VPS los paquetes que pide canone para este repo, y uv.',
+        stub=True))
     registry.register(Capability(
-        id='setup_ssh_key', name='Crear usuario y acceso SSH', group='VPS',
-        kind='once', icon='🔑',
-        description='Crea el usuario remoto con sudo e instala la clave con la que se entra.',
-        axes=[AxisDef('sudo_mode', ['all', 'specific', 'none'], 'scope',
-                      label='Sudo sin contraseña', default='all',
-                      labels={'all': 'All', 'specific': 'Specific', 'none': 'None'})],
-        steps=SETUP_SSH_STEPS, stub=True))
+        id='load_credentials', name='Cargar credenciales', group='VPS', kind='once', icon='🔐',
+        description='Pasa las credenciales de config.env a credentials.py de canone.',
+        stub=True))
     registry.register(Capability(id='refresh_known_host', name='Refrescar known_hosts', group='VPS', kind='once', icon='🔄', description='Borra del known_hosts de esta máquina la huella vieja del VPS.', stub=True))
     registry.register(Capability(id='update_cloudflare', name='Actualizar Cloudflare', group='VPS', kind='once', icon='☁️', description='Apunta el registro DNS de Cloudflare a la IP pública actual.', stub=True))
     registry.register(Capability(id='health_check', name='Health check', cut=True, group='VPS', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))

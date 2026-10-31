@@ -4,7 +4,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 
 ## 1. Claves de `.consola/config.env`
 
-50 claves declaradas en `core/settings.py`, 46 del repo y cuatro de la máquina, más una por campo de `Settings` del repo, en el grupo «Credenciales» ([13](13_configuracion_y_persistencia.md) §2). «Exige» significa que alguna acción no puede correr sin ella (su botón queda en ámbar); «usa» que la miran pero corren igual; «—», que todavía no la lee ninguna acción: son los argumentos de `install.py` y las credenciales, que lee el despliegue con canone cuando exista ([30](30_riesgos_y_pendientes.md)).
+51 claves declaradas en `core/settings.py`, 46 del repo y cinco de la máquina, más una por campo de `Settings` del repo, en el grupo «Credenciales» ([13](13_configuracion_y_persistencia.md) §2). «Exige» significa que alguna acción no puede correr sin ella (su botón queda en ámbar); «usa» que la miran pero corren igual; «—», que no la lee ninguna acción.
 
 | Clave | Grupo | Etiqueta | Tipo | Default | |
 |---|---|---|---|---|---|
@@ -15,16 +15,16 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `VPS_IP` | VPS | IP del servidor | | | exige |
 | `ROOT_USER` | VPS | Usuario root | | `root` | exige |
 | `VPS_USER` | VPS | Usuario de despliegue | | | exige |
-| `SUDO_PASSWORD` | VPS | Contraseña de sudo | secreto | | — |
+| `SUDO_PASSWORD` | VPS | Contraseña de sudo | secreto | se pide una vez por sesión | usa |
 | `VPS_KEY_NAME` | VPS | Nombre de la llave SSH | | | exige |
 | `VPS_PYTHON` | VPS | Python del VPS | | `server/.venv/bin/python` | usa |
 | `VPS_DEPLOY_DIR` | VPS | Directorio de despliegue | | | exige |
-| `DOMAIN` | VPS | Dominio | | `CF_DOMAIN_NAME` | — |
-| `VALKEY_MEMORY` | VPS | Memoria de Valkey | | | — |
-| `PERMISSIONS_ALLOW` | VPS | Permisos del navegador | lista | | — |
-| `TURN` | VPS | Llamadas con coturn | sí/no | | — |
-| `TURN_IP` | VPS | IP pública para TURN | | | — |
-| `LOGS_IP` | VPS | IP del túnel de logs | | | — |
+| `DOMAIN` | VPS | Dominio | | `CF_DOMAIN_NAME` | exige |
+| `VALKEY_MEMORY` | VPS | Memoria de Valkey | | | exige |
+| `PERMISSIONS_ALLOW` | VPS | Permisos del navegador | lista | | usa |
+| `TURN` | VPS | Llamadas con coturn | sí/no | | usa |
+| `TURN_IP` | VPS | IP pública para TURN | | | usa |
+| `LOGS_IP` | VPS | IP del túnel de logs | | | usa |
 | `DB_USER` | VPS | Rol de la base | | nombre del repo | exige |
 | `DB_NAME` | VPS | Base de datos | | `<repo>_db` | exige |
 | `DB_PASSWORD` | VPS | Password de la base | secreto | | exige |
@@ -34,9 +34,9 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `PG_PASSWORD` | VPS | Password del superusuario | secreto | | exige |
 | `DB_EXTENSIONS` | VPS | Extensiones de Postgres | lista | `postgis` | usa |
 | `GIT_REPO_URL` | GitHub | URL del repositorio | | | usa |
-| `PRIVATE` | GitHub | Repo privado | sí/no | | — |
-| `RESTIC_PASSWORD` | Credenciales | Contraseña de restic | secreto | | — |
-| `GITHUB_TOKEN` | Credenciales | Token de GitHub | secreto | | — |
+| `PRIVATE` | GitHub | Repo privado | sí/no | | usa |
+| `RESTIC_PASSWORD` | Credenciales | Contraseña de restic | secreto | | exige |
+| `GITHUB_TOKEN` | Credenciales | Token de GitHub | secreto | | usa |
 | `SERVER_DIR` | Systemd | Carpeta del server | | `server` | usa |
 | `UVICORN_APP` | Systemd | Entrypoint uvicorn | | `app.main:app` | usa |
 | `SERVICES` | Systemd | Servicios del repo | lista | | usa |
@@ -55,9 +55,10 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |
 | `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `demo/publicables` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |
-| `OFFLINE_KEY` | Máquina | Llave pública guardada fuera | `scope='machine'` | | — |
-| `LOGS` | Máquina | Destino de logs | `scope='machine'` | | — |
-| `LOGS_KEY` | Máquina | Llave de logs | `scope='machine'` | | — |
+| `OFFLINE_KEY` | Máquina | Llave pública guardada fuera | `scope='machine'` | | exige |
+| `CANONE_DIR` | Máquina | Carpeta de canone | `scope='machine'` | | exige |
+| `LOGS` | Máquina | Destino de logs | `scope='machine'` | | usa |
+| `LOGS_KEY` | Máquina | Llave de logs | `scope='machine'` | | usa |
 
 Una clave `kind='list'` se edita multilínea y se guarda separada por comas; al leerla, `envfile.split_list` acepta comas y saltos de línea.
 
@@ -131,8 +132,10 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 | Ruta | Quién |
 |---|---|
 | `<VPS_DEPLOY_DIR>/<repo>/…` | `build_binary`: el ejecutable, su manifiesto, su checksum y su manifiesto de release |
-| La cuenta de despliegue y su `~/.ssh/authorized_keys` | `setup_ssh_key` |
-| `/etc/sudoers.d/consola-<usuario>` | `configure_sudo` |
+| Los paquetes de canone y `/usr/local/bin/uv` | `install_software` |
+| `/swapfile` y su línea de `/etc/fstab` | `create_swap` |
+| Lo que instalan `install.py` y `credentials.py` | `install_infra`, `load_credentials` |
+| `/tmp/consola-canone/` | Los tres anteriores; se borra al terminar |
 
 ### En esta máquina
 
@@ -162,7 +165,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 
 ## 7. El catálogo, de un vistazo
 
-53 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
+54 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
 
 | Grupo | Id | Botón | Tipo | |
 |---|---|---|---|---|
@@ -201,8 +204,9 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 | Despliegue | `systemd_action` | Control del servicio | A |  |
 |  | `view_logs` | Ver logs del servicio | A | `live` |
 |  | `upload_to_vps` | Subir artefacto al VPS | A | oculta |
-| VPS | `install_software` | Instalar paquetes base | A |  |
-|  | `setup_ssh_key` | Crear usuario y acceso SSH | C |  |
+| VPS | `bootstrap_vps` | Configurar VPS | C |  |
+|  | `install_software` | Instalar paquetes base | A |  |
+|  | `load_credentials` | Cargar credenciales | A |  |
 |  | `refresh_known_host` | Refrescar known_hosts | A |  |
 |  | `update_cloudflare` | Actualizar Cloudflare | A |  |
 |  | `health_check` | Health check | A |  |

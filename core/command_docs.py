@@ -475,15 +475,59 @@ DOCS: dict[str, CommandDoc] = {
 
     # --- VPS -------------------------------------------------------
 
-    'install_software': CommandDoc(
-        summary='Instala en el VPS los paquetes apt de los grupos marcados.',
+    'bootstrap_vps': CommandDoc(
+        summary=(
+            'Deja el VPS listo con los programas de canone: paquetes y uv, swap, '
+            'install.py con los datos del repo y las credenciales.'
+        ),
         steps=[
-            'Traduce los grupos marcados a nombres de paquete apt y corta si '
-            'alguno es desconocido.',
-            'Consulta con dpkg -s cuáles ya están instalados y los informa.',
-            'Termina si no falta ninguno.',
-            'Corre apt-get update con DEBIAN_FRONTEND=noninteractive.',
-            'Corre apt-get install -y con los paquetes que faltan.',
+            'Si está marcado, borra del known_hosts la huella vieja del VPS.',
+            'Corre los pasos de «Instalar paquetes base».',
+            'Si el swap no llega a la memoria, crea /swapfile con lo que falta, lo '
+            'activa y lo agrega a /etc/fstab.',
+            'Lee de git remote el dueño y el nombre del repo en GitHub.',
+            'Arma los argumentos de install.py: DOMAIN, VALKEY_MEMORY, --owner, '
+            '--admin VPS_USER, las dos llaves (VPS_KEY_NAME y OFFLINE_KEY) como '
+            '--key y --signer, --private, --desktop del release.yml, --without '
+            'por las piezas que faltan, --allow, --extension, --turn y --logs.',
+            'Sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone.',
+            'La primera vez corre install.py como root por ssh -tt y escribe la '
+            'contraseña de la cuenta cuando la pide, dos veces; después, con sudo '
+            'desde VPS_USER.',
+            'Corre los pasos de «Cargar credenciales».',
+            'Borra /tmp/consola-canone.',
+        ],
+    ),
+
+    'install_software': CommandDoc(
+        summary='Instala en el VPS los paquetes que canone pide para este repo, y uv.',
+        steps=[
+            'Entra como VPS_USER si la llave ya lo deja entrar, con la contraseña de sudo de SUDO_PASSWORD o pedida una vez por sesión; si no, como root con la '
+            'misma llave.',
+            'Arma la lista: los de la máquina de canone, más PostGIS si '
+            'DB_EXTENSIONS la nombra, coturn con TURN y lo del journal con LOGS.',
+            'Corre apt-get update y apt-get install -y con DEBIAN_FRONTEND='
+            'noninteractive.',
+            'Sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone y corre '
+            'uv.py, que instala la versión de uv que fija canone.',
+            'Borra /tmp/consola-canone.',
+        ],
+    ),
+
+    'load_credentials': CommandDoc(
+        summary='Pasa las credenciales de config.env a credentials.py de canone.',
+        steps=[
+            'Lee los campos de Settings de server/src/app/config.py.',
+            'Corta si config.env tiene una clave que no es de Consola ni un '
+            'campo, o si falta el valor de un campo o de RESTIC_PASSWORD (y de '
+            'GITHUB_TOKEN con PRIVATE).',
+            'Entra como VPS_USER si la llave ya lo deja entrar, con la contraseña de sudo de SUDO_PASSWORD o pedida una vez por sesión; si no, como root con la '
+            'misma llave.',
+            'Corta si todavía no existe la cuenta que administra.',
+            'Sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone.',
+            'Corre sudo python3 credentials.py <app> y le pasa por stdin una '
+            'línea campo=valor por credencial; nada de eso va al log.',
+            'Borra /tmp/consola-canone.',
         ],
     ),
 
@@ -492,27 +536,6 @@ DOCS: dict[str, CommandDoc] = {
         steps=[
             'Lee VPS_IP de la configuración del repo.',
             'Corre ssh-keygen -R contra ese host.',
-        ],
-    ),
-
-    'setup_ssh_key': CommandDoc(
-        summary=(
-            'Crea en el VPS la cuenta de despliegue, le instala la clave de esta '
-            'máquina y le deja sudo sin contraseña.'
-        ),
-        steps=[
-            'Genera con ssh-keygen -t ed25519 el par local de VPS_KEY_NAME si no '
-            'existe, con el nombre del repo como comentario.',
-            'Pide la contraseña de root una vez y se conecta como root.',
-            'En esa misma conexión: crea el usuario si no existe, lo agrega al '
-            'grupo sudo, prepara su ~/.ssh en 700, agrega la clave pública a '
-            'authorized_keys si no estaba, y deja el archivo en 600 a nombre del '
-            'usuario.',
-            'Arma la regla de sudo según el modo elegido: todos los comandos, '
-            'solo los que Consola usa, o ninguna regla.',
-            'Escribe esa regla en /etc/sudoers.d, la deja en 440 y la valida con '
-            'visudo -cf.',
-            'Prueba el login con la clave e informa el resultado.',
         ],
     ),
 

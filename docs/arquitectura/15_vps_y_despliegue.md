@@ -2,7 +2,7 @@
 
 ## 1. Cómo se llega
 
-`core/ssh.py::resolve_remote(config)` arma un `Remote` (host, usuario, llave) desde `VPS_IP`, `VPS_USER` y `VPS_KEY_NAME`. Los pasos de aprovisionamiento que todavía no tienen usuario de despliegue pasan `ROOT_USER` explícitamente.
+`core/ssh.py::resolve_remote(config)` arma un `Remote` (host, usuario, llave) desde `VPS_IP`, `VPS_USER` y `VPS_KEY_NAME`.
 
 | Detalle | Por qué |
 |---|---|
@@ -12,15 +12,15 @@
 | `ExitOnForwardFailure` en los túneles | Sin él, un puerto local ocupado deja a `ssh` vivo sin reenviar nada y la conexión cae en lo que ya escuchaba ahí |
 | `scp -r` al **padre** del destino | `scp -r origen destino` copia dentro del destino cuando este ya existe: apuntar a la ruta final deja `.../dist/dist` a partir de la segunda vez |
 
-### Contraseña sin consola
+### Root, la cuenta y `sudo`
 
-La interfaz lanza todo con stdin cerrado y sin ventana, y `ssh` pide la contraseña a la consola, no a stdin: dentro de la aplicación no hay dónde escribirla. `password_env` usa `SSH_ASKPASS_REQUIRE=force` (OpenSSH 8.4+) con un helper que solo reimprime lo que le llega por el entorno — un `.bat` con expansión retardada en Windows, un `.sh` en POSIX. La contraseña no toca el disco ni la línea de comandos.
+`vps_setup.access` entra por la cuenta de `VPS_USER` si la llave ya la deja entrar, y si no, por root con la misma llave: root entra solo hasta que `install.py` lo deja afuera ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)). Con la cuenta, lo que pide root va por `sudo -S`, con la contraseña por stdin (`ssh.run(..., stdin_text=...)`): sale de `SUDO_PASSWORD` o se pide una vez por sesión y queda en memoria (`core/session.py`).
 
-Es el único momento en que Consola se conecta con contraseña: al dar de alta la cuenta de despliegue. Se pide en el momento, `ask_once` la recuerda durante la corrida y nunca se guarda. Y es el último recurso, no el primero: `ssh` prueba las llaves antes.
+Lo que va por stdin no pasa por el log. Un comando que lee stdin se lanza sin `-n`; los demás lo llevan, porque `ssh` reenviaría el stdin y el comando remoto podría esperar un EOF que no llega.
 
 ## 2. El despliegue
 
-Consola no despliega ningún repo. El despliegue lo hacen los programas de canone, y Consola todavía no los corre ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). No clona el repo en el VPS ni escribe ahí configuración de servicios: ni unidades systemd, ni `tmpfiles.d`, ni `turnserver.conf`, ni Caddyfile ([30](30_riesgos_y_pendientes.md)).
+El despliegue lo hacen los programas de canone ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Consola prepara la máquina y corre `install.py` y `credentials.py` (§4); todavía no publica ni despliega versiones ([30](30_riesgos_y_pendientes.md)). No clona el repo en el VPS ni escribe configuración de servicios: eso lo instala `install.py`.
 
 Este documento describe los botones que siguen alcanzando el VPS.
 
@@ -35,11 +35,18 @@ Este documento describe los botones que siguen alcanzando el VPS.
 
 Las leen el ámbito remoto de la base ([16](16_base_de_datos.md)) y la subida de «Compilar ejecutable» ([17](17_builds_y_artefactos.md)).
 
-## 4. Paquetes
+## 4. Configurar VPS
 
-`vps.PACKAGE_GROUPS` agrupa por lo que significan para quien elige, no por cómo se llaman en apt (`python` son tres paquetes): `python`, `git`, `postgresql`, `postgis`, `caddy`, `ufw`, `redis`, `coturn`. Arrancan marcados los cinco de `DEFAULT_GROUPS`.
+«Configurar VPS» (`bootstrap_vps`) encadena cuatro pasos, que se pueden volver a correr porque cada uno detecta lo que ya está ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)):
 
-Instalar saltea lo que ya está (`dpkg -s`) y no configura nada: el paquete queda instalado con la configuración que trae.
+| Paso | Qué hace |
+|---|---|
+| Paquetes y uv (`install_software`) | `apt-get install` de `canone.packages`: los de la máquina de canone, más PostGIS si `DB_EXTENSIONS` la nombra, coturn con `TURN` y lo del journal con `LOGS`. Después corre `uv.py` |
+| Swap (`create_swap`) | Si el swap no llega a la memoria, crea `/swapfile` con lo que falta y lo agrega a `/etc/fstab`. Sin eso, `install.py` falla |
+| Infraestructura (`install_infra`) | Corre `install.py` con `canone.install_args`. La primera vez, como root por `ssh -tt`, y escribe la contraseña de la cuenta recién cuando aparece cada pregunta (`process.converse`); después, con `sudo` |
+| Credenciales (`load_credentials`) | Pasa a `credentials.py`, por stdin, una línea `campo=valor` por credencial (`canone.credential_lines`, [13](13_configuracion_y_persistencia.md) §2). Corta antes de enviar si falta un valor o si `config.env` tiene una clave sin fuente |
+
+Los programas salen de `plantilla/infra/` de la copia local de canone (`CANONE_DIR`), que se sube a `/tmp/consola-canone` y se borra al terminar. `<app>` y `--owner` salen de `git remote get-url origin`.
 
 ## 5. Los servicios del VPS
 

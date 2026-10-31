@@ -43,8 +43,8 @@ class Setting:
 
 # Claves VPS que necesita cualquier operacion que alcance el servidor.
 _VPS_REACH = ('ssh_login', 'health_check', 'run_command',
-              'upload_to_vps', 'install_software', 'setup_ssh_key', 'view_logs',
-              'systemd_action', 'revoke_ssh')
+              'upload_to_vps', 'install_software', 'bootstrap_vps', 'load_credentials',
+              'view_logs', 'systemd_action', 'revoke_ssh')
 
 # Solo las de base sin eje `scope`: las que lo tienen declaran sus claves en el
 # eje (`core/catalog.py::_SCOPE_AXIS`), porque dependen del ambito elegido. El
@@ -69,7 +69,7 @@ SETTINGS: tuple[Setting, ...] = (
     # --- VPS ---
     Setting('VPS_IP', 'VPS', 'IP del servidor', required_by=_VPS_REACH),
     Setting('ROOT_USER', 'VPS', 'Usuario root', default='root',
-            required_by=('setup_ssh_key', 'install_software')),
+            required_by=('install_software', 'bootstrap_vps')),
     # La cuenta que administra el VPS: la de `--admin` de `install.py`. Sin
     # default, porque canone no deja que se llame como la app (ADR-0087 de
     # canone), que era el default de antes.
@@ -77,7 +77,8 @@ SETTINGS: tuple[Setting, ...] = (
             required_by=_VPS_REACH),
     # La contraseña de esa cuenta, que pide `sudo`. Vacia, Consola la pide una
     # vez por sesion y la tiene solo en memoria.
-    Setting('SUDO_PASSWORD', 'VPS', 'Contraseña de sudo', secret=True),
+    Setting('SUDO_PASSWORD', 'VPS', 'Contraseña de sudo', secret=True,
+            used_by=('install_software', 'bootstrap_vps', 'load_credentials')),
     Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
     # Los dos los lee el ambito remoto de la base (`core/runner.py`), que corre
     # el Python del repo desplegado.
@@ -88,19 +89,20 @@ SETTINGS: tuple[Setting, ...] = (
     # Los argumentos de `install.py` que cambian entre despliegues (ADR-0063).
     # El dominio es el de la landing; las demas piezas cuelgan de el
     # (`app.<dominio>`, `panel.<dominio>`).
-    Setting('DOMAIN', 'VPS', 'Dominio'),
+    Setting('DOMAIN', 'VPS', 'Dominio', used_by=('bootstrap_vps',)),
     # El `maxmemory` de su Valkey, como `256mb`. Sin default: depende de la
     # maquina y de la app, y canone no fija uno.
-    Setting('VALKEY_MEMORY', 'VPS', 'Memoria de Valkey'),
+    Setting('VALKEY_MEMORY', 'VPS', 'Memoria de Valkey', used_by=('bootstrap_vps',)),
     # Las funciones del navegador que se permiten (`--allow`), una por renglon.
-    Setting('PERMISSIONS_ALLOW', 'VPS', 'Permisos del navegador', kind='list'),
+    Setting('PERMISSIONS_ALLOW', 'VPS', 'Permisos del navegador', kind='list',
+            used_by=('bootstrap_vps',)),
     # `--turn`: si la app retransmite llamadas con coturn. `si` o `no`.
-    Setting('TURN', 'VPS', 'Llamadas con coturn'),
+    Setting('TURN', 'VPS', 'Llamadas con coturn', used_by=('bootstrap_vps', 'install_software')),
     # `--turn-ip`: la IPv4 publica, cuando la interfaz solo tiene una privada.
-    Setting('TURN_IP', 'VPS', 'IP pública para TURN'),
+    Setting('TURN_IP', 'VPS', 'IP pública para TURN', used_by=('bootstrap_vps',)),
     # `--logs-ip`: la direccion que Equipaggio le dio a esta maquina. El
     # destino y la llave son de Equipaggio, y van en el grupo Maquina.
-    Setting('LOGS_IP', 'VPS', 'IP del túnel de logs'),
+    Setting('LOGS_IP', 'VPS', 'IP del túnel de logs', used_by=('bootstrap_vps', 'install_software')),
     # Vacio, el rol es el mismo usuario de despliegue (`Config._dynamic_default`).
     Setting('DB_USER', 'VPS', 'Rol de la base', required_by=_DB_FIXED),
     Setting('DB_NAME', 'VPS', 'Base de datos', required_by=_DB_FIXED),
@@ -134,8 +136,8 @@ SETTINGS: tuple[Setting, ...] = (
     # ni de las migraciones, que con `--autogenerate` nunca escriben un
     # `CREATE EXTENSION`. Se declara.
     #
-    # El default es `postgis` porque es el unico grupo de `vps.PACKAGE_GROUPS`
-    # que es una extension y no un servicio: instalar el paquete la deja
+    # El default es `postgis` porque es la unica extension de los paquetes
+    # de canone: instalar el paquete la deja
     # disponible, y crearla en la base es este paso aparte. Si el paquete no
     # esta, `enable_extensions` avisa y sigue en vez de romper el bootstrap.
     Setting('DB_EXTENSIONS', 'VPS', 'Extensiones de Postgres', kind='list',
@@ -148,16 +150,18 @@ SETTINGS: tuple[Setting, ...] = (
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
             used_by=('systemd_action', 'view_logs', 'health_check')),
     # `--private`: el VPS baja el release con un token. `si` o `no`.
-    Setting('PRIVATE', 'GitHub', 'Repo privado'),
+    Setting('PRIVATE', 'GitHub', 'Repo privado', used_by=('bootstrap_vps', 'load_credentials')),
 
     # --- Credenciales ---
     # Las dos que `credentials.py` recibe con nombre fijo, ademas de los campos
     # de `Settings` del repo, que se suman a este grupo al abrirlo
     # (`core/fields.py`, ADR-0063).
-    Setting('RESTIC_PASSWORD', 'Credenciales', 'Contraseña de restic', secret=True),
+    Setting('RESTIC_PASSWORD', 'Credenciales', 'Contraseña de restic', secret=True,
+            required_by=('load_credentials',)),
     # El token de solo lectura con el que el VPS baja el release de un repo
     # privado.
-    Setting('GITHUB_TOKEN', 'Credenciales', 'Token de GitHub', secret=True),
+    Setting('GITHUB_TOKEN', 'Credenciales', 'Token de GitHub', secret=True,
+            used_by=('load_credentials',)),
 
     # --- Systemd ---
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
@@ -237,11 +241,17 @@ SETTINGS: tuple[Setting, ...] = (
     # La llave publica guardada fuera de esta maquina (una llave fisica, por
     # ejemplo): con la de `VPS_KEY_NAME`, son las dos `--key` y las dos
     # `--signer` de `install.py`. Es una sola para todos los VPS.
-    Setting('OFFLINE_KEY', 'Máquina', 'Llave pública guardada fuera', scope='machine'),
+    Setting('OFFLINE_KEY', 'Máquina', 'Llave pública guardada fuera', scope='machine',
+            used_by=('bootstrap_vps',)),
+    # La copia local de canone: de su `plantilla/infra/` salen los programas
+    # que Consola sube al VPS (ADR-0059).
+    Setting('CANONE_DIR', 'Máquina', 'Carpeta de canone', scope='machine',
+            required_by=('install_software', 'bootstrap_vps', 'load_credentials')),
     # `--logs` y `--logs-key`: el endpoint WireGuard de Equipaggio y su llave
     # publica. Son los mismos para todos los VPS que le mandan su journal.
-    Setting('LOGS', 'Máquina', 'Destino de logs', scope='machine'),
-    Setting('LOGS_KEY', 'Máquina', 'Llave de logs', scope='machine'),
+    Setting('LOGS', 'Máquina', 'Destino de logs', scope='machine',
+            used_by=('bootstrap_vps', 'install_software')),
+    Setting('LOGS_KEY', 'Máquina', 'Llave de logs', scope='machine', used_by=('bootstrap_vps',)),
 )
 
 GROUP_ORDER = ('Server', 'Cloudflare', 'VPS', 'GitHub', 'Credenciales', 'Systemd', 'Builds', 'Marca', 'Capturas', 'Máquina')

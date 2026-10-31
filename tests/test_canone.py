@@ -1,0 +1,96 @@
+"""Lo que Consola le pasa a los programas de canone.
+
+`core/canone.py` arma los argumentos de `install.py` y las lineas de
+`credentials.py` sin tocar red: se prueba contra un repo falso en disco.
+"""
+import sys
+from pathlib import Path
+
+import pytest
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from core import canone, envfile
+from core.envfile import Config
+from core.errors import TaskError
+
+LLAVES = ('ssh-ed25519 AAAA uno', 'sk-ssh-ed25519@openssh.com BBBB dos')
+CONFIG_PY = '''
+class Settings(BaseSettings):
+    """Every field is required and has no default."""
+
+    model_config = SettingsConfigDict(env_prefix="app_")
+
+    database_url: str
+    health_token: str
+    page_token_key: str
+'''
+
+
+def repo(tmp_path, **valores) -> tuple[Path, Config]:
+    (tmp_path / 'server' / 'src' / 'app').mkdir(parents=True)
+    (tmp_path / 'server' / 'src' / 'app' / 'config.py').write_text(CONFIG_PY, encoding='utf-8')
+    (tmp_path / 'panel').mkdir()
+    base = {'DOMAIN': 'ejemplo.net', 'VALKEY_MEMORY': '256mb', 'VPS_USER': 'pablo',
+            'DB_EXTENSIONS': '', **valores}
+    envfile.save_config(str(tmp_path), base)
+    return tmp_path, Config.for_project(str(tmp_path))
+
+
+def test_install_args_salen_del_repo_y_de_la_configuracion(tmp_path):
+    raiz, config = repo(tmp_path, PRIVATE='si', PERMISSIONS_ALLOW='camera')
+    workflows = raiz / '.github' / 'workflows'
+    workflows.mkdir(parents=True)
+    (workflows / 'release.yml').write_text('jobs:\n  web:\n  desktop-linux:\n  desktop-windows:\n',
+                                           encoding='utf-8')
+    args = canone.install_args(raiz, config, 'demo', 'equipaggio', LLAVES)
+    assert args[:7] == ['demo', 'ejemplo.net', '256mb', '--owner', 'equipaggio', '--admin', 'pablo']
+    assert args.count('--key') == 2 and args.count('--signer') == 2
+    assert '--private' in args
+    assert ['--desktop', 'linux'] == args[args.index('--desktop'):args.index('--desktop') + 2]
+    # Tiene panel/, no web/ ni landing/.
+    sin = [args[i + 1] for i, a in enumerate(args) if a == '--without']
+    assert sin == ['web', 'landing']
+    assert '--turn' not in args and '--logs' not in args
+
+
+def test_logs_van_los_tres_o_ninguno(tmp_path):
+    raiz, config = repo(tmp_path)
+    # LOGS es de la maquina: llega a la corrida desde QSettings, no desde config.env.
+    config = Config({**config.values, 'LOGS': 'equipaggio.net:51820'}, repo_name='demo')
+    with pytest.raises(TaskError):
+        canone.install_args(raiz, config, 'demo', 'equipaggio', LLAVES)
+
+
+def test_turn_ip_sin_turn_corta(tmp_path):
+    raiz, config = repo(tmp_path, TURN_IP='203.0.113.5')
+    with pytest.raises(TaskError):
+        canone.install_args(raiz, config, 'demo', 'equipaggio', LLAVES)
+
+
+def test_paquetes_segun_el_repo(tmp_path):
+    _, config = repo(tmp_path, DB_EXTENSIONS='postgis', TURN='si')
+    paquetes = canone.packages(config)
+    assert canone.POSTGIS_PACKAGE in paquetes and 'coturn' in paquetes
+    assert 'wireguard-tools' not in paquetes
+
+
+def test_credenciales_por_fuente(tmp_path):
+    raiz, config = repo(tmp_path, HEALTH_TOKEN='h', PAGE_TOKEN_KEY='p', RESTIC_PASSWORD='r')
+    assert canone.credential_lines(raiz, config) == (
+        'health_token=h\npage_token_key=p\nrestic_password=r\n')
+
+
+def test_una_clave_ajena_corta_antes_de_enviar(tmp_path):
+    raiz, config = repo(tmp_path, HEALTH_TOKEN='h', PAGE_TOKEN_KEY='p', RESTIC_PASSWORD='r',
+                        TURN_SECRET='viejo')
+    with pytest.raises(TaskError) as error:
+        canone.credential_lines(raiz, config)
+    assert 'TURN_SECRET' in str(error.value)
+
+
+def test_un_campo_vacio_corta(tmp_path):
+    raiz, config = repo(tmp_path, HEALTH_TOKEN='h', RESTIC_PASSWORD='r', PRIVATE='si')
+    with pytest.raises(TaskError) as error:
+        canone.credential_lines(raiz, config)
+    assert 'PAGE_TOKEN_KEY' in str(error.value) and 'GITHUB_TOKEN' in str(error.value)

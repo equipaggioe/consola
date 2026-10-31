@@ -9,27 +9,6 @@ from .ssh import Remote, capture, quote, reachable, run, succeeds
 SUDO = 'sudo -n'
 
 
-# Los paquetes que el despliegue da por dados, agrupados por lo que significan
-# para quien elige (no por como se llaman en apt: `python` son tres paquetes).
-# Vive aca y no en `core/tasks/vps_setup.py` porque `core/catalog.py` dibuja el
-# eje con estas mismas claves y no puede importar de la capa de tareas.
-PACKAGE_GROUPS: dict[str, list[str]] = {
-    'python': ['python3', 'python3-venv', 'python3-pip'],
-    'git': ['git'],
-    'postgresql': ['postgresql', 'postgresql-contrib'],
-    'postgis': ['postgis', 'postgresql-postgis-scripts'],
-    'caddy': ['caddy'],
-    'ufw': ['ufw'],
-    'redis': ['redis-server'],
-    'coturn': ['coturn'],
-}
-
-# Los que arrancan marcados: lo que necesita un backend Python detras de Caddy.
-# No es una categoria ("base" vs "opcional"), es un default — por eso viaja como
-# `AxisDef.defaults` y no como dos ejes separados.
-DEFAULT_GROUPS = ['python', 'git', 'postgresql', 'caddy', 'ufw']
-
-
 # --- rutas del despliegue --------------------------------------------------
 
 def repo_name(config: Config) -> str:
@@ -63,27 +42,6 @@ def remote_path(config: Config, *parts: str) -> str:
 def remote_python(config: Config) -> str:
     """Interprete del venv del server, dentro del repo desplegado."""
     return remote_path(config, config.require('VPS_PYTHON'))
-
-
-# --- cuentas y paquetes ----------------------------------------------------
-
-def user_exists(remote: Remote, user: str) -> bool:
-    return succeeds(remote, f'id -u {quote(user)}')
-
-
-def install_packages(ctx, remote: Remote, packages: list[str]) -> None:
-    """Instala paquetes con apt, sin preguntas y sin reinstalar lo que ya esta."""
-    faltan = [p for p in packages if not succeeds(remote, f'dpkg -s {quote(p)}')]
-    ya_estaban = [p for p in packages if p not in faltan]
-    if ya_estaban:
-        ctx.ok(f'Ya estaban instalados: {", ".join(ya_estaban)}')
-    if not faltan:
-        return
-
-    ctx.info(f'Instalando: {", ".join(faltan)}')
-    lista = ' '.join(quote(p) for p in faltan)
-    run(ctx, remote, f'{SUDO} DEBIAN_FRONTEND=noninteractive apt-get update -qq')
-    run(ctx, remote, f'{SUDO} DEBIAN_FRONTEND=noninteractive apt-get install -y {lista}')
 
 
 # --- systemd ---------------------------------------------------------------

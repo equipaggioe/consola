@@ -113,10 +113,6 @@ class Host(ABC):
         """Si `ssh` puede reusar una conexion entre invocaciones."""
 
     @abstractmethod
-    def askpass_helper(self, directory: Path, variable: str) -> Path:
-        """Escribe el helper que reimprime la contrasena de `variable`."""
-
-    @abstractmethod
     def terminal_argv(self, argv: list[str]) -> list[str]:
         """`argv` dentro de una terminal nueva, con TTY real."""
 
@@ -272,14 +268,6 @@ class WindowsHost(Host):
                 self._job = job
             kernel32.AssignProcessToJobObject(self._job, int(proc._handle))
 
-    def askpass_helper(self, directory: Path, variable: str) -> Path:
-        # `!VAR!` y no `%VAR%`: con expansion retardada cmd no vuelve a parsear
-        # el valor, asi que una contrasena con & | > ^ % ! llega entera.
-        helper = directory / 'askpass.bat'
-        helper.write_text('@echo off\r\nsetlocal EnableDelayedExpansion\r\n'
-                          f'echo !{variable}!\r\n', encoding='utf-8')
-        return helper
-
     def terminal_argv(self, argv: list[str]) -> list[str]:
         return ['wt.exe', *argv]
 
@@ -378,12 +366,6 @@ class PosixHost(Host):
         """Sin equivalente todavia: si Consola se cae de golpe, el proceso
         sigue vivo (docs/arquitectura/30_riesgos_y_pendientes.md). Al cerrarla
         normalmente lo apaga `TabPanel.shutdown()`."""
-
-    def askpass_helper(self, directory: Path, variable: str) -> Path:
-        helper = directory / 'askpass.sh'
-        helper.write_text(f'#!/bin/sh\nprintf "%s\\n" "${variable}"\n', encoding='utf-8')
-        helper.chmod(0o700)
-        return helper
 
     def terminal_argv(self, argv: list[str]) -> list[str]:
         # La alternativa de Debian: apunta a la terminal que tenga el escritorio,

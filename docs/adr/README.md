@@ -73,3 +73,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0063](0063-las-lineas-de-config-env-se-clasifican-por-fuente.md) | Las líneas de `config.env` se clasifican por la fuente que declara cada clave |
 | [0064](0064-consola-se-ignora-con-su-propio-gitignore.md) | En `config.env` van los datos que las tareas leen, y `.consola/` se ignora con su propio `.gitignore` |
 | [0065](0065-cada-spa-va-en-la-raiz-de-su-host.md) | Cada SPA se compila para la raíz de su host, y la tabla de rutas públicas sale |
+| [0066](0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md) | «Configurar VPS» prepara la máquina y corre `install.py`; root entra solo la primera vez |

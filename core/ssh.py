@@ -1,6 +1,5 @@
 from __future__ import annotations
 import hashlib
-import os
 import shlex
 import subprocess
 import tempfile
@@ -65,13 +64,16 @@ class Remote:
         """El mismo servidor con otra cuenta (root durante el aprovisionamiento)."""
         return Remote(self.host, user, self.identity)
 
-    def argv(self, command: str, *, tty: bool = False, extra: Sequence[str] = ()) -> list[str]:
-        # `-n` salvo que se pida TTY: estos comandos no leen teclado, y sin
-        # cerrarle el stdin `ssh` lo reenvia al comando remoto y puede quedar
-        # esperando un EOF que nunca llega cuando corre dentro de la GUI.
+    def argv(self, command: str, *, tty: bool = False, stdin: bool = False,
+             extra: Sequence[str] = ()) -> list[str]:
+        # `-n` salvo que se pida TTY o entrada: estos comandos no leen teclado,
+        # y sin cerrarle el stdin `ssh` lo reenvia al comando remoto y puede
+        # quedar esperando un EOF que nunca llega cuando corre dentro de la GUI.
+        # `stdin=True` es para lo que si lee: la contraseña de `sudo -S` o las
+        # lineas de `credentials.py`.
+        modo = ['-t'] if tty else [] if stdin else ['-n']
         return ['ssh', *CONNECT_TIMEOUT, *_control_args(self.identity, self.target),
-                *(['-t'] if tty else ['-n']), *extra,
-                '-i', str(self.identity), self.target, command]
+                *modo, *extra, '-i', str(self.identity), self.target, command]
 
     def scp_argv(self, local: Path, remote_path: str, *,
                  download: bool = False, recursive: bool = False) -> list[str]:
@@ -85,8 +87,8 @@ class Remote:
 def resolve_remote(config: Config, *, user: str = '') -> Remote:
     """Arma el `Remote` del proyecto desde `.consola/config.env`.
 
-    `user` vacio significa VPS_USER; los pasos de aprovisionamiento que todavia
-    no tienen usuario de despliegue pasan ROOT_USER explicitamente.
+    `user` vacio significa VPS_USER. Antes de `install.py` esa cuenta no existe, y
+    `core/tasks/vps_setup.py::access` entra como `ROOT_USER`.
     """
     return Remote(
         host=config.require('VPS_IP'),
@@ -100,49 +102,6 @@ def quote(value: str) -> str:
     return shlex.quote(value)
 
 
-# --- contrasena sin consola ------------------------------------------------
-
-_PASSWORD_VAR = 'CONSOLA_SSH_PASSWORD'
-
-# Sin `PubkeyAuthentication=no`: si root ya tiene la llave instalada se entra con
-# ella y la contrasena no llega a usarse, que es como funcionaba antes de que
-# esto existiera. Forzar contrasena cerraba ese camino y el setup moria con
-# "Permission denied" en servidores donde la llave alcanzaba.
-# Un solo intento: con el helper, reintentar es mandar tres veces lo mismo.
-PASSWORD_OPTS = ['-o', 'NumberOfPasswordPrompts=1']
-
-
-def _askpass_helper() -> Path:
-    """Script que solo reimprime la contrasena que le llega por el entorno."""
-    directory = Path(tempfile.gettempdir()) / 'consola_ssh'
-    directory.mkdir(parents=True, exist_ok=True)
-    return HOST.askpass_helper(directory, _PASSWORD_VAR)
-
-
-def password_env(password: str) -> dict[str, str]:
-    """Entorno para darle una contrasena a `ssh` sin consola donde escribirla.
-
-    La GUI lanza todo con el stdin cerrado y sin ventana (`core/process.py`), y
-    `ssh` pide la contrasena a la consola, no a stdin: dentro de la app no hay
-    donde escribirla y la conexion se queda esperando. `SSH_ASKPASS_REQUIRE`
-    (OpenSSH 8.4+) la deriva a un helper, que es lo que `sshpass` conseguia con
-    un PTY falso; y `sshpass` no existe en Windows, que era el error con el que
-    moria el boton de setup.
-
-    La contrasena viaja por el entorno del proceso: no toca el disco ni la
-    linea de comandos, que es lo unico que se ve en el log.
-    """
-    return {
-        'SSH_ASKPASS': str(_askpass_helper()),
-        'SSH_ASKPASS_REQUIRE': 'force',
-        # Antes de 8.4 el helper se ignora si no hay DISPLAY, aunque no se use.
-        'DISPLAY': os.environ.get('DISPLAY') or ':0',
-        _PASSWORD_VAR: password,
-    }
-
-
-# --- ejecucion remota ------------------------------------------------------
-
 def capture(remote: Remote, command: str, *, timeout: float | None = 30.0,
             check: bool = True) -> str:
     """Consulta corta por SSH. Devuelve stdout; no toca el log."""
@@ -150,9 +109,13 @@ def capture(remote: Remote, command: str, *, timeout: float | None = 30.0,
 
 
 def run(ctx, remote: Remote, command: str, *, check: bool = True,
-        echo: bool = True) -> int:
-    """Comando remoto con streaming en vivo hacia la consola de la pestana."""
-    return ctx.run(remote.argv(command), check=check, cwd=None, echo=echo)
+        echo: bool = True, stdin_text: str | None = None) -> int:
+    """Comando remoto con streaming en vivo hacia la consola de la pestana.
+
+    `stdin_text` llega a la entrada del comando remoto y no al log.
+    """
+    return ctx.run(remote.argv(command, stdin=stdin_text is not None), check=check,
+                   cwd=None, echo=echo, stdin_text=stdin_text)
 
 
 def succeeds(remote: Remote, command: str) -> bool:

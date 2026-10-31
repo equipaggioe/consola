@@ -29,16 +29,17 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 |---|---|
 | `errors.py` | `TaskError`, `Cancelled`, `MissingConfig`. Nadie imprime ni sale del proceso |
 | `context.py` | `TaskContext`: log, ejecutar, preguntar, publicar un endpoint, cancelar |
-| `process.py` | Correr binarios externos: streaming, captura, alimentar stdin, matar el árbol, atar al proceso |
+| `process.py` | Correr binarios externos: streaming, captura, alimentar stdin, contestar preguntas, matar el árbol, atar al proceso |
 | `envfile.py` | `.consola/config.env`: leer, regenerar, y `Config` con acceso tipado y defaults |
 | `settings.py` | El esquema de claves: quién las exige y quién solo las usa |
 | `fields.py` | Los campos de `Settings` del repo administrado, leídos con `ast` |
+| `canone.py` | Lo que se le pasa a los programas de canone: paquetes, argumentos de `install.py`, líneas de `credentials.py` |
 | `registry.py` | `Registry`, `Capability`, `AxisDef`, `Facet`, `Step`, y el puente a los kwargs |
-| `catalog.py` | La declaración de las 53 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
+| `catalog.py` | La declaración de las 54 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
 | `targets.py` | Qué subproyectos y qué características tiene el repo abierto |
 | `toolchain.py` | Ubicar `flutter`, `flet`, `npm`, `pyinstaller` y el Python de un venv; las plataformas de build |
-| `ssh.py` | `Remote`, ejecución remota, `scp`, túneles, llaves, contraseña sin consola |
-| `vps.py` | Rutas del repo desplegado, paquetes, los servicios systemd y su journal |
+| `ssh.py` | `Remote`, ejecución remota con o sin stdin, `scp`, túneles, llaves |
+| `vps.py` | Rutas del repo desplegado, los servicios systemd y su journal |
 | `database.py` | Resolver la base local o la remota por túnel, y el canal de superusuario |
 | `runner.py` | Dónde corre el código del repo: el venv de acá o el del VPS |
 | `db_explorer.py` | Introspección de solo lectura sobre `pg_catalog` |
@@ -72,7 +73,7 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 | `git.py` | `git_force_push`, `git_force_reset`, `clone_repo` |
 | `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh` |
 | `vps_server.py` | `systemd_action`, `view_logs` |
-| `vps_setup.py` | `refresh_known_host`, `setup_ssh_key`, `install_software` |
+| `vps_setup.py` | `refresh_known_host`, `install_software`, `load_credentials`, `bootstrap_vps` |
 | `database.py` | Los doce del grupo Base de datos |
 | `utils.py` | Limpieza, Cloudflare, sincronización y los cinco de SDK |
 | `payloads.py` | La excepción deliberada: programas Python que viajan por `-c` al intérprete del proyecto |

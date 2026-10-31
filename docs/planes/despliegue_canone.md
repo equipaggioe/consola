@@ -1,15 +1,21 @@
 # Plan — desplegar con el mecanismo de canone
 
-> **Estado (verificado 2026-10-31).** Construida la fase 0 (§6): el tag `despliegue-propio` marca
-> el último commit con el despliegue propio, los botones que salen en el §3 ya no están y
-> [ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md),
-> [ADR-0060](../adr/0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md) y
-> [ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md) registran el corte. Construida
-> la fase 1 salvo las claves que esperan otra fase o una pregunta (§6): las claves nuevas del §4
-> se guardan y todavía no las lee ningún botón. «Vaciar VPS» salió
-> ([ADR-0062](../adr/0062-vaciar-vps-sale.md), *propuesta*). Consola no despliega ningún repo
-> hasta las fases 2 y 3. Lo que hay está en [13](../arquitectura/13_configuracion_y_persistencia.md)
-> y [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura.
+> **Estado (verificado 2026-10-31).** Construidas las fases 0 a 2 (§6), salvo lo que espera otra
+> fase o una pregunta. Fase 0: el despliegue propio salió (tag `despliegue-propio`,
+> [ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md) a
+> [0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)). Fase 1: la configuración del §4
+> ([ADR-0063](../adr/0063-las-lineas-de-config-env-se-clasifican-por-fuente.md) a
+> [0065](../adr/0065-cada-spa-va-en-la-raiz-de-su-host.md)) y «Vaciar VPS» salió
+> ([ADR-0062](../adr/0062-vaciar-vps-sale.md), *propuesta*). Fase 2: «Configurar VPS», «Instalar
+> paquetes base» y «Cargar credenciales»
+> ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)), **nunca
+> corridos contra un VPS**. Consola todavía no publica ni despliega versiones: es la fase 3. Lo que
+> hay está en [13](../arquitectura/13_configuracion_y_persistencia.md) y
+> [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura.
+>
+> **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
+> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0066. Lo que sigue es la fase 3; antes conviene
+> probar la fase 2 contra un VPS de prueba (30, «Sin verificar»).
 >
 > Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
 > fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
@@ -66,12 +72,13 @@
 
 | # | Conflicto | Evidencia |
 |---|---|---|
-| C6 | `setup_ssh_key.py` crea `VPS_USER` (por defecto el nombre del repo, que es `<app>`) con `sudo NOPASSWD`. El ADR-0087 prohíbe que la cuenta que administra sea `<app>`, y el 0084 pide `sudo` con contraseña. Tras `install.py`, root ya no entra y `setup_ssh_key.py` deja de servir | `setup_ssh_key.py`, `core/vps.py` |
 | C5 | El launcher `backend` pasa la base en la variable `DATABASE_URL`. `Settings` de canone lee solo `CREDENTIALS_DIRECTORY`, así que en un repo de canone el valor se ignora | `launchers.py::serve_backend`, «Configuración» de `fastapi.md` |
 
 C1 a C3 se resolvieron en la fase 0: `configure_caddy`, `configure_service` y el paso que borraba
 las unidades salieron. C7 —«Vaciar VPS» borraba la cuenta que administra y dejaba la máquina sin
-entrada— se resolvió en la fase 1: el botón salió (ADR-0062).
+entrada— se resolvió en la fase 1: el botón salió (ADR-0062). C6 —`setup_ssh_key` creaba la
+cuenta con `sudo` sin contraseña— se resolvió en la fase 2: salió, y la cuenta la crea
+`install.py` (ADR-0066).
 
 ## 3. Botones
 
@@ -169,7 +176,7 @@ Construido en la fase 1 *(propuesta, sin confirmar en lo que no responde una pre
 | `RESTIC_PASSWORD`, `GITHUB_TOKEN` | En el grupo «Credenciales» |
 | Los campos de `Settings` | `core/fields.py` los lee con `ast` y el formulario los suma a «Credenciales» (ADR-0063) |
 | `OFFLINE_KEY`, `LOGS`, `LOGS_KEY` | Entraron como claves de la máquina (`scope='machine'`), porque son las mismas para todos los VPS (*propuesta*) |
-| `--owner`, `--desktop`, `--without` | Van con su consumidor, en la fase 2 |
+| `--owner`, `--desktop`, `--without` | Hechos en la fase 2 (`core/canone.py`) |
 
 ## 5. Bloqueos en canone
 
@@ -234,6 +241,23 @@ y casi ninguno tiene `pnpm-lock.yaml` en cada pieza web. La plantilla de `releas
 una sola pieza web (`PIEZA`), y `equipaggio` tiene `panel/` y `landing/`. El piloto se lleva a la
 plantilla de canone, con su `ci.yml` y su `release.yml`, antes de cerrar la fase 3; los demás
 repos lo siguen después.
+
+La fase 2 está construida y sin probar contra un VPS *(lo que no responde una pregunta es
+propuesta, sin confirmar)*:
+
+| Pieza | Qué se hizo |
+|---|---|
+| «Configurar VPS» (`bootstrap_vps`) | Pasos: refrescar known_hosts (desmarcado), paquetes y uv, swap, `install.py`, credenciales. La receptora y el primer despliegue se suman en las fases 6 y 3 |
+| «Instalar paquetes base» | Sin eje: los paquetes salen del repo (`canone.packages`) y después corre `uv.py` |
+| Swap | `/swapfile` con lo que falta para igualar la memoria, en `/etc/fstab`. Casilla, sin botón |
+| `install.py` | Casilla, sin botón. Primera vez como root por `ssh -tt` con `process.converse`; después con `sudo -S` |
+| «Cargar credenciales» (`load_credentials`) | Botón y casilla. Sube `credentials.py` y le pasa las líneas por stdin, detrás de la contraseña de `sudo` |
+| Acceso | `vps_setup.access`: la cuenta de `VPS_USER` si entra, si no root. La contraseña de `sudo`, de `SUDO_PASSWORD` o pedida una vez por sesión |
+| `CANONE_DIR` | Clave nueva de la máquina: la copia local de canone de la que se suben los programas |
+| `setup_ssh_key` | Salió (C6), con el `sudo` sin contraseña y la contraseña de root por `SSH_ASKPASS` |
+
+Para la fase 3, el piloto `equipaggio` tiene que tener antes su `release.yml` y su `ci.yml` de la
+plantilla de canone: es trabajo en ese repo, no en Consola.
 
 Cada fase actualiza en su commit los documentos del §7 que toca.
 

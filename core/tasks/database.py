@@ -94,7 +94,7 @@ def enable_extensions(ctx, scope: str = db.LOCAL) -> list[str]:
 
     Antes de crear cada extension se chequea `pg_available_extensions`: no todo
     VPS tiene el paquete de sistema instalado (postgis no esta en
-    `vps.DEFAULT_GROUPS`), y sin este chequeo el bootstrap entero fallaba con
+    los paquetes base), y sin este chequeo el bootstrap entero fallaba con
     "extension is not available" en vez de avisar y seguir.
     """
     # Se resuelve antes que el canal de superusuario para no pedir credenciales

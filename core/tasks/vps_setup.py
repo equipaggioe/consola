@@ -1,204 +1,246 @@
 from __future__ import annotations
+from dataclasses import dataclass
 
-from .. import ssh, vps
+from .. import canone, session, ssh
 from ..errors import TaskError
 from ..registry import registry
 
 """
-Grupo VPS - setup.
+Grupo VPS - setup: dejar un VPS listo con los programas de canone (ADR-0059).
 
-`setup_ssh_key.py` era un unico comando shell de cuarenta lineas encadenadas con
-`&&` que creaba el usuario, lo metia en sudo, escribia el sudoers, instalaba la
-llave publica y probaba el login. Si el login fallaba habia que volver a correr
-todo, incluida la creacion del usuario que ya existia.
+La maquina llega a `install.py` con sus paquetes, uv y tanto swap como memoria:
+eso lo pone quien la prepara, que es Consola (despliegue.md de canone,
+«Maquina»). Despues `install.py` instala la app, crea la cuenta que administra
+y deja entrar solo por llave, y `credentials.py` cifra las credenciales.
 
-Aca son dos atomicas —`ensure_deploy_access` y `configure_sudo`—: cada una
-detecta su estado antes de actuar y se puede repetir sola. `setup_ssh_key` es la
-compuesta que las corre en orden y cierra con la verificacion, que no es atomica
-sino `ssh.reachable`: algo que necesitan casi todos los botones de SSH es
-plomeria de nivel 0, no una tarea con boton.
+La primera vez entra root con la llave `VPS_KEY_NAME`, puesta al crear el VPS.
+Despues de `install.py` root ya no entra, y todo pasa por la cuenta de
+`VPS_USER` con `sudo`, que pide su contraseña.
 """
 
-# `PACKAGE_GROUPS` y `DEFAULT_GROUPS` viven en `core/vps.py`: el catalogo los
-# necesita para dibujar el eje y no puede importar de esta capa.
-PACKAGE_GROUPS = vps.PACKAGE_GROUPS
-DEFAULT_GROUPS = vps.DEFAULT_GROUPS
-
-SUDO_MODES = ('all', 'specific', 'none')
-# Modo 'specific': la lista tiene que cubrir TODOS los `sudo -n` que corre el
-# resto de Consola, o el VPS queda a medias sin decir por que. Se habia recortado
-# a tres comandos y dejaba afuera `tee` (unidad systemd y turnserver.conf), `ufw`
-# (puertos de coturn) y `rm` (limpieza del servicio). Al agregar el eje sudo_mode
-# el modo dejo de ser inalcanzable, asi que el hueco pasaba de latente a real.
-SUDO_SPECIFIC = (
-    '/usr/bin/apt-get',     # instalar y purgar paquetes
-    '/usr/bin/apt',         # interfaz alternativa
-    '/usr/bin/dpkg',        # consultar lo ya instalado
-    '/usr/bin/systemctl',   # arrancar, parar y recargar el servicio
-    '/usr/bin/journalctl',  # leer los logs del servicio
-    '/usr/bin/tee',         # escribir la unidad systemd y turnserver.conf
-    '/usr/bin/sed',         # habilitar coturn en /etc/default/coturn
-    '/usr/sbin/ufw',        # abrir los puertos de coturn
-    '/bin/ln',              # symlink de /etc/caddy/Caddyfile al del repo
-    '/bin/mkdir',           # crear las carpetas del despliegue
-    '/bin/chown',           # dueno de archivos y carpetas
-    '/bin/chmod',           # permisos
-    '/bin/rm',              # borrar la unidad al limpiar el VPS
-    '/usr/bin/systemd-tmpfiles',  # crear las carpetas del servicio
-)
+# Donde se suben los programas de canone. Se borra al terminar.
+REMOTE_DIR = '/tmp/consola-canone'
+SUDO_KEY = 'SUDO_PASSWORD'
 
 
-def _root_run(ctx, command: str, *, check: bool = True) -> int:
-    """Comando como root, antes de que exista el usuario de despliegue.
+@dataclass(frozen=True)
+class Access:
+    """Como se entra al VPS: root la primera vez, o la cuenta que administra con sudo."""
+    remote: ssh.Remote
+    password: str = ''
 
-    Es el unico momento en que Consola se conecta con contrasena: se pide al
-    usuario en el momento y nunca se guarda en ningun archivo. `ask_once` la
-    recuerda para el resto de la corrida, porque la compuesta abre una conexion
-    por atomica y preguntarla dos veces seria un impuesto de la atomizacion.
+    @property
+    def is_root(self) -> bool:
+        return not self.password
 
-    La contrasena es el ultimo recurso, no el primero: `ssh` prueba las llaves
-    y solo si ninguna sirve la pide, asi que en un VPS donde root ya tiene la
-    llave instalada no llega a usarse.
+    def command(self, command: str) -> str:
+        """`command` como root: tal cual si se entro como root, con `sudo -S` si no."""
+        if self.is_root:
+            return command
+        return f"sudo -S -p '' bash -c {ssh.quote(command)}"
+
+    def stdin(self, text: str = '') -> str | None:
+        """Lo que va a la entrada del comando: la contraseña de sudo primero."""
+        if self.is_root:
+            return text or None
+        return f'{self.password}\n{text}'
+
+    def run(self, ctx, command: str, *, text: str = '', check: bool = True) -> int:
+        return ssh.run(ctx, self.remote, self.command(command), check=check,
+                       stdin_text=self.stdin(text))
+
+
+def _sudo_password(ctx) -> str:
+    """`SUDO_PASSWORD`, o la que se pide una vez por sesion y vive solo en memoria.
+
+    Va a `core/session.py` directo y no por `ctx.publish`, que la olvidaria al
+    terminar la corrida.
     """
-    host = ctx.config.require('VPS_IP')
-    root = ctx.config.get('ROOT_USER', 'root')
-    opciones = ['-o', 'StrictHostKeyChecking=no']
+    escrita = ctx.config.get(SUDO_KEY) or session.read(ctx.project.name, SUDO_KEY)
+    if not escrita:
+        usuario = ctx.config.require('VPS_USER')
+        escrita = ctx.ask(f'Contraseña de {usuario} (la de sudo)', secret=True)
+        if not escrita:
+            raise TaskError('Sin la contraseña de sudo no se puede administrar el VPS.')
+        session.publish(ctx.project.name, SUDO_KEY, escrita)
+    ctx.guard(escrita)
+    return escrita
 
-    password = ctx.ask_once(f'Contrasena de {root}@{host}', secret=True)
-    entorno = None
-    if password:
-        opciones += ssh.PASSWORD_OPTS
-        entorno = ssh.password_env(password)
-    return ctx.run(['ssh', *opciones, f'{root}@{host}', command], env=entorno, check=check)
+
+def access(ctx) -> Access:
+    """Entra por la cuenta que administra si ya existe; si no, por root.
+
+    Root entra solo antes de `install.py`, que despues lo deja afuera. Sin
+    ninguna de las dos no hay forma de seguir.
+    """
+    admin = ssh.resolve_remote(ctx.config)
+    if ssh.reachable(admin):
+        return Access(admin, _sudo_password(ctx))
+    root = admin.as_user(ctx.config.get('ROOT_USER'))
+    if ssh.reachable(root):
+        ctx.info(f'{admin.target} todavía no entra: se usa {root.target}.')
+        return Access(root)
+    raise TaskError(f'No se entra al VPS ni como {admin.target} ni como {root.target} '
+                    f'con la llave {ctx.config.get("VPS_KEY_NAME")}.')
 
 
-# --- atomicas de acceso ----------------------------------------------------
+def _upload(ctx, entrada: Access) -> str:
+    """Sube `plantilla/infra/` de canone a una carpeta temporal y devuelve su ruta."""
+    infra = canone.infra_dir(ctx.config)
+    ssh.capture(entrada.remote, f'rm -rf {REMOTE_DIR}')
+    return ssh.upload(ctx, entrada.remote, infra, f'{REMOTE_DIR}/{infra.name}')
+
+
+def _cleanup(entrada: Access) -> None:
+    ssh.capture(entrada.remote, f'rm -rf {REMOTE_DIR}', check=False)
+
+
+# --- atomicas --------------------------------------------------------------
 
 def refresh_known_host(ctx) -> str:
     """Olvida la huella vieja del VPS.
 
     Despues de reinstalar el servidor cambia la huella y todas las conexiones
     fallan con un error de "host key verification" que no dice como arreglarlo.
-
-    Solo borra la entrada vieja: la nueva la vuelve a anotar la primera conexion
-    de cualquier otra atomica, que se conecta con `StrictHostKeyChecking=no`.
+    La nueva la anota la primera conexion de cualquier otra atomica.
     """
     host = ctx.config.require('VPS_IP')
     ssh.forget_host(ctx, host)
     return host
 
 
-def ensure_deploy_access(ctx) -> str:
-    """Da de alta la cuenta de despliegue y le instala la llave con la que se entra.
+def install_software(ctx) -> list[str]:
+    """Instala los paquetes que `install.py` da por instalados, y uv con `uv.py`.
 
-    Eran dos atomicas, `ensure_remote_user` e `install_public_key`. Se fusionaron
-    porque la primera no pasaba el criterio del 1 de ADR-0004: nadie la
-    corre sola, y si lo hiciera quedaria con un usuario al que no puede entrar.
-    Tampoco servia como casilla desmarcable, porque el paso ya era idempotente y
-    saltearlo solo ahorraba un `id -u`.
-
-    Fusionarlas ademas baja de tres a dos las conexiones de root que abre la
-    compuesta, y con eso las veces que pide la contrasena.
+    Los paquetes salen del repo y no de un eje: PostGIS si `DB_EXTENSIONS` la
+    nombra, coturn con `TURN`, y lo del journal con `LOGS` (`canone.packages`).
+    `uv.py` instala la version de uv que fija canone (ADR-0110 de canone): se
+    vuelve a correr cuando canone la cambia.
     """
-    user = ctx.config.require('VPS_USER')
-    quoted = ssh.quote(user)
-    key_name = ctx.config.require('VPS_KEY_NAME')
-    privada = ssh.ensure_local_keypair(ctx, key_name, comment=ctx.config.repo_name)
-    publica = ssh.public_key(privada)
-
-    _root_run(ctx, (
-        f'if id -u {quoted} >/dev/null 2>&1; then echo "[OK] El usuario ya existe."; '
-        f'else useradd -m -s /bin/bash {quoted} && echo "[OK] Usuario creado."; fi; '
-        'if getent group sudo >/dev/null 2>&1; then '
-        f'  usermod -aG sudo {quoted} && echo "[OK] Agregado al grupo sudo."; '
-        'else echo "[AVISO] Este sistema no tiene grupo sudo."; fi; '
-        f'home="$(getent passwd {quoted} | cut -d: -f6)"; '
-        'if [ -z "$home" ]; then echo "[ERROR] El usuario no tiene home."; exit 1; fi; '
-        'mkdir -p "$home/.ssh" && chmod 700 "$home/.ssh"; '
-        'auth="$home/.ssh/authorized_keys"; '
-        f'if [ -f "$auth" ] && grep -qxF -- {ssh.quote(publica)} "$auth"; then '
-        '  echo "[OK] La llave ya estaba instalada."; '
-        f'else printf "%s\\n" {ssh.quote(publica)} >> "$auth" && echo "[OK] Llave instalada."; fi; '
-        f'chmod 600 "$auth" && chown -R {quoted}:{quoted} "$home/.ssh"'
-    ))
-    return user
-
-
-def configure_sudo(ctx, mode: str = 'all') -> str:
-    """Escribe la regla de sudo sin contrasena para el usuario de despliegue.
-
-    Sin esto, cada `systemctl restart` remoto se cuelga esperando una contrasena
-    que nadie puede escribir desde una pestana de consola.
-    """
-    if mode not in SUDO_MODES:
-        raise TaskError(f'Modo de sudo invalido: {mode!r}. Usa {" | ".join(SUDO_MODES)}.')
-    if mode == 'none':
-        ctx.info('Modo "none": no se toca el sudoers.')
-        return mode
-
-    user = ctx.config.require('VPS_USER')
-    archivo = f'/etc/sudoers.d/consola-{user}'
-    if mode == 'all':
-        reglas = f'{user} ALL=(ALL) NOPASSWD: ALL'
-    else:
-        reglas = (f'{user} ALL=(root) NOPASSWD: {", ".join(SUDO_SPECIFIC)}\n'
-                  f'{user} ALL=(postgres) NOPASSWD: /usr/bin/psql')
-
-    _root_run(ctx, (
-        f'printf "%s\\n" {ssh.quote(reglas)} > {ssh.quote(archivo)} && '
-        f'chmod 440 {ssh.quote(archivo)} && visudo -cf {ssh.quote(archivo)}'
-    ))
-    ctx.ok(f'Sudo sin contrasena configurado ({mode}).')
-    return mode
-
-
-# --- atomicas de software --------------------------------------------------
-
-def install_base_software(ctx, groups: list[str] | None = None) -> list[str]:
-    """Instala los paquetes de los grupos elegidos, salteando lo ya instalado."""
-    elegidos = groups or DEFAULT_GROUPS
-    desconocidos = [g for g in elegidos if g not in PACKAGE_GROUPS]
-    if desconocidos:
-        raise TaskError(f'Grupos de paquetes desconocidos: {", ".join(desconocidos)}')
-
-    remote = ssh.resolve_remote(ctx.config)
-    paquetes = [p for grupo in elegidos for p in PACKAGE_GROUPS[grupo]]
-    vps.install_packages(ctx, remote, paquetes)
+    entrada = access(ctx)
+    paquetes = canone.packages(ctx.config)
+    lista = ' '.join(ssh.quote(p) for p in paquetes)
+    entrada.run(ctx, 'export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && '
+                     f'apt-get install -y {lista}')
+    destino = _upload(ctx, entrada)
+    try:
+        entrada.run(ctx, f'python3 {destino}/uv.py')
+    finally:
+        _cleanup(entrada)
+    ctx.ok(f'Paquetes y uv listos: {", ".join(paquetes)}')
     return paquetes
 
 
-# --- compuestas ------------------------------------------------------------
+# Crea `/swapfile` con lo que falte para tener tanto swap como memoria, que es
+# lo que pide `install.py`. Si ya habia un `/swapfile` que no alcanza, lo rehace.
+_SWAP = r'''set -e
+mem=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
+swap=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
+[ "$swap" -ge "$mem" ] && { echo "[OK] Ya hay tanto swap como memoria."; exit 0; }
+if swapon --show=NAME --noheadings | grep -qx /swapfile; then swapoff /swapfile; fi
+rm -f /swapfile
+swap=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
+falta=$(( (mem - swap) / 1024 + 1 ))
+fallocate -l "${falta}M" /swapfile
+chmod 600 /swapfile
+mkswap /swapfile
+swapon /swapfile
+grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
+echo "[OK] Swap de ${falta} MiB en /swapfile."
+'''
 
-def setup_ssh_key(
-    ctx,
-    sudo_mode: str = 'all',
-    *,
-    access: bool = True,
-    sudo: bool = True,
-    verify: bool = True,
-) -> None:
-    """Compuesta: acceso (cuenta + llave) -> sudo -> verificacion.
 
-    La verificacion no es un paso atomico con nombre propio: es `ssh.reachable`,
-    la plomeria que comparten las once puertas de `resolve_remote`. Lo mismo que
-    verifica el final del setup es lo que `health_check` informa despues.
+def create_swap(ctx) -> None:
+    """Deja tanto swap como memoria: sin eso, `install.py` falla."""
+    access(ctx).run(ctx, _SWAP)
+
+
+def install_infra(ctx) -> None:
+    """Sube `plantilla/infra/` de canone y corre `install.py` con los datos del repo.
+
+    La primera vez corre como root, y `install.py` pide dos veces la contraseña
+    de la cuenta que crea: se escribe en un `ssh -tt` recien cuando aparece cada
+    pregunta, porque escrita antes la terminal remota la repite en el log
+    (`ctx.converse`). Despues corre con `sudo` desde esa cuenta, y las llaves que
+    ya tiene no se vuelven a agregar.
     """
-    if access:
-        ctx.step('access')
-        ensure_deploy_access(ctx)
-    if sudo:
-        ctx.step('sudo')
-        configure_sudo(ctx, sudo_mode)
-    if verify:
-        ctx.step('verify')
-        remote = ssh.resolve_remote(ctx.config)
-        if ssh.reachable(remote):
-            ctx.ok(f'Login sin contrasena funcionando: {remote.target}')
+    owner, app = canone.origin(ctx.root)
+    llave = ssh.public_key(ssh.ensure_local_keypair(ctx, ctx.config.require('VPS_KEY_NAME'),
+                                                    comment=app))
+    fuera = ctx.config.require('OFFLINE_KEY').strip()
+    if fuera.split()[:2] == llave.split()[:2]:
+        raise TaskError('OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, '
+                        'guardada fuera de esta máquina.')
+    argumentos = canone.install_args(ctx.root, ctx.config, app, owner, (llave, fuera))
+    entrada = access(ctx)
+    destino = _upload(ctx, entrada)
+    comando = ' '.join(ssh.quote(a) for a in ('python3', f'{destino}/install.py', *argumentos))
+    try:
+        if entrada.is_root:
+            password = _sudo_password(ctx)
+            ctx.converse(entrada.remote.argv(comando, tty=True, extra=['-t']),
+                         [('Password of', password), ('Again', password)])
         else:
-            ctx.error(f'No se pudo entrar como {remote.target} con la llave.')
+            entrada.run(ctx, comando)
+    finally:
+        _cleanup(entrada)
+    ctx.ok(f'{app} instalado en {entrada.remote.host}.')
+
+
+def load_credentials(ctx) -> None:
+    """Pasa las credenciales de `config.env` a `credentials.py`, por stdin.
+
+    Una linea `campo=valor` por campo de `Settings`, mas `restic_password` y, en
+    un repo privado, `github_token` (ADR-0063). Corta antes de enviar si falta
+    alguna o si `config.env` tiene una clave que no cae en ninguna fuente.
+    `install.py` no instala `credentials.py`, asi que se sube cada vez.
+    """
+    _, app = canone.origin(ctx.root)
+    lineas = canone.credential_lines(ctx.root, ctx.config)
+    for linea in lineas.splitlines():
+        ctx.guard(linea.partition('=')[2])
+    entrada = access(ctx)
+    if entrada.is_root:
+        raise TaskError('La cuenta que administra todavía no existe: corre «Configurar VPS» '
+                        'con «Instalar infraestructura» primero.')
+    destino = _upload(ctx, entrada)
+    try:
+        entrada.run(ctx, f'python3 {destino}/credentials.py {ssh.quote(app)}', text=lineas)
+    finally:
+        _cleanup(entrada)
+    ctx.ok(f'{len(lineas.splitlines())} credenciales cargadas.')
+
+
+# --- compuesta -------------------------------------------------------------
+
+def bootstrap_vps(ctx, *, known_host: bool = False, software: bool = True, swap: bool = True,
+                  infra: bool = True, credentials: bool = True) -> None:
+    """Paquetes y uv → swap → `install.py` → credenciales.
+
+    Cada paso detecta lo que ya esta, asi que la compuesta se puede volver a
+    correr: es lo que hace falta para agregar un instalable o pasar a privado,
+    que piden reinstalar (ADR-0106 de canone).
+    """
+    if known_host:
+        ctx.step('known_host')
+        refresh_known_host(ctx)
+    if software:
+        ctx.step('software')
+        install_software(ctx)
+    if swap:
+        ctx.step('swap')
+        create_swap(ctx)
+    if infra:
+        ctx.step('infra')
+        install_infra(ctx)
+    if credentials:
+        ctx.step('credentials')
+        load_credentials(ctx)
+    ctx.note(f'VPS {ctx.config.require("VPS_IP")} configurado.')
 
 
 def bind_all() -> None:
     registry.bind('refresh_known_host', refresh_known_host)
-    registry.bind('setup_ssh_key', setup_ssh_key)
-    registry.bind('install_software', install_base_software)
+    registry.bind('install_software', install_software)
+    registry.bind('load_credentials', load_credentials)
+    registry.bind('bootstrap_vps', bootstrap_vps)

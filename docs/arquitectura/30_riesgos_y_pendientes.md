@@ -36,7 +36,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | Botón de Detener en la pestaña | — | — |
 | Capturas: marcos de dispositivo, y la landing leyendo el manifiesto (del repo) | [0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md) | [capturas.md](../planes/capturas.md) |
 | `build_binary` con eje `many` descubierto y `install_python_deps` | — | [apps-python.md](../planes/apps-python.md) |
-| Desplegar con los programas de canone: «Configurar VPS» con `install.py`, que lee las claves que hoy solo se guardan (`DOMAIN`, `VALKEY_MEMORY`, `PERMISSIONS_ALLOW`, `TURN`, `TURN_IP`, `LOGS_IP`, `PRIVATE`, `SUDO_PASSWORD`, `OFFLINE_KEY`, `LOGS`, `LOGS_KEY`), «Cargar credenciales», «Publicar versión» y «Desplegar versión», los servicios con los nombres de canone y la receptora | [0059](../adr/0059-desplegar-con-los-programas-de-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
+| Desplegar con los programas de canone: «Publicar versión» y «Desplegar versión», los servicios con los nombres de canone y la receptora | [0059](../adr/0059-desplegar-con-los-programas-de-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 
 ### Sin decidir
 
@@ -58,6 +58,8 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 ### Sin verificar
 
 Construido y nunca probado en condiciones reales:
+
+- **«Configurar VPS» contra un VPS**, entero ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)). Se probaron los argumentos de `install.py` y las líneas de `credentials.py` (`tests/test_canone.py`), y `process.converse` y la entrada de `process.stream` contra un proceso local. Falta ver contra un Debian 13: la primera corrida de `install.py` como root por `ssh -tt`, que `sudo -S` deje a `credentials.py` el resto de stdin, el swap y `uv.py`.
 
 - **Consola en Linux**, entera ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)). Hay que correr `pytest` allá —las tres pruebas de `tests/test_host.py` marcadas `solo_posix` se saltan en Windows— y una pasada a mano: detener una tarea y una «App Python» que relanza al guardar, respaldar y restaurar contra la base local, «SSH Login», instalar los SDK y ver la fuente de la consola.
 - La **instalación completa de los SDK** de punta a punta: bajar los cientos de megas, escribir el registro o el perfil y que el emulador acelere. Las URL y los hashes sí se verificaron contra las fuentes oficiales.
