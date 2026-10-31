@@ -4,8 +4,13 @@
 > mecanismo propio: clona el repo en el VPS, escribe las unidades, el Caddyfile y el `.env`, y
 > migra por túnel.
 >
-> Este plan sale de leer canone en `2ed25d2` (revisado el 2026-10-29; las lecturas anteriores
-> fueron en `03bc3c8`, `24b0396` y `cc9a48d`) y el código de Consola. Desde `24b0396` canone
+> Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
+> fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
+> `b405874`, fuera del ADR-0107, canone revisó sus fuentes (ADR-0108 y 0109): de `plantilla/infra/`
+> cambian solo los sitios de Caddy, `nftables.conf`, `turn.nft` y `turnserver.conf`, y la
+> restauración suma `ANALYZE` (§5). La interfaz de `install.py`, `credentials.py`, `deploy.py` y
+> los scripts de la receptora no cambia. `026c878` suma `uv.py`, que instala uv
+> (ADR-0110). Desde `24b0396` canone
 > commiteó los ADR 0088 a 0106; los que cambian este plan son el 0096 (coturn), el 0100 y 0101
 > (registros), el 0104 (firmantes), el 0105 (`credentials.py`) y el 0106 (`deploy.py` instalado).
 > `2ed25d2` suma `ca-certificates` a los paquetes de la máquina. El ADR-0107 saca a Consola de las
@@ -16,8 +21,11 @@
 > **Decidido el 2026-10-25:** corte limpio. Los botones del despliegue propio salen y no conviven
 > con los nuevos; el código viejo queda en el tag `despliegue-propio` (§6, fase 0).
 >
-> **Decidido el 2026-10-30:** las preguntas 4, 10, 11, 12, 13 y 14 del §8, y el `.gitignore` de
-> la pregunta 2.
+> **Decidido el 2026-10-30:** las preguntas 2, 4, 5, 7, 9, 10, 11, 12, 13 y 14 del §8.
+>
+> **Decidido el 2026-10-31:** la pregunta 8 del §8; los nombres de los botones y sus casillas
+> (§3), `--without` (§4) y las fases (§6) quedan como dice el plan; el repo piloto es `equipaggio`
+> (§6).
 >
 > Lo que fija canone está decidido en sus ADR. Lo demás que este plan dice sobre Consola es
 > *propuesta* hasta que se responda su pregunta en el §8.
@@ -32,12 +40,13 @@
 | Máquina | Un VPS aloja un solo producto. El servidor escucha siempre en 8000 | [0077](../../../canone/adr/0077-un-vps-aloja-un-solo-producto.md) |
 | Versión | Tag `vX.Y.Z` → `release.yml` publica `.tar.gz` y `.sha256` (borrador hasta tener el `.sha256`) → se firma fuera de GitHub con `ssh-keygen -Y sign -n deploy` → `sudo python3 /usr/local/lib/<app>/deploy.py vX.Y.Z` por `ssh`. `deploy.py` lo instala `install.py`; ya no viaja en el release. Comprueba el certificado de GitHub con los de `ca-certificates`. En un repo privado lee el token de `<app>-deploy/github_token` y no lo sigue a otro host. Cada versión crea su entorno con `uv sync --locked --no-dev` | 0068, 0090, 0091, 0106 |
 | Instalación | `python3 install.py <app> <dominio> <memoria> --owner <dueño GitHub> --admin <cuenta> --key <llave> --key <llave> --signer <llave> --signer <llave> [--private] [--desktop linux\|windows\|macos]… [--without sweep\|web\|panel\|landing] [--allow <función>] [--extension <nombre>] [--turn [--turn-ip <IPv4>]] [--logs <host:puerto> --logs-key <llave> --logs-ip <IPv4>]`. La primera vez corre como root y **pide por consola** la contraseña de la cuenta; después, con `sudo` desde ella, y `--admin`, `--key` y `--signer` solo agregan llaves. Falla con menos swap que RAM, sin `sudo`, sin `systemd-timesyncd`, sin `ca-certificates`, sin `--owner`, con una llave ilegible, con una sola llave (de cuenta o de firma) en una máquina nueva, si la cuenta es `<app>`, `<app>_owner` o `<app>-receiver`, o sin `--logs` en una máquina que ya envía. No instala paquetes ni uv | 0069, 0077, 0084, 0087, 0096, 0100, 0102, 0104, 0106 |
+| uv | `sudo python3 uv.py` instala en `/usr/local/bin/uv` la versión de `python.md`, del release de GitHub, y falla sin instalar nada si el archivo no tiene el SHA-256 que fija para `x86_64` o `aarch64`. Corre antes del primer `deploy.py` y otra vez cuando cambia la versión. `install.py` no lo instala ni lo comprueba | 0090, [0110](../../../canone/adr/0110-uv-lo-instala-uv-py-con-su-version-y-su-sha-256-fijos.md) |
 | SSH | `sshd` solo acepta llaves y root no entra (`00-<app>.conf`); `install.py` bloquea la contraseña de root. `sudo` pide la contraseña de la cuenta; cuándo la pide quien despliega no lo fija canone | [0084](../../../canone/adr/0084-ssh-solo-acepta-llaves-y-root-no-entra.md), 0107 |
 | Base | `install.py` crea la base `<app>`, el rol `<app>` (servidor) y `<app>_owner` (dueño). Ninguno es superusuario ni tiene contraseña: entran por el socket con `peer`, desde la cuenta de su nombre. Escribe las dos `database_url` cifradas en `<app>/` y `<app>-migrate/` | [0083](../../../canone/adr/0083-la-base-y-sus-roles-los-crea-install-py-y-el-servidor-entra-por-peer.md), [0085](../../../canone/adr/0085-el-dueno-del-esquema-entra-por-peer-con-su-cuenta-y-corre-el-volcado.md) |
 | Migraciones | `<app>-migrate@<v>.service`, con `<app>-migrate/database_url` del dueño del esquema (`<app>_owner`). El rol del servidor no tiene DDL | 0068, 0085 |
 | Respaldo | Lo pide una receptora (`plantilla/receiver/`): `rest-server --append-only` en su 8001 y túnel `ssh -R` con la cuenta `<app>-receiver`, cuyas llaves van en `/etc/<app>/receivers`. Única credencial: `restic_password`. Equipaggio deja de respaldar las bases | [0078](../../../canone/adr/0078-el-respaldo-lo-pide-una-receptora-y-lo-guarda-su-rest-server.md) |
 | Operación del respaldo | canone no fija dónde se guarda una copia de `restic_password` ni la limpieza del repositorio de la receptora | [0079](../../../canone/adr/0079-canone-no-fija-la-operacion-del-respaldo.md) |
-| Alertas | `GET /api/health/events` responde `lastCriticalAt`, `lastBackupAt`, `diskFreeBytes` y `diskTotalBytes` con `Authorization: Bearer <health_token>`. Quien consulta decide cuándo avisar | [0080](../../../canone/adr/0080-la-purga-de-event-log-es-una-funcion-y-una-ruta-de-salud-dice-que-alertar.md), [0082](../../../canone/adr/0082-la-ruta-de-salud-dice-cuanto-disco-queda.md) |
+| Alertas | `GET /api/health/events` responde `lastCriticalAt`, `lastEventAt`, `lastBackupAt`, `diskFreeBytes` y `diskTotalBytes` con `Authorization: Bearer <health_token>`. Quien consulta decide cuándo avisar | [0080](../../../canone/adr/0080-la-purga-de-event-log-es-una-funcion-y-una-ruta-de-salud-dice-que-alertar.md), [0082](../../../canone/adr/0082-la-ruta-de-salud-dice-cuanto-disco-queda.md), [0097](../../../canone/adr/0097-la-ruta-de-salud-dice-cuando-fue-el-ultimo-evento.md) |
 | Purga | Tarea diaria `python -m app.tasks purge`, con la cuenta `<app>_owner` y `app_database_url` de `<app>-migrate/` | 0081 |
 | Rol de la app | Se llama como la app y solo tiene `INSERT` y `SELECT` sobre `event_log` | 0080 |
 | Volcado | Corre como `<app>_owner`; no lleva roles ni extensiones, que crea `install.py` | 0085 |
@@ -54,7 +63,7 @@
 
 ## 3. Botones
 
-Los nombres de los botones nuevos y qué es casilla de una compuesta son *propuesta*.
+Decidido el 2026-10-31: los nombres de los botones y qué es casilla de una compuesta quedan como dice esta sección.
 
 ### Qué reemplaza a cada botón actual
 
@@ -69,7 +78,7 @@ Los nombres de los botones nuevos y qué es casilla de una compuesta son *propue
 | **Dar acceso a GitHub** (`setup_github_ssh`) | Sin reemplazo | El VPS no clona. En un repo privado, `install.py --private` y el token como `github_token` en **Cargar credenciales** |
 | **Revocar acceso a GitHub** (`revoke_github_ssh`) | Sin reemplazo | No hay llave de GitHub en el VPS |
 | **Configurar VPS** (`bootstrap_vps`) | **Configurar VPS** | Paquetes → swap → `install.py` → credenciales → firmante → receptora → primer despliegue |
-| **Instalar paquetes base** (`install_software`) | Se queda | `redis` pasa a `valkey-server`; se suman `restic`, `nftables`, `unattended-upgrades`, `systemd-timesyncd` y `ca-certificates`, y `coturn`, `postgresql-17-postgis-3` o `systemd-journal-remote` y `wireguard-tools` según el repo. `uv` no está en Debian 13: sale del release de GitHub, versión exacta de `python.md`, con su SHA-256 comprobado, y `install.py` no lo instala. Esa instalación no tiene plantilla en canone (§5) |
+| **Instalar paquetes base** (`install_software`) | Se queda | `redis` pasa a `valkey-server`; se suman `restic`, `nftables`, `unattended-upgrades`, `systemd-timesyncd` y `ca-certificates`, y `coturn`, `postgresql-17-postgis-3` o `systemd-journal-remote` y `wireguard-tools` según el repo. Después de los paquetes, sube `canone/plantilla/infra/uv.py` y corre `sudo python3 uv.py`, que instala `uv` (ADR-0110). Se vuelve a correr cuando canone cambia la versión de uv |
 | **Control del servicio** (`systemd_action`), **Ver logs del servicio** (`view_logs`) | Se quedan | El eje lista los nombres de canone: `<app>`, `<app>-sweep`, `-purge`, `-dump`, `-backup`, `valkey-server@<app>`, `caddy`, `coturn` |
 | **Health check** (`health_check`) | Se queda | `GET /api/health` en el 8000, que responde 204 |
 | **Vaciar VPS** (`clean_vps`) | Se queda, cuando canone traiga el programa que desinstala (§5) | Borra unidades de canone, `/srv/<app>`, `/var/lib/<app>*`, credstore, sitios de Caddy, Valkey, `sshd_config.d`, la base y sus roles, y los usuarios `<app>`, `<app>_owner` y `<app>-receiver`. Queda en pie `00-<app>.conf` y la cuenta que administra, o la máquina queda sin entrada (sin confirmar) |
@@ -78,11 +87,12 @@ Los nombres de los botones nuevos y qué es casilla de una compuesta son *propue
 | **Correr migraciones** (`migrate_db`) en el VPS | **Desplegar versión** | En el VPS migra `deploy.py`. En local sigue igual |
 | **Compilar SPA** (`build_vite`), **Compilar app Flutter** (`build_flutter`) | Se quedan | Sin subida al VPS ni `bump_version`: la web la construye el CI, y el APK sale del VPS (pregunta 4) |
 | **Compilar ejecutable** (`build_binary`) | Sin decidir | El CI empaqueta `desktop/` con `pyside6-deploy` |
-| **Respaldar base de datos** (`backup_db`), **Restaurar base de datos** (`restore_db`) | Sin decidir (pregunta 5) | El respaldo del servidor es **Pedir respaldo** |
-| **Igualar claves de config.env y .env** (`sync_server_env`) | Sin decidir (pregunta 8) | No hay `.env` en el servidor |
+| **Respaldar base de datos** (`backup_db`) en el VPS | **Pedir respaldo** | El respaldo del servidor lo pide la receptora (pregunta 5). En local sigue igual |
+| **Restaurar base de datos** (`restore_db`) en el VPS | Espera el programa de canone (§5) | En local sigue igual (pregunta 5) |
+| **Igualar claves de config.env y .env** (`sync_server_env`) | Sin reemplazo | No hay `.env` en el servidor, y el launcher `backend` escribe `server/credentials/` desde `config.env` (pregunta 8) |
 | **Force push**, **Force reset** | Se quedan | El eje `side` pierde `vps` |
 | — | **Instalar receptora** | Agrega la llave de la receptora a `/etc/<app>/receivers`: `install.py` deja el archivo vacío y el ADR-0078 dice que la agrega quien despliega |
-| — | **Pedir respaldo** | Corre el script de `canone/plantilla/receiver/` según el sistema de la receptora: `backup.sh` en Linux y macOS, `backup.ps1` en Windows. Cuál es la receptora: pregunta 9 |
+| — | **Pedir respaldo** | Corre el script de `canone/plantilla/receiver/` según el sistema de la receptora: `backup.sh` en Linux y macOS, `backup.ps1` en Windows. La receptora es esta máquina (pregunta 9) |
 | — | **Ver eventos** | `GET /api/health/events` con `health_token`: `lastCriticalAt`, `lastEventAt`, `lastBackupAt` y el disco libre y total |
 
 Las atómicas ocultas `upload_to_vps` y `bump_version` salen con los botones que las usan.
@@ -92,7 +102,7 @@ Las atómicas ocultas `upload_to_vps` y `bump_version` salen con los botones que
 | Paso | Dónde va | Qué hace |
 |---|---|---|
 | Crear swap | Casilla de **Configurar VPS** | Sin swap igual a la RAM, `install.py` falla |
-| Instalar infraestructura | Casilla de **Configurar VPS** | Sube `canone/plantilla/infra/` y corre `install.py <app> <dominio> <memoria> --owner` con `--admin`, `--key` y `--signer` (dos de cada una, la primera vez), `--private`, `--desktop`, `--without`, `--allow`, `--extension`, `--turn`/`--turn-ip` y `--logs*` (los tres juntos, en cada corrida si la máquina ya envía). La primera vez entra como root con la llave `VPS_KEY_NAME` que se puso al crear el VPS, y pide dos veces la contraseña de la cuenta: Consola corre `ssh -tt` y escribe `SUDO_PASSWORD` solo cuando aparece «Password of» y después «Again», porque escrita antes la terminal remota la repite y queda en el log *(sin confirmar: falta el experimento; si falla, abre una terminal visible)*. Reemplaza a `setup_ssh_key.py` (pregunta 12). Reinstalar hace falta al agregar un instalable o pasar a privado (ADR-0106) |
+| Instalar infraestructura | Casilla de **Configurar VPS** | Sube `canone/plantilla/infra/` y corre `install.py <app> <dominio> <memoria> --owner` con `--admin`, `--key` y `--signer` (dos de cada una, la primera vez), `--private`, `--desktop`, `--without`, `--allow`, `--extension`, `--turn`/`--turn-ip` y `--logs*` (los tres juntos, en cada corrida si la máquina ya envía). La primera vez entra como root con la llave `VPS_KEY_NAME` que se puso al crear el VPS, y pide dos veces la contraseña de la cuenta: Consola corre `ssh -tt` y escribe `SUDO_PASSWORD` solo cuando aparece «Password of» y después «Again», porque escrita antes la terminal remota la repite y queda en el log. Probado el 2026-10-31 con el `ssh.exe` de Windows, desde Python con stdin y stdout en tuberías, contra el sshd de Debian 13.7 en WSL y no en un VPS, con las dos llamadas a `getpass` de `create_admin`: escrita tras cada petición, la contraseña llega y no aparece en la salida (3 de 3 corridas); escrita antes, la salida la muestra dos veces, `getpass` la descarta y el programa queda esperando. Reemplaza a `setup_ssh_key.py` (pregunta 12). Reinstalar hace falta al agregar un instalable o pasar a privado (ADR-0106) |
 | Cargar credenciales | Botón y casilla de **Configurar VPS** | Sube `canone/plantilla/infra/credentials.py` (`install.py` no lo instala) y le pasa por stdin, con `sudo python3 credentials.py <app>`, una línea `campo=valor` por cada valor de `config.env` que es credencial, con `sudo`. No se cargan `database_url` ni `turn_secret`: los escribe `install.py` |
 | Instalar firmante | Parte de **Instalar infraestructura** | Los `--signer`: la pública de `VPS_KEY_NAME` y la de la llave guardada fuera, las mismas dos de `--key` (pregunta 11). `install.py` escribe `allowed_signers` solo para el espacio de nombres `deploy` |
 | Crear tag | Casilla de **Publicar versión** | Crea `vX.Y.Z`, lo empuja y espera `release.yml` (`gh run watch`) |
@@ -103,7 +113,7 @@ Las atómicas ocultas `upload_to_vps` y `bump_version` salen con los botones que
 
 | Pieza | Cambio |
 |---|---|
-| Launcher `backend` | Arranca con `CREDENTIALS_DIRECTORY` apuntando a `server/credentials/` (C5) |
+| Launcher `backend` | Escribe en `server/credentials/` un archivo `app_<campo>` por cada campo de `Settings`, con los valores de `config.env` y el `DATABASE_URL` local, y arranca con `CREDENTIALS_DIRECTORY` apuntando ahí (C5, pregunta 8) |
 | Contraseña de `sudo` | Cada operación con `sudo` (desplegar, cargar credenciales, `systemctl`, vaciar) la pasa por `sudo -S` desde `SUDO_PASSWORD`. Si está vacía, la pide una vez por sesión y la tiene solo en memoria |
 | `.consola/` | Consola escribe `.consola/.gitignore` con `*` al crear la carpeta, en vez de agregar `.consola/` al `.gitignore` del repo (`envfile.py::ensure_gitignored`), y falla si no puede escribirlo |
 
@@ -129,7 +139,7 @@ Sin clave, porque salen del repo:
 |---|---|
 | `--owner` | `git remote get-url origin`: el dueño (usuario u organización) en `github.com/<dueño>/<repo>` |
 | `--desktop` | Cada `desktop-<os>` del `release.yml` del repo |
-| `--without` | Lo que el repo tiene (`web/`, `panel/`, `landing/`) *(propuesta)* |
+| `--without` | Lo que el repo tiene (`web/`, `panel/`, `landing/`) |
 Para `sweep` no hay una señal en el repo: la plantilla trae la tarea siempre.
 
 ## 5. Bloqueos en canone
@@ -143,29 +153,40 @@ como la llave de una receptora.
 
 | Falta | Qué bloquea |
 |---|---|
-| Instalar `uv` en la máquina: no está en Debian 13, `despliegue.md` dice cómo se instala y `install.py` no lo instala | **Instalar paquetes base** y `deploy.py` (`uv sync`) |
-| De dónde salen los valores de desarrollo de `credentials/`. El ADR-0076 lo deja por decidir | C5 y el reemplazo de `sync_server_env` |
-| Restaurar desde la receptora. `despliegue.md` describe el `restic restore` + `pg_restore`, pero canone no trae un programa | Un reemplazo de `restore_db` |
+| Restaurar desde la receptora. `despliegue.md` describe el `restic restore`, el `pg_restore` y después `ANALYZE`, pero canone no trae un programa | Un reemplazo de `restore_db` |
 | Desinstalar lo que instala `install.py` | **Vaciar VPS** |
 
 Hallazgo de lectura en canone *(sin confirmar)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
 `-i`, así que usan la llave por defecto de la receptora y no una con nombre como `VPS_KEY_NAME`.
+Con esta máquina como receptora (pregunta 9), **Instalar receptora** tiene que agregar la pública
+de esa llave por defecto, o canone tiene que sumar un `-i` a los dos scripts.
 
 El ADR-0107 corrigió en «Quién hace qué» del `README.md` el puerto, el dominio y la memoria, que
 figuraban entre los datos del repo.
 
-## 6. Fases *(propuesta)*
+## 6. Fases
 
 | Fase | Qué | Depende de |
 |---|---|---|
 | 0 | Crear el tag anotado `despliegue-propio` en el último commit con el despliegue propio. Quitar los botones que salen en el §3, empezando por `configure_caddy` y `configure_service`, y sacar `remove_systemd_service` de `clean_vps`: son los que rompen un VPS con canone (C1–C3). `setup_ssh_key.py` (C6) se resuelve en la fase 2. El ADR que reemplace al 0001 nombra el tag | — |
-| 1 | Configuración del §4 | Pregunta 7 |
-| 2 | Instalar paquetes (con `uv`), infraestructura (con firmantes y coturn), cargar credenciales y receptoras | Fase 1 y `uv` del §5 |
-| 3 | Publicar, firmar y desplegar versión | Fase 2 y la base del §5 |
+| 1 | Configuración del §4 | — |
+| 2 | Instalar paquetes (con `uv.py`), infraestructura (con firmantes y coturn) y cargar credenciales | Fase 1 |
+| 3 | Publicar, firmar y desplegar versión | Fase 2 y el repo piloto |
 | 4 | `systemd_action`, `view_logs`, `health_check`, ver eventos | Fase 2 |
-| 5 | Pedir respaldo | Fase 2 y pregunta 9 |
-| 6 | `clean_vps` nuevo | Fase 2 y el desinstalador del §5 |
-| 7 | `backend` con `credentials/` (C5) y destino de `sync_server_env` | Pregunta 8 |
+| 5 | `backend` con `credentials/` (C5) y salida de `sync_server_env` | Fase 1 |
+| 6 | Instalar receptora y pedir respaldo | Fase 2 |
+| 7 | `clean_vps` nuevo | Fase 2 y el desinstalador del §5 |
+
+Las fases 0 a 4 son las que despliegan los repos y van primero. Las 5 a 7 no hacen falta para
+desplegar.
+
+El repo piloto es `equipaggio`. Ningún repo con `server/` puede publicar hoy una versión
+(verificado el 2026-10-31): ninguno tiene `release.yml`, solo banditore, comande y concordia tienen
+`ci.yml`, siete siguen con `requirements.txt` en vez de uv, ninguno compila catálogos con `babel`,
+y casi ninguno tiene `pnpm-lock.yaml` en cada pieza web. La plantilla de `release.yml` construye
+una sola pieza web (`PIEZA`), y `equipaggio` tiene `panel/` y `landing/`. El piloto se lleva a la
+plantilla de canone, con su `ci.yml` y su `release.yml`, antes de cerrar la fase 3; los demás
+repos lo siguen después.
 
 Cada fase actualiza en su commit los documentos del §7 que toca.
 
@@ -173,17 +194,18 @@ Cada fase actualiza en su commit los documentos del §7 que toca.
 
 | Qué | Cambio |
 |---|---|
-| ADR-0001 | Reemplazar: Consola ejecuta `install.py`, `deploy.py`, `credentials.py` y el script de la receptora, que no reimplementa |
+| ADR-0001 | Reemplazar: Consola ejecuta `install.py`, `uv.py`, `deploy.py`, `credentials.py` y el script de la receptora, que no reimplementa |
 | ADR nuevo | La regla de la pregunta 14, con su alcance |
+| ADR nuevo | Las líneas de `config.env` se clasifican por fuente (pregunta 7) |
 | ADR-0017 | Reemplazar el punto 5: `.consola/.gitignore` en vez del `.gitignore` del repo |
 | ADR-0013, 0016 | Reemplazar en lo del VPS: ahí no se migra por túnel |
 | ADR-0019, 0020, 0040 | Reemplazar: la tabla de rutas sale |
 | ADR-0021 | Reemplazar: Consola deja de escribir en `/etc` sus propios archivos |
 | ADR-0023, 0041 | Reemplazar: los servicios los fija canone |
 | ADR-0024 | Reemplazar: el manifiesto de release sale |
-| ADR-0037 | Según la pregunta 8 |
+| ADR-0037 | Reemplazar: `sync_server_env` sale, y desarrollo usa los valores de `config.env` salvo `database_url` (pregunta 8) |
 | ADR-0044 | El eje `side` pierde `vps` |
-| ADR-0045, 0046, 0047 | Según la pregunta 5 |
+| ADR-0045, 0046, 0047 | Reemplazar en lo del VPS: `backup_db` sale y `restore_db` espera el programa de canone (pregunta 5) |
 | Arquitectura | Se reescriben 15 y 17; cambian 03 §5, 13 §9, 16, 20 y 30 |
 | [`rol_de_respaldo.md`](rol_de_respaldo.md) | El punto 8 del ADR-0078 lo deja sin objeto: Equipaggio ya no respalda las bases |
 
@@ -192,14 +214,14 @@ Cada fase actualiza en su commit los documentos del §7 que toca.
 | # | Pregunta | Qué se sabe |
 |---|---|---|
 | 1 | ~~¿Corte limpio o conviven los dos mecanismos?~~ | Resuelta el 2026-10-25: corte limpio. `pze` declara «en producción» y usa `backend/`, no `server/`: queda sin botones de despliegue hasta que siga a canone |
-| 2 | ¿Dónde guarda Consola lo que cambia entre despliegues? | Abierta, y es de Consola: el ADR-0107 reemplazó el punto 2 del 0076, que lo ponía en `.consola/config.env`. Decidido el 2026-10-30: mientras siga en `.consola/`, Consola la ignora con `.consola/.gitignore` con `*` (§3, «Fuera de los botones»), porque `plantilla/.gitignore` de canone ya no la ignora |
+| 2 | ~~¿Dónde guarda Consola lo que cambia entre despliegues?~~ | Resuelta el 2026-10-30: se queda en `.consola/config.env`. Es decisión de Consola desde que el ADR-0107 reemplazó el punto 2 del 0076, que la fijaba ahí. Consola la ignora con `.consola/.gitignore` con `*` (§3, «Fuera de los botones»), porque `plantilla/.gitignore` de canone ya no la ignora |
 | 3 | ~~¿Quién crea la base y los dos roles?~~ | Resuelta en canone: `install.py` (ADR-0083 y 0085) |
 | 4 | ~~¿Desaparece la subida del APK al VPS?~~ | Resuelta el 2026-10-30: sí. El APK va por tienda o a mano. Servirlo desde el VPS tocaría el Caddy que instala `install.py`, que el ADR-0107 no permite; si hace falta, primero una plantilla en canone. El único que lee `releases/<app>/<plataforma>.json` es `pze/terminal`, ya fuera (pregunta 1) |
-| 5 | ¿Siguen `backup_db` y `restore_db` por túnel? | Pendiente. Recomendado: en el VPS, `backup_db` sale (lo reemplaza **Pedir respaldo**) y `restore_db` espera el programa de canone (§5); en local siguen igual. Los roles de canone no tienen contraseña y entran por `peer`, así que un túnel al 5432 no tendría con qué autenticarse *(sin confirmar)* |
+| 5 | ~~¿Siguen `backup_db` y `restore_db` por túnel?~~ | Resuelta el 2026-10-30: en el VPS, `backup_db` sale (lo reemplaza **Pedir respaldo**, con esta máquina como receptora) y `restore_db` espera el programa de canone (§5); en local siguen igual. Los roles de canone no tienen contraseña y entran por `peer`, así que un túnel al 5432 no tendría con qué autenticarse *(sin confirmar)* |
 | 6 | ~~¿De dónde sale el certificado TLS de coturn?~~ | Resuelta en canone: coturn va sin TLS (ADR-0096) |
-| 7 | ¿Cómo separa Consola las líneas de `config.env`: credenciales para `credentials.py`, flags de `install.py` y los dos nombres fijos (`restic_password`, `github_token`)? | Pendiente, y es de Consola (ADR-0107). canone solo fija lo que recibe cada programa: los nombres y carpetas los fija `credentials.py` (ADR-0105), que no los valida contra `Settings`. Recomendado: clasificar por fuente. Los campos de `Settings` se leen con `ast` del `config.py` del repo, que es quien los declara; `RESTIC_PASSWORD` y `GITHUB_TOKEN` tienen nombre fijo; los flags y las claves propias salen del registro de `core/settings.py`. Una clave que no cae en ninguno, o un campo sin valor, falla |
-| 8 | ¿De dónde salen los valores de desarrollo de `credentials/`? | Pendiente. El ADR-0076 lo deja por decidir. Decide qué pasa con `sync_server_env`. Recomendado: `credentials/` se escribe a mano y es la fuente de desarrollo; `sync_server_env` sale, y el launcher `backend` corre `uv run --env-file .env` del repo |
-| 9 | ¿Cuál es la receptora: esta máquina o Equipaggio? | Abierta. Se corre `backup.sh` o `backup.ps1` según su sistema; los dos piden `rest-server` y `ssh` en el PATH, y `backup.sh` también `curl`. Si es esta máquina y en el mismo disco que `config.env`, perderla pierde a la vez los respaldos y `restic_password` |
+| 7 | ~~¿Cómo separa Consola las líneas de `config.env`: credenciales para `credentials.py`, flags de `install.py` y los dos nombres fijos (`restic_password`, `github_token`)?~~ | Resuelta el 2026-10-30: por fuente. Los campos de `Settings` se leen con `ast` del `config.py` del repo, que es quien los declara; `RESTIC_PASSWORD` y `GITHUB_TOKEN` tienen nombre fijo; los flags y las claves propias salen del registro de `core/settings.py`. Una clave que no cae en ninguno, o un campo sin valor, falla antes de enviar nada. canone solo fija lo que recibe cada programa: los nombres y carpetas los fija `credentials.py` (ADR-0105), que no los valida contra `Settings`. Lleva un ADR de Consola (§7) |
+| 8 | ~~¿De dónde salen los valores de desarrollo de `credentials/`?~~ | Resuelta el 2026-10-31: de `config.env`, los mismos de producción, salvo `database_url`, que en desarrollo es `DATABASE_URL` de `config.env` con el PostgreSQL local (en producción la escribe `install.py`). El launcher `backend` escribe `server/credentials/` y arranca con `CREDENTIALS_DIRECTORY` apuntando ahí; `sync_server_env` sale. Con las mismas llaves, un token que firma el servidor local, como uno de `jwt_key` o `probe_token_key`, también vale en producción, y se acepta así. `plantilla/.gitignore` de canone ignora `credentials/` |
+| 9 | ~~¿Cuál es la receptora: esta máquina o Equipaggio?~~ | Resuelta el 2026-10-30: esta máquina, y el respaldo se pide a mano con **Pedir respaldo**, sin tarea programada. Equipaggio no puede serlo: el ADR-0078 de canone lo descarta, y el monitor solo vigila `lastBackupAt` (ADR-0024 de Equipaggio). Se respalda solo cuando se pide; el aviso de más de 48 h llega cuando Equipaggio esté desplegado, y hoy no lo está. Respaldos y `restic_password` quedan en el mismo disco que `config.env`: perder la máquina pierde las dos cosas, así que la copia de la contraseña va fuera de ella (ADR-0074 de canone). `backup.ps1` pide `rest-server` y `ssh` en el PATH |
 | 10 | ~~¿Quién genera `health_token` y cómo lo recibe el monitor de Equipaggio?~~ | Resuelta el 2026-10-30: lo genera el monitor (`POST /probes/{id}/token` de Equipaggio, que lo muestra una vez). Va como `HEALTH_TOKEN` en la configuración y se carga con **Cargar credenciales** |
 | 11 | ~~¿Con qué llave se firma: `VPS_KEY_NAME` u otra? ¿Cuál es la segunda, guardada fuera de esta máquina?~~ | Resuelta el 2026-10-30: se firma con `VPS_KEY_NAME`; `-n deploy` separa los usos. La segunda es una sola llave guardada fuera (por ejemplo `ed25519-sk` en una llave física), que es la segunda `--key` y la segunda `--signer`; Consola guarda solo su pública |
 | 12 | ~~¿Cómo corre Consola `install.py` la primera vez? ¿Qué cuenta y qué llaves? ¿De dónde salen `--owner` y `--desktop`? ¿Reemplaza a `setup_ssh_key.py`?~~ | Resuelta el 2026-10-30. `VPS_USER` sin valor por defecto. Root entra con `VPS_KEY_NAME`, puesta al crear el VPS. La contraseña de la cuenta va en `SUDO_PASSWORD` y, vacía, Consola la pide una vez por sesión y la tiene solo en memoria; se escribe en el `ssh -tt` cuando aparece la petición. `setup_ssh_key.py` se borra. `--owner` sale de `git remote get-url origin` y `--desktop` del `release.yml` (§4). Con la contraseña guardada en claro, quien se lleve esta máquina tiene la llave y la contraseña |
