@@ -21,6 +21,12 @@ ejecutable (`builders.py`).
 # barra de tareas y los accesos directos.
 ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
 
+# La resolucion que se anota en el PNG, en puntos por metro. Sin fijarla, Qt
+# anota la del monitor cuando hay una aplicacion abierta y 3937 cuando no: el
+# mismo logo salia con otros bytes desde la ventana, y el boton reescribia
+# iconos que no cambiaron.
+_DOTS_PER_METER = 3937
+
 
 def svg_to_png(svg: Path, lado: int) -> bytes:
     """El SVG como PNG cuadrado de `lado` pixeles, con antialiasing.
@@ -39,6 +45,8 @@ def svg_to_png(svg: Path, lado: int) -> bytes:
                         f'{caja.width():g}×{caja.height():g}.')
     imagen = QImage(lado, lado, QImage.Format.Format_ARGB32)
     imagen.fill(Qt.GlobalColor.transparent)
+    imagen.setDotsPerMeterX(_DOTS_PER_METER)
+    imagen.setDotsPerMeterY(_DOTS_PER_METER)
     pintor = QPainter(imagen)
     pintor.setRenderHint(QPainter.RenderHint.Antialiasing)
     pintor.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)

@@ -252,6 +252,14 @@ def test_rasteriza_cuadrado_con_el_color_del_logo(repo):
     assert imagen.getpixel((0, 0))[3] == 0
 
 
+def test_el_png_no_depende_del_monitor(repo):
+    # Con la ventana abierta, Qt anotaba en el PNG la resolucion del monitor.
+    from PySide6.QtWidgets import QApplication
+    QApplication.instance() or QApplication([])
+    png = raster.svg_to_png(repo / 'brand' / 'logomark.svg', 64)
+    assert Image.open(io.BytesIO(png)).info['dpi'] == pytest.approx((100, 100), abs=0.01)
+
+
 def test_el_ico_lleva_todos_los_lados(repo):
     ico = Image.open(io.BytesIO(raster.svg_to_ico(repo / 'brand' / 'logomark.svg')))
     assert sorted(ico.info['sizes']) == [(n, n) for n in raster.ICO_SIZES]

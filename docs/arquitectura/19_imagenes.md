@@ -137,7 +137,7 @@ Una app se ofrece aunque su declaración esté rota: la corrida dice qué tiene 
 
 Cada archivo se escribe solo si cambia, y el log dice si es nuevo, actualizado o sin cambios. `flutter_launcher_icons` corre siempre en las apps Flutter marcadas: reparte el ícono por plataforma, y Consola no compara esos archivos.
 
-Rasteriza `core/tasks/raster.py` con QtSvg (`QSvgRenderer` sobre un `QImage` con antialiasing), sin aplicación Qt; el `.ico` lo arma Pillow a partir del PNG de 256. QtSvg implementa SVG Tiny 1.2: filtros, máscaras o CSS saldrían distintos que en el navegador.
+Rasteriza `core/tasks/raster.py` con QtSvg (`QSvgRenderer` sobre un `QImage` con antialiasing), sin aplicación Qt; el `.ico` lo arma Pillow a partir del PNG de 256. El PNG anota siempre la misma resolución (3937 puntos por metro): con la ventana abierta Qt anotaba la del monitor, y el mismo logo salía con otros bytes. QtSvg implementa SVG Tiny 1.2: filtros, máscaras o CSS saldrían distintos que en el navegador.
 
 El ejecutable de «Compilar ejecutable» toma el mismo logo: con `BRAND_ICON`, `compile_binary` escribe `build/icon.ico` y lo pasa en `--icon` ([17](17_builds_y_artefactos.md)).
 
