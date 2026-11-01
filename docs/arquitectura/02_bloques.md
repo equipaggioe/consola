@@ -74,6 +74,7 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 | `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh` |
 | `vps_server.py` | `systemd_action`, `view_logs` |
 | `vps_setup.py` | `refresh_known_host`, `install_software`, `load_credentials`, `bootstrap_vps` |
+| `vps_release.py` | `publish_release`, `deploy_version` |
 | `database.py` | Los doce del grupo Base de datos |
 | `utils.py` | Limpieza, Cloudflare, sincronización y los cinco de SDK |
 | `payloads.py` | La excepción deliberada: programas Python que viajan por `-c` al intérprete del proyecto |

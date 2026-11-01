@@ -44,7 +44,10 @@ class Setting:
 # Claves VPS que necesita cualquier operacion que alcance el servidor.
 _VPS_REACH = ('ssh_login', 'health_check', 'run_command',
               'upload_to_vps', 'install_software', 'bootstrap_vps', 'load_credentials',
-              'view_logs', 'systemd_action', 'revoke_ssh')
+              'deploy_version', 'view_logs', 'systemd_action', 'revoke_ssh')
+# «Publicar versión» las pide por paso (`core/catalog.py::PUBLISH_RELEASE_STEPS`):
+# crear el tag no alcanza el VPS.
+_VPS_STEPS = ('publish_release',)
 
 # Solo las de base sin eje `scope`: las que lo tienen declaran sus claves en el
 # eje (`core/catalog.py::_SCOPE_AXIS`), porque dependen del ambito elegido. El
@@ -67,19 +70,22 @@ SETTINGS: tuple[Setting, ...] = (
             required_by=('update_cloudflare',)),
 
     # --- VPS ---
-    Setting('VPS_IP', 'VPS', 'IP del servidor', required_by=_VPS_REACH),
+    Setting('VPS_IP', 'VPS', 'IP del servidor', required_by=_VPS_REACH,
+            used_by=_VPS_STEPS),
     Setting('ROOT_USER', 'VPS', 'Usuario root', default='root',
             required_by=('install_software', 'bootstrap_vps')),
     # La cuenta que administra el VPS: la de `--admin` de `install.py`. Sin
     # default, porque canone no deja que se llame como la app (ADR-0087 de
     # canone), que era el default de antes.
     Setting('VPS_USER', 'VPS', 'Usuario de despliegue',
-            required_by=_VPS_REACH),
+            required_by=_VPS_REACH, used_by=_VPS_STEPS),
     # La contraseña de esa cuenta, que pide `sudo`. Vacia, Consola la pide una
     # vez por sesion y la tiene solo en memoria.
     Setting('SUDO_PASSWORD', 'VPS', 'Contraseña de sudo', secret=True,
-            used_by=('install_software', 'bootstrap_vps', 'load_credentials')),
-    Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH),
+            used_by=('install_software', 'bootstrap_vps', 'load_credentials',
+                     'publish_release', 'deploy_version')),
+    Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH,
+            used_by=_VPS_STEPS),
     # Los dos los lee el ambito remoto de la base (`core/runner.py`), que corre
     # el Python del repo desplegado.
     Setting('VPS_PYTHON', 'VPS', 'Python del VPS', default='server/.venv/bin/python',

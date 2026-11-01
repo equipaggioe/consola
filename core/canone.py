@@ -11,8 +11,9 @@ from .settings import get_setting
 Lo que Consola le pasa a los programas de canone (ADR-0059).
 
 canone fija cada programa por su interfaz: `install.py` por sus argumentos,
-`credentials.py` por las lineas que lee de stdin, y lo que la maquina tiene que
-tener antes de `install.py` (sus paquetes y el swap) lo deja a quien la prepara.
+`credentials.py` por las lineas que lee de stdin, `deploy.py` por el tag y los
+nombres de los archivos del release, y lo que la maquina tiene que tener antes
+de `install.py` (sus paquetes y el swap) lo deja a quien la prepara.
 Aca se arma eso desde `config.env` y desde el repo, sin efectos: es lo que se
 puede probar sin un VPS.
 """
@@ -30,6 +31,9 @@ SURFACES = ('web', 'panel', 'landing')
 RELEASE = Path('.github') / 'workflows' / 'release.yml'
 _DESKTOP = re.compile(r'^  desktop-(linux|windows|macos):', re.M)
 _GITHUB = re.compile(r'github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$')
+# Un tag que despliega `deploy.py` (despliegue.md de canone, «Versiones»).
+_TAG = re.compile(r'v(\d+)\.(\d+)\.(\d+)')
+PARTS = ('major', 'minor', 'patch')
 
 
 def infra_dir(config: Config) -> Path:
@@ -123,6 +127,48 @@ def install_args(root: Path, config: Config, app: str, owner: str,
     if logs is not None:
         args += ['--logs', logs[0], '--logs-key', logs[1], '--logs-ip', logs[2]]
     return args
+
+
+def next_tag(tags: list[str], part: str) -> str:
+    """El tag que sigue al mas alto de `tags`, subiendo `part`.
+
+    Los que no son `vX.Y.Z` no cuentan. Sin ninguno se sube desde `v0.0.0`.
+    """
+    if part not in PARTS:
+        raise TaskError(f'No se sube {part!r}: es una de {", ".join(PARTS)}.')
+    versiones = [tuple(map(int, m.groups())) for m in map(_TAG.fullmatch, tags) if m]
+    major, minor, patch = max(versiones, default=(0, 0, 0))
+    if part == 'major':
+        return f'v{major + 1}.0.0'
+    if part == 'minor':
+        return f'v{major}.{minor + 1}.0'
+    return f'v{major}.{minor}.{patch + 1}'
+
+
+def checksum(app: str, tag: str) -> str:
+    """El `.sha256` del release, que lleva el SHA-256 de cada archivo."""
+    return f'{app}-{tag}.sha256'
+
+
+def signature(app: str, tag: str) -> str:
+    """La firma del `.sha256`, el nombre que busca `deploy.py`."""
+    return f'{checksum(app, tag)}.sig'
+
+
+def signed(app: str, releases: list[dict]) -> list[dict]:
+    """Los releases publicados que traen su firma, en el orden de `releases`.
+
+    `releases` es la respuesta de `GET /repos/{dueño}/{repo}/releases`.
+    """
+    return [r for r in releases if not r['draft']
+            and signature(app, r['tag_name']) in {a['name'] for a in r['assets']}]
+
+
+def deploy_command(app: str, tag: str) -> str:
+    """`deploy.py`, que instala `install.py` con los datos de la app (ADR-0106 de canone)."""
+    if not _TAG.fullmatch(tag):
+        raise TaskError(f'{tag!r} no es un tag como v1.4.0.')
+    return f'python3 /usr/local/lib/{app}/deploy.py {tag}'
 
 
 def credential_lines(root: Path, config: Config) -> str:

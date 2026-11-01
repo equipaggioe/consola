@@ -20,7 +20,7 @@ Lo que va por stdin no pasa por el log. Un comando que lee stdin se lanza sin `-
 
 ## 2. El despliegue
 
-El despliegue lo hacen los programas de canone ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Consola prepara la máquina y corre `install.py` y `credentials.py` (§4); todavía no publica ni despliega versiones ([30](30_riesgos_y_pendientes.md)). No clona el repo en el VPS ni escribe configuración de servicios: eso lo instala `install.py`.
+El despliegue lo hacen los programas de canone ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Consola prepara la máquina y corre `install.py` y `credentials.py` (§4), y publica, firma y despliega versiones (§4b). No clona el repo en el VPS ni escribe configuración de servicios: eso lo instala `install.py`.
 
 Este documento describe los botones que siguen alcanzando el VPS.
 
@@ -37,7 +37,7 @@ Las leen el ámbito remoto de la base ([16](16_base_de_datos.md)) y la subida de
 
 ## 4. Configurar VPS
 
-«Configurar VPS» (`bootstrap_vps`) encadena cuatro pasos, que se pueden volver a correr porque cada uno detecta lo que ya está ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)):
+«Configurar VPS» (`bootstrap_vps`) encadena cinco pasos, que se pueden volver a correr porque cada uno detecta lo que ya está ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)):
 
 | Paso | Qué hace |
 |---|---|
@@ -45,8 +45,25 @@ Las leen el ámbito remoto de la base ([16](16_base_de_datos.md)) y la subida de
 | Swap (`create_swap`) | Si el swap no llega a la memoria, crea `/swapfile` con lo que falta y lo agrega a `/etc/fstab`. Sin eso, `install.py` falla |
 | Infraestructura (`install_infra`) | Corre `install.py` con `canone.install_args`. La primera vez, como root por `ssh -tt`, y escribe la contraseña de la cuenta recién cuando aparece cada pregunta (`process.converse`); después, con `sudo` |
 | Credenciales (`load_credentials`) | Pasa a `credentials.py`, por stdin, una línea `campo=valor` por credencial (`canone.credential_lines`, [13](13_configuracion_y_persistencia.md) §2). Corta antes de enviar si falta un valor o si `config.env` tiene una clave sin fuente |
+| Último release (`vps_release.deploy_latest`) | Despliega el release que GitHub da como `latest`, si tiene su firma. Si `/srv/<app>/current` ya es ese release, no hace nada ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)) |
 
 Los programas salen de `plantilla/infra/` de la copia local de canone (`CANONE_DIR`), que se sube a `/tmp/consola-canone` y se borra al terminar. `<app>` y `--owner` salen de `git remote get-url origin`.
+
+## 4b. Versiones
+
+Un tag `vX.Y.Z` hace que el `release.yml` del repo publique el artefacto y su `.sha256`; Consola firma el `.sha256` y el VPS lo instala con `deploy.py`, que `install.py` dejó en `/usr/local/lib/<app>/` ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)). Lo de GitHub va por `gh`, con `--repo <dueño>/<app>` de `git remote get-url origin`.
+
+«Publicar versión» (`publish_release`):
+
+| Paso | Qué hace |
+|---|---|
+| Crear tag (`create_tag`) | Corta si hay cambios sin commitear o commits que origin no tiene. Sube el tag `v*` más alto de origin según el eje `part` (`canone.next_tag`), crea el tag anotado y lo empuja. Busca la corrida de `release.yml` del tag y pregunta su estado con `gh run view` cada 15 s; si no termina bien, muestra `--log-failed` y corta |
+| Firmar release (`sign_release`) | Baja `<app>-<tag>.sha256`, lo firma con `ssh-keygen -Y sign -n deploy` y `VPS_KEY_NAME`, y sube la `.sig`. Si ya está, no firma |
+| Desplegar (`deploy_release`) | `sudo python3 /usr/local/lib/<app>/deploy.py <tag>` desde la cuenta que administra (`canone.deploy_command`) |
+
+Sin «Crear tag», firma y despliega el último release publicado.
+
+«Desplegar versión» (`deploy_version`) corre `deploy_release` con un tag del eje `version`, que lista los releases publicados con su firma (`catalog.RELEASES`, `canone.signed`), sin cache. `deploy.py` no instala una versión que siga en `/srv/<app>/releases/`.
 
 ## 5. Los servicios del VPS
 

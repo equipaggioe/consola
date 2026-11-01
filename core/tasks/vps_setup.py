@@ -214,13 +214,16 @@ def load_credentials(ctx) -> None:
 # --- compuesta -------------------------------------------------------------
 
 def bootstrap_vps(ctx, *, known_host: bool = False, software: bool = True, swap: bool = True,
-                  infra: bool = True, credentials: bool = True) -> None:
-    """Paquetes y uv → swap → `install.py` → credenciales.
+                  infra: bool = True, credentials: bool = True, deploy: bool = True) -> None:
+    """Paquetes y uv → swap → `install.py` → credenciales → ultimo release.
 
     Cada paso detecta lo que ya esta, asi que la compuesta se puede volver a
     correr: es lo que hace falta para agregar un instalable o pasar a privado,
-    que piden reinstalar (ADR-0106 de canone).
+    que piden reinstalar (ADR-0106 de canone). El despliegue no: `deploy.py`
+    no instala una version que ya esta en el VPS.
     """
+    # Circular: `vps_release` entra al VPS con `access`, de este modulo.
+    from .vps_release import deploy_latest
     if known_host:
         ctx.step('known_host')
         refresh_known_host(ctx)
@@ -236,6 +239,9 @@ def bootstrap_vps(ctx, *, known_host: bool = False, software: bool = True, swap:
     if credentials:
         ctx.step('credentials')
         load_credentials(ctx)
+    if deploy:
+        ctx.step('deploy')
+        deploy_latest(ctx)
     ctx.note(f'VPS {ctx.config.require("VPS_IP")} configurado.')
 
 

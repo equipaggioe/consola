@@ -445,6 +445,46 @@ DOCS: dict[str, CommandDoc] = {
 
     # --- Despliegue ------------------------------------------------------
 
+    'publish_release': CommandDoc(
+        summary=(
+            'Publica una versión: crea el tag siguiente, espera a que release.yml '
+            'publique el release, firma su .sha256 en esta máquina y lo despliega '
+            'con deploy.py de canone.'
+        ),
+        steps=[
+            'Corta si hay cambios sin commitear, si la rama no tiene rama en '
+            'origin o si tiene commits que origin no tiene.',
+            'Lee con git ls-remote los tags v* de origin y sube el más alto según '
+            'el eje: major, minor o patch. Sin ninguno, sube desde v0.0.0.',
+            'Crea el tag anotado y lo empuja a origin.',
+            'Busca con gh run list la corrida de release.yml del tag, cada 5 '
+            'segundos durante un minuto.',
+            'Pregunta con gh run view su estado cada 15 segundos hasta que '
+            'termina. Si no termina bien, muestra el log de los pasos que '
+            'fallaron y corta.',
+            'Sin «Crear tag», toma el último release publicado de GitHub.',
+            'Lee con gh release view los archivos del release. Si ya tiene '
+            '<app>-<tag>.sha256.sig, no lo vuelve a firmar; sin .sha256, corta.',
+            'Baja el .sha256 con gh release download a una carpeta temporal.',
+            'Lo firma con ssh-keygen -Y sign -n deploy y la llave VPS_KEY_NAME.',
+            'Sube la firma con gh release upload.',
+            'Corre los pasos de «Desplegar versión» con ese tag.',
+        ],
+    ),
+
+    'deploy_version': CommandDoc(
+        summary='Instala en el VPS un release ya firmado, con deploy.py de canone.',
+        steps=[
+            'Lista con gh api los releases del repo que tienen su '
+            '<app>-<tag>.sha256.sig.',
+            'Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o '
+            'pedida una vez por sesión. Corta si la cuenta todavía no existe.',
+            'Corre sudo python3 /usr/local/lib/<app>/deploy.py <tag>, que baja '
+            'el release, comprueba la firma, migra, cambia current y espera la '
+            'salud; si no responde y no hubo migraciones, vuelve a la anterior.',
+        ],
+    ),
+
     'systemd_action': CommandDoc(
         summary=(
             'Manda una acción de systemd al servicio elegido del VPS: el del '
@@ -478,7 +518,8 @@ DOCS: dict[str, CommandDoc] = {
     'bootstrap_vps': CommandDoc(
         summary=(
             'Deja el VPS listo con los programas de canone: paquetes y uv, swap, '
-            'install.py con los datos del repo y las credenciales.'
+            'install.py con los datos del repo, las credenciales y el último '
+            'release.'
         ),
         steps=[
             'Si está marcado, borra del known_hosts la huella vieja del VPS.',
@@ -496,6 +537,9 @@ DOCS: dict[str, CommandDoc] = {
             'desde VPS_USER.',
             'Corre los pasos de «Cargar credenciales».',
             'Borra /tmp/consola-canone.',
+            'Toma el último release publicado de GitHub y corta si no tiene su '
+            '.sha256.sig. Si /srv/<app>/current ya es ese release, no hace nada; '
+            'si no, lo instala con deploy.py.',
         ],
     ),
 

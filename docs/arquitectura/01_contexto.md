@@ -8,7 +8,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 
 | Principio | Cómo se ve en el código |
 |---|---|
-| Un botón ejecuta una función Python, no un script | Nada invoca `python scripts/x/y.py`; el único `subprocess` es a binarios externos reales (`git`, `ssh`, `flutter`, `npm`, `adb`, `psql`, `pyinstaller`) |
+| Un botón ejecuta una función Python, no un script | Nada invoca `python scripts/x/y.py`; el único `subprocess` es a binarios externos reales (`git`, `gh`, `ssh`, `ssh-keygen`, `flutter`, `npm`, `adb`, `psql`, `pyinstaller`) |
 | La capacidad se declara y se implementa por separado | `core/catalog.py` declara la forma; `core/tasks/` le da cuerpo con `Registry.bind` ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)) |
 | Lo que varía es un eje del panel, no otro botón | `systemd_action` tiene nueve acciones y un eje; no hay nueve botones ([ADR-0004](../adr/0004-un-boton-por-capacidad.md)) |
 | La forma del repo decide qué se ofrece | Las apps, las SPA y el servidor salen de mirar las carpetas (`core/targets.py`); un repo sin migraciones no tiene el botón «Migrar» |
@@ -42,7 +42,7 @@ flowchart LR
     C <--> REPO[(Repos abiertos<br/>carpetas locales)]
     C -- "ssh · scp · túnel -L" --> VPS[VPS Debian 13<br/>programas de canone]
     VPS --> PG[(Postgres del VPS)]
-    C -- "git clone/push/fetch" --> GH[GitHub]
+    C -- "git clone/push/fetch · gh release · gh run" --> GH[GitHub]
     C -- "registro A" --> CF[API de Cloudflare]
     C -- "sdkmanager · avdmanager · adb · emulator" --> SDK[SDK de Android]
     C -- "flutter · flet · npm · pyinstaller · uvicorn" --> TOOLS[Cadenas de herramientas]
@@ -51,7 +51,7 @@ flowchart LR
 
 ## 5. Alcance del catálogo
 
-54 capacidades registradas: 51 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 41 atómicas y 13 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
+56 capacidades registradas: 53 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 43 atómicas y 13 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
 
 | Grupo | Botones | Qué resuelve |
 |---|---|---|
@@ -60,7 +60,7 @@ flowchart LR
 | Imágenes | 4 | Los íconos de las apps a partir del logo, y las capturas publicables: sacarlas, revelarlas y las dos juntas |
 | Repositorio | 5 | Clonar, los dos forzados contra origin desde esta máquina ([ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)), y la sincronización de archivos y claves entre repos |
 | Base de datos | 12 | Ciclo de vida del esquema, migraciones, datos, respaldo, túnel y explorador |
-| Despliegue | 2 | Los servicios systemd del VPS: acciones y logs |
+| Despliegue | 4 | Publicar, firmar y desplegar versiones con el `deploy.py` de canone, y los servicios systemd del VPS: acciones y logs |
 | VPS | 9 | Preparar el VPS con los programas de canone, diagnóstico: paquetes, credenciales, DNS, salud, comandos sueltos y revocación |
 | Emuladores | 4 | Imágenes de sistema, dispositivos virtuales, arranque y limpieza de disco |
 | SDKs | 5 | Dejar esta máquina lista para compilar: Android y Flutter |

@@ -11,12 +11,13 @@ Nada de aca reimplementa plomeria: todo se apoya en `core/` (nivel 0). Por eso
 la mayoria de las atomicas son de tres a diez lineas.
 """
 
-from . import builders, database, emulators, git, images, launchers, utils, vps_ops, vps_server, vps_setup
+from . import builders, database, emulators, git, images, launchers, utils, vps_ops, vps_release, vps_server, vps_setup
 
-MODULES = (launchers, builders, images, emulators, git, vps_ops, vps_server, vps_setup, database, utils)
+MODULES = (launchers, builders, images, emulators, git, vps_ops, vps_server, vps_setup, vps_release,
+           database, utils)
 
 __all__ = ['MODULES', 'bind_all', 'builders', 'database', 'emulators', 'git', 'images', 'launchers',
-           'utils', 'vps_ops', 'vps_server', 'vps_setup']
+           'utils', 'vps_ops', 'vps_release', 'vps_server', 'vps_setup']
 
 
 def bind_all() -> None:

@@ -9,13 +9,18 @@
 > ([ADR-0062](../adr/0062-vaciar-vps-sale.md), *propuesta*). Fase 2: «Configurar VPS», «Instalar
 > paquetes base» y «Cargar credenciales»
 > ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)), **nunca
-> corridos contra un VPS**. Consola todavía no publica ni despliega versiones: es la fase 3. Lo que
-> hay está en [13](../arquitectura/13_configuracion_y_persistencia.md) y
+> corridos contra un VPS**. Fase 3, del lado de Consola: «Publicar versión», «Desplegar versión» y
+> el último paso de «Configurar VPS»
+> ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)), **nunca corridos
+> contra GitHub ni un VPS**. La fase 3 cierra cuando el piloto `equipaggio` publique y despliegue
+> una versión (§6, P1 a P4). Lo que hay está en
+> [13](../arquitectura/13_configuracion_y_persistencia.md) y
 > [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
-> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0066. Lo que sigue es la fase 3; antes conviene
-> probar la fase 2 contra un VPS de prueba (30, «Sin verificar»).
+> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0067. Lo que sigue es llevar `equipaggio` a la
+> plantilla de canone (P1 y P2 en ese repo; P3 y P4 en canone) y probar las fases 2 y 3 contra un
+> VPS de prueba (30, «Sin verificar»).
 >
 > Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
 > fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
@@ -38,7 +43,8 @@
 >
 > **Decidido el 2026-10-31:** la pregunta 8 del §8; los nombres de los botones y sus casillas
 > (§3), `--without` (§4) y las fases (§6) quedan como dice el plan; el repo piloto es `equipaggio`
-> (§6).
+> (§6). Para la fase 3: el número de la versión, cómo elige «Desplegar versión» y qué instala el
+> primer despliegue (ADR-0067), y seguir con `equipaggio` como piloto, empezando por P1 y P2.
 >
 > **Prioridad (decidido el 2026-10-31):** el objetivo de este plan es desplegar. Lo que no
 > despliega (los botones de base con ámbito remoto, «Compilar ejecutable», la plataforma web,
@@ -191,6 +197,7 @@ como la llave de una receptora.
 |---|---|
 | Restaurar desde la receptora. `despliegue.md` describe el `restic restore`, el `pg_restore` y después `ANALYZE`, pero canone no trae un programa | Un reemplazo de `restore_db` |
 | Desinstalar lo que instala `install.py` | **Vaciar VPS** |
+| Volver a una versión que sigue en `/srv/<app>/releases/`: `deploy.py` falla si la carpeta de la versión existe, y ahí quedan las cinco más nuevas *(hallazgo de lectura, sin confirmar)* | Que «Desplegar versión» vuelva a la activa o a una de esas cinco |
 | Operar la base del VPS desde esta máquina: los roles entran por `peer` y no tienen contraseña, así que el túnel al 5432 no se autentica *(sin confirmar)* | El ámbito remoto de «Reconstruir base», «Borrar base y rol», «Reiniciar historial de migraciones», los seeders, «Habilitar extensiones», «Explorar datos» y «Abrir túnel a Postgres» (pregunta 15) |
 
 Hallazgo de lectura en canone *(sin confirmar)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
@@ -247,7 +254,7 @@ propuesta, sin confirmar)*:
 
 | Pieza | Qué se hizo |
 |---|---|
-| «Configurar VPS» (`bootstrap_vps`) | Pasos: refrescar known_hosts (desmarcado), paquetes y uv, swap, `install.py`, credenciales. La receptora y el primer despliegue se suman en las fases 6 y 3 |
+| «Configurar VPS» (`bootstrap_vps`) | Pasos: refrescar known_hosts (desmarcado), paquetes y uv, swap, `install.py`, credenciales. La receptora se suma en la fase 6; el primer despliegue entró en la fase 3 |
 | «Instalar paquetes base» | Sin eje: los paquetes salen del repo (`canone.packages`) y después corre `uv.py` |
 | Swap | `/swapfile` con lo que falta para igualar la memoria, en `/etc/fstab`. Casilla, sin botón |
 | `install.py` | Casilla, sin botón. Primera vez como root por `ssh -tt` con `process.converse`; después con `sudo -S` |
@@ -256,8 +263,33 @@ propuesta, sin confirmar)*:
 | `CANONE_DIR` | Clave nueva de la máquina: la copia local de canone de la que se suben los programas |
 | `setup_ssh_key` | Salió (C6), con el `sudo` sin contraseña y la contraseña de root por `SSH_ASKPASS` |
 
-Para la fase 3, el piloto `equipaggio` tiene que tener antes su `release.yml` y su `ci.yml` de la
-plantilla de canone: es trabajo en ese repo, no en Consola.
+Para la fase 3, el piloto `equipaggio` tiene ya su `.github/workflows/ci.yml` y su `release.yml`
+(2026-10-31, sin commitear en ese repo). Salen de la plantilla de canone con las piezas que tiene
+(`server/`, `panel/`, `landing/`, `mobile/`, `packages/licenses/`) y los comandos de su README:
+`mypy` en vez de `pyrefly`, sin `pybabel compile` porque no tiene catálogos, y un artefacto con
+`panel/` y `landing/` y sin instaladores de escritorio. Localmente pasan `ruff`, `mypy` y `deptry`
+del servidor y `lint`, `check` y `build` de las dos piezas web; no se corrieron las migraciones,
+`pytest`, el job de Android ni el de `packages/licenses/`.
+
+La fase 3 está construida del lado de Consola y sin probar contra GitHub ni un VPS
+([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md); lo que no responde una
+pregunta es propuesta):
+
+| Pieza | Qué se hizo |
+|---|---|
+| «Publicar versión» (`publish_release`) | Eje `part` (major, minor, patch) sobre el tag `v*` más alto de origin. Pasos: crear tag (corta con cambios sin commitear o commits sin empujar, empuja el tag y sigue `release.yml` con `gh run view` cada 15 s), firmar (`ssh-keygen -Y sign -n deploy` con `VPS_KEY_NAME`; no firma dos veces) y desplegar. Sin «Crear tag», toma el último release |
+| «Desplegar versión» (`deploy_version`) | Eje `version` con los releases publicados que tienen su `.sig` (`gh api`) |
+| «Configurar VPS» | Último paso: el release `latest`, si tiene firma; nada si `current` ya es ese |
+| `gh` | Hace falta GitHub CLI con `gh auth login`. Esta máquina no lo tiene (2026-10-31) |
+
+Lo que impide desplegar `equipaggio` con canone, además de los workflows:
+
+| # | Bloqueo | Evidencia |
+|---|---|---|
+| P1 | El job `canone` del CI falla, y sin CI verde `release.yml` no publica: 12 archivos de `server/` no coinciden con los canónicos (ADR-0002 de canone) | `verificar.py --repo .`, corrido el 2026-10-31 |
+| P2 | Su configuración no sigue la plantilla: `Settings` lee variables de entorno y los secretos están en otra clase, `Credentials`, que lee archivos sin el prefijo `app_`. `credentials.py` escribe cada campo de `Settings` como `app_<campo>`, y `core/fields.py` solo lee `Settings` | `server/src/app/config.py` |
+| P3 | Corre seis procesos (API, `prober`, `gateway` en el 8011, `mailer`, `webhooks`, `bounces` con SMTP en el 2525) y canone instala uno, `<app>.service` con uvicorn en el 8000, más el barrido y la purga. Por la regla de la pregunta 14, las unidades, la ruta del gateway y el puerto de SMTP van primero a canone *(sin confirmar qué hace falta)* | README de `equipaggio`, `PRODUCTO.service` de canone |
+| P4 | Escribe en `STATE_DIRECTORY` los `[Peer]` del túnel de registros, que aplica una unidad propia de root (ADR-0026 de `equipaggio`); canone no la instala | `server/src/app/config.py`, ADR-0026 de `equipaggio` |
 
 Cada fase actualiza en su commit los documentos del §7 que toca.
 

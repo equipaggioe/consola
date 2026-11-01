@@ -94,3 +94,32 @@ def test_un_campo_vacio_corta(tmp_path):
     with pytest.raises(TaskError) as error:
         canone.credential_lines(raiz, config)
     assert 'PAGE_TOKEN_KEY' in str(error.value) and 'GITHUB_TOKEN' in str(error.value)
+
+
+def test_el_tag_sigue_al_mas_alto():
+    tags = ['v1.2.9', 'v1.10.0', 'v0.9.0', 'probar', 'v2.0']
+    assert canone.next_tag(tags, 'patch') == 'v1.10.1'
+    assert canone.next_tag(tags, 'minor') == 'v1.11.0'
+    assert canone.next_tag(tags, 'major') == 'v2.0.0'
+
+
+def test_sin_tags_sube_desde_cero():
+    assert canone.next_tag([], 'patch') == 'v0.0.1'
+    assert canone.next_tag([], 'minor') == 'v0.1.0'
+
+
+def test_solo_cuentan_los_releases_publicados_y_firmados():
+    def release(tag, *nombres, draft=False):
+        return {'tag_name': tag, 'draft': draft, 'assets': [{'name': n} for n in nombres]}
+
+    lista = [release('v1.2.0', 'demo-v1.2.0.tar.gz', 'demo-v1.2.0.sha256'),
+             release('v1.1.0', 'demo-v1.1.0.sha256', 'demo-v1.1.0.sha256.sig'),
+             release('v1.0.1', 'demo-v1.0.1.sha256.sig', draft=True),
+             release('v1.0.0', 'otro-v1.0.0.sha256.sig')]
+    assert [r['tag_name'] for r in canone.signed('demo', lista)] == ['v1.1.0']
+
+
+def test_deploy_py_solo_recibe_un_tag():
+    assert canone.deploy_command('demo', 'v1.4.0') == 'python3 /usr/local/lib/demo/deploy.py v1.4.0'
+    with pytest.raises(TaskError):
+        canone.deploy_command('demo', 'v1.4.0; reboot')

@@ -3,7 +3,7 @@ from dataclasses import replace
 from datetime import datetime
 from pathlib import Path
 
-from . import android, cache, files, icons, shots, ssh, targets, toolchain, vps
+from . import android, cache, canone, files, icons, shots, ssh, targets, toolchain, vps
 from .envfile import Config
 from .errors import TaskError
 from .host import HOST
@@ -135,6 +135,7 @@ ANDROID_AVDS = 'android_avds'                  # AVD ya creados
 ANDROID_RUNNING = 'android_running'            # emuladores vivos ahora mismo
 VPS_SERVICES = 'vps_services'                  # servicios systemd que existen en el VPS
 BACKUP_FILES = 'backup_files'                  # respaldos ya guardados de este repo
+RELEASES = 'releases'                          # releases firmados del repo en GitHub
 SHOTS_APPS = 'shots_apps'                      # lo que la camara del repo dice que captura:
 SHOTS_THEMES = 'shots_themes'                  # sus apps, sus temas y sus idiomas (ADR-0054)
 SHOTS_LANGUAGES = 'shots_languages'
@@ -165,6 +166,8 @@ def queried_values(source: str, *, refresh: bool = False,
         return _vps_services(config, refresh=refresh)
     if source == BACKUP_FILES:
         return _backup_files(config, root)
+    if source == RELEASES:
+        return _releases(root)
     if source in _SHOTS_AXES:
         return _shots_axis(source, config, root, refresh=refresh)
     if source == ICON_APPS:
@@ -248,6 +251,22 @@ def _backup_files(config: Config | None, root: Path | str | None) -> tuple[list[
     from .tasks.database import list_backups  # circular: tasks importa el registro
     valores = list_backups(config, Path(root))
     return [p.name for p in valores], {p.name: _backup_label(p) for p in valores}
+
+
+def _releases(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
+    """Los releases del repo que traen su firma, del mas nuevo al mas viejo.
+
+    Sin cache, por lo mismo que `BACKUP_FILES`: un release se firma mientras
+    Consola esta abierta. Si GitHub no contesta, el `TaskError` sube con lo que
+    dijo `gh`: un eje vacio diria que no hay releases.
+    """
+    if not root:
+        return [], {}
+    from .tasks.vps_release import releases  # circular: tasks importa el registro
+    _, app = canone.origin(Path(root))
+    firmados = canone.signed(app, releases(Path(root)))
+    return ([r['tag_name'] for r in firmados],
+            {r['tag_name']: f"{r['tag_name']}  ({r['published_at'][:10]})" for r in firmados})
 
 
 def _icon_apps(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
@@ -435,6 +454,15 @@ BOOTSTRAP_VPS_STEPS = [
     Step('infra', 'Instalar infraestructura',
          requires_env={'DOMAIN', 'VALKEY_MEMORY', 'OFFLINE_KEY'}),
     Step('credentials', 'Cargar credenciales', requires_env={'RESTIC_PASSWORD'}),
+    Step('deploy', 'Desplegar el último release'),
+]
+
+# Tag → `release.yml` → firma → `deploy.py`. Las claves van por paso: crear el
+# tag no alcanza el VPS, y firmar solo pide la llave.
+PUBLISH_RELEASE_STEPS = [
+    Step('tag', 'Crear tag'),
+    Step('sign', 'Firmar release', requires_env={'VPS_KEY_NAME'}),
+    Step('deploy', 'Desplegar', requires_env=_VPS_KEYS - {'VPS_DEPLOY_DIR'}),
 ]
 
 
@@ -823,8 +851,8 @@ def load_catalog() -> None:
     registry.register(Capability(id='teardown_db', name='Borrar base y rol', group='Base de datos', kind='destructive', icon='💥', description='Borra la base de la aplicación y su rol.', axes=[_SCOPE_AXIS()], steps=TEARDOWN_DB_STEPS, stub=True))
 
     # --- Despliegue ----------------------------------------------------------
-    # El despliegue propio salio entero (ADR-0059): quedan los dos botones que
-    # operan los servicios que ya estan en el VPS.
+    # El despliegue propio salio entero (ADR-0059): quedan las versiones de
+    # canone y los dos botones que operan los servicios que ya estan en el VPS.
     #
     # Un solo eje y no dos: `systemd_action` recibe UN parametro, y el catalogo
     # lo partia en 'buttons' (start/stop/restart/status) y 'menu' (el resto).
@@ -838,13 +866,26 @@ def load_catalog() -> None:
     # dibujado como campo de texto libre, que ademas nunca llegaba a la funcion.
     registry.register(Capability(id='view_logs', name='Ver logs del servicio', group='Despliegue', kind='live', icon='📋', description='Muestra el journal del servicio elegido, de una o siguiéndolo en vivo.', axes=[_SERVICE_AXIS(),
                                  AxisDef('follow', ['seguir en vivo', 'de una'], 'scope', label='Modo', truthy='seguir en vivo', labels={'seguir en vivo': 'Seguir en vivo', 'de una': 'De una'})], stub=True))
+    # Las versiones (ADR-0059): un tag que publica el `release.yml` del repo,
+    # se firma en esta maquina y lo instala el `deploy.py` de canone.
+    registry.register(Capability(
+        id='publish_release', name='Publicar versión', group='Despliegue', kind='once', icon='🏷️',
+        description='Crea el tag siguiente, espera a release.yml, firma el release y lo despliega.',
+        axes=[AxisDef('part', list(canone.PARTS), 'scope', label='Sube', default='patch',
+                      labels={'major': 'Major', 'minor': 'Minor', 'patch': 'Patch'})],
+        steps=PUBLISH_RELEASE_STEPS, stub=True))
+    registry.register(Capability(
+        id='deploy_version', name='Desplegar versión', group='Despliegue', kind='once', icon='🚢',
+        description='Instala en el VPS un release ya firmado.',
+        axes=[AxisDef('version', [], 'pick', label='Versión', source=RELEASES)],
+        stub=True))
     registry.register(Capability(id='upload_to_vps', name='Subir artefacto al VPS', group='Despliegue', kind='once', icon='📤', description='Copia el artefacto compilado al VPS.', hidden=True, stub=True))
 
     # --- VPS -----------------------------------------------------------------
     # Lo que se instala y como sale del repo (ADR-0059): no hay ejes que elegir.
     registry.register(Capability(
         id='bootstrap_vps', name='Configurar VPS', group='VPS', kind='once', icon='🚀',
-        description='Deja el VPS listo con los programas de canone: paquetes, swap, install.py y credenciales.',
+        description='Deja el VPS listo con los programas de canone: paquetes, swap, install.py, credenciales y el último release.',
         steps=BOOTSTRAP_VPS_STEPS, stub=True))
     registry.register(Capability(
         id='install_software', name='Instalar paquetes base', cut=True, group='VPS',
