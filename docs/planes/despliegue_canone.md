@@ -18,9 +18,10 @@
 > [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
-> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0067. Lo que sigue es llevar `equipaggio` a la
-> plantilla de canone (P1 y P2 en ese repo; P3 y P4 en canone) y probar las fases 2 y 3 contra un
-> VPS de prueba (30, «Sin verificar»).
+> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0067. `equipaggio` ya sigue la plantilla de
+> canone (P1 y P2 resueltos, fases 1 a 4 de su `desplegar_con_canone.md`). Lo que sigue es su
+> fase 5, el primer release con «Publicar versión», que pide `gh` con `gh auth login`; después,
+> probar las fases 2 y 3 contra un VPS de prueba (30, «Sin verificar»), y P3 y P4 en canone.
 >
 > Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
 > fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
@@ -286,10 +287,16 @@ Lo que impide desplegar `equipaggio` con canone, además de los workflows:
 
 | # | Bloqueo | Evidencia |
 |---|---|---|
-| P1 | El job `canone` del CI falla, y sin CI verde `release.yml` no publica: 12 archivos de `server/` no coinciden con los canónicos (ADR-0002 de canone) | `verificar.py --repo .`, corrido el 2026-10-31 |
-| P2 | Su configuración no sigue la plantilla: `Settings` lee variables de entorno y los secretos están en otra clase, `Credentials`, que lee archivos sin el prefijo `app_`. `credentials.py` escribe cada campo de `Settings` como `app_<campo>`, y `core/fields.py` solo lee `Settings` | `server/src/app/config.py` |
+| P1 | ~~El job `canone` del CI falla: 12 archivos de `server/` no coinciden con los canónicos~~. Resuelto en `equipaggio`: `verificar.py --repo .` no da incumplimientos | Corrido el 2026-11-01 |
+| P2 | ~~Su configuración no sigue la plantilla~~. Resuelto en `equipaggio`: una sola `Settings` lee los `app_<campo>` de `CREDENTIALS_DIRECTORY` | `server/src/app/config.py` |
 | P3 | Corre seis procesos (API, `prober`, `gateway` en el 8011, `mailer`, `webhooks`, `bounces` con SMTP en el 2525) y canone instala uno, `<app>.service` con uvicorn en el 8000, más el barrido y la purga. Por la regla de la pregunta 14, las unidades, la ruta del gateway y el puerto de SMTP van primero a canone *(sin confirmar qué hace falta)* | README de `equipaggio`, `PRODUCTO.service` de canone |
 | P4 | Escribe en `STATE_DIRECTORY` los `[Peer]` del túnel de registros, que aplica una unidad propia de root (ADR-0026 de `equipaggio`); canone no la instala | `server/src/app/config.py`, ADR-0026 de `equipaggio` |
+
+Desde la fase 4 de su plan, `equipaggio` usa en desarrollo los dos roles de canone, y Alembic
+entra como el dueño con `server/credentials-migrate/` (su 03, «Desarrollo»). Los botones de base
+de Consola le pasan a Alembic `DATABASE_URL` en el entorno (`core/runner.py`, `Runner`), que ese
+servidor ya no lee: fallan contra `equipaggio` *(sin confirmar, no se corrió)*. Va con la fase 5
+de este plan, `backend` con `credentials/` (C5).
 
 Cada fase actualiza en su commit los documentos del §7 que toca.
 
