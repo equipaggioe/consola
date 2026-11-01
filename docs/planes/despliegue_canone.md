@@ -11,17 +11,18 @@
 > ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)), **nunca
 > corridos contra un VPS**. Fase 3, del lado de Consola: «Publicar versión», «Desplegar versión» y
 > el último paso de «Configurar VPS»
-> ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)), **nunca corridos
-> contra GitHub ni un VPS**. La fase 3 cierra cuando el piloto `equipaggio` publique y despliegue
-> una versión (§6, P1 a P4). Lo que hay está en
+> ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)). «Publicar versión»
+> corrió contra GitHub el 2026-11-01: `equipaggio` tiene `v0.1.0` publicado y firmado. Lo que
+> despliega **nunca corrió contra un VPS**. La fase 3 cierra cuando `equipaggio` despliegue esa
+> versión (§6, P3 y P4). Lo que hay está en
 > [13](../arquitectura/13_configuracion_y_persistencia.md) y
 > [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
 > plan (sobre todo el §6 y el §8) y los ADR 0059 a 0067. `equipaggio` ya sigue la plantilla de
-> canone (P1 y P2 resueltos, fases 1 a 4 de su `desplegar_con_canone.md`). Lo que sigue es su
-> fase 5, el primer release con «Publicar versión», que pide `gh` con `gh auth login`; después,
-> probar las fases 2 y 3 contra un VPS de prueba (30, «Sin verificar»), y P3 y P4 en canone.
+> canone y tiene `v0.1.0` firmado con `vps_xs1` (fases 1 a 5 de su `desplegar_con_canone.md`).
+> Lo que sigue es su fase 6: un VPS de prueba donde «Configurar VPS» instale y despliegue ese
+> release, que prueba las fases 2 y 3 de aquí (30, «Sin verificar»); después, P3 y P4 en canone.
 >
 > Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
 > fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
@@ -264,15 +265,15 @@ propuesta, sin confirmar)*:
 | `CANONE_DIR` | Clave nueva de la máquina: la copia local de canone de la que se suben los programas |
 | `setup_ssh_key` | Salió (C6), con el `sudo` sin contraseña y la contraseña de root por `SSH_ASKPASS` |
 
-Para la fase 3, el piloto `equipaggio` tiene ya su `.github/workflows/ci.yml` y su `release.yml`
-(2026-10-31, sin commitear en ese repo). Salen de la plantilla de canone con las piezas que tiene
-(`server/`, `panel/`, `landing/`, `mobile/`, `packages/licenses/`) y los comandos de su README:
-`mypy` en vez de `pyrefly`, sin `pybabel compile` porque no tiene catálogos, y un artefacto con
-`panel/` y `landing/` y sin instaladores de escritorio. Localmente pasan `ruff`, `mypy` y `deptry`
-del servidor y `lint`, `check` y `build` de las dos piezas web; no se corrieron las migraciones,
-`pytest`, el job de Android ni el de `packages/licenses/`.
+Para la fase 3, el piloto `equipaggio` tiene su `.github/workflows/ci.yml` y su `release.yml`,
+de la plantilla de canone con las piezas que tiene (`server/`, `panel/`, `landing/`, `mobile/`,
+`packages/licenses/`): `mypy` en vez de `pyrefly`, sin `pybabel compile` porque no tiene
+catálogos, y un artefacto con `panel/` y `landing/` y sin instaladores de escritorio. El CI está
+en verde, y el 2026-11-01 «Publicar versión», llamada sin la UI, creó `v0.1.0`, siguió
+`release.yml` y lo firmó con `vps_xs1`.
 
-La fase 3 está construida del lado de Consola y sin probar contra GitHub ni un VPS
+La fase 3 está construida del lado de Consola, probada contra GitHub sin desplegar, y sin probar
+contra un VPS
 ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md); lo que no responde una
 pregunta es propuesta):
 
