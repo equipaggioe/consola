@@ -12,7 +12,10 @@ from .envfile import Config
 from .errors import TaskError
 from .host import HOST
 
-CONNECT_TIMEOUT = ['-o', 'ConnectTimeout=15']
+# `accept-new`: la primera conexion a un VPS anota su huella, y una huella que
+# cambio sigue cortando. Sin esto, `BatchMode` rechaza a un VPS nuevo y Consola
+# dice que no se entra.
+CONNECT_TIMEOUT = ['-o', 'ConnectTimeout=15', '-o', 'StrictHostKeyChecking=accept-new']
 BATCH = ['-o', 'BatchMode=yes']
 
 

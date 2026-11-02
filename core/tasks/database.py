@@ -1,4 +1,5 @@
 from __future__ import annotations
+import tempfile
 from datetime import datetime
 from pathlib import Path
 
@@ -359,6 +360,12 @@ def rotate_backups(ctx) -> list[Path]:
     return sobran
 
 
+def _without_extensions(contenido: str) -> str:
+    """La lista de `pg_restore -l` sin las extensiones ni sus comentarios."""
+    return ''.join(f'{linea}\n' for linea in contenido.splitlines()
+                   if ' EXTENSION ' not in linea)
+
+
 def restore_database(ctx, dump: str = '') -> Path:
     """Carga un respaldo sobre la base local, reemplazando lo que haya.
 
@@ -371,7 +378,9 @@ def restore_database(ctx, dump: str = '') -> Path:
     quiere: corta en el primero.
 
     Las extensiones tienen que existir antes — `CREATE EXTENSION` pide
-    superusuario y tiene su propio boton (ADR-0047).
+    superusuario y tiene su propio boton (ADR-0047). Por eso salen de lo que se
+    restaura: con `--clean`, el rol de la app intenta borrarlas y corta con «must
+    be owner of extension».
     """
     if not dump:
         raise TaskError('No se eligio ningun respaldo para restaurar.')
@@ -386,9 +395,13 @@ def restore_database(ctx, dump: str = '') -> Path:
     with db.connect(ctx, db.LOCAL) as conn:
         _check_version(ctx, conn, herramienta)
         ctx.warn(f'Restaurando {archivo.name} sobre {name}: se reemplaza lo que haya.')
-        ctx.run([*_pg_argv(herramienta, conn, user), '-d', name,
-                 '--clean', '--if-exists', '--no-owner', '--exit-on-error', str(archivo)],
-                env={'PGPASSWORD': password})
+        contenido = ctx.capture([str(herramienta), '-l', str(archivo)])
+        with tempfile.TemporaryDirectory() as carpeta:
+            lista = Path(carpeta) / 'lista'
+            lista.write_text(_without_extensions(contenido), encoding='utf-8')
+            ctx.run([*_pg_argv(herramienta, conn, user), '-d', name, '-L', str(lista),
+                     '--clean', '--if-exists', '--no-owner', '--exit-on-error', str(archivo)],
+                    env={'PGPASSWORD': password})
 
     ctx.ok(f'Base {name} restaurada desde {archivo.name}.')
     ctx.note(f'Restauracion de {name}: {archivo.name}')

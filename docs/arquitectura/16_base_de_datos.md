@@ -34,6 +34,8 @@ En Linux el canal de superusuario local entra por TCP igual que en Windows, así
 
 No se copia nada al otro lado: el programa viaja en la línea de comandos (`-m alembic …`, `-c <fuente>`) y `DATABASE_URL` va por el entorno, nunca escrita a un archivo.
 
+«Restaurar» saca las extensiones de lo que restaura (`pg_restore -l` y `-L`): las crea el superusuario, y con `--clean` el rol de la aplicación intentaría borrarlas y cortaría.
+
 En un repo de canone, el `Settings` del servidor no lee `DATABASE_URL`: `runner.local` escribe `credentials-migrate/` y corre con `CREDENTIALS_DIRECTORY` apuntando ahí, como el dueño del esquema ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)). «Levantar backend» usa `credentials/` y corta si el ámbito es remoto.
 
 La excepción es `runner.here`, que corre siempre acá: lo usa lo que además de tocar la base **escribe en el repo abierto** ([ADR-0013](../adr/0013-generar-en-local-aplicar-donde-este-la-base.md)).

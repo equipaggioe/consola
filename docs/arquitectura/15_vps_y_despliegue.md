@@ -8,6 +8,7 @@
 |---|---|
 | `-n` salvo que se pida TTY | Estos comandos no leen teclado; sin cerrar el stdin, `ssh` lo reenvía y el comando remoto puede esperar un EOF que nunca llega |
 | `ConnectTimeout=15` y `BatchMode` en las consultas | Una consulta corta no debe colgar la interfaz |
+| `StrictHostKeyChecking=accept-new` | La primera conexión a un VPS anota su huella: con `BatchMode`, sin esto, un VPS nuevo o recién olvidado da «No se entra». Una huella que cambió sigue cortando |
 | Multiplexado (`ControlMaster`) en POSIX | Cinco `scp` seguidos abren una sola conexión TCP. **Desactivado en Windows**: el ControlMaster de Win32-OpenSSH emula sockets Unix con pipes y falla al reusarlos |
 | `ExitOnForwardFailure` en los túneles | Sin él, un puerto local ocupado deja a `ssh` vivo sin reenviar nada y la conexión cae en lo que ya escuchaba ahí |
 | `scp -r` al **padre** del destino | `scp -r origen destino` copia dentro del destino cuando este ya existe: apuntar a la ruta final deja `.../dist/dist` a partir de la segunda vez |
@@ -65,7 +66,18 @@ Un tag `vX.Y.Z` hace que el `release.yml` del repo publique el artefacto y su `.
 
 Sin «Crear tag», firma y despliega el último release publicado.
 
-«Desplegar versión» (`deploy_version`) corre `deploy_release` con un tag del eje `version`, que lista los releases publicados con su firma (`catalog.RELEASES`, `canone.signed`), sin cache. `deploy.py` no instala una versión que siga en `/srv/<app>/releases/`.
+«Desplegar versión» (`deploy_version`) corre `deploy_release` con un tag del eje `version`, que lista los releases publicados con su firma (`catalog.RELEASES`, `canone.signed`), sin cache. `deploy.py` no instala una versión que siga en `/srv/<app>/releases/`, donde quedan las cinco más nuevas.
+
+Lo que hace `deploy.py` en cada caso, comprobado el 2026-11-02 con versiones de prueba. En todos los que fallan, el botón termina con error:
+
+| Caso | `current` | Servidor |
+|---|---|---|
+| Migra y arranca | La nueva | Arriba |
+| No migra y no arranca | Vuelve a la anterior | Arriba. La carpeta nueva queda en `releases/` |
+| La migración falla | Sigue la anterior, y la carpeta nueva se borra | Arriba, con la base sin cambios |
+| Migra y no arranca | Se queda en la nueva | **Caído hasta publicar otra versión.** `systemctl is-active` puede decir `active` mientras reinicia: «Health check» es lo que lo detecta |
+| Versión ya podada, con la base más nueva | No cambia, porque la migración falla | Arriba |
+| Release sin firma | No cambia | Arriba. «Desplegar versión» no lo lista |
 
 ## 5. Los servicios del VPS
 

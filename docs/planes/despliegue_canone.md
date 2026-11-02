@@ -25,8 +25,9 @@
 > **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
 > plan (sobre todo el §6 y el §8) y los ADR 0059 a 0067. `equipaggio` ya sigue la plantilla de
 > canone y tiene `v0.1.0` firmado con `vps_xs1` (fases 1 a 5 de su `desplegar_con_canone.md`).
-> Lo que sigue es probar desplegar una versión encima de otra y llevar los repos a la plantilla de
-> canone (§6, «Lo que le falta a cada repo»).
+> Lo que sigue es llevar los repos a la plantilla de canone (§6, «Lo que le falta a cada repo»).
+> «Publicar versión» desplegó `v0.1.1` encima de `v0.1.0` el 2026-11-02, y los casos de fallo de
+> `deploy.py` corrieron con versiones de prueba (15, §4b).
 >
 > Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
 > fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
@@ -207,7 +208,7 @@ como la llave de una receptora.
 |---|---|
 | Restaurar desde la receptora. `despliegue.md` describe el `restic restore`, el `pg_restore` y después `ANALYZE`, pero canone no trae un programa | Un reemplazo de `restore_db` |
 | Desinstalar lo que instala `install.py` | **Vaciar VPS** |
-| Volver a una versión que sigue en `/srv/<app>/releases/`: `deploy.py` falla si la carpeta de la versión existe, y ahí quedan las cinco más nuevas *(hallazgo de lectura, sin confirmar)* | Que «Desplegar versión» vuelva a la activa o a una de esas cinco |
+| Volver a una versión que sigue en `/srv/<app>/releases/`: `deploy.py` falla si la carpeta de la versión existe, y ahí quedan las cinco más nuevas. Comprobado el 2026-11-02: con `v0.1.1` activa, pedir `v0.1.0` responde `already exists` y `current` no cambia | Que «Desplegar versión» vuelva a la activa o a una de esas cinco |
 | Operar la base del VPS desde esta máquina: los roles entran por `peer` y no tienen contraseña, así que el túnel al 5432 no se autentica *(sin confirmar)* | El ámbito remoto de «Reconstruir base», «Borrar base y rol», «Reiniciar historial de migraciones», los seeders, «Habilitar extensiones», «Explorar datos» y «Abrir túnel a Postgres» (pregunta 15) |
 
 Hallazgo de lectura en canone *(sin confirmar)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
