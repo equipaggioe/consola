@@ -2,10 +2,14 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from . import database as db, ssh, vps
+from . import canone, database as db, fields, ssh, vps
 from .context import Level
 from .errors import TaskError
 from .toolchain import venv_python
+
+# Las carpetas de credenciales de desarrollo de un repo de canone (ADR-0069).
+CREDENTIALS = 'credentials'
+MIGRATE_CREDENTIALS = 'credentials-migrate'
 
 """
 Donde corre el codigo del proyecto: aca o en el VPS.
@@ -49,6 +53,9 @@ class Runner:
     cwd: str
     database_url: str
     remote: ssh.Remote | None = None
+    # La carpeta de credenciales, en un repo de canone: su `Settings` lee solo
+    # de ahi, y `database_url` no le llega.
+    credentials: str = ''
 
     @property
     def is_remote(self) -> bool:
@@ -64,8 +71,9 @@ class Runner:
         la contrasena esta enmascarada en el log por `ctx.guard`.
         """
         if self.remote is None:
-            return ctx.run([self.python, *args], cwd=self.cwd,
-                           env={'DATABASE_URL': self.database_url}, echo=echo)
+            entorno = ({'CREDENTIALS_DIRECTORY': self.credentials} if self.credentials
+                       else {'DATABASE_URL': self.database_url})
+            return ctx.run([self.python, *args], cwd=self.cwd, env=entorno, echo=echo)
         comando = ' '.join(ssh.quote(a) for a in (self.python, *args))
         return ssh.run(ctx, self.remote,
                        f'cd {ssh.quote(self.cwd)} && '
@@ -94,7 +102,7 @@ def resolve(ctx, scope: str = db.LOCAL) -> Runner:
         raise TaskError(f'Ambito invalido: {scope!r}. Usa {" | ".join(db.SCOPES)}.')
 
     if scope == db.LOCAL:
-        return here(ctx, db.connect(ctx, db.LOCAL))
+        return local(ctx)
 
     remote = ssh.resolve_remote(ctx.config)
     interprete = vps.remote_python(ctx.config)
@@ -106,6 +114,43 @@ def resolve(ctx, scope: str = db.LOCAL) -> Runner:
     destino = vps.remote_path(ctx.config, ctx.config.get('SERVER_DIR', 'server'))
     ctx.info(f'Se ejecuta en el VPS: {remote.target}:{destino}')
     return Runner(interprete, destino, db.vps_url(ctx, remote), remote)
+
+
+def write_credentials(ctx, server: Path, folder: str, archivos: dict[str, str]) -> Path:
+    """Escribe una carpeta de credenciales de desarrollo y devuelve su ruta.
+
+    Corta si git no la ignora: un secreto commiteado por escribirlo aca no se
+    borra con otro commit. Un `app_*` que ya no es un campo de `Settings` sale,
+    para que la carpeta diga lo mismo que `config.env`.
+    """
+    carpeta = server / folder
+    try:
+        ctx.capture(['git', 'check-ignore', '-q', f'{carpeta}/'], cwd=server)
+    except TaskError as exc:
+        raise TaskError(f'git no ignora {carpeta}: agrégala a .gitignore antes de escribir '
+                        'credenciales ahí.') from exc
+    carpeta.mkdir(exist_ok=True)
+    for viejo in carpeta.glob('app_*'):
+        if viejo.name not in archivos:
+            viejo.unlink()
+    for nombre, valor in archivos.items():
+        (carpeta / nombre).write_text(valor, encoding='utf-8')
+    return carpeta
+
+
+def local(ctx) -> Runner:
+    """Siempre en esta maquina y contra la base local.
+
+    Un repo de canone corre Alembic como el dueño del esquema, con sus propias
+    credenciales (ADR-0069). Los demas siguen recibiendo `DATABASE_URL`.
+    """
+    raiz = server_root(ctx)
+    if not fields.settings_fields(raiz):
+        return here(ctx, db.connect(ctx, db.LOCAL))
+    carpeta = write_credentials(ctx, raiz, MIGRATE_CREDENTIALS,
+                                canone.credential_files(raiz, ctx.config, owner=True))
+    ctx.info(f'Base de datos LOCAL, como el dueño del esquema: {carpeta}')
+    return Runner(str(venv_python(raiz / '.venv')), str(raiz), '', credentials=str(carpeta))
 
 
 def here(ctx, conn: db.Connection) -> Runner:

@@ -759,28 +759,6 @@ def load_catalog() -> None:
               AxisDef('dest', [''], 'field', label='Carpeta destino'),
               AxisDef('branch', [''], 'field', label='Rama')],
         stub=True))
-    # Las dos mitades de la configuracion de un repo: la que Consola necesita
-    # para alcanzar el VPS (`.consola/config.env`) y la que la app lee al
-    # arrancar (`<SERVER_DIR>/.env`). Hay claves que estan en las dos —el rol y
-    # la base, el secreto del TURN, el token de Cloudflare— y tenerlas
-    # discrepando es un despliegue que apunta a un lado y una app que apunta a
-    # otro.
-    #
-    # Se copian SOLO las claves que ya existen en los dos archivos. No hay
-    # tabla de equivalencias ni claves nuevas: cada archivo sigue decidiendo
-    # que datos le corresponden, y esto solo iguala los valores de los que ya
-    # declararon compartir. Volcar un archivo entero sobre el otro dejaria
-    # VPS_KEY_NAME en el .env de la app y SECRET_KEY en el de Consola.
-    registry.register(Capability(
-        id='sync_server_env', name='Igualar claves de config.env y .env', group='Repositorio', kind='destructive', icon='🔃',
-        description='Iguala entre config.env y el .env del server las claves que los dos tienen.',
-        axes=[AxisDef('direction', ['a_server', 'desde_server'], 'scope', label='Dirección',
-                      labels={'a_server': 'config.env → server/.env',
-                              'desde_server': 'server/.env → config.env'}),
-              AxisDef('apply', ['simulacro', 'aplicar'], 'scope', label='Modo',
-                      truthy='aplicar',
-                      labels={'simulacro': 'Simulacro', 'aplicar': 'Aplicar'})],
-        stub=True))
     registry.register(Capability(id='sync_common_files', name='Copiar archivos comunes a otros repos', group='Repositorio', kind='destructive', icon='🔄', description='Copia los archivos compartidos a los otros repos; en simulacro solo compara.', axes=[AxisDef('targets', [''], 'field', label='Repos destino', multiline=True), AxisDef('paths', [''], 'field', label='Archivos a copiar', multiline=True), AxisDef('apply', ['simulacro', 'aplicar'], 'scope', label='Modo', truthy='aplicar', labels={'simulacro': 'Simulacro', 'aplicar': 'Aplicar'})], stub=True))
     # Los dos forzados existen para el caso en que alguien ya decidio que un
     # lado gana igual. Corren solo en esta maquina: el VPS no tiene clon del

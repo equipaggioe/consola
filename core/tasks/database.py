@@ -198,9 +198,12 @@ def generate_migration(ctx, scope: str = db.LOCAL, message: str = 'auto') -> Pat
     versiones = runner.server_root(ctx) / 'alembic' / 'versions'
     antes = {p.name for p in versiones.glob('*.py')}
 
-    with db.connect(ctx, scope) as conn:
-        runner.here(ctx, conn).run(
-            ctx, '-m', 'alembic', 'revision', '--autogenerate', '-m', message)
+    revision = ('-m', 'alembic', 'revision', '--autogenerate', '-m', message)
+    if scope == db.LOCAL:
+        runner.local(ctx).run(ctx, *revision)
+    else:
+        with db.connect(ctx, scope) as conn:
+            runner.here(ctx, conn).run(ctx, *revision)
 
     nuevas = {p.name for p in versiones.glob('*.py')} - antes
     if not nuevas:

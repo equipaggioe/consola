@@ -35,6 +35,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `DB_EXTENSIONS` | VPS | Extensiones de Postgres | lista | `postgis` | usa |
 | `GIT_REPO_URL` | GitHub | URL del repositorio | | | usa |
 | `PRIVATE` | GitHub | Repo privado | sí/no | | usa |
+| `DATABASE_URL` | Credenciales | Base de desarrollo | secreto | | usa |
 | `RESTIC_PASSWORD` | Credenciales | Contraseña de restic | secreto | | exige |
 | `GITHUB_TOKEN` | Credenciales | Token de GitHub | secreto | | usa |
 | `SERVER_DIR` | Systemd | Carpeta del server | | `server` | usa |
@@ -172,7 +173,6 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |  | `render_shots` | Revelar capturas | A |  |
 |  | `screenshots` | Capturar y publicar | C |  |
 | Repositorio | `clone_repo` | Clonar repositorio de GitHub | A | `opens_repo`, ⌂ |
-|  | `sync_server_env` | Igualar claves de config.env y .env | A | destructiva |
 |  | `sync_common_files` | Copiar archivos comunes a otros repos | A | destructiva |
 |  | `git_force_push` | Force push | A | destructiva |
 |  | `git_force_reset` | Force reset | A | destructiva |

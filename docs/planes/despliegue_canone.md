@@ -18,12 +18,15 @@
 > [13](../arquitectura/13_configuracion_y_persistencia.md) y
 > [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura. Fase 4: los botones que
 > operan el VPS y «Ver eventos» ([ADR-0068](../adr/0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md)),
-> corridos contra un VPS el 2026-11-02, sin la UI.
+> corridos contra un VPS el 2026-11-02, sin la UI. Fase 5: `backend` con `credentials/` y Alembic
+> con `credentials-migrate/` ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)),
+> corridos contra la base local de `equipaggio`; `sync_server_env` salió.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
 > plan (sobre todo el §6 y el §8) y los ADR 0059 a 0067. `equipaggio` ya sigue la plantilla de
 > canone y tiene `v0.1.0` firmado con `vps_xs1` (fases 1 a 5 de su `desplegar_con_canone.md`).
-> Lo que sigue son las fases 5 y 6 de este plan (§6), probadas contra ese VPS.
+> Lo que sigue es probar desplegar una versión encima de otra y llevar los repos a la plantilla de
+> canone (§6, «Lo que le falta a cada repo»).
 >
 > Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
 > fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
@@ -56,6 +59,9 @@
 > **Objetivo (decidido el 2026-11-02):** que Consola trabaje de acuerdo a canone. Dejar `equipaggio`
 > en marcha no es el objetivo: es el repo con el que se prueba, y P3, P4 y su fase 7 esperan.
 >
+> **Decidido el 2026-11-02:** las fases 6 (receptora y respaldo) y 7 (`clean_vps`) quedan pendientes.
+> Hasta la 6, un VPS de canone no tiene respaldo.
+>
 > Lo que fija canone está decidido en sus ADR. Lo demás que este plan dice sobre Consola es
 > *propuesta* hasta que se responda su pregunta en el §8.
 
@@ -82,13 +88,11 @@
 
 ## 2. Conflictos con un VPS instalado con canone *(sin confirmar)*
 
-| # | Conflicto | Evidencia |
-|---|---|---|
-| C5 | El launcher `backend` pasa la base en la variable `DATABASE_URL`. `Settings` de canone lee solo `CREDENTIALS_DIRECTORY`, así que en un repo de canone el valor se ignora | `launchers.py::serve_backend`, «Configuración» de `fastapi.md` |
-
 C1 a C3 se resolvieron en la fase 0: `configure_caddy`, `configure_service` y el paso que borraba
 las unidades salieron. C7 —«Vaciar VPS» borraba la cuenta que administra y dejaba la máquina sin
-entrada— se resolvió en la fase 1: el botón salió (ADR-0062). C6 —`setup_ssh_key` creaba la
+entrada— se resolvió en la fase 1: el botón salió (ADR-0062). C5 —el launcher `backend` pasaba
+`DATABASE_URL`, y `Settings` de canone no arrancaba sin `CREDENTIALS_DIRECTORY`— se resolvió en la
+fase 5 (ADR-0069). C6 —`setup_ssh_key` creaba la
 cuenta con `sudo` sin contraseña— se resolvió en la fase 2: salió, y la cuenta la crea
 `install.py` (ADR-0066).
 
@@ -228,7 +232,7 @@ figuraban entre los datos del repo.
 | 7 | `clean_vps` nuevo | Fase 2 y el desinstalador del §5 |
 
 Las fases 0 a 4 son las que despliegan los repos y van primero. Las 5 a 7 no hacen falta para
-desplegar.
+desplegar. Las fases 6 y 7 quedan pendientes (decidido el 2026-11-02).
 
 La fase 0 está construida. Cómo se leyó en el código lo que el §3 dice que sale *(propuesta, sin
 confirmar)*:
@@ -243,7 +247,7 @@ confirmar)*:
 | Los demás botones de base con ámbito remoto | Quedan como estaban hasta resolverlos en canone (pregunta 15, §5) |
 | «Force push», «Force reset» | Sin eje `side` (ADR-0061) |
 | «Vaciar VPS» | Sin el paso de las unidades. En la fase 1 salió entero (ADR-0062) |
-| `sync_server_env` | Queda hasta la fase 5 |
+| `sync_server_env` | Quedó hasta la fase 5, que lo sacó |
 | Claves de configuración | Salieron las que solo leían los botones que salen (ADR-0059). Las demás del §4 salen en la fase 1 |
 | `scripts/` | Se queda entera hasta que el despliegue con canone funcione; después se borra (pregunta 16) |
 
@@ -297,11 +301,30 @@ Lo que impide desplegar `equipaggio` con canone, además de los workflows:
 | P3 | Corre seis procesos (API, `prober`, `gateway` en el 8011, `mailer`, `webhooks`, `bounces` con SMTP en el 2525) y canone instala uno, `<app>.service` con uvicorn en el 8000, más el barrido y la purga. Por la regla de la pregunta 14, las unidades, la ruta del gateway y el puerto de SMTP van primero a canone *(sin confirmar qué hace falta)* | README de `equipaggio`, `PRODUCTO.service` de canone |
 | P4 | Escribe en `STATE_DIRECTORY` los `[Peer]` del túnel de registros, que aplica una unidad propia de root (ADR-0026 de `equipaggio`); canone no la instala | `server/src/app/config.py`, ADR-0026 de `equipaggio` |
 
-Desde la fase 4 de su plan, `equipaggio` usa en desarrollo los dos roles de canone, y Alembic
-entra como el dueño con `server/credentials-migrate/` (su 03, «Desarrollo»). Los botones de base
-de Consola le pasan a Alembic `DATABASE_URL` en el entorno (`core/runner.py`, `Runner`), que ese
-servidor ya no lee: fallan contra `equipaggio` *(sin confirmar, no se corrió)*. Va con la fase 5
-de este plan, `backend` con `credentials/` (C5).
+Las fases 4 y 5 están construidas y corrieron el 2026-11-02 sin la UI, la 4 contra el VPS de prueba
+y la 5 contra la base local de `equipaggio`
+([ADR-0068](../adr/0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md) y
+[ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)). Lo que no
+resuelven está en el 30, «Sin decidir».
+
+### Lo que le falta a cada repo
+
+Verificado el 2026-10-31, salvo lo que se dice: ningún repo con `server/` fuera de `equipaggio` puede
+publicar una versión. Antes de apretar «Configurar VPS», cada uno necesita:
+
+| Qué | Cómo se comprueba |
+|---|---|
+| Seguir la plantilla de canone, con `Settings` en `server/src/app/config.py`, su `ci.yml` y su `release.yml` | `python ../canone/scripts/verificar.py --repo .` no da incumplimientos y el CI está en verde |
+| Un solo proceso largo. Un repo con más necesita primero sus unidades en canone, como P3 de `equipaggio` | Lo que corre es `app.main:app` en el 8000 |
+| `credentials/` y `credentials-migrate/` en el `.gitignore` de `server/` | `git check-ignore`; si no, Consola corta |
+| Borrar `SERVICES` y `UVICORN_APP` de su `config.env`. Las tienen `banditore`, `cadenza`, `concordia`, `consola`, `navetta`, `presenze`, `pze` y `vettore` (visto el 2026-11-02) | «Cargar credenciales» corta con cualquier clave sin fuente |
+| En `config.env`: `VPS_IP`, `VPS_USER`, `VPS_KEY_NAME`, `DOMAIN`, `VALKEY_MEMORY`, `SUDO_PASSWORD` si no se quiere escribir cada vez, `RESTIC_PASSWORD`, los campos de `Settings` y, si es privado, `PRIVATE` y un `GITHUB_TOKEN` de solo lectura. En desarrollo, además, `DATABASE_URL` | El panel marca lo que falta |
+| Un Debian 13 sin otro producto, con la llave de `VPS_KEY_NAME` en root y el DNS apuntando a él antes de instalar. El panel va en `panel.<dominio>` | «Health check» y «Ver eventos» |
+
+Una sola vez, en esta máquina: cambiar `OFFLINE_KEY` por una llave guardada fuera (hoy es de prueba) y
+empujar canone, porque el CI de cada repo lo compara con esa copia.
+
+`pze` declara «en producción» y usa `backend/`: queda fuera hasta que siga a canone (pregunta 1).
 
 Cada fase actualiza en su commit los documentos del §7 que toca.
 
@@ -315,9 +338,8 @@ con el 0064 y los 0019, 0020 y 0040 con el 0065. Lo que sigue falta.
 |---|---|
 | ADR nuevo | La regla de la pregunta 14, con su alcance |
 | ADR-0013, 0016 | Reemplazar en lo del VPS: ahí no se migra por túnel |
-| ADR-0023, 0041 | Reemplazar: los servicios los fija canone |
+| ADR-0023 | Reemplazar: los servicios los fija canone |
 | ADR-0024 | Reemplazar: el manifiesto de release sale |
-| ADR-0037 | Reemplazar: `sync_server_env` sale, y desarrollo usa los valores de `config.env` salvo `database_url` (pregunta 8) |
 | Arquitectura | Se reescriben 15 y 17; cambian 03 §5, 13 §9, 16, 20 y 30 |
 | [`rol_de_respaldo.md`](rol_de_respaldo.md) | El punto 8 del ADR-0078 lo deja sin objeto: Equipaggio ya no respalda las bases |
 

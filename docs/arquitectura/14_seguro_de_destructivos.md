@@ -28,7 +28,7 @@ Un objetivo que no figura en el `params.json` cae en su default: agregar uno nue
 | `teardown_db`, `rebuild_db` | `db`, y `vps` si el ámbito es `remoto` |
 | `restore_db` | `db`: actúa solo sobre la base local |
 | `reinit_migrations` | `db` + `local`, y `vps` si el ámbito es `remoto` |
-| `clean_artifacts`, `sync_server_env` | `local`, salvo en simulacro |
+| `clean_artifacts` | `local`, salvo en simulacro |
 | `sync_common_files` | `otros_repos`, salvo en simulacro |
 | `git_force_push` | `origin` |
 | `git_force_reset` | `local` |

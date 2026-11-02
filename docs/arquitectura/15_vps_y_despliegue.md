@@ -47,6 +47,8 @@ Las leen el ámbito remoto de la base ([16](16_base_de_datos.md)) y la subida de
 | Credenciales (`load_credentials`) | Pasa a `credentials.py`, por stdin, una línea `campo=valor` por credencial (`canone.credential_lines`, [13](13_configuracion_y_persistencia.md) §2). Corta antes de enviar si falta un valor o si `config.env` tiene una clave sin fuente |
 | Último release (`vps_release.deploy_latest`) | Despliega el release que GitHub da como `latest`, si tiene su firma. Si `/srv/<app>/current` ya es ese release, no hace nada ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)) |
 
+El DNS tiene que apuntar al VPS antes de correrla. Si no, Caddy se queda sin certificado y sus reintentos se espacian: el 2026-11-02 esperaba 20 minutos, y hubo que reiniciarlo para que lo pidiera al crear los registros. Let's Encrypt es el único emisor que responde: el Caddy 2.6.2 de Debian prueba ZeroSSL después, y ZeroSSL lo rechaza con `caddy_legacy_user_removed`.
+
 Los programas salen de `plantilla/infra/` de la copia local de canone (`CANONE_DIR`), que se sube a `/tmp/consola-canone` y se borra al terminar. `<app>` y `--owner` salen de `git remote get-url origin`.
 
 ## 4b. Versiones

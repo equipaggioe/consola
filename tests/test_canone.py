@@ -136,3 +136,41 @@ def test_el_resumen_de_eventos_dice_ninguno_si_no_hay():
         'último respaldo': 'ninguno',
         'disco libre': '5.0 GB de 10.0 GB',
     }
+
+
+def test_el_dueno_es_el_rol_con_owner():
+    assert (canone.owner_url('postgresql+asyncpg://app@127.0.0.1:5440/app')
+            == 'postgresql+asyncpg://app_owner@127.0.0.1:5440/app')
+    assert (canone.owner_url('postgresql+asyncpg://app:clave@127.0.0.1:5440/app')
+            == 'postgresql+asyncpg://app_owner:clave@127.0.0.1:5440/app')
+
+
+def test_una_url_sin_rol_no_tiene_dueno():
+    with pytest.raises(TaskError, match='no nombra su rol'):
+        canone.owner_url('postgresql+asyncpg://127.0.0.1:5440/app')
+
+
+def _servidor(tmp_path):
+    config = tmp_path / 'server' / 'src' / 'app' / 'config.py'
+    config.parent.mkdir(parents=True)
+    config.write_text(CONFIG_PY, encoding='utf-8')
+    return tmp_path / 'server'
+
+
+def test_los_archivos_de_desarrollo_salen_de_config_env(tmp_path):
+    config = Config({'DATABASE_URL': 'postgresql://app@h/app', 'HEALTH_TOKEN': 't', 'PAGE_TOKEN_KEY': 'k'})
+    assert canone.credential_files(_servidor(tmp_path), config) == {
+        'app_database_url': 'postgresql://app@h/app', 'app_health_token': 't', 'app_page_token_key': 'k',
+    }
+
+
+def test_alembic_entra_como_el_dueno(tmp_path):
+    config = Config({'DATABASE_URL': 'postgresql://app@h/app', 'HEALTH_TOKEN': 't', 'PAGE_TOKEN_KEY': 'k'})
+    archivos = canone.credential_files(_servidor(tmp_path), config, owner=True)
+    assert archivos['app_database_url'] == 'postgresql://app_owner@h/app'
+    assert archivos['app_health_token'] == 't'
+
+
+def test_los_archivos_de_desarrollo_cortan_si_falta_un_campo(tmp_path):
+    with pytest.raises(TaskError, match='DATABASE_URL, PAGE_TOKEN_KEY'):
+        canone.credential_files(_servidor(tmp_path), Config({'HEALTH_TOKEN': 't'}))

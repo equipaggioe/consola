@@ -183,27 +183,6 @@ def read_value(path: str, key: str) -> str:
     return load_env(path).get(key, '')
 
 
-def upsert_value(path: str, key: str, value: str) -> str:
-    """Reemplaza o agrega `KEY=value` conservando el resto del archivo intacto."""
-    lines = []
-    if os.path.isfile(path):
-        with open(path, 'r', encoding='utf-8') as fh:
-            lines = fh.read().splitlines()
-
-    prefix = f'{key}='
-    replaced = False
-    for i, line in enumerate(lines):
-        if line.startswith(prefix):
-            lines[i] = f'{key}={value}'
-            replaced = True
-    if not replaced:
-        lines.append(f'{key}={value}')
-
-    with open(path, 'w', encoding='utf-8', newline='\n') as fh:
-        fh.write('\n'.join(lines) + '\n')
-    return 'updated' if replaced else 'added'
-
-
 _TRUE = {'1', 'true', 'yes', 'y', 'on', 'si'}
 _FALSE = {'0', 'false', 'no', 'n', 'off'}
 

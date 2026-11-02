@@ -1,6 +1,6 @@
 # ADR-0037 · Sincronizar env iguala solo los valores de las claves que los dos archivos ya tienen
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0069](0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/tasks/utils.py, core/catalog.py
 

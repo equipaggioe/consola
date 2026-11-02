@@ -63,7 +63,6 @@ Se **regenera** entero desde el esquema al guardar: encabezado, un bloque por gr
 
 Leerlo nunca toca `os.environ`: una tarea no puede pisarle el entorno a las otras pestañas que corren a la vez.
 
-`upsert_value` es la otra escritura posible —reemplaza una sola clave conservando el resto— y la usa «Sincronizar env» ([ADR-0037](../adr/0037-sincronizar-solo-las-claves-compartidas.md)).
 
 ## 5. Los repos en pestañas
 
@@ -112,6 +111,6 @@ Una caché ilegible es una caché vacía, nunca un error que corte una tarea. Al
 
 ## 9. El `.env` del servidor
 
-Consola **no escribe** el `.env` de la aplicación administrada, con una excepción explícita: el botón «Sincronizar env», que iguala los valores de las claves que los dos archivos **ya** tienen, en la dirección elegida y con simulacro previo. No crea claves ni vuelca un archivo sobre el otro: cada uno sigue decidiendo qué le corresponde ([ADR-0037](../adr/0037-sincronizar-solo-las-claves-compartidas.md)).
+Consola **no escribe** el `.env` de la aplicación administrada. En un repo de canone escribe, en cambio, `<servidor>/credentials/` y `credentials-migrate/` desde `config.env`, y corta si git no las ignora ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)): `app_<campo>` por campo de `Settings`, con los valores de producción salvo `database_url`, que es `DATABASE_URL`, como `<rol>_owner` en `credentials-migrate/`. El launcher `backend` lee el `.env` para su entorno.
 
 La otra lectura permitida es `database.server_url`, que lee `DATABASE_URL` de `server/.env` para precargar el explorador.

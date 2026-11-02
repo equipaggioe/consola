@@ -26,7 +26,8 @@ PYTHON_ENTRYPOINTS = ('src/main.py', 'main.py')
 # suelto: sin esto, cualquier carpeta de scripts contaria como app.
 _PYTHON_MARKERS = ('requirements.txt', 'pyproject.toml', '.venv')
 # Donde se busca el `FastAPI(` de un servidor, y el modulo uvicorn que le toca.
-_ASGI_MODULES = (('app/main.py', 'app.main:app'), ('main.py', 'main:app'))
+_ASGI_MODULES = (('src/app/main.py', 'app.main:app'), ('app/main.py', 'app.main:app'),
+                 ('main.py', 'main:app'))
 
 # "La app movil" es una sola cosa del dominio aunque este escrita en Flutter o
 # en Flet: se compila igual, se sube igual y se corre en el mismo emulador. El

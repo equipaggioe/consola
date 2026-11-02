@@ -76,3 +76,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0066](0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md) | «Configurar VPS» prepara la máquina y corre `install.py`; root entra solo la primera vez |
 | [0067](0067-publicar-version-sube-el-ultimo-tag-de-origin.md) | «Publicar versión» sube el último tag de origin, y «Desplegar versión» elige entre los releases firmados |
 | [0068](0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md) | El eje de servicios sale de las unidades de canone, y operarlas pide la contraseña de `sudo` |
+| [0069](0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md) | Un repo de canone corre en desarrollo con sus credenciales, escritas desde `config.env` |

@@ -4,7 +4,7 @@ from pathlib import Path
 
 from . import emulators
 from .. import database as db
-from .. import ports, session, ssh, targets, toolchain
+from .. import canone, envfile, fields, ports, runner, session, ssh, targets, toolchain
 from ..errors import TaskError
 from ..registry import registry
 from ..toolchain import venv_python
@@ -100,7 +100,8 @@ def serve_backend(
     """Arranca uvicorn con la base del ambito elegido.
 
     El tunel, si el ambito es remoto, vive lo que vive el servidor: se cierra
-    solo cuando se detiene la pestana.
+    solo cuando se detiene la pestana. Un repo de canone corre con sus
+    credenciales de desarrollo y solo contra la base local (ADR-0069).
     """
     server = targets.pick(ctx.root, (targets.FASTAPI,), target).path
     interprete = venv_python(server / '.venv')
@@ -118,13 +119,25 @@ def serve_backend(
     # `localhost` es por donde se entra. Un navegador apuntado a `0.0.0.0` no
     # llega a ningun lado.
     esquema = 'https' if tls else 'http'
-    with db.connect(ctx, scope) as conn:
+
+    def arrancar(entorno: dict[str, str]) -> None:
         ctx.info(f'Backend {app} escuchando en {host}:{puerto}')
         ctx.serve(f'{esquema}://localhost:{puerto}', key=BACKEND, label='Backend')
         try:
-            ctx.run(argv, cwd=server, env={'DATABASE_URL': conn.url}, check=False)
+            ctx.run(argv, cwd=server, env=entorno, check=False)
         finally:
             session.forget(ctx.project.name, SERVER_PORT)
+
+    if not fields.settings_fields(server):
+        with db.connect(ctx, scope) as conn:
+            arrancar({'DATABASE_URL': conn.url})
+        return
+    if scope != db.LOCAL:
+        raise TaskError('Un repo de canone levanta su backend solo contra la base local.')
+    carpeta = runner.write_credentials(ctx, server, runner.CREDENTIALS,
+                                       canone.credential_files(server, ctx.config))
+    # `.env` es el del repo: dice, por ejemplo, donde esta `STATE_DIRECTORY`.
+    arrancar({**envfile.load_env(str(server / '.env')), 'CREDENTIALS_DIRECTORY': str(carpeta)})
 
 
 def serve_spa(ctx, target: str = '', preferred_port: int = 5173,

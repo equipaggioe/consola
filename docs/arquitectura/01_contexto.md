@@ -58,10 +58,10 @@ flowchart LR
 | Ejecutar | 5 | Levantar lo que corre en desarrollo: backend, SPA, app móvil, app de escritorio, y todo junto |
 | Compilar | 5 | Compilar: Flutter/Flet, Vite y el ejecutable, que además se publica; SPA nueva y limpieza de artefactos |
 | Imágenes | 4 | Los íconos de las apps a partir del logo, y las capturas publicables: sacarlas, revelarlas y las dos juntas |
-| Repositorio | 5 | Clonar, los dos forzados contra origin desde esta máquina ([ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)), y la sincronización de archivos y claves entre repos |
+| Repositorio | 4 | Clonar, los dos forzados contra origin desde esta máquina ([ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)), y la sincronización de archivos entre repos |
 | Base de datos | 12 | Ciclo de vida del esquema, migraciones, datos, respaldo, túnel y explorador |
 | Despliegue | 4 | Publicar, firmar y desplegar versiones con el `deploy.py` de canone, y los servicios systemd del VPS: acciones y logs |
-| VPS | 9 | Preparar el VPS con los programas de canone, diagnóstico: paquetes, credenciales, DNS, salud, comandos sueltos y revocación |
+| VPS | 10 | Preparar el VPS con los programas de canone, diagnóstico: paquetes, credenciales, DNS, salud, eventos, comandos sueltos y revocación |
 | Emuladores | 4 | Imágenes de sistema, dispositivos virtuales, arranque y limpieza de disco |
 | SDKs | 5 | Dejar esta máquina lista para compilar: Android y Flutter |
 

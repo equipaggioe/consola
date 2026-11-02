@@ -1,6 +1,7 @@
 from __future__ import annotations
 import re
 from pathlib import Path
+from urllib.parse import urlsplit, urlunsplit
 
 from . import envfile, fields, process
 from .envfile import Config
@@ -180,6 +181,32 @@ def deploy_command(app: str, tag: str) -> str:
     if not _TAG.fullmatch(tag):
         raise TaskError(f'{tag!r} no es un tag como v1.4.0.')
     return f'python3 /usr/local/lib/{app}/deploy.py {tag}'
+
+
+def owner_url(url: str) -> str:
+    """La misma base como el dueño del esquema: el rol `<rol>_owner` de `install.py`."""
+    partes = urlsplit(url)
+    if not partes.username:
+        raise TaskError('DATABASE_URL no nombra su rol: hace falta para entrar como el dueño.')
+    dueno = partes.netloc.replace(partes.username, f'{partes.username}_owner', 1)
+    return urlunsplit(partes._replace(netloc=dueno))
+
+
+def credential_files(server: Path, config: Config, *, owner: bool = False) -> dict[str, str]:
+    """Los archivos `app_<campo>` de desarrollo, con los valores de `config.env` (ADR-0069).
+
+    Son los mismos de produccion, salvo `database_url`, que es `DATABASE_URL`: la
+    base local. Con `owner`, entra como el dueño del esquema, que es lo que usa
+    Alembic. Corta antes de escribir nada si falta el valor de un campo.
+    """
+    campos = fields.settings_fields(server)
+    faltan = [campo.upper() for campo in campos if not config.get(campo.upper())]
+    if faltan:
+        raise TaskError(f'Faltan en config.env: {", ".join(faltan)}.')
+    archivos = {f'app_{campo}': config.get(campo.upper()) for campo in campos}
+    if owner:
+        archivos['app_database_url'] = owner_url(config.require('DATABASE_URL'))
+    return archivos
 
 
 def credential_lines(root: Path, config: Config) -> str:

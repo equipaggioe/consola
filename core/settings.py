@@ -163,6 +163,10 @@ SETTINGS: tuple[Setting, ...] = (
     # Las dos que `credentials.py` recibe con nombre fijo, ademas de los campos
     # de `Settings` del repo, que se suman a este grupo al abrirlo
     # (`core/fields.py`, ADR-0063).
+    # La base local de un repo de canone: `app_database_url` de sus credenciales
+    # de desarrollo (ADR-0069). En el VPS la escribe `install.py`.
+    Setting('DATABASE_URL', 'Credenciales', 'Base de desarrollo', secret=True,
+            used_by=('backend', 'migrate_db')),
     Setting('RESTIC_PASSWORD', 'Credenciales', 'Contraseña de restic', secret=True,
             required_by=('load_credentials',)),
     # El token de solo lectura con el que el VPS baja el release de un repo
@@ -172,7 +176,7 @@ SETTINGS: tuple[Setting, ...] = (
 
     # --- Systemd ---
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
-            used_by=('sync_server_env',)),
+            used_by=('load_credentials',)),
 
     # --- Builds ---
     # Donde queda cada build de `build_flutter`, relativo a la carpeta de la app.
