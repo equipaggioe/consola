@@ -71,7 +71,7 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 | `raster.py` | No es un grupo: el SVG como PNG o como ICO, con QtSvg y Pillow. Lo usan `images.py` y `builders.py` |
 | `emulators.py` | `install_system_image`, `create_avd`, `launch_emulator`, `stop_emulator`, `purge_emulators` |
 | `git.py` | `git_force_push`, `git_force_reset`, `clone_repo` |
-| `vps_ops.py` | `health_check`, `run_command`, `revoke_ssh` |
+| `vps_ops.py` | `health_check`, `view_events`, `run_command`, `revoke_ssh` |
 | `vps_server.py` | `systemd_action`, `view_logs` |
 | `vps_setup.py` | `refresh_known_host`, `install_software`, `load_credentials`, `bootstrap_vps` |
 | `vps_release.py` | `publish_release`, `deploy_version` |

@@ -38,8 +38,6 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `RESTIC_PASSWORD` | Credenciales | Contraseña de restic | secreto | | exige |
 | `GITHUB_TOKEN` | Credenciales | Token de GitHub | secreto | | usa |
 | `SERVER_DIR` | Systemd | Carpeta del server | | `server` | usa |
-| `UVICORN_APP` | Systemd | Entrypoint uvicorn | | `app.main:app` | usa |
-| `SERVICES` | Systemd | Servicios del repo | lista | | usa |
 | `BUILD_OUT_APK` | Builds | Carpeta del build APK | | donde lo deja el framework | usa |
 | `BUILD_OUT_AAB` | Builds | Carpeta del build AAB | | ídem | usa |
 | `BUILD_OUT_WEB` | Builds | Carpeta del build web | | ídem | usa |
@@ -65,17 +63,6 @@ Una clave `kind='list'` se edita multilínea y se guarda separada por comas; al 
 Un valor envuelto en comillas las pierde al leerse, pero solo si el **par** envuelve todo el valor: `strip("'")` se comía la última de `… frame-ancestors 'none'`.
 
 ## 2. Gramáticas de las claves compuestas
-
-### `SERVICES` — un servicio por renglón
-
-```
-<sufijo> <tipo> <destino>
-```
-
-- `sufijo`: minúsculas, números y guiones. La unidad se llama `<repo>-<sufijo>`.
-- `tipo`: `uvicorn` \| `python` \| `command`.
-
-Vacía, hay un solo servicio llamado como el repo. Da los valores del eje `service` de «Control del servicio» y «Ver logs del servicio».
 
 ### `DB_EXTENSIONS`
 
@@ -210,6 +197,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 |  | `refresh_known_host` | Refrescar known_hosts | A |  |
 |  | `update_cloudflare` | Actualizar Cloudflare | A |  |
 |  | `health_check` | Health check | A |  |
+|  | `view_events` | Ver eventos | A |  |
 |  | `run_command` | Ejecutar comando | A |  |
 |  | `ssh_login` | Abrir sesión SSH | A | interactiva |
 |  | `revoke_ssh` | Quitar acceso SSH | C | destructiva |

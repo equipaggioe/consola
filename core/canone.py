@@ -164,6 +164,17 @@ def signed(app: str, releases: list[dict]) -> list[dict]:
             and signature(app, r['tag_name']) in {a['name'] for a in r['assets']}]
 
 
+def events_summary(eventos: dict) -> dict[str, str]:
+    """Lo que responde `GET /api/health/events`, con los nombres que lleva el log."""
+    libre, total = eventos['diskFreeBytes'] / 10**9, eventos['diskTotalBytes'] / 10**9
+    return {
+        'último evento': eventos['lastEventAt'] or 'ninguno',
+        'último crítico': eventos['lastCriticalAt'] or 'ninguno',
+        'último respaldo': eventos['lastBackupAt'] or 'ninguno',
+        'disco libre': f'{libre:.1f} GB de {total:.1f} GB',
+    }
+
+
 def deploy_command(app: str, tag: str) -> str:
     """`deploy.py`, que instala `install.py` con los datos de la app (ADR-0106 de canone)."""
     if not _TAG.fullmatch(tag):

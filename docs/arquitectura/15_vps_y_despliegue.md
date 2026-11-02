@@ -67,13 +67,20 @@ Sin «Crear tag», firma y despliega el último release publicado.
 
 ## 5. Los servicios del VPS
 
-`systemd_action` y `view_logs` operan las unidades systemd **del repo** más `coturn` y `caddy`. Todas se reinician, se paran y se leen igual, así que `service` es **un eje**, no un botón por servicio ([ADR-0023](../adr/0023-los-servicios-son-un-eje.md)).
+`systemd_action` y `view_logs` operan las unidades que instala `install.py`, más Caddy y coturn. Todas se reinician, se paran y se leen igual, así que `service` es **un eje**, no un botón por servicio ([ADR-0023](../adr/0023-los-servicios-son-un-eje.md), [ADR-0068](../adr/0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md)).
 
-Cuántas son las del repo lo dice el repo: `SERVICES` es una tabla de filas `<sufijo> <tipo> <destino>` y cada fila es una unidad ([ADR-0041](../adr/0041-un-repo-declara-sus-servicios.md)). Sin tabla hay una sola, llamada como el repo, que es el valor `proyecto` del eje.
+| Valor del eje | Unidad |
+|---|---|
+| `server` | `<app>` |
+| `valkey` | `valkey-server@<app>` |
+| `sweep`, `purge`, `dump`, `backup` | `<app>-<valor>` |
+| `caddy`, `coturn` | Con ese nombre |
 
-`vps.managed_services` arma los valores del eje —los del repo y después los dos paquetes— y `vps.resolve_service` los traduce al nombre real de la unidad: `<repo>` sin tabla, `<repo>-<sufijo>` con ella. Los valores que se ofrecen no se enumeran: `vps.installed_services` pregunta cuáles existen en **este** VPS, en una sola consulta, y el resultado se cachea por host. Si no se puede preguntar los devuelve todos, para no dejar el botón sin nada que ofrecer.
+`<app>` sale de `git remote get-url origin`, y `vps.resolve_service` traduce el valor a la unidad. Los valores que se ofrecen no se enumeran: `vps.installed_services` pregunta cuáles existen en **este** VPS, en una sola consulta, y el resultado se cachea por host. Si no se puede preguntar los devuelve todos, para no dejar el botón sin nada que ofrecer.
 
 `vps.unit_installed` pregunta con `systemctl cat`, que encuentra la unidad esté donde esté su archivo: las de un paquete apt viven en `/lib/systemd/system`.
+
+Actuar sobre una unidad y leer su journal piden root: van por `vps_setup.Access`, con `sudo -S` y la contraseña por stdin (§1).
 
 ## 6. Deshacer
 
@@ -83,6 +90,10 @@ No hay un botón que vacíe el VPS: desarmar uno es reinstalarlo desde el panel 
 
 ## 7. Diagnóstico
 
-`health` pregunta primero si se llega por SSH y **corta ahí** si no. Las otras cuatro consultas usan `check=False`, así que con el SSH caído devolvían vacío y el estado del servicio caía en `missing`: el resumen anunciaba un servidor destruido cuando la verdad era que no se llegaba a la máquina.
+«Health check» (`health_check`) entra con `vps_setup.access`, que corta si no se llega por SSH. Muestra el estado de `<app>`, `GET /api/health`, el uptime, la carga, el disco y la memoria, y después los últimos errores del journal. Falla al final si la API no responde 204, para que el resumen y los errores queden a la vista.
+
+«Ver eventos» (`view_events`) pide `GET /api/health/events` con `HEALTH_TOKEN` y muestra el último evento, el último crítico, el último respaldo y el disco. Corta si no responde 200. No decide cuándo avisar.
+
+Las dos consultas van por SSH a `127.0.0.1:8000`, con `python3`, que `install.py` asegura (`vps.server_get`). El token va por stdin.
 
 `view_logs` arma un `journalctl` con filtros. Es capacidad hermana de `systemd_action` y no un valor suyo: los filtros no tienen sentido para start/stop. Hoy el panel no ofrece esos filtros ([30](30_riesgos_y_pendientes.md)).

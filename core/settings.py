@@ -44,7 +44,7 @@ class Setting:
 # Claves VPS que necesita cualquier operacion que alcance el servidor.
 _VPS_REACH = ('ssh_login', 'health_check', 'run_command',
               'upload_to_vps', 'install_software', 'bootstrap_vps', 'load_credentials',
-              'deploy_version', 'view_logs', 'systemd_action', 'revoke_ssh')
+              'deploy_version', 'view_logs', 'systemd_action', 'revoke_ssh', 'view_events')
 # «Publicar versión» las pide por paso (`core/catalog.py::PUBLISH_RELEASE_STEPS`):
 # crear el tag no alcanza el VPS.
 _VPS_STEPS = ('publish_release',)
@@ -83,7 +83,8 @@ SETTINGS: tuple[Setting, ...] = (
     # vez por sesion y la tiene solo en memoria.
     Setting('SUDO_PASSWORD', 'VPS', 'Contraseña de sudo', secret=True,
             used_by=('install_software', 'bootstrap_vps', 'load_credentials',
-                     'publish_release', 'deploy_version')),
+                     'publish_release', 'deploy_version', 'systemd_action', 'view_logs',
+                     'health_check')),
     Setting('VPS_KEY_NAME', 'VPS', 'Nombre de la llave SSH', required_by=_VPS_REACH,
             used_by=_VPS_STEPS),
     # Los dos los lee el ambito remoto de la base (`core/runner.py`), que corre
@@ -151,8 +152,8 @@ SETTINGS: tuple[Setting, ...] = (
             used_by=('bootstrap_db', 'enable_extensions')),
 
     # --- GitHub ---
-    # De ahi sale el nombre del repo en el VPS (`vps.repo_name`), que nombra sus
-    # unidades systemd.
+    # De ahi sale el nombre del repo en el VPS (`vps.repo_name`), que nombra su
+    # carpeta en el ambito remoto de la base.
     Setting('GIT_REPO_URL', 'GitHub', 'URL del repositorio',
             used_by=('systemd_action', 'view_logs', 'health_check')),
     # `--private`: el VPS baja el release con un token. `si` o `no`.
@@ -172,14 +173,6 @@ SETTINGS: tuple[Setting, ...] = (
     # --- Systemd ---
     Setting('SERVER_DIR', 'Systemd', 'Carpeta del server', default='server',
             used_by=('sync_server_env',)),
-    # `SERVICES` da los valores del eje `service` (`vps.managed_services`): una
-    # tabla «<sufijo> <tipo> <destino>», y cada unidad se llama
-    # `<repo>-<sufijo>`. Vacia, hay un solo servicio, llamado como el repo, que
-    # corre `UVICORN_APP`.
-    Setting('UVICORN_APP', 'Systemd', 'Entrypoint uvicorn', default='app.main:app',
-            used_by=('systemd_action', 'view_logs')),
-    Setting('SERVICES', 'Systemd', 'Servicios del repo', kind='list',
-            used_by=('systemd_action', 'view_logs')),
 
     # --- Builds ---
     # Donde queda cada build de `build_flutter`, relativo a la carpeta de la app.

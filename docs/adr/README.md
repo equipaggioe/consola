@@ -75,3 +75,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0065](0065-cada-spa-va-en-la-raiz-de-su-host.md) | Cada SPA se compila para la raíz de su host, y la tabla de rutas públicas sale |
 | [0066](0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md) | «Configurar VPS» prepara la máquina y corre `install.py`; root entra solo la primera vez |
 | [0067](0067-publicar-version-sube-el-ultimo-tag-de-origin.md) | «Publicar versión» sube el último tag de origin, y «Desplegar versión» elige entre los releases firmados |
+| [0068](0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md) | El eje de servicios sale de las unidades de canone, y operarlas pide la contraseña de `sudo` |

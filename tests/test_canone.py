@@ -123,3 +123,16 @@ def test_deploy_py_solo_recibe_un_tag():
     assert canone.deploy_command('demo', 'v1.4.0') == 'python3 /usr/local/lib/demo/deploy.py v1.4.0'
     with pytest.raises(TaskError):
         canone.deploy_command('demo', 'v1.4.0; reboot')
+
+
+def test_el_resumen_de_eventos_dice_ninguno_si_no_hay():
+    resumen = canone.events_summary({
+        'lastEventAt': '2026-11-02T08:00:00Z', 'lastCriticalAt': None, 'lastBackupAt': None,
+        'diskFreeBytes': 5_000_000_000, 'diskTotalBytes': 10_000_000_000,
+    })
+    assert resumen == {
+        'último evento': '2026-11-02T08:00:00Z',
+        'último crítico': 'ninguno',
+        'último respaldo': 'ninguno',
+        'disco libre': '5.0 GB de 10.0 GB',
+    }

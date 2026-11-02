@@ -403,17 +403,29 @@ DOCS: dict[str, CommandDoc] = {
 
     'health_check': CommandDoc(
         summary=(
-            'Informa el estado del VPS: acceso, servicio, uptime, disco, '
-            'memoria, carga y últimos errores del journal.'
+            'Informa el estado del VPS: acceso, servicio, GET /api/health, '
+            'uptime, carga, disco, memoria y últimos errores del journal. Falla si '
+            'la API no responde 204.'
         ),
         steps=[
-            'Resuelve el destino SSH y el nombre del servicio del repo.',
-            'Prueba el acceso SSH y termina ahí si no contesta.',
+            'Entra por la cuenta que administra o por root, y corta si no entra.',
             'Corre systemctl cat y systemctl is-active del servicio.',
-            'Corre uptime -p.',
-            'Corre df -h de la raíz y free -h.',
-            'Corre uptime y se queda con la carga promedio.',
-            'Corre journalctl -u SERVICIO -p err -n 10.',
+            'Pide GET /api/health al 8000, por loopback.',
+            'Corre uptime -p, uptime para la carga, df -h de la raíz y free -h.',
+            'Corre journalctl -u SERVICIO -p err -n 10 con sudo -S.',
+            'Vuelca cada dato en la consola con su nombre.',
+        ],
+    ),
+
+    'view_events': CommandDoc(
+        summary=(
+            'Muestra lo que el servidor dice que hay que vigilar: el último evento, '
+            'el último crítico, el último respaldo y el disco.'
+        ),
+        steps=[
+            'Lee HEALTH_TOKEN de la configuración.',
+            'Pide GET /api/health/events al 8000 por loopback, con el token por stdin.',
+            'Corta si no responde 200.',
             'Vuelca cada dato en la consola con su nombre.',
         ],
     ),
@@ -487,15 +499,15 @@ DOCS: dict[str, CommandDoc] = {
 
     'systemd_action': CommandDoc(
         summary=(
-            'Manda una acción de systemd al servicio elegido del VPS: el del '
-            'repo, coturn o Caddy.'
+            'Manda una acción de systemd a la unidad elegida del VPS: una de las '
+            'que instaló canone, Caddy o coturn.'
         ),
         steps=[
             'Traduce el servicio elegido al nombre real de la unidad.',
             'Comprueba con systemctl cat que la unidad exista y corta si no '
             'está.',
-            'Corre por SSH sudo -n systemctl ACCIÓN UNIDAD; daemon-reload va sin '
-            'unidad.',
+            'Corre por SSH sudo -S systemctl ACCIÓN UNIDAD, con la contraseña de '
+            'la cuenta por stdin; daemon-reload va sin unidad.',
             'Vuelca la salida en la consola.',
         ],
     ),
@@ -509,7 +521,8 @@ DOCS: dict[str, CommandDoc] = {
             'Traduce el servicio elegido al nombre real de la unidad.',
             'Arma el journalctl con la cantidad de líneas, -f si es en vivo, y '
             'los filtros de fecha, prioridad y patrón que estén cargados.',
-            'Lo corre por SSH con sudo -n y vuelca la salida a medida que llega.',
+            'Lo corre por SSH con sudo -S, con la contraseña de la cuenta por '
+            'stdin, y vuelca la salida a medida que llega.',
         ],
     ),
 

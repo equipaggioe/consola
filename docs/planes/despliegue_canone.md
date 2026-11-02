@@ -1,6 +1,6 @@
 # Plan — desplegar con el mecanismo de canone
 
-> **Estado (verificado 2026-10-31).** Construidas las fases 0 a 2 (§6), salvo lo que espera otra
+> **Estado (verificado 2026-11-02).** Construidas las fases 0 a 2 (§6), salvo lo que espera otra
 > fase o una pregunta. Fase 0: el despliegue propio salió (tag `despliegue-propio`,
 > [ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md) a
 > [0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)). Fase 1: la configuración del §4
@@ -8,21 +8,22 @@
 > [0065](../adr/0065-cada-spa-va-en-la-raiz-de-su-host.md)) y «Vaciar VPS» salió
 > ([ADR-0062](../adr/0062-vaciar-vps-sale.md), *propuesta*). Fase 2: «Configurar VPS», «Instalar
 > paquetes base» y «Cargar credenciales»
-> ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)), **nunca
-> corridos contra un VPS**. Fase 3, del lado de Consola: «Publicar versión», «Desplegar versión» y
+> ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)), corridos
+> contra un VPS el 2026-11-02, sin la UI. Fase 3, del lado de Consola: «Publicar versión», «Desplegar versión» y
 > el último paso de «Configurar VPS»
 > ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)). «Publicar versión»
-> corrió contra GitHub el 2026-11-01: `equipaggio` tiene `v0.1.0` publicado y firmado. Lo que
-> despliega **nunca corrió contra un VPS**. La fase 3 cierra cuando `equipaggio` despliegue esa
-> versión (§6, P3 y P4). Lo que hay está en
+> corrió contra GitHub el 2026-11-01: `equipaggio` tiene `v0.1.0` publicado y firmado. El
+> 2026-11-02, «Configurar VPS» desplegó esa versión en el VPS de prueba de `equipaggio`: la API
+> responde por HTTPS, y la landing y el panel también (30, «Sin verificar»). Lo que hay está en
 > [13](../arquitectura/13_configuracion_y_persistencia.md) y
-> [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura.
+> [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura. Fase 4: los botones que
+> operan el VPS y «Ver eventos» ([ADR-0068](../adr/0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md)),
+> corridos contra un VPS el 2026-11-02, sin la UI.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
 > plan (sobre todo el §6 y el §8) y los ADR 0059 a 0067. `equipaggio` ya sigue la plantilla de
 > canone y tiene `v0.1.0` firmado con `vps_xs1` (fases 1 a 5 de su `desplegar_con_canone.md`).
-> Lo que sigue es su fase 6: un VPS de prueba donde «Configurar VPS» instale y despliegue ese
-> release, que prueba las fases 2 y 3 de aquí (30, «Sin verificar»); después, P3 y P4 en canone.
+> Lo que sigue son las fases 5 y 6 de este plan (§6), probadas contra ese VPS.
 >
 > Este plan sale de leer canone en `b405874` (revisado el 2026-10-31; las lecturas anteriores
 > fueron en `03bc3c8`, `24b0396`, `cc9a48d` y `2ed25d2`) y el código de Consola. De `2ed25d2` a
@@ -51,6 +52,9 @@
 > **Prioridad (decidido el 2026-10-31):** el objetivo de este plan es desplegar. Lo que no
 > despliega (los botones de base con ámbito remoto, «Compilar ejecutable», la plataforma web,
 > `sync_server_env`, borrar `scripts/`) es secundario y espera, sin bloquear las fases 2 y 3.
+>
+> **Objetivo (decidido el 2026-11-02):** que Consola trabaje de acuerdo a canone. Dejar `equipaggio`
+> en marcha no es el objetivo: es el repo con el que se prueba, y P3, P4 y su fase 7 esperan.
 >
 > Lo que fija canone está decidido en sus ADR. Lo demás que este plan dice sobre Consola es
 > *propuesta* hasta que se responda su pregunta en el §8.
@@ -251,8 +255,8 @@ una sola pieza web (`PIEZA`), y `equipaggio` tiene `panel/` y `landing/`. El pil
 plantilla de canone, con su `ci.yml` y su `release.yml`, antes de cerrar la fase 3; los demás
 repos lo siguen después.
 
-La fase 2 está construida y sin probar contra un VPS *(lo que no responde una pregunta es
-propuesta, sin confirmar)*:
+La fase 2 está construida y corrió contra un VPS el 2026-11-02, sin la UI *(lo que no responde
+una pregunta es propuesta, sin confirmar)*:
 
 | Pieza | Qué se hizo |
 |---|---|
@@ -272,8 +276,8 @@ catálogos, y un artefacto con `panel/` y `landing/` y sin instaladores de escri
 en verde, y el 2026-11-01 «Publicar versión», llamada sin la UI, creó `v0.1.0`, siguió
 `release.yml` y lo firmó con `vps_xs1`.
 
-La fase 3 está construida del lado de Consola, probada contra GitHub sin desplegar, y sin probar
-contra un VPS
+La fase 3 está construida del lado de Consola y corrió contra GitHub. `deploy.py` corrió contra
+un VPS desde «Configurar VPS»; falta «Desplegar versión» y desplegar una versión sobre otra
 ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md); lo que no responde una
 pregunta es propuesta):
 

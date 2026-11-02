@@ -1,8 +1,11 @@
 from __future__ import annotations
 
-from .. import ssh, vps
+import json
+
+from .. import canone, ssh, vps
 from ..errors import TaskError
 from ..registry import registry
+from .vps_setup import access
 
 """
 Grupo VPS - ops: diagnostico, un comando suelto y quitar la llave de esta
@@ -16,17 +19,42 @@ def _remote(ctx) -> ssh.Remote:
 
 # --- diagnostico -----------------------------------------------------------
 
-def health_check(ctx) -> dict[str, str]:
-    """Resumen de salud del VPS: servicio, disco, memoria, carga y errores recientes."""
-    remote = _remote(ctx)
-    servicio = vps.service_name(ctx.config)
-    resumen = vps.health(remote, servicio)
-    resumen['carga'] = ssh.capture(remote, "uptime | sed 's/.*load average: //'", check=False)
-    resumen['errores'] = ssh.capture(
-        remote, f'sudo -n journalctl -u {ssh.quote(servicio)} -p err -n 10 --no-pager', check=False)
+# Lo que responde un servidor sano (fastapi.md de canone, «Salud»).
+HEALTHY = '204'
+HEALTH_TOKEN = 'HEALTH_TOKEN'
 
+
+def health_check(ctx) -> dict[str, str]:
+    """Resumen de salud del VPS, los errores recientes del servidor y `GET /api/health`.
+
+    `access` corta si no se entra: lo demas ya sabe que hay maquina. Falla al
+    final, y no en cuanto la API no contesta, porque el resumen y los errores son
+    justo lo que hace falta leer para saber por que.
+    """
+    entrada = access(ctx)
+    servicio = vps.resolve_service(canone.origin(ctx.root)[1])
+    resumen = vps.health(entrada.remote, servicio)
     for clave, valor in resumen.items():
         ctx.info(f'{clave}: {valor or "(sin datos)"}')
+    entrada.run(ctx, vps.journal_command(servicio, lines=10, priority='err'))
+    if resumen['api'] != HEALTHY:
+        raise TaskError(f'GET /api/health respondió {resumen["api"] or "nada"}, no {HEALTHY}.')
+    return resumen
+
+
+def view_events(ctx) -> dict[str, str]:
+    """`GET /api/health/events`: los ultimos eventos, el ultimo respaldo y el disco.
+
+    Solo los muestra: canone deja a quien consulta decidir cuando avisar.
+    """
+    token = ctx.config.require(HEALTH_TOKEN)
+    ctx.guard(token)
+    estado, cuerpo = vps.server_get(_remote(ctx), '/api/health/events', token)
+    if estado != '200':
+        raise TaskError(f'GET /api/health/events respondió {estado or "nada"}.')
+    resumen = canone.events_summary(json.loads(cuerpo))
+    for clave, valor in resumen.items():
+        ctx.info(f'{clave}: {valor}')
     return resumen
 
 
@@ -69,5 +97,6 @@ def revoke_ssh_key(ctx, *, remote_side: bool = True, local_side: bool = True) ->
 
 def bind_all() -> None:
     registry.bind('health_check', health_check)
+    registry.bind('view_events', view_events)
     registry.bind('run_command', run_command)
     registry.bind('revoke_ssh', revoke_ssh_key)

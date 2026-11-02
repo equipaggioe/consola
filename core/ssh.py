@@ -103,9 +103,13 @@ def quote(value: str) -> str:
 
 
 def capture(remote: Remote, command: str, *, timeout: float | None = 30.0,
-            check: bool = True) -> str:
-    """Consulta corta por SSH. Devuelve stdout; no toca el log."""
-    return process.capture(remote.argv(command, extra=BATCH), timeout=timeout, check=check)
+            check: bool = True, stdin_text: str | None = None) -> str:
+    """Consulta corta por SSH. Devuelve stdout; no toca el log.
+
+    `stdin_text` llega a la entrada del comando remoto.
+    """
+    argv = remote.argv(command, stdin=stdin_text is not None, extra=BATCH)
+    return process.capture(argv, timeout=timeout, check=check, stdin_text=stdin_text)
 
 
 def run(ctx, remote: Remote, command: str, *, check: bool = True,

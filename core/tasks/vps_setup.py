@@ -87,12 +87,12 @@ def access(ctx) -> Access:
 def _upload(ctx, entrada: Access) -> str:
     """Sube `plantilla/infra/` de canone a una carpeta temporal y devuelve su ruta."""
     infra = canone.infra_dir(ctx.config)
-    ssh.capture(entrada.remote, f'rm -rf {REMOTE_DIR}')
+    entrada.run(ctx, f'rm -rf {REMOTE_DIR}')
     return ssh.upload(ctx, entrada.remote, infra, f'{REMOTE_DIR}/{infra.name}')
 
 
-def _cleanup(entrada: Access) -> None:
-    ssh.capture(entrada.remote, f'rm -rf {REMOTE_DIR}', check=False)
+def _cleanup(ctx, entrada: Access) -> None:
+    entrada.run(ctx, f'rm -rf {REMOTE_DIR}', check=False)
 
 
 # --- atomicas --------------------------------------------------------------
@@ -126,7 +126,7 @@ def install_software(ctx) -> list[str]:
     try:
         entrada.run(ctx, f'python3 {destino}/uv.py')
     finally:
-        _cleanup(entrada)
+        _cleanup(ctx, entrada)
     ctx.ok(f'Paquetes y uv listos: {", ".join(paquetes)}')
     return paquetes
 
@@ -183,7 +183,8 @@ def install_infra(ctx) -> None:
         else:
             entrada.run(ctx, comando)
     finally:
-        _cleanup(entrada)
+        # `install.py` deja a root sin entrada: limpia la cuenta que queda.
+        _cleanup(ctx, access(ctx))
     ctx.ok(f'{app} instalado en {entrada.remote.host}.')
 
 
@@ -207,7 +208,7 @@ def load_credentials(ctx) -> None:
     try:
         entrada.run(ctx, f'python3 {destino}/credentials.py {ssh.quote(app)}', text=lineas)
     finally:
-        _cleanup(entrada)
+        _cleanup(ctx, entrada)
     ctx.ok(f'{len(lineas.splitlines())} credenciales cargadas.')
 
 

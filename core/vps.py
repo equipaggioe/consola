@@ -1,10 +1,8 @@
 from __future__ import annotations
 
-import re
-
-from .envfile import Config, split_list
+from .envfile import Config
 from .errors import TaskError
-from .ssh import Remote, capture, quote, reachable, run, succeeds
+from .ssh import Remote, capture, quote, reachable, succeeds
 
 SUDO = 'sudo -n'
 
@@ -45,149 +43,58 @@ def remote_python(config: Config) -> str:
 
 
 # --- systemd ---------------------------------------------------------------
-
-def service_name(config: Config) -> str:
-    """La unidad del repo cuando declara una sola. Es el nombre historico."""
-    return repo_name(config)
-
-
-# --- los servicios del repo ------------------------------------------------
 #
-# Un repo puede tener mas de un proceso largo: una API y un enviador de avisos,
-# un servidor y un consumidor de cola. Para systemd son dos unidades y no hay
-# nada que las distinga salvo su comando, asi que la tabla tiene filas
-# «<sufijo> <tipo> <destino>», donde el tipo dice como se arma el comando.
-#
-# Tabla vacia = un solo servicio, llamado como el repo y corriendo `UVICORN_APP`.
-# Es exactamente lo que habia antes de que la tabla existiera.
+# Las unidades de un VPS las instala `install.py` de canone: el repo no declara
+# ninguna, y se llaman por su `<app>` (ADR-0068). Las de un paquete tienen nombre
+# fijo. Reiniciarlas o leerles el journal no pide botones nuevos: pide que los
+# que ya existen sepan a cual apuntar.
 
-SERVICE_KINDS = ('uvicorn', 'python', 'command')
-_SUFFIX = re.compile(r'^[a-z0-9]([a-z0-9-]*[a-z0-9])?$')
-
-
-class Service:
-    """Una fila de `SERVICES` ya interpretada."""
-
-    __slots__ = ('suffix', 'kind', 'target')
-
-    def __init__(self, suffix: str, kind: str, target: str):
-        self.suffix, self.kind, self.target = suffix, kind, target
-
-
-def parse_services(lineas: list[str]) -> list[Service]:
-    """Interpreta la tabla. Sin efectos, para poder probarla sin un VPS.
-
-    Corta en la primera fila que no entiende, por el mismo motivo que
-    `parse_routes`: un servicio que se ignora en silencio no falla al escribir,
-    falla cuando alguien busca por que no corre nada.
-    """
-    servicios: list[Service] = []
-    for linea in lineas:
-        sufijo, _, resto = linea.strip().partition(' ')
-        tipo, _, destino = resto.strip().partition(' ')
-        destino = destino.strip()
-        if not tipo or not destino:
-            raise TaskError(f'Servicio mal formado: «{linea}». Va «<sufijo> <tipo> <destino>».')
-        if not _SUFFIX.match(sufijo):
-            raise TaskError(f'«{sufijo}» no sirve como sufijo de unidad: minusculas, numeros '
-                            'y guiones, como «api» o «push».')
-        if tipo not in SERVICE_KINDS:
-            raise TaskError(f'Tipo desconocido «{tipo}» en «{linea}». Los tipos son: '
-                            'uvicorn <app>, python <argumentos>, command <linea entera>.')
-        servicios.append(Service(sufijo, tipo, destino))
-    if len({s.suffix for s in servicios}) != len(servicios):
-        raise TaskError('Hay dos servicios con el mismo sufijo: cada uno es una unidad '
-                        'distinta y no pueden llamarse igual.')
-    return servicios
+MAIN_SERVICE = 'server'
+_APP_UNITS = {
+    MAIN_SERVICE: '{app}',
+    'valkey': 'valkey-server@{app}',
+    'sweep': '{app}-sweep',
+    'purge': '{app}-purge',
+    'dump': '{app}-dump',
+    'backup': '{app}-backup',
+}
+PACKAGE_SERVICES = ('caddy', 'coturn')
+SERVICE_LABELS = {
+    MAIN_SERVICE: 'Servidor',
+    'valkey': 'Valkey',
+    'sweep': 'Barrido',
+    'purge': 'Purga',
+    'dump': 'Volcado',
+    'backup': 'Respaldo',
+    'caddy': 'Caddy',
+    'coturn': 'Coturn',
+}
 
 
-def services(config: Config) -> list[Service]:
-    """Los servicios del repo. Sin tabla, el unico de siempre."""
-    tabla = parse_services(split_list(config.get('SERVICES')))
-    if tabla:
-        return tabla
-    return [Service('', 'uvicorn', config.get('UVICORN_APP') or 'app.main:app')]
-
-
-def unit_name(config: Config, service: Service) -> str:
-    """`<repo>` cuando el repo declara uno solo, `<repo>-<sufijo>` cuando declara varios.
-
-    El nombre sin sufijo es el que ya existe en los VPS desplegados: un repo que
-    nunca declaro la tabla no tiene que ver su unidad renombrada por un cambio
-    de Consola.
-    """
-    base = service_name(config)
-    return f'{base}-{service.suffix}' if service.suffix else base
-
-
-# Los servicios systemd que Consola administra en el VPS. `proyecto` es el
-# unico cuyo nombre sale del repo abierto; los otros dos son paquetes con
-# nombre fijo. Reiniciarlos o leerles el journal no pide botones nuevos: pide
-# que los que ya existen sepan a cual apuntar.
-PACKAGE_SERVICES = ('coturn', 'caddy')
-PACKAGE_LABELS = {'coturn': 'Coturn', 'caddy': 'Caddy'}
-# El valor historico del eje: "el servicio del repo", cuando el repo tiene uno
-# solo. Se sigue aceptando porque es el default de `systemd_action` y
-# `view_logs`, y porque un repo sin tabla no tiene otro nombre.
-MAIN_SERVICE = 'proyecto'
-
-
-def managed_services(config: Config) -> list[str]:
-    """Los valores del eje `service` de ESTE repo.
-
-    Los del repo primero —uno por fila de `SERVICES`, o `proyecto` si no hay
-    tabla— y despues los dos paquetes.
-    """
-    try:
-        propios = [s.suffix or MAIN_SERVICE for s in services(config)]
-    except TaskError:
-        propios = [MAIN_SERVICE]
-    return propios + list(PACKAGE_SERVICES)
-
-
-def service_labels(config: Config) -> dict[str, str]:
-    """Como se llama cada valor del eje en la interfaz."""
-    etiquetas = dict(PACKAGE_LABELS)
-    try:
-        tabla = services(config)
-    except TaskError:
-        tabla = []
-    for servicio in tabla:
-        if servicio.suffix:
-            etiquetas[servicio.suffix] = servicio.suffix.replace('-', ' ').capitalize()
-    etiquetas.setdefault(MAIN_SERVICE, 'Servidor')
-    return etiquetas
-
-
-def resolve_service(config: Config, which: str = MAIN_SERVICE) -> str:
+def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
     """El nombre real de la unidad detras del valor del eje `service`."""
     if which in PACKAGE_SERVICES:
         return which
-    tabla = services(config)
-    if not which or which == MAIN_SERVICE:
-        # Sin tabla es el unico que hay; con tabla, el primero que se declaro.
-        return unit_name(config, tabla[0])
-    for servicio in tabla:
-        if servicio.suffix == which:
-            return unit_name(config, servicio)
-    raise TaskError(f'Servicio desconocido: {which}')
+    if which not in _APP_UNITS:
+        raise TaskError(f'Servicio desconocido: {which}')
+    return _APP_UNITS[which].format(app=app)
 
 
-def installed_services(remote: Remote, config: Config) -> list[str]:
+def installed_services(remote: Remote, app: str) -> list[str]:
     """Cuales de los servicios del eje existen en ESTE VPS, en una sola consulta.
 
-    El eje de `systemd_action` ofrecia los tres siempre, y en un VPS sin coturn
-    elegirlo terminaba en un error que se podia haber evitado antes de apretar.
-    Preguntar es una vuelta de SSH, asi que se pregunta por los tres juntos y el
-    resultado se cachea (`core/catalog.py`), no una consulta por servicio.
+    Ofrecerlos todos siempre era ofrecer reiniciar un coturn que no esta
+    instalado, y terminar en un error que se podia haber evitado antes de
+    apretar. Preguntar es una vuelta de SSH, asi que se pregunta por todos juntos
+    y el resultado se cachea (`core/catalog.py`), no una consulta por servicio.
 
     Devuelve la lista entera si no se puede preguntar: un VPS todavia sin llave
     o apagado no deberia dejar el boton sin valores que ofrecer.
     """
-    ejes = managed_services(config)
-    nombres = {resolve_service(config, s): s for s in ejes}
+    ejes = [*_APP_UNITS, *PACKAGE_SERVICES]
+    nombres = {resolve_service(app, s): s for s in ejes}
     if not reachable(remote):
-        return list(ejes)
+        return ejes
     lista = ' '.join(quote(n) for n in nombres)
     salida = capture(
         remote, f'for s in {lista}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done',
@@ -216,13 +123,13 @@ def service_state(remote: Remote, service: str) -> str:
     return capture(remote, f'systemctl is-active {quote(service)}', check=False).strip() or 'inactive'
 
 
-def systemctl(ctx, remote: Remote, action: str, service: str, *, check: bool = True) -> int:
-    """Una accion de systemd sobre un servicio del VPS."""
+def systemctl_command(action: str, service: str) -> str:
+    """Una accion de systemd sobre un servicio del VPS, sin `sudo`."""
     if action not in ALL_ACTIONS:
         raise TaskError(f'Accion de systemd desconocida: {action}')
     if action == 'daemon-reload':
-        return run(ctx, remote, f'{SUDO} systemctl daemon-reload', check=check)
-    return run(ctx, remote, f'{SUDO} systemctl {action} {quote(service)}', check=check)
+        return 'systemctl daemon-reload'
+    return f'systemctl {action} {quote(service)}'
 
 
 BUTTON_ACTIONS = ('start', 'stop', 'restart', 'status')
@@ -239,12 +146,12 @@ def journal_command(
     priority: str = '',
     grep: str = '',
 ) -> str:
-    """Comando de `journalctl` con los filtros de la capacidad Ver logs.
+    """Comando de `journalctl` con los filtros de la capacidad Ver logs, sin `sudo`.
 
     Es hermana de `systemctl`, no un valor suyo: los filtros no tienen sentido
     para start/stop y `logs` dejo de ser una accion de systemd (ADR-0023).
     """
-    parts = [f'{SUDO} journalctl -u {quote(service)}', f'-n {int(lines)}']
+    parts = [f'journalctl -u {quote(service)}', f'-n {int(lines)}']
     if follow:
         parts.append('-f')
     if since:
@@ -267,20 +174,34 @@ def postgres_port(remote: Remote) -> int:
     return int(raw)
 
 
-def health(remote: Remote, service: str) -> dict[str, str]:
-    """Resumen de un vistazo para el chequeo de salud: acceso, servicio, disco y memoria.
+# Un GET al servidor por loopback, donde escucha siempre (ADR-0077 de canone). Va
+# en Python porque es lo unico que `install.py` asegura: curl no esta entre los
+# paquetes de la maquina. El token entra por stdin para no quedar en `ps`.
+_SERVER_GET = (
+    "import http.client, sys; "
+    "c = http.client.HTTPConnection('127.0.0.1', 8000, timeout=10); "
+    "token = sys.stdin.readline().strip(); "
+    "c.request('GET', sys.argv[1], headers={'Authorization': 'Bearer ' + token}); "
+    "r = c.getresponse(); print(r.status); print(r.read().decode())"
+)
 
-    `acceso` va primero y corta. Las otras cuatro consultas usan `check=False`,
-    asi que con el SSH caido devolvian vacio y `service_state` caia en 'missing':
-    el resumen anunciaba un servidor destruido cuando la verdad era que no se
-    llegaba a la maquina, y mandaba a arreglar lo que no estaba roto.
-    """
-    if not reachable(remote):
-        return {'acceso': f'SIN ACCESO SSH a {remote.target}'}
+
+def server_get(remote: Remote, path: str, token: str = '') -> tuple[str, str]:
+    """`GET <path>` del servidor: su estado y su cuerpo. Sin respuesta, el estado va vacio."""
+    salida = capture(remote, f'python3 -c {quote(_SERVER_GET)} {quote(path)}',
+                     check=False, stdin_text=f'{token}\n')
+    estado, _, cuerpo = salida.partition('\n')
+    return estado, cuerpo
+
+
+def health(remote: Remote, service: str) -> dict[str, str]:
+    """Resumen de un vistazo para el chequeo de salud: servicio, API, disco y memoria."""
     return {
         'acceso': f'ok ({remote.target})',
         'servicio': service_state(remote, service),
+        'api': server_get(remote, '/api/health')[0],
         'uptime': capture(remote, 'uptime -p', check=False),
+        'carga': capture(remote, "uptime | sed 's/.*load average: //'", check=False),
         'disco': capture(remote, "df -h / | awk 'NR==2 {print $5\" usado de \"$2}'", check=False),
         'memoria': capture(remote, "free -h | awk 'NR==2 {print $3\" / \"$2}'", check=False),
     }

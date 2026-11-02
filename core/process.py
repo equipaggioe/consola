@@ -209,6 +209,7 @@ def capture(
     env: dict[str, str] | None = None,
     timeout: float | None = None,
     check: bool = True,
+    stdin_text: str | None = None,
 ) -> str:
     """Corre un proceso y devuelve su salida. Para consultas cortas, no para builds.
 
@@ -217,13 +218,15 @@ def capture(
     nota, pero corriendo dentro de la GUI ese handle heredado deja a `ssh` (que
     reenvia stdin al comando remoto) esperando un EOF que no llega, y la consulta
     se cuelga hasta el timeout aunque el comando remoto ya haya terminado.
+    `stdin_text` es lo que la consulta lee, y la entrada se cierra despues.
     """
+    entrada = {'stdin': subprocess.DEVNULL} if stdin_text is None else {'input': stdin_text}
     try:
         result = subprocess.run(
             [str(a) for a in argv],
             cwd=str(cwd) if cwd else None,
             env={**os.environ, **env} if env else None,
-            stdin=subprocess.DEVNULL,
+            **entrada,
             capture_output=True,
             text=True,
             encoding='utf-8',

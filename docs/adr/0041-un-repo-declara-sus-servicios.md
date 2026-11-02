@@ -1,6 +1,6 @@
 # ADR-0041 · Un repo declara sus servicios en una tabla; uno solo es el caso de una fila
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0068](0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/vps.py, core/settings.py, core/tasks/vps_server.py, core/tasks/vps_ops.py, core/catalog.py
 

@@ -40,10 +40,10 @@ _SCOPE_AXIS = lambda: AxisDef('scope', ['local', 'remoto'], 'scope', labels=_SCO
 # ellos es un nombre.
 #
 # Los valores no se enumeran: salen de preguntarle al VPS de ESTE repo cuales de
-# los tres existen (`VPS_SERVICES`). Ofrecer los tres siempre era ofrecer
-# reiniciar un coturn que no esta instalado, y enterarse recien al apretar.
+# las unidades de canone existen (`VPS_SERVICES`). Ofrecerlas todas siempre era
+# ofrecer reiniciar un coturn que no esta instalado, y enterarse recien al apretar.
 _SERVICE_AXIS = lambda: AxisDef('service', [], 'scope', label='Servicio',
-                                default='proyecto', source=VPS_SERVICES)
+                                default=vps.MAIN_SERVICE, source=VPS_SERVICES)
 
 # `host` es del uvicorn que se levanta en ESTA maquina: escuchar en todas las
 # interfaces (para probar desde el telefono) o solo en loopback. Los valores son
@@ -163,7 +163,7 @@ def queried_values(source: str, *, refresh: bool = False,
     escondería un error del repo que hay que arreglar.
     """
     if source == VPS_SERVICES:
-        return _vps_services(config, refresh=refresh)
+        return _vps_services(config, root, refresh=refresh)
     if source == BACKUP_FILES:
         return _backup_files(config, root)
     if source == RELEASES:
@@ -210,27 +210,28 @@ def _image_labels(imagenes: list) -> dict[str, str]:
     return {**{i.package: i.label for i in imagenes}, **android.facet_labels(imagenes)}
 
 
-def _vps_services(config: Config | None, *, refresh: bool = False) -> tuple[list[str], dict[str, str]]:
+def _vps_services(config: Config | None, root: Path | str | None, *, refresh: bool = False) -> tuple[list[str], dict[str, str]]:
     """Los servicios que existen en el VPS de ESTE repo.
 
-    Sin configuracion no hay a quien preguntarle, y devolver los tres seria
+    Sin configuracion no hay a quien preguntarle, y devolverlos todos seria
     ofrecer coturn en un repo que todavia no tiene ni IP: el eje queda vacio y
     el panel lo dice, igual que cuando no hay AVD creados.
 
     La cache es por host y no global: dos repos abiertos son casi siempre dos
     VPS, y compartir la respuesta le mostraria a uno los servicios del otro.
     """
-    if config is None or not config.get('VPS_IP'):
+    if config is None or root is None or not config.get('VPS_IP'):
         return [], {}
     try:
         remote = ssh.resolve_remote(config)
+        _, app = canone.origin(Path(root))
         clave = ''.join(c if c.isalnum() else '-' for c in remote.target)
-        valores = cache.cached(f'vps-services-{clave}',
-                               lambda: vps.installed_services(remote, config),
+        valores = cache.cached(f'vps-units-{clave}',
+                               lambda: vps.installed_services(remote, app),
                                max_age=_FRESCO, refresh=refresh)
     except TaskError:
         return [], {}
-    return list(valores), vps.service_labels(config)
+    return list(valores), vps.SERVICE_LABELS
 
 
 def _backup_files(config: Config | None, root: Path | str | None) -> tuple[list[str], dict[str, str]]:
@@ -899,6 +900,7 @@ def load_catalog() -> None:
     registry.register(Capability(id='refresh_known_host', name='Refrescar known_hosts', group='VPS', kind='once', icon='🔄', description='Borra del known_hosts de esta máquina la huella vieja del VPS.', stub=True))
     registry.register(Capability(id='update_cloudflare', name='Actualizar Cloudflare', group='VPS', kind='once', icon='☁️', description='Apunta el registro DNS de Cloudflare a la IP pública actual.', stub=True))
     registry.register(Capability(id='health_check', name='Health check', cut=True, group='VPS', kind='once', icon='❤️', description='Comprueba que el VPS responde y el servicio está arriba.', stub=True))
+    registry.register(Capability(id='view_events', name='Ver eventos', group='VPS', kind='once', icon='📊', description='Muestra los últimos eventos, el último respaldo y el disco del servidor.', stub=True))
     registry.register(Capability(id='run_command', name='Ejecutar comando', group='VPS', kind='once', icon='💻', description='Corre un comando suelto en el VPS y trae su salida.', axes=[AxisDef('command', [''], 'field', label='Comando')], stub=True))
     registry.register(Capability(id='ssh_login', name='Abrir sesión SSH', group='VPS', kind='interactive', icon='🔑', description='Abre una sesión SSH interactiva contra el VPS del repo.', stub=True))
     registry.register(Capability(id='revoke_ssh', name='Quitar acceso SSH', group='VPS', kind='destructive', icon='🔓', description='Quita del VPS la clave pública con la que entra esta máquina.', steps=REVOKE_SSH_STEPS, stub=True))
