@@ -41,10 +41,12 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | Botón de Detener en la pestaña | — | — |
 | Capturas: marcos de dispositivo, y la landing leyendo el manifiesto (del repo) | [0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md) | [capturas.md](../planes/capturas.md) |
 | `build_binary` con eje `many` descubierto y `install_python_deps` | — | [apps-python.md](../planes/apps-python.md) |
+| Borrar `scripts/`, que es código viejo y se borra cuando el despliegue con canone funcione (pregunta 16 del plan). Falta hacerlo | — | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | «Instalar receptora» y «Pedir respaldo». Pendiente por decisión del 2026-11-02. **Hasta entonces, un VPS de canone no tiene respaldo:** el volcado corre solo cuando la receptora lo pide, y «Ver eventos» dice «último respaldo: ninguno» | [0059](../adr/0059-desplegar-con-los-programas-de-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 
 ### Sin decidir
 
+- **Los puntos sin confirmar del ADR-0068 y del ADR-0069.** Los eligió la implementación: que «Health check» marque error si la API no responde 204, que la salud y los eventos vayan por SSH con `python3`, los nombres del eje de servicios, cómo se reconoce un repo de canone, `credentials-migrate/` como el dueño, cortar si git no ignora la carpeta, el `.env` como entorno del backend y que un repo de canone no levante su backend contra el VPS.
 - **La base local de un repo de canone está dos veces.** `DATABASE_URL` para sus credenciales, y `DB_USER`, `DB_NAME` y `DB_PASSWORD`, que el panel sigue pidiendo en «Levantar backend» y «Correr migraciones» y que leen los demás botones de base ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)).
 - **«Configurar base de datos» crea un rol, no los dos de canone.** Comprobado el 2026-11-02: crea `DB_USER` como dueño de `DB_NAME`, y `credentials-migrate/` entra como `<rol>_owner`, que hay que crear a mano. Además, los botones de base van al PostgreSQL de `postgresql.conf` de la instalación (5434 aquí), y `DATABASE_URL` puede apuntar a otro (5440 en `equipaggio`).
 - **`credentials-migrate/` no está en `plantilla/.gitignore` de canone.** Un repo nuevo corta hasta agregarla.
@@ -72,6 +74,7 @@ Construido y nunca probado en condiciones reales:
 
 - **La primera instalación en una máquina recién creada, desde la ventana.** El 2026-11-02 se apretaron en la ventana de Consola, con clics simulados, «Configurar VPS» (sobre un VPS ya instalado), «Instalar paquetes base», «Cargar credenciales», «Control del servicio», «Ver logs del servicio», «Health check», «Ver eventos», «Ejecutar comando», «Desplegar versión», «Levantar backend» y «Correr migraciones». La primera corrida de `install.py` como root corrió sin la ventana, y la huella nueva se simuló olvidando la anterior. «Publicar versión» corrió por el panel, sin mostrar la ventana.
 - **«Abrir sesión SSH».** Abre una terminal externa, y no se probó.
+- **La comprobación de la raíz del panel en `caddy.sh` de canone.** Aquí no hay Caddy, así que corre por primera vez en `infra.yml` cuando se empuje canone. El arreglo del `Caddyfile` sí se comprobó en el VPS de prueba.
 - **«Actualizar Cloudflare» cuando tiene que cambiar el registro.** Corrió el 2026-11-02 con el registro ya correcto y con uno que no existe. La escritura nunca corrió, porque el permiso de Claude Code bloquea los cambios de DNS. Corre con `proxied=True`, que con dos niveles de subdominio dejaría sin certificado al proxy de Cloudflare *(sin confirmar)*.
 
 - **Consola en Linux**, entera ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)). Hay que correr `pytest` allá —las tres pruebas de `tests/test_host.py` marcadas `solo_posix` se saltan en Windows— y una pasada a mano: detener una tarea y una «App Python» que relanza al guardar, respaldar y restaurar contra la base local, «SSH Login», instalar los SDK y ver la fuente de la consola.

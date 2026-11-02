@@ -250,7 +250,7 @@ confirmar)*:
 | «Vaciar VPS» | Sin el paso de las unidades. En la fase 1 salió entero (ADR-0062) |
 | `sync_server_env` | Quedó hasta la fase 5, que lo sacó |
 | Claves de configuración | Salieron las que solo leían los botones que salen (ADR-0059). Las demás del §4 salen en la fase 1 |
-| `scripts/` | Se queda entera hasta que el despliegue con canone funcione; después se borra (pregunta 16) |
+| `scripts/` | Se queda entera hasta que el despliegue con canone funcione; después se borra (pregunta 16). El despliegue ya funciona, y falta borrarla |
 
 El repo piloto es `equipaggio`. Ningún repo con `server/` puede publicar hoy una versión
 (verificado el 2026-10-31): ninguno tiene `release.yml`, solo banditore, comande y concordia tienen
@@ -281,8 +281,8 @@ catálogos, y un artefacto con `panel/` y `landing/` y sin instaladores de escri
 en verde, y el 2026-11-01 «Publicar versión», llamada sin la UI, creó `v0.1.0`, siguió
 `release.yml` y lo firmó con `vps_xs1`.
 
-La fase 3 está construida del lado de Consola y corrió contra GitHub. `deploy.py` corrió contra
-un VPS desde «Configurar VPS»; falta «Desplegar versión» y desplegar una versión sobre otra
+La fase 3 está construida del lado de Consola y corrió contra GitHub y contra un VPS, también
+desplegando una versión sobre otra y en sus casos de fallo (15, §4b)
 ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md); lo que no responde una
 pregunta es propuesta):
 
