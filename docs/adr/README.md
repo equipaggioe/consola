@@ -77,3 +77,12 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0067](0067-publicar-version-sube-el-ultimo-tag-de-origin.md) | «Publicar versión» sube el último tag de origin, y «Desplegar versión» elige entre los releases firmados |
 | [0068](0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md) | El eje de servicios sale de las unidades de canone, y operarlas pide la contraseña de `sudo` |
 | [0069](0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md) | Un repo de canone corre en desarrollo con sus credenciales, escritas desde `config.env` |
+| [0070](0070-las-credenciales-del-dueno-van-dentro-de-credentials.md) | Las credenciales de desarrollo del dueño del esquema van en `credentials/migrate/` |
+| [0071](0071-las-extensiones-las-declara-el-repo-sin-valor-por-defecto.md) | Las extensiones de Postgres las declara el repo, sin valor por defecto |
+| [0072](0072-las-spa-usan-pnpm-y-la-plantilla-de-canone.md) | Las SPA corren con pnpm, y una nueva parte de la plantilla de canone |
+| [0073](0073-el-respaldo-no-se-arranca-desde-control-del-servicio.md) | El respaldo no se arranca desde «Control del servicio» |
+| [0074](0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | Lo que deja un cambio permanente en un VPS y ningún programa de canone hace va primero a canone |
+| [0075](0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | Consola sigue las convenciones de canone como cualquier repositorio |
+| [0076](0076-un-fallo-al-consultar-o-al-guardar-en-cache-se-dice.md) | Un fallo al consultar o al guardar en caché se dice, y no se esconde |
+| [0077](0077-el-eje-de-servicios-pregunta-al-vps-que-unidades-existen.md) | El eje de servicios le pregunta al VPS qué unidades existen |
+| [0078](0078-contra-un-vps-de-canone-la-base-no-se-migra-por-tunel.md) | Contra un VPS de canone la base no se migra por túnel, y el ámbito remoto espera a canone |

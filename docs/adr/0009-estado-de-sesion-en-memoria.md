@@ -1,6 +1,6 @@
 # ADR-0009 · Lo que una tarea le deja a otra vive en memoria, no en un archivo del repo
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. El punto 5, en un repo de canone, lo reemplaza el [ADR-0069](0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/session.py, core/ports.py
 

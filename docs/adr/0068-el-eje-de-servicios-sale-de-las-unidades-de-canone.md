@@ -1,6 +1,6 @@
 # ADR-0068 · El eje de servicios sale de las unidades de canone, y operarlas pide la contraseña de `sudo`
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada. El [ADR-0073](0073-el-respaldo-no-se-arranca-desde-control-del-servicio.md) quita `start` y `restart` de la unidad `backup` del punto 1
 - **Fecha:** 2026-11-02
 - **Alcance:** core/vps.py, core/settings.py, core/catalog.py, core/tasks/vps_server.py, core/tasks/vps_ops.py, core/process.py, core/ssh.py
 

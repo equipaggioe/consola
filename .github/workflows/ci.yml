@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  # ADR-0019: a vulnerability published after the last commit shows up too.
+  schedule:
+    - cron: "0 13 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  canone:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/checkout@v5
+        with:
+          repository: equipaggioe/canone
+          path: .canone
+      - run: python3 .canone/scripts/verificar.py --repo .
+
+  desktop:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: desktop
+    env:
+      QT_QPA_PLATFORM: offscreen
+    steps:
+      - uses: actions/checkout@v5
+      # Qt loads libEGL, which the runner image does not have.
+      - run: sudo apt-get update && sudo apt-get install -y libegl1
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version-file: desktop/pyproject.toml
+      - run: uv sync --locked
+      - run: uv run ruff format --check
+      - run: uv run ruff check
+      - run: uv run pyrefly check
+      - run: uv run deptry .
+      - run: |
+          uv export --locked --no-emit-project --format requirements.txt -o "$RUNNER_TEMP/req.txt"
+          uv run pip-audit --disable-pip --require-hashes -r "$RUNNER_TEMP/req.txt"
+      - run: uv run pytest
+        env:
+          PYTHONDEVMODE: "1"
+          PYTHONWARNDEFAULTENCODING: "1"

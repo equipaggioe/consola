@@ -1,6 +1,6 @@
 # ADR-0059 · Consola despliega con los programas de canone y no reimplementa el despliegue
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. El punto 6 lo reemplaza el [ADR-0065](0065-cada-spa-va-en-la-raiz-de-su-host.md), y lo que conservaba `scripts/` en el punto 1, el [ADR-0075](0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md)
 - **Fecha:** 2026-10-31
 - **Alcance:** todo el repositorio
 

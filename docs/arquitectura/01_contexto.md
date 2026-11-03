@@ -8,7 +8,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 
 | Principio | Cómo se ve en el código |
 |---|---|
-| Un botón ejecuta una función Python, no un script | Nada invoca `python scripts/x/y.py`; el único `subprocess` es a binarios externos reales (`git`, `gh`, `ssh`, `ssh-keygen`, `flutter`, `npm`, `adb`, `psql`, `pyinstaller`) |
+| Un botón ejecuta una función Python, no un script | Nada invoca `python scripts/x/y.py`; el único `subprocess` es a binarios externos reales (`git`, `gh`, `ssh`, `ssh-keygen`, `flutter`, `pnpm`, `adb`, `psql`, `pyinstaller`) |
 | La capacidad se declara y se implementa por separado | `core/catalog.py` declara la forma; `core/tasks/` le da cuerpo con `Registry.bind` ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)) |
 | Lo que varía es un eje del panel, no otro botón | `systemd_action` tiene nueve acciones y un eje; no hay nueve botones ([ADR-0004](../adr/0004-un-boton-por-capacidad.md)) |
 | La forma del repo decide qué se ofrece | Las apps, las SPA y el servidor salen de mirar las carpetas (`core/targets.py`); un repo sin migraciones no tiene el botón «Migrar» |
@@ -25,7 +25,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 
 | Restricción | Detalle |
 |---|---|
-| Lenguaje y GUI | Python, PySide6 ≥ 6.7 (`requirements.txt`) |
+| Lenguaje y GUI | Python 3.13 y PySide6, con uv (`desktop/pyproject.toml`) |
 | Base de datos | `psycopg[binary]` ≥ 3.2, solo para el explorador y sus consultas de introspección |
 | Sistemas | Windows y Linux (Debian/Ubuntu para Postgres y la terminal). Todo lo que difiere vive en `core/host.py`, una clase por sistema; nadie más pregunta `os.name` ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)). Nunca se corrió en Linux ([30](30_riesgos_y_pendientes.md)) |
 | VPS soportado | Debian 13, como lo fija canone (`core/canone.py`) |
@@ -45,7 +45,7 @@ flowchart LR
     C -- "git clone/push/fetch · gh release · gh run" --> GH[GitHub]
     C -- "registro A" --> CF[API de Cloudflare]
     C -- "sdkmanager · avdmanager · adb · emulator" --> SDK[SDK de Android]
-    C -- "flutter · flet · npm · pyinstaller · uvicorn" --> TOOLS[Cadenas de herramientas]
+    C -- "flutter · flet · pnpm · pyinstaller · uvicorn" --> TOOLS[Cadenas de herramientas]
     C <--> PGL[(Postgres local)]
 ```
 

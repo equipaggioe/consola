@@ -1,6 +1,6 @@
 # ADR-0016 · A la base del VPS se llega siempre por un túnel SSH, nunca por su IP pública
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. Lo del VPS lo reemplaza el [ADR-0078](0078-contra-un-vps-de-canone-la-base-no-se-migra-por-tunel.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/database.py, core/ssh.py
 

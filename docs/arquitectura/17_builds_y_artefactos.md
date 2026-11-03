@@ -5,7 +5,7 @@
 | Builder | Paso propio | Eje del objetivo |
 |---|---|---|
 | `build_flutter` | `flutter build` o `flet build`, una vez por plataforma marcada | `directory`: una app móvil |
-| `build_vite` | `npm install` + `npm run build` | `directories`: varias SPA, en bucle |
+| `build_vite` | `pnpm install` + `pnpm run build` | `directories`: varias SPA, en bucle |
 | `build_binary` | PyInstaller | Campos: punto de entrada y nombre |
 
 `build_flutter` y `build_vite` compilan y nada más: no suben la versión del manifiesto ni publican en el VPS ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). `build_binary` es el único que recorre la secuencia entera:
@@ -48,7 +48,7 @@ La URL de la API se inyecta por `--dart-define` desde la configuración, la mism
 
 ## 6. Cada SPA va en la raíz de su host
 
-`compile_spa` corre `npm run build` y no le deja nada adentro al repo, y `compile_flutter` no pasa ninguna base: en un VPS de canone cada pieza tiene su host (`app.<dominio>`, `panel.<dominio>`, la landing en el dominio), así que ninguna se publica bajo una ruta ([ADR-0065](../adr/0065-cada-spa-va-en-la-raiz-de-su-host.md)).
+`compile_spa` corre `pnpm run build` y no le deja nada adentro al repo, y `compile_flutter` no pasa ninguna base: en un VPS de canone cada pieza tiene su host (`app.<dominio>`, `panel.<dominio>`, la landing en el dominio), así que ninguna se publica bajo una ruta ([ADR-0065](../adr/0065-cada-spa-va-en-la-raiz-de-su-host.md)).
 
 ## 7. El binario
 
@@ -72,6 +72,6 @@ El checksum SHA-256 es propio de este builder: un ejecutable que alguien descarg
 
 ## 8. SPA nueva
 
-`create_spa` levanta el esqueleto con `sv create` —el generador oficial de Svelte: TypeScript, runas y adaptador estático— y escribe encima lo que falta para dejarla lista: UnoCSS y `ssr = false`.
+`create_spa` levanta el esqueleto con `sv@1.2.0 create`, en SvelteKit 3, con TypeScript, Prettier, ESLint y `adapter-static`. Encima copia `vite.config.ts`, con el `fallback` `200.html` que sirve Caddy, `uno.config.ts`, `.gitignore` y `.prettierrc` de `plantilla/sveltekit/` de `CANONE_DIR`; agrega el `ssr = false`; declara en `packageManager` el pnpm que corre, y formatea con Prettier. Después corre `scripts/tokens.py`, que genera `src/lib/colors.ts`; si el repo no lo tiene, copia antes ese archivo y `brand/tokens/` de la plantilla ([ADR-0072](../adr/0072-las-spa-usan-pnpm-y-la-plantilla-de-canone.md)).
 
 El nombre de la carpeta se pregunta al correr (`ctx.ask`), no se guarda: es distinto en cada corrida, así que como parámetro guardado la segunda arrancaba con el nombre de la primera — o sea, con una carpeta que ya existe.

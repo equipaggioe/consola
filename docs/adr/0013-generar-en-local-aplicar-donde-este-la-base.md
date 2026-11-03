@@ -1,6 +1,6 @@
 # ADR-0013 · Las migraciones se generan en esta máquina y se aplican del lado que diga el ámbito
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. Lo del VPS lo reemplaza el [ADR-0078](0078-contra-un-vps-de-canone-la-base-no-se-migra-por-tunel.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/tasks/database.py, core/runner.py, core/tasks/vps_server.py
 

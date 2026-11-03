@@ -1,6 +1,6 @@
 # ADR-0030 · Se cachea lo que una herramienta publica, nunca lo que cambia solo
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. El punto 6 lo reemplaza el [ADR-0076](0076-un-fallo-al-consultar-o-al-guardar-en-cache-se-dice.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/cache.py, core/catalog.py, core/android.py
 

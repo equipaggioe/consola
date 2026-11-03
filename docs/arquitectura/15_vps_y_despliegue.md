@@ -81,7 +81,7 @@ Lo que hace `deploy.py` en cada caso, comprobado el 2026-11-02 con versiones de 
 
 ## 5. Los servicios del VPS
 
-`systemd_action` y `view_logs` operan las unidades que instala `install.py`, más Caddy y coturn. Todas se reinician, se paran y se leen igual, así que `service` es **un eje**, no un botón por servicio ([ADR-0023](../adr/0023-los-servicios-son-un-eje.md), [ADR-0068](../adr/0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md)).
+`systemd_action` y `view_logs` operan las unidades que instala `install.py`, más Caddy y coturn. Todas se reinician, se paran y se leen igual, así que `service` es **un eje**, no un botón por servicio ([ADR-0077](../adr/0077-el-eje-de-servicios-pregunta-al-vps-que-unidades-existen.md), [ADR-0068](../adr/0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md)).
 
 | Valor del eje | Unidad |
 |---|---|
@@ -90,9 +90,11 @@ Lo que hace `deploy.py` en cada caso, comprobado el 2026-11-02 con versiones de 
 | `sweep`, `purge`, `dump`, `backup` | `<app>-<valor>` |
 | `caddy`, `coturn` | Con ese nombre |
 
-`<app>` sale de `git remote get-url origin`, y `vps.resolve_service` traduce el valor a la unidad. Los valores que se ofrecen no se enumeran: `vps.installed_services` pregunta cuáles existen en **este** VPS, en una sola consulta, y el resultado se cachea por host. Si no se puede preguntar los devuelve todos, para no dejar el botón sin nada que ofrecer.
+`<app>` sale de `git remote get-url origin`, y `vps.resolve_service` traduce el valor a la unidad. Los valores que se ofrecen no se enumeran: `vps.installed_services` pregunta cuáles existen en **este** VPS, en una sola consulta, y el resultado se cachea por host. Si no se puede preguntar, el panel muestra el motivo en lugar del eje y el botón queda bloqueado ([ADR-0076](../adr/0076-un-fallo-al-consultar-o-al-guardar-en-cache-se-dice.md)).
 
 `vps.unit_installed` pregunta con `systemctl cat`, que encuentra la unidad esté donde esté su archivo: las de un paquete apt viven en `/lib/systemd/system`.
+
+`start` y `restart` sobre `backup` cortan: el respaldo lo pide la receptora ([ADR-0073](../adr/0073-el-respaldo-no-se-arranca-desde-control-del-servicio.md)).
 
 Actuar sobre una unidad y leer su journal piden root: van por `vps_setup.Access`, con `sudo -S` y la contraseña por stdin (§1).
 
@@ -100,7 +102,7 @@ Actuar sobre una unidad y leer su journal piden root: van por `vps_setup.Access`
 
 No hay un botón que vacíe el VPS: desarmar uno es reinstalarlo desde el panel del proveedor ([ADR-0062](../adr/0062-vaciar-vps-sale.md)).
 
-`revoke_ssh` muestra la huella exacta que va a sacar antes de tocar nada: revocar la llave equivocada deja el servidor inalcanzable. Sus dos lados son desmarcables por separado.
+`revoke_ssh` muestra la huella exacta que va a sacar antes de tocar nada: revocar la llave equivocada deja el servidor inalcanzable. Sus dos lados son desmarcables por separado. Si no se puede sacar la llave del VPS —no entra, la línea no está o es la última—, corta y deja el par local.
 
 ## 7. Diagnóstico
 

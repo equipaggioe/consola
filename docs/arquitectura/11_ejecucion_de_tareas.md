@@ -73,9 +73,9 @@ Hace tres cosas de una vez: publica el endpoint en la sesión, emite la señal q
 
 ## 6. Cómo corre lo que se apretó
 
-`ui/tab_panel.py::_run` es el punto único: por acá pasan el botón Ejecutar y el ▶ del buscador. En orden:
+`ui/tab_panel.py::_run` es el punto único: por aquí pasan el botón Ejecutar y el ▶ del buscador. En orden:
 
-1. **Seguro.** `_guard_ok` clasifica la corrida con `core/protection.decide` ([14](14_seguro_de_destructivos.md)). Está acá y no en el panel porque este es el único camino común a las dos formas de ejecutar.
+1. **Seguro.** `_guard_ok` clasifica la corrida con `core/protection.decide` ([14](14_seguro_de_destructivos.md)). Está aquí y no en el panel porque este es el único camino común a las dos formas de ejecutar.
 2. **Concurrente.** Si la capacidad es `concurrent`, reparte sus pasos en pestañas y termina; no hay `func` que llamar.
 3. **Sin cuerpo.** Sin `func`, corre la simulación que reporta exactamente lo que correría.
 4. **Reparto.** Si es `live` y tiene `fanout`, una pestaña por valor marcado; el primero se queda en la pestaña desde la que se apretó, solo cambiando de nombre.

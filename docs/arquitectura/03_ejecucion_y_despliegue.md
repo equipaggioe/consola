@@ -3,8 +3,9 @@
 ## 1. Cómo se corre
 
 ```
-pip install -r requirements.txt
-python main.py
+cd desktop
+uv sync
+uv run python -m app.main
 ```
 
 No hay instalador ni empaquetado propio: Consola se ejecuta desde el repositorio. Puede empaquetarse a sí misma con su botón «Build binario», que deduce `main.py` en la raíz cuando el repo no tiene ninguna app Python que descubrir (`core/tasks/builders.py::resolve_entrypoint`).
@@ -58,7 +59,7 @@ Consola nunca escribe a nivel sistema en la máquina local: el PATH y las variab
 |---|---|
 | Abrir un repo y ver el catálogo | Nada más que Python y PySide6 |
 | Backend, seeders, migraciones locales | El venv del servidor del repo (`<SERVER_DIR>/.venv`) |
-| SPA | Node y `npm` |
+| SPA | Node y `pnpm` |
 | App móvil y builds | Flutter o Flet, y el SDK de Android para emular |
 | Binario | PyInstaller, preferido del venv de la app |
 | Todo lo del VPS | `ssh`/`scp` en el PATH y las claves `VPS_*` cargadas |

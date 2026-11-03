@@ -1,6 +1,6 @@
 # ADR-0065 · Cada SPA se compila para la raíz de su host, y la tabla de rutas públicas sale
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada. El `npm run build` del punto 2 y la config del punto 3 los reemplaza el [ADR-0072](0072-las-spa-usan-pnpm-y-la-plantilla-de-canone.md)
 - **Fecha:** 2026-10-31
 - **Alcance:** core/tasks/builders.py, core/vps.py, core/settings.py
 

@@ -12,7 +12,7 @@ flowchart TD
     BIND --> REG
     UI -- "TaskRunner (QThread)" --> T[core/tasks/<br/>niveles 1 y 2]
     T --> N0[core/ nivel 0<br/>plomería]
-    N0 --> EXT([binarios externos<br/>git · ssh · flutter · npm · adb · psql])
+    N0 --> EXT([binarios externos<br/>git · ssh · flutter · pnpm · adb · psql])
 ```
 
 | Nivel | Qué es | ¿Botón? | Dónde vive |
@@ -37,11 +37,11 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `registry.py` | `Registry`, `Capability`, `AxisDef`, `Facet`, `Step`, y el puente a los kwargs |
 | `catalog.py` | La declaración de las 54 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
 | `targets.py` | Qué subproyectos y qué características tiene el repo abierto |
-| `toolchain.py` | Ubicar `flutter`, `flet`, `npm`, `pyinstaller` y el Python de un venv; las plataformas de build |
+| `toolchain.py` | Ubicar `flutter`, `flet`, `pnpm`, `pyinstaller` y el Python de un venv; las plataformas de build |
 | `ssh.py` | `Remote`, ejecución remota con o sin stdin, `scp`, túneles, llaves |
 | `vps.py` | Rutas del repo desplegado, los servicios systemd y su journal |
 | `database.py` | Resolver la base local o la remota por túnel, y el canal de superusuario |
-| `runner.py` | Dónde corre el código del repo: el venv de acá o el del VPS |
+| `runner.py` | Dónde corre el código del repo: el venv de aquí o el del VPS |
 | `db_explorer.py` | Introspección de solo lectura sobre `pg_catalog` |
 | `db_models.py` | Los modelos del repo, importados con su propio Python, para comparar contra la base |
 | `versioning.py` | Leer y subir la versión de `pubspec.yaml`, `package.json` o `pyproject.toml` |
@@ -92,9 +92,6 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 | Persistencia | `params_store.py`, `project_store.py`, `section_visibility.py` | `.consola/params.json` del repo y `QSettings` de la máquina |
 | Apoyo | `theme.py`, `readiness.py`, `widgets/*` | Colores y tipografía, qué puede correr ya, controles propios |
 
-## 5. `scripts/`
-
-51 archivos Python (9 carpetas temáticas más `common.py`) que son **la especificación de comportamiento, no código que se ejecute**. Ningún módulo de `core/`, `ui/` o `main.py` los importa ni los invoca: se conservan para poder comparar contra el original lo que cada capacidad reimplementa ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
 
 ## 6. `camara/`
 

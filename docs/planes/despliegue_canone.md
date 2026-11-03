@@ -6,7 +6,7 @@
 > [0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)). Fase 1: la configuración del §4
 > ([ADR-0063](../adr/0063-las-lineas-de-config-env-se-clasifican-por-fuente.md) a
 > [0065](../adr/0065-cada-spa-va-en-la-raiz-de-su-host.md)) y «Vaciar VPS» salió
-> ([ADR-0062](../adr/0062-vaciar-vps-sale.md), *propuesta*). Fase 2: «Configurar VPS», «Instalar
+> ([ADR-0062](../adr/0062-vaciar-vps-sale.md)). Fase 2: «Configurar VPS», «Instalar
 > paquetes base» y «Cargar credenciales»
 > ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)), corridos
 > contra un VPS el 2026-11-02, sin la UI. Fase 3, del lado de Consola: «Publicar versión», «Desplegar versión» y
@@ -19,11 +19,11 @@
 > [15](../arquitectura/15_vps_y_despliegue.md); manda la arquitectura. Fase 4: los botones que
 > operan el VPS y «Ver eventos» ([ADR-0068](../adr/0068-el-eje-de-servicios-sale-de-las-unidades-de-canone.md)),
 > corridos contra un VPS el 2026-11-02, sin la UI. Fase 5: `backend` con `credentials/` y Alembic
-> con `credentials-migrate/` ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)),
+> con `credentials/migrate/` ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)),
 > corridos contra la base local de `equipaggio`; `sync_server_env` salió.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
-> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0067. `equipaggio` ya sigue la plantilla de
+> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0078. `equipaggio` ya sigue la plantilla de
 > canone y tiene `v0.1.0` firmado con `vps_xs1` (fases 1 a 5 de su `desplegar_con_canone.md`).
 > Lo que sigue es llevar los repos a la plantilla de canone (§6, «Lo que le falta a cada repo»).
 > «Publicar versión» desplegó `v0.1.1` encima de `v0.1.0` el 2026-11-02, y los casos de fallo de
@@ -38,9 +38,8 @@
 > (ADR-0110). Desde `24b0396` canone
 > commiteó los ADR 0088 a 0106; los que cambian este plan son el 0096 (coturn), el 0100 y 0101
 > (registros), el 0104 (firmantes), el 0105 (`credentials.py`) y el 0106 (`deploy.py` instalado).
-> `2ed25d2` suma `ca-certificates` a los paquetes de la máquina. El ADR-0107 saca a Consola de las
-> reglas de canone: canone fija sus programas por su interfaz, y cómo Consola junta y guarda sus
-> datos lo decide Consola. Nada se ejecutó desde Consola: los conflictos y los fallos marcados son
+> `2ed25d2` suma `ca-certificates` a los paquetes de la máquina. Según el ADR-0107, canone fija sus
+> programas por su interfaz, y cómo Consola junta y guarda sus datos lo decide Consola. Nada se ejecutó desde Consola: los conflictos y los fallos marcados son
 > **sin confirmar**.
 >
 > **Decidido el 2026-10-25:** corte limpio. Los botones del despliegue propio salen y no conviven
@@ -57,7 +56,7 @@
 > despliega (los botones de base con ámbito remoto, «Compilar ejecutable», la plataforma web,
 > `sync_server_env`, borrar `scripts/`) es secundario y espera, sin bloquear las fases 2 y 3.
 >
-> **Objetivo (decidido el 2026-11-02):** que Consola trabaje de acuerdo a canone. Dejar `equipaggio`
+> **Objetivo (decidido el 2026-11-02):** que Consola cumpla con canone (ADR-0075). Dejar `equipaggio`
 > en marcha no es el objetivo: es el repo con el que se prueba, y P3, P4 y su fase 7 esperan.
 >
 > **Decidido el 2026-11-02:** las fases 6 (receptora y respaldo) y 7 (`clean_vps`) quedan pendientes.
@@ -141,7 +140,7 @@ Las atómicas ocultas `upload_to_vps` y `bump_version` salen con los botones que
 | Instalar infraestructura | Casilla de **Configurar VPS** | Sube `canone/plantilla/infra/` y corre `install.py <app> <dominio> <memoria> --owner` con `--admin`, `--key` y `--signer` (dos de cada una, la primera vez), `--private`, `--desktop`, `--without`, `--allow`, `--extension`, `--turn`/`--turn-ip` y `--logs*` (los tres juntos, en cada corrida si la máquina ya envía). La primera vez entra como root con la llave `VPS_KEY_NAME` que se puso al crear el VPS, y pide dos veces la contraseña de la cuenta: Consola corre `ssh -tt` y escribe `SUDO_PASSWORD` solo cuando aparece «Password of» y después «Again», porque escrita antes la terminal remota la repite y queda en el log. Probado el 2026-10-31 con el `ssh.exe` de Windows, desde Python con stdin y stdout en tuberías, contra el sshd de Debian 13.7 en WSL y no en un VPS, con las dos llamadas a `getpass` de `create_admin`: escrita tras cada petición, la contraseña llega y no aparece en la salida (3 de 3 corridas); escrita antes, la salida la muestra dos veces, `getpass` la descarta y el programa queda esperando. Reemplaza a `setup_ssh_key.py` (pregunta 12). Reinstalar hace falta al agregar un instalable o pasar a privado (ADR-0106) |
 | Cargar credenciales | Botón y casilla de **Configurar VPS** | Sube `canone/plantilla/infra/credentials.py` (`install.py` no lo instala) y le pasa por stdin, con `sudo python3 credentials.py <app>`, una línea `campo=valor` por cada valor de `config.env` que es credencial, con `sudo`. No se cargan `database_url` ni `turn_secret`: los escribe `install.py` |
 | Instalar firmante | Parte de **Instalar infraestructura** | Los `--signer`: la pública de `VPS_KEY_NAME` y la de la llave guardada fuera, las mismas dos de `--key` (pregunta 11). `install.py` escribe `allowed_signers` solo para el espacio de nombres `deploy` |
-| Crear tag | Casilla de **Publicar versión** | Crea `vX.Y.Z`, lo empuja y espera `release.yml` (`gh run watch`) |
+| Crear tag | Casilla de **Publicar versión** | Crea `vX.Y.Z`, lo empuja y sigue `release.yml` con `gh run view` (ADR-0067) |
 | Firmar release | Casilla de **Publicar versión** | `gh release download -p "*.sha256"` → `ssh-keygen -Y sign -n deploy` con `VPS_KEY_NAME` → `gh release upload` del `.sig` |
 | Desplegar | Casilla de **Publicar versión** y botón **Desplegar versión** | `ssh … sudo python3 /usr/local/lib/<app>/deploy.py vX.Y.Z`. Lo instaló `install.py`: no se copia nada, ni la primera vez |
 
@@ -183,22 +182,22 @@ Construido en la fase 1 *(propuesta, sin confirmar en lo que no responde una pre
 | Clave | Estado |
 |---|---|
 | `SECRET_FILES`, `CSP`, `SERVICE_DIRS`, `BACKEND_HOST`, `BACKEND_PORT`, `CERT_FILE_PATH`, `KEY_FILE_PATH` | Salieron en la fase 0 |
-| `PUBLIC_ROUTES` | Salió, con `base.generated.js` y la comprobación del HTML (ADR-0065, *propuesta*) |
+| `PUBLIC_ROUTES` | Salió, con `base.generated.js` y la comprobación del HTML (ADR-0065) |
 | `GITHUB_KEY_TITLE` | Salió con «Vaciar VPS» |
 | `VPS_USER` | Sin default. `DB_USER` y `DB_NAME` pasan a salir del nombre del repo, que es lo que daban cuando `VPS_USER` estaba vacío |
 | `VPS_DEPLOY_DIR`, `VPS_PYTHON` | Quedan: las lee la subida de «Compilar ejecutable» (sin decidir) y el ámbito remoto de la base (pregunta 15) |
-| `SERVICES`, `UVICORN_APP`, `GIT_REPO_URL` | Quedan: dan los nombres del eje `service`, que la fase 4 cambia por los de canone |
+| `SERVICES`, `UVICORN_APP` | Salieron en la fase 4 (ADR-0068) |
+| `GIT_REPO_URL` | Queda: la lee `vps.repo_name`, para el ámbito remoto de la base y la subida de «Compilar ejecutable» |
 | `BUILD_OUT_WEB` | Queda (pregunta 17) |
 | `DOMAIN`, `VALKEY_MEMORY`, `PERMISSIONS_ALLOW`, `TURN`, `TURN_IP`, `LOGS_IP`, `PRIVATE`, `SUDO_PASSWORD` | Entraron, en el grupo VPS o GitHub. Las lee la fase 2 |
 | `RESTIC_PASSWORD`, `GITHUB_TOKEN` | En el grupo «Credenciales» |
 | Los campos de `Settings` | `core/fields.py` los lee con `ast` y el formulario los suma a «Credenciales» (ADR-0063) |
-| `OFFLINE_KEY`, `LOGS`, `LOGS_KEY` | Entraron como claves de la máquina (`scope='machine'`), porque son las mismas para todos los VPS (*propuesta*) |
+| `OFFLINE_KEY`, `LOGS`, `LOGS_KEY` | Entraron como claves de la máquina (`scope='machine'`), porque son las mismas para todos los VPS |
 | `--owner`, `--desktop`, `--without` | Hechos en la fase 2 (`core/canone.py`) |
 
 ## 5. Bloqueos en canone
 
-El `README.md` de canone dice que lo que una convención exige en una máquina, canone lo da como el
-programa que la deja así. Consola adopta además la regla (pregunta 14): lo que deja un cambio
+Consola adopta esta regla (pregunta 14, [ADR-0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md)): lo que deja un cambio
 permanente en el VPS y ningún programa de canone hace se agrega primero a canone. No alcanza a lo
 que corre en esta máquina (compilar, tag, firma), ni a correr lo que canone ya instaló (`deploy.py`,
 `credentials.py`, `systemctl`, logs, salud), ni a lo que canone deja expresamente a quien despliega,
@@ -215,9 +214,6 @@ Hallazgo de lectura en canone *(sin confirmar)*: `backup.sh` y `backup.ps1` llam
 `-i`, así que usan la llave por defecto de la receptora y no una con nombre como `VPS_KEY_NAME`.
 Con esta máquina como receptora (pregunta 9), **Instalar receptora** tiene que agregar la pública
 de esa llave por defecto, o canone tiene que sumar un `-i` a los dos scripts.
-
-El ADR-0107 corrigió en «Quién hace qué» del `README.md` el puerto, el dominio y la memoria, que
-figuraban entre los datos del repo.
 
 ## 6. Fases
 
@@ -250,7 +246,7 @@ confirmar)*:
 | «Vaciar VPS» | Sin el paso de las unidades. En la fase 1 salió entero (ADR-0062) |
 | `sync_server_env` | Quedó hasta la fase 5, que lo sacó |
 | Claves de configuración | Salieron las que solo leían los botones que salen (ADR-0059). Las demás del §4 salen en la fase 1 |
-| `scripts/` | Se queda entera hasta que el despliegue con canone funcione; después se borra (pregunta 16). El despliegue ya funciona, y falta borrarla |
+| `scripts/` | Salió (pregunta 16, ADR-0075) |
 
 El repo piloto es `equipaggio`. Ningún repo con `server/` puede publicar hoy una versión
 (verificado el 2026-10-31): ninguno tiene `release.yml`, solo banditore, comande y concordia tienen
@@ -291,7 +287,7 @@ pregunta es propuesta):
 | «Publicar versión» (`publish_release`) | Eje `part` (major, minor, patch) sobre el tag `v*` más alto de origin. Pasos: crear tag (corta con cambios sin commitear o commits sin empujar, empuja el tag y sigue `release.yml` con `gh run view` cada 15 s), firmar (`ssh-keygen -Y sign -n deploy` con `VPS_KEY_NAME`; no firma dos veces) y desplegar. Sin «Crear tag», toma el último release |
 | «Desplegar versión» (`deploy_version`) | Eje `version` con los releases publicados que tienen su `.sig` (`gh api`) |
 | «Configurar VPS» | Último paso: el release `latest`, si tiene firma; nada si `current` ya es ese |
-| `gh` | Hace falta GitHub CLI con `gh auth login`. Esta máquina no lo tiene (2026-10-31) |
+| `gh` | Hace falta GitHub CLI con `gh auth login` |
 
 Lo que impide desplegar `equipaggio` con canone, además de los workflows:
 
@@ -317,12 +313,12 @@ publicar una versión. Antes de apretar «Configurar VPS», cada uno necesita:
 |---|---|
 | Seguir la plantilla de canone, con `Settings` en `server/src/app/config.py`, su `ci.yml` y su `release.yml` | `python ../canone/scripts/verificar.py --repo .` no da incumplimientos y el CI está en verde |
 | Un solo proceso largo. Un repo con más necesita primero sus unidades en canone, como P3 de `equipaggio` | Lo que corre es `app.main:app` en el 8000 |
-| `credentials/` y `credentials-migrate/` en el `.gitignore` de `server/` | `git check-ignore`; si no, Consola corta |
+| `credentials/` en el `.gitignore` de `server/`, como trae la plantilla de canone | `git check-ignore`; si no, Consola corta |
 | Borrar `SERVICES` y `UVICORN_APP` de su `config.env`. Las tienen `banditore`, `cadenza`, `concordia`, `consola`, `navetta`, `presenze`, `pze` y `vettore` (visto el 2026-11-02) | «Cargar credenciales» corta con cualquier clave sin fuente |
-| En `config.env`: `VPS_IP`, `VPS_USER`, `VPS_KEY_NAME`, `DOMAIN`, `VALKEY_MEMORY`, `SUDO_PASSWORD` si no se quiere escribir cada vez, `RESTIC_PASSWORD`, los campos de `Settings` y, si es privado, `PRIVATE` y un `GITHUB_TOKEN` de solo lectura. En desarrollo, además, `DATABASE_URL` | El panel marca lo que falta |
+| En `config.env`: `VPS_IP`, `VPS_USER`, `VPS_KEY_NAME`, `DOMAIN`, `VALKEY_MEMORY`, `SUDO_PASSWORD` si no se quiere escribir cada vez, `RESTIC_PASSWORD`, `DB_EXTENSIONS` si la app usa una extensión, los campos de `Settings` y, si es privado, `PRIVATE` y un `GITHUB_TOKEN` de solo lectura. En desarrollo, además, `DATABASE_URL` | El panel marca lo que falta |
 | Un Debian 13 sin otro producto, con la llave de `VPS_KEY_NAME` en root y el DNS apuntando a él antes de instalar. El panel va en `panel.<dominio>` | «Health check» y «Ver eventos» |
 
-Una sola vez, en esta máquina: cambiar `OFFLINE_KEY` por una llave guardada fuera (hoy es de prueba) y
+Una sola vez, en esta máquina: instalar pnpm (`corepack enable pnpm`), que piden los botones de SPA, cambiar `OFFLINE_KEY` por una llave guardada fuera (hoy es de prueba) y
 empujar canone, porque el CI de cada repo lo compara con esa copia.
 
 `pze` declara «en producción» y usa `backend/`: queda fuera hasta que siga a canone (pregunta 1).
@@ -332,17 +328,13 @@ Cada fase actualiza en su commit los documentos del §7 que toca.
 ## 7. Documentación de Consola afectada
 
 La fase 0 reemplazó los ADR 0001, 0021 y 0022 con el 0059, el 0046 con el 0060 y el 0044 con el
-0061. La fase 1 escribió el 0062 («Vaciar VPS» sale) y el 0063 (pregunta 7), y reemplazó el 0017
+0061. Después, el 0023 con el 0077, y lo del VPS de los 0012, 0013 y 0016 con el 0078. La fase 1 escribió el 0062 («Vaciar VPS» sale) y el 0063 (pregunta 7), y reemplazó el 0017
 con el 0064 y los 0019, 0020 y 0040 con el 0065. Lo que sigue falta.
 
 | Qué | Cambio |
 |---|---|
-| ADR nuevo | La regla de la pregunta 14, con su alcance |
-| ADR-0013, 0016 | Reemplazar en lo del VPS: ahí no se migra por túnel |
-| ADR-0023 | Reemplazar: los servicios los fija canone |
 | ADR-0024 | Reemplazar: el manifiesto de release sale |
 | Arquitectura | Se reescriben 15 y 17; cambian 03 §5, 13 §9, 16, 20 y 30 |
-| [`rol_de_respaldo.md`](rol_de_respaldo.md) | El punto 8 del ADR-0078 lo deja sin objeto: Equipaggio ya no respalda las bases |
 
 ## 8. Preguntas abiertas
 

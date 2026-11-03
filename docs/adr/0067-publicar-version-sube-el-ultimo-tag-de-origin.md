@@ -14,10 +14,10 @@ canone despliega un tag `vX.Y.Z`: el `release.yml` del repo publica el artefacto
 2. **«Publicar versión» encadena crear el tag → esperar `release.yml` → firmar → desplegar**, con una casilla por paso. Se firma con `VPS_KEY_NAME`, la misma llave del primer `--signer` (ADR-0066).
 3. **«Desplegar versión» elige entre los releases publicados que traen su `<app>-<tag>.sha256.sig`**, consultados en GitHub con `gh api`.
 4. **El último paso de «Configurar VPS» despliega el último release publicado**, el que GitHub da como `latest`, si tiene su firma. Sin releases o sin firma, falla y dice qué falta. Si `/srv/<app>/current` ya es ese release, no hace nada.
-5. *(propuesta)* **Crear el tag corta si hay cambios sin commitear o commits que origin no tiene.** El CI construye el commit del tag en GitHub, no la carpeta de esta máquina.
-6. *(propuesta)* **Sin «Crear tag», «Publicar versión» firma y despliega el último release publicado**: retoma una publicación que cortó después del CI.
-7. *(propuesta)* **Un release que ya tiene su firma no se vuelve a firmar.**
-8. *(propuesta)* **La corrida de `release.yml` se sigue con `gh run view` cada 15 segundos**, y no con `gh run watch`, que redibuja la terminal. Si no termina bien, se muestra `gh run view --log-failed` y corta.
+5. **Crear el tag corta si hay cambios sin commitear o commits que origin no tiene.** El CI construye el commit del tag en GitHub, no la carpeta de esta máquina.
+6. **Sin «Crear tag», «Publicar versión» firma y despliega el último release publicado**: retoma una publicación que cortó después del CI.
+7. **Un release que ya tiene su firma no se vuelve a firmar.**
+8. **La corrida de `release.yml` se sigue con `gh run view` cada 15 segundos**, y no con `gh run watch`, que redibuja la terminal. Si no termina bien, se muestra `gh run view --log-failed` y corta.
 
 ## Consecuencias
 

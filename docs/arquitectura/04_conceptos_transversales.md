@@ -12,9 +12,9 @@ Nada de `core/` (fuera de `core/tasks/`) importa Qt, imprime a stdout, lee de st
 
 ## 2. El único `subprocess` es a un binario externo real o a un programa de canone
 
-`flutter`, `npm`, `git`, `ssh`, `scp`, `adb`, `emulator`, `sdkmanager`, `psql`, `pyinstaller`, `uvicorn`, o un programa de canone. Ninguna capacidad lanza otro script de Consola como proceso: si necesita lo que hace otra, la llama como función con `ctx.child(...)` ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
+`flutter`, `pnpm`, `git`, `ssh`, `scp`, `adb`, `emulator`, `sdkmanager`, `psql`, `pyinstaller`, `uvicorn`, o un programa de canone. Ninguna capacidad lanza otro script de Consola como proceso: si necesita lo que hace otra, la llama como función con `ctx.child(...)` ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
 
-La excepción declarada son los **payloads** (`core/tasks/payloads.py`): programas Python cortos que viajan por `-c` al intérprete del proyecto —el de acá o el del VPS— porque necesitan importar `app.` y `seeders.` del repo administrado. No se copia ningún archivo al otro lado.
+La excepción declarada son los **payloads** (`core/tasks/payloads.py`): programas Python cortos que viajan por `-c` al intérprete del proyecto —el de aquí o el del VPS— porque necesitan importar `app.` y `seeders.` del repo administrado. No se copia ningún archivo al otro lado.
 
 ## 3. El contrato de nombres
 

@@ -17,9 +17,9 @@ El aprovisionamiento propio de Consola creaba una cuenta con `sudo` sin contrase
 3. **Con la cuenta, todo lo que pide root va por `sudo -S`**, con la contraseña por stdin. Sale de `SUDO_PASSWORD` o se pide una vez por sesión y vive solo en memoria (`core/session.py`).
 4. **La primera corrida de `install.py` va por `ssh -tt`, y la contraseña se escribe recién cuando aparece cada pregunta** («Password of», «Again»): escrita antes, la terminal remota la repite en el log y `getpass` la descarta (`process.converse`).
 5. **Los argumentos de `install.py` salen de `config.env` y del repo** (`canone.install_args`): `--owner` y `<app>` de `git remote get-url origin`, `--desktop` de cada `desktop-<sistema>` del `release.yml`, `--without` de las carpetas `web/`, `panel/` y `landing/` que faltan, y las dos llaves —la de `VPS_KEY_NAME` y `OFFLINE_KEY`— como `--key` y `--signer`.
-6. *(propuesta)* **Los paquetes salen del repo, sin eje**: los de la máquina de canone, más PostGIS si `DB_EXTENSIONS` la nombra, coturn con `TURN` y lo del journal con `LOGS`.
-7. *(propuesta)* **El swap es un `/swapfile`** con lo que falta para igualar la memoria, en `/etc/fstab`.
-8. *(propuesta)* **Los programas se suben de la copia local de canone** (`CANONE_DIR`, de la máquina) a `/tmp/consola-canone`, que se borra al terminar.
+6. **Los paquetes salen del repo, sin eje**: los de la máquina de canone, más PostGIS si `DB_EXTENSIONS` la nombra, coturn con `TURN` y lo del journal con `LOGS`.
+7. **El swap es un `/swapfile`** con lo que falta para igualar la memoria, en `/etc/fstab`.
+8. **Los programas se suben de la copia local de canone** (`CANONE_DIR`, de la máquina) a `/tmp/consola-canone`, que se borra al terminar.
 9. **Sale «Crear usuario y acceso SSH» (`setup_ssh_key`)** con el `sudo` sin contraseña y la contraseña de root por `SSH_ASKPASS`.
 
 ## Consecuencias

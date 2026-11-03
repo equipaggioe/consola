@@ -1,0 +1,80 @@
+[project]
+name = "consola-desktop"
+version = "0.1.0"
+requires-python = "==3.13.*"
+dependencies = [
+  "pillow>=12.0",
+  "psycopg[binary]>=3.2",
+  "pyside6>=6.11",
+]
+
+[dependency-groups]
+dev = [
+  "deptry>=0.25",
+  "pip-audit>=2.10",
+  "pyrefly>=1.3",
+  "pytest>=9.1",
+  "pytest-qt>=4.5",
+  "ruff>=0.16",
+]
+deploy = [
+  "imageio>=2.38",
+  "nuitka[onefile]>=4.1",
+  "patchelf>=0.19; sys_platform == 'linux'",
+]
+
+[build-system]
+requires = ["uv_build>=0.12,<0.13"]
+build-backend = "uv_build"
+
+[tool.uv]
+python-preference = "only-system"
+required-version = "==0.13.5"
+
+[tool.uv.build-backend]
+module-name = "app"
+
+[tool.ruff]
+line-length = 99
+target-version = "py313"
+
+[tool.ruff.lint]
+select = [
+  "ASYNC2", "D", "DTZ", "E", "F", "G00", "I", "INP", "N", "PGH004", "PT", "PYI050", "PYI057",
+  "RUF006", "RUF036", "S306", "S323", "S324", "S501", "S502", "S503", "S612", "T20", "TID251",
+  "TID252", "UP006", "UP007", "UP009", "UP013", "UP019", "UP035", "UP040", "UP045", "UP046", "W",
+]
+ignore = ["E722", "N811", "N812", "N813", "N814", "N817", "N818"]
+
+[tool.ruff.lint.pycodestyle]
+max-doc-length = 72
+
+[tool.ruff.lint.pydocstyle]
+convention = "pep257"
+
+[tool.ruff.lint.flake8-tidy-imports]
+ban-relative-imports = "all"
+
+[tool.ruff.lint.flake8-tidy-imports.banned-api]
+"__feature__".msg = "Qt API keeps its original names"
+"httpx".msg = "HTTP goes through QNetworkAccessManager"
+"PySide6.QtUiTools".msg = "The interface is built in code"
+"requests".msg = "HTTP goes through QNetworkAccessManager"
+"urllib.request".msg = "HTTP goes through QNetworkAccessManager"
+
+[tool.pyrefly]
+preset = "strict"
+project-includes = ["src", "tests"]
+enabled-ignores = ["pyrefly"]
+
+[tool.pyrefly.errors]
+unannotated-return = "error"
+
+[tool.pytest.ini_options]
+addopts = ["--import-mode=importlib"]
+strict = true
+filterwarnings = ["error::EncodingWarning"]
+testpaths = ["tests"]
+
+[tool.deptry]
+known_first_party = ["app"]

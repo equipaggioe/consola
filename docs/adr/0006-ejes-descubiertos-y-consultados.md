@@ -1,6 +1,6 @@
 # ADR-0006 · Los valores de un eje pueden salir de mirar el repo o de preguntarle a una herramienta
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. El punto 6 lo reemplaza el [ADR-0076](0076-un-fallo-al-consultar-o-al-guardar-en-cache-se-dice.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/catalog.py, core/targets.py, ui/params_panel.py
 

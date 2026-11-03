@@ -1,6 +1,6 @@
 # ADR-0069 · Un repo de canone corre en desarrollo con sus credenciales, escritas desde `config.env`
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. La carpeta del punto 5 la reemplaza el [ADR-0070](0070-las-credenciales-del-dueno-van-dentro-de-credentials.md)
 - **Fecha:** 2026-11-02
 - **Alcance:** core/canone.py, core/runner.py, core/settings.py, core/targets.py, core/tasks/launchers.py, core/tasks/database.py, core/tasks/utils.py
 
@@ -13,12 +13,12 @@
 1. **El launcher `backend` escribe `<servidor>/credentials/`**, un archivo `app_<campo>` por campo de `Settings`, y arranca con `CREDENTIALS_DIRECTORY` apuntando ahí (pregunta 8 del plan de despliegue).
 2. **Los valores son los de `config.env`, los mismos de producción**, salvo `database_url`, que es `DATABASE_URL` de `config.env`, la base local. Un token firmado en local también vale en producción, y se acepta así (pregunta 8).
 3. **`sync_server_env` sale**, con `upsert_value`: no hay `.env` en el servidor que igualar. Reemplaza al [ADR-0037](0037-sincronizar-solo-las-claves-compartidas.md).
-4. *(propuesta)* **Lo reconoce por `Settings`:** un servidor con la clase en `src/app/config.py` es de canone. Los demás siguen recibiendo `DATABASE_URL`, hasta que sigan a canone.
-5. *(propuesta)* **Alembic corre con `<servidor>/credentials-migrate/`**: los mismos archivos, con `app_database_url` como `<rol>_owner`, el dueño del esquema de `install.py`. Vale para «Correr migraciones» y para generar una revisión.
-6. *(propuesta)* **Corta si git no ignora la carpeta**, antes de escribir un secreto.
-7. *(propuesta)* **El entorno del backend es el `.env` del servidor más `CREDENTIALS_DIRECTORY`**: de ahí sale, por ejemplo, `STATE_DIRECTORY`. Consola lo lee y no lo escribe.
-8. *(propuesta)* **Un repo de canone levanta su backend solo contra la base local:** sus roles no tienen contraseña en el VPS, y un túnel no tendría con qué autenticarse.
-9. *(propuesta)* **Consola descubre el servidor también en `src/app/main.py`.**
+4. **Lo reconoce por `Settings`:** un servidor con la clase en `src/app/config.py` es de canone. Los demás siguen recibiendo `DATABASE_URL`, hasta que sigan a canone.
+5. **Alembic corre con `<servidor>/credentials-migrate/`**: los mismos archivos, con `app_database_url` como `<rol>_owner`, el dueño del esquema de `install.py`. Vale para «Correr migraciones» y para generar una revisión.
+6. **Corta si git no ignora la carpeta**, antes de escribir un secreto.
+7. **El entorno del backend es el `.env` del servidor más `CREDENTIALS_DIRECTORY`**: de ahí sale, por ejemplo, `STATE_DIRECTORY`. Consola lo lee y no lo escribe.
+8. **Un repo de canone levanta su backend solo contra la base local:** sus roles no tienen contraseña en el VPS, y un túnel no tendría con qué autenticarse.
+9. **Consola descubre el servidor también en `src/app/main.py`.**
 
 ## Consecuencias
 

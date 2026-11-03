@@ -1,6 +1,6 @@
 # ADR-0039 · Nada se sobrescribe a ciegas: primero se muestra qué va a cambiar
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. Los puntos 1 y 2 quedan sin objeto: `vps.write_config` salió con el [ADR-0059](0059-desplegar-con-los-programas-de-canone.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/files.py, core/vps.py, core/tasks/utils.py, core/tasks/builders.py
 

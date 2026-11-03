@@ -1,0 +1,20 @@
+* text=auto eol=lf
+*.bat text eol=crlf
+
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.pdf binary
+*.woff binary
+*.woff2 binary
+*.ttf binary
+*.zip binary
+*.jar binary
+*.jks binary
+*.keystore binary
+
+uv.lock linguist-generated=true
+pnpm-lock.yaml linguist-generated=true
+pubspec.lock linguist-generated=true

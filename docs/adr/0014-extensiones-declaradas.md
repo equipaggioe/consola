@@ -1,6 +1,6 @@
 # ADR-0014 · Qué extensiones de Postgres necesita el esquema se declara; no sale de ningún catálogo
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0071](0071-las-extensiones-las-declara-el-repo-sin-valor-por-defecto.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/settings.py, core/tasks/database.py
 

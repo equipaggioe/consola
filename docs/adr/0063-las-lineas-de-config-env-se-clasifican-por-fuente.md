@@ -17,7 +17,7 @@ Con canone, `config.env` junta tres clases de datos que van a destinos distintos
 2. **Una clave que cae en dos fuentes corta**: un campo de `Settings` que se llame como una clave del registro no se sabría a quién mandarlo.
 3. **Los campos de `Settings` se ven en el formulario de Configuración**, en el grupo «Credenciales» con las dos de nombre fijo, y `config.env` los escribe en ese grupo.
 4. **Sin `config.py` no hay campos**: el repo no sigue la plantilla de canone. Con el archivo y sin la clase `Settings`, el formulario lo dice.
-5. *(propuesta)* **La llave pública guardada fuera (`OFFLINE_KEY`), `LOGS` y `LOGS_KEY` son de la máquina** (`scope='machine'`): son las mismas para todos los VPS.
+5. **La llave pública guardada fuera (`OFFLINE_KEY`), `LOGS` y `LOGS_KEY` son de la máquina** (`scope='machine'`): son las mismas para todos los VPS.
 
 ## Consecuencias
 

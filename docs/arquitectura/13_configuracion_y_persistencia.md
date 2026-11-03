@@ -111,6 +111,6 @@ Una caché ilegible es una caché vacía, nunca un error que corte una tarea. Al
 
 ## 9. El `.env` del servidor
 
-Consola **no escribe** el `.env` de la aplicación administrada. En un repo de canone escribe, en cambio, `<servidor>/credentials/` y `credentials-migrate/` desde `config.env`, y corta si git no las ignora ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)): `app_<campo>` por campo de `Settings`, con los valores de producción salvo `database_url`, que es `DATABASE_URL`, como `<rol>_owner` en `credentials-migrate/`. El launcher `backend` lee el `.env` para su entorno.
+Consola **no escribe** el `.env` de la aplicación administrada. En un repo de canone escribe, en cambio, `<servidor>/credentials/` y `credentials/migrate/` desde `config.env`, y corta si git no las ignora ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md), [ADR-0070](../adr/0070-las-credenciales-del-dueno-van-dentro-de-credentials.md)): `app_<campo>` por campo de `Settings`, con los valores de producción salvo `database_url`, que es `DATABASE_URL`, como `<rol>_owner` en `credentials/migrate/`. El launcher `backend` lee el `.env` para su entorno.
 
 La otra lectura permitida es `database.server_url`, que lee `DATABASE_URL` de `server/.env` para precargar el explorador.

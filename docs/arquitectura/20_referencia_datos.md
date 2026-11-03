@@ -1,6 +1,6 @@
 # 20 · Referencia de datos
 
-Formatos, claves y archivos. Lo que **significa** cada uno está en el documento de su dominio; acá está la forma.
+Formatos, claves y archivos. Lo que **significa** cada uno está en el documento de su dominio; aquí está la forma.
 
 ## 1. Claves de `.consola/config.env`
 
@@ -32,7 +32,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `BACKUP_KEEP` | VPS | Respaldos a conservar | | `7` | usa |
 | `PG_SUPERUSER` | VPS | Superusuario Postgres | | `postgres` | exige |
 | `PG_PASSWORD` | VPS | Password del superusuario | secreto | | exige |
-| `DB_EXTENSIONS` | VPS | Extensiones de Postgres | lista | `postgis` | usa |
+| `DB_EXTENSIONS` | VPS | Extensiones de Postgres | lista | | usa |
 | `GIT_REPO_URL` | GitHub | URL del repositorio | | | usa |
 | `PRIVATE` | GitHub | Repo privado | sí/no | | usa |
 | `DATABASE_URL` | Credenciales | Base de desarrollo | secreto | | usa |

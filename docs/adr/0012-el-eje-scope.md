@@ -1,6 +1,6 @@
 # ADR-0012 · El ámbito local/remoto cambia contra qué base se apunta, no dónde corre el script
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. Lo del VPS lo reemplaza el [ADR-0078](0078-contra-un-vps-de-canone-la-base-no-se-migra-por-tunel.md)
 - **Fecha:** 2026-09-21
 - **Alcance:** core/database.py, core/runner.py, core/catalog.py
 

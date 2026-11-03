@@ -1,0 +1,222 @@
+from __future__ import annotations
+from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
+from PySide6.QtCore import Qt, Signal, QSize
+
+from app.theme import Colors, Fonts
+from app.ui.palettes import Palette, NEUTRAL
+
+
+# `QWIDGETSIZE_MAX`: el valor con el que Qt entiende "sin tope de alto".
+SIN_TOPE = 16777215
+
+
+class AccordionHeader(QWidget):
+    """La barra clicable de una seccion. Siempre visible, este abierta o no:
+    es lo que hace que las tres secciones se sigan viendo aunque solo quepa
+    una desplegada."""
+
+    clicked = Signal()
+
+    HEIGHT = 30
+
+    def __init__(self, title: str, parent=None):
+        super().__init__(parent)
+        self.setObjectName('accordionHeader')
+        # Un QWidget *derivado* no pinta el fondo de su hoja de estilo sin
+        # esto; los QWidget sueltos del resto del archivo si lo hacen.
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setFixedHeight(self.HEIGHT)
+        self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.pal = NEUTRAL
+        self._restyle()
+
+        lay = QHBoxLayout(self)
+        lay.setContentsMargins(9, 0, 12, 0)
+        lay.setSpacing(6)
+
+        self.chevron = QLabel('▾')
+        self.chevron.setFixedWidth(11)
+        self.chevron.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+
+        self.title = QLabel(title.upper())
+        self.title.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_DIM}; "
+            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;")
+
+        # Lo que la seccion tiene para decir sin abrirla ("3 de 5 protegidos").
+        # Vacio por defecto: no toda seccion tiene un resumen que valga.
+        self.summary = QLabel('')
+        self.summary.setStyleSheet(
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;")
+
+        lay.addWidget(self.chevron)
+        lay.addWidget(self.title)
+        lay.addStretch(1)
+        lay.addWidget(self.summary)
+
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        # La cabecera va un escalon MAS CLARA que el cuerpo de su seccion
+        # (`pal.panel`): es lo que separa una seccion de la de al lado y el
+        # rotulo de su contenido. Antes las dos eran el mismo gris y la
+        # columna derecha se leia como una sola mancha.
+        self.setStyleSheet(f"""
+            QWidget#accordionHeader {{
+                background: {self.pal.surface};
+                border-bottom: 1px solid {self.pal.border};
+            }}
+            QWidget#accordionHeader:hover {{ background: {self.pal.surface_hover}; }}
+        """)
+
+    def mouseReleaseEvent(self, event):
+        if (event.button() == Qt.MouseButton.LeftButton
+                and self.rect().contains(event.position().toPoint())):
+            self.clicked.emit()
+        super().mouseReleaseEvent(event)
+
+
+class AccordionSection(QWidget):
+    """Cabecera + cuerpo plegable, al estilo de la barra lateral de VSCode.
+
+    Pensada para vivir dentro de un `QSplitter` vertical: cerrada se pone un
+    `maximumHeight` de la altura de su cabecera, que es lo unico que el
+    splitter respeta para no dejar arrastrarla mas alla. Abierta lo suelta y
+    quien la contiene reparte el alto (`TabPanel._relayout_right`).
+
+    No se eligio pestanas justamente por esto: las tres secciones del panel
+    derecho se leen juntas —un bloqueo de `ParamsPanel` puede decir "faltan
+    claves de configuracion" y esas claves estan en la seccion de abajo—, y
+    unas pestañas obligarian a alternar entre lo que se compara.
+    """
+
+    toggled = Signal(bool)
+
+    def __init__(self, title: str, body: QWidget, expanded: bool = True, parent=None):
+        super().__init__(parent)
+        self.body = body
+
+        root = QVBoxLayout(self)
+        root.setContentsMargins(0, 0, 0, 0)
+        root.setSpacing(0)
+
+        self.header = AccordionHeader(title)
+        self.header.clicked.connect(self.toggle)
+        root.addWidget(self.header)
+        root.addWidget(body, 1)
+
+        self._allotted: int | None = None
+        self._expanded = not expanded   # para que `set_expanded` no salga de una
+        self.set_expanded(expanded, announce=False)
+
+    # --- estado -------------------------------------------------------
+    def is_expanded(self) -> bool:
+        return self._expanded
+
+    def set_allotted(self, height: int) -> None:
+        """El alto que el reparto le concedio (`TabPanel._relayout_right`).
+
+        Hace falta ademas del `maximumHeight` porque `QBoxLayout` reparte por
+        `sizeHint` y solo usa el tope para recortar: un cuerpo que pide menos de
+        lo concedido —cualquiera envuelto en un `QScrollArea`, que no tiene alto
+        propio— se quedaba en su hint y los pixeles que sobraban caian en el
+        resorte del final de la columna, o sea un hueco muerto abajo. Contestando
+        aca lo concedido, la suma de los hints da exacto y no sobra nada.
+        """
+        if height == self._allotted:
+            return
+        self._allotted = height
+        self.updateGeometry()
+
+    def sizeHint(self) -> QSize:
+        hint = super().sizeHint()
+        if self._allotted is None:
+            return hint
+        return QSize(hint.width(), self._allotted)
+
+    def header_height(self) -> int:
+        return AccordionHeader.HEIGHT
+
+    def set_expanded(self, value: bool, announce: bool = True) -> None:
+        if value == self._expanded:
+            return
+        self._expanded = value
+        self.body.setVisible(value)
+        self.header.chevron.setText('▾' if value else '▸')
+        self.setMinimumHeight(AccordionHeader.HEIGHT)
+        self.setMaximumHeight(SIN_TOPE if value else AccordionHeader.HEIGHT)
+        if announce:
+            self.toggled.emit(value)
+
+    def toggle(self) -> None:
+        self.set_expanded(not self._expanded)
+
+    def set_summary(self, text: str) -> None:
+        self.header.summary.setText(text)
+
+    def set_palette(self, pal: Palette) -> None:
+        """El cuerpo lo repinta quien lo puso (cada panel tiene el suyo); de
+        aca sale solo la cabecera."""
+        self.header.set_palette(pal)
+
+
+class SectionResizeGrip(QWidget):
+    """Barra fina entre dos secciones abiertas del acordeon.
+
+    Arrastrarla reparte el alto a mano: lo que la seccion de arriba gana, lo
+    pierde el resto (`TabPanel._resize_section`). Doble clic vuelve al reparto
+    automatico. Solo se ve cuando hay algo con que negociar —su seccion abierta
+    y al menos una abierta debajo—; si no, no hay nada que arrastrar.
+    """
+
+    pressed = Signal()      # arranca un arrastre: hay que resincronizar con lo real
+    dragged = Signal(int)   # px movidos desde el ultimo evento (+ = agrandar arriba)
+    reset = Signal()
+
+    HEIGHT = 7
+
+    def __init__(self, parent=None):
+        super().__init__(parent)
+        self.setObjectName('sectionGrip')
+        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        self.setFixedHeight(self.HEIGHT)
+        self.setCursor(Qt.CursorShape.SplitVCursor)
+        self.pal = NEUTRAL
+        self._restyle()
+        self._last_y: float | None = None
+
+    def set_palette(self, pal: Palette) -> None:
+        self.pal = pal
+        self._restyle()
+
+    def _restyle(self) -> None:
+        self.setStyleSheet(f"""
+            QWidget#sectionGrip {{
+                background: {self.pal.surface};
+                border-bottom: 1px solid {self.pal.border};
+            }}
+            QWidget#sectionGrip:hover {{ background: {self.pal.surface_hover}; }}
+        """)
+
+    def mousePressEvent(self, event):
+        if event.button() == Qt.MouseButton.LeftButton:
+            self._last_y = event.globalPosition().y()
+            self.pressed.emit()
+
+    def mouseMoveEvent(self, event):
+        if self._last_y is None:
+            return
+        y = event.globalPosition().y()
+        delta = int(y - self._last_y)
+        if delta:
+            self._last_y = y
+            self.dragged.emit(delta)
+
+    def mouseReleaseEvent(self, event):
+        self._last_y = None
+
+    def mouseDoubleClickEvent(self, event):
+        self.reset.emit()

@@ -36,13 +36,13 @@ No se copia nada al otro lado: el programa viaja en la línea de comandos (`-m a
 
 «Restaurar» saca las extensiones de lo que restaura (`pg_restore -l` y `-L`): las crea el superusuario, y con `--clean` el rol de la aplicación intentaría borrarlas y cortaría.
 
-En un repo de canone, el `Settings` del servidor no lee `DATABASE_URL`: `runner.local` escribe `credentials-migrate/` y corre con `CREDENTIALS_DIRECTORY` apuntando ahí, como el dueño del esquema ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md)). «Levantar backend» usa `credentials/` y corta si el ámbito es remoto.
+En un repo de canone, el `Settings` del servidor no lee `DATABASE_URL`: `runner.local` escribe `credentials/migrate/` y corre con `CREDENTIALS_DIRECTORY` apuntando ahí, como el dueño del esquema ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md), [ADR-0070](../adr/0070-las-credenciales-del-dueno-van-dentro-de-credentials.md)). «Levantar backend» usa `credentials/` y corta si el ámbito es remoto.
 
-La excepción es `runner.here`, que corre siempre acá: lo usa lo que además de tocar la base **escribe en el repo abierto** ([ADR-0013](../adr/0013-generar-en-local-aplicar-donde-este-la-base.md)).
+La excepción es `runner.here`, que corre siempre aquí: lo usa lo que además de tocar la base **escribe en el repo abierto** ([ADR-0013](../adr/0013-generar-en-local-aplicar-donde-este-la-base.md)).
 
 ## 4. Los payloads
 
-`core/tasks/payloads.py` es la excepción deliberada a «nada se ejecuta como script»: programas Python cortos que viajan por `-c` al intérprete del proyecto, porque necesitan importar `app.` y `seeders.` del repo administrado. Lo único que toman del entorno es el directorio de trabajo —de ahí sale el `sys.path`— y `DATABASE_URL`; las dos las pone el `Runner`, y por eso el mismo texto sirve igual acá y en el VPS.
+`core/tasks/payloads.py` es la excepción deliberada a «nada se ejecuta como script»: programas Python cortos que viajan por `-c` al intérprete del proyecto, porque necesitan importar `app.` y `seeders.` del repo administrado. Lo único que toman del entorno es el directorio de trabajo —de ahí sale el `sys.path`— y `DATABASE_URL`; las dos las pone el `Runner`, y por eso el mismo texto sirve igual aquí y en el VPS.
 
 El log muestra un resumen y no el argv real: `-c` lleva el programa entero como un solo argumento.
 
@@ -72,9 +72,9 @@ Las particiones van **entre** las migraciones y los seeders, y no es cosmético:
 
 `CREATE EXTENSION` de una extensión *untrusted* —PostGIS es la que importa— exige superusuario, y Alembic corre como el rol de la aplicación: una migración que la pidiera moriría con «permission denied to create extension».
 
-Cuáles se crean sale de `DB_EXTENSIONS`, declarada, no deducida. Ninguna fuente la tiene: `pg_available_extensions` dice lo que **se puede** crear (cientos con contrib), `pg_extension` lo que **ya está** creado, y las migraciones no la traen porque `--autogenerate` nunca escribe un `CREATE EXTENSION` — un modelo con columnas `Geometry` no deja rastro. Y una migración que sí lo declarara sería la que necesita la extensión ya creada para poder aplicarse ([ADR-0014](../adr/0014-extensiones-declaradas.md)).
+Cuáles se crean sale de `DB_EXTENSIONS`, declarada, no deducida. Ninguna fuente la tiene: `pg_available_extensions` dice lo que **se puede** crear (cientos con contrib), `pg_extension` lo que **ya está** creado, y las migraciones no la traen porque `--autogenerate` nunca escribe un `CREATE EXTENSION` — un modelo con columnas `Geometry` no deja rastro. Y una migración que sí lo declarara sería la que necesita la extensión ya creada para poder aplicarse ([ADR-0071](../adr/0071-las-extensiones-las-declara-el-repo-sin-valor-por-defecto.md)).
 
-Antes de crear cada una se mira `pg_available_extensions`: no todo VPS tiene el paquete de sistema, y sin ese chequeo el bootstrap entero fallaba en vez de avisar y seguir.
+`DB_EXTENSIONS` no tiene valor por defecto: vacía no crea ninguna, y tampoco llega a `install.py` ni a los paquetes del VPS. Antes de crear cada una se mira `pg_available_extensions`, y la tarea corta si el sistema no la tiene ([ADR-0071](../adr/0071-las-extensiones-las-declara-el-repo-sin-valor-por-defecto.md)).
 
 ## 7. Migraciones
 

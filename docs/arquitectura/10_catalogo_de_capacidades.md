@@ -93,7 +93,7 @@ Un `Step` es una casilla de una compuesta, y su `id` es el nombre del booleano d
 
 | Pregunta | Quién la contesta |
 |---|---|
-| ¿Este botón existe acá? | `catalog.applicable_ids(root)` → `Capability.applies_to(features)`. Hoy la única característica es `migrations` |
+| ¿Este botón existe aquí? | `catalog.applicable_ids(root)` → `Capability.applies_to(features)`. Hoy la única característica es `migrations` |
 | ¿Qué valores tiene su eje? | `catalog.for_project` con `targets.names_of` |
 | ¿Qué pasos quedan? | `Capability.steps_for(features)`, sobre la copia que mira el panel |
 | ¿Puede correr ya? | `ui/params_panel.py::_blockers` y, sin abrir la pestaña, `ui/readiness.py` |

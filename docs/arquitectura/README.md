@@ -1,8 +1,8 @@
 # Arquitectura de Consola
 
-Descripción de **lo que está implementado** en este repositorio. La estructura (arc42 y C4, numeración de documentos, contenido del documento 30) y las reglas de mantenimiento están en [`docs/README.md`](../README.md#arquitectura).
+Descripción de **lo que está implementado** en este repositorio. La estructura (arc42 y C4, numeración de documentos, contenido del documento 30) y las reglas de mantenimiento están en [`canone/documentacion.md`](https://github.com/equipaggioe/canone/blob/master/documentacion.md). Las rutas de código son relativas a `desktop/src/app/`.
 
-Consola es **una sola pieza**: una aplicación de escritorio. No hay `00_sistema.md` ni carpetas por contenedor; los documentos 01–30 van directo acá.
+Consola es **una sola pieza**: una aplicación de escritorio. No hay `00_sistema.md` ni carpetas por contenedor; los documentos 01–30 van directo aquí.
 
 ## Serie
 
@@ -17,13 +17,13 @@ Consola es **una sola pieza**: una aplicación de escritorio. No hay `00_sistema
 | 12 | [Interfaz](12_interfaz.md) | 2026-09-21 |
 | 13 | [Configuración y persistencia](13_configuracion_y_persistencia.md) | 2026-09-21 |
 | 14 | [Seguro de los destructivos](14_seguro_de_destructivos.md) | 2026-09-21 |
-| 15 | [VPS y despliegue](15_vps_y_despliegue.md) | 2026-09-21 |
+| 15 | [VPS y despliegue](15_vps_y_despliegue.md) | 2026-11-02 |
 | 16 | [Base de datos](16_base_de_datos.md) | 2026-09-21 |
 | 17 | [Builds y artefactos](17_builds_y_artefactos.md) | 2026-09-21 |
 | 18 | [Android y emuladores](18_android_y_emuladores.md) | 2026-09-21 |
 | 19 | [Imágenes](19_imagenes.md) | 2026-09-24 |
 | 20 | [Referencia de datos](20_referencia_datos.md) | 2026-09-21 |
-| 30 | [Riesgos, deuda y pendientes](30_riesgos_y_pendientes.md) | 2026-09-21 |
+| 30 | [Riesgos, deuda y pendientes](30_riesgos_y_pendientes.md) | 2026-11-02 |
 
 ## Orden de lectura
 

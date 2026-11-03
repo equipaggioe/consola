@@ -1,0 +1,259 @@
+from __future__ import annotations
+from collections.abc import Sequence
+from contextlib import contextmanager
+from dataclasses import dataclass
+from pathlib import Path
+
+from app.core.errors import TaskError
+from app.core.files import read_text
+
+SPA_VITE = 'spa-vite'
+FLUTTER_APP = 'flutter-app'
+FLET_APP = 'flet-app'
+FASTAPI = 'fastapi-server'
+# App Python que se lanza y abre su ventana (PySide6, Flet de escritorio, un
+# bot). Es un tipo aparte y no `FASTAPI` porque no sirve HTTP.
+PYTHON_APP = 'python-app'
+
+# Lo que el boton "App Python" corre en el escritorio: una app Flet con su
+# `pyproject.toml` es `flet-app` para los ejes moviles, pero en esta maquina se
+# arranca igual que cualquier otra app Python.
+DESKTOP_APP = (PYTHON_APP, FLET_APP)
+
+# Donde arranca una app Python, en orden de preferencia.
+PYTHON_ENTRYPOINTS = ('src/main.py', 'main.py')
+# Que una carpeta sea Python lo dice su manifiesto o su venv, no un `main.py`
+# suelto: sin esto, cualquier carpeta de scripts contaria como app.
+_PYTHON_MARKERS = ('requirements.txt', 'pyproject.toml', '.venv')
+# Donde se busca el `FastAPI(` de un servidor, y el modulo uvicorn que le toca.
+_ASGI_MODULES = (('src/app/main.py', 'app.main:app'), ('app/main.py', 'app.main:app'),
+                 ('main.py', 'main:app'))
+
+# "La app movil" es una sola cosa del dominio aunque este escrita en Flutter o
+# en Flet: se compila igual, se sube igual y se corre en el mismo emulador. El
+# framework es una propiedad de la carpeta, no una eleccion de quien aprieta el
+# boton, asi que los dos tipos viajan juntos en todos los ejes que la nombran.
+MOBILE_APP = (FLUTTER_APP, FLET_APP)
+
+# --- caracteristicas del repo ----------------------------------------------
+# No son subproyectos: no se eligen ni se listan, solo estan o no estan. Lo que
+# deciden es si un paso tiene sentido aca. Un repo que no versiona su esquema no
+# tiene "generar migracion" apagado: no lo tiene.
+MIGRATIONS = 'migrations'
+
+IGNORED = {'node_modules', '.git', '.venv', 'venv', 'build', 'dist', '.consola',
+           '__pycache__', '.dart_tool'}
+# Las carpetas de plataforma de una app Flutter. Se saltan solo dentro de una:
+# en la raiz del repo, `web/` es la SPA (vettore, concordia, navetta).
+_FLUTTER_PLATFORMS = {'android', 'ios', 'web'}
+_DEPTH = 2
+
+
+@dataclass(frozen=True)
+class Target:
+    """Un subproyecto encontrado dentro del repo abierto.
+
+    Es lo que convierte `panel`/`backoffice`/`landing` de tres scripts casi
+    identicos en tres botones del mismo eje: la lista sale de mirar el repo,
+    no de enumerarla a mano por proyecto (ADR-0006).
+    """
+    name: str
+    kind: str
+    path: Path
+
+    @property
+    def rel(self) -> str:
+        return self.name
+
+
+def _detect(directory: Path) -> str:
+    package = directory / 'package.json'
+    if package.is_file() and any(directory.glob('vite.config.*')):
+        return SPA_VITE
+    if (directory / 'pubspec.yaml').is_file():
+        return FLUTTER_APP
+    if not any((directory / m).exists() for m in _PYTHON_MARKERS):
+        return ''
+    # Nombrar `flet` no basta: una libreria o una extension de Flet tambien lo
+    # nombran. La app es la que arranca, como la que `flet build` compila.
+    pyproject = directory / 'pyproject.toml'
+    if (pyproject.is_file() and 'flet' in read_text(pyproject).lower()
+            and python_entrypoint(directory)):
+        return FLET_APP
+    if asgi_app(directory):
+        return FASTAPI
+    # Ultimo porque es el marcador mas debil: un servidor tambien tiene su
+    # `main.py`, y ese ya se reconocio arriba.
+    if python_entrypoint(directory):
+        return PYTHON_APP
+    return ''
+
+
+def asgi_app(directory: Path) -> str:
+    """El modulo que uvicorn tiene que cargar, o vacio si la carpeta no es un servidor.
+
+    Se reconoce por el `FastAPI(` en su modulo de arranque, que es lo que la
+    hace servidor sin importar como se llame la carpeta (`server/`, `backend/`).
+    `alembic.ini` + `app/main.py` cubre el que arma su app en otro modulo.
+    """
+    for relativo, modulo in _ASGI_MODULES:
+        fuente = directory / relativo
+        if fuente.is_file() and 'FastAPI(' in read_text(fuente):
+            return modulo
+    if (directory / 'alembic.ini').is_file() and (directory / 'app' / 'main.py').is_file():
+        return 'app.main:app'
+    return ''
+
+
+def python_entrypoint(directory: Path) -> Path | None:
+    """El `main.py` con el que arranca una app Python, o None si no tiene."""
+    for relativo in PYTHON_ENTRYPOINTS:
+        fuente = directory / relativo
+        if fuente.is_file():
+            return fuente
+    return None
+
+
+# --- un solo recorrido por pasada -----------------------------------------
+# Mirar el repo cuesta: `discover` hace un `stat` por cada archivo que examina
+# para tipar cada carpeta. Una pregunta suelta es barata, pero hay pasadas que
+# repiten la MISMA pregunta decenas de veces seguidas —`ui/readiness.py`
+# resuelve todas las capacidades contra el mismo repo, y cada una vuelve a
+# recorrerlo— y ahi el recorrido pasaba a medirse en decimas de segundo. Como
+# eso corria en cada tecla de un campo de texto, escribir se atrasaba segundos.
+#
+# `one_scan()` comparte el recorrido entre las preguntas de UNA pasada y lo
+# suelta al salir: no es cache entre eventos, que mentiria si se agrega un
+# subproyecto con Consola abierta. Cada pasada sigue mirando el disco de nuevo.
+_pass: dict | None = None
+
+
+@contextmanager
+def one_scan():
+    """Dentro de este bloque, el repo se recorre una vez por pregunta y no una
+    vez por quien la hace. Anidarlo no abre una pasada nueva."""
+    global _pass
+    if _pass is not None:
+        yield
+        return
+    _pass = {}
+    try:
+        yield
+    finally:
+        _pass = None
+
+
+def _shared(key, produce):
+    if _pass is None:
+        return produce()
+    if key not in _pass:
+        _pass[key] = produce()
+    return _pass[key]
+
+
+def discover(root: Path) -> list[Target]:
+    """Recorre el repo y devuelve los subproyectos tipados que encuentra.
+
+    Se corta a dos niveles: mas abajo solo hay dependencias y artefactos, y
+    recorrer `node_modules` entero por cada apertura de proyecto no vale nada.
+    """
+    return _shared(('discover', str(root)), lambda: _discover(root))
+
+
+def _discover(root: Path) -> list[Target]:
+    found: list[Target] = []
+    for directory in _walk(root, _DEPTH):
+        kind = _detect(directory)
+        if kind:
+            name = directory.name if directory != root else root.name
+            found.append(Target(name, kind, directory))
+    return sorted(found, key=lambda t: (t.kind, t.name))
+
+
+def _walk(root: Path, depth: int):
+    yield root
+    if depth <= 0:
+        return
+    try:
+        entries = sorted(p for p in root.iterdir() if p.is_dir())
+    except OSError:
+        return
+    flutter_app = (root / 'pubspec.yaml').is_file()
+    for entry in entries:
+        if entry.name in IGNORED or entry.name.startswith('.'):
+            continue
+        if flutter_app and entry.name in _FLUTTER_PLATFORMS:
+            continue
+        yield from _walk(entry, depth - 1)
+
+
+def by_kinds(root: Path, kinds: Sequence[str]) -> list[Target]:
+    """Los subproyectos de cualquiera de esos tipos, en una sola pasada."""
+    wanted = set(kinds)
+    return [t for t in discover(root) if t.kind in wanted]
+
+
+def by_kind(root: Path, kind: str) -> list[Target]:
+    return by_kinds(root, (kind,))
+
+
+def names_of(root: Path, kinds: Sequence[str]) -> list[str]:
+    """Los valores que toma un eje descubierto, listos para el panel de parametros.
+
+    Ordenados por nombre y no por tipo: para quien elige, la lista es de apps,
+    y que las de Flet salgan antes que las de Flutter no le dice nada.
+    """
+    return sorted(t.name for t in by_kinds(root, kinds))
+
+
+def names(root: Path, kind: str) -> list[str]:
+    return names_of(root, (kind,))
+
+
+def pick(root: Path, kinds: Sequence[str], name: str = '') -> Target:
+    """El subproyecto elegido por nombre, o el unico que haya de esos tipos.
+
+    Es la contraparte de `names_of`: el panel ofrece esos nombres y esto
+    resuelve el elegido. Sin nombre cae en "el unico", que es el caso de casi
+    todos los repos y evita pedir una eleccion que no existe.
+    """
+    found = by_kinds(root, kinds)
+    etiqueta = ' o '.join(kinds)
+    if name:
+        for target in found:
+            if target.name == name:
+                return target
+        raise TaskError(f'No hay ningun {etiqueta} llamado "{name}" en {root.name}.')
+    if not found:
+        raise TaskError(f'{root.name} no tiene ningun subproyecto de tipo {etiqueta}.')
+    if len(found) > 1:
+        elegir = ', '.join(t.name for t in found)
+        raise TaskError(f'Hay mas de un {etiqueta} en {root.name}: {elegir}. Elige uno.')
+    return found[0]
+
+
+def find(root: Path, kind: str, name: str) -> Target:
+    return pick(root, (kind,), name)
+
+
+def only(root: Path, kind: str) -> Target:
+    """El unico subproyecto de ese tipo. Falla si hay cero o mas de uno."""
+    return pick(root, (kind,))
+
+
+def has_migrations(root: Path) -> bool:
+    """Si el repo lleva el esquema de su base en migraciones versionadas.
+
+    Lo dice Alembic: su `alembic.ini` o la carpeta de revisiones. Se mira lo
+    mismo que mira la tarea al correr (`core/runner.py::server_root` + `alembic/
+    versions`), porque la pregunta es exactamente esa: si el boton apretara,
+    ¿habria historial contra el que generar o aplicar algo?
+    """
+    return _shared(('migrations', str(root)), lambda: any(
+        (d / 'alembic.ini').is_file() or (d / 'alembic' / 'versions').is_dir()
+        for d in _walk(root, _DEPTH)))
+
+
+def features(root: Path) -> frozenset[str]:
+    """Las caracteristicas que este repo tiene, para las que las exigen."""
+    return frozenset({MIGRATIONS} if has_migrations(root) else ())
