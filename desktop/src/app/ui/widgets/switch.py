@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import override
+
 from PySide6.QtCore import QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPainter
+from PySide6.QtGui import QColor, QFont, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from app.theme import Colors, Fonts
@@ -20,8 +22,12 @@ class ToggleSwitch(QWidget):
     TRACK_H = 16
 
     def __init__(
-        self, label: str, checked: bool = False, accent: str = Colors.ACCENT, parent=None
-    ):
+        self,
+        label: str,
+        checked: bool = False,
+        accent: str = Colors.ACCENT,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.accent = accent
         self._checked = checked
@@ -68,7 +74,8 @@ class ToggleSwitch(QWidget):
         self.label.setStyleSheet(f"background: transparent; color: {color};")
 
     # --- interaccion ---------------------------------------------------
-    def mouseReleaseEvent(self, event):
+    @override
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
             event.position().toPoint()
         ):
@@ -76,7 +83,8 @@ class ToggleSwitch(QWidget):
         super().mouseReleaseEvent(event)
 
     # --- pintura -------------------------------------------------------
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         top = (self.height() - self.TRACK_H) / 2

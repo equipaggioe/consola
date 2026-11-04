@@ -5,8 +5,10 @@ import re
 import time
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from app.core import cache, ports
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.host import HOST
 from app.core.process import capture, which_any
@@ -118,7 +120,7 @@ class Device:
         return self.name or self.id
 
     @property
-    def order(self) -> tuple:
+    def order(self) -> tuple[Any, ...]:
         """Telefonos y tablets primero; TV, reloj, auto y demas, despues. Y
         dentro de cada familia, el modelo nuevo antes que el viejo.
 
@@ -176,7 +178,7 @@ class Image:
         return f"Android {self.api}  |  {VARIANTS.get(self.variant, self.variant)}  |  {self.abi}"
 
     @property
-    def order(self) -> tuple:
+    def order(self) -> tuple[Any, ...]:
         """Lo que se elige casi siempre, primero.
 
         API nueva antes que vieja; dentro de una API, las variantes de telefono
@@ -287,10 +289,10 @@ def device_catalog(sdk: Sdk, *, refresh: bool = False) -> list[Device]:
     return sorted((Device(**d) for d in crudos), key=lambda d: d.order)
 
 
-def _read_device_catalog(sdk: Sdk) -> list[dict]:
+def _read_device_catalog(sdk: Sdk) -> list[dict[str, str]]:
     salida = capture([sdk.tool("avdmanager"), "list", "device"], timeout=120, check=False)
-    dispositivos: list[dict] = []
-    actual: dict | None = None
+    dispositivos: list[dict[str, str]] = []
+    actual: dict[str, str] | None = None
     for linea in salida.splitlines():
         limpia = linea.strip()
         if limpia.startswith("id:"):
@@ -425,7 +427,7 @@ def free_port(sdk: Sdk) -> int:
 # --- ciclo de vida ---------------------------------------------------------
 
 
-def ensure_image(ctx, sdk: Sdk, image: str) -> None:
+def ensure_image(ctx: TaskContext, sdk: Sdk, image: str) -> None:
     if image in list_images(sdk):
         ctx.ok(f"System image ya instalada: {image}")
         return
@@ -433,7 +435,7 @@ def ensure_image(ctx, sdk: Sdk, image: str) -> None:
     ctx.run([sdk.tool("sdkmanager"), image])
 
 
-def ensure_avd(ctx, sdk: Sdk, spec: AvdSpec) -> str:
+def ensure_avd(ctx: TaskContext, sdk: Sdk, spec: AvdSpec) -> str:
     """Crea el AVD si falta y le deja el teclado de hardware activo.
 
     Sin `hw.keyboard=yes` el emulador ignora el teclado real y hay que tipear
@@ -465,7 +467,7 @@ def ensure_avd(ctx, sdk: Sdk, spec: AvdSpec) -> str:
     return spec.name
 
 
-def _enable_hw_keyboard(ctx, avd_name: str) -> None:
+def _enable_hw_keyboard(ctx: TaskContext, avd_name: str) -> None:
     config = avd_home() / f"{avd_name}.avd" / "config.ini"
     if not config.is_file():
         ctx.warn(f'No se encontro config.ini del AVD "{avd_name}".')
@@ -478,7 +480,7 @@ def _enable_hw_keyboard(ctx, avd_name: str) -> None:
 
 
 def start(
-    ctx,
+    ctx: TaskContext,
     sdk: Sdk,
     avd_name: str,
     *,
@@ -503,7 +505,7 @@ def start(
     return ctx.run(argv, check=False)
 
 
-def wait_for_boot(ctx, sdk: Sdk, *, timeout: float = 180.0, serial: str = "") -> str:
+def wait_for_boot(ctx: TaskContext, sdk: Sdk, *, timeout: float = 180.0, serial: str = "") -> str:
     """Espera a que un emulador termine de arrancar y devuelve su serial.
 
     Con `serial` espera a ESE y no al primero que aparezca: con dos emuladores
@@ -524,7 +526,7 @@ def wait_for_boot(ctx, sdk: Sdk, *, timeout: float = 180.0, serial: str = "") ->
     raise TaskError(f"Ningun emulador termino de arrancar en {timeout:.0f}s.")
 
 
-def stop(ctx, sdk: Sdk, serial: str) -> None:
+def stop(ctx: TaskContext, sdk: Sdk, serial: str) -> None:
     """Apaga el emulador por adb: matar el proceso que lo lanzo no alcanza."""
     ctx.run([sdk.adb, "-s", serial, "emu", "kill"], check=False)
     ctx.ok(f"Emulador {serial} detenido.")
@@ -545,9 +547,9 @@ def stop_quiet(sdk: Sdk, serial: str) -> None:
         pass
 
 
-def remove_avd(ctx, sdk: Sdk, name: str) -> None:
+def remove_avd(ctx: TaskContext, sdk: Sdk, name: str) -> None:
     ctx.run([sdk.tool("avdmanager"), "delete", "avd", "--name", name], check=False)
 
 
-def remove_image(ctx, sdk: Sdk, image: str) -> None:
+def remove_image(ctx: TaskContext, sdk: Sdk, image: str) -> None:
     ctx.run([sdk.tool("sdkmanager"), "--uninstall", image], check=False)

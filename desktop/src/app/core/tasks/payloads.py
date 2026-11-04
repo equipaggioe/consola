@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.runner import Runner
 
@@ -108,7 +109,7 @@ asyncio.run(main())
 SOURCES = {"seed": SEED, "partitions": PARTITIONS}
 
 
-def run(ctx, runner: Runner, source: str, *args: str) -> int:
+def run(ctx: TaskContext, runner: Runner, source: str, *args: str) -> int:
     """Ejecuta un payload con el Python del proyecto, del lado que diga el runner.
 
     Los payloads no necesitan saber donde corren: lo unico que toman del entorno

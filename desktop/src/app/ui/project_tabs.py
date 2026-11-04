@@ -1,9 +1,21 @@
 from __future__ import annotations
 
 import os
+from typing import override
 
-from PySide6.QtCore import QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QAction, QColor, QFont, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QContextMenuEvent,
+    QEnterEvent,
+    QFont,
+    QMouseEvent,
+    QPainter,
+    QPainterPath,
+    QPaintEvent,
+    QPen,
+)
 from PySide6.QtWidgets import (
     QFileDialog,
     QHBoxLayout,
@@ -17,10 +29,11 @@ from PySide6.QtWidgets import (
 from app.core.projects import Project
 from app.theme import Colors, Fonts, tint
 from app.ui import palettes, params_store, project_store, repo_logo
+from app.ui.palettes import Palette
 from app.ui.widgets import ReorderableBar, ReorderableTab
 
 
-class ProjectTab(ReorderableTab, QWidget):
+class ProjectTab(ReorderableTab):
     """Pestana de nivel superior: un repositorio.
 
     La activa se pinta de su acento, el mismo de la barra de titulo que la
@@ -40,7 +53,7 @@ class ProjectTab(ReorderableTab, QWidget):
     HEIGHT = 44
     LOGO = 18
 
-    def __init__(self, project: Project, parent=None):
+    def __init__(self, project: Project, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.project = project
         # `pal` y no `palette`: `QWidget.palette()` ya existe y es otra cosa.
@@ -88,7 +101,7 @@ class ProjectTab(ReorderableTab, QWidget):
         self._sync_text()
         self.update()
 
-    def set_active_palette(self, pal) -> None:
+    def set_active_palette(self, pal: Palette) -> None:
         """La paleta del repo activo: el fondo de esta pestana cuando no lo
         es. La pone la barra al seleccionar o al recolorear (`ProjectTabBar`).
         """
@@ -130,25 +143,29 @@ class ProjectTab(ReorderableTab, QWidget):
         """)
         self.updateGeometry()
 
-    def sizeHint(self):
+    @override
+    def sizeHint(self) -> QSize:
         s = super().sizeHint()
         s.setHeight(self.HEIGHT)
         return s
 
     # --- interaccion -------------------------------------------------
-    def enterEvent(self, event):
+    @override
+    def enterEvent(self, event: QEnterEvent) -> None:
         self._hovered = True
         self._sync_text()
         self.update()
         super().enterEvent(event)
 
-    def leaveEvent(self, event):
+    @override
+    def leaveEvent(self, event: QEvent) -> None:
         self._hovered = False
         self._sync_text()
         self.update()
         super().leaveEvent(event)
 
-    def mousePressEvent(self, event):
+    @override
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
             self._reorder_press(event)
@@ -156,11 +173,13 @@ class ProjectTab(ReorderableTab, QWidget):
             self.close_requested.emit()
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event):
+    @override
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         self._reorder_move(event)
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    @override
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self._reorder_release(event)
         super().mouseReleaseEvent(event)
 
@@ -182,7 +201,8 @@ class ProjectTab(ReorderableTab, QWidget):
         self.update()
         self.theme_changed.emit()
 
-    def contextMenuEvent(self, event):
+    @override
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         """La ruta y los colores, sin un nivel de por medio.
 
         Los ocho temas van sueltos en el menu y no dentro de un submenu: el
@@ -211,7 +231,8 @@ class ProjectTab(ReorderableTab, QWidget):
         return menu
 
     # --- pintura -----------------------------------------------------
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         """La seleccionada: `chrome`, la banda de la fila de abajo. Las demas:
         el acento del repo activo —el color de la barra donde se apoyan— y el
         contorno del «+», que es lo unico que las recorta; el hover lo sube.
@@ -250,7 +271,7 @@ class AddProjectTab(QWidget):
 
     clicked = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(48, ProjectTab.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -259,26 +280,30 @@ class AddProjectTab(QWidget):
         self._hovered = False
         self.setToolTip("Anadir repositorio")
 
-    def set_palette(self, pal) -> None:
+    def set_palette(self, pal: Palette) -> None:
         self.pal = pal
         self.update()
 
-    def enterEvent(self, event):
+    @override
+    def enterEvent(self, event: QEnterEvent) -> None:
         self._hovered = True
         self.update()
         super().enterEvent(event)
 
-    def leaveEvent(self, event):
+    @override
+    def leaveEvent(self, event: QEvent) -> None:
         self._hovered = False
         self.update()
         super().leaveEvent(event)
 
-    def mousePressEvent(self, event):
+    @override
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
         super().mousePressEvent(event)
 
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(7.5, 6.5, -7.5, -6.5)
@@ -305,7 +330,7 @@ class AddProjectTab(QWidget):
         p.end()
 
 
-class ProjectTabBar(ReorderableBar, QWidget):
+class ProjectTabBar(ReorderableBar):
     """Nivel superior de pestanas: un repositorio por pestana + boton '+'."""
 
     project_selected = Signal(object)  # Project
@@ -313,7 +338,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
     project_removed = Signal(object)  # Project
     project_retinted = Signal(object)  # Project: eligio otro color
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(ProjectTab.HEIGHT)
         self.tabs: list[ProjectTab] = []
@@ -322,20 +347,22 @@ class ProjectTabBar(ReorderableBar, QWidget):
         # reescribir el store en cada `add_project`: se guarda ya al terminar.
         self._loading = False
 
-        self.layout = QHBoxLayout(self)
-        self.layout.setContentsMargins(8, 0, 10, 0)
-        self.layout.setSpacing(2)
+        self.row_layout = QHBoxLayout(self)
+        self.row_layout.setContentsMargins(8, 0, 10, 0)
+        self.row_layout.setSpacing(2)
 
         self.add_tab = AddProjectTab()
         self.add_tab.clicked.connect(self._pick_repo)
 
-        self.layout.addWidget(self.add_tab)
-        self.layout.addStretch()
+        self.row_layout.addWidget(self.add_tab)
+        self.row_layout.addStretch()
 
     # --- reordenar arrastrando ---------------------------------------
-    def _tab_layout(self):
-        return self.layout
+    @override
+    def _tab_layout(self) -> QHBoxLayout:
+        return self.row_layout
 
+    @override
     def tabs_reordered(self) -> None:
         self.update()
         self._persist()
@@ -386,8 +413,8 @@ class ProjectTabBar(ReorderableBar, QWidget):
         tab.clicked.connect(lambda t=tab: self.select_tab(t))
         tab.close_requested.connect(lambda t=tab: self.remove_tab(t))
         tab.theme_changed.connect(lambda t=tab: self._on_theme_changed(t))
-        index = self.layout.indexOf(self.add_tab)
-        self.layout.insertWidget(index, tab)
+        index = self.row_layout.indexOf(self.add_tab)
+        self.row_layout.insertWidget(index, tab)
         self.tabs.append(tab)
         self._refresh_closable()
         self._persist()
@@ -428,7 +455,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
         was_active = tab is self._active
         project = tab.project
         self.tabs.remove(tab)
-        self.layout.removeWidget(tab)
+        self.row_layout.removeWidget(tab)
         tab.setParent(None)
         tab.deleteLater()
         self._refresh_closable()

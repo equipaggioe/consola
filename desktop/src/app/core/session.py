@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import threading
 from dataclasses import dataclass, field
+from typing import Any
 
 """
 Estado de sesion: lo que una tarea publica para que otra lo lea, en memoria.
@@ -20,7 +21,7 @@ Nada de esto se escribe a disco.
 MACHINE = "@machine"
 
 _lock = threading.Lock()
-_state: dict[str, dict[str, object]] = {}
+_state: dict[str, dict[str, Any]] = {}
 
 
 def publish(project: str, key: str, value: object) -> None:
@@ -28,12 +29,12 @@ def publish(project: str, key: str, value: object) -> None:
         _state.setdefault(project, {})[key] = value
 
 
-def read(project: str, key: str, default: object = None) -> object:
+def read(project: str, key: str, default: Any = None) -> Any:
     with _lock:
         return _state.get(project, {}).get(key, default)
 
 
-def require(project: str, key: str) -> object:
+def require(project: str, key: str) -> Any:
     value = read(project, key)
     if value is None:
         raise KeyError(key)

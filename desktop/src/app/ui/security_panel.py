@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import Any
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QCheckBox, QFrame, QScrollArea, QVBoxLayout, QWidget
 
@@ -37,7 +39,7 @@ class SecurityPanel(QWidget):
 
     changed = Signal(dict)
 
-    def __init__(self, project: Project, parent=None):
+    def __init__(self, project: Project, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.project = project
         self._state = params_store.load_protection(project.path)
@@ -71,7 +73,11 @@ class SecurityPanel(QWidget):
             check.setChecked(self._state[target.id])
             check.setToolTip(target.why)
             check.setStyleSheet(f"QCheckBox {{ font-size: {Fonts.SIZE_XS}px; }}")
-            check.toggled.connect(lambda marcado, tid=target.id: self._toggle(tid, marcado))
+
+            def on_toggled(marcado: bool, tid: str = target.id) -> None:
+                self._toggle(tid, marcado)
+
+            check.toggled.connect(on_toggled)
             self._checks[target.id] = check
             lay.addWidget(check)
 
@@ -103,7 +109,7 @@ class SecurityPanel(QWidget):
         self._body.setStyleSheet(f"background: {self.pal.panel};")
         self._scroll.setStyleSheet(self._scroll_style())
 
-    def state(self) -> dict:
+    def state(self) -> dict[str, Any]:
         """Lo que se ve, que es lo que `TabPanel._guard_ok` va a aplicar."""
         return dict(self._state)
 

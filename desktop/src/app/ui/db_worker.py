@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import queue
 from pathlib import Path
+from typing import Any, cast, override
 
-from PySide6.QtCore import QThread, Signal
+from psycopg import Connection
+from PySide6.QtCore import QObject, QThread, Signal
 from PySide6.QtWidgets import QApplication
 
 from app.core import db_explorer, db_models
@@ -34,17 +36,19 @@ class DbWorker(QThread):
     result = Signal(int, str, object)  # id del pedido, tipo, resultado
     failed = Signal(int, str, str)  # id del pedido, tipo, mensaje
 
-    def __init__(self, url: str, server_root: Path | None = None, parent=None):
+    def __init__(
+        self, url: str, server_root: Path | None = None, parent: QObject | None = None
+    ) -> None:
         super().__init__(parent)
         self._url = url
         self._server_root = server_root
         # Los modelos se releen solo si cambio algun .py (`db_models.signature`):
         # importarlos lanza un Python, y la comparacion se pide cada vez que se
         # muestra la pestana.
-        self._models: tuple[tuple, list[db_models.ModelTable]] | None = None
-        self._queue: queue.Queue = queue.Queue()
+        self._models: tuple[tuple[tuple[str, int], ...], list[db_models.ModelTable]] | None = None
+        self._queue: queue.Queue[tuple[int, str, dict[str, Any]] | object] = queue.Queue()
         self._next_id = 0
-        self._conn = None
+        self._conn: Connection | None = None
         self._stopping = False
         _alive.add(self)
         self.finished.connect(lambda: _alive.discard(self))
@@ -55,7 +59,7 @@ class DbWorker(QThread):
             _quit_hooked = True
 
     # --- pedidos (hilo de la interfaz) -----------------------------------------
-    def request(self, kind: str, **kwargs) -> int:
+    def request(self, kind: str, **kwargs: Any) -> int:
         self._next_id += 1
         self._queue.put((self._next_id, kind, kwargs))
         return self._next_id
@@ -72,13 +76,14 @@ class DbWorker(QThread):
         self._queue.put(_STOP)
 
     # --- hilo --------------------------------------------------------------------
+    @override
     def run(self) -> None:
         try:
             while True:
                 item = self._queue.get()
                 if item is _STOP or self._stopping:
                     return
-                req_id, kind, kwargs = item
+                req_id, kind, kwargs = cast(tuple[int, str, dict[str, Any]], item)
                 try:
                     payload = self._handle(kind, kwargs)
                 except Exception as exc:
@@ -95,7 +100,7 @@ class DbWorker(QThread):
                     pass
                 self._conn = None
 
-    def _connection(self):
+    def _connection(self) -> Connection:
         """La conexion, reabierta si se cayo: un Postgres reiniciado o un tunel
         que se reconecto no deberian obligar a cerrar la pestana.
         """
@@ -103,7 +108,7 @@ class DbWorker(QThread):
             self._conn = db_explorer.open_readonly(self._url)
         return self._conn
 
-    def _handle(self, kind: str, kwargs: dict):
+    def _handle(self, kind: str, kwargs: dict[str, Any]) -> object:
         conn = self._connection()
         if kind == "relations":
             return db_explorer.list_relations(conn)
@@ -117,7 +122,7 @@ class DbWorker(QThread):
             return self._compare(conn)
         raise TaskError(f"Pedido desconocido: {kind}")
 
-    def _compare(self, conn) -> db_models.Comparison:
+    def _compare(self, conn: Connection) -> db_models.Comparison:
         if self._server_root is None:
             raise TaskError("La pestaña no tiene repo: no hay modelos con qué comparar.")
         firma = db_models.signature(self._server_root)

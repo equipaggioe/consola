@@ -5,6 +5,7 @@ from dataclasses import dataclass, field
 from pathlib import Path
 
 from app.core import ports, ssh, vps
+from app.core.context import TaskContext
 from app.core.envfile import Config, read_value
 from app.core.errors import TaskError
 from app.core.host import HOST
@@ -83,7 +84,7 @@ class Connection:
     def __enter__(self) -> "Connection":
         return self
 
-    def __exit__(self, *exc) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()
 
 
@@ -96,7 +97,7 @@ def credentials(config: Config) -> tuple[str, str, str]:
     return user, password, name
 
 
-def connect(ctx, scope: str = LOCAL) -> Connection:
+def connect(ctx: TaskContext, scope: str = LOCAL) -> Connection:
     """Devuelve la conexion del ambito pedido, abriendo el tunel si es remota.
 
     Nunca se conecta a la IP publica del VPS: el trafico va siempre por
@@ -127,7 +128,7 @@ def connect(ctx, scope: str = LOCAL) -> Connection:
     return Connection(url, REMOTE, tunnel, port=local)
 
 
-def vps_url(ctx, remote: ssh.Remote) -> str:
+def vps_url(ctx: TaskContext, remote: ssh.Remote) -> str:
     """La base del VPS vista DESDE el VPS: `127.0.0.1` y su puerto real, sin tunel.
 
     `connect(REMOTE)` devuelve la misma base vista desde aca, y para eso abre un
@@ -174,8 +175,8 @@ class Admin:
 
     scope: str
     remote: "ssh.Remote | None" = None
-    argv: list = field(default_factory=list)
-    env: dict = field(default_factory=dict)
+    argv: list[str] = field(default_factory=list)
+    env: dict[str, str] = field(default_factory=dict)
 
     @property
     def is_remote(self) -> bool:
@@ -198,10 +199,10 @@ class Admin:
             return self.remote.argv(remoto)
         return [*self.argv, "-v", "ON_ERROR_STOP=1", "-X", "-q", *flags, "-d", database, "-c", sql]
 
-    def execute(self, ctx, sql: str, *, database: str = "postgres") -> None:
+    def execute(self, ctx: TaskContext, sql: str, *, database: str = "postgres") -> None:
         ctx.run(self._command(database, sql), env=self.env or None, cwd=None)
 
-    def query(self, ctx, sql: str, *, database: str = "postgres") -> list[str]:
+    def query(self, ctx: TaskContext, sql: str, *, database: str = "postgres") -> list[str]:
         salida = ctx.capture(
             self._command(database, sql, tuples=True), env=self.env or None, cwd=None
         )
@@ -236,7 +237,7 @@ def major_of(version: str) -> int:
     return int(match.group(1))
 
 
-def check_tool_version(ctx, tool: Path, client: str, server: str) -> None:
+def check_tool_version(ctx: TaskContext, tool: Path, client: str, server: str) -> None:
     """Corta si el binario local es mas viejo que el servidor.
 
     `pg_dump` y `pg_restore` se niegan a trabajar contra un servidor mas nuevo
@@ -253,7 +254,7 @@ def check_tool_version(ctx, tool: Path, client: str, server: str) -> None:
     )
 
 
-def resolve_admin(ctx, scope: str = LOCAL) -> Admin:
+def resolve_admin(ctx: TaskContext, scope: str = LOCAL) -> Admin:
     """El canal de superusuario del ambito pedido."""
     if scope == REMOTE:
         return Admin(REMOTE, remote=ssh.resolve_remote(ctx.config))

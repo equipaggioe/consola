@@ -3,7 +3,9 @@ from __future__ import annotations
 import json
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.files import read_text
 from app.core.host import HOST
@@ -228,7 +230,7 @@ def detect_app_kind(project_dir: Path) -> str:
     raise TaskError(f"{project_dir.name} no parece un proyecto Flutter ni Flet.")
 
 
-def devices(ctx, project_dir: Path) -> list[dict]:
+def devices(ctx: TaskContext, project_dir: Path) -> list[dict[str, Any]]:
     """Dispositivos que ve Flutter, en JSON.
 
     Flet no tiene deteccion propia (su `flet devices` parsea la tabla de texto
@@ -242,7 +244,7 @@ def devices(ctx, project_dir: Path) -> list[dict]:
     return [d for d in decoded if isinstance(d, dict)] if isinstance(decoded, list) else []
 
 
-def pick_emulator(found: list[dict]) -> str:
+def pick_emulator(found: list[dict[str, Any]]) -> str:
     """Id del emulador Android activo, o cadena vacia si no hay ninguno."""
     for device in found:
         device_id = str(device.get("id") or "").strip()

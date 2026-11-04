@@ -1,6 +1,9 @@
 from __future__ import annotations
 
+from typing import override
+
 from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from app.theme import Colors, Fonts
@@ -20,7 +23,7 @@ class AccordionHeader(QWidget):
 
     HEIGHT = 30
 
-    def __init__(self, title: str, parent=None):
+    def __init__(self, title: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("accordionHeader")
         # Un QWidget *derivado* no pinta el fondo de su hoja de estilo sin
@@ -76,7 +79,8 @@ class AccordionHeader(QWidget):
             QWidget#accordionHeader:hover {{ background: {self.pal.surface_hover}; }}
         """)
 
-    def mouseReleaseEvent(self, event):
+    @override
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
             event.position().toPoint()
         ):
@@ -100,7 +104,9 @@ class AccordionSection(QWidget):
 
     toggled = Signal(bool)
 
-    def __init__(self, title: str, body: QWidget, expanded: bool = True, parent=None):
+    def __init__(
+        self, title: str, body: QWidget, expanded: bool = True, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self.body = body
 
@@ -136,6 +142,7 @@ class AccordionSection(QWidget):
         self._allotted = height
         self.updateGeometry()
 
+    @override
     def sizeHint(self) -> QSize:
         hint = super().sizeHint()
         if self._allotted is None:
@@ -184,7 +191,7 @@ class SectionResizeGrip(QWidget):
 
     HEIGHT = 7
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setObjectName("sectionGrip")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -207,12 +214,14 @@ class SectionResizeGrip(QWidget):
             QWidget#sectionGrip:hover {{ background: {self.pal.surface_hover}; }}
         """)
 
-    def mousePressEvent(self, event):
+    @override
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._last_y = event.globalPosition().y()
             self.pressed.emit()
 
-    def mouseMoveEvent(self, event):
+    @override
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         if self._last_y is None:
             return
         y = event.globalPosition().y()
@@ -221,8 +230,10 @@ class SectionResizeGrip(QWidget):
             self._last_y = y
             self.dragged.emit(delta)
 
-    def mouseReleaseEvent(self, event):
+    @override
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self._last_y = None
 
-    def mouseDoubleClickEvent(self, event):
+    @override
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         self.reset.emit()

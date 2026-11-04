@@ -1,9 +1,17 @@
 from __future__ import annotations
 
 import os
+from collections.abc import Iterable
 
 from app.core.errors import MissingConfig, TaskError
-from app.core.settings import GROUP_ORDER, SETTINGS, get_setting, repo_settings, settings_by_group
+from app.core.settings import (
+    GROUP_ORDER,
+    SETTINGS,
+    Setting,
+    get_setting,
+    repo_settings,
+    settings_by_group,
+)
 
 CONSOLA_DIR = ".consola"
 CONFIG_NAME = "config.env"
@@ -78,7 +86,7 @@ _DYNAMIC_DEFAULT_HINTS = {
 }
 
 
-def describe(setting) -> str:
+def describe(setting: Setting) -> str:
     """Renglon de comentario de una clave: para que sirve y que se espera.
 
     Es lo que hace legible un archivo recien creado con todas las claves del
@@ -98,7 +106,7 @@ def describe(setting) -> str:
     return " · ".join(bits)
 
 
-def render_config(values: dict[str, str], fields: tuple = ()) -> str:
+def render_config(values: dict[str, str], fields: tuple[Setting, ...] = ()) -> str:
     """Regenera el archivo agrupado por categoria; las claves ajenas se conservan al final.
 
     Solo las `scope='repo'`: lo que es de la maquina y no del proyecto no se
@@ -128,7 +136,7 @@ def render_config(values: dict[str, str], fields: tuple = ()) -> str:
     return "".join(out)
 
 
-def save_config(repo_path: str, values: dict[str, str], fields: tuple = ()) -> str:
+def save_config(repo_path: str, values: dict[str, str], fields: tuple[Setting, ...] = ()) -> str:
     """Escribe `.consola/config.env` y devuelve la ruta. Crea la carpeta si falta."""
     path = config_path(repo_path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -168,7 +176,7 @@ def import_from(path: str) -> dict[str, str]:
     return {k: v for k, v in legacy.items() if k in known and v}
 
 
-def missing_keys(values: dict[str, str], keys) -> list[str]:
+def missing_keys(values: dict[str, str], keys: Iterable[str]) -> list[str]:
     return [k for k in keys if not values.get(k, "").strip()]
 
 

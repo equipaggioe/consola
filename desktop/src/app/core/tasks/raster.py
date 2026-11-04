@@ -56,8 +56,8 @@ def svg_to_png(svg: Path, lado: int) -> bytes:
     pintor.end()
     buffer = QBuffer()
     buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-    imagen.save(buffer, "PNG")
-    return bytes(buffer.data())
+    imagen.save(buffer, "PNG")  # pyrefly: ignore[no-matching-overload]
+    return bytes(buffer.data().data())
 
 
 def svg_to_ico(svg: Path) -> bytes:

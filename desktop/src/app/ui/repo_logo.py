@@ -2,9 +2,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+from typing import override
 
 from PySide6.QtCore import QRect, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter
+from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPaintEvent
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QWidget
 
@@ -87,7 +88,7 @@ class RepoLogoView(QWidget):
     `QLabel` como pixmap, a 150 % saldria borroso.
     """
 
-    def __init__(self, size: int, logo: RepoLogo, parent=None):
+    def __init__(self, size: int, logo: RepoLogo, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
@@ -99,7 +100,8 @@ class RepoLogoView(QWidget):
         self.setToolTip(logo.error)
         self.update()
 
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         if self._image is not None:

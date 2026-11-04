@@ -68,8 +68,8 @@ def on_color(hex_color: str) -> str:
     """
     c = QColor(hex_color)
 
-    def lin(v: int) -> float:
-        v /= 255
+    def lin(channel: int) -> float:
+        v = channel / 255
         return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
 
     lum = 0.2126 * lin(c.red()) + 0.7152 * lin(c.green()) + 0.0722 * lin(c.blue())

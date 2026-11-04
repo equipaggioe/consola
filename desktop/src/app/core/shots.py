@@ -7,6 +7,7 @@ import zipfile
 from collections.abc import Iterable
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from app.core import targets
 from app.core.errors import TaskError
@@ -83,7 +84,7 @@ def camera_args(
     return args
 
 
-def parse_supported(text: str) -> dict[str, dict]:
+def parse_supported(text: str) -> dict[str, dict[str, Any]]:
     """Lo que la camara dice que sabe capturar, leido de su `--supported` (ADR-0054).
 
     El kit ya lo revisa antes de imprimirlo; esto revisa lo que Consola usa de
@@ -113,7 +114,7 @@ def parse_supported(text: str) -> dict[str, dict]:
     return declarado
 
 
-def supported_values(declarado: dict[str, dict], axis: str) -> list[str]:
+def supported_values(declarado: dict[str, dict[str, Any]], axis: str) -> list[str]:
     """Los valores de un eje de la camara: sus apps, o todos los temas o idiomas
     que tiene alguna. Los temas en el orden del contrato; lo demas, como lo
     escribio la camara.
@@ -205,11 +206,11 @@ def missing_combinations(
     ]
 
 
-def load_presets() -> dict:
+def load_presets() -> dict[str, Any]:
     return json.loads(PRESETS_FILE.read_text(encoding="utf-8"))
 
 
-def render_landing(shot: Shot, preset: dict, out_dir: Path) -> "Derived":
+def render_landing(shot: Shot, preset: dict[str, Any], out_dir: Path) -> "Derived":
     """Un crudo -> el .webp de la landing, sin agrandarlo nunca.
 
     El ancho del preset es un tope: una captura mas angosta que el se deja
@@ -251,7 +252,9 @@ def aspect_crop(width: int, height: int, target_w: int, target_h: int) -> float:
     return 1 - min(actual, destino) / max(actual, destino)
 
 
-def plan(destination: str, preset: dict, crudos: list[Shot]) -> list[tuple[Shot, dict | None]]:
+def plan(
+    destination: str, preset: dict[str, Any], crudos: list[Shot]
+) -> list[tuple[Shot, dict[str, Any] | None]]:
     """Los pares (crudo, medida) que produce un destino; `None` es la medida nativa.
 
     - `kinds` dice de que crudos sale el destino: una captura de escritorio no
@@ -270,12 +273,13 @@ def plan(destination: str, preset: dict, crudos: list[Shot]) -> list[tuple[Shot,
     propios = [s for s in crudos if not tipos or s.kind in tipos]
     if not propios:
         raise TaskError(
-            f"{destination}: ninguna captura es de un tipo que le sirva ({', '.join(tipos)})."
+            f"{destination}: ninguna captura es de un tipo que le sirva "
+            f"({', '.join(tipos or ())})."
         )
     if "sizes" not in preset and "limits" not in preset:
         return [(s, None) for s in propios]
 
-    pares: list[tuple[Shot, dict | None]] = []
+    pares: list[tuple[Shot, dict[str, Any] | None]] = []
     fuera: list[str] = []
     for shot in propios:
         with Image.open(shot.path) as imagen:
@@ -309,7 +313,7 @@ def plan(destination: str, preset: dict, crudos: list[Shot]) -> list[tuple[Shot,
     return pares
 
 
-def _outside_limits(ancho: int, alto: int, limits: dict) -> str:
+def _outside_limits(ancho: int, alto: int, limits: dict[str, Any]) -> str:
     corto, largo = sorted((ancho, alto))
     if corto < limits["min_side"]:
         return f"el lado corto es menor que {limits['min_side']} px"
@@ -320,7 +324,9 @@ def _outside_limits(ancho: int, alto: int, limits: dict) -> str:
     return ""
 
 
-def render_sized(shot: Shot, size: dict | None, out_dir: Path, destination: str) -> Derived:
+def render_sized(
+    shot: Shot, size: dict[str, Any] | None, out_dir: Path, destination: str
+) -> Derived:
     """Un crudo -> un PNG sin canal alfa, nativo o de la medida exacta del destino.
 
     Las tiendas rechazan PNG con alfa. Con medida, se escala hasta cubrirla
@@ -425,5 +431,5 @@ def write_manifest(out_dir: Path, destination: str, derivados: list[Derived]) ->
     )
 
 
-def _entry(item: dict) -> str:
+def _entry(item: dict[str, Any]) -> str:
     return item.get("member") or item["file"]

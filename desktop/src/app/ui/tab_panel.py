@@ -1,9 +1,19 @@
 from __future__ import annotations
 
 import time
+from typing import Any, override
 
-from PySide6.QtCore import QEvent, QRectF, Qt, QTimer, Signal
-from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
+from PySide6.QtCore import QEvent, QObject, QPoint, QRectF, Qt, QTimer, Signal
+from PySide6.QtGui import (
+    QColor,
+    QEnterEvent,
+    QFont,
+    QMouseEvent,
+    QPainter,
+    QPainterPath,
+    QPaintEvent,
+    QPen,
+)
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -24,6 +34,7 @@ from app.core import context, protection, sysinfo, toolstatus
 from app.core.catalog import forget_machine_cache
 from app.core.projects import Project
 from app.core.registry import Capability, registry
+from app.core.toolstatus import Tool
 from app.theme import Colors, Fonts
 from app.ui import favorites, palettes, params_store, repo_logo, section_visibility
 from app.ui.command_info_panel import CommandInfoPanel
@@ -45,7 +56,7 @@ from app.ui.widgets import (
 from app.ui.widgets.led import LedIndicator
 
 
-class SubTabButton(ReorderableTab, QWidget):
+class SubTabButton(ReorderableTab):
     """Pestana de segundo nivel: una ejecucion dentro del repo activo.
 
     Subordinada visualmente al nivel superior: mas baja, tipografia menor
@@ -57,7 +68,7 @@ class SubTabButton(ReorderableTab, QWidget):
 
     HEIGHT = 34
 
-    def __init__(self, title: str, icon: str, pal: Palette, parent=None):
+    def __init__(self, title: str, icon: str, pal: Palette, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.title = title
         self.pal = pal
@@ -122,19 +133,22 @@ class SubTabButton(ReorderableTab, QWidget):
         )
         self.title_label.setStyleSheet(f"background: transparent; color: {color};")
 
-    def enterEvent(self, event):
+    @override
+    def enterEvent(self, event: QEnterEvent) -> None:
         self._hovered = True
         self._sync_text()
         self.update()
         super().enterEvent(event)
 
-    def leaveEvent(self, event):
+    @override
+    def leaveEvent(self, event: QEvent) -> None:
         self._hovered = False
         self._sync_text()
         self.update()
         super().leaveEvent(event)
 
-    def mousePressEvent(self, event):
+    @override
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.clicked.emit()
             self._reorder_press(event)
@@ -142,15 +156,18 @@ class SubTabButton(ReorderableTab, QWidget):
             self.close_requested.emit()
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event):
+    @override
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         self._reorder_move(event)
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    @override
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self._reorder_release(event)
         super().mouseReleaseEvent(event)
 
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect())
@@ -188,7 +205,9 @@ class PadlockChip(QLabel):
 
     clicked = Signal()
 
-    def __init__(self, chip: str, label: str, protected: bool, pal: Palette, parent=None):
+    def __init__(
+        self, chip: str, label: str, protected: bool, pal: Palette, parent: QWidget | None = None
+    ) -> None:
         super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Cerrado = a salvo (el color del repo); abierto = expuesto a un
@@ -202,7 +221,8 @@ class PadlockChip(QLabel):
             "Clic para administrar en Configuración → Seguridad."
         )
 
-    def mouseReleaseEvent(self, event):
+    @override
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
             event.position().toPoint()
         ):
@@ -220,12 +240,12 @@ class WorkspaceStatusBar(QWidget):
 
     security_clicked = Signal()  # clic en el indicador de seguros del repo activo
 
-    def __init__(self, pal: Palette, parent=None):
+    def __init__(self, pal: Palette, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.pal = pal
         # Lo ultimo que se mostro en los candados: al cambiar de color hay que
         # volver a pintarlos, y el estado lo tiene el repo, no la barra.
-        self._protection: dict = {}
+        self._protection: dict[str, Any] = {}
         self.setFixedHeight(34)
         # Sin esto un QWidget derivado no pinta ni el fondo ni el borde de su
         # hoja de estilo: la linea de arriba que la separa del contenido no se
@@ -340,7 +360,7 @@ class WorkspaceStatusBar(QWidget):
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
         )
 
-    def _build_tool(self, tool) -> tuple[LedIndicator, QLabel]:
+    def _build_tool(self, tool: Tool) -> tuple[LedIndicator, QLabel]:
         container = QWidget()
         container.setStyleSheet("background: transparent;")
         clayout = QHBoxLayout(container)
@@ -387,7 +407,7 @@ class WorkspaceStatusBar(QWidget):
         self._sep_security.setVisible(False)
         self.set_status("")
 
-    def set_protection(self, state: dict) -> None:
+    def set_protection(self, state: dict[str, Any]) -> None:
         """Refresca los candados con el estado de CADA objetivo de proteccion
         (`core/protection.TARGETS`), no solo los protegidos: un objetivo sin
         seguro tambien es un dato, y con su candado abierto se ve de un
@@ -397,8 +417,9 @@ class WorkspaceStatusBar(QWidget):
         self._protection = dict(state)
         while self._security_row.count():
             item = self._security_row.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget() if item else None
+            if widget:
+                widget.deleteLater()
 
         self.security_box.setVisible(True)
         self._sep_security.setVisible(True)
@@ -428,7 +449,7 @@ class WorkspaceStatusBar(QWidget):
             linea.setStyleSheet(f"background: {self.pal.border}; border: none;")
 
 
-class TabPanel(ReorderableBar, QWidget):
+class TabPanel(ReorderableBar):
     """Espacio de trabajo de UN repositorio.
 
     Contiene el segundo nivel de pestanas (las ejecuciones de ese repo),
@@ -449,15 +470,15 @@ class TabPanel(ReorderableBar, QWidget):
     # Piso del cuerpo de una seccion del acordeon al arrastrarla a mano.
     MIN_BODY = 48
 
-    def __init__(self, project: Project, parent=None):
+    def __init__(self, project: Project, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.project = project
         self.pal = palettes.get(project.theme)
         self.logo = repo_logo.resolve(project.path)
 
-        self.layout = QVBoxLayout(self)
-        self.layout.setContentsMargins(0, 0, 0, 0)
-        self.layout.setSpacing(0)
+        self.root_layout = QVBoxLayout(self)
+        self.root_layout.setContentsMargins(0, 0, 0, 0)
+        self.root_layout.setSpacing(0)
 
         # --- barra de sub-pestanas -----------------------------------
         self.sub_bar = QWidget()
@@ -557,9 +578,11 @@ class TabPanel(ReorderableBar, QWidget):
         self._column.setSpacing(0)
         for section in self._all_sections:
             section.header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-            section.header.customContextMenuRequested.connect(
-                lambda pos, h=section.header: self._show_sections_menu(h.mapToGlobal(pos))
-            )
+
+            def on_section_menu(pos: QPoint, h: QWidget = section.header) -> None:
+                self._show_sections_menu(h.mapToGlobal(pos))
+
+            section.header.customContextMenuRequested.connect(on_section_menu)
             # Quien estira lo decide `_relayout_right` con `setStretchFactor`:
             # tiene que ser la ultima seccion abierta que no este fijada a mano,
             # que no siempre es Configuracion. Sin eso, con Configuracion plegada
@@ -571,7 +594,11 @@ class TabPanel(ReorderableBar, QWidget):
                 self._manual[section] = None
                 grip = SectionResizeGrip()
                 grip.pressed.connect(lambda s=section: self._begin_resize(s))
-                grip.dragged.connect(lambda d, s=section: self._resize_section(s, d))
+
+                def on_grip_drag(delta: int, s: AccordionSection = section) -> None:
+                    self._resize_section(s, delta)
+
+                grip.dragged.connect(on_grip_drag)
                 grip.reset.connect(lambda s=section: self._resize_section(s, None))
                 self._column.addWidget(grip)
                 self._grips[section] = grip
@@ -587,9 +614,11 @@ class TabPanel(ReorderableBar, QWidget):
         # La cabecera nunca se oculta: con todas las secciones escondidas sigue
         # habiendo donde hacer clic derecho para traerlas de vuelta.
         self.right_header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-        self.right_header.customContextMenuRequested.connect(
-            lambda pos: self._show_sections_menu(self.right_header.mapToGlobal(pos))
-        )
+
+        def on_header_menu(pos: QPoint) -> None:
+            self._show_sections_menu(self.right_header.mapToGlobal(pos))
+
+        self.right_header.customContextMenuRequested.connect(on_header_menu)
         self.apply_section_visibility()
 
         # Pie fijo con Ejecutar / Simulacro: fuera del acordeon, para que el
@@ -620,8 +649,8 @@ class TabPanel(ReorderableBar, QWidget):
         # (`ui/main_window.py`). Este panel solo le avisa, con `machine_changed`,
         # cuando una tarea de maquina toca el entorno.
 
-        self.layout.addWidget(self.sub_bar)
-        self.layout.addWidget(self.splitter, 1)
+        self.root_layout.addWidget(self.sub_bar)
+        self.root_layout.addWidget(self.splitter, 1)
 
         self.tabs: list[SubTabButton] = []
         # La pestana ya no es una consola suelta: es una caja con la consola y,
@@ -673,6 +702,7 @@ class TabPanel(ReorderableBar, QWidget):
         ids = [self._params[t].capability.id for t in self.tabs if t in self._params]
         params_store.save_tabs(self.project.path, ids)
 
+    @override
     def tabs_reordered(self) -> None:
         self._persist_tabs()
 
@@ -818,7 +848,8 @@ class TabPanel(ReorderableBar, QWidget):
         return foot
 
     # --- reordenar arrastrando ---------------------------------------
-    def _tab_layout(self):
+    @override
+    def _tab_layout(self) -> QHBoxLayout:
         return self.tabs_layout
 
     # --- API ---------------------------------------------------------
@@ -886,10 +917,17 @@ class TabPanel(ReorderableBar, QWidget):
 
         panel = ParamsPanel(capability, self.project, self.env_panel)
         panel.set_env(self.env_panel.values())
-        panel.execute_requested.connect(lambda payload, t=tab: self._run(t, payload))
+
+        def on_execute(payload: dict[str, Any], t: SubTabButton = tab) -> None:
+            self._run(t, payload)
+
+        def on_stop(serial: str, t: SubTabButton = tab) -> None:
+            self._stop_live(t, serial)
+
+        panel.execute_requested.connect(on_execute)
         panel.params_changed.connect(self.params_changed.emit)
         panel.params_changed.connect(lambda p=panel: self._refilter_env(p))
-        panel.stop_requested.connect(lambda serial, t=tab: self._stop_live(t, serial))
+        panel.stop_requested.connect(on_stop)
         panel.clear_requested.connect(view.clear_console)
         self.params_stack.addWidget(panel)
         self.run_footer.addWidget(panel.footer)
@@ -1133,7 +1171,8 @@ class TabPanel(ReorderableBar, QWidget):
         if self.current_params() is panel:
             self.env_panel.filter_for(panel.relevant_keys())
 
-    def eventFilter(self, obj, event):
+    @override
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         """La columna derecha cambio de alto (ventana redimensionada, o la
         cabecera crecio con la descripcion de la accion): hay que repartir de
         nuevo, porque el alto de Configuracion es «lo que sobre».
@@ -1264,7 +1303,7 @@ class TabPanel(ReorderableBar, QWidget):
             section.setHidden(self._section_ids[section] in hidden)
         self._relayout_right()
 
-    def _show_sections_menu(self, global_pos) -> None:
+    def _show_sections_menu(self, global_pos: QPoint) -> None:
         menu = QMenu(self)
         menu.addSection("Secciones visibles")
         for section in self._all_sections:
@@ -1272,7 +1311,11 @@ class TabPanel(ReorderableBar, QWidget):
             item = menu.addAction(section.header.title.text().capitalize())
             item.setCheckable(True)
             item.setChecked(not section.isHidden())
-            item.toggled.connect(lambda visible, s=sid: self._set_section_visible(s, visible))
+
+            def on_toggled(visible: bool, s: str = sid) -> None:
+                self._set_section_visible(s, visible)
+
+            item.toggled.connect(on_toggled)
         menu.exec(global_pos)
 
     def _set_section_visible(self, section_id: str, visible: bool) -> None:
@@ -1321,7 +1364,7 @@ class TabPanel(ReorderableBar, QWidget):
     def _info_wanted(self) -> int:
         return self.info_panel.content_height() + 28
 
-    def _refresh_security_summary(self, state: dict) -> None:
+    def _refresh_security_summary(self, state: dict[str, Any]) -> None:
         """Cuantos objetivos estan protegidos, en la cabecera de la seccion.
 
         Es lo que hace que cerrarla no cueste informacion: plegada sigue
@@ -1333,7 +1376,7 @@ class TabPanel(ReorderableBar, QWidget):
             f"{protegidos} de {total} protegidos" if protegidos else "sin seguros"
         )
 
-    def _on_env_changed(self, values: dict) -> None:
+    def _on_env_changed(self, values: dict[str, Any]) -> None:
         for panel in self._params.values():
             panel.set_env(values)
 
@@ -1357,7 +1400,7 @@ class TabPanel(ReorderableBar, QWidget):
         self.welcome_logo.set_logo(self.logo)
         self.logo_changed.emit(self.logo)
 
-    def _run(self, tab: SubTabButton, payload: dict) -> None:
+    def _run(self, tab: SubTabButton, payload: dict[str, Any]) -> None:
         """Punto unico de 'Ejecutar': corre de verdad lo que ya tiene cuerpo
         (`func`); lo que todavia no lo tiene sigue simulado, para que el rail y
         el panel funcionen igual mientras se escribe (ADR-0002).
@@ -1401,7 +1444,9 @@ class TabPanel(ReorderableBar, QWidget):
             self._run_real(tab, console, capability, capability.kwargs_from(payload))
 
     # --- seguro por tipo de objetivo ----------------------------------
-    def _guard_ok(self, capability: Capability, payload: dict, console: ConsoleView) -> bool:
+    def _guard_ok(
+        self, capability: Capability, payload: dict[str, Any], console: ConsoleView
+    ) -> bool:
         """Deja pasar, avisa, o bloquea — segun `core/protection.decide`.
 
         Lo que decide no es "es destructivo" sino "que rompe, con ESTOS
@@ -1434,7 +1479,7 @@ class TabPanel(ReorderableBar, QWidget):
         return False
 
     # --- reparto en pestanas ------------------------------------------
-    def _fanout_values(self, capability: Capability, payload: dict) -> list[str]:
+    def _fanout_values(self, capability: Capability, payload: dict[str, Any]) -> list[str]:
         """Los valores del eje que se reparte en pestanas, si lo hay.
 
         Solo para lo que corre en vivo: un eje `many` de una capacidad que
@@ -1447,7 +1492,11 @@ class TabPanel(ReorderableBar, QWidget):
         return list((payload.get("variants") or {}).get(capability.fanout) or [])
 
     def _run_fanout(
-        self, tab: SubTabButton, capability: Capability, payload: dict, valores: list[str]
+        self,
+        tab: SubTabButton,
+        capability: Capability,
+        payload: dict[str, Any],
+        valores: list[str],
     ) -> None:
         """Una pestana por valor marcado, cada una con su proceso vivo.
 
@@ -1456,7 +1505,7 @@ class TabPanel(ReorderableBar, QWidget):
         exactamente igual que antes, sin una pestana de mas.
         """
 
-        def _payload_for(valor: str) -> dict:
+        def _payload_for(valor: str) -> dict[str, Any]:
             variantes = dict(payload.get("variants") or {})
             variantes[capability.fanout] = [valor]
             return {**payload, "variants": variantes}
@@ -1479,7 +1528,9 @@ class TabPanel(ReorderableBar, QWidget):
             )
         self._activate(tab)
 
-    def _run_concurrent(self, tab: SubTabButton, capability: Capability, payload: dict) -> None:
+    def _run_concurrent(
+        self, tab: SubTabButton, capability: Capability, payload: dict[str, Any]
+    ) -> None:
         """Compuesta concurrente: lanza cada paso en su propia pestana.
 
         No hay `func` que llamar. Sus pasos son capacidades con boton propio, y
@@ -1513,7 +1564,7 @@ class TabPanel(ReorderableBar, QWidget):
         tab: SubTabButton,
         console: ConsoleView,
         capability: Capability,
-        kwargs: dict,
+        kwargs: dict[str, Any],
         track: bool = True,
     ) -> None:
         """`track=False` para lo que corre *dentro* de una pestana ajena — el ✕
@@ -1528,6 +1579,7 @@ class TabPanel(ReorderableBar, QWidget):
             if panel.dry_btn is not None:
                 panel.dry_btn.setEnabled(False)
 
+        assert capability.func is not None
         runner = TaskRunner(capability.id, self.project, capability.func, kwargs)
         if track:
             self._busy[tab] = runner
@@ -1537,12 +1589,17 @@ class TabPanel(ReorderableBar, QWidget):
         view = self._views.get(tab)
         if view is not None:
             runner.serve_requested.connect(view.set_endpoint)
+
         # La bitacora todavia no existe (`core/store.py`, docs/arquitectura/30_riesgos_y_pendientes.md): hasta que
         # exista, una nota no se pierde — se deja marcada en la consola.
-        runner.noted.connect(lambda entry: console.append_log(f"✱ {entry}", "ok"))
-        runner.ask_requested.connect(
-            lambda q, shape, danger, expect: self._answer_task(runner, q, shape, danger, expect)
-        )
+        def on_note(entry: str) -> None:
+            console.append_log(f"✱ {entry}", "ok")
+
+        def on_ask(question: str, shape: str, danger: bool, expect: str) -> None:
+            self._answer_task(runner, question, shape, danger, expect)
+
+        runner.noted.connect(on_note)
+        runner.ask_requested.connect(on_ask)
 
         def _on_done(ok: bool) -> None:
             console.append_log("Hecho" if ok else "Terminó con errores", "ok" if ok else "error")
@@ -1631,7 +1688,7 @@ class TabPanel(ReorderableBar, QWidget):
         box.exec()
         runner.provide_answer("no" if box.clickedButton() is no else "si")
 
-    def _run_stub(self, console: ConsoleView, payload: dict) -> None:
+    def _run_stub(self, console: ConsoleView, payload: dict[str, Any]) -> None:
         """Ejecucion simulada: reporta exactamente lo que correria (stub, ADR-0002)."""
         console.append_log("─" * 46, "info")
 

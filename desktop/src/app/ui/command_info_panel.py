@@ -10,7 +10,7 @@ from app.ui.palettes import NEUTRAL, Palette
 
 
 class _Heading(QLabel):
-    def __init__(self, text: str, parent=None):
+    def __init__(self, text: str, parent: QWidget | None = None) -> None:
         super().__init__(text.upper(), parent)
         self.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; "
@@ -31,7 +31,7 @@ class CommandInfoPanel(QWidget):
     advertencias ni de casos borde.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
         # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
@@ -119,8 +119,9 @@ class CommandInfoPanel(QWidget):
     def _clear(self) -> None:
         while self._lay.count():
             item = self._lay.takeAt(0)
-            if item.widget():
-                item.widget().deleteLater()
+            widget = item.widget() if item else None
+            if widget:
+                widget.deleteLater()
 
     def _body(self, text: str) -> QLabel:
         label = QLabel(text)

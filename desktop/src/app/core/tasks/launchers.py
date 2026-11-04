@@ -5,6 +5,7 @@ from pathlib import Path
 
 from app.core import canone, envfile, fields, ports, runner, session, ssh, targets, toolchain
 from app.core import database as db
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.registry import registry
 from app.core.tasks import emulators
@@ -41,19 +42,19 @@ BACKEND_WAIT = 90.0
 # --- atomicas --------------------------------------------------------------
 
 
-def resolve_server_port(ctx, preferred: int = 8000, search: bool = True) -> int:
+def resolve_server_port(ctx: TaskContext, preferred: int = 8000, search: bool = True) -> int:
     """Elige el puerto del backend y lo publica para las tareas que vengan despues.
 
     No es un boton: nadie pide "elige un puerto y nada mas". Es plomeria de
     `serve_backend`, que si lo es (ADR-0008).
     """
     puerto = ports.resolve_port(preferred, search=search, label="puerto del backend")
-    session.publish(ctx.project.name, SERVER_PORT, puerto)
+    session.publish(ctx.project_name, SERVER_PORT, puerto)
     ctx.info(f"Puerto del backend: {puerto}")
     return puerto
 
 
-def backend_url(ctx, *, wait: float = 0.0, required: bool = True) -> str:
+def backend_url(ctx: TaskContext, *, wait: float = 0.0, required: bool = True) -> str:
     """La URL del backend de esta corrida, para los launchers que la necesitan.
 
     Con `wait`, espera a que el backend conteste de verdad en vez de mirar solo
@@ -77,7 +78,7 @@ def backend_url(ctx, *, wait: float = 0.0, required: bool = True) -> str:
     )
 
 
-def resolve_tls(ctx, server: Path) -> tuple[Path, Path] | None:
+def resolve_tls(ctx: TaskContext, server: Path) -> tuple[Path, Path] | None:
     """Los certificados del backend, si estan. Sin ellos arranca en texto plano.
 
     Se buscan en `certs/` de la carpeta del servidor, como hacia el script
@@ -95,7 +96,7 @@ def resolve_tls(ctx, server: Path) -> tuple[Path, Path] | None:
 
 
 def serve_backend(
-    ctx,
+    ctx: TaskContext,
     target: str = "",
     scope: str = db.LOCAL,
     host: str = "0.0.0.0",
@@ -131,7 +132,7 @@ def serve_backend(
         try:
             ctx.run(argv, cwd=server, env=entorno, check=False)
         finally:
-            session.forget(ctx.project.name, SERVER_PORT)
+            session.forget(ctx.project_name, SERVER_PORT)
 
     if not fields.settings_fields(server):
         with db.connect(ctx, scope) as conn:
@@ -147,7 +148,10 @@ def serve_backend(
 
 
 def serve_spa(
-    ctx, target: str = "", preferred_port: int = 5173, wait_backend: float = BACKEND_WAIT
+    ctx: TaskContext,
+    target: str = "",
+    preferred_port: int = 5173,
+    wait_backend: float = BACKEND_WAIT,
 ) -> None:
     """Arranca `pnpm run dev` de una SPA, apuntandola al backend de esta sesion.
 
@@ -177,7 +181,7 @@ def serve_spa(
     )
 
 
-def run_mobile(ctx, target: str = "", device: str = "") -> None:
+def run_mobile(ctx: TaskContext, target: str = "", device: str = "") -> None:
     """Corre la app movil en el emulador activo, con el framework que detecte.
 
     Si no hay emulador vivo lo dice y no intenta arrancar contra el escritorio:
@@ -213,7 +217,7 @@ def run_mobile(ctx, target: str = "", device: str = "") -> None:
 
 
 def run_python_app(
-    ctx,
+    ctx: TaskContext,
     target: str = "",
     auto_login: bool = False,
     watch: bool = True,
@@ -285,7 +289,7 @@ WATCH_INTERVAL = 0.5
 _WATCHED = {".py", ".qss"}
 
 
-def _watch(ctx, root: Path, cambio: threading.Event, fin: threading.Event) -> None:
+def _watch(ctx: TaskContext, root: Path, cambio: threading.Event, fin: threading.Event) -> None:
     firma = _snapshot(root)
     while not fin.wait(WATCH_INTERVAL):
         try:
@@ -313,7 +317,7 @@ def _snapshot(root: Path) -> dict[str, float]:
     }
 
 
-def open_ssh_session(ctx) -> None:
+def open_ssh_session(ctx: TaskContext) -> None:
     """Abre la sesion SSH en una terminal externa: necesita TTY real (ADR-0005)."""
     remote = ssh.resolve_remote(ctx.config)
     ctx.detach(ssh.terminal_argv(remote))

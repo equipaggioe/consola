@@ -17,6 +17,7 @@ from PySide6.QtGui import QColor
 
 from app.theme import Colors
 from app.ui import palettes
+from app.ui.palettes import Palette
 
 TEMAS = list(palettes.THEMES.values())
 IDS = [p.key for p in TEMAS]
@@ -25,8 +26,8 @@ IDS = [p.key for p in TEMAS]
 def _luminancia(hex_color: str) -> float:
     c = QColor(hex_color)
 
-    def lin(v: int) -> float:
-        v /= 255
+    def lin(channel: int) -> float:
+        v = channel / 255
         return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
 
     return 0.2126 * lin(c.red()) + 0.7152 * lin(c.green()) + 0.0722 * lin(c.blue())
@@ -40,13 +41,13 @@ def contraste(a: str, b: str) -> float:
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
 @pytest.mark.parametrize("fondo", ["bg", "panel", "surface", "surface_alt"])
-def test_texto_principal_legible(pal, fondo):
+def test_texto_principal_legible(pal: Palette, fondo: str) -> None:
     assert contraste(Colors.TEXT, getattr(pal, fondo)) >= 4.5
 
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
 @pytest.mark.parametrize("fondo", ["bg", "panel", "surface"])
-def test_texto_secundario_legible(pal, fondo):
+def test_texto_secundario_legible(pal: Palette, fondo: str) -> None:
     """`TEXT_DIM` son rotulos y resumenes de seccion: texto corrido. El texto
     no se tiñe, pero el fondo si, y hay que comprobarlo tema por tema.
     """
@@ -55,7 +56,7 @@ def test_texto_secundario_legible(pal, fondo):
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
 @pytest.mark.parametrize("fondo", ["bg", "panel", "surface", "surface_alt"])
-def test_rotulos_de_campo_legibles(pal, fondo):
+def test_rotulos_de_campo_legibles(pal: Palette, fondo: str) -> None:
     """`TEXT_LABEL` son los rotulos de los campos de Parametros y de la
     configuracion del repo, y el del interruptor «solo favoritos». Es el gris
     mas claro despues del texto corrido: un rotulo hay que poder leerlo de
@@ -66,26 +67,26 @@ def test_rotulos_de_campo_legibles(pal, fondo):
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
 @pytest.mark.parametrize("fondo", ["bg", "panel", "surface"])
-def test_texto_apagado_legible(pal, fondo):
+def test_texto_apagado_legible(pal: Palette, fondo: str) -> None:
     """`TEXT_MUTED` son pistas cortas y rutas: umbral de texto grande."""
     assert contraste(Colors.TEXT_MUTED, getattr(pal, fondo)) >= 3.0
 
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
-def test_acento_legible_sobre_los_fondos(pal):
+def test_acento_legible_sobre_los_fondos(pal: Palette) -> None:
     """El acento se usa como texto e icono (rombo, estrella, filetes)."""
     for fondo in (pal.bg, pal.panel, pal.surface):
         assert contraste(pal.accent, fondo) >= 4.5
 
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
-def test_texto_sobre_el_acento(pal):
+def test_texto_sobre_el_acento(pal: Palette) -> None:
     """La barra de titulo se pinta entera del acento (`ui/title_bar.py`)."""
     assert contraste(pal.on_accent, pal.accent) >= 4.5
 
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
-def test_bordes_se_ven_sobre_su_fondo(pal):
+def test_bordes_se_ven_sobre_su_fondo(pal: Palette) -> None:
     assert contraste(pal.border, pal.surface) >= 1.5
     assert contraste(pal.border, pal.panel) >= 1.5
 
@@ -94,7 +95,7 @@ def test_bordes_se_ven_sobre_su_fondo(pal):
 @pytest.mark.parametrize(
     "abajo,arriba", [("bg", "panel"), ("panel", "surface"), ("surface", "surface_alt")]
 )
-def test_los_escalones_se_distinguen(pal, abajo, arriba):
+def test_los_escalones_se_distinguen(pal: Palette, abajo: str, arriba: str) -> None:
     """La separacion entre paneles es este salto: si se aplana, la columna
     derecha vuelve a ser una sola mancha. `chrome` no esta en la lista: la
     fila del menu se separa del lienzo con un borde, no con luminancia.
@@ -109,7 +110,7 @@ def test_los_escalones_se_distinguen(pal, abajo, arriba):
 @pytest.mark.parametrize(
     "rol", ["chrome", "bg", "panel", "surface", "surface_hover", "surface_alt"]
 )
-def test_tenir_no_mueve_el_escalon(pal, rol):
+def test_tenir_no_mueve_el_escalon(pal: Palette, rol: str) -> None:
     """Teñir cambia el tono, no la profundidad: cada fondo conserva la
     luminancia de su neutro de partida. Es lo que garantiza que el contraste
     de todo lo que va encima sea el mismo en los ocho temas.
@@ -126,7 +127,7 @@ def test_tenir_no_mueve_el_escalon(pal, rol):
 
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
-def test_los_fondos_siguen_siendo_oscuros(pal):
+def test_los_fondos_siguen_siendo_oscuros(pal: Palette) -> None:
     """El tema oscuro es el punto de partida, no algo que se negocie tono a
     tono: ningun fondo puede irse a claro.
     """
@@ -137,7 +138,7 @@ def test_los_fondos_siguen_siendo_oscuros(pal):
 @pytest.mark.parametrize(
     "rol", ["chrome", "bg", "panel", "surface", "surface_hover", "surface_alt"]
 )
-def test_los_fondos_llevan_color_de_verdad(pal, rol):
+def test_los_fondos_llevan_color_de_verdad(pal: Palette, rol: str) -> None:
     """El fondo tiene que leerse como el color del repo, no como un gris.
 
     Por debajo del 35 % de saturacion HSL el tono se pierde a tamaño de
@@ -150,7 +151,7 @@ def test_los_fondos_llevan_color_de_verdad(pal, rol):
 
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
-def test_la_barra_de_menu_no_es_negra(pal):
+def test_la_barra_de_menu_no_es_negra(pal: Palette) -> None:
     """`chrome` es la banda de la fila del menu, y es la mas clara de la
     escalera de fondos, no la mas oscura: por encima del cuerpo de las
     secciones y de las cabeceras.
@@ -159,7 +160,7 @@ def test_la_barra_de_menu_no_es_negra(pal):
 
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
-def test_la_pestana_seleccionada_se_lee(pal):
+def test_la_pestana_seleccionada_se_lee(pal: Palette) -> None:
     """La pestana del repo seleccionado se pinta de `chrome` —el color de la
     fila del menu, la de justo debajo— con el nombre en el acento
     (`ui/project_tabs.py`).
@@ -168,7 +169,7 @@ def test_la_pestana_seleccionada_se_lee(pal):
 
 
 @pytest.mark.parametrize("pal", TEMAS, ids=IDS)
-def test_las_pestanas_se_leen_sobre_la_barra(pal):
+def test_las_pestanas_se_leen_sobre_la_barra(pal: Palette) -> None:
     """Todas las pestanas de repo llevan el acento del repo activo de fondo
     —el color con el que queda pintada la barra de titulo— y el nombre, el
     contorno y la marca `◇ CONSOLA` van en `on_accent` encima
@@ -177,7 +178,7 @@ def test_las_pestanas_se_leen_sobre_la_barra(pal):
     assert contraste(pal.on_accent, pal.accent) >= 4.5
 
 
-def test_los_estados_no_se_tiñen():
+def test_los_estados_no_se_tiñen() -> None:
     """Un exito y un error significan lo mismo en todos los repos: ningun
     color semantico sale de una paleta.
     """
@@ -185,11 +186,11 @@ def test_los_estados_no_se_tiñen():
     assert {"success", "warning", "error"}.isdisjoint(campos)
 
 
-def test_cada_tema_tiene_su_clave():
+def test_cada_tema_tiene_su_clave() -> None:
     assert all(clave == pal.key for clave, pal in palettes.THEMES.items())
 
 
-def test_no_repite_mientras_queden_temas():
+def test_no_repite_mientras_queden_temas() -> None:
     usados: list[str] = []
     for _ in palettes.THEMES:
         clave = palettes.first_free(usados)

@@ -142,7 +142,8 @@ def extract_zip(archive: Path, target: Path) -> Path:
     return target
 
 
-def human_size(total: int) -> str:
+def human_size(size: int) -> str:
+    total = float(size)
     for unit in ("B", "KB", "MB", "GB"):
         if total < 1024 or unit == "GB":
             return f"{total:.0f} {unit}" if unit == "B" else f"{total:.1f} {unit}"

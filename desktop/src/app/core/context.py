@@ -5,11 +5,16 @@ import threading
 from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from app.core import ports, process, session
 from app.core.envfile import Config
 from app.core.errors import Cancelled, MissingConfig, TaskError
 from app.core.projects import Project
+from app.core.session import Endpoint
+
+if TYPE_CHECKING:
+    from app.core.ssh import Tunnel
 
 __all__ = ["Level", "TaskContext", "TaskError", "Cancelled", "MissingConfig"]
 
@@ -66,14 +71,14 @@ class TaskContext:
     note_sink: NoteSink | None = None
     serve_sink: ServeSink | None = None
 
-    _asked: dict = field(default_factory=dict, repr=False)
+    _asked: dict[str, str] = field(default_factory=dict, repr=False)
     _cancel: threading.Event = field(default_factory=threading.Event, repr=False)
-    _children: list = field(default_factory=list, repr=False)
-    _secrets: set = field(default_factory=set, repr=False)
-    _stoppers: list = field(default_factory=list, repr=False)
-    _served: list = field(default_factory=list, repr=False)
-    _published: list = field(default_factory=list, repr=False)
-    _tunnels: list = field(default_factory=list, repr=False)
+    _children: list[subprocess.Popen[str]] = field(default_factory=list, repr=False)
+    _secrets: set[str] = field(default_factory=set, repr=False)
+    _stoppers: list[Callable[[], None]] = field(default_factory=list, repr=False)
+    _served: list[tuple[str, str]] = field(default_factory=list, repr=False)
+    _published: list[tuple[str, str]] = field(default_factory=list, repr=False)
+    _tunnels: list[Tunnel] = field(default_factory=list, repr=False)
 
     # --- raiz del proyecto -------------------------------------------------
 
@@ -82,6 +87,12 @@ class TaskContext:
         if self.project is None:
             raise TaskError("No hay proyecto abierto.")
         return Path(self.project.path)
+
+    @property
+    def project_name(self) -> str:
+        if self.project is None:
+            raise TaskError("No hay proyecto abierto.")
+        return self.project.name
 
     def path(self, *parts: str) -> Path:
         return self.root.joinpath(*parts)
@@ -215,7 +226,9 @@ class TaskContext:
             check=check,
         )
 
-    def detach(self, argv: Sequence[str], *, cwd: Path | str | None = None) -> subprocess.Popen:
+    def detach(
+        self, argv: Sequence[str], *, cwd: Path | str | None = None
+    ) -> subprocess.Popen[str]:
         """Arranca un proceso que sobrevive a su pestana (servicio de fondo, 7.2)."""
         self.log(process.format_argv(argv), Level.CMD)
         return process.spawn(argv, cwd=cwd or self._default_cwd(), detached=True)
@@ -253,7 +266,7 @@ class TaskContext:
                 target=self._watch_endpoint, args=(endpoint, wait), daemon=True
             ).start()
 
-    def _watch_endpoint(self, endpoint, timeout: float) -> None:
+    def _watch_endpoint(self, endpoint: Endpoint, timeout: float) -> None:
         """Sondea el puerto hasta que conteste, en un hilo aparte.
 
         Aparte porque quien llama a `serve()` sigue derecho a `ctx.run()`, que
@@ -275,11 +288,11 @@ class TaskContext:
             self.warn(f"{endpoint.url} no contesto despues de {int(timeout)}s.")
         self._emit_serve(endpoint)
 
-    def _emit_serve(self, endpoint) -> None:
+    def _emit_serve(self, endpoint: Endpoint) -> None:
         if self.serve_sink:
             self.serve_sink(endpoint.url, endpoint.label, endpoint.web, endpoint.state)
 
-    def endpoint(self, key: str, *, wait: float = 0.0):
+    def endpoint(self, key: str, *, wait: float = 0.0) -> Endpoint | None:
         """El endpoint que publico otra tarea de este proyecto, si existe."""
         if self.project is None:
             return None
@@ -397,7 +410,7 @@ class TaskContext:
         for child in list(self._children):
             process.kill_tree(child)
 
-    def hold_tunnel(self, tunnel) -> None:
+    def hold_tunnel(self, tunnel: Tunnel) -> None:
         """Anota un tunel SSH de esta tarea: Limpiar la pestana la detiene si
         tiene alguno vivo (`ui/tab_panel.py::_on_cleared`).
         """

@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from pathlib import Path
 
 from app.core import process
+from app.core.context import TaskContext
 from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.host import HOST
@@ -146,7 +147,7 @@ def capture(
 
 
 def run(
-    ctx,
+    ctx: TaskContext,
     remote: Remote,
     command: str,
     *,
@@ -201,7 +202,7 @@ def ensure_dir(remote: Remote, remote_path: str) -> None:
 
 
 def upload(
-    ctx,
+    ctx: TaskContext,
     remote: Remote,
     local: Path,
     remote_path: str,
@@ -240,7 +241,7 @@ def upload(
 
 
 def download(
-    ctx, remote: Remote, remote_path: str, local: Path, *, recursive: bool = False
+    ctx: TaskContext, remote: Remote, remote_path: str, local: Path, *, recursive: bool = False
 ) -> Path:
     local.parent.mkdir(parents=True, exist_ok=True)
     ctx.run(remote.scp_argv(local, remote_path, download=True, recursive=recursive))
@@ -257,7 +258,7 @@ class Tunnel:
     remote: Remote
     local_port: int
     remote_port: int
-    proc: subprocess.Popen
+    proc: subprocess.Popen[str]
 
     @property
     def alive(self) -> bool:
@@ -273,7 +274,7 @@ class Tunnel:
     def __enter__(self) -> "Tunnel":
         return self
 
-    def __exit__(self, *exc) -> None:
+    def __exit__(self, *exc: object) -> None:
         self.close()
 
 
@@ -301,7 +302,7 @@ def open_tunnel(remote: Remote, *, local_port: int, remote_port: int) -> Tunnel:
 # --- llaves y known_hosts --------------------------------------------------
 
 
-def ensure_local_keypair(ctx, key_name: str, *, comment: str = "") -> Path:
+def ensure_local_keypair(ctx: TaskContext, key_name: str, *, comment: str = "") -> Path:
     """Crea `~/.ssh/<key_name>` si falta. Idempotente: si ya existe, no la toca."""
     private = identity_path(key_name)
     if private.is_file():
@@ -326,7 +327,7 @@ def public_key(private: Path) -> str:
     return pub.read_text(encoding="utf-8").strip()
 
 
-def forget_host(ctx, host: str) -> None:
+def forget_host(ctx: TaskContext, host: str) -> None:
     """Saca la entrada vieja de known_hosts.
 
     Tras reinstalar el VPS cambia la huella y el cliente rechaza la conexion

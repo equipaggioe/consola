@@ -13,7 +13,7 @@ LOGO = (
 
 
 @pytest.fixture
-def repo(tmp_path):
+def repo(tmp_path: Path) -> Path:
     (tmp_path / "brand").mkdir()
     (tmp_path / "brand" / "logomark.svg").write_text(LOGO, encoding="utf-8")
     return tmp_path
@@ -24,13 +24,13 @@ def _config(repo: Path, value: str) -> None:
     (repo / ".consola" / "config.env").write_text(f"BRAND_ICON={value}\n", encoding="utf-8")
 
 
-def test_el_logo_es_brand_icon(repo):
+def test_el_logo_es_brand_icon(repo: Path) -> None:
     _config(repo, "brand/logomark.svg")
     assert repo_logo.resolve(str(repo)) == repo_logo.RepoLogo(repo / "brand" / "logomark.svg")
 
 
 @pytest.mark.parametrize("config", [False, True])
-def test_sin_logo_lleva_la_marca_de_equipaggio(repo, config):
+def test_sin_logo_lleva_la_marca_de_equipaggio(repo: Path, config: bool) -> None:
     if config:
         _config(repo, "")
     assert repo_logo.resolve(str(repo)) == repo_logo.RepoLogo(repo_logo.EQUIPAGGIO)
@@ -45,7 +45,7 @@ def test_sin_logo_lleva_la_marca_de_equipaggio(repo, config):
         ("brand/roto.svg", "Qt no pudo leer roto.svg como SVG."),
     ],
 )
-def test_un_logo_que_no_se_lee_muestra_el_error(repo, value, error):
+def test_un_logo_que_no_se_lee_muestra_el_error(repo: Path, value: str, error: str) -> None:
     (repo / "brand" / "roto.svg").write_text("no es un svg", encoding="utf-8")
     _config(repo, value)
     logo = repo_logo.resolve(str(repo))
@@ -53,7 +53,7 @@ def test_un_logo_que_no_se_lee_muestra_el_error(repo, value, error):
     assert error in logo.error
 
 
-def test_el_logo_se_recorta_a_lo_que_se_dibuja(repo):
+def test_el_logo_se_recorta_a_lo_que_se_dibuja(repo: Path) -> None:
     # Como el de vettore: un cuadrado de 56 con 4 de margen en un lienzo de 64.
     from PySide6.QtWidgets import QApplication
 
@@ -64,7 +64,7 @@ def test_el_logo_se_recorta_a_lo_que_se_dibuja(repo):
     assert imagen.height() == pytest.approx(lado, abs=2)
 
 
-def test_la_marca_de_equipaggio_se_recorta():
+def test_la_marca_de_equipaggio_se_recorta() -> None:
     from PySide6.QtWidgets import QApplication
 
     QApplication.instance() or QApplication([])

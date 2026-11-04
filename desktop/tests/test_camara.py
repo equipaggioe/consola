@@ -9,7 +9,7 @@ from pathlib import Path
 KIT_TESTS = Path(__file__).resolve().parents[1] / "src" / "app" / "camara" / "index.test.mjs"
 
 
-def test_el_kit_de_la_camara_pasa_sus_pruebas():
+def test_el_kit_de_la_camara_pasa_sus_pruebas() -> None:
     node = shutil.which("node")
     assert node, "Hace falta Node en el PATH para probar camara/."
     resultado = subprocess.run(

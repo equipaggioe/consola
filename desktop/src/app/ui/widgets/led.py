@@ -1,7 +1,9 @@
 from __future__ import annotations
 
+from typing import override
+
 from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, Qt
-from PySide6.QtGui import QBrush, QColor, QPainter, QPen, QRadialGradient
+from PySide6.QtGui import QBrush, QColor, QPainter, QPaintEvent, QPen, QRadialGradient
 from PySide6.QtWidgets import QWidget
 
 from app.theme import Colors
@@ -19,7 +21,7 @@ class LedIndicator(QWidget):
 
     STEADY = ("off", "on", "amber", "red")
 
-    def __init__(self, parent=None, size: int = 10):
+    def __init__(self, parent: QWidget | None = None, size: int = 10) -> None:
         super().__init__(parent)
         self.setFixedSize(size, size)
         self._state = "off"
@@ -52,7 +54,8 @@ class LedIndicator(QWidget):
 
     glowOpacity = Property(float, get_glowOpacity, set_glowOpacity)
 
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         painter = QPainter(self)
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 

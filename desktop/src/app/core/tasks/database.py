@@ -6,8 +6,12 @@ from pathlib import Path
 
 from app.core import database as db
 from app.core import db_explorer, envfile, files, runner, ssh, vps
+from app.core.context import TaskContext
+from app.core.database import Connection
+from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.registry import registry
+from app.core.ssh import Tunnel
 from app.core.tasks import payloads
 
 """
@@ -26,7 +30,7 @@ base, permisos, extensiones, migrar) y `teardown_db` (borrar base, borrar rol).
 # --- ciclo de vida del esquema ---------------------------------------------
 
 
-def create_role(ctx, scope: str = db.LOCAL) -> str:
+def create_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     """Crea el rol de la aplicacion, o le actualiza la contrasena si ya existe."""
     admin = db.resolve_admin(ctx, scope)
     user, password, _ = db.credentials(ctx.config)
@@ -47,7 +51,7 @@ def create_role(ctx, scope: str = db.LOCAL) -> str:
     return user
 
 
-def create_database(ctx, scope: str = db.LOCAL) -> str:
+def create_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     """Crea la base con el rol de la app como duenio. Si existe, solo le cambia el duenio."""
     admin = db.resolve_admin(ctx, scope)
     user, _, name = db.credentials(ctx.config)
@@ -65,7 +69,7 @@ def create_database(ctx, scope: str = db.LOCAL) -> str:
     return name
 
 
-def grant_privileges(ctx, scope: str = db.LOCAL) -> None:
+def grant_privileges(ctx: TaskContext, scope: str = db.LOCAL) -> None:
     """Permisos del rol sobre la base y sobre el esquema public."""
     admin = db.resolve_admin(ctx, scope)
     user, _, name = db.credentials(ctx.config)
@@ -75,7 +79,7 @@ def grant_privileges(ctx, scope: str = db.LOCAL) -> None:
     ctx.ok(f"Permisos otorgados a {user} sobre {name}.")
 
 
-def enable_extensions(ctx, scope: str = db.LOCAL) -> list[str]:
+def enable_extensions(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
     """Habilita las extensiones que declara `DB_EXTENSIONS`, como superusuario.
 
     Existe separada de las migraciones porque `CREATE EXTENSION` de una
@@ -137,7 +141,7 @@ def enable_extensions(ctx, scope: str = db.LOCAL) -> list[str]:
     return habilitadas
 
 
-def drop_tables(ctx, scope: str = db.LOCAL) -> list[str]:
+def drop_tables(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
     """Borra todas las tablas del esquema public, menos las del propio PostGIS.
 
     Es el primer paso de `rebuild_db`, y tiene sentido suelto: dejar la base
@@ -165,7 +169,7 @@ def drop_tables(ctx, scope: str = db.LOCAL) -> list[str]:
     return tablas
 
 
-def drop_database(ctx, scope: str = db.LOCAL) -> str:
+def drop_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     """Elimina la base entera. Corta las conexiones vivas antes, o el DROP falla."""
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
@@ -181,7 +185,7 @@ def drop_database(ctx, scope: str = db.LOCAL) -> str:
     return name
 
 
-def drop_role(ctx, scope: str = db.LOCAL) -> str:
+def drop_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     admin = db.resolve_admin(ctx, scope)
     user, _, _ = db.credentials(ctx.config)
     admin.execute(ctx, f"DROP ROLE IF EXISTS {db.quote_ident(user)};")
@@ -192,7 +196,7 @@ def drop_role(ctx, scope: str = db.LOCAL) -> str:
 # --- migraciones -----------------------------------------------------------
 
 
-def reset_migrations(ctx) -> int:
+def reset_migrations(ctx: TaskContext) -> int:
     """Borra los archivos de `alembic/versions/`, sin tocar la base.
 
     Separada de `generate_migration` a proposito: reset deja el historial en
@@ -209,7 +213,9 @@ def reset_migrations(ctx) -> int:
     return len(archivos)
 
 
-def generate_migration(ctx, scope: str = db.LOCAL, message: str = "auto") -> Path | None:
+def generate_migration(
+    ctx: TaskContext, scope: str = db.LOCAL, message: str = "auto"
+) -> Path | None:
     """Autogenera una revision de Alembic. Devuelve None si no habia cambios.
 
     Es la unica del grupo que corre siempre en esta maquina, aunque el ambito
@@ -237,7 +243,7 @@ def generate_migration(ctx, scope: str = db.LOCAL, message: str = "auto") -> Pat
     return generada
 
 
-def apply_migrations(ctx, scope: str = db.LOCAL, revision: str = "head") -> None:
+def apply_migrations(ctx: TaskContext, scope: str = db.LOCAL, revision: str = "head") -> None:
     """Lleva la base al dia con las revisiones que ya estan escritas.
 
     No toca archivos, asi que corre del lado que diga el ambito: con `remoto`,
@@ -247,7 +253,7 @@ def apply_migrations(ctx, scope: str = db.LOCAL, revision: str = "head") -> None
     ctx.ok(f"Migraciones aplicadas hasta {revision}.")
 
 
-def ensure_partitions(ctx, scope: str = db.LOCAL) -> None:
+def ensure_partitions(ctx: TaskContext, scope: str = db.LOCAL) -> None:
     """Crea las particiones de las tablas particionadas.
 
     `alembic revision --autogenerate` no genera las particiones (ni la DEFAULT),
@@ -260,12 +266,12 @@ def ensure_partitions(ctx, scope: str = db.LOCAL) -> None:
 # --- datos -----------------------------------------------------------------
 
 
-def run_seeders(ctx, scope: str = db.LOCAL) -> None:
+def run_seeders(ctx: TaskContext, scope: str = db.LOCAL) -> None:
     """Seeders base: el paquete `seeders/` del proyecto."""
     payloads.run(ctx, runner.resolve(ctx, scope), "seed", "seeders")
 
 
-def run_mock_seeders(ctx, scope: str = db.LOCAL) -> None:
+def run_mock_seeders(ctx: TaskContext, scope: str = db.LOCAL) -> None:
     """Seeders de prueba: el paquete `mock_data/` del proyecto."""
     payloads.run(ctx, runner.resolve(ctx, scope), "seed", "mock_data")
 
@@ -273,7 +279,7 @@ def run_mock_seeders(ctx, scope: str = db.LOCAL) -> None:
 # --- respaldo y diagnostico ------------------------------------------------
 
 
-def backup_dir(config, root: Path) -> Path:
+def backup_dir(config: Config, root: Path) -> Path:
     """La carpeta de respaldos de este repo, ya resuelta.
 
     Relativa se resuelve contra la raiz del repo; absoluta se usa tal cual, que
@@ -289,7 +295,7 @@ def backup_dir(config, root: Path) -> Path:
     return declarada if declarada.is_absolute() else root / declarada
 
 
-def list_backups(config, root: Path) -> list[Path]:
+def list_backups(config: Config, root: Path) -> list[Path]:
     """Los respaldos de ESTA base, del mas nuevo al mas viejo.
 
     El patron lleva el nombre de la base y no es cosmetico: desde que
@@ -308,7 +314,7 @@ def list_backups(config, root: Path) -> list[Path]:
     return sorted(carpeta.glob(f"{name}-*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
 
 
-def backup_keep(ctx) -> int:
+def backup_keep(ctx: TaskContext) -> int:
     """Cuantos respaldos sobreviven a la rotacion.
 
     Falla ruidosamente si lo escrito no es un entero positivo. Caer en el 7 por
@@ -325,7 +331,7 @@ def backup_keep(ctx) -> int:
     return keep
 
 
-def _check_version(ctx, conn, tool: Path) -> None:
+def _check_version(ctx: TaskContext, conn: Connection, tool: Path) -> None:
     """Comprueba el binario local contra la version del servidor del ambito.
 
     Se llama con la conexion ya abierta porque la version del servidor sale de
@@ -337,7 +343,7 @@ def _check_version(ctx, conn, tool: Path) -> None:
     db.check_tool_version(ctx, tool, ctx.capture([str(tool), "--version"]), servidor)
 
 
-def _pg_argv(tool: Path, conn, user: str) -> list[str]:
+def _pg_argv(tool: Path, conn: Connection, user: str) -> list[str]:
     """Los flags de conexion que comparten `pg_dump` y `pg_restore`.
 
     La contrasena no va aca: viaja por `PGPASSWORD`, porque un argv queda
@@ -346,7 +352,7 @@ def _pg_argv(tool: Path, conn, user: str) -> list[str]:
     return [str(tool), "-h", conn.host, "-p", str(conn.port), "-U", user]
 
 
-def backup_database(ctx) -> Path:
+def backup_database(ctx: TaskContext) -> Path:
     """Vuelca la base local a un archivo, en formato custom de pg_dump.
 
     Solo la local: la base del VPS la respalda la receptora de canone
@@ -373,7 +379,7 @@ def backup_database(ctx) -> Path:
     return destino
 
 
-def rotate_backups(ctx) -> list[Path]:
+def rotate_backups(ctx: TaskContext) -> list[Path]:
     """Deja solo los `BACKUP_KEEP` respaldos mas nuevos de esta base.
 
     Separada porque a veces se quiere limpiar sin volver a volcar.
@@ -390,7 +396,7 @@ def _without_extensions(contenido: str) -> str:
     return "".join(f"{linea}\n" for linea in contenido.splitlines() if " EXTENSION " not in linea)
 
 
-def restore_database(ctx, dump: str = "") -> Path:
+def restore_database(ctx: TaskContext, dump: str = "") -> Path:
     """Carga un respaldo sobre la base local, reemplazando lo que haya.
 
     `--clean --if-exists` restaura sobre la base que ya existe, borrando cada
@@ -444,7 +450,7 @@ def restore_database(ctx, dump: str = "") -> Path:
     return archivo
 
 
-def open_db_tunnel(ctx):
+def open_db_tunnel(ctx: TaskContext) -> Tunnel:
     """Tunel Postgres como servicio de fondo: sobrevive a su pestana (ADR-0016)."""
     remote = ssh.resolve_remote(ctx.config)
     remoto = vps.postgres_port(remote)
@@ -457,7 +463,7 @@ def open_db_tunnel(ctx):
     return tunnel
 
 
-def explore_db(ctx, scope: str = db.LOCAL) -> None:
+def explore_db(ctx: TaskContext, scope: str = db.LOCAL) -> None:
     """Conecta el explorador y lo mantiene conectado hasta cerrar la pestana.
 
     Es una tarea viva, como un launcher (ADR-0015): lo que
@@ -496,7 +502,7 @@ def explore_db(ctx, scope: str = db.LOCAL) -> None:
 
 
 def populate_db(
-    ctx,
+    ctx: TaskContext,
     scope: str = db.LOCAL,
     *,
     migrate: bool = True,
@@ -535,7 +541,7 @@ def populate_db(
 
 
 def bootstrap_db(
-    ctx,
+    ctx: TaskContext,
     *,
     role: bool = True,
     database: bool = True,
@@ -581,7 +587,7 @@ def bootstrap_db(
 
 
 def rebuild_db(
-    ctx,
+    ctx: TaskContext,
     scope: str = db.LOCAL,
     *,
     drop: bool = True,
@@ -618,7 +624,7 @@ def rebuild_db(
 
 
 def reinit_migrations(
-    ctx,
+    ctx: TaskContext,
     scope: str = db.LOCAL,
     *,
     drop: bool = True,
@@ -650,7 +656,9 @@ def reinit_migrations(
     ctx.note(f"Historial de migraciones reiniciado; {name} quedo vacia.")
 
 
-def teardown_db(ctx, scope: str = db.LOCAL, *, database: bool = True, role: bool = True) -> None:
+def teardown_db(
+    ctx: TaskContext, scope: str = db.LOCAL, *, database: bool = True, role: bool = True
+) -> None:
     """Compuesta destructiva: borrar la base y el rol."""
     _, _, name = db.credentials(ctx.config)
     if database:
@@ -662,7 +670,9 @@ def teardown_db(ctx, scope: str = db.LOCAL, *, database: bool = True, role: bool
     ctx.note(f"Teardown de {name} ({scope}).")
 
 
-def migrate_db(ctx, message: str = "auto", *, generate: bool = True, apply: bool = True) -> None:
+def migrate_db(
+    ctx: TaskContext, message: str = "auto", *, generate: bool = True, apply: bool = True
+) -> None:
     """Compuesta corta: generar la revision pendiente y/o aplicar lo que haya.
 
     Los dos pasos son casillas sueltas porque se piden sueltos: 'Generar' para

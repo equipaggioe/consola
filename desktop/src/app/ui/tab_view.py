@@ -1,6 +1,8 @@
 from __future__ import annotations
 
+from collections.abc import Callable
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
@@ -53,20 +55,25 @@ CONSOLA = "Consola"
 # El rotulo del chip que lleva a la segunda vista, segun `Capability.view`.
 VIEW_NAMES = {"web": "Navegador", "db": "Explorador"}
 
+if TYPE_CHECKING:
+    from app.ui.db_explorer_view import DbExplorerView
+
 
 class TabView(QWidget):
     """Barra de herramientas + conmutador de vistas + (consola | segunda vista)."""
 
     cleared = Signal()  # Limpiar: la pestana decide si ademas detiene su tarea
 
-    def __init__(self, capability: Capability, project: Project | None = None, parent=None):
+    def __init__(
+        self, capability: Capability, project: Project | None = None, parent: QWidget | None = None
+    ) -> None:
         super().__init__(parent)
         self.capability = capability
         self.project = project
         self._url = ""
         self._web = False
         self._browser: BrowserView | None = None
-        self._explorer = None  # DbExplorerView, importada al primer uso
+        self._explorer: DbExplorerView | None = None  # importada al primer uso
         self.pal = NEUTRAL
         self._chips: list[QPushButton] = []
 
@@ -168,7 +175,7 @@ class TabView(QWidget):
             self.console.append_log(self.capability.description, "info")
         self.cleared.emit()
 
-    def _chip(self, text: str, tip: str, slot) -> QPushButton:
+    def _chip(self, text: str, tip: str, slot: Callable[[], None]) -> QPushButton:
         btn = QPushButton(text)
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)

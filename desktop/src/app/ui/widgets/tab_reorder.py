@@ -1,9 +1,13 @@
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from typing import Any
+
+from PySide6.QtCore import QPointF, Qt
+from PySide6.QtGui import QMouseEvent
+from PySide6.QtWidgets import QBoxLayout, QWidget
 
 
-class ReorderableTab:
+class ReorderableTab(QWidget):
     """Mezcla para una pestana que se puede arrastrar para reordenarla.
 
     La seleccion sigue ocurriendo al apretar (respuesta inmediata, como en
@@ -19,34 +23,34 @@ class ReorderableTab:
     DRAG_THRESHOLD = 6
 
     def _init_reorder(self) -> None:
-        self._drag_origin = None
+        self._drag_origin: QPointF | None = None
         self._is_dragging = False
 
     @property
     def is_dragging(self) -> bool:
         return getattr(self, "_is_dragging", False)
 
-    def _reorder_bar(self):
+    def _reorder_bar(self) -> ReorderableBar | None:
         """Sube por los padres hasta quien sabe reordenar: el contenedor
         directo de las pestanas no siempre es el que lleva la lista (las
         sub-pestanas viven en un layout anidado dentro del panel).
         """
         node = self.parent()
         while node is not None:
-            if hasattr(node, "reorder_to"):
+            if isinstance(node, ReorderableBar):
                 return node
             node = node.parent()
         return None
 
-    def _reorder_press(self, event) -> None:
+    def _reorder_press(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._drag_origin = event.position()
 
-    def _reorder_move(self, event) -> None:
+    def _reorder_move(self, event: QMouseEvent) -> None:
         if self._drag_origin is None or not (event.buttons() & Qt.MouseButton.LeftButton):
             return
         bar = self._reorder_bar()
-        if bar is None or len(getattr(bar, "tabs", [])) < 2:
+        if bar is None or len(bar.tabs) < 2:
             return
 
         if not self._is_dragging:
@@ -62,7 +66,7 @@ class ReorderableTab:
         pos_in_bar = self.mapToParent(event.position().toPoint())
         bar.reorder_to(self, bar.index_for_x(pos_in_bar.x(), self))
 
-    def _reorder_release(self, event) -> None:
+    def _reorder_release(self, event: QMouseEvent) -> None:
         self._drag_origin = None
         if self._is_dragging:
             self._is_dragging = False
@@ -70,7 +74,7 @@ class ReorderableTab:
             self.update()
 
 
-class ReorderableBar:
+class ReorderableBar(QWidget):
     """Mezcla para la barra que contiene pestanas arrastrables.
 
     Espera `self.tabs` (lista ordenada) y `self._tab_layout()` (el layout que
@@ -78,10 +82,12 @@ class ReorderableBar:
     hay aritmetica de indices que se pueda desincronizar del modelo.
     """
 
-    def _tab_layout(self):
+    tabs: list[Any]
+
+    def _tab_layout(self) -> QBoxLayout:
         raise NotImplementedError
 
-    def index_for_x(self, x: int, dragged) -> int:
+    def index_for_x(self, x: int, dragged: ReorderableTab) -> int:
         """Indice donde deberia quedar `dragged` si se suelta en `x`."""
         target = len(self.tabs) - 1
         for i, tab in enumerate(self.tabs):
@@ -90,7 +96,7 @@ class ReorderableBar:
                 break
         return max(0, min(target, len(self.tabs) - 1))
 
-    def reorder_to(self, tab, index: int) -> None:
+    def reorder_to(self, tab: ReorderableTab, index: int) -> None:
         if tab not in self.tabs:
             return
         current = self.tabs.index(tab)

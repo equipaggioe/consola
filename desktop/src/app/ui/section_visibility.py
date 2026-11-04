@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from PySide6.QtCore import QSettings
 
 """
@@ -15,7 +17,7 @@ def hidden_sections() -> set[str]:
     raw = QSettings().value(_HIDDEN_KEY, [])
     if isinstance(raw, str):
         raw = [raw] if raw else []
-    return set(raw or [])
+    return set(cast(list[str], raw) or [])
 
 
 def set_section_hidden(section_id: str, value: bool) -> set[str]:

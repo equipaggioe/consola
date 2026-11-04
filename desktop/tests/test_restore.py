@@ -6,7 +6,7 @@ from app.core import ssh
 from app.core.tasks.database import _without_extensions
 
 
-def test_la_restauracion_no_toca_las_extensiones():
+def test_la_restauracion_no_toca_las_extensiones() -> None:
     contenido = (
         "; Archive created\n"
         "215; 1259 16400 TABLE public dato prueba\n"
@@ -21,7 +21,7 @@ def test_la_restauracion_no_toca_las_extensiones():
     )
 
 
-def test_un_vps_nuevo_anota_su_huella_y_una_distinta_corta():
+def test_un_vps_nuevo_anota_su_huella_y_una_distinta_corta() -> None:
     remote = ssh.Remote("192.0.2.1", "admin", Path("llave"))
     assert "StrictHostKeyChecking=accept-new" in remote.argv("true")
     assert "StrictHostKeyChecking=accept-new" in remote.scp_argv(Path("a"), "/b")

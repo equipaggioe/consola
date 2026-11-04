@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
 
 """
 Seguro por repositorio y por TIPO DE OBJETIVO.
@@ -120,9 +121,9 @@ class Rule:
 
     always: tuple[str, ...] = ()
     # nombre del eje -> {valor: objetivos que ese valor agrega}
-    when: dict = field(default_factory=dict)
+    when: dict[str, dict[str, tuple[str, ...]]] = field(default_factory=dict)
     # nombre del eje -> valores con los que la accion NO destruye nada
-    dry_run: dict = field(default_factory=dict)
+    dry_run: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 RULES: dict[str, Rule] = {
@@ -146,7 +147,7 @@ RULES: dict[str, Rule] = {
 }
 
 
-def _chosen(payload: dict, axis: str) -> set[str]:
+def _chosen(payload: dict[str, Any], axis: str) -> set[str]:
     """Lo marcado en un eje, venga como valor suelto o como lista."""
     raw = (payload.get("options") or {}).get(axis)
     if isinstance(raw, list):
@@ -154,7 +155,7 @@ def _chosen(payload: dict, axis: str) -> set[str]:
     return {raw} if raw else set()
 
 
-def targets_of(capability_id: str, payload: dict | None = None) -> list[Target]:
+def targets_of(capability_id: str, payload: dict[str, Any] | None = None) -> list[Target]:
     """Que va a romper esta corrida, con estos parametros. Vacio = nada."""
     rule = RULES.get(capability_id)
     if rule is None:
@@ -170,7 +171,8 @@ def targets_of(capability_id: str, payload: dict | None = None) -> list[Target]:
         for value in _chosen(payload, axis):
             ids.extend(mapa.get(value, ()))
 
-    vistos, salida = set(), []
+    vistos: set[str] = set()
+    salida: list[Target] = []
     for tid in ids:
         target = _BY_ID.get(tid)
         if target is not None and tid not in vistos:
@@ -179,12 +181,12 @@ def targets_of(capability_id: str, payload: dict | None = None) -> list[Target]:
     return salida
 
 
-def defaults() -> dict:
+def defaults() -> dict[str, Any]:
     """Como arranca un repo que todavia no dijo nada."""
     return {t.id: t.protected_by_default for t in TARGETS}
 
 
-def state_from(stored: dict | None) -> dict:
+def state_from(stored: dict[str, Any] | None) -> dict[str, Any]:
     """El estado completo a partir de lo guardado, que puede ser parcial.
 
     Un objetivo que no figura en el json cae en su default —protegido, salvo
@@ -207,7 +209,7 @@ class Decision:
 
 
 def decide(
-    state: dict, capability_id: str, payload: dict | None = None
+    state: dict[str, Any], capability_id: str, payload: dict[str, Any] | None = None
 ) -> tuple[str, list[Target]]:
     """Clasifica una corrida. Devuelve la decision y los objetivos que la explican.
 
@@ -230,11 +232,11 @@ def decide(
     return Decision.REMIND, objetivos
 
 
-def is_protected(state: dict, target: Target) -> bool:
+def is_protected(state: dict[str, Any], target: Target) -> bool:
     return bool(state.get(target.id, target.protected_by_default))
 
 
-def repo_protections(state: dict) -> list[Target]:
+def repo_protections(state: dict[str, Any]) -> list[Target]:
     """Todos los objetivos que este repo tiene protegidos, sin mirar ninguna
     accion en particular. Es lo que resume el indicador de la barra de estado
     (`ui/tab_panel.py::WorkspaceStatusBar`).

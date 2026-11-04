@@ -1,10 +1,19 @@
 from __future__ import annotations
 
 import datetime
+from typing import override
 
 from PySide6.QtCore import Qt, QTimer
-from PySide6.QtGui import QAction, QColor, QFont, QKeyEvent, QTextCharFormat
-from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit
+from PySide6.QtGui import (
+    QAction,
+    QColor,
+    QContextMenuEvent,
+    QFont,
+    QKeyEvent,
+    QResizeEvent,
+    QTextCharFormat,
+)
+from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QWidget
 
 from app.theme import Colors, Fonts, mono
 from app.ui.palettes import NEUTRAL, Palette
@@ -13,7 +22,7 @@ from app.ui.palettes import NEUTRAL, Palette
 class ConsoleView(QPlainTextEdit):
     """Terminal-like console with colored log levels and blinking cursor."""
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setReadOnly(True)
         self.pal = NEUTRAL
@@ -56,7 +65,8 @@ class ConsoleView(QPlainTextEdit):
             }}
         """)
 
-    def resizeEvent(self, event):
+    @override
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         w = 200
         h = 28
@@ -109,7 +119,7 @@ class ConsoleView(QPlainTextEdit):
         self.append_log("El esqueleto de UI está funcionando correctamente.", "info")
         self.append_log("Stub ejecutado", "ok")
 
-    def _toggle_cursor(self):
+    def _toggle_cursor(self) -> None:
         cursor = self.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
 
@@ -124,7 +134,8 @@ class ConsoleView(QPlainTextEdit):
             cursor.insertText("▍", fmt)
             self.cursor_visible = True
 
-    def keyPressEvent(self, event: QKeyEvent):
+    @override
+    def keyPressEvent(self, event: QKeyEvent) -> None:
         if event.modifiers() & Qt.KeyboardModifier.ControlModifier and event.key() == Qt.Key.Key_F:
             self.search_bar.setVisible(not self.search_bar.isVisible())
             if self.search_bar.isVisible():
@@ -132,7 +143,8 @@ class ConsoleView(QPlainTextEdit):
             return
         super().keyPressEvent(event)
 
-    def contextMenuEvent(self, event):
+    @override
+    def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         menu = QMenu(self)
         copy_action = QAction("Copy", self)
         copy_action.triggered.connect(self.copy)

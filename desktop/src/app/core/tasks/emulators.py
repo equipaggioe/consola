@@ -3,6 +3,7 @@ from __future__ import annotations
 import shlex
 
 from app.core import android, cache, files, session
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.registry import registry
 
@@ -40,7 +41,7 @@ EMULATOR_SERIAL = "EMULATOR_SERIAL"
 # --- instalacion -----------------------------------------------------------
 
 
-def install_system_image(ctx, image: str = "") -> str:
+def install_system_image(ctx: TaskContext, image: str = "") -> str:
     """Descarga una maquina virtual del catalogo del SDK si falta.
 
     Es la parte lenta de todo el grupo — varios GB — y por eso tiene boton
@@ -56,7 +57,7 @@ def install_system_image(ctx, image: str = "") -> str:
     return image
 
 
-def create_avd(ctx, device: str = "", image: str = "") -> str:
+def create_avd(ctx: TaskContext, device: str = "", image: str = "") -> str:
     """Crea el dispositivo virtual con el modelo y la maquina elegidos.
 
     El nombre se pregunta al correr y no llega como parametro: dos AVD no se
@@ -90,7 +91,7 @@ def create_avd(ctx, device: str = "", image: str = "") -> str:
 
 
 def launch_emulator(
-    ctx,
+    ctx: TaskContext,
     avd: str = "",
     wipe: bool = False,
     boot_flags: list[str] | None = None,
@@ -165,7 +166,7 @@ def launch_emulator(
     return serial
 
 
-def await_emulator(ctx, timeout: float = 180.0, serial: str = "") -> str:
+def await_emulator(ctx: TaskContext, timeout: float = 180.0, serial: str = "") -> str:
     """Espera a que un emulador termine de bootear y devuelve su serial.
 
     No es un boton: nadie pide "espera el boot" suelto. La usan los launchers de
@@ -177,7 +178,7 @@ def await_emulator(ctx, timeout: float = 180.0, serial: str = "") -> str:
     return encontrado
 
 
-def stop_emulator(ctx, serial: str = "") -> None:
+def stop_emulator(ctx: TaskContext, serial: str = "") -> None:
     """Apaga uno o todos los emuladores vivos.
 
     Se corre desde el ✕ de la cabecera de estado del panel (los huerfanos: un
@@ -197,7 +198,10 @@ def stop_emulator(ctx, serial: str = "") -> None:
 
 
 def purge_emulators(
-    ctx, avds: list[str] | None = None, images: list[str] | None = None, apply: bool = False
+    ctx: TaskContext,
+    avds: list[str] | None = None,
+    images: list[str] | None = None,
+    apply: bool = False,
 ) -> dict[str, list[str]]:
     """Borra los AVD y las maquinas virtuales marcados, con simulacro primero.
 
@@ -248,7 +252,7 @@ def purge_emulators(
     return {"avds": avds, "images": images}
 
 
-def inventory(ctx=None) -> dict[str, list[str]]:
+def inventory(ctx: TaskContext | None = None) -> dict[str, list[str]]:
     """Lo que hay en la maquina ahora mismo. No corre nada, solo mira."""
     sdk = android.resolve_sdk()
     return {

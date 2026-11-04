@@ -3,8 +3,10 @@ from __future__ import annotations
 import json
 import tempfile
 from pathlib import Path
+from typing import Any
 
 from app.core import canone, process, ssh
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.host import HOST
 from app.core.registry import registry
@@ -42,7 +44,7 @@ def _repo(root: Path) -> tuple[str, str]:
     return f"{owner}/{app}", app
 
 
-def releases(root: Path) -> list[dict]:
+def releases(root: Path) -> list[dict[str, Any]]:
     """Los releases del repo, del mas nuevo al mas viejo, con sus archivos."""
     repo, _ = _repo(root)
     return json.loads(
@@ -52,7 +54,7 @@ def releases(root: Path) -> list[dict]:
     )
 
 
-def _latest(ctx) -> dict:
+def _latest(ctx: TaskContext) -> dict[str, Any]:
     """El ultimo release publicado: el que GitHub da como `latest`."""
     repo, _ = _repo(ctx.root)
     try:
@@ -66,7 +68,7 @@ def _latest(ctx) -> dict:
 # --- atomicas --------------------------------------------------------------
 
 
-def _pushed(ctx) -> None:
+def _pushed(ctx: TaskContext) -> None:
     """Corta si hay algo que el tag no lleva: cambios sin commitear o commits sin empujar.
 
     El CI construye el commit del tag en GitHub, no esta carpeta.
@@ -86,7 +88,7 @@ def _pushed(ctx) -> None:
         raise TaskError(f"{rama} tiene commits que {upstream} no tiene: empújalos primero.")
 
 
-def _run_id(ctx, gh: list[str], repo: str, tag: str) -> str:
+def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
     """La corrida de `release.yml` que disparo el tag. GitHub la crea unos segundos despues."""
     for _ in range(_APPEARS):
         corrida = ctx.capture(
@@ -117,7 +119,7 @@ def _run_id(ctx, gh: list[str], repo: str, tag: str) -> str:
     )
 
 
-def _watch(ctx, repo: str, tag: str) -> None:
+def _watch(ctx: TaskContext, repo: str, tag: str) -> None:
     """Espera a que `release.yml` termine, y corta si no termina bien."""
     gh = _gh()
     corrida = _run_id(ctx, gh, repo, tag)
@@ -142,7 +144,7 @@ def _watch(ctx, repo: str, tag: str) -> None:
         raise TaskError(f"{WORKFLOW} terminó en {estado['conclusion']}: {tag} no se publicó.")
 
 
-def create_tag(ctx, part: str = "patch") -> str:
+def create_tag(ctx: TaskContext, part: str = "patch") -> str:
     """Crea el tag que sigue al ultimo de origin, lo empuja y espera a `release.yml`.
 
     El numero sale de los tags de origin y no de los locales: un tag que quedo
@@ -160,7 +162,7 @@ def create_tag(ctx, part: str = "patch") -> str:
     return tag
 
 
-def sign_release(ctx, tag: str) -> None:
+def sign_release(ctx: TaskContext, tag: str) -> None:
     """Firma el `.sha256` del release con `VPS_KEY_NAME` y sube la firma.
 
     `-n deploy` es el espacio de nombres que comprueba `deploy.py`: separa esta
@@ -202,7 +204,7 @@ def sign_release(ctx, tag: str) -> None:
     ctx.ok(f"{tag} firmado.")
 
 
-def deploy_release(ctx, tag: str) -> None:
+def deploy_release(ctx: TaskContext, tag: str) -> None:
     """Corre en el VPS `deploy.py` con el tag, desde la cuenta que administra.
 
     `deploy.py` baja el release, comprueba la firma, migra, cambia `current` y
@@ -213,7 +215,7 @@ def deploy_release(ctx, tag: str) -> None:
     _deploy(ctx, _admin(ctx), app, tag)
 
 
-def _admin(ctx) -> Access:
+def _admin(ctx: TaskContext) -> Access:
     entrada = access(ctx)
     if entrada.is_root:
         raise TaskError(
@@ -223,12 +225,12 @@ def _admin(ctx) -> Access:
     return entrada
 
 
-def _deploy(ctx, entrada: Access, app: str, tag: str) -> None:
+def _deploy(ctx: TaskContext, entrada: Access, app: str, tag: str) -> None:
     entrada.run(ctx, canone.deploy_command(app, tag))
     ctx.ok(f"{tag} desplegado en {entrada.remote.host}.")
 
 
-def deploy_latest(ctx) -> str:
+def deploy_latest(ctx: TaskContext) -> str:
     """Despliega el ultimo release publicado, si esta firmado: el primer despliegue
     de «Configurar VPS».
 
@@ -258,7 +260,12 @@ def deploy_latest(ctx) -> str:
 
 
 def publish_release(
-    ctx, part: str = "patch", *, tag: bool = True, sign: bool = True, deploy: bool = True
+    ctx: TaskContext,
+    part: str = "patch",
+    *,
+    tag: bool = True,
+    sign: bool = True,
+    deploy: bool = True,
 ) -> str:
     """Tag → `release.yml` → firma → `deploy.py`.
 
@@ -280,7 +287,7 @@ def publish_release(
     return version
 
 
-def deploy_version(ctx, version: str = "") -> None:
+def deploy_version(ctx: TaskContext, version: str = "") -> None:
     """Instala un release ya firmado. `deploy.py` no instala una version que siga
     en `/srv/<app>/releases/`, donde quedan las cinco mas nuevas.
     """

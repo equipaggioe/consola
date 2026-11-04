@@ -21,8 +21,8 @@ class Segmented(QWidget):
         current: str = "",
         accent: str = Colors.ACCENT,
         danger: set[str] | None = None,
-        parent=None,
-    ):
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.accent = accent
         self.danger = danger or set()

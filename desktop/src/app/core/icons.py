@@ -4,6 +4,7 @@ import json
 import re
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from app.core import targets
 from app.core.errors import MissingConfig, TaskError
@@ -297,7 +298,7 @@ def _manifest_places(target: targets.Target) -> list[Place]:
     resuelve contra la carpeta del manifest, como en el navegador.
     """
     _no_generated_manifest(target)
-    lugares = []
+    lugares: list[Place] = []
     for texto in _html(target):
         for href, _, literal in _icon_links(texto, ("manifest",)):
             if not literal:
@@ -315,7 +316,7 @@ def _manifest_places(target: targets.Target) -> list[Place]:
     return lugares
 
 
-def _manifest_place(target: targets.Target, manifest: Path, icono: dict) -> Place:
+def _manifest_place(target: targets.Target, manifest: Path, icono: dict[str, Any]) -> Place:
     src, tamano = icono.get("src", ""), icono.get("sizes", "")
     if not src:
         raise TaskError(f"{target.name}: un ícono de {manifest.name} no tiene src.")

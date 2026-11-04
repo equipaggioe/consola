@@ -210,7 +210,7 @@ def queried_values(
     raise TaskError(f"Fuente desconocida: {source}")
 
 
-def _image_labels(imagenes: list) -> dict[str, str]:
+def _image_labels(imagenes: list[android.Image]) -> dict[str, str]:
     """Las etiquetas de un eje de system images: el paquete entero y sus partes.
 
     Las dos en la misma tabla porque `AxisDef.text_of` es una sola, y los ids no

@@ -3,6 +3,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 
 from app.core import canone, session, ssh
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.registry import registry
 
@@ -47,30 +48,30 @@ class Access:
             return text or None
         return f"{self.password}\n{text}"
 
-    def run(self, ctx, command: str, *, text: str = "", check: bool = True) -> int:
+    def run(self, ctx: TaskContext, command: str, *, text: str = "", check: bool = True) -> int:
         return ssh.run(
             ctx, self.remote, self.command(command), check=check, stdin_text=self.stdin(text)
         )
 
 
-def _sudo_password(ctx) -> str:
+def _sudo_password(ctx: TaskContext) -> str:
     """`SUDO_PASSWORD`, o la que se pide una vez por sesion y vive solo en memoria.
 
     Va a `core/session.py` directo y no por `ctx.publish`, que la olvidaria al
     terminar la corrida.
     """
-    escrita = ctx.config.get(SUDO_KEY) or session.read(ctx.project.name, SUDO_KEY)
+    escrita = ctx.config.get(SUDO_KEY) or session.read(ctx.project_name, SUDO_KEY)
     if not escrita:
         usuario = ctx.config.require("VPS_USER")
         escrita = ctx.ask(f"Contraseña de {usuario} (la de sudo)", secret=True)
         if not escrita:
             raise TaskError("Sin la contraseña de sudo no se puede administrar el VPS.")
-        session.publish(ctx.project.name, SUDO_KEY, escrita)
+        session.publish(ctx.project_name, SUDO_KEY, escrita)
     ctx.guard(escrita)
     return escrita
 
 
-def access(ctx) -> Access:
+def access(ctx: TaskContext) -> Access:
     """Entra por la cuenta que administra si ya existe; si no, por root.
 
     Root entra solo antes de `install.py`, que despues lo deja afuera. Sin
@@ -89,21 +90,21 @@ def access(ctx) -> Access:
     )
 
 
-def _upload(ctx, entrada: Access) -> str:
+def _upload(ctx: TaskContext, entrada: Access) -> str:
     """Sube `plantilla/infra/` de canone a una carpeta temporal y devuelve su ruta."""
     infra = canone.infra_dir(ctx.config)
     entrada.run(ctx, f"rm -rf {REMOTE_DIR}")
     return ssh.upload(ctx, entrada.remote, infra, f"{REMOTE_DIR}/{infra.name}")
 
 
-def _cleanup(ctx, entrada: Access) -> None:
+def _cleanup(ctx: TaskContext, entrada: Access) -> None:
     entrada.run(ctx, f"rm -rf {REMOTE_DIR}", check=False)
 
 
 # --- atomicas --------------------------------------------------------------
 
 
-def refresh_known_host(ctx) -> str:
+def refresh_known_host(ctx: TaskContext) -> str:
     """Olvida la huella vieja del VPS.
 
     Despues de reinstalar el servidor cambia la huella y todas las conexiones
@@ -115,7 +116,7 @@ def refresh_known_host(ctx) -> str:
     return host
 
 
-def install_software(ctx) -> list[str]:
+def install_software(ctx: TaskContext) -> list[str]:
     """Instala los paquetes que `install.py` da por instalados, y uv con `uv.py`.
 
     Los paquetes salen del repo y no de un eje: PostGIS si `DB_EXTENSIONS` la
@@ -159,12 +160,12 @@ echo "[OK] Swap de ${falta} MiB en /swapfile."
 """
 
 
-def create_swap(ctx) -> None:
+def create_swap(ctx: TaskContext) -> None:
     """Deja tanto swap como memoria: sin eso, `install.py` falla."""
     access(ctx).run(ctx, _SWAP)
 
 
-def install_infra(ctx) -> None:
+def install_infra(ctx: TaskContext) -> None:
     """Sube `plantilla/infra/` de canone y corre `install.py` con los datos del repo.
 
     La primera vez corre como root, y `install.py` pide dos veces la contraseña
@@ -202,7 +203,7 @@ def install_infra(ctx) -> None:
     ctx.ok(f"{app} instalado en {entrada.remote.host}.")
 
 
-def load_credentials(ctx) -> None:
+def load_credentials(ctx: TaskContext) -> None:
     """Pasa las credenciales de `config.env` a `credentials.py`, por stdin.
 
     Una linea `campo=valor` por campo de `Settings`, mas `restic_password` y, en
@@ -232,7 +233,7 @@ def load_credentials(ctx) -> None:
 
 
 def bootstrap_vps(
-    ctx,
+    ctx: TaskContext,
     *,
     known_host: bool = False,
     software: bool = True,

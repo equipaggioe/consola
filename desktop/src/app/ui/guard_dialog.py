@@ -34,8 +34,13 @@ class _GuardDialog(QDialog):
     """Base de los dos avisos: el encabezado, la tarjeta del repo y la nota."""
 
     def __init__(
-        self, project: Project, titulo_ventana: str, encabezado: str, nota: str, parent=None
-    ):
+        self,
+        project: Project,
+        titulo_ventana: str,
+        encabezado: str,
+        nota: str,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.project = project
         # El aviso es de ESTE repo: se pinta con su paleta, como el espacio de
@@ -106,7 +111,9 @@ class BlockedDialog(_GuardDialog):
     No hereda de nadie que tenga boton de aceptar: aca no hay 'continuar igual'.
     """
 
-    def __init__(self, project: Project, action: str, targets: list[Target], parent=None):
+    def __init__(
+        self, project: Project, action: str, targets: list[Target], parent: QWidget | None = None
+    ) -> None:
         cuales = _join_words([t.label for t in targets])
         super().__init__(
             project,
@@ -144,7 +151,9 @@ class BlockedDialog(_GuardDialog):
 class ReminderDialog(_GuardDialog):
     """La accion destruye algo no protegido: recordatorio del repo, sin mas."""
 
-    def __init__(self, project: Project, action: str, targets: list[Target], parent=None):
+    def __init__(
+        self, project: Project, action: str, targets: list[Target], parent: QWidget | None = None
+    ) -> None:
         cuales = _join_words([t.label for t in targets])
         super().__init__(
             project,

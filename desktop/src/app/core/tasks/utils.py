@@ -7,6 +7,7 @@ import re
 import tempfile
 import urllib.request
 from pathlib import Path
+from typing import Any
 
 from app.core import android, files, userenv
 from app.core.catalog import (
@@ -15,7 +16,7 @@ from app.core.catalog import (
     BUILD_TOOLS_DEFAULT,
     FLUTTER_DIR_DEFAULT,
 )
-from app.core.context import Level
+from app.core.context import Level, TaskContext
 from app.core.errors import TaskError
 from app.core.host import HOST
 from app.core.process import as_argv, feed, format_argv, which_any
@@ -73,7 +74,7 @@ IP_SERVICES = ("https://api.ipify.org", "https://ifconfig.me/ip")
 
 
 def find_artifacts(
-    ctx, families: list[str] | None = None, heavy: list[str] | None = None
+    ctx: TaskContext, families: list[str] | None = None, heavy: list[str] | None = None
 ) -> list[Path]:
     """Lista los artefactos borrables del repo, sin tocar nada.
 
@@ -125,7 +126,10 @@ def find_artifacts(
 
 
 def clean_artifacts(
-    ctx, apply: bool = False, families: list[str] | None = None, heavy: list[str] | None = None
+    ctx: TaskContext,
+    apply: bool = False,
+    families: list[str] | None = None,
+    heavy: list[str] | None = None,
 ) -> list[Path]:
     """Borra los artefactos listados. En simulacro solo los muestra."""
     encontrados = find_artifacts(ctx, families, heavy)
@@ -153,7 +157,9 @@ def clean_artifacts(
 # --- sincronizacion entre repos --------------------------------------------
 
 
-def compare_common_files(ctx, targets: list[str], paths: list[str] | None = None) -> list[tuple]:
+def compare_common_files(
+    ctx: TaskContext, targets: list[str], paths: list[str] | None = None
+) -> list[tuple[Path, str, str]]:
     """Compara los archivos compartidos del repo actual contra los otros repos.
 
     Devuelve `(destino, ruta, estado)` con estado NEW / DIFF / SAME. Es lo que
@@ -161,7 +167,7 @@ def compare_common_files(ctx, targets: list[str], paths: list[str] | None = None
     esto, y por eso deja de ser una capacidad aparte (ADR-0004).
     """
     rutas = list(paths or COMMON_PATHS)
-    resultado: list[tuple] = []
+    resultado: list[tuple[Path, str, str]] = []
     for destino in targets:
         raiz = Path(destino)
         if not raiz.is_dir():
@@ -176,8 +182,11 @@ def compare_common_files(ctx, targets: list[str], paths: list[str] | None = None
 
 
 def sync_common_files(
-    ctx, targets: list[str] | None = None, paths: list[str] | None = None, apply: bool = False
-) -> list[tuple]:
+    ctx: TaskContext,
+    targets: list[str] | None = None,
+    paths: list[str] | None = None,
+    apply: bool = False,
+) -> list[tuple[Path, str, str]]:
     """Copia los archivos compartidos a los otros repos gestionados.
 
     Ya no incluye `scripts/`: esa carpeta deja de existir cuando Consola es la
@@ -207,7 +216,7 @@ def sync_common_files(
 # --- DNS -------------------------------------------------------------------
 
 
-def detect_public_ip(ctx) -> str:
+def detect_public_ip(ctx: TaskContext) -> str:
     """La IP publica de esta maquina, preguntandole a un servicio externo."""
     for servicio in IP_SERVICES:
         try:
@@ -221,7 +230,9 @@ def detect_public_ip(ctx) -> str:
     raise TaskError("No se pudo detectar la IP publica.")
 
 
-def _cloudflare(ctx, method: str, path: str, body: dict | None = None) -> dict:
+def _cloudflare(
+    ctx: TaskContext, method: str, path: str, body: dict[str, Any] | None = None
+) -> dict[str, Any]:
     token = ctx.config.require("CF_API_TOKEN")
     ctx.guard(token)
     datos = json.dumps(body).encode("utf-8") if body is not None else None
@@ -243,7 +254,7 @@ def _cloudflare(ctx, method: str, path: str, body: dict | None = None) -> dict:
 
 
 def update_cloudflare(
-    ctx, ip_mode: str = "vps", custom_ip: str = "", ttl: int = 1, proxied: bool = True
+    ctx: TaskContext, ip_mode: str = "vps", custom_ip: str = "", ttl: int = 1, proxied: bool = True
 ) -> str:
     """Apunta el registro DNS a la IP elegida: detectada, la del VPS, o una fija."""
     if ip_mode == "detect":
@@ -304,7 +315,7 @@ def _fetch_text(url: str) -> str:
         raise TaskError(f"No se pudo consultar {url}: {exc}") from exc
 
 
-def _download(ctx, url: str, destination: Path) -> Path:
+def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
     """Descarga informando el avance y atendiendo a Detener.
 
     El `urlretrieve` a secas de los scripts dejaba la interfaz muda durante los
@@ -328,7 +339,7 @@ def _download(ctx, url: str, destination: Path) -> Path:
     return destination
 
 
-def _verify(ctx, archive: Path, expected: str, algorithm: str) -> None:
+def _verify(ctx: TaskContext, archive: Path, expected: str, algorithm: str) -> None:
     """Comprueba la huella publicada. Un SDK a medio bajar falla mas tarde y peor."""
     actual = files.digest(archive, algorithm)
     if actual.lower() != expected.lower():
@@ -354,7 +365,7 @@ def _is_android_path(entry: str) -> bool:
     return ruta.endswith(("/platform-tools", "/emulator", "/cmdline-tools/latest/bin"))
 
 
-def _ensure_java(ctx) -> None:
+def _ensure_java(ctx: TaskContext) -> None:
     if which_any(["java", "java.exe"]):
         return
     raise TaskError(
@@ -363,7 +374,7 @@ def _ensure_java(ctx) -> None:
     )
 
 
-def _resolve_cmdline_tools(ctx, os_key: str) -> tuple[str, str]:
+def _resolve_cmdline_tools(ctx: TaskContext, os_key: str) -> tuple[str, str]:
     """URL y SHA-1 de las cmdline-tools, leidos de la pagina oficial.
 
     No se guarda la URL como constante a proposito: Google le cambia el numero
@@ -389,7 +400,7 @@ def _resolve_cmdline_tools(ctx, os_key: str) -> tuple[str, str]:
     return ANDROID_REPO_URL + nombre, huella.group(1).lower()
 
 
-def _extract_cmdline_tools(ctx, archive: Path, latest: Path) -> None:
+def _extract_cmdline_tools(ctx: TaskContext, archive: Path, latest: Path) -> None:
     ctx.info(f"Descomprimiendo en {latest}")
     files.extract_zip(archive, latest)
 
@@ -402,7 +413,7 @@ def _extract_cmdline_tools(ctx, archive: Path, latest: Path) -> None:
         interior.rmdir()
 
 
-def install_android_tools(ctx, install_dir: str = "") -> Path:
+def install_android_tools(ctx: TaskContext, install_dir: str = "") -> Path:
     """Deja las command-line tools del SDK de Android instaladas y en el entorno.
 
     Atomica: resuelve la version publicada, la verifica, la descomprime y
@@ -446,7 +457,7 @@ def install_android_tools(ctx, install_dir: str = "") -> Path:
     return root
 
 
-def _sdkmanager(ctx) -> tuple[list[str], Path]:
+def _sdkmanager(ctx: TaskContext) -> tuple[list[str], Path]:
     """El sdkmanager instalado y la raiz del SDK a la que pertenece.
 
     Se resuelve por `core/android.py`, que ya explica que hacer cuando falta;
@@ -459,7 +470,7 @@ def _sdkmanager(ctx) -> tuple[list[str], Path]:
     return as_argv(ruta), root
 
 
-def _accept_licenses(ctx, sdkmanager: list[str], root: Path) -> None:
+def _accept_licenses(ctx: TaskContext, sdkmanager: list[str], root: Path) -> None:
     ctx.info("Aceptando las licencias del SDK...")
     argv = [*sdkmanager, f"--sdk_root={root}", "--licenses"]
     ctx.log(format_argv(argv), Level.CMD)
@@ -470,7 +481,7 @@ def _accept_licenses(ctx, sdkmanager: list[str], root: Path) -> None:
     ctx.ok("Licencias aceptadas.")
 
 
-def _installed_packages(ctx, sdkmanager: list[str], root: Path) -> set[str]:
+def _installed_packages(ctx: TaskContext, sdkmanager: list[str], root: Path) -> set[str]:
     salida = ctx.capture(
         [*sdkmanager, f"--sdk_root={root}", "--list_installed"], timeout=300, check=False
     )
@@ -478,7 +489,10 @@ def _installed_packages(ctx, sdkmanager: list[str], root: Path) -> set[str]:
 
 
 def install_android_packages(
-    ctx, components: list[str] | None = None, api_level: str = "", build_tools: str = ""
+    ctx: TaskContext,
+    components: list[str] | None = None,
+    api_level: str = "",
+    build_tools: str = "",
 ) -> list[str]:
     """Instala en el SDK ya presente los paquetes que falten.
 
@@ -518,7 +532,7 @@ def install_android_packages(
     return faltan
 
 
-def install_android_hypervisor(ctx) -> bool:
+def install_android_hypervisor(ctx: TaskContext) -> bool:
     """Deja lista la aceleracion por hardware del emulador.
 
     Va aparte por dos razones. Es lo unico de toda la instalacion que necesita
@@ -530,7 +544,7 @@ def install_android_hypervisor(ctx) -> bool:
     return _ACCELERATIONS[HOST.emulator_acceleration](ctx)
 
 
-def _install_hypervisor_driver(ctx) -> bool:
+def _install_hypervisor_driver(ctx: TaskContext) -> bool:
     """En Windows la aceleracion es un driver de kernel que se instala."""
     try:
         ctx.capture(["sc", "query", "gvm"], timeout=30)
@@ -556,7 +570,7 @@ def _install_hypervisor_driver(ctx) -> bool:
     return True
 
 
-def _check_kvm(ctx) -> bool:
+def _check_kvm(ctx: TaskContext) -> bool:
     """En Linux la aceleracion no se instala: se verifica y, si falta, se explica.
 
     Meter la mano con sudo desde una interfaz grafica seria peor que decir el
@@ -584,7 +598,7 @@ def _check_kvm(ctx) -> bool:
 _ACCELERATIONS = {"driver": _install_hypervisor_driver, "kvm": _check_kvm}
 
 
-def _run_elevated(ctx, program: Path) -> None:
+def _run_elevated(ctx: TaskContext, program: Path) -> None:
     """Lanza un programa pidiendo elevacion: un solo aviso de UAC.
 
     Es preferible a exigir que Consola entera corra como administrador, que es
@@ -594,7 +608,7 @@ def _run_elevated(ctx, program: Path) -> None:
     import ctypes
 
     ctx.log(str(program), Level.CMD)
-    codigo = ctypes.windll.shell32.ShellExecuteW(
+    codigo = getattr(ctypes, "windll").shell32.ShellExecuteW(
         None, "runas", str(program), None, str(program.parent), 1
     )
     if codigo <= 32:
@@ -606,7 +620,7 @@ def _run_elevated(ctx, program: Path) -> None:
 
 
 def install_android_sdk(
-    ctx,
+    ctx: TaskContext,
     install_dir: str = "",
     components: list[str] | None = None,
     api_level: str = "",
@@ -660,13 +674,13 @@ def _is_flutter_path(entry: str) -> bool:
     return len(partes) >= 2 and partes[-1] == "bin" and "flutter" in partes[-2]
 
 
-def _ensure_git(ctx) -> None:
+def _ensure_git(ctx: TaskContext) -> None:
     if which_any(["git", "git.exe"]):
         return
     raise TaskError("No se encontro Git en el PATH, y Flutter lo necesita para actualizarse.")
 
 
-def _resolve_flutter_stable(ctx, os_key: str) -> tuple[str, str]:
+def _resolve_flutter_stable(ctx: TaskContext, os_key: str) -> tuple[str, str]:
     """URL y SHA-256 del canal stable, desde el indice oficial de releases."""
     nombre = FLUTTER_RELEASES_JSON.get(os_key)
     if not nombre:
@@ -693,7 +707,7 @@ def _resolve_flutter_stable(ctx, os_key: str) -> tuple[str, str]:
     return FLUTTER_RELEASES_URL + archivo, huella
 
 
-def _extract_flutter(ctx, archive: Path, home: Path) -> None:
+def _extract_flutter(ctx: TaskContext, archive: Path, home: Path) -> None:
     """Descomprime el SDK, que trae su propia carpeta `flutter/` en la raiz."""
     destino = home.parent
     ctx.info(f"Descomprimiendo en {home}")
@@ -707,7 +721,7 @@ def _extract_flutter(ctx, archive: Path, home: Path) -> None:
         extraido.rename(home)
 
 
-def install_flutter_sdk(ctx, install_dir: str = "") -> Path:
+def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
     """Instala el SDK de Flutter del canal stable y lo deja en el entorno.
 
     Sigue siendo una sola atomica, a diferencia de Android: Flutter no tiene

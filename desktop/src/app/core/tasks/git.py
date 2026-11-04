@@ -3,6 +3,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.process import which_any
 from app.core.registry import registry
@@ -25,20 +26,20 @@ def _git_or_fail() -> None:
         raise TaskError("No se encontro Git en el PATH.")
 
 
-def _ensure_git(ctx) -> None:
+def _ensure_git(ctx: TaskContext) -> None:
     _git_or_fail()
     if not ctx.path(".git").exists():
         raise TaskError(f"La carpeta abierta no es un repositorio git: {ctx.root}")
 
 
-def _current_branch(ctx) -> str:
+def _current_branch(ctx: TaskContext) -> str:
     rama = ctx.capture(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     if rama == "HEAD":
         raise TaskError("El repo local esta en HEAD desacoplado: no hay rama que forzar.")
     return rama
 
 
-def force_push(ctx) -> str:
+def force_push(ctx: TaskContext) -> str:
     """Fuerza a que origin quede igual a la rama de esta maquina.
 
     `--force` y no `--force-with-lease`: la lease rechaza el push justo cuando
@@ -54,7 +55,7 @@ def force_push(ctx) -> str:
     return revision
 
 
-def force_reset(ctx, discard_changes: bool = False) -> str:
+def force_reset(ctx: TaskContext, discard_changes: bool = False) -> str:
     """Fuerza a que esta maquina quede igual a origin, descartando lo propio.
 
     Tira los commits que origin no tiene y lo que haya sin trackear
@@ -95,7 +96,7 @@ def repo_folder_name(url: str) -> str:
     return nombre
 
 
-def clone_repo(ctx, url: str = "", dest: str = "", branch: str = "") -> Path:
+def clone_repo(ctx: TaskContext, url: str = "", dest: str = "", branch: str = "") -> Path:
     """Clona un repositorio de GitHub y devuelve la carpeta donde quedo.
 
     Devolver la ruta no es cosmetico: es lo que la ventana abre como pestana

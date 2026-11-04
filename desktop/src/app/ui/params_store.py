@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from typing import Any, cast
 
 from PySide6.QtCore import QSettings, QTimer
 
@@ -61,7 +62,7 @@ _FLUSH_MS = 500
 # repo normalizado -> {capability_id: estado}. La ruta normalizada sirve de
 # clave y de destino de escritura a la vez: `normcase` solo baja mayusculas en
 # Windows, y esa ruta abre el mismo archivo.
-_cache: dict[str, dict] = {}
+_cache: dict[str, dict[str, Any]] = {}
 _dirty: set[str] = set()
 _timer: QTimer | None = None
 
@@ -91,7 +92,7 @@ def _machine_key(capability_id: str) -> str:
 # regla que las capacidades `scope='machine'`, mismo sitio: QSettings.
 
 
-def machine_env() -> dict:
+def machine_env() -> dict[str, Any]:
     """Los valores de maquina, para mezclarlos con los del repo."""
     from app.core.settings import machine_settings
 
@@ -99,7 +100,7 @@ def machine_env() -> dict:
     return {s.key: str(settings.value(f"machine/{s.key}", "") or "") for s in machine_settings()}
 
 
-def save_machine_env(values: dict) -> None:
+def save_machine_env(values: dict[str, Any]) -> None:
     """Escribe las claves de maquina que vengan en `values`; ignora el resto."""
     from app.core.settings import machine_settings
 
@@ -112,7 +113,7 @@ def save_machine_env(values: dict) -> None:
 # --- lectura ---------------------------------------------------------------
 
 
-def _read(repo_path: str) -> dict:
+def _read(repo_path: str) -> dict[str, Any]:
     """Todo lo guardado para un repo, cacheado. Nunca lanza: un archivo roto
     a mano se trata como si no hubiera nada, y el primer guardado lo rehace.
     """
@@ -121,7 +122,7 @@ def _read(repo_path: str) -> dict:
     if cached is not None:
         return cached
 
-    data: dict = {}
+    data: dict[str, Any] = {}
     try:
         with open(_file(key), "r", encoding="utf-8") as fh:
             loaded = json.load(fh)
@@ -134,14 +135,14 @@ def _read(repo_path: str) -> dict:
     return data
 
 
-def load(repo_path: str, capability_id: str) -> dict | None:
+def load(repo_path: str, capability_id: str) -> dict[str, Any] | None:
     """Lo guardado para ese boton en ese repo, o None si nunca se toco."""
     if _is_machine(capability_id):
         raw = QSettings().value(_machine_key(capability_id), "")
         if not raw:
             return None
         try:
-            state = json.loads(raw)
+            state = json.loads(cast(str, raw))
         except (TypeError, ValueError):
             return None
         return state if isinstance(state, dict) else None
@@ -150,7 +151,7 @@ def load(repo_path: str, capability_id: str) -> dict | None:
     return state if isinstance(state, dict) else None
 
 
-def load_protection(repo_path: str) -> dict:
+def load_protection(repo_path: str) -> dict[str, Any]:
     """Los seguros del repo, completados con sus defaults.
 
     Un repo que nunca los toco arranca protegido en todo menos en `local`
@@ -161,7 +162,7 @@ def load_protection(repo_path: str) -> dict:
     return protection.state_from(_read(repo_path).get(_PROTECTION_KEY))
 
 
-def save_protection(repo_path: str, state: dict) -> None:
+def save_protection(repo_path: str, state: dict[str, Any]) -> None:
     """Guarda los seguros enteros, no el que se toco.
 
     Enteros porque el estado es de cinco casillas que se leen juntas, y porque
@@ -244,7 +245,7 @@ def stored_steps(repo_path: str, capability_id: str) -> list[str] | None:
 # --- escritura -------------------------------------------------------------
 
 
-def save(repo_path: str, capability_id: str, state: dict) -> None:
+def save(repo_path: str, capability_id: str, state: dict[str, Any]) -> None:
     if _is_machine(capability_id):
         QSettings().setValue(_machine_key(capability_id), json.dumps(state, ensure_ascii=False))
         return
@@ -289,7 +290,7 @@ def flush() -> None:
         _write(key, _cache.get(key) or {})
 
 
-def _write(repo_norm: str, data: dict) -> None:
+def _write(repo_norm: str, data: dict[str, Any]) -> None:
     """Escritura atomica: se arma al lado y se renombra encima.
 
     Ahora es UN archivo por repo, no una clave por boton: un corte a mitad de

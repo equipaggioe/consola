@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+from typing import Any, cast
 
 from PySide6.QtCore import QSettings
 
@@ -49,11 +50,11 @@ def display_path(path: str) -> str:
     return os.path.normpath(path or "").replace(os.sep, "/")
 
 
-def _to_dict(p: Project) -> dict:
+def _to_dict(p: Project) -> dict[str, Any]:
     return {"name": p.name, "path": p.path}
 
 
-def _from_dict(d: dict) -> Project | None:
+def _from_dict(d: dict[str, Any]) -> Project | None:
     """Una entrada de la lista guardada. El tema llega despues, del repo."""
     try:
         path = display_path(str(d["path"]))
@@ -108,7 +109,7 @@ def load() -> list[Project]:
     if not raw:
         return []
     try:
-        data = json.loads(raw)
+        data = json.loads(cast(str, raw))
     except (TypeError, ValueError):
         return []
     if not isinstance(data, list):

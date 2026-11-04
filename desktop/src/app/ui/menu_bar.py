@@ -2,9 +2,9 @@ from __future__ import annotations
 
 from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction, QKeySequence
-from PySide6.QtWidgets import QMenu, QMenuBar
+from PySide6.QtWidgets import QMenu, QMenuBar, QWidget
 
-from app.core.registry import registry
+from app.core.registry import Capability, registry
 from app.theme import Colors, Fonts
 from app.ui import favorites
 from app.ui.palettes import NEUTRAL, Palette
@@ -28,7 +28,7 @@ class ActionMenuBar(QMenuBar):
     action_requested = Signal(str)  # capability_id: abrir su pestana
     focus_search_requested = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.pal = NEUTRAL
         self.setStyleSheet(self._bar_style())
@@ -163,7 +163,7 @@ class ActionMenuBar(QMenuBar):
             self._blocks[menu] = blocks
             self._group_menus.append(menu)
 
-    def _make_action(self, menu: QMenu, cap) -> QAction:
+    def _make_action(self, menu: QMenu, cap: Capability) -> QAction:
         label = f"{cap.icon}  {cap.name}".strip()
         if cap.kind == "destructive":
             label += f"  {MARK_DANGER}"
@@ -251,7 +251,7 @@ class ActionMenuBar(QMenuBar):
             menu.menuAction().setVisible(vivos > 0)
 
 
-def _tooltip(cap) -> str:
+def _tooltip(cap: Capability) -> str:
     """El mismo contenido que el tooltip de las filas del buscador (`ActionRow._tooltip`):
     que hace, de que nivel es, y como se usa la entrada.
     """

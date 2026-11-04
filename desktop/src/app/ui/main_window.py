@@ -1,7 +1,20 @@
 from __future__ import annotations
 
+from typing import Any, override
+
 from PySide6.QtCore import QEvent, Qt, QTimer
-from PySide6.QtGui import QColor, QFont, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
+from PySide6.QtGui import (
+    QCloseEvent,
+    QColor,
+    QFont,
+    QIcon,
+    QKeySequence,
+    QMouseEvent,
+    QPainter,
+    QPixmap,
+    QResizeEvent,
+    QShortcut,
+)
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -21,6 +34,7 @@ from app.ui.action_search import ActionSearch
 from app.ui.menu_bar import ActionMenuBar
 from app.ui.palettes import NEUTRAL, Palette
 from app.ui.project_tabs import ProjectTabBar
+from app.ui.repo_logo import RepoLogo
 from app.ui.tab_panel import TabPanel, WorkspaceStatusBar
 from app.ui.title_bar import TitleBar
 from app.ui.widgets import ToggleSwitch
@@ -61,7 +75,7 @@ class _EdgeGrip(QWidget):
     THICKNESS = 5
     CORNER = 10
 
-    def __init__(self, window: QWidget, edges: Qt.Edge, cursor: Qt.CursorShape):
+    def __init__(self, window: QWidget, edges: Qt.Edge, cursor: Qt.CursorShape) -> None:
         super().__init__(window)
         self._edges = edges
         self.setCursor(cursor)
@@ -80,7 +94,8 @@ class _EdgeGrip(QWidget):
             self.setGeometry(c, 0 if top else h - t, w - 2 * c, t)
         self.raise_()
 
-    def mousePressEvent(self, event):
+    @override
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         handle = self.window().windowHandle()
         if event.button() == Qt.MouseButton.LeftButton and handle is not None:
             handle.startSystemResize(self._edges)
@@ -335,17 +350,20 @@ class MainWindow(QMainWindow):
         if workspace is None:
             workspace = TabPanel(project)
             workspace.env_panel.saved.connect(self._on_env_saved)
-            workspace.security_panel.changed.connect(
-                lambda _state, w=workspace: self._on_protection_changed(w)
-            )
+
+            def on_protection(_state: dict[str, Any], w: TabPanel = workspace) -> None:
+                self._on_protection_changed(w)
+
+            def on_logo(logo: RepoLogo, p: str = project.path) -> None:
+                self._on_logo_changed(p, logo)
+
+            workspace.security_panel.changed.connect(on_protection)
             workspace.params_changed.connect(self._on_params_changed)
             workspace.machine_changed.connect(self.status_bar.refresh_tools)
             workspace.favorite_changed.connect(self._on_favorites_changed)
             workspace.sections_changed.connect(self._on_sections_changed)
             workspace.repo_ready.connect(self.project_tabs.open_path)
-            workspace.logo_changed.connect(
-                lambda logo, p=project.path: self._on_logo_changed(p, logo)
-            )
+            workspace.logo_changed.connect(on_logo)
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -359,12 +377,14 @@ class MainWindow(QMainWindow):
     def _toggle_maximized(self) -> None:
         self.showNormal() if self.isMaximized() else self.showMaximized()
 
-    def resizeEvent(self, event):
+    @override
+    def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
         for grip in self._grips:
             grip.place(self.width(), self.height())
 
-    def changeEvent(self, event):
+    @override
+    def changeEvent(self, event: QEvent) -> None:
         """Maximizada, la ventana pega contra los bordes de la pantalla: ni
         agarre, ni glifo de maximizar, ni borde de contorno.
         """
@@ -457,7 +477,7 @@ class MainWindow(QMainWindow):
         pal = palettes.get(project.theme)
         if workspace is not None:
             workspace.set_palette(pal)
-        if workspace is self.current_workspace:
+        if workspace is not None and workspace is self.current_workspace:
             self._apply_palette(pal)
             self._refresh_protection(workspace)
 
@@ -472,7 +492,8 @@ class MainWindow(QMainWindow):
         if not self.project_tabs.tabs:
             self._show_empty_state()
 
-    def closeEvent(self, event):
+    @override
+    def closeEvent(self, event: QCloseEvent) -> None:
         """Los parametros se escriben en rafagas de medio segundo
         (`ui/params_store.py`): al cerrar hay que bajar lo pendiente, o el
         ultimo cambio se pierde por marcar una casilla y cerrar enseguida.
@@ -577,7 +598,7 @@ class MainWindow(QMainWindow):
         """
         self._refresh_readiness()
 
-    def _on_logo_changed(self, path: str, logo) -> None:
+    def _on_logo_changed(self, path: str, logo: RepoLogo) -> None:
         tab = self.project_tabs.find_tab(path)
         if tab is not None:
             tab.set_logo(logo)

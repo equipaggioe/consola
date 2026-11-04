@@ -1,6 +1,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
+from typing import Any
+
+import psycopg
+from psycopg import Connection, sql
+from psycopg.sql import SQL, Composed
 
 from app.core.errors import TaskError
 
@@ -130,7 +135,7 @@ class TableDetail:
 @dataclass
 class Page:
     columns: list[str]
-    rows: list[tuple]
+    rows: list[tuple[Any, ...]]
     offset: int
     has_more: bool
 
@@ -148,15 +153,7 @@ class Filter:
 # --- conexion ----------------------------------------------------------------
 
 
-def _psycopg():
-    try:
-        import psycopg
-    except ImportError as exc:  # pragma: no cover
-        raise TaskError('Falta el driver de Postgres: pip install "psycopg[binary]"') from exc
-    return psycopg
-
-
-def open_readonly(url: str):
+def open_readonly(url: str) -> Connection:
     """Conexion de solo lectura, garantizada por el servidor y no por la vista.
 
     `autocommit` y no una transaccion larga: una sesion que queda «idle in
@@ -166,7 +163,6 @@ def open_readonly(url: str):
     terminar, y `default_transaction_read_only` hace que el servidor rechace
     cualquier escritura de todas formas.
     """
-    psycopg = _psycopg()
     options = f"-c default_transaction_read_only=on -c statement_timeout={STATEMENT_TIMEOUT_MS}"
     try:
         return psycopg.connect(url, options=options, connect_timeout=10, autocommit=True)
@@ -178,18 +174,16 @@ def _first_line(exc: Exception) -> str:
     return str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
 
 
-def _sql():
-    return _psycopg().sql
-
-
 # --- consultas ---------------------------------------------------------------
 
 
-def server_info(conn) -> ServerInfo:
+def server_info(conn: Connection) -> ServerInfo:
     row = conn.execute(
         "SELECT version(), current_database(), current_user, "
         "pg_database_size(current_database()), inet_server_port()"
     ).fetchone()
+    if row is None:
+        raise TaskError("El servidor no devolvió sus datos.")
     return ServerInfo(
         version=row[0], database=row[1], user=row[2], size_bytes=row[3] or 0, port=row[4] or 0
     )
@@ -217,7 +211,7 @@ ORDER BY n.nspname, c.relname
 """
 
 
-def list_relations(conn) -> list[Relation]:
+def list_relations(conn: Connection) -> list[Relation]:
     """El arbol entero en una consulta: el catalogo es chico y ya ordenado."""
     return [
         Relation(
@@ -249,7 +243,7 @@ ORDER BY n.nspname, c.relname, a.attnum
 """
 
 
-def all_columns(conn) -> dict[str, list[tuple[str, str, bool]]]:
+def all_columns(conn: Connection) -> dict[str, list[tuple[str, str, bool]]]:
     """Columnas de todas las tablas (nombre, tipo, nulo), por `esquema.tabla`.
 
     Una sola consulta para comparar la base entera contra los modelos
@@ -314,7 +308,7 @@ ORDER BY x.indisprimary DESC, i.relname
 """
 
 
-def describe(conn, relation: Relation) -> TableDetail:
+def describe(conn: Connection, relation: Relation) -> TableDetail:
     found = conn.execute(_OID, (relation.schema, relation.name)).fetchone()
     if found is None:
         raise TaskError(f"{relation.qualified} ya no existe.")
@@ -335,7 +329,8 @@ def describe(conn, relation: Relation) -> TableDetail:
     ]
     by_name = {c.name: c for c in columns}
 
-    constraints, outgoing = [], []
+    constraints: list[Constraint] = []
+    outgoing: list[ForeignKey] = []
     for name, kind, definition, ref_schema, ref_table, cols, ref_cols in conn.execute(
         _CONSTRAINTS, (oid,)
     ).fetchall():
@@ -365,7 +360,7 @@ def describe(conn, relation: Relation) -> TableDetail:
     return TableDetail(relation, columns, constraints, indexes, outgoing, incoming)
 
 
-def _select_list(columns: list[Column]):
+def _select_list(columns: list[Column]) -> Composed:
     """Cada columna como texto, convertida en el servidor segun su tipo.
 
     Como texto y no con la conversion del driver: la vista solo muestra, y el
@@ -373,7 +368,6 @@ def _select_list(columns: list[Column]):
     intervalos, enums, numeric de cuarenta digitos— sin que psycopg tenga que
     saber cargarlo.
     """
-    sql = _sql()
     items = []
     for col in columns:
         ident = sql.Identifier(col.name)
@@ -387,8 +381,7 @@ def _select_list(columns: list[Column]):
     return sql.SQL(", ").join(items)
 
 
-def _where(where: Filter | None):
-    sql = _sql()
+def _where(where: Filter | None) -> Composed | SQL:
     if not where:
         return sql.SQL("")
     # Literal sin tipo: Postgres lo infiere de la columna, asi `empresa_id = '7'`
@@ -401,7 +394,7 @@ def _where(where: Filter | None):
 
 
 def fetch_rows(
-    conn,
+    conn: Connection,
     detail: TableDetail,
     *,
     offset: int = 0,
@@ -413,7 +406,6 @@ def fetch_rows(
     """Una pagina de filas. El orden es del servidor: ordenar solo lo cargado
     mentiria. Sin columna elegida se ordena por la PK, que tambien desempata.
     """
-    sql = _sql()
     rel = detail.relation
     query = sql.SQL("SELECT {} FROM {}.{}").format(
         _select_list(detail.columns), sql.Identifier(rel.schema), sql.Identifier(rel.name)
@@ -441,12 +433,14 @@ def fetch_rows(
     )
 
 
-def count_exact(conn, relation: Relation, where: Filter | None = None) -> int:
-    sql = _sql()
+def count_exact(conn: Connection, relation: Relation, where: Filter | None = None) -> int:
     query = sql.SQL("SELECT count(*) FROM {}.{}").format(
         sql.Identifier(relation.schema), sql.Identifier(relation.name)
     ) + _where(where)
-    return conn.execute(query).fetchone()[0]
+    row = conn.execute(query).fetchone()
+    if row is None:
+        raise TaskError("El servidor no devolvió el conteo.")
+    return row[0]
 
 
 # --- formato -------------------------------------------------------------------

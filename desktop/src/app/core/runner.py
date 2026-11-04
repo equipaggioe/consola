@@ -5,7 +5,7 @@ from pathlib import Path
 
 from app.core import canone, fields, ssh, vps
 from app.core import database as db
-from app.core.context import Level
+from app.core.context import Level, TaskContext
 from app.core.errors import TaskError
 from app.core.toolchain import venv_python
 
@@ -36,7 +36,7 @@ asi, sin subir un archivo primero.
 """
 
 
-def server_root(ctx) -> Path:
+def server_root(ctx: TaskContext) -> Path:
     """La carpeta del servidor dentro del repo abierto."""
     root = ctx.root / ctx.config.get("SERVER_DIR", "server")
     if not root.is_dir():
@@ -65,7 +65,7 @@ class Runner:
     def is_remote(self) -> bool:
         return self.remote is not None
 
-    def run(self, ctx, *args: str, echo: bool = True) -> int:
+    def run(self, ctx: TaskContext, *args: str, echo: bool = True) -> int:
         """`python <args>` en el directorio del servidor, con DATABASE_URL puesto.
 
         `DATABASE_URL` viaja por el entorno del proceso, nunca escrito a un
@@ -89,7 +89,7 @@ class Runner:
             echo=echo,
         )
 
-    def log_command(self, ctx, resumen: str) -> None:
+    def log_command(self, ctx: TaskContext, resumen: str) -> None:
         """Anuncia en el log un comando cuyo argv real no se puede leer.
 
         Un payload entra como `-c <programa entero>`: volcarlo tal cual llena la
@@ -100,7 +100,7 @@ class Runner:
         ctx.log(f"{donde}{self.python} {resumen}", Level.CMD)
 
 
-def resolve(ctx, scope: str = db.LOCAL) -> Runner:
+def resolve(ctx: TaskContext, scope: str = db.LOCAL) -> Runner:
     """El runner del ambito pedido: aca contra la base local, o en el VPS contra la suya.
 
     Es el camino de todo lo que solo toca la base —aplicar migraciones, sembrar,
@@ -126,7 +126,9 @@ def resolve(ctx, scope: str = db.LOCAL) -> Runner:
     return Runner(interprete, destino, db.vps_url(ctx, remote), remote)
 
 
-def write_credentials(ctx, server: Path, folder: str, archivos: dict[str, str]) -> Path:
+def write_credentials(
+    ctx: TaskContext, server: Path, folder: str, archivos: dict[str, str]
+) -> Path:
     """Escribe una carpeta de credenciales de desarrollo y devuelve su ruta.
 
     Corta si git no la ignora: un secreto commiteado por escribirlo aca no se
@@ -149,7 +151,7 @@ def write_credentials(ctx, server: Path, folder: str, archivos: dict[str, str]) 
     return carpeta
 
 
-def local(ctx) -> Runner:
+def local(ctx: TaskContext) -> Runner:
     """Siempre en esta maquina y contra la base local.
 
     Un repo de canone corre Alembic como el dueño del esquema, con sus propias
@@ -165,7 +167,7 @@ def local(ctx) -> Runner:
     return Runner(str(venv_python(raiz / ".venv")), str(raiz), "", credentials=str(carpeta))
 
 
-def here(ctx, conn: db.Connection) -> Runner:
+def here(ctx: TaskContext, conn: db.Connection) -> Runner:
     """Siempre en esta maquina, contra la base que diga `conn` —con su tunel si
     esa base es la del VPS.
 

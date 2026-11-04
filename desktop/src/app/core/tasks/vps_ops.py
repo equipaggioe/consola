@@ -3,6 +3,7 @@ from __future__ import annotations
 import json
 
 from app.core import canone, ssh, vps
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.registry import registry
 from app.core.tasks.vps_setup import access
@@ -13,7 +14,7 @@ maquina. Ninguno escribe la configuracion del VPS.
 """
 
 
-def _remote(ctx) -> ssh.Remote:
+def _remote(ctx: TaskContext) -> ssh.Remote:
     return ssh.resolve_remote(ctx.config)
 
 
@@ -24,7 +25,7 @@ HEALTHY = "204"
 HEALTH_TOKEN = "HEALTH_TOKEN"
 
 
-def health_check(ctx) -> dict[str, str]:
+def health_check(ctx: TaskContext) -> dict[str, str]:
     """Resumen de salud del VPS, los errores recientes del servidor y `GET /api/health`.
 
     `access` corta si no se entra: lo demas ya sabe que hay maquina. Falla al
@@ -42,7 +43,7 @@ def health_check(ctx) -> dict[str, str]:
     return resumen
 
 
-def view_events(ctx) -> dict[str, str]:
+def view_events(ctx: TaskContext) -> dict[str, str]:
     """`GET /api/health/events`: los ultimos eventos, el ultimo respaldo y el disco.
 
     Solo los muestra: canone deja a quien consulta decidir cuando avisar.
@@ -58,7 +59,7 @@ def view_events(ctx) -> dict[str, str]:
     return resumen
 
 
-def run_command(ctx, command: str = "") -> int:
+def run_command(ctx: TaskContext, command: str = "") -> int:
     """Un comando cualquiera en el VPS, con la salida en vivo."""
     if not command.strip():
         raise TaskError("No hay ningun comando para correr.")
@@ -68,7 +69,7 @@ def run_command(ctx, command: str = "") -> int:
 # --- revocacion ------------------------------------------------------------
 
 
-def revoke_ssh_key(ctx, *, remote_side: bool = True, local_side: bool = True) -> None:
+def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bool = True) -> None:
     """Saca la llave del `authorized_keys` del VPS y borra el par local.
 
     Muestra la huella exacta que va a sacar antes de tocar nada: revocar la

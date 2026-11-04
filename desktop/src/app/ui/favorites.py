@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from typing import cast
+
 from PySide6.QtCore import QSettings
 
 """
@@ -19,7 +21,7 @@ def favorite_ids() -> set[str]:
     raw = QSettings().value(_IDS_KEY, [])
     if isinstance(raw, str):
         raw = [raw] if raw else []
-    return set(raw or [])
+    return set(cast(list[str], raw) or [])
 
 
 def is_favorite(capability_id: str) -> bool:

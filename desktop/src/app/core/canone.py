@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import re
 from pathlib import Path
+from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
 from app.core import envfile, fields, process
@@ -108,12 +109,12 @@ def without(root: Path) -> list[str]:
 
 def _logs(config: Config) -> tuple[str, str, str] | None:
     """`--logs`, `--logs-key` y `--logs-ip`: los tres o ninguno (ADR-0100 de canone)."""
-    valores = tuple(config.get(k) for k in ("LOGS", "LOGS_KEY", "LOGS_IP"))
-    if not any(valores):
+    logs, key, ip = (config.get(k) for k in ("LOGS", "LOGS_KEY", "LOGS_IP"))
+    if not (logs or key or ip):
         return None
-    if not all(valores):
+    if not (logs and key and ip):
         raise TaskError("LOGS, LOGS_KEY y LOGS_IP van los tres juntos o ninguno.")
-    return valores
+    return logs, key, ip
 
 
 def install_args(
@@ -186,7 +187,7 @@ def signature(app: str, tag: str) -> str:
     return f"{checksum(app, tag)}.sig"
 
 
-def signed(app: str, releases: list[dict]) -> list[dict]:
+def signed(app: str, releases: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Los releases publicados que traen su firma, en el orden de `releases`.
 
     `releases` es la respuesta de `GET /repos/{dueño}/{repo}/releases`.
@@ -198,7 +199,7 @@ def signed(app: str, releases: list[dict]) -> list[dict]:
     ]
 
 
-def events_summary(eventos: dict) -> dict[str, str]:
+def events_summary(eventos: dict[str, Any]) -> dict[str, str]:
     """Lo que responde `GET /api/health/events`, con los nombres que lleva el log."""
     libre, total = eventos["diskFreeBytes"] / 10**9, eventos["diskTotalBytes"] / 10**9
     return {

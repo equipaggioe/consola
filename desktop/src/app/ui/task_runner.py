@@ -2,8 +2,9 @@ from __future__ import annotations
 
 import threading
 from collections.abc import Callable
+from typing import Any, override
 
-from PySide6.QtCore import QThread, Signal
+from PySide6.QtCore import QObject, QThread, Signal
 
 from app.core.context import TaskContext
 from app.core.envfile import Config
@@ -51,8 +52,13 @@ class TaskRunner(QThread):
     finished_ok = Signal(bool)
 
     def __init__(
-        self, capability_id: str, project: Project, func: Callable, kwargs: dict, parent=None
-    ):
+        self,
+        capability_id: str,
+        project: Project,
+        func: Callable[..., Any],
+        kwargs: dict[str, Any],
+        parent: QObject | None = None,
+    ) -> None:
         super().__init__(parent)
         self._capability_id = capability_id
         self._project = project
@@ -63,7 +69,7 @@ class TaskRunner(QThread):
         # entregan es su log o su endpoint—, pero las que declaran `opens_repo`
         # devuelven la carpeta del repo que dejaron en disco, y la ventana la
         # necesita para abrirla como pestana.
-        self.result = None
+        self.result: object = None
         self._answer = ""
         self._answered = threading.Event()
 
@@ -112,6 +118,7 @@ class TaskRunner(QThread):
 
     # --- ejecucion ----------------------------------------------------------
 
+    @override
     def run(self) -> None:
         ctx = TaskContext(
             capability_id=self._capability_id,

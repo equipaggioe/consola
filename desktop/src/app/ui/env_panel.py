@@ -2,9 +2,10 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import override
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtGui import QFont, QFontMetrics, QMouseEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QFileDialog,
     QFrame,
@@ -45,12 +46,15 @@ class _ClickToSelectLabel(QLabel):
     la mayoria de los formularios.
     """
 
-    def __init__(self, text: str, field, parent=None):
+    def __init__(
+        self, text: str, field: QLineEdit | QPlainTextEdit, parent: QWidget | None = None
+    ) -> None:
         super().__init__(text, parent)
         self._field = field
         self.setCursor(Qt.CursorShape.PointingHandCursor)
 
-    def mousePressEvent(self, event):
+    @override
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._field.setFocus()
             self._field.selectAll()
@@ -69,8 +73,8 @@ class EnvRow(QWidget):
         pal: Palette,
         default_display: str = "",
         label_width: int = 118,
-        parent=None,
-    ):
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setting = setting
         self.pal = pal
@@ -130,12 +134,12 @@ class EnvRow(QWidget):
         return self.setting.kind == "list"
 
     def value(self) -> str:
-        if self._is_list:
+        if isinstance(self.field, QPlainTextEdit):
             return ", ".join(envfile.split_list(self.field.toPlainText()))
         return self.field.text().strip()
 
     def set_value(self, value: str) -> None:
-        if self._is_list:
+        if isinstance(self.field, QPlainTextEdit):
             self.field.setPlainText(_to_lines(value))
             self._fit_list_height()
             return
@@ -154,7 +158,8 @@ class EnvRow(QWidget):
             self._fit_list_height()
         self.changed.emit()
 
-    def resizeEvent(self, event):
+    @override
+    def resizeEvent(self, event: QResizeEvent) -> None:
         # Al angostarse la fila cambia donde parte cada ruta larga, y con eso
         # cuantos renglones ocupa lo mismo escrito.
         super().resizeEvent(event)
@@ -172,6 +177,7 @@ class EnvRow(QWidget):
         `documentSize()` de un QPlainTextEdit cuenta RENGLONES, no pixeles, y
         cuenta los que se ven: una ruta larga que se parte en dos ocupa dos.
         """
+        assert isinstance(self.field, QPlainTextEdit)
         doc = self.field.document()
         doc.setTextWidth(max(1, self.field.viewport().width()))
         escritos = max(1, int(doc.size().height()))
@@ -234,7 +240,7 @@ class EnvPanel(QWidget):
     # suelta. Lo escucha `ui/tab_panel.py` para releer tambien los
     # ejes consultados: a que VPS se le pregunta sale de este archivo.
 
-    def __init__(self, project: Project, parent=None):
+    def __init__(self, project: Project, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.project = project
         self.pal = palettes.get(project.theme)

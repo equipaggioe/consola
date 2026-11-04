@@ -1,9 +1,10 @@
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Callable, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
+from typing import Any
 
 from app.core.errors import TaskError
 from app.core.files import read_text
@@ -142,11 +143,11 @@ def python_entrypoint(directory: Path) -> Path | None:
 # `one_scan()` comparte el recorrido entre las preguntas de UNA pasada y lo
 # suelta al salir: no es cache entre eventos, que mentiria si se agrega un
 # subproyecto con Consola abierta. Cada pasada sigue mirando el disco de nuevo.
-_pass: dict | None = None
+_pass: dict[tuple[str, str], Any] | None = None
 
 
 @contextmanager
-def one_scan():
+def one_scan() -> Iterator[None]:
     """Dentro de este bloque, el repo se recorre una vez por pregunta y no una
     vez por quien la hace. Anidarlo no abre una pasada nueva.
     """
@@ -161,7 +162,7 @@ def one_scan():
         _pass = None
 
 
-def _shared(key, produce):
+def _shared[T](key: tuple[str, str], produce: Callable[[], T]) -> T:
     if _pass is None:
         return produce()
     if key not in _pass:
@@ -188,7 +189,7 @@ def _discover(root: Path) -> list[Target]:
     return sorted(found, key=lambda t: (t.kind, t.name))
 
 
-def _walk(root: Path, depth: int):
+def _walk(root: Path, depth: int) -> Iterator[Path]:
     yield root
     if depth <= 0:
         return

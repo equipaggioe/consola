@@ -9,6 +9,7 @@ from datetime import datetime, timezone
 from pathlib import Path
 
 from app.core import canone, files, icons, ssh, targets, toolchain, versioning, vps
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.host import HOST
 from app.core.registry import registry
@@ -30,11 +31,11 @@ SPA compilan y nada mas (ADR-0059).
 """
 
 
-def _target(ctx, kind: str, name: str = "") -> targets.Target:
+def _target(ctx: TaskContext, kind: str, name: str = "") -> targets.Target:
     return targets.pick(ctx.root, (kind,), name)
 
 
-def _mobile(ctx, name: str = "") -> targets.Target:
+def _mobile(ctx: TaskContext, name: str = "") -> targets.Target:
     """La app movil del repo, sea Flutter o Flet.
 
     Los dos tipos se buscan juntos porque el framework no es una eleccion de
@@ -49,7 +50,7 @@ def _mobile(ctx, name: str = "") -> targets.Target:
 # --- atomicas transversales ------------------------------------------------
 
 
-def bump_version(ctx, directory: str = "", mode: str = "patch") -> tuple[str, str]:
+def bump_version(ctx: TaskContext, directory: str = "", mode: str = "patch") -> tuple[str, str]:
     """Sube la version del manifiesto del subproyecto. Sirve para los tres tipos.
 
     Tiene boton propio porque incrementar la version sin compilar todavia es una
@@ -64,7 +65,9 @@ def bump_version(ctx, directory: str = "", mode: str = "patch") -> tuple[str, st
     return anterior, nueva
 
 
-def upload_artifact(ctx, local: Path, remote_rel: str = "", *, chmod: str = "") -> str:
+def upload_artifact(
+    ctx: TaskContext, local: Path, remote_rel: str = "", *, chmod: str = ""
+) -> str:
     """Sube un artefacto al VPS respetando su ruta relativa dentro del repo.
 
     Boton propio: re-subir un APK ya compilado despues de un corte de red no
@@ -87,7 +90,7 @@ def upload_artifact(ctx, local: Path, remote_rel: str = "", *, chmod: str = "") 
 # --- pasos de Flutter / Flet -----------------------------------------------
 
 
-def compile_flutter(ctx, directory: str = "", platform_id: str = "apk") -> Path:
+def compile_flutter(ctx: TaskContext, directory: str = "", platform_id: str = "apk") -> Path:
     """Compila la app para una plataforma. Es el unico paso que cambia entre
     Flutter y Flet, y entre una plataforma y otra.
 
@@ -135,7 +138,7 @@ def _newest(base: Path, patron: str) -> Path | None:
     return max(encontrados, key=lambda p: p.stat().st_mtime, default=None)
 
 
-def _out_dir(ctx, app_dir: Path, platform_id: str) -> Path | None:
+def _out_dir(ctx: TaskContext, app_dir: Path, platform_id: str) -> Path | None:
     """La carpeta de `config.env` donde tiene que quedar el build, si hay una.
 
     Vacia, el build se queda donde lo deja el framework. Es relativa a la
@@ -145,7 +148,7 @@ def _out_dir(ctx, app_dir: Path, platform_id: str) -> Path | None:
     return app_dir / valor if valor else None
 
 
-def _deliver(ctx, app_dir: Path, platform_id: str, salida: Path) -> Path:
+def _deliver(ctx: TaskContext, app_dir: Path, platform_id: str, salida: Path) -> Path:
     """Copia el build a la carpeta configurada, si hay una.
 
     Se copia y no se le pide al framework que compile ahi: Flutter solo acepta
@@ -181,7 +184,9 @@ def _deliver(ctx, app_dir: Path, platform_id: str, salida: Path) -> Path:
 RELEASES_DIR = "releases"
 
 
-def _release_manifest(ctx, app: str, platform_id: str, artifact: Path, manifest: Path) -> Path:
+def _release_manifest(
+    ctx: TaskContext, app: str, platform_id: str, artifact: Path, manifest: Path
+) -> Path:
     """Escribe `releases/<app>/<plataforma>.json` describiendo lo que se publica.
 
     El `sha256` va solo cuando el artefacto es un archivo: un build web es un
@@ -189,7 +194,11 @@ def _release_manifest(ctx, app: str, platform_id: str, artifact: Path, manifest:
     resto del manifiesto sigue sirviendo.
     """
     version = versioning.read_version(manifest)
-    datos = {"app": app, "platform": platform_id, "version": version.split("+", 1)[0]}
+    datos: dict[str, str | int] = {
+        "app": app,
+        "platform": platform_id,
+        "version": version.split("+", 1)[0],
+    }
     if "+" in version:
         datos["build"] = int(version.split("+", 1)[1])
     datos["artifact"] = artifact.name
@@ -203,7 +212,9 @@ def _release_manifest(ctx, app: str, platform_id: str, artifact: Path, manifest:
     return destino
 
 
-def _publish_release(ctx, app: str, platform_id: str, artifact: Path, manifest: Path) -> None:
+def _publish_release(
+    ctx: TaskContext, app: str, platform_id: str, artifact: Path, manifest: Path
+) -> None:
     """Escribe el manifiesto de release y lo sube junto al artefacto."""
     upload_artifact(ctx, _release_manifest(ctx, app, platform_id, artifact, manifest))
 
@@ -211,13 +222,13 @@ def _publish_release(ctx, app: str, platform_id: str, artifact: Path, manifest: 
 # --- pasos de Vite ---------------------------------------------------------
 
 
-def install_node_modules(ctx, directory: str = "") -> None:
+def install_node_modules(ctx: TaskContext, directory: str = "") -> None:
     """`pnpm install`, which pnpm manages as sveltekit.md of canone asks (ADR-0072)."""
     spa = _target(ctx, targets.SPA_VITE, directory)
     ctx.run([*toolchain.pnpm_cmd(), "install"], cwd=spa.path)
 
 
-def compile_spa(ctx, directory: str = "") -> Path:
+def compile_spa(ctx: TaskContext, directory: str = "") -> Path:
     """`pnpm run build`. La SPA va en la raiz de su host, asi que Consola no le
     deja nada adentro: el build es el del repo tal cual (ADR-0065).
     """
@@ -273,7 +284,7 @@ export const ssr = false;
 }
 
 
-def _generate_colors(ctx, template: Path) -> None:
+def _generate_colors(ctx: TaskContext, template: Path) -> None:
     """`src/lib/colors.ts`, which `uno.config.ts` imports, from the tokens of the repo.
 
     A repo without them takes the canone starting point (transversal.md of canone, «Tema»).
@@ -288,7 +299,7 @@ def _generate_colors(ctx, template: Path) -> None:
     ctx.run([*toolchain.python_cmd(), str(generator)], cwd=ctx.root)
 
 
-def create_spa(ctx) -> Path:
+def create_spa(ctx: TaskContext) -> Path:
     """Crea en el repo una SPA en blanco: SvelteKit + TypeScript + runes + UnoCSS.
 
     Queda lista para los otros botones de Vite: `serve_vite` y `build_vite` la
@@ -366,7 +377,7 @@ _ENTRYPOINTS = ("src/main.py", "main.py", "app/main.py")
 _NOMBRES_GENERICOS = ("main", "__main__", "app", "cli", "run")
 
 
-def resolve_entrypoint(ctx, entrypoint: str = "") -> Path:
+def resolve_entrypoint(ctx: TaskContext, entrypoint: str = "") -> Path:
     """El archivo Python que PyInstaller va a empaquetar.
 
     Escrito a mano gana siempre — el script original aceptaba cualquier ruta del
@@ -424,7 +435,7 @@ def _binary_app(root: Path, fuente: Path) -> Path:
     return root
 
 
-def _ensure_manifest(ctx, app_dir: Path) -> Path:
+def _ensure_manifest(ctx: TaskContext, app_dir: Path) -> Path:
     """El manifiesto de version de la app; se crea en 0.0.0 si no hay ninguno.
 
     Es el `_ensure_pyproject` del script original, y esta por la misma razon:
@@ -468,7 +479,12 @@ def _binary_output(app_dir: Path, etiqueta: str, onefile: bool) -> Path:
 
 
 def compile_binary(
-    ctx, entrypoint: str = "", name: str = "", *, onefile: bool = True, windowed: bool = False
+    ctx: TaskContext,
+    entrypoint: str = "",
+    name: str = "",
+    *,
+    onefile: bool = True,
+    windowed: bool = False,
 ) -> Path:
     """Empaqueta un ejecutable con PyInstaller.
 
@@ -522,7 +538,7 @@ def compile_binary(
     return artefacto
 
 
-def checksum_artifact(ctx, artifact: Path) -> Path:
+def checksum_artifact(ctx: TaskContext, artifact: Path) -> Path:
     """Escribe el SHA-256 del artefacto al lado, en formato `sha256sum`.
 
     Un ejecutable que se descarga no se puede mirar por dentro: el hash es lo
@@ -540,7 +556,7 @@ def checksum_artifact(ctx, artifact: Path) -> Path:
     return destino
 
 
-def _maybe_checksum(ctx, artifact: Path) -> Path | None:
+def _maybe_checksum(ctx: TaskContext, artifact: Path) -> Path | None:
     """El checksum del paso marcado, salteado con un aviso si no aplica.
 
     El empaquetado en carpeta no tiene un archivo que firmar, y ahi el paso no
@@ -553,7 +569,9 @@ def _maybe_checksum(ctx, artifact: Path) -> Path | None:
     return checksum_artifact(ctx, artifact)
 
 
-def _publish_binary(ctx, app: str, artifact: Path, manifest: Path, checksum: Path | None) -> None:
+def _publish_binary(
+    ctx: TaskContext, app: str, artifact: Path, manifest: Path, checksum: Path | None
+) -> None:
     """Sube el binario con su manifiesto (y su checksum, si se genero).
 
     Van juntos o no va ninguno. El ejecutable no dice de que version es, y del lado del VPS el manifiesto es lo
@@ -576,7 +594,7 @@ def _publish_binary(ctx, app: str, artifact: Path, manifest: Path, checksum: Pat
 
 
 def build_flutter(
-    ctx,
+    ctx: TaskContext,
     directory: str = "",
     platforms: Sequence[str] = ("apk",),
 ) -> list[Path]:
@@ -599,7 +617,7 @@ def build_flutter(
     return salidas
 
 
-def build_vite(ctx, directories: Sequence[str] = ()) -> list[Path]:
+def build_vite(ctx: TaskContext, directories: Sequence[str] = ()) -> list[Path]:
     """Por cada SPA elegida: pnpm install y build.
 
     Su eje es `many`: un repo tiene una app movil pero suele tener tres SPA
@@ -624,7 +642,7 @@ def build_vite(ctx, directories: Sequence[str] = ()) -> list[Path]:
 
 
 def build_binary(
-    ctx,
+    ctx: TaskContext,
     entrypoint: str = "",
     name: str = "",
     bump_mode: str = "patch",

@@ -95,7 +95,7 @@ class ModelTable:
 # --- leer ----------------------------------------------------------------------
 
 
-def signature(server_root: Path) -> tuple:
+def signature(server_root: Path) -> tuple[tuple[str, int], ...]:
     """Lo que cambia si cambia algun modelo: ruta y mtime de cada .py. Cuesta
     un `stat` por archivo, y evita relanzar Python cada vez que se muestra la
     pestana.
@@ -187,7 +187,7 @@ class Comparison:
         return sum(1 for t in self.tables.values() if t.status == status)
 
     def missing(self) -> list[ModelTable]:
-        return [t.model for t in self.tables.values() if t.status == MISSING]
+        return [t.model for t in self.tables.values() if t.status == MISSING and t.model]
 
 
 # Lo que SQLAlchemy escribe con otro nombre que `format_type`. Los timestamps

@@ -1,9 +1,18 @@
 from __future__ import annotations
 
 import json
+from collections.abc import Callable
 from pathlib import Path
+from typing import Any, override
 
-from PySide6.QtCore import QAbstractTableModel, QModelIndex, Qt, Signal
+from PySide6.QtCore import (
+    QAbstractTableModel,
+    QModelIndex,
+    QObject,
+    QPersistentModelIndex,
+    Qt,
+    Signal,
+)
 from PySide6.QtGui import QColor, QFont
 from PySide6.QtWidgets import (
     QAbstractItemView,
@@ -67,10 +76,10 @@ class RowsModel(QAbstractTableModel):
 
     more_requested = Signal()
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QObject | None = None) -> None:
         super().__init__(parent)
         self.detail: dbx.TableDetail | None = None
-        self.rows: list[tuple] = []
+        self.rows: list[tuple[Any, ...]] = []
         self.has_more = False
         self.loading = False
         self.order_by: str | None = None
@@ -96,21 +105,28 @@ class RowsModel(QAbstractTableModel):
         self.has_more = page.has_more
 
     # --- QAbstractTableModel ------------------------------------------------
-    def rowCount(self, parent=QModelIndex()) -> int:
+    @override
+    def rowCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
         return 0 if parent.isValid() else len(self.rows)
 
-    def columnCount(self, parent=QModelIndex()) -> int:
+    @override
+    def columnCount(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> int:
         return 0 if parent.isValid() or self.detail is None else len(self.detail.columns)
 
-    def canFetchMore(self, parent=QModelIndex()) -> bool:
+    @override
+    def canFetchMore(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> bool:
         return not parent.isValid() and self.has_more and not self.loading
 
-    def fetchMore(self, parent=QModelIndex()) -> None:
+    @override
+    def fetchMore(self, parent: QModelIndex | QPersistentModelIndex = QModelIndex()) -> None:
         if self.canFetchMore(parent):
             self.loading = True
             self.more_requested.emit()
 
-    def headerData(self, section, orientation, role=Qt.ItemDataRole.DisplayRole):
+    @override
+    def headerData(
+        self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
+    ) -> Any:
         if orientation == Qt.Orientation.Vertical:
             if role == Qt.ItemDataRole.DisplayRole:
                 return section + 1
@@ -136,8 +152,11 @@ class RowsModel(QAbstractTableModel):
             return "<br>".join(partes)
         return None
 
-    def data(self, index, role=Qt.ItemDataRole.DisplayRole):
-        if not index.isValid():
+    @override
+    def data(
+        self, index: QModelIndex | QPersistentModelIndex, role: int = Qt.ItemDataRole.DisplayRole
+    ) -> Any:
+        if not index.isValid() or self.detail is None:
             return None
         value = self.rows[index.row()][index.column()]
         col = self.detail.columns[index.column()]
@@ -188,8 +207,12 @@ class DbExplorerView(QWidget):
     """Arbol + (Datos | Estructura), sobre un `DbWorker` propio."""
 
     def __init__(
-        self, url: str, server_root: Path | None = None, pal: Palette = NEUTRAL, parent=None
-    ):
+        self,
+        url: str,
+        server_root: Path | None = None,
+        pal: Palette = NEUTRAL,
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.setObjectName("dbExplorer")
         self.pal = pal
@@ -307,7 +330,7 @@ class DbExplorerView(QWidget):
         self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.header().setStretchLastSection(False)
         self.tree.itemClicked.connect(self._on_tree_clicked)
-        self.tree.currentItemChanged.connect(lambda item, _prev: self._on_tree_clicked(item))
+        self.tree.currentItemChanged.connect(self._on_tree_clicked)
         ll.addWidget(self.filter_box)
         ll.addWidget(self.models_label)
         ll.addWidget(self.tree, 1)
@@ -400,7 +423,7 @@ class DbExplorerView(QWidget):
         self.tabs.addTab(scroll, title)
         return layout
 
-    def _chip(self, text: str, tip: str, slot) -> QPushButton:
+    def _chip(self, text: str, tip: str, slot: Callable[[], None]) -> QPushButton:
         btn = QPushButton(text)
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -437,14 +460,14 @@ class DbExplorerView(QWidget):
     def shutdown(self) -> None:
         self.worker.stop()
 
-    def _send(self, kind: str, **kwargs) -> None:
+    def _send(self, kind: str, **kwargs: Any) -> None:
         keep = kwargs.pop("_keep_rows", False)
         req_id = self.worker.request(kind, **kwargs)
         self._pending[kind] = req_id
         if kind == "describe":
             self._pending["describe_keep"] = int(keep)
 
-    def _on_result(self, req_id: int, kind: str, payload) -> None:
+    def _on_result(self, req_id: int, kind: str, payload: Any) -> None:
         if self._pending.get(kind) != req_id:
             return  # llego tarde: ya se pidio otra cosa
         self._pending.pop(kind, None)
@@ -496,7 +519,7 @@ class DbExplorerView(QWidget):
         self._fill_tree(self._relations)
         if self._missing is not None:
             status = self._status_of(self._missing.qualified)
-            if status is not None and status.status == dbm.MISSING:
+            if status is not None and status.status == dbm.MISSING and status.model:
                 self._fill_model_structure(status.model)
             else:
                 # Ya no falta (la migraste): se abre la tabla de verdad, si esta.
@@ -594,9 +617,9 @@ class DbExplorerView(QWidget):
         # modelos cuya tabla falta en la base. Por modelos, las carpetas van
         # antes que los archivos sueltos de la raiz —como en el disco— y lo que
         # no tiene modelo, al final.
-        entries: list[tuple[tuple, dbx.Relation | dbm.ModelTable]] = []
+        entries: list[tuple[tuple[Any, ...], dbx.Relation | dbm.ModelTable]] = []
 
-        def order(schema: str, name: str, model: dbm.ModelTable | None) -> tuple:
+        def order(schema: str, name: str, model: dbm.ModelTable | None) -> tuple[Any, ...]:
             if not by_models:
                 return (schema, name)
             if model is None:
@@ -659,10 +682,14 @@ class DbExplorerView(QWidget):
             if key:
                 found[key] = item.isExpanded()
             for i in range(item.childCount()):
-                visit(item.child(i))
+                child = item.child(i)
+                if child is not None:
+                    visit(child)
 
         for i in range(self.tree.topLevelItemCount()):
-            visit(self.tree.topLevelItem(i))
+            top = self.tree.topLevelItem(i)
+            if top is not None:
+                visit(top)
         return found
 
     def _relation_item(
@@ -743,7 +770,8 @@ class DbExplorerView(QWidget):
             own = entry is not None and (not needle or needle in entry.name.lower())
             child_hit = False
             for i in range(item.childCount()):
-                child_hit = visit(item.child(i)) or child_hit
+                child = item.child(i)
+                child_hit = (child is not None and visit(child)) or child_hit
             # Un grupo se esconde solo si hay filtro y nada adentro coincide.
             visible = own or child_hit or (entry is None and not needle)
             item.setHidden(not visible)
@@ -752,9 +780,11 @@ class DbExplorerView(QWidget):
             return own or child_hit
 
         for i in range(self.tree.topLevelItemCount()):
-            visit(self.tree.topLevelItem(i))
+            top = self.tree.topLevelItem(i)
+            if top is not None:
+                visit(top)
 
-    def _on_tree_clicked(self, item: QTreeWidgetItem | None, *_args) -> None:
+    def _on_tree_clicked(self, item: QTreeWidgetItem | None, *_args: object) -> None:
         entry = item.data(0, _ROLE_REL) if item is not None else None
         if entry is None:
             return
@@ -918,8 +948,9 @@ class DbExplorerView(QWidget):
     def _rebuild_trail(self) -> None:
         while self.trail_row.count():
             item = self.trail_row.takeAt(0)
-            if item.widget() is not None:
-                item.widget().deleteLater()
+            widget = item.widget() if item else None
+            if widget is not None:
+                widget.deleteLater()
         self.trail_wrap.setVisible(len(self._trail) > 1)
         if len(self._trail) <= 1:
             return
@@ -955,11 +986,12 @@ class DbExplorerView(QWidget):
         for pane in self._panes():
             while pane.count():
                 item = pane.takeAt(0)
-                if item.widget() is not None:
+                widget = item.widget() if item else None
+                if widget is not None:
                     # Escondida ya: `deleteLater` sola la deja pintada debajo de la
                     # estructura nueva hasta volver al bucle de eventos.
-                    item.widget().hide()
-                    item.widget().deleteLater()
+                    widget.hide()
+                    widget.deleteLater()
 
     def _fill_structure(self, detail: dbx.TableDetail) -> None:
         self._clear_structure()
@@ -977,7 +1009,7 @@ class DbExplorerView(QWidget):
             self._note(
                 cols, "Ningún modelo de app/models declara esta tabla.", Colors.ACCENT_PURPLE
             )
-        elif status is not None and status.status == dbm.OK:
+        elif status is not None and status.status == dbm.OK and status.model:
             self._note(
                 cols, f"Igual a su modelo: app/models/{status.model.source}", Colors.SUCCESS
             )
@@ -1053,11 +1085,13 @@ class DbExplorerView(QWidget):
                 rows,
             )
             table.setToolTip("Doble clic para abrir esa tabla")
-            table.cellDoubleClicked.connect(
-                lambda r, _c, fks=detail.incoming: self._follow(
-                    fks[r].ref_schema, fks[r].ref_table, dbx.Filter()
-                )
-            )
+
+            def follow_incoming(
+                row: int, _column: int, fks: list[dbx.ForeignKey] = detail.incoming
+            ) -> None:
+                self._follow(fks[row].ref_schema, fks[row].ref_table, dbx.Filter())
+
+            table.cellDoubleClicked.connect(follow_incoming)
         for pane in self._panes():
             pane.addStretch()
 

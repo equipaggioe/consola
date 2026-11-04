@@ -11,7 +11,7 @@ from app.theme import apply_theme
 from app.ui.main_window import MainWindow
 
 
-def main():
+def main() -> None:
     # Enable high-DPI scaling
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough

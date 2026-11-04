@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QPainter
+from typing import override
+
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QEnterEvent, QFont, QMouseEvent, QPainter, QPaintEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
 from app.theme import Colors, Fonts, tint
@@ -29,7 +31,7 @@ class LevelMark(QLabel):
     COMPOSITE = "◈"
     ATOMIC = "◦"
 
-    def __init__(self, composite: bool, parent=None):
+    def __init__(self, composite: bool, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setText(self.COMPOSITE if composite else self.ATOMIC)
         self.setFixedWidth(12)
@@ -56,7 +58,7 @@ class ScopeMark(QLabel):
 
     GLYPH = "⌂"
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setText(self.GLYPH)
         self.setFixedWidth(12)
@@ -94,8 +96,8 @@ class ActionRow(QWidget):
         composite: bool = False,
         description: str = "",
         machine: bool = False,
-        parent=None,
-    ):
+        parent: QWidget | None = None,
+    ) -> None:
         super().__init__(parent)
         self.capability_id = capability_id
         self.danger = danger
@@ -219,23 +221,26 @@ class ActionRow(QWidget):
             color = Colors.TEXT if (self._hovered or self.favorite) else Colors.TEXT_DIM
         self.text_label.setStyleSheet(f"background: transparent; color: {color};")
 
-    def _in_pin_zone(self, pos) -> bool:
+    def _in_pin_zone(self, pos: QPointF) -> bool:
         return 0 <= pos.x() <= self.PIN_ZONE
 
-    def enterEvent(self, event):
+    @override
+    def enterEvent(self, event: QEnterEvent) -> None:
         self._hovered = True
         self._restyle()
         self.update()
         super().enterEvent(event)
 
-    def leaveEvent(self, event):
+    @override
+    def leaveEvent(self, event: QEvent) -> None:
         self._hovered = False
         self._pin_hovered = False
         self._restyle()
         self.update()
         super().leaveEvent(event)
 
-    def mouseMoveEvent(self, event):
+    @override
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         pin_hovered = self._in_pin_zone(event.position())
         if pin_hovered != self._pin_hovered:
             self._pin_hovered = pin_hovered
@@ -243,7 +248,8 @@ class ActionRow(QWidget):
             self.update()
         super().mouseMoveEvent(event)
 
-    def mouseReleaseEvent(self, event):
+    @override
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         pos = event.position()
         inside = self.rect().contains(pos.toPoint())
         if event.button() == Qt.MouseButton.LeftButton and inside:
@@ -256,7 +262,8 @@ class ActionRow(QWidget):
                 self.triggered.emit(self.capability_id)
         super().mouseReleaseEvent(event)
 
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect())

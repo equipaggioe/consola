@@ -1,6 +1,8 @@
 from __future__ import annotations
 
 import webbrowser
+from collections.abc import Callable
+from typing import Any
 
 from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
@@ -42,7 +44,7 @@ class BrowserView(QWidget):
 
     closed = Signal()
 
-    def __init__(self, url: str = "", parent=None):
+    def __init__(self, url: str = "", parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self._url = url
         self.pal = NEUTRAL
@@ -52,13 +54,13 @@ class BrowserView(QWidget):
         root.setSpacing(0)
         root.addWidget(self._build_bar())
         self._fallback: QWidget | None = None
+        self.page: Any = None
 
-        if WEBENGINE:
+        if QWebEngineView is not None:
             self.page = QWebEngineView(self)
             self.page.urlChanged.connect(self._on_url_changed)
             root.addWidget(self.page, 1)
         else:
-            self.page = None
             root.addWidget(self._build_fallback(), 1)
 
         self._restyle()
@@ -108,7 +110,7 @@ class BrowserView(QWidget):
         if self._fallback is not None:
             self._fallback.setStyleSheet(f"background: {self.pal.bg};")
 
-    def _tool(self, glyph: str, tip: str, slot) -> QPushButton:
+    def _tool(self, glyph: str, tip: str, slot: Callable[[], None]) -> QPushButton:
         btn = QPushButton(glyph)
         btn.setFixedSize(24, 24)
         btn.setToolTip(tip)

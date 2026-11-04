@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import socket
+import threading
 import time
 from urllib.parse import urlsplit
 
@@ -52,7 +53,11 @@ def is_serving(port: int, *, host: str = "127.0.0.1", timeout: float = 0.4) -> b
 
 
 def wait_until_serving(
-    port: int, *, host: str = "127.0.0.1", timeout: float = 60.0, cancel=None
+    port: int,
+    *,
+    host: str = "127.0.0.1",
+    timeout: float = 60.0,
+    cancel: threading.Event | None = None,
 ) -> bool:
     """Espera a que el servidor conteste de verdad. Devuelve si llego a hacerlo.
 

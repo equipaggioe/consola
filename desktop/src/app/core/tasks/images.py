@@ -3,11 +3,13 @@ from __future__ import annotations
 import os
 import shlex
 import threading
-from collections.abc import Sequence
+from collections.abc import Callable, Sequence
 from pathlib import Path
+from typing import Any
 
 from app.core import android, catalog, icons, process, shots, targets, toolchain
-from app.core.context import Level
+from app.core.context import Level, TaskContext
+from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.registry import registry
 from app.core.tasks import raster
@@ -29,7 +31,7 @@ LANDING = "landing"
 _SUPPORTED_TIMEOUT = 60
 
 
-def generate_icons(ctx, apps: Sequence[str] = ()) -> None:
+def generate_icons(ctx: TaskContext, apps: Sequence[str] = ()) -> None:
     """Deja el logo del repo, y sus capas, como icono de cada app marcada."""
     ctx.require_config("BRAND_ICON")
     if not apps:
@@ -64,7 +66,7 @@ def _render(svg: Path, lugar: icons.Place) -> bytes:
     return raster.svg_to_png(svg, lugar.size)
 
 
-def _write(ctx, destino: Path, contenido: bytes) -> None:
+def _write(ctx: TaskContext, destino: Path, contenido: bytes) -> None:
     """Escribe el archivo solo si cambia, y dice que paso (ADR-0039)."""
     nombre = destino.relative_to(ctx.root).as_posix()
     if destino.is_file() and destino.read_bytes() == contenido:
@@ -76,7 +78,7 @@ def _write(ctx, destino: Path, contenido: bytes) -> None:
     ctx.info(f"  {estado}: {nombre}")
 
 
-def camera_command(config) -> list[str]:
+def camera_command(config: Config) -> list[str]:
     """`SHOTS_CMD` listo para correr, con su ejecutable ubicado."""
     if not config.get("SHOTS_CMD"):
         raise TaskError(
@@ -89,7 +91,7 @@ def camera_command(config) -> list[str]:
     return [*ejecutable, *comando[1:]]
 
 
-def camera_supported(root: Path, config) -> dict[str, dict]:
+def camera_supported(root: Path, config: Config) -> dict[str, dict[str, Any]]:
     """Las apps, temas e idiomas que la camara sabe capturar (ADR-0054).
 
     Se le pregunta a ella con `--supported`: lo declara en su codigo, donde
@@ -108,7 +110,7 @@ def camera_supported(root: Path, config) -> dict[str, dict]:
 
 
 def shoot_screens(
-    ctx,
+    ctx: TaskContext,
     apps: Sequence[str] = (),
     themes: Sequence[str] = (),
     languages: Sequence[str] = (),
@@ -161,7 +163,7 @@ def shoot_screens(
     return raw
 
 
-def _emulator(ctx, avd: str) -> tuple[str, bool]:
+def _emulator(ctx: TaskContext, avd: str) -> tuple[str, bool]:
     """El serial del AVD elegido, encendiendolo si hace falta.
 
     Devuelve tambien si lo encendio esta corrida: el que ya estaba vivo se deja
@@ -196,7 +198,7 @@ def _emulator(ctx, avd: str) -> tuple[str, bool]:
     return serial, True
 
 
-def _run_quietly(func, *args, **kwargs) -> None:
+def _run_quietly(func: Callable[..., object], *args: object, **kwargs: Any) -> None:
     """Corre el emulador en su hilo. Si muere, `wait_for_boot` es quien lo dice."""
     try:
         func(*args, **kwargs)
@@ -204,7 +206,7 @@ def _run_quietly(func, *args, **kwargs) -> None:
         pass
 
 
-def render_shots(ctx, destinations: Sequence[str] = (LANDING,)) -> None:
+def render_shots(ctx: TaskContext, destinations: Sequence[str] = (LANDING,)) -> None:
     """Convierte los crudos para cada destino marcado y deja un manifiesto por destino."""
     if not destinations:
         raise TaskError("Marca al menos un destino.")
@@ -258,14 +260,14 @@ def _label(destino: str) -> str:
     return catalog.SHOT_DESTINATION_LABELS[destino]
 
 
-def _out_dir(ctx, destino: str) -> Path:
+def _out_dir(ctx: TaskContext, destino: str) -> Path:
     if destino == LANDING:
         return shots.resolve_dir(ctx.root, ctx.config.get("SHOTS_PUBLISH"))
     return shots.resolve_dir(ctx.root, ctx.config.get("SHOTS_DIST")) / destino
 
 
 def screenshots(
-    ctx,
+    ctx: TaskContext,
     apps: Sequence[str] = (),
     themes: Sequence[str] = (),
     languages: Sequence[str] = (),

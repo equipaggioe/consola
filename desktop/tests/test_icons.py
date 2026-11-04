@@ -9,6 +9,7 @@ seccion `flutter_launcher_icons:`, y una app Flet con su `icon.png`.
 import io
 import json
 from pathlib import Path
+from typing import Any
 
 import pytest
 from PIL import Image
@@ -58,7 +59,7 @@ export default defineConfig({
 MANIFEST_LINK = '<link rel="manifest" href="%sveltekit.assets%/manifest.webmanifest" />'
 
 
-def manifest(*iconos: dict) -> str:
+def manifest(*iconos: dict[str, str]) -> str:
     return json.dumps(
         {
             "name": "Web",
@@ -100,7 +101,7 @@ def flutter(root: Path, name: str, pubspec: str) -> Path:
 
 
 @pytest.fixture
-def repo(tmp_path):
+def repo(tmp_path: Path) -> Path:
     spa(
         tmp_path,
         "panel",
@@ -153,7 +154,7 @@ def layers(repo: Path, *capas: str) -> dict[str, Path]:
     return {c: repo / "brand" / f"{archivos[c]}.svg" for c in capas}
 
 
-def test_la_seccion_se_lee_con_las_claves_anidadas_y_sin_comentarios():
+def test_la_seccion_se_lee_con_las_claves_anidadas_y_sin_comentarios() -> None:
     assert icons.yaml_section(PUBSPEC, "flutter_launcher_icons") == {
         "android": "true",
         "image_path": "assets/launcher_icon/icon.png",
@@ -167,7 +168,7 @@ def test_la_seccion_se_lee_con_las_claves_anidadas_y_sin_comentarios():
     assert icons.yaml_section("name: x\n", "flutter_launcher_icons") is None
 
 
-def test_se_ofrecen_solo_las_apps_que_dicen_donde_va_su_icono(repo):
+def test_se_ofrecen_solo_las_apps_que_dicen_donde_va_su_icono(repo: Path) -> None:
     assert [t.name for t in icons.icon_apps(repo)] == [
         "cliente",
         "landing",
@@ -178,8 +179,8 @@ def test_se_ofrecen_solo_las_apps_que_dicen_donde_va_su_icono(repo):
     ]
 
 
-def test_cada_spa_toma_el_icono_donde_lo_declara(repo):
-    def lugares(nombre):
+def test_cada_spa_toma_el_icono_donde_lo_declara(repo: Path) -> None:
+    def lugares(nombre: str) -> list[tuple[str, str, int]]:
         target = icons.targets.pick(repo, icons.ICON_KINDS, nombre)
         return [
             (p.path.relative_to(repo).as_posix(), p.layer, p.size) for p in icons.places(target)
@@ -197,7 +198,7 @@ def test_cada_spa_toma_el_icono_donde_lo_declara(repo):
     ]
 
 
-def test_la_capa_que_pide_la_app_se_exige_solo_si_la_pide(repo):
+def test_la_capa_que_pide_la_app_se_exige_solo_si_la_pide(repo: Path) -> None:
     with pytest.raises(MissingConfig) as error:
         icons.plan(repo, "pwa", layers(repo, icons.LOGO))
     assert error.value.keys == ["BRAND_ICON_MASKABLE"]
@@ -207,7 +208,7 @@ def test_la_capa_que_pide_la_app_se_exige_solo_si_la_pide(repo):
     assert len(icons.plan(repo, "panel", layers(repo, icons.LOGO)).writes) == 1
 
 
-def test_flutter_toma_las_rutas_del_pubspec_una_vez_cada_una(repo):
+def test_flutter_toma_las_rutas_del_pubspec_una_vez_cada_una(repo: Path) -> None:
     capas = layers(repo, icons.LOGO, icons.FOREGROUND)
     trabajo = icons.plan(repo, "mobile", capas)
     assert trabajo.is_flutter
@@ -227,7 +228,7 @@ def test_flutter_toma_las_rutas_del_pubspec_una_vez_cada_una(repo):
     )
 
 
-def test_flet_recibe_el_logo_en_su_icon_png(repo):
+def test_flet_recibe_el_logo_en_su_icon_png(repo: Path) -> None:
     trabajo = icons.plan(repo, "cliente", layers(repo, icons.LOGO))
     assert [(p.path, p.size) for _, p in trabajo.writes] == [
         (repo / "cliente" / icons.FLET_ICON, 1024)
@@ -256,7 +257,9 @@ def test_flet_recibe_el_logo_en_su_icon_png(repo):
         ),
     ],
 )
-def test_lo_que_consola_no_sabe_llenar_en_flutter_corta(repo, nombre, pubspec, error):
+def test_lo_que_consola_no_sabe_llenar_en_flutter_corta(
+    repo: Path, nombre: str, pubspec: str, error: str
+) -> None:
     flutter(repo, nombre, pubspec)
     assert nombre in [t.name for t in icons.icon_apps(repo)]
     with pytest.raises(TaskError, match=error):
@@ -272,7 +275,7 @@ def test_lo_que_consola_no_sabe_llenar_en_flutter_corta(repo, nombre, pubspec, e
         ('<link rel="icon" href="/favicon.gif" />', "solo genera .svg, .png e .ico"),
     ],
 )
-def test_lo_que_consola_no_sabe_llenar_en_una_spa_corta(repo, link, error):
+def test_lo_que_consola_no_sabe_llenar_en_una_spa_corta(repo: Path, link: str, error: str) -> None:
     spa(repo, "rota", **{"src__app.html": link})
     with pytest.raises(TaskError, match=error):
         icons.plan(repo, "rota", layers(repo, icons.LOGO))
@@ -301,36 +304,38 @@ def test_lo_que_consola_no_sabe_llenar_en_una_spa_corta(repo, link, error):
         ),
     ],
 )
-def test_lo_que_consola_no_sabe_llenar_en_una_pwa_corta(repo, vite, estaticos, error):
+def test_lo_que_consola_no_sabe_llenar_en_una_pwa_corta(
+    repo: Path, vite: str, estaticos: dict[str, Any], error: str
+) -> None:
     spa(repo, "rota", vite=vite, **{"src__app.html": MANIFEST_LINK}, **estaticos)
     assert "rota" in [t.name for t in icons.icon_apps(repo)]
     with pytest.raises(TaskError, match=error):
         icons.plan(repo, "rota", layers(repo, icons.LOGO, icons.MASKABLE))
 
 
-def test_una_app_sin_declaracion_corta(repo):
+def test_una_app_sin_declaracion_corta(repo: Path) -> None:
     with pytest.raises(TaskError, match="no declara dónde va su ícono"):
         icons.plan(repo, "externa", layers(repo, icons.LOGO))
     with pytest.raises(TaskError, match="no declara dónde va su ícono"):
         icons.plan(repo, "suelta", layers(repo, icons.LOGO))
 
 
-def test_el_logo_tiene_que_ser_un_svg_que_exista(repo):
+def test_el_logo_tiene_que_ser_un_svg_que_exista(repo: Path) -> None:
     with pytest.raises(TaskError, match="tiene que ser un SVG"):
         icons.brand_file(repo, "brand/logo.png", "BRAND_ICON")
     with pytest.raises(TaskError, match="No existe BRAND_ICON"):
         icons.brand_file(repo, "brand/otro.svg", "BRAND_ICON")
 
 
-def test_rasteriza_cuadrado_con_el_color_del_logo(repo):
+def test_rasteriza_cuadrado_con_el_color_del_logo(repo: Path) -> None:
     imagen = Image.open(io.BytesIO(raster.svg_to_png(repo / "brand" / "logomark.svg", 256)))
     imagen = imagen.convert("RGBA")
     assert imagen.size == (256, 256)
     assert imagen.getpixel((128, 128)) == (0x0B, 0x12, 0x24, 255)
-    assert imagen.getpixel((0, 0))[3] == 0
+    assert imagen.getchannel("A").getpixel((0, 0)) == 0
 
 
-def test_el_png_no_depende_del_monitor(repo):
+def test_el_png_no_depende_del_monitor(repo: Path) -> None:
     # Con la ventana abierta, Qt anotaba en el PNG la resolucion del monitor.
     from PySide6.QtWidgets import QApplication
 
@@ -339,12 +344,12 @@ def test_el_png_no_depende_del_monitor(repo):
     assert Image.open(io.BytesIO(png)).info["dpi"] == pytest.approx((100, 100), abs=0.01)
 
 
-def test_el_ico_lleva_todos_los_lados(repo):
+def test_el_ico_lleva_todos_los_lados(repo: Path) -> None:
     ico = Image.open(io.BytesIO(raster.svg_to_ico(repo / "brand" / "logomark.svg")))
     assert sorted(ico.info["sizes"]) == [(n, n) for n in raster.ICO_SIZES]
 
 
-def test_un_svg_que_no_es_cuadrado_corta(tmp_path):
+def test_un_svg_que_no_es_cuadrado_corta(tmp_path: Path) -> None:
     ancho = write(
         tmp_path / "ancho.svg", LOGO.replace('viewBox="0 0 64 64"', 'viewBox="0 0 128 64"')
     )
@@ -352,7 +357,7 @@ def test_un_svg_que_no_es_cuadrado_corta(tmp_path):
         raster.svg_to_png(ancho, 256)
 
 
-def test_la_corrida_escribe_solo_lo_que_cambia(repo):
+def test_la_corrida_escribe_solo_lo_que_cambia(repo: Path) -> None:
     mensajes = []
     ctx = TaskContext(
         "generate_icons",

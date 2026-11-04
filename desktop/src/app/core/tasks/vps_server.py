@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from app.core import canone, vps
+from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.registry import registry
 from app.core.tasks.vps_setup import access
@@ -14,7 +15,9 @@ piden root: `sudo` pide la contraseña de la cuenta (`vps_setup.Access`).
 """
 
 
-def systemd_action(ctx, action: str = "status", service: str = vps.MAIN_SERVICE) -> int:
+def systemd_action(
+    ctx: TaskContext, action: str = "status", service: str = vps.MAIN_SERVICE
+) -> int:
     """Una accion de systemd sobre uno de los servicios del VPS.
 
     `service` no parte el boton: start/stop/restart/status son los mismos nueve
@@ -38,7 +41,7 @@ def systemd_action(ctx, action: str = "status", service: str = vps.MAIN_SERVICE)
 
 
 def view_logs(
-    ctx,
+    ctx: TaskContext,
     lines: int = 200,
     follow: bool = True,
     since: str = "",

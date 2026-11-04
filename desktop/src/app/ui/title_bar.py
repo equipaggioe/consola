@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
+from typing import override
+
+from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QEnterEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QPolygonF
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
 from app.theme import Colors, Fonts, on_color, tint
@@ -20,7 +22,7 @@ class Diamond(QWidget):
     SIZE = 17
     STROKE = 2.2
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedSize(self.SIZE + 4, self.SIZE + 4)
         self._color = Colors.INK
@@ -29,7 +31,8 @@ class Diamond(QWidget):
         self._color = color
         self.update()
 
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         pen = QPen(QColor(self._color))
@@ -62,7 +65,7 @@ class BrandMark(QWidget):
     con trazo propio y el nombre va en negro de imprenta.
     """
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 14, 0)
@@ -105,7 +108,7 @@ class WindowButton(QPushButton):
     STROKE = 1.6
     GLYPH = 11  # lado del cuadrado / de la equis, en pixeles
 
-    def __init__(self, kind: str, parent=None):
+    def __init__(self, kind: str, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.kind = kind  # 'min' | 'max' | 'close'
         self.maximized = False
@@ -138,7 +141,8 @@ class WindowButton(QPushButton):
         self.maximized = value
         self.update()
 
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         super().paintEvent(event)  # el fondo del hover lo pone la hoja
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -169,11 +173,13 @@ class WindowButton(QPushButton):
             p.drawLine(QPointF(c.x() + h, c.y() - h), QPointF(c.x() - h, c.y() + h))
         p.end()
 
-    def enterEvent(self, event):
+    @override
+    def enterEvent(self, event: QEnterEvent) -> None:
         self.update()
         super().enterEvent(event)
 
-    def leaveEvent(self, event):
+    @override
+    def leaveEvent(self, event: QEvent) -> None:
         self.update()
         super().leaveEvent(event)
 
@@ -196,7 +202,7 @@ class TitleBar(QWidget):
     maximize_requested = Signal()
     close_requested = Signal()
 
-    def __init__(self, tabs: QWidget, parent=None):
+    def __init__(self, tabs: QWidget, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.setFixedHeight(self.HEIGHT)
         # La fila entera se pinta del color del repo activo: es la senal de que
@@ -241,12 +247,14 @@ class TitleBar(QWidget):
         self.max_btn.setToolTip("Restaurar" if value else "Maximizar")
 
     # --- arrastrar la ventana ---------------------------------------------
-    def mousePressEvent(self, event):
+    @override
+    def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self._press_pos = event.position().toPoint()
         super().mousePressEvent(event)
 
-    def mouseMoveEvent(self, event):
+    @override
+    def mouseMoveEvent(self, event: QMouseEvent) -> None:
         """El movimiento del sistema arranca recien al arrastrar de verdad.
 
         Llamar a `startSystemMove()` en el press se comeria el doble clic —
@@ -263,17 +271,20 @@ class TitleBar(QWidget):
             handle.startSystemMove()
         return None
 
-    def mouseReleaseEvent(self, event):
+    @override
+    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self._press_pos = None
         super().mouseReleaseEvent(event)
 
-    def mouseDoubleClickEvent(self, event):
+    @override
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
             self.maximize_requested.emit()
         super().mouseDoubleClickEvent(event)
 
     # --- pintura ----------------------------------------------------------
-    def paintEvent(self, event):
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.fillRect(self.rect(), QColor(self.accent))
         p.end()

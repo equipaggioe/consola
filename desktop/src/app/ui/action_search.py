@@ -1,6 +1,9 @@
 from __future__ import annotations
 
-from PySide6.QtCore import QEvent, QPoint, QRect, Qt, Signal
+from typing import cast, override
+
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt, Signal
+from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -42,7 +45,7 @@ class ActionSearch(QWidget):
     POPUP_WIDTH = 440
     POPUP_MAX_HEIGHT = 460
 
-    def __init__(self, parent=None):
+    def __init__(self, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.pal = NEUTRAL
         self._ready: set[str] = set()
@@ -253,6 +256,7 @@ class ActionSearch(QWidget):
 
     def _show_popup(self) -> None:
         popup = self._popup
+        assert popup is not None
         window = self.window()
         # Alineado por la derecha con el campo: el buscador vive cerca del
         # borde derecho de la fila, y la lista es mas ancha que el campo.
@@ -260,19 +264,25 @@ class ActionSearch(QWidget):
         width = max(self.POPUP_WIDTH, self.box.width())
         x = max(4, anchor.x() - width)
         self._content_layout.activate()
-        wanted = self._scroll.widget().sizeHint().height() + 2
+        content = self._scroll.widget()
+        assert content is not None
+        wanted = content.sizeHint().height() + 2
         room = window.height() - anchor.y() - 12
         height = max(60, min(wanted, self.POPUP_MAX_HEIGHT, room))
         popup.setGeometry(x, anchor.y(), width, height)
         if not popup.isVisible():
             popup.show()
-            QApplication.instance().installEventFilter(self)
+            app = QApplication.instance()
+            assert app is not None
+            app.installEventFilter(self)
         popup.raise_()
 
     def _hide_popup(self) -> None:
         if self._popup is not None and self._popup.isVisible():
             self._popup.hide()
-            QApplication.instance().removeEventFilter(self)
+            app = QApplication.instance()
+            assert app is not None
+            app.removeEventFilter(self)
         self._set_current(-1)
 
     # --- seleccion con teclado ------------------------------------------
@@ -306,7 +316,8 @@ class ActionSearch(QWidget):
         self.favorites_changed.emit(favorites.set_favorite(cap_id, value))
 
     # --- eventos -------------------------------------------------------------
-    def eventFilter(self, obj, event):
+    @override
+    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         kind = event.type()
         if obj is self.box and kind == QEvent.Type.FocusIn and self.box.text().strip():
             # Se cerro con un clic afuera pero quedo el texto: volver al campo
@@ -314,7 +325,7 @@ class ActionSearch(QWidget):
             self._on_text(self.box.text())
         elif obj is self.box and kind == QEvent.Type.KeyPress:
             popup_open = self._popup is not None and self._popup.isVisible()
-            key = event.key()
+            key = cast(QKeyEvent, event).key()
             if key == Qt.Key.Key_Escape:
                 self.box.clear()
                 return True
@@ -327,7 +338,7 @@ class ActionSearch(QWidget):
             if popup_open and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
                 row = self._current_row()
                 if row is not None:
-                    ctrl = event.modifiers() & Qt.KeyboardModifier.ControlModifier
+                    ctrl = cast(QKeyEvent, event).modifiers() & Qt.KeyboardModifier.ControlModifier
                     if ctrl and row.capability_id in self._ready:
                         self._run(row.capability_id)
                     else:
@@ -335,7 +346,7 @@ class ActionSearch(QWidget):
                 return True
         elif kind == QEvent.Type.MouseButtonPress and self._popup is not None:
             # Clic fuera del campo y de la lista: se cierra, sin comerse el clic.
-            pos = event.globalPosition().toPoint()
+            pos = cast(QMouseEvent, event).globalPosition().toPoint()
             popup_rect = QRect(self._popup.mapToGlobal(QPoint(0, 0)), self._popup.size())
             box_rect = QRect(self.box.mapToGlobal(QPoint(0, 0)), self.box.size())
             if not popup_rect.contains(pos) and not box_rect.contains(pos):

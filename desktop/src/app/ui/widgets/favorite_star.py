@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtWidgets import QPushButton
+from PySide6.QtWidgets import QPushButton, QWidget
 
 from app.theme import Colors, Fonts, tint
 
@@ -19,7 +19,7 @@ class FavoriteStar(QPushButton):
     FULL = "★"
     EMPTY = "☆"
 
-    def __init__(self, accent: str = Colors.ACCENT, parent=None):
+    def __init__(self, accent: str = Colors.ACCENT, parent: QWidget | None = None) -> None:
         super().__init__(parent)
         self.accent = accent
         self._favorite = False

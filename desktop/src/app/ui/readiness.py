@@ -1,13 +1,16 @@
 from __future__ import annotations
 
+from typing import Any
+
 from app.core import envfile, targets
 from app.core.catalog import applicable_ids, for_project
-from app.core.registry import registry
+from app.core.projects import Project
+from app.core.registry import AxisDef, Capability, registry
 from app.core.settings import required_keys_for
 from app.ui import params_store
 
 
-def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
+def missing_keys(capability: Capability, env: dict[str, str], repo_path: str) -> list[str]:
     """Que le falta a una accion para poder correr sin abrir la pestana.
 
     Correr de una (el boton ▶ del buscador) usa los
@@ -40,7 +43,7 @@ def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
     return [k for k in needed if not config.get(k)]
 
 
-def _chosen(axis, state: dict) -> list[str]:
+def _chosen(axis: AxisDef, state: dict[str, Any]) -> list[str]:
     """Los valores del eje que correrian: los guardados o, sin nada, los de por defecto."""
     saved = (state.get("variants" if axis.is_multi else "options") or {}).get(axis.name)
     if saved is not None:
@@ -50,7 +53,7 @@ def _chosen(axis, state: dict) -> list[str]:
     return [axis.initial]
 
 
-def ready_ids(project) -> set[str]:
+def ready_ids(project: Project | None) -> set[str]:
     """Ids de las acciones que pueden correr ya sobre `project`, con su
     `.consola/config.env` guardado y sus parametros guardados.
 

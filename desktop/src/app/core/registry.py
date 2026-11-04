@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -71,7 +71,7 @@ class AxisDef:
     query_error: str = ""  # por que la fuente consultada no contesto, cuando lo que
     # dijo es lo que hay que arreglar (la camara del repo,
     # ADR-0054). Lo llena el panel; manda sobre "no hay ninguno".
-    labels: dict = field(default_factory=dict)  # valor -> como se lee. Para las
+    labels: dict[str, str] = field(default_factory=dict)  # valor -> como se lee. Para las
     # listas largas de `expand='pick'`, donde el
     # valor real es un id feo
     # (`system-images;android-36;google_apis;x86_64`)
@@ -105,23 +105,29 @@ class AxisDef:
     join: str = ""  # solo con `combine`: como se unen el valor excluyente y los
     # combinados en la cadena que espera la funcion
     # ('patch' + 'build' -> 'patch+build')
-    requires_env: dict = field(default_factory=dict)  # valor -> claves de config.env que
+    requires_env: dict[str, set[str]] = field(
+        default_factory=dict
+    )  # valor -> claves de config.env que
     # exige elegirlo. El ambito `remoto` pide la IP y la llave
     # del VPS y `local` no: exigirlas en la capacidad dejaba
     # en ambar la base local de un repo sin VPS.
 
-    facets: tuple = field(default_factory=tuple)  # solo expand='pick': las caracteristicas
+    facets: tuple[Facet, ...] = field(
+        default_factory=tuple
+    )  # solo expand='pick': las caracteristicas
     # en las que se descompone cada valor (`Facet`). Con esto el
     # panel dibuja una lista corta por caracteristica en vez de una
     # larga con todas las combinaciones.
     facet_sep: str = ";"  # con que se parte el valor para sacar sus caracteristicas
 
-    uses_env: dict = field(default_factory=dict)  # valor -> claves de config.env que usa
+    uses_env: dict[str, set[str]] = field(
+        default_factory=dict
+    )  # valor -> claves de config.env que usa
     # elegirlo, sin exigirlas. Solo filtran el panel de
     # configuracion: la carpeta del build web no tiene nada que
     # hacer en pantalla si no se marco Web.
 
-    def keys_for(self, chosen) -> set[str]:
+    def keys_for(self, chosen: Iterable[str]) -> set[str]:
         return set().union(*(self.requires_env.get(v, set()) for v in chosen))
 
     # --- caracteristicas ---------------------------------------------------
@@ -139,7 +145,7 @@ class AxisDef:
         nombres = [f.name for f in self.facets]
         return list(self.facets[: nombres.index(name)]) if name in nombres else []
 
-    def facet_values(self, facet: Facet, chosen: dict) -> list[str]:
+    def facet_values(self, facet: Facet, chosen: dict[str, str]) -> list[str]:
         """Lo que esta caracteristica puede tomar dado lo elegido mas arriba.
 
         Es una cascada y no un filtro cruzado: cada lista se recorta con las
@@ -168,7 +174,7 @@ class AxisDef:
                 salida.append(parte)
         return salida
 
-    def resolve_facets(self, chosen: dict) -> dict:
+    def resolve_facets(self, chosen: dict[str, str]) -> dict[str, str]:
         """Lo elegido en cada caracteristica, corregido para que exista.
 
         Cambiar una de arriba puede dejar a las de abajo en un valor imposible
@@ -186,7 +192,7 @@ class AxisDef:
             )
         return resuelto
 
-    def value_for(self, chosen: dict) -> str:
+    def value_for(self, chosen: dict[str, str]) -> str:
         """El valor del catalogo que cumple con todas las caracteristicas."""
         return next(
             (
@@ -197,7 +203,7 @@ class AxisDef:
             "",
         )
 
-    def facets_of(self, value: str) -> dict:
+    def facets_of(self, value: str) -> dict[str, str]:
         """El camino inverso: de un valor guardado, que hay que marcar."""
         return {f.name: self.facet_of(value, f) for f in self.facets}
 
@@ -407,7 +413,7 @@ class Capability:
     def level_label(self) -> str:
         return "Compuesta" if self.is_composite else "Atómica"
 
-    def kwargs_from(self, payload: dict) -> dict:
+    def kwargs_from(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Los keyword-arguments de la funcion, leidos de lo que marco el panel.
 
         Es el reemplazo generico de `ui/task_adapters.py`: no hay una tabla por
@@ -425,7 +431,7 @@ class Capability:
         kwargs.update({step.id: step.id in marcados for step in self.steps})
         return kwargs
 
-    def _axis_value(self, axis: AxisDef, payload: dict):
+    def _axis_value(self, axis: AxisDef, payload: dict[str, Any]) -> Any:
         """El valor de un eje, buscado en el balde donde el panel lo dejo.
 
         `ParamsPanel.payload()` agrupa por tipo de control y no por significado
@@ -472,11 +478,11 @@ class Capability:
         valor = crudo or axis.initial
         return valor == axis.truthy if axis.truthy else valor
 
-    def applies_to(self, features) -> bool:
+    def applies_to(self, features: Collection[str]) -> bool:
         """Si este boton tiene sentido en un repo con esas caracteristicas."""
         return not self.requires_repo or self.requires_repo in features
 
-    def steps_for(self, features) -> list:
+    def steps_for(self, features: Collection[str]) -> list[Step]:
         """Los pasos que quedan en un repo con esas caracteristicas."""
         return [s for s in self.steps if not s.requires_repo or s.requires_repo in features]
 
@@ -508,7 +514,7 @@ GROUP_ICONS = {
 class Registry:
     """Registro global de capacidades."""
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._capabilities: dict[str, Capability] = {}
         self._group_order: list[str] = []
 

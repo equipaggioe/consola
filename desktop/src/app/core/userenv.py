@@ -1,10 +1,13 @@
 from __future__ import annotations
 
+import importlib
 import os
 import re
 from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
+from typing import Any
 
+from app.core.context import TaskContext
 from app.core.host import HOST
 
 """
@@ -38,7 +41,7 @@ def profile_path() -> Path:
 
 
 def configure(
-    ctx,
+    ctx: TaskContext,
     *,
     variables: Mapping[str, str] | None = None,
     path_add: Iterable[Path | str] = (),
@@ -79,7 +82,7 @@ def _apply_to_process(variables: Mapping[str, str], path_add: list[str]) -> None
 
 
 def _configure_posix(
-    ctx, variables: dict[str, str], path_add: list[str], path_drop: PathFilter | None
+    ctx: TaskContext, variables: dict[str, str], path_add: list[str], path_drop: PathFilter | None
 ) -> None:
     profile = profile_path()
     stored, dirs = read_block(profile)
@@ -155,9 +158,9 @@ _SYSTEM_ENV_KEY = r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment
 
 
 def _configure_windows(
-    ctx, variables: dict[str, str], path_add: list[str], path_drop: PathFilter | None
+    ctx: TaskContext, variables: dict[str, str], path_add: list[str], path_drop: PathFilter | None
 ) -> None:
-    import winreg
+    winreg = _winreg()
 
     with winreg.CreateKeyEx(
         winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_READ | winreg.KEY_WRITE
@@ -188,8 +191,13 @@ def _configure_windows(
     _warn_system_path(ctx, path_drop)
 
 
-def _query(key, name: str) -> tuple[str, int | None]:
-    import winreg
+def _winreg() -> Any:
+    """`winreg` y sus stubs existen solo en Windows."""
+    return importlib.import_module("winreg")
+
+
+def _query(key: Any, name: str) -> tuple[str, int | None]:
+    winreg = _winreg()
 
     try:
         value, kind = winreg.QueryValueEx(key, name)
@@ -198,7 +206,7 @@ def _query(key, name: str) -> tuple[str, int | None]:
         return "", None
 
 
-def _warn_system_path(ctx, path_drop: PathFilter | None) -> None:
+def _warn_system_path(ctx: TaskContext, path_drop: PathFilter | None) -> None:
     """Avisa si el PATH del sistema tiene rutas viejas que le ganan a las nuevas.
 
     Windows arma el PATH del proceso poniendo primero el del sistema, asi que
@@ -208,7 +216,7 @@ def _warn_system_path(ctx, path_drop: PathFilter | None) -> None:
     """
     if path_drop is None:
         return
-    import winreg
+    winreg = _winreg()
 
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _SYSTEM_ENV_KEY, 0, winreg.KEY_READ) as key:
@@ -234,7 +242,7 @@ def _broadcast_change() -> None:
     try:
         import ctypes
 
-        ctypes.windll.user32.SendMessageTimeoutW(
+        getattr(ctypes, "windll").user32.SendMessageTimeoutW(
             0xFFFF,  # HWND_BROADCAST
             0x001A,  # WM_SETTINGCHANGE
             0,

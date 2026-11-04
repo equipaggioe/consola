@@ -6,6 +6,7 @@ import subprocess
 import threading
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
+from typing import Any
 
 from app.core.errors import Cancelled, TaskError
 from app.core.host import HOST
@@ -66,7 +67,7 @@ def spawn(
     env: dict[str, str] | None = None,
     detached: bool = False,
     stdin: bool = False,
-) -> subprocess.Popen:
+) -> subprocess.Popen[str]:
     """Arranca un proceso con la salida unificada y lista para leer linea a linea.
 
     `stdin=True` le deja la entrada abierta para escribirle; si no, lee EOF.
@@ -86,7 +87,7 @@ def spawn(
     )
 
 
-def bind_to_app(proc: subprocess.Popen) -> None:
+def bind_to_app(proc: subprocess.Popen[str]) -> None:
     """El proceso muere con Consola, aunque Consola se cierre de golpe o se caiga.
 
     Un tunel `ssh -L` que sobrevive a su Consola sigue ocupando el puerto local
@@ -105,7 +106,7 @@ def stream(
     cwd: Path | str | None = None,
     env: dict[str, str] | None = None,
     cancel: threading.Event | None = None,
-    register: Callable[[subprocess.Popen], None] | None = None,
+    register: Callable[[subprocess.Popen[str]], None] | None = None,
     stdin_text: str | None = None,
 ) -> int:
     """Corre un proceso volcando su salida linea a linea, cancelable.
@@ -151,7 +152,7 @@ def converse(
     on_line: LineSink,
     answers: Sequence[tuple[str, str]],
     cancel: threading.Event | None = None,
-    register: Callable[[subprocess.Popen], None] | None = None,
+    register: Callable[[subprocess.Popen[str]], None] | None = None,
 ) -> int:
     """Corre un proceso que pregunta, y contesta cada pregunta cuando aparece.
 
@@ -225,7 +226,9 @@ def capture(
     se cuelga hasta el timeout aunque el comando remoto ya haya terminado.
     `stdin_text` es lo que la consulta lee, y la entrada se cierra despues.
     """
-    entrada = {"stdin": subprocess.DEVNULL} if stdin_text is None else {"input": stdin_text}
+    entrada: dict[str, Any] = (
+        {"stdin": subprocess.DEVNULL} if stdin_text is None else {"input": stdin_text}
+    )
     try:
         result = subprocess.run(
             [str(a) for a in argv],
@@ -276,7 +279,7 @@ def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
     return ((result.stdout or "") + (result.stderr or "")).strip()
 
 
-def kill_tree(proc: subprocess.Popen, *, grace: float = 5.0) -> None:
+def kill_tree(proc: subprocess.Popen[str], *, grace: float = 5.0) -> None:
     """Termina el proceso y sus hijos, de abajo hacia arriba (ADR-0005).
 
     Un launcher que vigila archivos y relanza a su hijo deja el puerto ocupado si
