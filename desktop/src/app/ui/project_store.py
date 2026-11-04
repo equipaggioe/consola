@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import json
 import os
 
@@ -26,8 +27,8 @@ pasos de «Actualizar remoto» es una decision sobre ESE repo.
 cada `Project` (`_resolve_themes`).
 """
 
-_KEY = 'projects/list'
-_LEGACY_ORDER_KEY = 'projects/order'
+_KEY = "projects/list"
+_LEGACY_ORDER_KEY = "projects/order"
 
 
 def identity(path: str) -> str:
@@ -38,30 +39,29 @@ def identity(path: str) -> str:
     (`ui/params_store.py`)— porque la misma carpeta escrita con barras al reves,
     con otra caja o con separador final tiene que contar como un solo repo.
     """
-    return os.path.normcase(os.path.normpath(path or ''))
+    return os.path.normcase(os.path.normpath(path or ""))
 
 
 def display_path(path: str) -> str:
     """La forma en que se guarda y se muestra: barras hacia adelante, sin
-    separador final. Normaliza sin destruir las mayusculas que el usuario ve."""
-    return os.path.normpath(path or '').replace(os.sep, '/')
+    separador final. Normaliza sin destruir las mayusculas que el usuario ve.
+    """
+    return os.path.normpath(path or "").replace(os.sep, "/")
 
 
 def _to_dict(p: Project) -> dict:
-    return {'name': p.name, 'path': p.path}
+    return {"name": p.name, "path": p.path}
 
 
 def _from_dict(d: dict) -> Project | None:
     """Una entrada de la lista guardada. El tema llega despues, del repo."""
     try:
-        path = display_path(str(d['path']))
+        path = display_path(str(d["path"]))
     except (KeyError, TypeError):
         return None
-    if not path or path == '.':
+    if not path or path == ".":
         return None
-    return Project(str(d.get('name') or os.path.basename(path)),
-                   path,
-                   '')
+    return Project(str(d.get("name") or os.path.basename(path)), path, "")
 
 
 def _resolve_themes(projects: list[Project]) -> list[Project]:
@@ -104,7 +104,7 @@ def dedupe(projects: list[Project]) -> list[Project]:
 
 def load() -> list[Project]:
     """Los repos guardados, en orden. Vacia la primera vez."""
-    raw = QSettings().value(_KEY, '')
+    raw = QSettings().value(_KEY, "")
     if not raw:
         return []
     try:
@@ -113,8 +113,9 @@ def load() -> list[Project]:
         return []
     if not isinstance(data, list):
         return []
-    return _resolve_themes(dedupe([p for p in (_from_dict(d) for d in data
-                                              if isinstance(d, dict)) if p]))
+    return _resolve_themes(
+        dedupe([p for p in (_from_dict(d) for d in data if isinstance(d, dict)) if p])
+    )
 
 
 def save(projects: list[Project]) -> None:

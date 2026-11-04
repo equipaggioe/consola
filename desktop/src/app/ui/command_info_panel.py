@@ -1,14 +1,12 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QScrollArea, QFrame
-)
 from PySide6.QtCore import Qt
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
-from app.theme import Colors, Fonts
-from app.ui.palettes import Palette, NEUTRAL
-from app.core.registry import Capability
 from app.core import command_docs
+from app.core.registry import Capability
+from app.theme import Colors, Fonts
+from app.ui.palettes import NEUTRAL, Palette
 
 
 class _Heading(QLabel):
@@ -48,7 +46,7 @@ class CommandInfoPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll   # lo repinta `_restyle`
+        self._scroll = scroll  # lo repinta `_restyle`
 
         self._content = QWidget()
         self._content.setStyleSheet("background: transparent;")
@@ -76,7 +74,8 @@ class CommandInfoPanel(QWidget):
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}")
+            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+        )
 
     def set_palette(self, pal: Palette) -> None:
         self.pal = pal
@@ -90,20 +89,24 @@ class CommandInfoPanel(QWidget):
     # --- API ---------------------------------------------------------------
     def content_height(self) -> int:
         """Alto que pide el texto sin scroll — lo usa `TabPanel._relayout_right`
-        para decidir cuanto darle a la seccion."""
+        para decidir cuanto darle a la seccion.
+        """
         return self._content.sizeHint().height()
 
     def set_capability(self, capability: Capability | None) -> None:
         self._clear()
         if capability is None:
-            self._lay.addWidget(self._muted(
-                "Abre una acción para ver de qué se trata y qué pasos ejecuta."))
+            self._lay.addWidget(
+                self._muted("Abre una acción para ver de qué se trata y qué pasos ejecuta.")
+            )
             return
 
         doc = command_docs.get(capability.id)
-        summary = doc.summary if doc else (
-            capability.description or "Esta acción todavía no tiene una "
-            "descripción larga.")
+        summary = (
+            doc.summary
+            if doc
+            else (capability.description or "Esta acción todavía no tiene una descripción larga.")
+        )
         self._lay.addWidget(self._body(summary))
 
         steps = doc.steps if doc else [s.label for s in capability.steps]
@@ -124,15 +127,16 @@ class CommandInfoPanel(QWidget):
         label.setWordWrap(True)
         label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; "
-            f"font-size: {Fonts.SIZE_SM}px; line-height: 140%;")
+            f"font-size: {Fonts.SIZE_SM}px; line-height: 140%;"
+        )
         return label
 
     def _muted(self, text: str) -> QLabel:
         label = QLabel(text)
         label.setWordWrap(True)
         label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; "
-            f"font-size: {Fonts.SIZE_XS}px;")
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
         return label
 
     def _step(self, number: int, text: str) -> QWidget:
@@ -147,12 +151,14 @@ class CommandInfoPanel(QWidget):
         badge.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
         badge.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700;")
+            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700;"
+        )
 
         body = QLabel(text)
         body.setWordWrap(True)
         body.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
         lay.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
         lay.addWidget(body, 1)

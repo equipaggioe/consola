@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import socket
 import time
 from urllib.parse import urlsplit
@@ -6,11 +7,12 @@ from urllib.parse import urlsplit
 from app.core.errors import TaskError
 
 
-def is_free(port: int, *, host: str = '') -> bool:
+def is_free(port: int, *, host: str = "") -> bool:
     """Sin `host`, libre en las dos: Windows deja escuchar en `0.0.0.0` un puerto
     que otro ya tiene en `127.0.0.1` (un tunel `ssh -L`), y quien entra por
-    `127.0.0.1` llega al de antes."""
-    for addr in ([host] if host else ['0.0.0.0', '127.0.0.1']):
+    `127.0.0.1` llega al de antes.
+    """
+    for addr in [host] if host else ["0.0.0.0", "127.0.0.1"]:
         with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
             try:
                 sock.bind((addr, port))
@@ -19,7 +21,7 @@ def is_free(port: int, *, host: str = '') -> bool:
     return True
 
 
-def resolve_port(preferred: int, *, search: bool = True, label: str = 'puerto') -> int:
+def resolve_port(preferred: int, *, search: bool = True, label: str = "puerto") -> int:
     """Devuelve `preferred` si esta libre; si no y `search`, el siguiente libre.
 
     Los scripts guardaban el resultado en el .env para que el proceso siguiente
@@ -29,15 +31,15 @@ def resolve_port(preferred: int, *, search: bool = True, label: str = 'puerto') 
     if is_free(preferred):
         return preferred
     if not search:
-        raise TaskError(f'El {label} {preferred} esta ocupado.')
+        raise TaskError(f"El {label} {preferred} esta ocupado.")
 
     for port in range(preferred + 1, 65536):
         if is_free(port):
             return port
-    raise TaskError('No quedan puertos libres.')
+    raise TaskError("No quedan puertos libres.")
 
 
-def is_serving(port: int, *, host: str = '127.0.0.1', timeout: float = 0.4) -> bool:
+def is_serving(port: int, *, host: str = "127.0.0.1", timeout: float = 0.4) -> bool:
     """Si algo acepta conexiones en ese puerto **ahora mismo**.
 
     Distinto de `is_free`, que pregunta si se puede escuchar ahi. Este pregunta
@@ -49,8 +51,9 @@ def is_serving(port: int, *, host: str = '127.0.0.1', timeout: float = 0.4) -> b
         return sock.connect_ex((host, port)) == 0
 
 
-def wait_until_serving(port: int, *, host: str = '127.0.0.1', timeout: float = 60.0,
-                       cancel=None) -> bool:
+def wait_until_serving(
+    port: int, *, host: str = "127.0.0.1", timeout: float = 60.0, cancel=None
+) -> bool:
     """Espera a que el servidor conteste de verdad. Devuelve si llego a hacerlo.
 
     Elegir el puerto (`resolve_port`) no es lo mismo que estar sirviendo: entre
@@ -79,8 +82,8 @@ def split_host_port(url: str) -> tuple[str, int]:
     en IPv4 se leeria como caido.
     """
     partes = urlsplit(url)
-    host = partes.hostname or '127.0.0.1'
-    if host in ('localhost', '0.0.0.0', '::'):
-        host = '127.0.0.1'
-    puerto = partes.port or (443 if partes.scheme == 'https' else 80)
+    host = partes.hostname or "127.0.0.1"
+    if host in ("localhost", "0.0.0.0", "::"):
+        host = "127.0.0.1"
+    puerto = partes.port or (443 if partes.scheme == "https" else 80)
     return host, puerto

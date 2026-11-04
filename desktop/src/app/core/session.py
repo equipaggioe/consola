@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import threading
 from dataclasses import dataclass, field
 
@@ -16,7 +17,7 @@ Nada de esto se escribe a disco.
 
 # Ambito para lo que no es de ningun repo sino de la maquina: el serial del
 # emulador que se acaba de arrancar sirve igual desde cualquier proyecto.
-MACHINE = '@machine'
+MACHINE = "@machine"
 
 _lock = threading.Lock()
 _state: dict[str, dict[str, object]] = {}
@@ -39,7 +40,7 @@ def require(project: str, key: str) -> object:
     return value
 
 
-def forget(project: str, key: str = '') -> None:
+def forget(project: str, key: str = "") -> None:
     with _lock:
         if not key:
             _state.pop(project, None)
@@ -59,19 +60,20 @@ def snapshot(project: str) -> dict[str, object]:
 # la SPA y la terminal esperan a que el backend conteste en vez de confiar en
 # el orden en que se apretaron los botones (ADR-0011).
 
-STARTING = 'starting'
-READY = 'ready'
-DOWN = 'down'
+STARTING = "starting"
+READY = "ready"
+DOWN = "down"
 
-_ENDPOINTS = '@endpoints'
+_ENDPOINTS = "@endpoints"
 
 
 @dataclass
 class Endpoint:
     """Una URL publicada por una tarea viva."""
+
     key: str
     url: str
-    label: str = ''
+    label: str = ""
     web: bool = True
     state: str = STARTING
     _ready: threading.Event = field(default_factory=threading.Event, repr=False)
@@ -97,12 +99,12 @@ def mark_endpoint(project: str, key: str, state: str) -> None:
         endpoint._ready.clear()
 
 
-def read_endpoint(project: str, key: str) -> 'Endpoint | None':
+def read_endpoint(project: str, key: str) -> "Endpoint | None":
     with _lock:
         return _state.get(project, {}).get(_ENDPOINTS, {}).get(key)
 
 
-def endpoints(project: str) -> list['Endpoint']:
+def endpoints(project: str) -> list["Endpoint"]:
     with _lock:
         return list(_state.get(project, {}).get(_ENDPOINTS, {}).values())
 
@@ -112,7 +114,7 @@ def forget_endpoint(project: str, key: str) -> None:
         _state.get(project, {}).get(_ENDPOINTS, {}).pop(key, None)
 
 
-def wait_for_endpoint(project: str, key: str, timeout: float = 0.0) -> 'Endpoint | None':
+def wait_for_endpoint(project: str, key: str, timeout: float = 0.0) -> "Endpoint | None":
     """El endpoint, esperando a que este listo si todavia esta arrancando.
 
     Sin `timeout` no espera: contesta lo que haya. Es lo que permite que

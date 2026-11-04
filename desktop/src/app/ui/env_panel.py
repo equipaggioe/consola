@@ -1,26 +1,35 @@
 from __future__ import annotations
+
 import os
 from pathlib import Path
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QPushButton,
-    QScrollArea, QFrame, QFileDialog, QPlainTextEdit
-)
+
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QFont, QFontMetrics
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+    QPushButton,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
+)
 
-from app.theme import Colors, Fonts
-from app.ui.palettes import Palette
-from app.ui import palettes
-from app.core.projects import Project
 from app.core import envfile, fields
 from app.core.errors import TaskError
-from app.ui import params_store
-from app.core.settings import settings_by_group, Setting
+from app.core.projects import Project
+from app.core.settings import Setting, settings_by_group
+from app.theme import Colors, Fonts
+from app.ui import palettes, params_store
+from app.ui.palettes import Palette
 
 
 def _to_lines(value: str) -> str:
     """Lo guardado (comas) tal como se edita (un renglon por entrada)."""
-    return '\n'.join(envfile.split_list(value or ''))
+    return "\n".join(envfile.split_list(value or ""))
 
 
 # Alto del campo multilinea, en renglones. Arranca en tres vacios —una lista de
@@ -33,7 +42,8 @@ LIST_MAX_ROWS = 5
 class _ClickToSelectLabel(QLabel):
     """Etiqueta que, al hacer click, enfoca su campo y selecciona todo lo
     escrito — lista para que la primera tecla lo reemplace entero, como en
-    la mayoria de los formularios."""
+    la mayoria de los formularios.
+    """
 
     def __init__(self, text: str, field, parent=None):
         super().__init__(text, parent)
@@ -49,10 +59,18 @@ class _ClickToSelectLabel(QLabel):
 
 class EnvRow(QWidget):
     """Una clave del esquema: etiqueta y campo."""
+
     changed = Signal()
 
-    def __init__(self, setting: Setting, value: str, pal: Palette, default_display: str = '',
-                 label_width: int = 118, parent=None):
+    def __init__(
+        self,
+        setting: Setting,
+        value: str,
+        pal: Palette,
+        default_display: str = "",
+        label_width: int = 118,
+        parent=None,
+    ):
         super().__init__(parent)
         self.setting = setting
         self.pal = pal
@@ -65,7 +83,7 @@ class EnvRow(QWidget):
         # Una lista se escribe en varios renglones: tres rutas de certificados
         # en un QLineEdit no dejan ver donde termina una y empieza la otra.
         # Guarda separado por comas — ver `Setting.kind`.
-        if setting.kind == 'list':
+        if setting.kind == "list":
             self.field = QPlainTextEdit(_to_lines(value))
             self.field.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self.field.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
@@ -78,7 +96,7 @@ class EnvRow(QWidget):
         self.label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_XS}px;"
         )
-        if setting.kind == 'list':
+        if setting.kind == "list":
             self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
         # `default_display` es el default ya resuelto para ESTE repo (fijo o
@@ -103,16 +121,17 @@ class EnvRow(QWidget):
     def set_default_display(self, default_display: str) -> None:
         """Actualiza la marca de agua con el default recalculado — el de
         `DOMAIN` cambia con lo que se escriba en otras claves, asi que no
-        queda fijo desde que se construyo la fila."""
+        queda fijo desde que se construyo la fila.
+        """
         self.field.setPlaceholderText(default_display or self.setting.default_hint)
 
     @property
     def _is_list(self) -> bool:
-        return self.setting.kind == 'list'
+        return self.setting.kind == "list"
 
     def value(self) -> str:
         if self._is_list:
-            return ', '.join(envfile.split_list(self.field.toPlainText()))
+            return ", ".join(envfile.split_list(self.field.toPlainText()))
         return self.field.text().strip()
 
     def set_value(self, value: str) -> None:
@@ -129,7 +148,7 @@ class EnvRow(QWidget):
     # `textChanged` de QLineEdit manda el texto y el de QPlainTextEdit no manda
     # nada: sin el default, el campo multilinea nunca emitia `changed` y lo
     # escrito no llegaba a guardarse.
-    def _on_text(self, _text: str = '') -> None:
+    def _on_text(self, _text: str = "") -> None:
         self._restyle()
         if self._is_list:
             self._fit_list_height()
@@ -160,9 +179,11 @@ class EnvRow(QWidget):
         # `frameWidth` de un QPlainTextEdit con hoja de estilos ya incluye el
         # `padding` ademas del borde: sumarlo aparte daba un campo mas alto de
         # los renglones que decia mostrar.
-        alto = (filas * self.field.fontMetrics().lineSpacing()
-                + 2 * int(doc.documentMargin())
-                + 2 * self.field.frameWidth())
+        alto = (
+            filas * self.field.fontMetrics().lineSpacing()
+            + 2 * int(doc.documentMargin())
+            + 2 * self.field.frameWidth()
+        )
         if self.field.height() != alto:
             self.field.setFixedHeight(alto)
 
@@ -170,7 +191,7 @@ class EnvRow(QWidget):
         # Borde mas claro = clave sin valor. Es la misma señal de antes, ahora
         # en los bordes teñidos del repo.
         border = self.pal.border if self.value() else self.pal.border_light
-        widget = 'QPlainTextEdit' if self._is_list else 'QLineEdit'
+        widget = "QPlainTextEdit" if self._is_list else "QLineEdit"
         self.field.setStyleSheet(f"""
             {widget} {{
                 background: {self.pal.surface_alt};
@@ -205,12 +226,13 @@ class EnvPanel(QWidget):
     (`core/fields.py`), que se leen al abrir el panel: un campo nuevo en
     `config.py` aparece al volver a abrir el repo.
     """
+
     saved = Signal(dict)
     values_changed = Signal(dict)
     file_status_changed = Signal(str)  # estado de config.env: va al rotulo de la seccion
-    reloaded = Signal()        # se releyo el archivo entero (boton Recargar), no una tecla
-                               # suelta. Lo escucha `ui/tab_panel.py` para releer tambien los
-                               # ejes consultados: a que VPS se le pregunta sale de este archivo.
+    reloaded = Signal()  # se releyo el archivo entero (boton Recargar), no una tecla
+    # suelta. Lo escucha `ui/tab_panel.py` para releer tambien los
+    # ejes consultados: a que VPS se le pregunta sale de este archivo.
 
     def __init__(self, project: Project, parent=None):
         super().__init__(parent)
@@ -219,7 +241,7 @@ class EnvPanel(QWidget):
         self.rows: dict[str, EnvRow] = {}
         self._row_group: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
-        self.file_status = ''
+        self.file_status = ""
         self.fields, self.fields_error = self._read_fields()
         # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
         # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
@@ -249,10 +271,11 @@ class EnvPanel(QWidget):
         El error no tumba el panel: se muestra arriba del formulario, y las
         claves que hubiera en el archivo siguen bajo «Otras claves».
         """
-        servidor = Path(self.project.path) / envfile.Config.for_project(
-            self.project.path).get('SERVER_DIR')
+        servidor = Path(self.project.path) / envfile.Config.for_project(self.project.path).get(
+            "SERVER_DIR"
+        )
         try:
-            return fields.field_settings(servidor), ''
+            return fields.field_settings(servidor), ""
         except TaskError as error:
             return (), str(error)
 
@@ -278,7 +301,8 @@ class EnvPanel(QWidget):
         `file_status_changed` al rotulo de la cabecera de la seccion. Orden:
         importar/crear a la izquierda, y a la derecha Recargar y Guardar —
         Guardar es el unico camino para persistir lo editado, porque los
-        cambios de fila solo emiten en memoria."""
+        cambios de fila solo emiten en memoria.
+        """
         bar = QWidget()
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(16, 8, 16, 8)
@@ -294,8 +318,10 @@ class EnvPanel(QWidget):
 
         self.reload_btn = QPushButton("Recargar")
         self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.reload_btn.setToolTip("Descarta los cambios sin guardar, relee el archivo\n"
-                                   "y vuelve a consultar los catálogos de los parámetros")
+        self.reload_btn.setToolTip(
+            "Descarta los cambios sin guardar, relee el archivo\n"
+            "y vuelve a consultar los catálogos de los parámetros"
+        )
         self.reload_btn.clicked.connect(self.reload)
 
         self.save_btn = QPushButton("Guardar")
@@ -320,9 +346,11 @@ class EnvPanel(QWidget):
         self.setStyleSheet(f"EnvPanel {{ background: {self.pal.panel}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
         self.banner.setStyleSheet(
-            f"background: transparent; border-top: 1px solid {self.pal.border};")
+            f"background: transparent; border-top: 1px solid {self.pal.border};"
+        )
         self.file_bar.setStyleSheet(
-            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};")
+            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
+        )
         self._restyle_create()
 
     def _scroll_style(self) -> str:
@@ -338,7 +366,8 @@ class EnvPanel(QWidget):
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}")
+            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+        )
 
     def _restyle_create(self) -> None:
         button_css = f"""
@@ -364,16 +393,18 @@ class EnvPanel(QWidget):
         font = QFont()
         font.setPixelSize(Fonts.SIZE_XS)
         metrics = QFontMetrics(font)
-        mas_larga = max((s.display for group in settings_by_group(self.fields).values()
-                         for s in group),
-                        key=len, default='')
+        mas_larga = max(
+            (s.display for group in settings_by_group(self.fields).values() for s in group),
+            key=len,
+            default="",
+        )
         return metrics.horizontalAdvance(mas_larga) + 12
 
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll   # lo repinta `_restyle`
+        self._scroll = scroll  # lo repinta `_restyle`
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
@@ -390,8 +421,9 @@ class EnvPanel(QWidget):
         if self.fields_error:
             aviso = QLabel(self.fields_error)
             aviso.setWordWrap(True)
-            aviso.setStyleSheet(f"background: transparent; color: {Colors.ERROR}; "
-                                f"font-size: {Fonts.SIZE_XS}px;")
+            aviso.setStyleSheet(
+                f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_XS}px;"
+            )
             lay.addWidget(aviso)
 
         for group, settings in settings_by_group(self.fields).items():
@@ -407,7 +439,7 @@ class EnvPanel(QWidget):
             )
             block.addWidget(header)
             for setting in settings:
-                row = EnvRow(setting, '', self.pal, label_width=label_width)
+                row = EnvRow(setting, "", self.pal, label_width=label_width)
                 row.changed.connect(self._on_row_changed)
                 self.rows[setting.key] = row
                 self._row_group[setting.key] = block_widget
@@ -422,11 +454,10 @@ class EnvPanel(QWidget):
         return {key: row.value() for key, row in self.rows.items()}
 
     def reload(self) -> None:
-        values = {**envfile.load_config(self.project.path),
-                  **params_store.machine_env()}
+        values = {**envfile.load_config(self.project.path), **params_store.machine_env()}
         for key, row in self.rows.items():
             row.blockSignals(True)
-            row.set_value(values.get(key, ''))
+            row.set_value(values.get(key, ""))
             row.blockSignals(False)
 
         exists = os.path.isfile(envfile.config_path(self.project.path))
@@ -464,7 +495,7 @@ class EnvPanel(QWidget):
             row.set_default_display(cfg.get(key))
 
     def _sync_file_bar(self, exists: bool) -> None:
-        rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, '/')
+        rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, "/")
         self.file_status = f"{rel} — {'listo' if exists else 'no existe'}"
         self.file_status_changed.emit(self.file_status)
         self.create_btn.setVisible(not exists)
@@ -472,9 +503,7 @@ class EnvPanel(QWidget):
         self.create_btn.setToolTip(
             "Crea el archivo con todas las claves del esquema, agrupadas y en blanco"
         )
-        self.import_btn.setToolTip(
-            "Importa claves conocidas desde otro archivo .env"
-        )
+        self.import_btn.setToolTip("Importa claves conocidas desde otro archivo .env")
 
     def browse_import(self) -> None:
         """Importa claves conocidas desde cualquier archivo .env que el usuario elija.
@@ -483,8 +512,10 @@ class EnvPanel(QWidget):
         el usuario elige el archivo, y recien Guardar escribe algo.
         """
         path, _ = QFileDialog.getOpenFileName(
-            self, "Importar variables desde…", self.project.path,
-            "Archivos .env (*.env);;Todos los archivos (*)"
+            self,
+            "Importar variables desde…",
+            self.project.path,
+            "Archivos .env (*.env);;Todos los archivos (*)",
         )
         if not path:
             return

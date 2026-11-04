@@ -1,24 +1,25 @@
 from __future__ import annotations
+
 import subprocess
 import threading
+from collections.abc import Callable, Sequence
 from dataclasses import dataclass, field
 from pathlib import Path
-from typing import Callable, Sequence
 
 from app.core import ports, process, session
 from app.core.envfile import Config
 from app.core.errors import Cancelled, MissingConfig, TaskError
 from app.core.projects import Project
 
-__all__ = ['Level', 'TaskContext', 'TaskError', 'Cancelled', 'MissingConfig']
+__all__ = ["Level", "TaskContext", "TaskError", "Cancelled", "MissingConfig"]
 
 
 class Level:
-    INFO = 'info'
-    OK = 'ok'
-    WARN = 'warn'
-    ERROR = 'error'
-    CMD = 'cmd'
+    INFO = "info"
+    OK = "ok"
+    WARN = "warn"
+    ERROR = "error"
+    CMD = "cmd"
 
 
 LogSink = Callable[[str, str], None]
@@ -27,14 +28,14 @@ LogSink = Callable[[str, str], None]
 # abre la UI, y deducirla de los otros campos no alcanza: un `ask` corriente
 # —"como se va a llamar la carpeta"— no es secreto ni exige escribir nada, y
 # sin este dato se leia igual que una confirmacion y salia como un si/no.
-ASK_YES_NO = 'si_no'    # confirmacion: dos botones
-ASK_TEXT = 'texto'      # un dato que la tarea no puede deducir
-ASK_SECRET = 'secreto'  # lo mismo, sin mostrarlo mientras se escribe
+ASK_YES_NO = "si_no"  # confirmacion: dos botones
+ASK_TEXT = "texto"  # un dato que la tarea no puede deducir
+ASK_SECRET = "secreto"  # lo mismo, sin mostrarlo mientras se escribe
 # Cerrar el dialogo de texto no es lo mismo que dejarlo vacio, y con una cadena
 # vacia para las dos cosas no habia forma de distinguirlas: `create_avd` toma el
 # vacio como "usa el nombre derivado", asi que un Escape le creaba el AVD igual.
 # La UI contesta esto al cancelar y `ask()` lo convierte en `Cancelled`.
-ASK_CANCELLED = '\x00cancelado'
+ASK_CANCELLED = "\x00cancelado"
 AskSink = Callable[[str, str, bool, str], str]
 ProgressSink = Callable[[int, int, str], None]
 NoteSink = Callable[[str], None]
@@ -42,8 +43,8 @@ NoteSink = Callable[[str], None]
 # dibujar su barra de endpoint y decidir si ofrece la vista de navegador.
 ServeSink = Callable[[str, str, bool, str], None]
 
-_YES = ('s', 'si', 'sí', 'y', 'yes', 'ok')
-_MASK = '******'
+_YES = ("s", "si", "sí", "y", "yes", "ok")
+_MASK = "******"
 
 
 @dataclass
@@ -55,6 +56,7 @@ class TaskContext:
     misma funcion sirve para la consola de una pestana, para un test sin UI y
     para un paso interno de una capacidad compuesta.
     """
+
     capability_id: str
     project: Project | None = None
     config: Config = field(default_factory=lambda: Config())
@@ -78,7 +80,7 @@ class TaskContext:
     @property
     def root(self) -> Path:
         if self.project is None:
-            raise TaskError('No hay proyecto abierto.')
+            raise TaskError("No hay proyecto abierto.")
         return Path(self.project.path)
 
     def path(self, *parts: str) -> Path:
@@ -115,10 +117,11 @@ class TaskContext:
         aplicacion'. Un paso que no es casilla de nadie se imprime tal cual: no todo paso del log tiene por
         que ser una decision del panel.
         """
-        self.log(f'--- {self._step_label(step_id)}', Level.INFO)
+        self.log(f"--- {self._step_label(step_id)}", Level.INFO)
 
     def _step_label(self, step_id: str) -> str:
         from app.core.registry import registry
+
         cap = registry.get_capability(self.capability_id)
         if cap is not None:
             for paso in cap.steps:
@@ -169,13 +172,15 @@ class TaskContext:
             stdin_text=stdin_text,
         )
         if check and code != 0:
-            raise TaskError(f'El comando termino con codigo {code}.')
+            raise TaskError(f"El comando termino con codigo {code}.")
         return code
 
-    def converse(self, argv: Sequence[str], answers: Sequence[tuple[str, str]], *,
-                 check: bool = True) -> int:
+    def converse(
+        self, argv: Sequence[str], answers: Sequence[tuple[str, str]], *, check: bool = True
+    ) -> int:
         """Corre un programa que pregunta y le contesta cada pregunta al verla
-        (`process.converse`). Las respuestas no pasan por el log."""
+        (`process.converse`). Las respuestas no pasan por el log.
+        """
         self.raise_if_cancelled()
         self.log(process.format_argv(argv), Level.CMD)
         for _, respuesta in answers:
@@ -188,7 +193,7 @@ class TaskContext:
             register=self._children.append,
         )
         if check and code != 0:
-            raise TaskError(f'El comando termino con codigo {code}.')
+            raise TaskError(f"El comando termino con codigo {code}.")
         return code
 
     def capture(
@@ -220,8 +225,9 @@ class TaskContext:
 
     # --- endpoints ---------------------------------------------------------
 
-    def serve(self, url: str, *, key: str = '', label: str = '', web: bool = True,
-              wait: float = 90.0) -> None:
+    def serve(
+        self, url: str, *, key: str = "", label: str = "", web: bool = True, wait: float = 90.0
+    ) -> None:
         """Anuncia que esta tarea va a servir en esa URL.
 
         Lo que un launcher entrega no es su log, es un endpoint: la consola es
@@ -235,16 +241,17 @@ class TaskContext:
         sin tener que olfatear la salida de vite o de uvicorn.
         """
         clave = key or self.capability_id
-        proyecto = self.project.name if self.project else ''
+        proyecto = self.project.name if self.project else ""
         endpoint = session.Endpoint(key=clave, url=url, label=label or clave, web=web)
         if proyecto:
             session.publish_endpoint(proyecto, endpoint)
         self._served.append((proyecto, clave))
-        self.log(f'Disponible en {url} (arrancando...)', Level.INFO)
+        self.log(f"Disponible en {url} (arrancando...)", Level.INFO)
         self._emit_serve(endpoint)
         if wait > 0:
-            threading.Thread(target=self._watch_endpoint, args=(endpoint, wait),
-                             daemon=True).start()
+            threading.Thread(
+                target=self._watch_endpoint, args=(endpoint, wait), daemon=True
+            ).start()
 
     def _watch_endpoint(self, endpoint, timeout: float) -> None:
         """Sondea el puerto hasta que conteste, en un hilo aparte.
@@ -254,19 +261,18 @@ class TaskContext:
         nunca pasaria de "arrancando".
         """
         host, puerto = ports.split_host_port(endpoint.url)
-        listo = ports.wait_until_serving(puerto, host=host, timeout=timeout,
-                                         cancel=self._cancel)
+        listo = ports.wait_until_serving(puerto, host=host, timeout=timeout, cancel=self._cancel)
         if self._cancel.is_set():
             return
-        proyecto = self.project.name if self.project else ''
+        proyecto = self.project.name if self.project else ""
         estado = session.READY if listo else session.DOWN
         if proyecto:
             session.mark_endpoint(proyecto, endpoint.key, estado)
         endpoint.state = estado
         if listo:
-            self.log(f'Listo: {endpoint.url}', Level.OK)
+            self.log(f"Listo: {endpoint.url}", Level.OK)
         else:
-            self.warn(f'{endpoint.url} no contesto despues de {int(timeout)}s.')
+            self.warn(f"{endpoint.url} no contesto despues de {int(timeout)}s.")
         self._emit_serve(endpoint)
 
     def _emit_serve(self, endpoint) -> None:
@@ -282,7 +288,8 @@ class TaskContext:
     def release_endpoints(self) -> None:
         """Borra los endpoints y valores que esta tarea publico. La llama quien
         la corre cuando termina: una URL que ya no sirve nada no debe seguir
-        ofrecida."""
+        ofrecida.
+        """
         for proyecto, clave in self._served:
             if proyecto:
                 session.forget_endpoint(proyecto, clave)
@@ -306,7 +313,7 @@ class TaskContext:
 
     # --- interaccion -------------------------------------------------------
 
-    def confirm(self, question: str, *, danger: bool = False, expect: str = '') -> bool:
+    def confirm(self, question: str, *, danger: bool = False, expect: str = "") -> bool:
         """Pregunta si seguir. `expect` exige escribir ese texto (destructivos, 7.5)."""
         if self.ask_sink is None:
             return not danger
@@ -317,10 +324,10 @@ class TaskContext:
 
     def ask(self, prompt: str, *, secret: bool = False) -> str:
         if self.ask_sink is None:
-            raise TaskError(f'Hace falta un dato que nadie puede responder: {prompt}')
-        answer = self.ask_sink(prompt, ASK_SECRET if secret else ASK_TEXT, False, '')
+            raise TaskError(f"Hace falta un dato que nadie puede responder: {prompt}")
+        answer = self.ask_sink(prompt, ASK_SECRET if secret else ASK_TEXT, False, "")
         if answer == ASK_CANCELLED:
-            raise Cancelled('Cancelado: no se dio el dato que la accion pedia.')
+            raise Cancelled("Cancelado: no se dio el dato que la accion pedia.")
         if secret:
             self.guard(answer)
         return answer
@@ -338,7 +345,7 @@ class TaskContext:
             self._asked[prompt] = self.ask(prompt, secret=secret)
         return self._asked[prompt]
 
-    def progress(self, done: int, total: int, label: str = '') -> None:
+    def progress(self, done: int, total: int, label: str = "") -> None:
         if self.progress_sink:
             self.progress_sink(done, total, label)
 
@@ -378,20 +385,22 @@ class TaskContext:
             try:
                 stopper()
             except Exception:
-                pass   # un apagado limpio que falla no impide el sucio
+                pass  # un apagado limpio que falla no impide el sucio
         for child in list(self._children):
             process.kill_tree(child)
 
     def kill_children(self) -> None:
         """Mata los procesos vivos de la tarea sin detenerla: el `ctx.run` que
         los esperaba vuelve con su codigo y la tarea sigue. Es el relanzar del
-        vigilante de `run_python_app`."""
+        vigilante de `run_python_app`.
+        """
         for child in list(self._children):
             process.kill_tree(child)
 
     def hold_tunnel(self, tunnel) -> None:
         """Anota un tunel SSH de esta tarea: Limpiar la pestana la detiene si
-        tiene alguno vivo (`ui/tab_panel.py::_on_cleared`)."""
+        tiene alguno vivo (`ui/tab_panel.py::_on_cleared`).
+        """
         self._tunnels.append(tunnel)
 
     @property
@@ -401,14 +410,15 @@ class TaskContext:
     def wait_cancelled(self, timeout: float | None = None) -> bool:
         """Duerme hasta que detengan la tarea o pase `timeout`; dice si la
         detuvieron. Lo usa lo que vive sin un proceso que lo sostenga — una
-        conexion abierta — y solo espera a que cierren la pestana."""
+        conexion abierta — y solo espera a que cierren la pestana.
+        """
         return self._cancel.wait(timeout)
 
     def raise_if_cancelled(self) -> None:
         if self._cancel.is_set():
-            raise Cancelled('Detenido por el usuario.')
+            raise Cancelled("Detenido por el usuario.")
 
-    def child(self, capability_id: str) -> 'TaskContext':
+    def child(self, capability_id: str) -> "TaskContext":
         """Contexto para un paso interno: misma consola, misma cancelacion.
 
         Una compuesta llama a sus atomicas con esto, no con un contexto nuevo:
@@ -437,10 +447,10 @@ class TaskContext:
 def _guess_level(line: str) -> str:
     """Colorea la salida de un binario externo por su propia etiqueta."""
     head = line.lstrip().lower()
-    if head.startswith(('error', '[error', 'fatal')):
+    if head.startswith(("error", "[error", "fatal")):
         return Level.ERROR
-    if head.startswith(('warn', '[warn')):
+    if head.startswith(("warn", "[warn")):
         return Level.WARN
-    if head.startswith(('[ok', 'success')):
+    if head.startswith(("[ok", "success")):
         return Level.OK
     return Level.INFO

@@ -1,14 +1,16 @@
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton, QSizePolicy
-from PySide6.QtCore import Qt, Signal, QRectF
-from PySide6.QtGui import QPainter, QColor, QFont
+
+from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QPainter
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
 
 from app.theme import Colors, Fonts, tint
 
 
 def _alpha(hex_color: str, alpha: float) -> QColor:
     """El mismo color con transparencia: QColor no entiende 'rgba(...)',
-    que es lo que sirve `theme.tint` para las hojas de estilo."""
+    que es lo que sirve `theme.tint` para las hojas de estilo.
+    """
     c = QColor(hex_color)
     c.setAlphaF(alpha)
     return c
@@ -23,8 +25,9 @@ class LevelMark(QLabel):
     compuesta; `◦` (punto hueco) es atomica. Quien no lo adivine lo lee en el
     tooltip, que es el mismo lugar donde ya vive la descripcion.
     """
-    COMPOSITE = '◈'
-    ATOMIC = '◦'
+
+    COMPOSITE = "◈"
+    ATOMIC = "◦"
 
     def __init__(self, composite: bool, parent=None):
         super().__init__(parent)
@@ -32,11 +35,14 @@ class LevelMark(QLabel):
         self.setFixedWidth(12)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setToolTip(
-            "Compuesta: encadena varias acciones atómicas" if composite
-            else "Atómica: un solo paso, idempotente")
+            "Compuesta: encadena varias acciones atómicas"
+            if composite
+            else "Atómica: un solo paso, idempotente"
+        )
         color = Colors.TEXT_DIM if composite else Colors.TEXT_MUTED
         self.setStyleSheet(
-            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;")
+            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
 
 class ScopeMark(QLabel):
@@ -47,7 +53,8 @@ class ScopeMark(QLabel):
     `⌂` se lee como la maquina misma, y no se confunde con las formas del
     nivel (`◈`/`◦`) que van al lado.
     """
-    GLYPH = '⌂'
+
+    GLYPH = "⌂"
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -56,7 +63,8 @@ class ScopeMark(QLabel):
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setToolTip("De la máquina: no depende del repositorio abierto")
         self.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;")
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
 
 class ActionRow(QWidget):
@@ -67,6 +75,7 @@ class ActionRow(QWidget):
     mismo filete es el boton de favorito: un clic ahi marca la accion sin
     abrirla, en vez de vivir en un lugar aparte.
     """
+
     triggered = Signal(str)
     favorite_toggled = Signal(str, bool)
     run_requested = Signal(str)
@@ -74,10 +83,19 @@ class ActionRow(QWidget):
     HEIGHT = 32
     PIN_ZONE = 12  # ancho clicable del filete, mas holgado que su trazo visual
 
-    def __init__(self, capability_id: str, label: str, icon: str = '',
-                 danger: bool = False, accent: str = Colors.ACCENT,
-                 favorite: bool = False, composite: bool = False,
-                 description: str = '', machine: bool = False, parent=None):
+    def __init__(
+        self,
+        capability_id: str,
+        label: str,
+        icon: str = "",
+        danger: bool = False,
+        accent: str = Colors.ACCENT,
+        favorite: bool = False,
+        composite: bool = False,
+        description: str = "",
+        machine: bool = False,
+        parent=None,
+    ):
         super().__init__(parent)
         self.capability_id = capability_id
         self.danger = danger
@@ -128,21 +146,25 @@ class ActionRow(QWidget):
 
     def _tooltip(self, label: str) -> str:
         """Nombre, que hace, de que nivel es y como se usa la fila."""
-        level = ("Compuesta · encadena varias atómicas" if self.composite
-                 else "Atómica · un solo paso")
+        level = (
+            "Compuesta · encadena varias atómicas" if self.composite else "Atómica · un solo paso"
+        )
         if self.machine:
             level += " · de la máquina, no del repo"
         lines = [f"<b>{label}</b>"]
         if self.description:
             lines.append(self.description)
         lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>{level}</span>")
-        lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>"
-                     "Clic para abrir · clic en el filete para marcar favorita</span>")
-        return '<br>'.join(lines)
+        lines.append(
+            f"<span style='color:{Colors.TEXT_MUTED};'>"
+            "Clic para abrir · clic en el filete para marcar favorita</span>"
+        )
+        return "<br>".join(lines)
 
     def matches(self, needle: str) -> bool:
         """El filtro tambien mira la descripcion: buscar 'disco' o 'caché'
-        deberia encontrar Limpiar artefactos aunque no lo diga su nombre."""
+        deberia encontrar Limpiar artefactos aunque no lo diga su nombre.
+        """
         return needle in self.text_label.text().lower() or needle in self.description.lower()
 
     def set_ready(self, value: bool) -> None:
@@ -153,7 +175,8 @@ class ActionRow(QWidget):
 
     def set_highlighted(self, value: bool) -> None:
         """El mismo resalte del hover, puesto desde afuera: lo usa el buscador
-        de la barra de menu para marcar la fila elegida con las flechas."""
+        de la barra de menu para marcar la fila elegida con las flechas.
+        """
         if value == self._hovered:
             return
         self._hovered = value
@@ -163,8 +186,10 @@ class ActionRow(QWidget):
     def _restyle_run(self) -> None:
         self.run_btn.setEnabled(self._ready)
         self.run_btn.setToolTip(
-            "Correr con los parámetros guardados de este repo" if self._ready
-            else "Faltan claves de configuración para correr sin abrir la pestaña")
+            "Correr con los parámetros guardados de este repo"
+            if self._ready
+            else "Faltan claves de configuración para correr sin abrir la pestaña"
+        )
         color = self.accent if self._ready else Colors.TEXT_MUTED
         self.run_btn.setStyleSheet(f"""
             QPushButton {{
@@ -238,14 +263,20 @@ class ActionRow(QWidget):
         edge = QColor(Colors.ERROR) if self.danger else QColor(self.accent)
 
         if self._hovered:
-            p.fillRect(r, _alpha(self.accent, 0.09) if not self.danger else _alpha(Colors.ERROR, 0.08))
+            p.fillRect(
+                r, _alpha(self.accent, 0.09) if not self.danger else _alpha(Colors.ERROR, 0.08)
+            )
 
         # Filete de acento: siempre visible y tenue si es destructiva (aviso
         # permanente) o si es favorita, mas ancho al pasar el mouse porque
         # ahi mismo se hace clic para marcarla. Asi el favorito se distingue
         # aun viendo todo, y su boton no necesita un lugar aparte.
         if self.danger or self.favorite or self._hovered:
-            bar_alpha = 0.9 if (self._hovered and not self._pin_hovered) else (0.7 if self.favorite else 0.55)
+            bar_alpha = (
+                0.9
+                if (self._hovered and not self._pin_hovered)
+                else (0.7 if self.favorite else 0.55)
+            )
             if self._pin_hovered:
                 bar_alpha = 1.0
             bar_width = 5.0 if self._pin_hovered else 2.5

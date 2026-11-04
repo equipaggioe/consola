@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from collections.abc import Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
@@ -7,13 +8,13 @@ from pathlib import Path
 from app.core.errors import TaskError
 from app.core.files import read_text
 
-SPA_VITE = 'spa-vite'
-FLUTTER_APP = 'flutter-app'
-FLET_APP = 'flet-app'
-FASTAPI = 'fastapi-server'
+SPA_VITE = "spa-vite"
+FLUTTER_APP = "flutter-app"
+FLET_APP = "flet-app"
+FASTAPI = "fastapi-server"
 # App Python que se lanza y abre su ventana (PySide6, Flet de escritorio, un
 # bot). Es un tipo aparte y no `FASTAPI` porque no sirve HTTP.
-PYTHON_APP = 'python-app'
+PYTHON_APP = "python-app"
 
 # Lo que el boton "App Python" corre en el escritorio: una app Flet con su
 # `pyproject.toml` es `flet-app` para los ejes moviles, pero en esta maquina se
@@ -21,13 +22,16 @@ PYTHON_APP = 'python-app'
 DESKTOP_APP = (PYTHON_APP, FLET_APP)
 
 # Donde arranca una app Python, en orden de preferencia.
-PYTHON_ENTRYPOINTS = ('src/main.py', 'main.py')
+PYTHON_ENTRYPOINTS = ("src/main.py", "main.py")
 # Que una carpeta sea Python lo dice su manifiesto o su venv, no un `main.py`
 # suelto: sin esto, cualquier carpeta de scripts contaria como app.
-_PYTHON_MARKERS = ('requirements.txt', 'pyproject.toml', '.venv')
+_PYTHON_MARKERS = ("requirements.txt", "pyproject.toml", ".venv")
 # Donde se busca el `FastAPI(` de un servidor, y el modulo uvicorn que le toca.
-_ASGI_MODULES = (('src/app/main.py', 'app.main:app'), ('app/main.py', 'app.main:app'),
-                 ('main.py', 'main:app'))
+_ASGI_MODULES = (
+    ("src/app/main.py", "app.main:app"),
+    ("app/main.py", "app.main:app"),
+    ("main.py", "main:app"),
+)
 
 # "La app movil" es una sola cosa del dominio aunque este escrita en Flutter o
 # en Flet: se compila igual, se sube igual y se corre en el mismo emulador. El
@@ -39,13 +43,22 @@ MOBILE_APP = (FLUTTER_APP, FLET_APP)
 # No son subproyectos: no se eligen ni se listan, solo estan o no estan. Lo que
 # deciden es si un paso tiene sentido aca. Un repo que no versiona su esquema no
 # tiene "generar migracion" apagado: no lo tiene.
-MIGRATIONS = 'migrations'
+MIGRATIONS = "migrations"
 
-IGNORED = {'node_modules', '.git', '.venv', 'venv', 'build', 'dist', '.consola',
-           '__pycache__', '.dart_tool'}
+IGNORED = {
+    "node_modules",
+    ".git",
+    ".venv",
+    "venv",
+    "build",
+    "dist",
+    ".consola",
+    "__pycache__",
+    ".dart_tool",
+}
 # Las carpetas de plataforma de una app Flutter. Se saltan solo dentro de una:
 # en la raiz del repo, `web/` es la SPA (vettore, concordia, navetta).
-_FLUTTER_PLATFORMS = {'android', 'ios', 'web'}
+_FLUTTER_PLATFORMS = {"android", "ios", "web"}
 _DEPTH = 2
 
 
@@ -57,6 +70,7 @@ class Target:
     identicos en tres botones del mismo eje: la lista sale de mirar el repo,
     no de enumerarla a mano por proyecto (ADR-0006).
     """
+
     name: str
     kind: str
     path: Path
@@ -67,18 +81,21 @@ class Target:
 
 
 def _detect(directory: Path) -> str:
-    package = directory / 'package.json'
-    if package.is_file() and any(directory.glob('vite.config.*')):
+    package = directory / "package.json"
+    if package.is_file() and any(directory.glob("vite.config.*")):
         return SPA_VITE
-    if (directory / 'pubspec.yaml').is_file():
+    if (directory / "pubspec.yaml").is_file():
         return FLUTTER_APP
     if not any((directory / m).exists() for m in _PYTHON_MARKERS):
-        return ''
+        return ""
     # Nombrar `flet` no basta: una libreria o una extension de Flet tambien lo
     # nombran. La app es la que arranca, como la que `flet build` compila.
-    pyproject = directory / 'pyproject.toml'
-    if (pyproject.is_file() and 'flet' in read_text(pyproject).lower()
-            and python_entrypoint(directory)):
+    pyproject = directory / "pyproject.toml"
+    if (
+        pyproject.is_file()
+        and "flet" in read_text(pyproject).lower()
+        and python_entrypoint(directory)
+    ):
         return FLET_APP
     if asgi_app(directory):
         return FASTAPI
@@ -86,7 +103,7 @@ def _detect(directory: Path) -> str:
     # `main.py`, y ese ya se reconocio arriba.
     if python_entrypoint(directory):
         return PYTHON_APP
-    return ''
+    return ""
 
 
 def asgi_app(directory: Path) -> str:
@@ -98,11 +115,11 @@ def asgi_app(directory: Path) -> str:
     """
     for relativo, modulo in _ASGI_MODULES:
         fuente = directory / relativo
-        if fuente.is_file() and 'FastAPI(' in read_text(fuente):
+        if fuente.is_file() and "FastAPI(" in read_text(fuente):
             return modulo
-    if (directory / 'alembic.ini').is_file() and (directory / 'app' / 'main.py').is_file():
-        return 'app.main:app'
-    return ''
+    if (directory / "alembic.ini").is_file() and (directory / "app" / "main.py").is_file():
+        return "app.main:app"
+    return ""
 
 
 def python_entrypoint(directory: Path) -> Path | None:
@@ -131,7 +148,8 @@ _pass: dict | None = None
 @contextmanager
 def one_scan():
     """Dentro de este bloque, el repo se recorre una vez por pregunta y no una
-    vez por quien la hace. Anidarlo no abre una pasada nueva."""
+    vez por quien la hace. Anidarlo no abre una pasada nueva.
+    """
     global _pass
     if _pass is not None:
         yield
@@ -157,7 +175,7 @@ def discover(root: Path) -> list[Target]:
     Se corta a dos niveles: mas abajo solo hay dependencias y artefactos, y
     recorrer `node_modules` entero por cada apertura de proyecto no vale nada.
     """
-    return _shared(('discover', str(root)), lambda: _discover(root))
+    return _shared(("discover", str(root)), lambda: _discover(root))
 
 
 def _discover(root: Path) -> list[Target]:
@@ -178,9 +196,9 @@ def _walk(root: Path, depth: int):
         entries = sorted(p for p in root.iterdir() if p.is_dir())
     except OSError:
         return
-    flutter_app = (root / 'pubspec.yaml').is_file()
+    flutter_app = (root / "pubspec.yaml").is_file()
     for entry in entries:
-        if entry.name in IGNORED or entry.name.startswith('.'):
+        if entry.name in IGNORED or entry.name.startswith("."):
             continue
         if flutter_app and entry.name in _FLUTTER_PLATFORMS:
             continue
@@ -210,7 +228,7 @@ def names(root: Path, kind: str) -> list[str]:
     return names_of(root, (kind,))
 
 
-def pick(root: Path, kinds: Sequence[str], name: str = '') -> Target:
+def pick(root: Path, kinds: Sequence[str], name: str = "") -> Target:
     """El subproyecto elegido por nombre, o el unico que haya de esos tipos.
 
     Es la contraparte de `names_of`: el panel ofrece esos nombres y esto
@@ -218,17 +236,17 @@ def pick(root: Path, kinds: Sequence[str], name: str = '') -> Target:
     todos los repos y evita pedir una eleccion que no existe.
     """
     found = by_kinds(root, kinds)
-    etiqueta = ' o '.join(kinds)
+    etiqueta = " o ".join(kinds)
     if name:
         for target in found:
             if target.name == name:
                 return target
         raise TaskError(f'No hay ningun {etiqueta} llamado "{name}" en {root.name}.')
     if not found:
-        raise TaskError(f'{root.name} no tiene ningun subproyecto de tipo {etiqueta}.')
+        raise TaskError(f"{root.name} no tiene ningun subproyecto de tipo {etiqueta}.")
     if len(found) > 1:
-        elegir = ', '.join(t.name for t in found)
-        raise TaskError(f'Hay mas de un {etiqueta} en {root.name}: {elegir}. Elige uno.')
+        elegir = ", ".join(t.name for t in found)
+        raise TaskError(f"Hay mas de un {etiqueta} en {root.name}: {elegir}. Elige uno.")
     return found[0]
 
 
@@ -249,9 +267,13 @@ def has_migrations(root: Path) -> bool:
     versions`), porque la pregunta es exactamente esa: si el boton apretara,
     ¿habria historial contra el que generar o aplicar algo?
     """
-    return _shared(('migrations', str(root)), lambda: any(
-        (d / 'alembic.ini').is_file() or (d / 'alembic' / 'versions').is_dir()
-        for d in _walk(root, _DEPTH)))
+    return _shared(
+        ("migrations", str(root)),
+        lambda: any(
+            (d / "alembic.ini").is_file() or (d / "alembic" / "versions").is_dir()
+            for d in _walk(root, _DEPTH)
+        ),
+    )
 
 
 def features(root: Path) -> frozenset[str]:

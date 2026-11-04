@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from PySide6.QtCore import Qt
 
 
@@ -23,15 +24,16 @@ class ReorderableTab:
 
     @property
     def is_dragging(self) -> bool:
-        return getattr(self, '_is_dragging', False)
+        return getattr(self, "_is_dragging", False)
 
     def _reorder_bar(self):
         """Sube por los padres hasta quien sabe reordenar: el contenedor
         directo de las pestanas no siempre es el que lleva la lista (las
-        sub-pestanas viven en un layout anidado dentro del panel)."""
+        sub-pestanas viven en un layout anidado dentro del panel).
+        """
         node = self.parent()
         while node is not None:
-            if hasattr(node, 'reorder_to'):
+            if hasattr(node, "reorder_to"):
                 return node
             node = node.parent()
         return None
@@ -44,7 +46,7 @@ class ReorderableTab:
         if self._drag_origin is None or not (event.buttons() & Qt.MouseButton.LeftButton):
             return
         bar = self._reorder_bar()
-        if bar is None or len(getattr(bar, 'tabs', [])) < 2:
+        if bar is None or len(getattr(bar, "tabs", [])) < 2:
             return
 
         if not self._is_dragging:

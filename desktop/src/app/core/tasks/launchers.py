@@ -1,12 +1,13 @@
 from __future__ import annotations
+
 import threading
 from pathlib import Path
 
-from app.core.tasks import emulators
-from app.core import database as db
 from app.core import canone, envfile, fields, ports, runner, session, ssh, targets, toolchain
+from app.core import database as db
 from app.core.errors import TaskError
 from app.core.registry import registry
+from app.core.tasks import emulators
 from app.core.toolchain import venv_python
 
 """
@@ -28,8 +29,8 @@ de `install_android_tools` (ADR-0004). `serve_backend` es UNA atomica
 hecha de cinco funciones.
 """
 
-SERVER_PORT = 'SERVER_PORT'
-BACKEND = 'backend'          # clave del endpoint del backend en `core/session`
+SERVER_PORT = "SERVER_PORT"
+BACKEND = "backend"  # clave del endpoint del backend en `core/session`
 
 # Cuanto espera un launcher dependiente a que el backend conteste. Generoso
 # porque el caso que importa es el arranque conjunto (ADR-0011):
@@ -39,15 +40,16 @@ BACKEND_WAIT = 90.0
 
 # --- atomicas --------------------------------------------------------------
 
+
 def resolve_server_port(ctx, preferred: int = 8000, search: bool = True) -> int:
     """Elige el puerto del backend y lo publica para las tareas que vengan despues.
 
     No es un boton: nadie pide "elige un puerto y nada mas". Es plomeria de
     `serve_backend`, que si lo es (ADR-0008).
     """
-    puerto = ports.resolve_port(preferred, search=search, label='puerto del backend')
+    puerto = ports.resolve_port(preferred, search=search, label="puerto del backend")
     session.publish(ctx.project.name, SERVER_PORT, puerto)
-    ctx.info(f'Puerto del backend: {puerto}')
+    ctx.info(f"Puerto del backend: {puerto}")
     return puerto
 
 
@@ -65,12 +67,14 @@ def backend_url(ctx, *, wait: float = 0.0, required: bool = True) -> str:
     endpoint = ctx.endpoint(BACKEND, wait=wait)
     if endpoint is not None:
         if endpoint.state == session.DOWN and required:
-            raise TaskError(f'El backend no llego a responder en {endpoint.url}.')
+            raise TaskError(f"El backend no llego a responder en {endpoint.url}.")
         return endpoint.url
     if not required:
-        return ''
-    raise TaskError('El backend todavia no arranco en esta sesion: '
-                    'levantalo primero, o usa "Entorno de desarrollo".')
+        return ""
+    raise TaskError(
+        "El backend todavia no arranco en esta sesion: "
+        'levantalo primero, o usa "Entorno de desarrollo".'
+    )
 
 
 def resolve_tls(ctx, server: Path) -> tuple[Path, Path] | None:
@@ -79,21 +83,22 @@ def resolve_tls(ctx, server: Path) -> tuple[Path, Path] | None:
     Se buscan en `certs/` de la carpeta del servidor, como hacia el script
     original.
     """
-    cert = server / 'certs' / 'cert.pem'
-    key = server / 'certs' / 'key.pem'
+    cert = server / "certs" / "cert.pem"
+    key = server / "certs" / "key.pem"
     if cert.is_file() and key.is_file():
         return cert, key
-    ctx.warn('TLS deshabilitado: faltan los certificados.')
+    ctx.warn("TLS deshabilitado: faltan los certificados.")
     return None
 
 
 # --- launchers -------------------------------------------------------------
 
+
 def serve_backend(
     ctx,
-    target: str = '',
+    target: str = "",
     scope: str = db.LOCAL,
-    host: str = '0.0.0.0',
+    host: str = "0.0.0.0",
     preferred_port: int = 8000,
     reload: bool = True,
 ) -> None:
@@ -104,25 +109,25 @@ def serve_backend(
     credenciales de desarrollo y solo contra la base local (ADR-0069).
     """
     server = targets.pick(ctx.root, (targets.FASTAPI,), target).path
-    interprete = venv_python(server / '.venv')
+    interprete = venv_python(server / ".venv")
     puerto = resolve_server_port(ctx, preferred_port)
     app = targets.asgi_app(server)
 
-    argv = [str(interprete), '-m', 'uvicorn', app, '--host', host, '--port', str(puerto)]
+    argv = [str(interprete), "-m", "uvicorn", app, "--host", host, "--port", str(puerto)]
     if reload:
-        argv.append('--reload')
+        argv.append("--reload")
     tls = resolve_tls(ctx, server)
     if tls:
-        argv.extend(['--ssl-certfile', str(tls[0]), '--ssl-keyfile', str(tls[1])])
+        argv.extend(["--ssl-certfile", str(tls[0]), "--ssl-keyfile", str(tls[1])])
 
     # La URL que se anuncia no es la de escucha: `0.0.0.0` es donde escucha,
     # `localhost` es por donde se entra. Un navegador apuntado a `0.0.0.0` no
     # llega a ningun lado.
-    esquema = 'https' if tls else 'http'
+    esquema = "https" if tls else "http"
 
     def arrancar(entorno: dict[str, str]) -> None:
-        ctx.info(f'Backend {app} escuchando en {host}:{puerto}')
-        ctx.serve(f'{esquema}://localhost:{puerto}', key=BACKEND, label='Backend')
+        ctx.info(f"Backend {app} escuchando en {host}:{puerto}")
+        ctx.serve(f"{esquema}://localhost:{puerto}", key=BACKEND, label="Backend")
         try:
             ctx.run(argv, cwd=server, env=entorno, check=False)
         finally:
@@ -130,18 +135,20 @@ def serve_backend(
 
     if not fields.settings_fields(server):
         with db.connect(ctx, scope) as conn:
-            arrancar({'DATABASE_URL': conn.url})
+            arrancar({"DATABASE_URL": conn.url})
         return
     if scope != db.LOCAL:
-        raise TaskError('Un repo de canone levanta su backend solo contra la base local.')
-    carpeta = runner.write_credentials(ctx, server, runner.CREDENTIALS,
-                                       canone.credential_files(server, ctx.config))
+        raise TaskError("Un repo de canone levanta su backend solo contra la base local.")
+    carpeta = runner.write_credentials(
+        ctx, server, runner.CREDENTIALS, canone.credential_files(server, ctx.config)
+    )
     # `.env` es el del repo: dice, por ejemplo, donde esta `STATE_DIRECTORY`.
-    arrancar({**envfile.load_env(str(server / '.env')), 'CREDENTIALS_DIRECTORY': str(carpeta)})
+    arrancar({**envfile.load_env(str(server / ".env")), "CREDENTIALS_DIRECTORY": str(carpeta)})
 
 
-def serve_spa(ctx, target: str = '', preferred_port: int = 5173,
-              wait_backend: float = BACKEND_WAIT) -> None:
+def serve_spa(
+    ctx, target: str = "", preferred_port: int = 5173, wait_backend: float = BACKEND_WAIT
+) -> None:
     """Arranca `pnpm run dev` de una SPA, apuntandola al backend de esta sesion.
 
     Corre UNA sola SPA. Marcar varias en el panel no la hace iterar: cada una es
@@ -149,24 +156,28 @@ def serve_spa(ctx, target: str = '', preferred_port: int = 5173,
     pestana por cada una y llama aca una vez por pestana (ADR-0010).
     """
     spa = targets.pick(ctx.root, (targets.SPA_VITE,), target)
-    puerto = ports.resolve_port(preferred_port, label=f'puerto de {spa.name}')
+    puerto = ports.resolve_port(preferred_port, label=f"puerto de {spa.name}")
 
     # Sin backend no es un error: la SPA arranca con lo que tenga en su .env.
     # Con backend arrancando en otra pestana, se lo espera — el orden en que se
     # apretaron los botones no deberia decidir si la SPA sabe adonde pegarle.
     api = backend_url(ctx, wait=wait_backend, required=False)
     if api:
-        ctx.info(f'Backend detectado: {api}')
+        ctx.info(f"Backend detectado: {api}")
     else:
-        ctx.warn('El backend no esta corriendo: la SPA va a usar su propia configuracion.')
+        ctx.warn("El backend no esta corriendo: la SPA va a usar su propia configuracion.")
 
-    ctx.serve(f'http://localhost:{puerto}', key=f'spa:{spa.name}', label=spa.name)
+    ctx.serve(f"http://localhost:{puerto}", key=f"spa:{spa.name}", label=spa.name)
     # pnpm hands the options after the script to it: a `--` would reach Vite as is.
-    ctx.run([*toolchain.pnpm_cmd(), 'run', 'dev', '--port', str(puerto)],
-            cwd=spa.path, env={'VITE_SERVER_URL': api} if api else None, check=False)
+    ctx.run(
+        [*toolchain.pnpm_cmd(), "run", "dev", "--port", str(puerto)],
+        cwd=spa.path,
+        env={"VITE_SERVER_URL": api} if api else None,
+        check=False,
+    )
 
 
-def run_mobile(ctx, target: str = '', device: str = '') -> None:
+def run_mobile(ctx, target: str = "", device: str = "") -> None:
     """Corre la app movil en el emulador activo, con el framework que detecte.
 
     Si no hay emulador vivo lo dice y no intenta arrancar contra el escritorio:
@@ -178,25 +189,36 @@ def run_mobile(ctx, target: str = '', device: str = '') -> None:
     # Orden de preferencia: lo que se pidio a mano, el emulador que arranco la
     # pestana "Emulador" de esta sesion, y recien despues el primero que
     # conteste. Con dos emuladores vivos, "el primero" es una loteria.
-    serial = (device
-              or session.read(session.MACHINE, emulators.EMULATOR_SERIAL, '')
-              or toolchain.pick_emulator(toolchain.devices(ctx, app.path)))
+    serial = (
+        device
+        or session.read(session.MACHINE, emulators.EMULATOR_SERIAL, "")
+        or toolchain.pick_emulator(toolchain.devices(ctx, app.path))
+    )
     if not serial:
-        raise TaskError('No hay ningun emulador Android corriendo. Arranca uno primero.')
+        raise TaskError("No hay ningun emulador Android corriendo. Arranca uno primero.")
 
-    api = ctx.config.get('API_URL') or backend_url(ctx, wait=BACKEND_WAIT)
-    ctx.info(f'{kind} en {serial} contra {api}')
+    api = ctx.config.get("API_URL") or backend_url(ctx, wait=BACKEND_WAIT)
+    ctx.info(f"{kind} en {serial} contra {api}")
 
     if kind == toolchain.FLUTTER:
-        argv = [*toolchain.flutter_cmd(), 'run', '-d', serial, f'--dart-define=API_BASE_URL={api}']
+        argv = [*toolchain.flutter_cmd(), "run", "-d", serial, f"--dart-define=API_BASE_URL={api}"]
         ctx.run(argv, cwd=app.path, check=False)
     else:
-        ctx.run([*toolchain.flet_cmd(), 'run', '--android'], cwd=app.path,
-                env={'API_BASE_URL': api}, check=False)
+        ctx.run(
+            [*toolchain.flet_cmd(), "run", "--android"],
+            cwd=app.path,
+            env={"API_BASE_URL": api},
+            check=False,
+        )
 
 
-def run_python_app(ctx, target: str = '', auto_login: bool = False, watch: bool = True,
-                   wait_backend: float = BACKEND_WAIT) -> None:
+def run_python_app(
+    ctx,
+    target: str = "",
+    auto_login: bool = False,
+    watch: bool = True,
+    wait_backend: float = BACKEND_WAIT,
+) -> None:
     """Arranca una app Python del repo, con recarga al cambiar sus fuentes.
 
     Corre UNA app: marcar varias abre una pestana por cada una, igual que las
@@ -208,8 +230,9 @@ def run_python_app(ctx, target: str = '', auto_login: bool = False, watch: bool 
     app = targets.pick(ctx.root, targets.DESKTOP_APP, target)
     entrada = targets.python_entrypoint(app.path)
     if entrada is None:
-        raise TaskError(f'{app.name} no tiene punto de entrada '
-                        f'({", ".join(targets.PYTHON_ENTRYPOINTS)}).')
+        raise TaskError(
+            f"{app.name} no tiene punto de entrada ({', '.join(targets.PYTHON_ENTRYPOINTS)})."
+        )
     fuente = entrada.parent
     interprete = toolchain.app_python(app.path, ctx.root)
 
@@ -218,18 +241,18 @@ def run_python_app(ctx, target: str = '', auto_login: bool = False, watch: bool 
     entorno = {}
     api = backend_url(ctx, wait=wait_backend, required=False)
     if api:
-        entorno['SERVER_URL'] = api
-        ctx.info(f'Backend detectado: {api}')
+        entorno["SERVER_URL"] = api
+        ctx.info(f"Backend detectado: {api}")
     if auto_login:
-        entorno['TERMINAL_DEV_AUTO_LOGIN'] = 'true'
+        entorno["TERMINAL_DEV_AUTO_LOGIN"] = "true"
 
     if not watch:
-        ctx.info(f'Lanzando {app.name}...')
+        ctx.info(f"Lanzando {app.name}...")
         ctx.run([*interprete, entrada.name], cwd=fuente, env=entorno or None, check=False)
         return
 
     while not ctx.cancelled:
-        ctx.info(f'Lanzando {app.name}...')
+        ctx.info(f"Lanzando {app.name}...")
         # El vigilante corre al lado del proceso y lo mata apenas cambia un
         # fuente: `ctx.run` vuelve y la vuelta siguiente lo relanza. Si el
         # proceso termina solo, sin cambios, la tarea termina con el.
@@ -237,24 +260,29 @@ def run_python_app(ctx, target: str = '', auto_login: bool = False, watch: bool 
         vigia = threading.Thread(target=_watch, args=(ctx, fuente, cambio, fin), daemon=True)
         vigia.start()
         try:
-            codigo = ctx.run([*interprete, entrada.name], cwd=fuente, env=entorno or None,
-                             check=False, echo=False)
+            codigo = ctx.run(
+                [*interprete, entrada.name],
+                cwd=fuente,
+                env=entorno or None,
+                check=False,
+                echo=False,
+            )
         finally:
             fin.set()
             vigia.join()
         if ctx.cancelled:
             return
         if not cambio.is_set():
-            ctx.info(f'{app.name} termino con codigo {codigo}.')
+            ctx.info(f"{app.name} termino con codigo {codigo}.")
             return
-        ctx.info('Cambios detectados: reiniciando.')
+        ctx.info("Cambios detectados: reiniciando.")
 
 
 # Cada cuanto se miran los fuentes. El script original usaba 0.35 s; medio
 # segundo no se nota al guardar y recorre la mitad de veces.
 WATCH_INTERVAL = 0.5
 # Lo que el script original vigilaba: codigo y hojas de estilo de Qt.
-_WATCHED = {'.py', '.qss'}
+_WATCHED = {".py", ".qss"}
 
 
 def _watch(ctx, root: Path, cambio: threading.Event, fin: threading.Event) -> None:
@@ -263,7 +291,7 @@ def _watch(ctx, root: Path, cambio: threading.Event, fin: threading.Event) -> No
         try:
             actual = _snapshot(root)
         except OSError:
-            continue   # un archivo borrado a mitad del recorrido: se mira en la vuelta siguiente
+            continue  # un archivo borrado a mitad del recorrido: se mira en la vuelta siguiente
         if actual != firma:
             cambio.set()
             ctx.kill_children()
@@ -273,22 +301,28 @@ def _watch(ctx, root: Path, cambio: threading.Event, fin: threading.Event) -> No
 def _snapshot(root: Path) -> dict[str, float]:
     # Sin el venv ni los artefactos: una app en la raiz del repo tendria que
     # recorrerlos enteros en cada vuelta.
-    return {str(p): p.stat().st_mtime for p in root.rglob('*')
-            if p.suffix in _WATCHED and p.is_file()
-            and not any(parte in targets.IGNORED or parte.startswith('.')
-                        for parte in p.relative_to(root).parts[:-1])}
+    return {
+        str(p): p.stat().st_mtime
+        for p in root.rglob("*")
+        if p.suffix in _WATCHED
+        and p.is_file()
+        and not any(
+            parte in targets.IGNORED or parte.startswith(".")
+            for parte in p.relative_to(root).parts[:-1]
+        )
+    }
 
 
 def open_ssh_session(ctx) -> None:
     """Abre la sesion SSH en una terminal externa: necesita TTY real (ADR-0005)."""
     remote = ssh.resolve_remote(ctx.config)
     ctx.detach(ssh.terminal_argv(remote))
-    ctx.ok(f'Sesion SSH abierta en una terminal externa: {remote.target}')
+    ctx.ok(f"Sesion SSH abierta en una terminal externa: {remote.target}")
 
 
 def bind_all() -> None:
-    registry.bind('backend', serve_backend)
-    registry.bind('serve_vite', serve_spa)
-    registry.bind('run_mobile', run_mobile)
-    registry.bind('run_python', run_python_app)
-    registry.bind('ssh_login', open_ssh_session)
+    registry.bind("backend", serve_backend)
+    registry.bind("serve_vite", serve_spa)
+    registry.bind("run_mobile", run_mobile)
+    registry.bind("run_python", run_python_app)
+    registry.bind("ssh_login", open_ssh_session)

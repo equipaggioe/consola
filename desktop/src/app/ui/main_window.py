@@ -1,24 +1,29 @@
 from __future__ import annotations
-from PySide6.QtWidgets import (
-    QMainWindow, QWidget, QVBoxLayout, QHBoxLayout, QLabel, QStackedWidget,
-    QPushButton
-)
-from PySide6.QtGui import QPainter, QColor, QKeySequence, QShortcut, QIcon, QPixmap, QFont
-from PySide6.QtCore import Qt, QEvent, QTimer
 
-from app.ui.menu_bar import ActionMenuBar
-from app.ui.action_search import ActionSearch
-from app.ui.title_bar import TitleBar
-from app.ui.tab_panel import TabPanel, WorkspaceStatusBar
-from app.ui.project_tabs import ProjectTabBar
-from app.ui import project_store, params_store, readiness, favorites
-from app.theme import Colors, Fonts
-from app.ui.palettes import Palette, NEUTRAL
-from app.ui import palettes
-from app.ui.widgets import ToggleSwitch
+from PySide6.QtCore import QEvent, Qt, QTimer
+from PySide6.QtGui import QColor, QFont, QIcon, QKeySequence, QPainter, QPixmap, QShortcut
+from PySide6.QtWidgets import (
+    QHBoxLayout,
+    QLabel,
+    QMainWindow,
+    QPushButton,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
+)
+
 from app.core.catalog import applicable_ids
-from app.core.registry import registry
 from app.core.projects import Project
+from app.core.registry import registry
+from app.theme import Colors, Fonts
+from app.ui import favorites, palettes, params_store, project_store, readiness
+from app.ui.action_search import ActionSearch
+from app.ui.menu_bar import ActionMenuBar
+from app.ui.palettes import NEUTRAL, Palette
+from app.ui.project_tabs import ProjectTabBar
+from app.ui.tab_panel import TabPanel, WorkspaceStatusBar
+from app.ui.title_bar import TitleBar
+from app.ui.widgets import ToggleSwitch
 
 # Cuanto se espera antes de recontar que acciones estan listas. Corto: es lo
 # que tarda en pararse una rafaga de tecleo, y lo que se recalcula no es nada
@@ -30,7 +35,8 @@ def _brand_icon() -> QIcon:
     """El mismo rombo de la marca (`ui/title_bar.py`), como icono de ventana —
     para que la barra de tareas y el conmutador de ventanas de Windows lo
     muestren tambien, no solo
-    la esquina superior izquierda del contenido."""
+    la esquina superior izquierda del contenido.
+    """
     size = 64
     pixmap = QPixmap(size, size)
     pixmap.fill(Qt.GlobalColor.transparent)
@@ -49,7 +55,8 @@ def _brand_icon() -> QIcon:
 class _EdgeGrip(QWidget):
     """Franja invisible sobre una orilla o esquina de la ventana sin marco:
     redimensiona con `startSystemResize`. Va por encima del contenido en vez
-    de dejarle un margen propio, asi la barra de titulo toca la orilla."""
+    de dejarle un margen propio, asi la barra de titulo toca la orilla.
+    """
 
     THICKNESS = 5
     CORNER = 10
@@ -170,14 +177,19 @@ class MainWindow(QMainWindow):
         # Encima de todo el contenido, asi que se crean al final.
         E = Qt.Edge
         C = Qt.CursorShape
-        self._grips = [_EdgeGrip(self, edges, cursor) for edges, cursor in (
-            (E.LeftEdge, C.SizeHorCursor), (E.RightEdge, C.SizeHorCursor),
-            (E.TopEdge, C.SizeVerCursor), (E.BottomEdge, C.SizeVerCursor),
-            (E.LeftEdge | E.TopEdge, C.SizeFDiagCursor),
-            (E.RightEdge | E.BottomEdge, C.SizeFDiagCursor),
-            (E.RightEdge | E.TopEdge, C.SizeBDiagCursor),
-            (E.LeftEdge | E.BottomEdge, C.SizeBDiagCursor),
-        )]
+        self._grips = [
+            _EdgeGrip(self, edges, cursor)
+            for edges, cursor in (
+                (E.LeftEdge, C.SizeHorCursor),
+                (E.RightEdge, C.SizeHorCursor),
+                (E.TopEdge, C.SizeVerCursor),
+                (E.BottomEdge, C.SizeVerCursor),
+                (E.LeftEdge | E.TopEdge, C.SizeFDiagCursor),
+                (E.RightEdge | E.BottomEdge, C.SizeFDiagCursor),
+                (E.RightEdge | E.TopEdge, C.SizeBDiagCursor),
+                (E.LeftEdge | E.BottomEdge, C.SizeBDiagCursor),
+            )
+        ]
 
         # --- Conexiones ---------------------------------------------------
         self.project_tabs.project_selected.connect(self._on_project_selected)
@@ -252,7 +264,8 @@ class MainWindow(QMainWindow):
         title = QLabel("SIN REPOSITORIOS ABIERTOS")
         title.setStyleSheet(
             f"color: {Colors.TEXT}; font-size: {Fonts.SIZE_XXL}px; "
-            f"font-weight: 300; letter-spacing: 6px;")
+            f"font-weight: 300; letter-spacing: 6px;"
+        )
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         subtitle = QLabel("Añade la carpeta de un proyecto para empezar")
@@ -291,14 +304,16 @@ class MainWindow(QMainWindow):
     def _install_shortcuts(self) -> None:
         """Los que no cuelgan de ningun item de menu. Ctrl+L vive en
         `ui/menu_bar.py`, sobre su `QAction`: declararlo tambien aqui daria un
-        atajo ambiguo y no responderia ninguno de los dos."""
+        atajo ambiguo y no responderia ninguno de los dos.
+        """
         QShortcut(QKeySequence("Ctrl+Tab"), self).activated.connect(lambda: self._cycle(1))
         QShortcut(QKeySequence("Ctrl+Shift+Tab"), self).activated.connect(lambda: self._cycle(-1))
         QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(self.project_tabs._pick_repo)
         # Por posicion al momento de apretar: reordenar pestanas renumera solo.
         for i in range(9):
             QShortcut(QKeySequence(f"Ctrl+{i + 1}"), self).activated.connect(
-                lambda i=i: self._select_nth(i))
+                lambda i=i: self._select_nth(i)
+            )
 
     def _select_nth(self, i: int) -> None:
         tabs = self.project_tabs.tabs
@@ -321,14 +336,16 @@ class MainWindow(QMainWindow):
             workspace = TabPanel(project)
             workspace.env_panel.saved.connect(self._on_env_saved)
             workspace.security_panel.changed.connect(
-                lambda _state, w=workspace: self._on_protection_changed(w))
+                lambda _state, w=workspace: self._on_protection_changed(w)
+            )
             workspace.params_changed.connect(self._on_params_changed)
             workspace.machine_changed.connect(self.status_bar.refresh_tools)
             workspace.favorite_changed.connect(self._on_favorites_changed)
             workspace.sections_changed.connect(self._on_sections_changed)
             workspace.repo_ready.connect(self.project_tabs.open_path)
             workspace.logo_changed.connect(
-                lambda logo, p=project.path: self._on_logo_changed(p, logo))
+                lambda logo, p=project.path: self._on_logo_changed(p, logo)
+            )
             self.workspaces[key] = workspace
             self.workspace_stack.addWidget(workspace)
         return workspace
@@ -349,7 +366,8 @@ class MainWindow(QMainWindow):
 
     def changeEvent(self, event):
         """Maximizada, la ventana pega contra los bordes de la pantalla: ni
-        agarre, ni glifo de maximizar, ni borde de contorno."""
+        agarre, ni glifo de maximizar, ni borde de contorno.
+        """
         if event.type() == QEvent.Type.WindowStateChange:
             maximized = self.isMaximized()
             self.title_bar.set_maximized(maximized)
@@ -372,22 +390,26 @@ class MainWindow(QMainWindow):
         teñido que usa el resto de la ventana— y no desaparece: asi el
         contenido no se corre un pixel al activar/desactivar.
         Maximizada no hace falta: la ventana pega contra los bordes de la
-        pantalla, como el marco de agarre."""
+        pantalla, como el marco de agarre.
+        """
         if self.isMaximized():
             self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {self.pal.bg}; }}")
+                f"QWidget#centralWidget {{ background: {self.pal.bg}; }}"
+            )
         else:
             color = self.pal.accent if self.isActiveWindow() else self.pal.border
             self.central_widget.setStyleSheet(
                 f"QWidget#centralWidget {{ background: {self.pal.bg}; "
-                f"border: 1px solid {color}; }}")
+                f"border: 1px solid {color}; }}"
+            )
 
     # --- paleta del repo activo --------------------------------------------
     def _apply_palette(self, pal: Palette) -> None:
         """La paleta del repo activo, en todo lo que vive fuera de su espacio
         de trabajo: la barra de titulo, la fila del menu y sus menus
         desplegados, el interruptor de favoritos, el buscador, la barra de
-        estado y el borde de contorno de la ventana (`_apply_window_border`)."""
+        estado y el borde de contorno de la ventana (`_apply_window_border`).
+        """
         self.pal = pal
         self.title_bar.set_palette(pal)
         self.action_menu.set_palette(pal)
@@ -396,13 +418,15 @@ class MainWindow(QMainWindow):
         self.status_bar.set_palette(pal)
         self.menu_row.setStyleSheet(
             f"QWidget#menuRow {{ background: {pal.chrome}; "
-            f"border-bottom: 1px solid {pal.border}; }}")
+            f"border-bottom: 1px solid {pal.border}; }}"
+        )
         self._apply_window_border()
 
     # --- favoritas ---------------------------------------------------------
     def _on_only_favorites(self, value: bool, save: bool = True) -> None:
         """El interruptor de la fila del menu: poda los menus de grupo. El
-        buscador no lo obedece — busca siempre sobre todas las acciones."""
+        buscador no lo obedece — busca siempre sobre todas las acciones.
+        """
         if save:
             favorites.set_only_favorites(value)
         self.action_menu.set_only_favorites(value)
@@ -410,7 +434,8 @@ class MainWindow(QMainWindow):
 
     def _on_favorites_changed(self, *_args) -> None:
         """Se marco o desmarco una favorita en cualquiera de las superficies:
-        las otras se ponen al dia. Guardar ya lo hizo quien la marco."""
+        las otras se ponen al dia. Guardar ya lo hizo quien la marco.
+        """
         ids = favorites.favorite_ids()
         self.action_menu.set_favorites(ids)
         self.action_search.set_favorites(ids)
@@ -426,7 +451,8 @@ class MainWindow(QMainWindow):
     def _on_project_retinted(self, project: Project) -> None:
         """El repo eligio otro color desde el menu de su pestana. Se repinta su
         espacio de trabajo aunque no sea el activo: el de al lado no puede
-        quedarse con los fondos del color viejo esperando a que lo miren."""
+        quedarse con los fondos del color viejo esperando a que lo miren.
+        """
         workspace = self.workspaces.get(project_store.identity(project.path))
         pal = palettes.get(project.theme)
         if workspace is not None:
@@ -452,7 +478,8 @@ class MainWindow(QMainWindow):
         ultimo cambio se pierde por marcar una casilla y cerrar enseguida.
 
         Tambien detiene las tareas vivas de todos los repos: sin esto un tunel
-        SSH o un backend quedaban corriendo sin Consola."""
+        SSH o un backend quedaban corriendo sin Consola.
+        """
         params_store.flush()
         for workspace in self.workspaces.values():
             workspace.shutdown()
@@ -475,7 +502,8 @@ class MainWindow(QMainWindow):
         mismo, para el indicador de la barra de estado. Lee el panel
         (`security_panel.state()`), que es la misma fuente que consulta el
         seguro al correr (`TabPanel._guard_ok`): el indicador no puede decir
-        una cosa y el guard aplicar otra."""
+        una cosa y el guard aplicar otra.
+        """
         self.status_bar.set_protection(workspace.security_panel.state())
 
     def _on_protection_changed(self, workspace: TabPanel) -> None:
@@ -484,14 +512,16 @@ class MainWindow(QMainWindow):
 
     def _on_security_clicked(self) -> None:
         """Clic en el indicador de la barra de estado: salta a la seccion
-        Seguridad del repo activo (`ADR-0018` §4)."""
+        Seguridad del repo activo (`ADR-0018` §4).
+        """
         workspace = self.current_workspace
         if workspace is not None:
             workspace.reveal_security()
 
     def _on_action_requested(self, capability_id: str) -> None:
         """El clic abre (o enfoca) la pestana de la accion; no ejecuta.
-        Ejecutar es apretar Ejecutar en el panel de parametros."""
+        Ejecutar es apretar Ejecutar en el panel de parametros.
+        """
         capability = registry.get_capability(capability_id)
         workspace = self.current_workspace
         if capability and workspace is not None:
@@ -536,13 +566,15 @@ class MainWindow(QMainWindow):
 
     def _on_sections_changed(self) -> None:
         """La visibilidad de las secciones es global: se elige desde un repo y
-        vale para todos."""
+        vale para todos.
+        """
         for workspace in self.workspaces.values():
             workspace.apply_section_visibility()
 
     def _on_params_changed(self) -> None:
         """Apagar un paso puede dejar de reclamar claves (y encenderlo,
-        volver a pedirlas): el ▶ del buscador se recalcula."""
+        volver a pedirlas): el ▶ del buscador se recalcula.
+        """
         self._refresh_readiness()
 
     def _on_logo_changed(self, path: str, logo) -> None:
@@ -552,5 +584,6 @@ class MainWindow(QMainWindow):
 
     def _on_env_saved(self, *_args) -> None:
         """La configuracion guardada cambio: puede haber acciones nuevas
-        listas para correr sin abrir la pestana, o que dejaron de estarlo."""
+        listas para correr sin abrir la pestana, o que dejaron de estarlo.
+        """
         self._refresh_readiness()

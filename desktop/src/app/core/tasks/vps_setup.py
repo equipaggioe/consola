@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 
 from app.core import canone, session, ssh
@@ -19,15 +20,16 @@ Despues de `install.py` root ya no entra, y todo pasa por la cuenta de
 """
 
 # Donde se suben los programas de canone. Se borra al terminar.
-REMOTE_DIR = '/tmp/consola-canone'
-SUDO_KEY = 'SUDO_PASSWORD'
+REMOTE_DIR = "/tmp/consola-canone"
+SUDO_KEY = "SUDO_PASSWORD"
 
 
 @dataclass(frozen=True)
 class Access:
     """Como se entra al VPS: root la primera vez, o la cuenta que administra con sudo."""
+
     remote: ssh.Remote
-    password: str = ''
+    password: str = ""
 
     @property
     def is_root(self) -> bool:
@@ -39,15 +41,16 @@ class Access:
             return command
         return f"sudo -S -p '' bash -c {ssh.quote(command)}"
 
-    def stdin(self, text: str = '') -> str | None:
+    def stdin(self, text: str = "") -> str | None:
         """Lo que va a la entrada del comando: la contraseña de sudo primero."""
         if self.is_root:
             return text or None
-        return f'{self.password}\n{text}'
+        return f"{self.password}\n{text}"
 
-    def run(self, ctx, command: str, *, text: str = '', check: bool = True) -> int:
-        return ssh.run(ctx, self.remote, self.command(command), check=check,
-                       stdin_text=self.stdin(text))
+    def run(self, ctx, command: str, *, text: str = "", check: bool = True) -> int:
+        return ssh.run(
+            ctx, self.remote, self.command(command), check=check, stdin_text=self.stdin(text)
+        )
 
 
 def _sudo_password(ctx) -> str:
@@ -58,10 +61,10 @@ def _sudo_password(ctx) -> str:
     """
     escrita = ctx.config.get(SUDO_KEY) or session.read(ctx.project.name, SUDO_KEY)
     if not escrita:
-        usuario = ctx.config.require('VPS_USER')
-        escrita = ctx.ask(f'Contraseña de {usuario} (la de sudo)', secret=True)
+        usuario = ctx.config.require("VPS_USER")
+        escrita = ctx.ask(f"Contraseña de {usuario} (la de sudo)", secret=True)
         if not escrita:
-            raise TaskError('Sin la contraseña de sudo no se puede administrar el VPS.')
+            raise TaskError("Sin la contraseña de sudo no se puede administrar el VPS.")
         session.publish(ctx.project.name, SUDO_KEY, escrita)
     ctx.guard(escrita)
     return escrita
@@ -76,26 +79,29 @@ def access(ctx) -> Access:
     admin = ssh.resolve_remote(ctx.config)
     if ssh.reachable(admin):
         return Access(admin, _sudo_password(ctx))
-    root = admin.as_user(ctx.config.get('ROOT_USER'))
+    root = admin.as_user(ctx.config.get("ROOT_USER"))
     if ssh.reachable(root):
-        ctx.info(f'{admin.target} todavía no entra: se usa {root.target}.')
+        ctx.info(f"{admin.target} todavía no entra: se usa {root.target}.")
         return Access(root)
-    raise TaskError(f'No se entra al VPS ni como {admin.target} ni como {root.target} '
-                    f'con la llave {ctx.config.get("VPS_KEY_NAME")}.')
+    raise TaskError(
+        f"No se entra al VPS ni como {admin.target} ni como {root.target} "
+        f"con la llave {ctx.config.get('VPS_KEY_NAME')}."
+    )
 
 
 def _upload(ctx, entrada: Access) -> str:
     """Sube `plantilla/infra/` de canone a una carpeta temporal y devuelve su ruta."""
     infra = canone.infra_dir(ctx.config)
-    entrada.run(ctx, f'rm -rf {REMOTE_DIR}')
-    return ssh.upload(ctx, entrada.remote, infra, f'{REMOTE_DIR}/{infra.name}')
+    entrada.run(ctx, f"rm -rf {REMOTE_DIR}")
+    return ssh.upload(ctx, entrada.remote, infra, f"{REMOTE_DIR}/{infra.name}")
 
 
 def _cleanup(ctx, entrada: Access) -> None:
-    entrada.run(ctx, f'rm -rf {REMOTE_DIR}', check=False)
+    entrada.run(ctx, f"rm -rf {REMOTE_DIR}", check=False)
 
 
 # --- atomicas --------------------------------------------------------------
+
 
 def refresh_known_host(ctx) -> str:
     """Olvida la huella vieja del VPS.
@@ -104,7 +110,7 @@ def refresh_known_host(ctx) -> str:
     fallan con un error de "host key verification" que no dice como arreglarlo.
     La nueva la anota la primera conexion de cualquier otra atomica.
     """
-    host = ctx.config.require('VPS_IP')
+    host = ctx.config.require("VPS_IP")
     ssh.forget_host(ctx, host)
     return host
 
@@ -119,21 +125,24 @@ def install_software(ctx) -> list[str]:
     """
     entrada = access(ctx)
     paquetes = canone.packages(ctx.config)
-    lista = ' '.join(ssh.quote(p) for p in paquetes)
-    entrada.run(ctx, 'export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && '
-                     f'apt-get install -y {lista}')
+    lista = " ".join(ssh.quote(p) for p in paquetes)
+    entrada.run(
+        ctx,
+        "export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && "
+        f"apt-get install -y {lista}",
+    )
     destino = _upload(ctx, entrada)
     try:
-        entrada.run(ctx, f'python3 {destino}/uv.py')
+        entrada.run(ctx, f"python3 {destino}/uv.py")
     finally:
         _cleanup(ctx, entrada)
-    ctx.ok(f'Paquetes y uv listos: {", ".join(paquetes)}')
+    ctx.ok(f"Paquetes y uv listos: {', '.join(paquetes)}")
     return paquetes
 
 
 # Crea `/swapfile` con lo que falte para tener tanto swap como memoria, que es
 # lo que pide `install.py`. Si ya habia un `/swapfile` que no alcanza, lo rehace.
-_SWAP = r'''set -e
+_SWAP = r"""set -e
 mem=$(awk '/^MemTotal:/ {print $2}' /proc/meminfo)
 swap=$(awk '/^SwapTotal:/ {print $2}' /proc/meminfo)
 [ "$swap" -ge "$mem" ] && { echo "[OK] Ya hay tanto swap como memoria."; exit 0; }
@@ -147,7 +156,7 @@ mkswap /swapfile
 swapon /swapfile
 grep -q '^/swapfile ' /etc/fstab || echo '/swapfile none swap sw 0 0' >> /etc/fstab
 echo "[OK] Swap de ${falta} MiB en /swapfile."
-'''
+"""
 
 
 def create_swap(ctx) -> None:
@@ -165,27 +174,32 @@ def install_infra(ctx) -> None:
     ya tiene no se vuelven a agregar.
     """
     owner, app = canone.origin(ctx.root)
-    llave = ssh.public_key(ssh.ensure_local_keypair(ctx, ctx.config.require('VPS_KEY_NAME'),
-                                                    comment=app))
-    fuera = ctx.config.require('OFFLINE_KEY').strip()
+    llave = ssh.public_key(
+        ssh.ensure_local_keypair(ctx, ctx.config.require("VPS_KEY_NAME"), comment=app)
+    )
+    fuera = ctx.config.require("OFFLINE_KEY").strip()
     if fuera.split()[:2] == llave.split()[:2]:
-        raise TaskError('OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, '
-                        'guardada fuera de esta máquina.')
+        raise TaskError(
+            "OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, "
+            "guardada fuera de esta máquina."
+        )
     argumentos = canone.install_args(ctx.root, ctx.config, app, owner, (llave, fuera))
     entrada = access(ctx)
     destino = _upload(ctx, entrada)
-    comando = ' '.join(ssh.quote(a) for a in ('python3', f'{destino}/install.py', *argumentos))
+    comando = " ".join(ssh.quote(a) for a in ("python3", f"{destino}/install.py", *argumentos))
     try:
         if entrada.is_root:
             password = _sudo_password(ctx)
-            ctx.converse(entrada.remote.argv(comando, tty=True, extra=['-t']),
-                         [('Password of', password), ('Again', password)])
+            ctx.converse(
+                entrada.remote.argv(comando, tty=True, extra=["-t"]),
+                [("Password of", password), ("Again", password)],
+            )
         else:
             entrada.run(ctx, comando)
     finally:
         # `install.py` deja a root sin entrada: limpia la cuenta que queda.
         _cleanup(ctx, access(ctx))
-    ctx.ok(f'{app} instalado en {entrada.remote.host}.')
+    ctx.ok(f"{app} instalado en {entrada.remote.host}.")
 
 
 def load_credentials(ctx) -> None:
@@ -199,23 +213,34 @@ def load_credentials(ctx) -> None:
     _, app = canone.origin(ctx.root)
     lineas = canone.credential_lines(ctx.root, ctx.config)
     for linea in lineas.splitlines():
-        ctx.guard(linea.partition('=')[2])
+        ctx.guard(linea.partition("=")[2])
     entrada = access(ctx)
     if entrada.is_root:
-        raise TaskError('La cuenta que administra todavía no existe: corre «Configurar VPS» '
-                        'con «Instalar infraestructura» primero.')
+        raise TaskError(
+            "La cuenta que administra todavía no existe: corre «Configurar VPS» "
+            "con «Instalar infraestructura» primero."
+        )
     destino = _upload(ctx, entrada)
     try:
-        entrada.run(ctx, f'python3 {destino}/credentials.py {ssh.quote(app)}', text=lineas)
+        entrada.run(ctx, f"python3 {destino}/credentials.py {ssh.quote(app)}", text=lineas)
     finally:
         _cleanup(ctx, entrada)
-    ctx.ok(f'{len(lineas.splitlines())} credenciales cargadas.')
+    ctx.ok(f"{len(lineas.splitlines())} credenciales cargadas.")
 
 
 # --- compuesta -------------------------------------------------------------
 
-def bootstrap_vps(ctx, *, known_host: bool = False, software: bool = True, swap: bool = True,
-                  infra: bool = True, credentials: bool = True, deploy: bool = True) -> None:
+
+def bootstrap_vps(
+    ctx,
+    *,
+    known_host: bool = False,
+    software: bool = True,
+    swap: bool = True,
+    infra: bool = True,
+    credentials: bool = True,
+    deploy: bool = True,
+) -> None:
     """Paquetes y uv → swap → `install.py` → credenciales → ultimo release.
 
     Cada paso detecta lo que ya esta, asi que la compuesta se puede volver a
@@ -225,29 +250,30 @@ def bootstrap_vps(ctx, *, known_host: bool = False, software: bool = True, swap:
     """
     # Circular: `vps_release` entra al VPS con `access`, de este modulo.
     from app.core.tasks.vps_release import deploy_latest
+
     if known_host:
-        ctx.step('known_host')
+        ctx.step("known_host")
         refresh_known_host(ctx)
     if software:
-        ctx.step('software')
+        ctx.step("software")
         install_software(ctx)
     if swap:
-        ctx.step('swap')
+        ctx.step("swap")
         create_swap(ctx)
     if infra:
-        ctx.step('infra')
+        ctx.step("infra")
         install_infra(ctx)
     if credentials:
-        ctx.step('credentials')
+        ctx.step("credentials")
         load_credentials(ctx)
     if deploy:
-        ctx.step('deploy')
+        ctx.step("deploy")
         deploy_latest(ctx)
-    ctx.note(f'VPS {ctx.config.require("VPS_IP")} configurado.')
+    ctx.note(f"VPS {ctx.config.require('VPS_IP')} configurado.")
 
 
 def bind_all() -> None:
-    registry.bind('refresh_known_host', refresh_known_host)
-    registry.bind('install_software', install_software)
-    registry.bind('load_credentials', load_credentials)
-    registry.bind('bootstrap_vps', bootstrap_vps)
+    registry.bind("refresh_known_host", refresh_known_host)
+    registry.bind("install_software", install_software)
+    registry.bind("load_credentials", load_credentials)
+    registry.bind("bootstrap_vps", bootstrap_vps)

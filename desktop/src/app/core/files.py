@@ -1,12 +1,13 @@
 from __future__ import annotations
+
 import filecmp
 import hashlib
 import shutil
 import tarfile
 import zipfile
+from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
-from typing import Iterable, Iterator
 
 from app.core.host import HOST
 
@@ -18,22 +19,22 @@ def reversible(path: Path) -> Iterator[None]:
     Es el rollback del bump de version: si el build revienta despues de tocar
     `pubspec.yaml`, el repo no queda con una version que nunca se publico.
     """
-    original = path.read_text(encoding='utf-8')
+    original = path.read_text(encoding="utf-8")
     try:
         yield
     except BaseException:
-        path.write_text(original, encoding='utf-8', newline='\n')
+        path.write_text(original, encoding="utf-8", newline="\n")
         raise
 
 
 def write_text(path: Path, content: str) -> None:
     """Escribe creando el directorio padre y con saltos de linea estables."""
     path.parent.mkdir(parents=True, exist_ok=True)
-    path.write_text(content, encoding='utf-8', newline='\n')
+    path.write_text(content, encoding="utf-8", newline="\n")
 
 
 def read_text(path: Path) -> str:
-    return path.read_text(encoding='utf-8', errors='replace')
+    return path.read_text(encoding="utf-8", errors="replace")
 
 
 def compare(source: Path, target: Path) -> str:
@@ -43,15 +44,15 @@ def compare(source: Path, target: Path) -> str:
     habilitar Aplicar, nunca se sobrescribe a ciegas.
     """
     if not target.exists():
-        return 'NEW'
+        return "NEW"
     if source.is_dir() or target.is_dir():
-        return 'SAME' if _same_tree(source, target) else 'DIFF'
-    return 'SAME' if filecmp.cmp(source, target, shallow=False) else 'DIFF'
+        return "SAME" if _same_tree(source, target) else "DIFF"
+    return "SAME" if filecmp.cmp(source, target, shallow=False) else "DIFF"
 
 
 def _same_tree(source: Path, target: Path) -> bool:
-    left = {p.relative_to(source) for p in source.rglob('*') if p.is_file()}
-    right = {p.relative_to(target) for p in target.rglob('*') if p.is_file()}
+    left = {p.relative_to(source) for p in source.rglob("*") if p.is_file()}
+    right = {p.relative_to(target) for p in target.rglob("*") if p.is_file()}
     if left != right:
         return False
     return all(filecmp.cmp(source / rel, target / rel, shallow=False) for rel in left)
@@ -80,7 +81,7 @@ def collect(root: Path, patterns: Iterable[str]) -> list[Path]:
 def size_of(path: Path) -> int:
     if path.is_file():
         return path.stat().st_size
-    return sum(p.stat().st_size for p in path.rglob('*') if p.is_file())
+    return sum(p.stat().st_size for p in path.rglob("*") if p.is_file())
 
 
 def remove(path: Path) -> None:
@@ -93,15 +94,15 @@ def remove(path: Path) -> None:
             pass
 
 
-def digest(path: Path, algorithm: str = 'sha256') -> str:
+def digest(path: Path, algorithm: str = "sha256") -> str:
     """Huella del archivo, leyendolo por bloques.
 
     Una sola funcion con el algoritmo como parametro porque los dos SDK
     publican huellas distintas: Android da SHA-1 y Flutter SHA-256.
     """
     accumulator = hashlib.new(algorithm)
-    with path.open('rb') as handle:
-        for chunk in iter(lambda: handle.read(1024 * 1024), b''):
+    with path.open("rb") as handle:
+        for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             accumulator.update(chunk)
     return accumulator.hexdigest()
 
@@ -113,11 +114,11 @@ def extract(archive: Path, target: Path) -> Path:
     pero .tar.xz para Linux, y el script original abria todo con `zipfile`, con
     lo que en Linux no llegaba a descomprimir nada.
     """
-    if archive.name.lower().endswith(('.tar.xz', '.tar.gz', '.tgz', '.tar.bz2')):
+    if archive.name.lower().endswith((".tar.xz", ".tar.gz", ".tgz", ".tar.bz2")):
         target.mkdir(parents=True, exist_ok=True)
         with tarfile.open(archive) as bundle:
             try:
-                bundle.extractall(target, filter='data')
+                bundle.extractall(target, filter="data")
             except TypeError:  # Python anterior al filtro de extraccion
                 bundle.extractall(target)
         return target
@@ -142,8 +143,8 @@ def extract_zip(archive: Path, target: Path) -> Path:
 
 
 def human_size(total: int) -> str:
-    for unit in ('B', 'KB', 'MB', 'GB'):
-        if total < 1024 or unit == 'GB':
-            return f'{total:.0f} {unit}' if unit == 'B' else f'{total:.1f} {unit}'
+    for unit in ("B", "KB", "MB", "GB"):
+        if total < 1024 or unit == "GB":
+            return f"{total:.0f} {unit}" if unit == "B" else f"{total:.1f} {unit}"
         total /= 1024.0
-    return f'{total:.1f} GB'
+    return f"{total:.1f} GB"

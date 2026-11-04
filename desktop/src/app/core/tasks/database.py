@@ -1,13 +1,14 @@
 from __future__ import annotations
+
 import tempfile
 from datetime import datetime
 from pathlib import Path
 
-from app.core.tasks import payloads
 from app.core import database as db
 from app.core import db_explorer, envfile, files, runner, ssh, vps
 from app.core.errors import TaskError
 from app.core.registry import registry
+from app.core.tasks import payloads
 
 """
 Grupo Base de datos (operaciones).
@@ -24,6 +25,7 @@ base, permisos, extensiones, migrar) y `teardown_db` (borrar base, borrar rol).
 
 # --- ciclo de vida del esquema ---------------------------------------------
 
+
 def create_role(ctx, scope: str = db.LOCAL) -> str:
     """Crea el rol de la aplicacion, o le actualiza la contrasena si ya existe."""
     admin = db.resolve_admin(ctx, scope)
@@ -31,14 +33,17 @@ def create_role(ctx, scope: str = db.LOCAL) -> str:
     ctx.guard(password)
 
     ident, literal = db.quote_ident(user), db.quote_literal(user)
-    admin.execute(ctx, (
-        'DO $$ BEGIN '
-        f'IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = {literal}) THEN '
-        f"EXECUTE format('CREATE ROLE %I LOGIN', {literal}); "
-        'END IF; END $$;'
-    ))
-    admin.execute(ctx, f'ALTER ROLE {ident} WITH PASSWORD {db.quote_literal(password)};')
-    ctx.ok(f'Rol listo: {user}')
+    admin.execute(
+        ctx,
+        (
+            "DO $$ BEGIN "
+            f"IF NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = {literal}) THEN "
+            f"EXECUTE format('CREATE ROLE %I LOGIN', {literal}); "
+            "END IF; END $$;"
+        ),
+    )
+    admin.execute(ctx, f"ALTER ROLE {ident} WITH PASSWORD {db.quote_literal(password)};")
+    ctx.ok(f"Rol listo: {user}")
     return user
 
 
@@ -48,13 +53,15 @@ def create_database(ctx, scope: str = db.LOCAL) -> str:
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
 
-    existe = admin.query(ctx, f'SELECT 1 FROM pg_database WHERE datname = {db.quote_literal(name)};')
+    existe = admin.query(
+        ctx, f"SELECT 1 FROM pg_database WHERE datname = {db.quote_literal(name)};"
+    )
     if existe:
-        ctx.info(f'La base {name} ya existe.')
-        admin.execute(ctx, f'ALTER DATABASE {ident} OWNER TO {owner};')
+        ctx.info(f"La base {name} ya existe.")
+        admin.execute(ctx, f"ALTER DATABASE {ident} OWNER TO {owner};")
     else:
-        admin.execute(ctx, f'CREATE DATABASE {ident} OWNER {owner};')
-        ctx.ok(f'Base creada: {name}')
+        admin.execute(ctx, f"CREATE DATABASE {ident} OWNER {owner};")
+        ctx.ok(f"Base creada: {name}")
     return name
 
 
@@ -63,9 +70,9 @@ def grant_privileges(ctx, scope: str = db.LOCAL) -> None:
     admin = db.resolve_admin(ctx, scope)
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
-    admin.execute(ctx, f'GRANT ALL PRIVILEGES ON DATABASE {ident} TO {owner};')
-    admin.execute(ctx, f'GRANT ALL ON SCHEMA public TO {owner};', database=name)
-    ctx.ok(f'Permisos otorgados a {user} sobre {name}.')
+    admin.execute(ctx, f"GRANT ALL PRIVILEGES ON DATABASE {ident} TO {owner};")
+    admin.execute(ctx, f"GRANT ALL ON SCHEMA public TO {owner};", database=name)
+    ctx.ok(f"Permisos otorgados a {user} sobre {name}.")
 
 
 def enable_extensions(ctx, scope: str = db.LOCAL) -> list[str]:
@@ -99,10 +106,13 @@ def enable_extensions(ctx, scope: str = db.LOCAL) -> list[str]:
     # Se resuelve antes que el canal de superusuario para no pedir credenciales
     # de administrador cuando no hay nada que crear.
     vistas: set[str] = set()
-    pedidas = [e for e in envfile.split_list(ctx.config.get('DB_EXTENSIONS'))
-               if not (e.lower() in vistas or vistas.add(e.lower()))]
+    pedidas = [
+        e
+        for e in envfile.split_list(ctx.config.get("DB_EXTENSIONS"))
+        if not (e.lower() in vistas or vistas.add(e.lower()))
+    ]
     if not pedidas:
-        ctx.info('DB_EXTENSIONS esta vacia: no hay nada que habilitar.')
+        ctx.info("DB_EXTENSIONS esta vacia: no hay nada que habilitar.")
         return []
 
     admin = db.resolve_admin(ctx, scope)
@@ -110,13 +120,19 @@ def enable_extensions(ctx, scope: str = db.LOCAL) -> list[str]:
     habilitadas = []
     for extension in pedidas:
         disponible = admin.query(
-            ctx, f'SELECT 1 FROM pg_available_extensions WHERE name = {db.quote_literal(extension)};',
-            database=name)
+            ctx,
+            f"SELECT 1 FROM pg_available_extensions WHERE name = {db.quote_literal(extension)};",
+            database=name,
+        )
         if not disponible:
-            raise TaskError(f'La extensión {extension} no está instalada en el sistema: '
-                            'instala su paquete o quítala de DB_EXTENSIONS.')
-        admin.execute(ctx, f'CREATE EXTENSION IF NOT EXISTS {db.quote_ident(extension)};', database=name)
-        ctx.ok(f'Extension habilitada: {extension}')
+            raise TaskError(
+                f"La extensión {extension} no está instalada en el sistema: "
+                "instala su paquete o quítala de DB_EXTENSIONS."
+            )
+        admin.execute(
+            ctx, f"CREATE EXTENSION IF NOT EXISTS {db.quote_ident(extension)};", database=name
+        )
+        ctx.ok(f"Extension habilitada: {extension}")
         habilitadas.append(extension)
     return habilitadas
 
@@ -129,19 +145,23 @@ def drop_tables(ctx, scope: str = db.LOCAL) -> list[str]:
     """
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
-    tablas = admin.query(ctx, (
-        "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
-        "AND tablename <> 'spatial_ref_sys' ORDER BY tablename;"
-    ), database=name)
+    tablas = admin.query(
+        ctx,
+        (
+            "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
+            "AND tablename <> 'spatial_ref_sys' ORDER BY tablename;"
+        ),
+        database=name,
+    )
 
     if not tablas:
-        ctx.info('No hay tablas para borrar.')
+        ctx.info("No hay tablas para borrar.")
         return []
 
-    ctx.warn(f'Se van a borrar {len(tablas)} tabla(s) de {name}.')
-    sql = ' '.join(f'DROP TABLE IF EXISTS {db.quote_ident(t)} CASCADE;' for t in tablas)
+    ctx.warn(f"Se van a borrar {len(tablas)} tabla(s) de {name}.")
+    sql = " ".join(f"DROP TABLE IF EXISTS {db.quote_ident(t)} CASCADE;" for t in tablas)
     admin.execute(ctx, sql, database=name)
-    ctx.ok(f'{len(tablas)} tabla(s) eliminadas.')
+    ctx.ok(f"{len(tablas)} tabla(s) eliminadas.")
     return tablas
 
 
@@ -149,24 +169,28 @@ def drop_database(ctx, scope: str = db.LOCAL) -> str:
     """Elimina la base entera. Corta las conexiones vivas antes, o el DROP falla."""
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
-    admin.execute(ctx, (
-        'SELECT pg_terminate_backend(pid) FROM pg_stat_activity '
-        f'WHERE datname = {db.quote_literal(name)} AND pid <> pg_backend_pid();'
-    ))
-    admin.execute(ctx, f'DROP DATABASE IF EXISTS {db.quote_ident(name)};')
-    ctx.ok(f'Base eliminada: {name}')
+    admin.execute(
+        ctx,
+        (
+            "SELECT pg_terminate_backend(pid) FROM pg_stat_activity "
+            f"WHERE datname = {db.quote_literal(name)} AND pid <> pg_backend_pid();"
+        ),
+    )
+    admin.execute(ctx, f"DROP DATABASE IF EXISTS {db.quote_ident(name)};")
+    ctx.ok(f"Base eliminada: {name}")
     return name
 
 
 def drop_role(ctx, scope: str = db.LOCAL) -> str:
     admin = db.resolve_admin(ctx, scope)
     user, _, _ = db.credentials(ctx.config)
-    admin.execute(ctx, f'DROP ROLE IF EXISTS {db.quote_ident(user)};')
-    ctx.ok(f'Rol eliminado: {user}')
+    admin.execute(ctx, f"DROP ROLE IF EXISTS {db.quote_ident(user)};")
+    ctx.ok(f"Rol eliminado: {user}")
     return user
 
 
 # --- migraciones -----------------------------------------------------------
+
 
 def reset_migrations(ctx) -> int:
     """Borra los archivos de `alembic/versions/`, sin tocar la base.
@@ -175,17 +199,17 @@ def reset_migrations(ctx) -> int:
     cero, generar agrega una revision encima del historial existente. Son dos
     intenciones distintas que el script original mezclaba en una sola funcion.
     """
-    versiones = runner.server_root(ctx) / 'alembic' / 'versions'
+    versiones = runner.server_root(ctx) / "alembic" / "versions"
     versiones.mkdir(parents=True, exist_ok=True)
-    archivos = sorted(versiones.glob('*.py'))
+    archivos = sorted(versiones.glob("*.py"))
     for archivo in archivos:
         archivo.unlink()
-        ctx.info(f'Migracion eliminada: {archivo.name}')
-    ctx.ok(f'{len(archivos)} migracion(es) eliminadas.')
+        ctx.info(f"Migracion eliminada: {archivo.name}")
+    ctx.ok(f"{len(archivos)} migracion(es) eliminadas.")
     return len(archivos)
 
 
-def generate_migration(ctx, scope: str = db.LOCAL, message: str = 'auto') -> Path | None:
+def generate_migration(ctx, scope: str = db.LOCAL, message: str = "auto") -> Path | None:
     """Autogenera una revision de Alembic. Devuelve None si no habia cambios.
 
     Es la unica del grupo que corre siempre en esta maquina, aunque el ambito
@@ -194,33 +218,33 @@ def generate_migration(ctx, scope: str = db.LOCAL, message: str = 'auto') -> Pat
     `git reset --hard` del proximo despliegue se lo lleva puesto. La base remota
     la alcanza por el tunel, como cualquier otro proceso local (`runner.here`).
     """
-    versiones = runner.server_root(ctx) / 'alembic' / 'versions'
-    antes = {p.name for p in versiones.glob('*.py')}
+    versiones = runner.server_root(ctx) / "alembic" / "versions"
+    antes = {p.name for p in versiones.glob("*.py")}
 
-    revision = ('-m', 'alembic', 'revision', '--autogenerate', '-m', message)
+    revision = ("-m", "alembic", "revision", "--autogenerate", "-m", message)
     if scope == db.LOCAL:
         runner.local(ctx).run(ctx, *revision)
     else:
         with db.connect(ctx, scope) as conn:
             runner.here(ctx, conn).run(ctx, *revision)
 
-    nuevas = {p.name for p in versiones.glob('*.py')} - antes
+    nuevas = {p.name for p in versiones.glob("*.py")} - antes
     if not nuevas:
-        ctx.warn('El modelo no cambio: no se genero ninguna migracion.')
+        ctx.warn("El modelo no cambio: no se genero ninguna migracion.")
         return None
     generada = versiones / nuevas.pop()
-    ctx.ok(f'Migracion generada: {generada.name}')
+    ctx.ok(f"Migracion generada: {generada.name}")
     return generada
 
 
-def apply_migrations(ctx, scope: str = db.LOCAL, revision: str = 'head') -> None:
+def apply_migrations(ctx, scope: str = db.LOCAL, revision: str = "head") -> None:
     """Lleva la base al dia con las revisiones que ya estan escritas.
 
     No toca archivos, asi que corre del lado que diga el ambito: con `remoto`,
     en el VPS, con las revisiones que el despliegue ya trajo y sin tunel.
     """
-    runner.resolve(ctx, scope).run(ctx, '-m', 'alembic', 'upgrade', revision)
-    ctx.ok(f'Migraciones aplicadas hasta {revision}.')
+    runner.resolve(ctx, scope).run(ctx, "-m", "alembic", "upgrade", revision)
+    ctx.ok(f"Migraciones aplicadas hasta {revision}.")
 
 
 def ensure_partitions(ctx, scope: str = db.LOCAL) -> None:
@@ -230,22 +254,24 @@ def ensure_partitions(ctx, scope: str = db.LOCAL) -> None:
     asi que sin este paso el primer INSERT revienta con "no partition of
     relation found for row".
     """
-    payloads.run(ctx, runner.resolve(ctx, scope), 'partitions')
+    payloads.run(ctx, runner.resolve(ctx, scope), "partitions")
 
 
 # --- datos -----------------------------------------------------------------
 
+
 def run_seeders(ctx, scope: str = db.LOCAL) -> None:
     """Seeders base: el paquete `seeders/` del proyecto."""
-    payloads.run(ctx, runner.resolve(ctx, scope), 'seed', 'seeders')
+    payloads.run(ctx, runner.resolve(ctx, scope), "seed", "seeders")
 
 
 def run_mock_seeders(ctx, scope: str = db.LOCAL) -> None:
     """Seeders de prueba: el paquete `mock_data/` del proyecto."""
-    payloads.run(ctx, runner.resolve(ctx, scope), 'seed', 'mock_data')
+    payloads.run(ctx, runner.resolve(ctx, scope), "seed", "mock_data")
 
 
 # --- respaldo y diagnostico ------------------------------------------------
+
 
 def backup_dir(config, root: Path) -> Path:
     """La carpeta de respaldos de este repo, ya resuelta.
@@ -259,7 +285,7 @@ def backup_dir(config, root: Path) -> Path:
     `restore_db` tiene que llenar su lista antes de que exista ninguna corrida
     (`core/catalog.py::queried_values`).
     """
-    declarada = Path(config.get('BACKUP_DIR'))
+    declarada = Path(config.get("BACKUP_DIR"))
     return declarada if declarada.is_absolute() else root / declarada
 
 
@@ -276,11 +302,10 @@ def list_backups(config, root: Path) -> list[Path]:
     vacio en un repo al que todavia no se le cargo.
     """
     carpeta = backup_dir(config, root)
-    name = config.get('DB_NAME')
+    name = config.get("DB_NAME")
     if not name or not carpeta.is_dir():
         return []
-    return sorted(carpeta.glob(f'{name}-*.dump'),
-                  key=lambda p: p.stat().st_mtime, reverse=True)
+    return sorted(carpeta.glob(f"{name}-*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
 
 
 def backup_keep(ctx) -> int:
@@ -290,13 +315,13 @@ def backup_keep(ctx) -> int:
     defecto seria esconder el error justo donde se decide cuantos archivos se
     borran para siempre.
     """
-    crudo = ctx.config.get('BACKUP_KEEP')
+    crudo = ctx.config.get("BACKUP_KEEP")
     try:
         keep = int(crudo)
     except ValueError:
-        raise TaskError(f'BACKUP_KEEP tiene que ser un numero entero, y dice {crudo!r}.') from None
+        raise TaskError(f"BACKUP_KEEP tiene que ser un numero entero, y dice {crudo!r}.") from None
     if keep < 1:
-        raise TaskError(f'BACKUP_KEEP tiene que ser 1 o mas, y dice {keep}.')
+        raise TaskError(f"BACKUP_KEEP tiene que ser 1 o mas, y dice {keep}.")
     return keep
 
 
@@ -309,7 +334,7 @@ def _check_version(ctx, conn, tool: Path) -> None:
     """
     with db_explorer.open_readonly(conn.url) as probe:
         servidor = db_explorer.server_info(probe).version
-    db.check_tool_version(ctx, tool, ctx.capture([str(tool), '--version']), servidor)
+    db.check_tool_version(ctx, tool, ctx.capture([str(tool), "--version"]), servidor)
 
 
 def _pg_argv(tool: Path, conn, user: str) -> list[str]:
@@ -318,7 +343,7 @@ def _pg_argv(tool: Path, conn, user: str) -> list[str]:
     La contrasena no va aca: viaja por `PGPASSWORD`, porque un argv queda
     escrito en el log de la corrida.
     """
-    return [str(tool), '-h', conn.host, '-p', str(conn.port), '-U', user]
+    return [str(tool), "-h", conn.host, "-p", str(conn.port), "-U", user]
 
 
 def backup_database(ctx) -> Path:
@@ -329,20 +354,22 @@ def backup_database(ctx) -> Path:
     """
     user, password, name = db.credentials(ctx.config)
     ctx.guard(password)
-    herramienta = db.pg_tool('pg_dump')
-    sello = datetime.now().strftime('%Y%m%d-%H%M%S')
-    destino = backup_dir(ctx.config, ctx.root) / f'{name}-{sello}.dump'
+    herramienta = db.pg_tool("pg_dump")
+    sello = datetime.now().strftime("%Y%m%d-%H%M%S")
+    destino = backup_dir(ctx.config, ctx.root) / f"{name}-{sello}.dump"
     destino.parent.mkdir(parents=True, exist_ok=True)
 
     with db.connect(ctx, db.LOCAL) as conn:
         _check_version(ctx, conn, herramienta)
-        ctx.info(f'Volcando {name} en {destino.name}...')
-        ctx.run([*_pg_argv(herramienta, conn, user), '-Fc', '-f', str(destino), name],
-                env={'PGPASSWORD': password})
+        ctx.info(f"Volcando {name} en {destino.name}...")
+        ctx.run(
+            [*_pg_argv(herramienta, conn, user), "-Fc", "-f", str(destino), name],
+            env={"PGPASSWORD": password},
+        )
 
-    ctx.ok(f'Backup guardado: {destino} ({files.human_size(files.size_of(destino))})')
+    ctx.ok(f"Backup guardado: {destino} ({files.human_size(files.size_of(destino))})")
     rotate_backups(ctx)
-    ctx.note(f'Backup de {name}: {destino.name}')
+    ctx.note(f"Backup de {name}: {destino.name}")
     return destino
 
 
@@ -351,20 +378,19 @@ def rotate_backups(ctx) -> list[Path]:
 
     Separada porque a veces se quiere limpiar sin volver a volcar.
     """
-    sobran = list_backups(ctx.config, ctx.root)[backup_keep(ctx):]
+    sobran = list_backups(ctx.config, ctx.root)[backup_keep(ctx) :]
     for viejo in sobran:
         files.remove(viejo)
-        ctx.info(f'Backup rotado: {viejo.name}')
+        ctx.info(f"Backup rotado: {viejo.name}")
     return sobran
 
 
 def _without_extensions(contenido: str) -> str:
     """La lista de `pg_restore -l` sin las extensiones ni sus comentarios."""
-    return ''.join(f'{linea}\n' for linea in contenido.splitlines()
-                   if ' EXTENSION ' not in linea)
+    return "".join(f"{linea}\n" for linea in contenido.splitlines() if " EXTENSION " not in linea)
 
 
-def restore_database(ctx, dump: str = '') -> Path:
+def restore_database(ctx, dump: str = "") -> Path:
     """Carga un respaldo sobre la base local, reemplazando lo que haya.
 
     `--clean --if-exists` restaura sobre la base que ya existe, borrando cada
@@ -381,28 +407,40 @@ def restore_database(ctx, dump: str = '') -> Path:
     be owner of extension».
     """
     if not dump:
-        raise TaskError('No se eligio ningun respaldo para restaurar.')
+        raise TaskError("No se eligio ningun respaldo para restaurar.")
     archivo = backup_dir(ctx.config, ctx.root) / dump
     if not archivo.is_file():
-        raise TaskError(f'No existe el respaldo: {archivo}')
+        raise TaskError(f"No existe el respaldo: {archivo}")
 
     user, password, name = db.credentials(ctx.config)
     ctx.guard(password)
-    herramienta = db.pg_tool('pg_restore')
+    herramienta = db.pg_tool("pg_restore")
 
     with db.connect(ctx, db.LOCAL) as conn:
         _check_version(ctx, conn, herramienta)
-        ctx.warn(f'Restaurando {archivo.name} sobre {name}: se reemplaza lo que haya.')
-        contenido = ctx.capture([str(herramienta), '-l', str(archivo)])
+        ctx.warn(f"Restaurando {archivo.name} sobre {name}: se reemplaza lo que haya.")
+        contenido = ctx.capture([str(herramienta), "-l", str(archivo)])
         with tempfile.TemporaryDirectory() as carpeta:
-            lista = Path(carpeta) / 'lista'
-            lista.write_text(_without_extensions(contenido), encoding='utf-8')
-            ctx.run([*_pg_argv(herramienta, conn, user), '-d', name, '-L', str(lista),
-                     '--clean', '--if-exists', '--no-owner', '--exit-on-error', str(archivo)],
-                    env={'PGPASSWORD': password})
+            lista = Path(carpeta) / "lista"
+            lista.write_text(_without_extensions(contenido), encoding="utf-8")
+            ctx.run(
+                [
+                    *_pg_argv(herramienta, conn, user),
+                    "-d",
+                    name,
+                    "-L",
+                    str(lista),
+                    "--clean",
+                    "--if-exists",
+                    "--no-owner",
+                    "--exit-on-error",
+                    str(archivo),
+                ],
+                env={"PGPASSWORD": password},
+            )
 
-    ctx.ok(f'Base {name} restaurada desde {archivo.name}.')
-    ctx.note(f'Restauracion de {name}: {archivo.name}')
+    ctx.ok(f"Base {name} restaurada desde {archivo.name}.")
+    ctx.note(f"Restauracion de {name}: {archivo.name}")
     return archivo
 
 
@@ -411,10 +449,11 @@ def open_db_tunnel(ctx):
     remote = ssh.resolve_remote(ctx.config)
     remoto = vps.postgres_port(remote)
     from app.core import ports
-    local = ports.resolve_port(remoto, label='puerto del tunel')
+
+    local = ports.resolve_port(remoto, label="puerto del tunel")
     tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=remoto)
     ctx.hold_tunnel(tunnel)
-    ctx.ok(f'Tunel abierto en {tunnel.endpoint} -> {remote.host}:{remoto}')
+    ctx.ok(f"Tunel abierto en {tunnel.endpoint} -> {remote.host}:{remoto}")
     return tunnel
 
 
@@ -432,24 +471,29 @@ def explore_db(ctx, scope: str = db.LOCAL) -> None:
             info = db_explorer.server_info(probe)
             relaciones = db_explorer.list_relations(probe)
 
-        ctx.ok(f'Conectado a {info.database} como {info.user} (solo lectura).')
-        ctx.info(f'Servidor: {info.version.split(" on ")[0]}')
-        ctx.info(f'Tamaño de la base: {files.human_size(info.size_bytes)}')
-        tablas = [r for r in relaciones if r.kind in 'rpf' and not r.parent]
-        ctx.info(f'{len(tablas)} tabla(s), {len(relaciones) - len(tablas)} vista(s) o partición(es):')
+        ctx.ok(f"Conectado a {info.database} como {info.user} (solo lectura).")
+        ctx.info(f"Servidor: {info.version.split(' on ')[0]}")
+        ctx.info(f"Tamaño de la base: {files.human_size(info.size_bytes)}")
+        tablas = [r for r in relaciones if r.kind in "rpf" and not r.parent]
+        ctx.info(
+            f"{len(tablas)} tabla(s), {len(relaciones) - len(tablas)} vista(s) o partición(es):"
+        )
         for rel in tablas:
-            ctx.info(f'  {rel.qualified}  ~{db_explorer.human_count(rel.estimate)} filas'
-                     f'  {files.human_size(rel.size_bytes)}')
+            ctx.info(
+                f"  {rel.qualified}  ~{db_explorer.human_count(rel.estimate)} filas"
+                f"  {files.human_size(rel.size_bytes)}"
+            )
 
         ctx.publish(db_explorer.session_key(conn.safe_url), conn.url)
-        ctx.serve(conn.safe_url, key=f'explore_db:{scope}', label=info.database, web=False)
+        ctx.serve(conn.safe_url, key=f"explore_db:{scope}", label=info.database, web=False)
         while not ctx.wait_cancelled(1.0):
             if conn.tunnel is not None and not conn.tunnel.alive:
-                raise TaskError('El túnel SSH se cerró: vuelve a conectar.')
+                raise TaskError("El túnel SSH se cerró: vuelve a conectar.")
         ctx.raise_if_cancelled()
 
 
 # --- compuestas ------------------------------------------------------------
+
 
 def populate_db(
     ctx,
@@ -477,16 +521,16 @@ def populate_db(
     INSERT de un seeder revienta con "no partition of relation found for row".
     """
     if migrate:
-        ctx.step('migrate')
+        ctx.step("migrate")
         apply_migrations(ctx, scope)
     if partitions:
-        ctx.step('partitions')
+        ctx.step("partitions")
         ensure_partitions(ctx, scope)
     if seeders:
-        ctx.step('seeders')
+        ctx.step("seeders")
         run_seeders(ctx, scope)
     if mock_seeders:
-        ctx.step('mock_seeders')
+        ctx.step("mock_seeders")
         run_mock_seeders(ctx, scope)
 
 
@@ -514,20 +558,26 @@ def bootstrap_db(
     de canone (ADR-0060).
     """
     if role:
-        ctx.step('role')
+        ctx.step("role")
         create_role(ctx, db.LOCAL)
     if database:
-        ctx.step('database')
+        ctx.step("database")
         create_database(ctx, db.LOCAL)
     if privileges:
-        ctx.step('privileges')
+        ctx.step("privileges")
         grant_privileges(ctx, db.LOCAL)
     if extensions:
-        ctx.step('extensions')
+        ctx.step("extensions")
         enable_extensions(ctx, db.LOCAL)
-    populate_db(ctx, db.LOCAL, migrate=migrate, partitions=partitions,
-                seeders=seeders, mock_seeders=mock_seeders)
-    ctx.note('Bootstrap de la base local completado.')
+    populate_db(
+        ctx,
+        db.LOCAL,
+        migrate=migrate,
+        partitions=partitions,
+        seeders=seeders,
+        mock_seeders=mock_seeders,
+    )
+    ctx.note("Bootstrap de la base local completado.")
 
 
 def rebuild_db(
@@ -554,11 +604,17 @@ def rebuild_db(
     """
     _, _, name = db.credentials(ctx.config)
     if drop:
-        ctx.step('drop')
+        ctx.step("drop")
         drop_tables(ctx, scope)
-    populate_db(ctx, scope, migrate=migrate, partitions=partitions,
-                seeders=seeders, mock_seeders=mock_seeders)
-    ctx.note(f'Reconstruccion de {name} ({scope}) completada.')
+    populate_db(
+        ctx,
+        scope,
+        migrate=migrate,
+        partitions=partitions,
+        seeders=seeders,
+        mock_seeders=mock_seeders,
+    )
+    ctx.note(f"Reconstruccion de {name} ({scope}) completada.")
 
 
 def reinit_migrations(
@@ -583,31 +639,30 @@ def reinit_migrations(
     """
     _, _, name = db.credentials(ctx.config)
     if drop:
-        ctx.step('drop')
+        ctx.step("drop")
         drop_tables(ctx, scope)
     if reset:
-        ctx.step('reset')
+        ctx.step("reset")
         reset_migrations(ctx)
     if generate:
-        ctx.step('generate')
-        generate_migration(ctx, scope, message='initial_migration')
-    ctx.note(f'Historial de migraciones reiniciado; {name} quedo vacia.')
+        ctx.step("generate")
+        generate_migration(ctx, scope, message="initial_migration")
+    ctx.note(f"Historial de migraciones reiniciado; {name} quedo vacia.")
 
 
 def teardown_db(ctx, scope: str = db.LOCAL, *, database: bool = True, role: bool = True) -> None:
     """Compuesta destructiva: borrar la base y el rol."""
     _, _, name = db.credentials(ctx.config)
     if database:
-        ctx.step('database')
+        ctx.step("database")
         drop_database(ctx, scope)
     if role:
-        ctx.step('role')
+        ctx.step("role")
         drop_role(ctx, scope)
-    ctx.note(f'Teardown de {name} ({scope}).')
+    ctx.note(f"Teardown de {name} ({scope}).")
 
 
-def migrate_db(ctx, message: str = 'auto', *,
-               generate: bool = True, apply: bool = True) -> None:
+def migrate_db(ctx, message: str = "auto", *, generate: bool = True, apply: bool = True) -> None:
     """Compuesta corta: generar la revision pendiente y/o aplicar lo que haya.
 
     Los dos pasos son casillas sueltas porque se piden sueltos: 'Generar' para
@@ -617,23 +672,23 @@ def migrate_db(ctx, message: str = 'auto', *,
     Solo la base local: en el VPS migra el `deploy.py` de canone (ADR-0060).
     """
     if generate:
-        ctx.step('generate')
+        ctx.step("generate")
         generate_migration(ctx, db.LOCAL, message=message)
     if apply:
-        ctx.step('apply')
+        ctx.step("apply")
         apply_migrations(ctx, db.LOCAL)
 
 
 def bind_all() -> None:
-    registry.bind('bootstrap_db', bootstrap_db)
-    registry.bind('teardown_db', teardown_db)
-    registry.bind('migrate_db', migrate_db)
-    registry.bind('rebuild_db', rebuild_db)
-    registry.bind('reinit_migrations', reinit_migrations)
-    registry.bind('enable_extensions', enable_extensions)
-    registry.bind('run_seeders', run_seeders)
-    registry.bind('run_mock_seeders', run_mock_seeders)
-    registry.bind('backup_db', backup_database)
-    registry.bind('restore_db', restore_database)
-    registry.bind('ssh_tunnel', open_db_tunnel)
-    registry.bind('explore_db', explore_db)
+    registry.bind("bootstrap_db", bootstrap_db)
+    registry.bind("teardown_db", teardown_db)
+    registry.bind("migrate_db", migrate_db)
+    registry.bind("rebuild_db", rebuild_db)
+    registry.bind("reinit_migrations", reinit_migrations)
+    registry.bind("enable_extensions", enable_extensions)
+    registry.bind("run_seeders", run_seeders)
+    registry.bind("run_mock_seeders", run_mock_seeders)
+    registry.bind("backup_db", backup_database)
+    registry.bind("restore_db", restore_database)
+    registry.bind("ssh_tunnel", open_db_tunnel)
+    registry.bind("explore_db", explore_db)

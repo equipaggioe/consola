@@ -1,38 +1,44 @@
 from __future__ import annotations
-from PySide6.QtGui import QPalette, QColor, QFont
+
+from PySide6.QtGui import QColor, QFont, QPalette
 from PySide6.QtWidgets import QApplication
 
+
 class Colors:
-    INK           = '#0a0b10'   # tinta oscura sobre un fondo claro (`on_color`). No es fondo de nada
-    CHROME        = '#262d3d'   # fila de la barra de menu: una banda propia, por encima de las secciones
-    BG            = '#0d1117'   # lienzo de contenido: consola y lienzo izquierdo
-    PANEL         = '#1c212b'   # cuerpo de las secciones de la columna derecha
-    SURFACE       = '#232935'   # sub-barra, cabeceras de seccion, pie, barra de estado
-    SURFACE_HOVER = '#2b3240'
-    SURFACE_ALT   = '#2f3745'   # campos de entrada, chips — la superficie mas clara
-    BORDER        = '#3d4657'
-    BORDER_LIGHT  = '#4e586a'
-    TEXT          = '#f0f4f8'
-    TEXT_DIM      = '#9aa4b2'
-    TEXT_LABEL    = '#c6cfdb'   # rotulo de un campo: mas claro que TEXT_DIM, sin llegar al blanco de TEXT
-    TEXT_MUTED    = '#6b7484'
-    ACCENT        = '#58a6ff'
-    ACCENT_PURPLE = '#bc8cff'
-    SUCCESS       = '#3fb950'
-    WARNING       = '#d29922'
-    ERROR         = '#f85149'
-    INACTIVE      = '#4e586a'
+    INK = "#0a0b10"  # tinta oscura sobre un fondo claro (`on_color`). No es fondo de nada
+    CHROME = "#262d3d"  # fila de la barra de menu: una banda propia, por encima de las secciones
+    BG = "#0d1117"  # lienzo de contenido: consola y lienzo izquierdo
+    PANEL = "#1c212b"  # cuerpo de las secciones de la columna derecha
+    SURFACE = "#232935"  # sub-barra, cabeceras de seccion, pie, barra de estado
+    SURFACE_HOVER = "#2b3240"
+    SURFACE_ALT = "#2f3745"  # campos de entrada, chips — la superficie mas clara
+    BORDER = "#3d4657"
+    BORDER_LIGHT = "#4e586a"
+    TEXT = "#f0f4f8"
+    TEXT_DIM = "#9aa4b2"
+    TEXT_LABEL = (
+        "#c6cfdb"  # rotulo de un campo: mas claro que TEXT_DIM, sin llegar al blanco de TEXT
+    )
+    TEXT_MUTED = "#6b7484"
+    ACCENT = "#58a6ff"
+    ACCENT_PURPLE = "#bc8cff"
+    SUCCESS = "#3fb950"
+    WARNING = "#d29922"
+    ERROR = "#f85149"
+    INACTIVE = "#4e586a"
+
 
 class Fonts:
-    FAMILY    = '"Inter", "Segoe UI", "Helvetica Neue", sans-serif'
-    MONO      = '"Cascadia Code", "Fira Code", "Consolas", monospace'
-    SIZE_XS   = 12
-    SIZE_SM   = 13
+    FAMILY = '"Inter", "Segoe UI", "Helvetica Neue", sans-serif'
+    MONO = '"Cascadia Code", "Fira Code", "Consolas", monospace'
+    SIZE_XS = 12
+    SIZE_SM = 13
     SIZE_BASE = 15
-    SIZE_LG   = 17
-    SIZE_XL   = 21
-    SIZE_XXL  = 30
+    SIZE_LG = 17
+    SIZE_XL = 21
+    SIZE_XXL = 30
     SIZE_MONO = 15
+
 
 class Spacing:
     XS = 4
@@ -42,26 +48,33 @@ class Spacing:
     XL = 24
     XXL = 32
 
+
 class Radius:
     SM = 4
     MD = 8
     LG = 12
     XL = 16
 
+
 def tint(hex_color: str, alpha: float) -> str:
     """rgba(...) a partir de un hex, para halos y fondos teñidos."""
     c = QColor(hex_color)
     return f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha:.2f})"
 
+
 def on_color(hex_color: str) -> str:
     """Texto legible sobre un fondo de ese color: oscuro sobre los claros y
-    claro sobre los oscuros (luminancia relativa, WCAG)."""
+    claro sobre los oscuros (luminancia relativa, WCAG).
+    """
     c = QColor(hex_color)
+
     def lin(v: int) -> float:
         v /= 255
         return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
+
     lum = 0.2126 * lin(c.red()) + 0.7152 * lin(c.green()) + 0.0722 * lin(c.blue())
     return Colors.INK if lum > 0.18 else Colors.TEXT
+
 
 def mono(font: QFont) -> QFont:
     """`font` con la familia de ancho fijo del tema (`Fonts.MONO`).
@@ -70,10 +83,11 @@ def mono(font: QFont) -> QFont:
     maquina que no tiene ninguna —un Linux sin Cascadia ni Consolas— Qt elige
     otra de ancho fijo en vez de caer en la proporcional por defecto.
     """
-    familias = [f.strip().strip('"') for f in Fonts.MONO.split(',')]
-    font.setFamilies([f for f in familias if f != 'monospace'])
+    familias = [f.strip().strip('"') for f in Fonts.MONO.split(",")]
+    font.setFamilies([f for f in familias if f != "monospace"])
     font.setStyleHint(QFont.StyleHint.Monospace)
     return font
+
 
 def apply_theme(app: QApplication) -> None:
     font = QFont()
@@ -96,6 +110,7 @@ def apply_theme(app: QApplication) -> None:
     palette.setColor(QPalette.ColorRole.Highlight, QColor(Colors.ACCENT))
     palette.setColor(QPalette.ColorRole.HighlightedText, QColor(Colors.BG))
     app.setPalette(palette)
+
 
 def global_stylesheet() -> str:
     return f"""

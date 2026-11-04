@@ -1,8 +1,10 @@
 from __future__ import annotations
+
 import json
 import time
+from collections.abc import Callable
 from pathlib import Path
-from typing import Any, Callable
+from typing import Any
 
 from app.core.errors import TaskError
 from app.core.host import HOST
@@ -33,7 +35,7 @@ def app_dir() -> Path:
 
 
 def _file(name: str) -> Path:
-    return app_dir() / 'cache' / f'{name}.json'
+    return app_dir() / "cache" / f"{name}.json"
 
 
 def read(name: str, *, max_age: float) -> Any | None:
@@ -46,21 +48,20 @@ def read(name: str, *, max_age: float) -> Any | None:
     try:
         if time.time() - path.stat().st_mtime > max_age:
             return None
-        return json.loads(path.read_text(encoding='utf-8'))['value']
+        return json.loads(path.read_text(encoding="utf-8"))["value"]
     except FileNotFoundError:
         return None
     except (OSError, ValueError, KeyError) as exc:
-        raise TaskError(f'No se puede leer la caché {path}: bórrala. ({exc})') from exc
+        raise TaskError(f"No se puede leer la caché {path}: bórrala. ({exc})") from exc
 
 
 def write(name: str, value: Any) -> None:
     path = _file(name)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
-        path.write_text(json.dumps({'saved': time.time(), 'value': value}),
-                        encoding='utf-8')
+        path.write_text(json.dumps({"saved": time.time(), "value": value}), encoding="utf-8")
     except OSError as exc:
-        raise TaskError(f'No se puede escribir la caché {path}: {exc}') from exc
+        raise TaskError(f"No se puede escribir la caché {path}: {exc}") from exc
 
 
 def forget(name: str) -> None:
@@ -68,8 +69,13 @@ def forget(name: str) -> None:
     _file(name).unlink(missing_ok=True)
 
 
-def cached(name: str, producer: Callable[[], Any], *,
-           max_age: float = 30 * 24 * 3600, refresh: bool = False) -> Any:
+def cached(
+    name: str,
+    producer: Callable[[], Any],
+    *,
+    max_age: float = 30 * 24 * 3600,
+    refresh: bool = False,
+) -> Any:
     """Lo cacheado, o el resultado de `producer` recien calculado y guardado.
 
     `max_age` por defecto es un mes: los catalogos del SDK crecen cuando sale

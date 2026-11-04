@@ -1,16 +1,18 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.core import canone, database as db, fields, ssh, vps
+from app.core import canone, fields, ssh, vps
+from app.core import database as db
 from app.core.context import Level
 from app.core.errors import TaskError
 from app.core.toolchain import venv_python
 
 # Development credentials of a canone repo (ADR-0069). The owner's folder lives inside
 # the other one, which the canone .gitignore already covers (ADR-0070).
-CREDENTIALS = 'credentials'
-MIGRATE_CREDENTIALS = 'credentials/migrate'
+CREDENTIALS = "credentials"
+MIGRATE_CREDENTIALS = "credentials/migrate"
 
 """
 Donde corre el codigo del proyecto: aca o en el VPS.
@@ -36,9 +38,9 @@ asi, sin subir un archivo primero.
 
 def server_root(ctx) -> Path:
     """La carpeta del servidor dentro del repo abierto."""
-    root = ctx.root / ctx.config.get('SERVER_DIR', 'server')
+    root = ctx.root / ctx.config.get("SERVER_DIR", "server")
     if not root.is_dir():
-        raise TaskError(f'No existe la carpeta del servidor: {root}')
+        raise TaskError(f"No existe la carpeta del servidor: {root}")
     return root
 
 
@@ -50,13 +52,14 @@ class Runner:
     como superusuario —local por `psql`, remoto por SSH—; `Runner` corre
     programas Python con las dependencias del servidor, del mismo lado.
     """
+
     python: str
     cwd: str
     database_url: str
     remote: ssh.Remote | None = None
     # La carpeta de credenciales, en un repo de canone: su `Settings` lee solo
     # de ahi, y `database_url` no le llega.
-    credentials: str = ''
+    credentials: str = ""
 
     @property
     def is_remote(self) -> bool:
@@ -72,14 +75,19 @@ class Runner:
         la contrasena esta enmascarada en el log por `ctx.guard`.
         """
         if self.remote is None:
-            entorno = ({'CREDENTIALS_DIRECTORY': self.credentials} if self.credentials
-                       else {'DATABASE_URL': self.database_url})
+            entorno = (
+                {"CREDENTIALS_DIRECTORY": self.credentials}
+                if self.credentials
+                else {"DATABASE_URL": self.database_url}
+            )
             return ctx.run([self.python, *args], cwd=self.cwd, env=entorno, echo=echo)
-        comando = ' '.join(ssh.quote(a) for a in (self.python, *args))
-        return ssh.run(ctx, self.remote,
-                       f'cd {ssh.quote(self.cwd)} && '
-                       f'DATABASE_URL={ssh.quote(self.database_url)} {comando}',
-                       echo=echo)
+        comando = " ".join(ssh.quote(a) for a in (self.python, *args))
+        return ssh.run(
+            ctx,
+            self.remote,
+            f"cd {ssh.quote(self.cwd)} && DATABASE_URL={ssh.quote(self.database_url)} {comando}",
+            echo=echo,
+        )
 
     def log_command(self, ctx, resumen: str) -> None:
         """Anuncia en el log un comando cuyo argv real no se puede leer.
@@ -88,8 +96,8 @@ class Runner:
         consola con cincuenta lineas de codigo que no dicen nada. Quien lo use
         pasa `echo=False` a `run`.
         """
-        donde = f'{self.remote.target}:' if self.remote else ''
-        ctx.log(f'{donde}{self.python} {resumen}', Level.CMD)
+        donde = f"{self.remote.target}:" if self.remote else ""
+        ctx.log(f"{donde}{self.python} {resumen}", Level.CMD)
 
 
 def resolve(ctx, scope: str = db.LOCAL) -> Runner:
@@ -100,7 +108,7 @@ def resolve(ctx, scope: str = db.LOCAL) -> Runner:
     los dos lados y conviene que corra donde esta la base.
     """
     if scope not in db.SCOPES:
-        raise TaskError(f'Ambito invalido: {scope!r}. Usa {" | ".join(db.SCOPES)}.')
+        raise TaskError(f"Ambito invalido: {scope!r}. Usa {' | '.join(db.SCOPES)}.")
 
     if scope == db.LOCAL:
         return local(ctx)
@@ -109,11 +117,12 @@ def resolve(ctx, scope: str = db.LOCAL) -> Runner:
     interprete = vps.remote_python(ctx.config)
     if not ssh.path_exists(remote, interprete):
         raise TaskError(
-            f'No existe el Python del venv en el VPS: {interprete}. Lo dejaba el '
-            'despliegue propio de Consola, que ya no existe (ADR-0059).')
+            f"No existe el Python del venv en el VPS: {interprete}. Lo dejaba el "
+            "despliegue propio de Consola, que ya no existe (ADR-0059)."
+        )
 
-    destino = vps.remote_path(ctx.config, ctx.config.get('SERVER_DIR', 'server'))
-    ctx.info(f'Se ejecuta en el VPS: {remote.target}:{destino}')
+    destino = vps.remote_path(ctx.config, ctx.config.get("SERVER_DIR", "server"))
+    ctx.info(f"Se ejecuta en el VPS: {remote.target}:{destino}")
     return Runner(interprete, destino, db.vps_url(ctx, remote), remote)
 
 
@@ -126,16 +135,17 @@ def write_credentials(ctx, server: Path, folder: str, archivos: dict[str, str]) 
     """
     carpeta = server / folder
     try:
-        ctx.capture(['git', 'check-ignore', '-q', f'{carpeta}/'], cwd=server)
+        ctx.capture(["git", "check-ignore", "-q", f"{carpeta}/"], cwd=server)
     except TaskError as exc:
-        raise TaskError(f'git no ignora {carpeta}: agrégala a .gitignore antes de escribir '
-                        'credenciales ahí.') from exc
+        raise TaskError(
+            f"git no ignora {carpeta}: agrégala a .gitignore antes de escribir credenciales ahí."
+        ) from exc
     carpeta.mkdir(parents=True, exist_ok=True)
-    for viejo in carpeta.glob('app_*'):
+    for viejo in carpeta.glob("app_*"):
         if viejo.name not in archivos:
             viejo.unlink()
     for nombre, valor in archivos.items():
-        (carpeta / nombre).write_text(valor, encoding='utf-8')
+        (carpeta / nombre).write_text(valor, encoding="utf-8")
     return carpeta
 
 
@@ -148,10 +158,11 @@ def local(ctx) -> Runner:
     raiz = server_root(ctx)
     if not fields.settings_fields(raiz):
         return here(ctx, db.connect(ctx, db.LOCAL))
-    carpeta = write_credentials(ctx, raiz, MIGRATE_CREDENTIALS,
-                                canone.credential_files(raiz, ctx.config, owner=True))
-    ctx.info(f'Base de datos LOCAL, como el dueño del esquema: {carpeta}')
-    return Runner(str(venv_python(raiz / '.venv')), str(raiz), '', credentials=str(carpeta))
+    carpeta = write_credentials(
+        ctx, raiz, MIGRATE_CREDENTIALS, canone.credential_files(raiz, ctx.config, owner=True)
+    )
+    ctx.info(f"Base de datos LOCAL, como el dueño del esquema: {carpeta}")
+    return Runner(str(venv_python(raiz / ".venv")), str(raiz), "", credentials=str(carpeta))
 
 
 def here(ctx, conn: db.Connection) -> Runner:
@@ -164,4 +175,4 @@ def here(ctx, conn: db.Connection) -> Runner:
     es el que se commitea.
     """
     raiz = server_root(ctx)
-    return Runner(str(venv_python(raiz / '.venv')), str(raiz), conn.url)
+    return Runner(str(venv_python(raiz / ".venv")), str(raiz), conn.url)

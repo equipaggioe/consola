@@ -1,10 +1,9 @@
 from __future__ import annotations
 
+from app.core import envfile, targets
 from app.core.catalog import applicable_ids, for_project
 from app.core.registry import registry
-from app.core import targets
 from app.core.settings import required_keys_for
-from app.core import envfile
 from app.ui import params_store
 
 
@@ -43,7 +42,7 @@ def missing_keys(capability, env: dict[str, str], repo_path: str) -> list[str]:
 
 def _chosen(axis, state: dict) -> list[str]:
     """Los valores del eje que correrian: los guardados o, sin nada, los de por defecto."""
-    saved = (state.get('variants' if axis.is_multi else 'options') or {}).get(axis.name)
+    saved = (state.get("variants" if axis.is_multi else "options") or {}).get(axis.name)
     if saved is not None:
         return list(saved) if isinstance(saved, list) else [saved]
     if axis.is_multi:
@@ -71,6 +70,7 @@ def ready_ids(project) -> set[str]:
     with targets.one_scan():
         aplicables = applicable_ids(path)
         return {
-            cap.id for cap in registry.get_all()
+            cap.id
+            for cap in registry.get_all()
             if cap.id in aplicables and not missing_keys(cap, env, path)
         }

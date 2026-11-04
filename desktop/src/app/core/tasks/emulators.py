@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import shlex
 
 from app.core import android, cache, files, session
@@ -33,28 +34,29 @@ pestana lanzo, y los huerfanos se apagan desde la cabecera de estado del panel.
 # adivinar contra cual correr. Es estado de sesion como `SERVER_PORT`
 # (ADR-0009), pero de la maquina y no de un repo: el emulador no es de
 # nadie en particular.
-EMULATOR_SERIAL = 'EMULATOR_SERIAL'
+EMULATOR_SERIAL = "EMULATOR_SERIAL"
 
 
 # --- instalacion -----------------------------------------------------------
 
-def install_system_image(ctx, image: str = '') -> str:
+
+def install_system_image(ctx, image: str = "") -> str:
     """Descarga una maquina virtual del catalogo del SDK si falta.
 
     Es la parte lenta de todo el grupo — varios GB — y por eso tiene boton
     propio: se hace una vez y despues sirve para todos los AVD que la usen.
     """
     if not image:
-        raise TaskError('Elige que maquina virtual instalar.')
+        raise TaskError("Elige que maquina virtual instalar.")
     sdk = android.resolve_sdk()
     spec = android.parse_image(image)
-    ctx.info(f'Maquina: {spec.label}')
+    ctx.info(f"Maquina: {spec.label}")
     android.ensure_image(ctx, sdk, image)
-    cache.forget('android-installed')
+    cache.forget("android-installed")
     return image
 
 
-def create_avd(ctx, device: str = '', image: str = '') -> str:
+def create_avd(ctx, device: str = "", image: str = "") -> str:
     """Crea el dispositivo virtual con el modelo y la maquina elegidos.
 
     El nombre se pregunta al correr y no llega como parametro: dos AVD no se
@@ -66,26 +68,35 @@ def create_avd(ctx, device: str = '', image: str = '') -> str:
     a quedar antes de que exista, que es cuando importa.
     """
     if not device:
-        raise TaskError('Elige un dispositivo del catalogo.')
+        raise TaskError("Elige un dispositivo del catalogo.")
     if not image:
-        raise TaskError('Elige una maquina virtual instalada. Si no hay ninguna, '
-                        'instalala primero con "Instalar maquina".')
+        raise TaskError(
+            "Elige una maquina virtual instalada. Si no hay ninguna, "
+            'instalala primero con "Instalar maquina".'
+        )
 
     derivado = android.suggest_avd_name(device, image)
-    name = ctx.ask(f'Nombre del AVD (vacío = {derivado})')
+    name = ctx.ask(f"Nombre del AVD (vacío = {derivado})")
 
     sdk = android.resolve_sdk()
     spec = android.AvdSpec(name.strip() or derivado, device, image)
     creado = android.ensure_avd(ctx, sdk, spec)
-    cache.forget('android-avds')
-    ctx.ok(f'AVD listo: {creado}')
+    cache.forget("android-avds")
+    ctx.ok(f"AVD listo: {creado}")
     return creado
 
 
 # --- uso -------------------------------------------------------------------
 
-def launch_emulator(ctx, avd: str = '', wipe: bool = False, boot_flags: list[str] | None = None,
-                    gpu: str = 'host', flags: str = '') -> str:
+
+def launch_emulator(
+    ctx,
+    avd: str = "",
+    wipe: bool = False,
+    boot_flags: list[str] | None = None,
+    gpu: str = "host",
+    flags: str = "",
+) -> str:
     """Arranca un AVD ya creado y sigue su salida hasta que se cierra.
 
     Tres cosas que el script original no hacia:
@@ -118,45 +129,55 @@ def launch_emulator(ctx, avd: str = '', wipe: bool = False, boot_flags: list[str
     vivos = android.running(sdk)
     duplicado = avd in vivos.values()
     if duplicado:
-        ctx.info(f'"{avd}" ya esta corriendo: esta copia arranca en solo lectura '
-                 '(no guarda cambios en el disco del AVD).')
+        ctx.info(
+            f'"{avd}" ya esta corriendo: esta copia arranca en solo lectura '
+            "(no guarda cambios en el disco del AVD)."
+        )
 
     # `-gpu` siempre va, porque el eje no ofrece "que decida el emulador": las
     # dos opciones del panel son las dos que se eligen a mano.
-    elegidos = [*(boot_flags or []), '-gpu',
-                'swiftshader_indirect' if gpu == 'software' else 'host']
+    elegidos = [
+        *(boot_flags or []),
+        "-gpu",
+        "swiftshader_indirect" if gpu == "software" else "host",
+    ]
 
     puerto = android.free_port(sdk)
-    serial = f'emulator-{puerto}'
-    ctx.info(f'Arrancando {avd} como {serial}.')
+    serial = f"emulator-{puerto}"
+    ctx.info(f"Arrancando {avd} como {serial}.")
 
     session.publish(session.MACHINE, EMULATOR_SERIAL, serial)
     ctx.on_cancel(lambda: android.stop_quiet(sdk, serial))
     try:
-        android.start(ctx, sdk, avd, port=puerto,
-                      flags=[*android.DEFAULT_FLAGS, *elegidos, *shlex.split(flags)],
-                      read_only=duplicado, wipe=wipe)
+        android.start(
+            ctx,
+            sdk,
+            avd,
+            port=puerto,
+            flags=[*android.DEFAULT_FLAGS, *elegidos, *shlex.split(flags)],
+            read_only=duplicado,
+            wipe=wipe,
+        )
     finally:
         if session.read(session.MACHINE, EMULATOR_SERIAL) == serial:
             session.forget(session.MACHINE, EMULATOR_SERIAL)
-        ctx.info(f'{serial} se cerro.')
+        ctx.info(f"{serial} se cerro.")
     return serial
 
 
-def await_emulator(ctx, timeout: float = 180.0, serial: str = '') -> str:
+def await_emulator(ctx, timeout: float = 180.0, serial: str = "") -> str:
     """Espera a que un emulador termine de bootear y devuelve su serial.
 
     No es un boton: nadie pide "espera el boot" suelto. La usan los launchers de
     app movil antes de instalar el APK, porque `flutter run` contra un
     dispositivo que todavia no acepta comandos falla sin explicar por que.
     """
-    encontrado = android.wait_for_boot(ctx, android.resolve_sdk(),
-                                       timeout=timeout, serial=serial)
-    ctx.ok(f'Emulador listo: {encontrado}')
+    encontrado = android.wait_for_boot(ctx, android.resolve_sdk(), timeout=timeout, serial=serial)
+    ctx.ok(f"Emulador listo: {encontrado}")
     return encontrado
 
 
-def stop_emulator(ctx, serial: str = '') -> None:
+def stop_emulator(ctx, serial: str = "") -> None:
     """Apaga uno o todos los emuladores vivos.
 
     Se corre desde el ✕ de la cabecera de estado del panel (los huerfanos: un
@@ -166,7 +187,7 @@ def stop_emulator(ctx, serial: str = '') -> None:
     sdk = android.resolve_sdk()
     objetivos = [serial] if serial else android.list_devices(sdk)
     if not objetivos:
-        ctx.info('No hay ningun emulador corriendo.')
+        ctx.info("No hay ningun emulador corriendo.")
         return
     for uno in objetivos:
         android.stop(ctx, sdk, uno)
@@ -174,8 +195,10 @@ def stop_emulator(ctx, serial: str = '') -> None:
 
 # --- limpieza --------------------------------------------------------------
 
-def purge_emulators(ctx, avds: list[str] | None = None, images: list[str] | None = None,
-                    apply: bool = False) -> dict[str, list[str]]:
+
+def purge_emulators(
+    ctx, avds: list[str] | None = None, images: list[str] | None = None, apply: bool = False
+) -> dict[str, list[str]]:
     """Borra los AVD y las maquinas virtuales marcados, con simulacro primero.
 
     `purge_avds.py` y `purge_system_images.py` borraban *todo* y sin preguntar,
@@ -187,56 +210,57 @@ def purge_emulators(ctx, avds: list[str] | None = None, images: list[str] | None
     avds = list(avds or [])
     images = list(images or [])
     if not avds and not images:
-        ctx.info('No hay nada marcado para borrar.')
-        return {'avds': [], 'images': []}
+        ctx.info("No hay nada marcado para borrar.")
+        return {"avds": [], "images": []}
 
     if avds:
-        ctx.warn(f'AVD a borrar ({len(avds)}):')
+        ctx.warn(f"AVD a borrar ({len(avds)}):")
         for nombre in avds:
-            ruta = android.avd_home() / f'{nombre}.avd'
-            peso = files.human_size(files.size_of(ruta)) if ruta.exists() else '?'
-            ctx.info(f'  {nombre}  ({peso})')
+            ruta = android.avd_home() / f"{nombre}.avd"
+            peso = files.human_size(files.size_of(ruta)) if ruta.exists() else "?"
+            ctx.info(f"  {nombre}  ({peso})")
     if images:
-        ctx.warn(f'Maquinas virtuales a desinstalar ({len(images)}):')
+        ctx.warn(f"Maquinas virtuales a desinstalar ({len(images)}):")
         for paquete in images:
-            ctx.info(f'  {android.parse_image(paquete).label}')
+            ctx.info(f"  {android.parse_image(paquete).label}")
 
     if not apply:
         ctx.info('Simulacro: no se borro nada. Marca "borrar" para confirmar.')
-        return {'avds': avds, 'images': images}
+        return {"avds": avds, "images": images}
 
     total = len(avds) + len(images)
-    if not ctx.confirm(f'Escribe BORRAR para eliminar {total} elemento(s).',
-                       danger=True, expect='BORRAR'):
-        ctx.warn('Cancelado: no se borro nada.')
-        return {'avds': [], 'images': []}
+    if not ctx.confirm(
+        f"Escribe BORRAR para eliminar {total} elemento(s).", danger=True, expect="BORRAR"
+    ):
+        ctx.warn("Cancelado: no se borro nada.")
+        return {"avds": [], "images": []}
 
     for nombre in avds:
         android.remove_avd(ctx, sdk, nombre)
-        ctx.ok(f'AVD eliminado: {nombre}')
+        ctx.ok(f"AVD eliminado: {nombre}")
     for paquete in images:
         android.remove_image(ctx, sdk, paquete)
-        ctx.ok(f'Maquina desinstalada: {paquete}')
+        ctx.ok(f"Maquina desinstalada: {paquete}")
 
-    cache.forget('android-avds')
-    cache.forget('android-installed')
-    ctx.note(f'Limpieza de emuladores: {len(avds)} AVD, {len(images)} maquina(s).')
-    return {'avds': avds, 'images': images}
+    cache.forget("android-avds")
+    cache.forget("android-installed")
+    ctx.note(f"Limpieza de emuladores: {len(avds)} AVD, {len(images)} maquina(s).")
+    return {"avds": avds, "images": images}
 
 
 def inventory(ctx=None) -> dict[str, list[str]]:
     """Lo que hay en la maquina ahora mismo. No corre nada, solo mira."""
     sdk = android.resolve_sdk()
     return {
-        'avds': android.list_avds(sdk),
-        'imagenes': android.list_images(sdk),
-        'corriendo': android.list_devices(sdk),
+        "avds": android.list_avds(sdk),
+        "imagenes": android.list_images(sdk),
+        "corriendo": android.list_devices(sdk),
     }
 
 
 def bind_all() -> None:
-    registry.bind('install_system_image', install_system_image)
-    registry.bind('create_avd', create_avd)
-    registry.bind('launch_emulator', launch_emulator)
-    registry.bind('stop_emulator', stop_emulator)
-    registry.bind('purge_emulators', purge_emulators)
+    registry.bind("install_system_image", install_system_image)
+    registry.bind("create_avd", create_avd)
+    registry.bind("launch_emulator", launch_emulator)
+    registry.bind("stop_emulator", stop_emulator)
+    registry.bind("purge_emulators", purge_emulators)

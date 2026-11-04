@@ -13,9 +13,10 @@ Windows alcanza con `GlobalMemoryStatusEx`, en Linux/Mac con `/proc/meminfo`
 
 def available_ram() -> tuple[float, float] | None:
     """RAM disponible y total, en GB. `None` si no se pudo consultar (Mac sin
-    `/proc/meminfo`, por ejemplo: no vale la pena otra rama por tan poco)."""
+    `/proc/meminfo`, por ejemplo: no vale la pena otra rama por tan poco).
+    """
     par = HOST.memory()
     if not par or not par[0] or not par[1]:
         return None
     disponible, total = par
-    return disponible / (1024 ** 3), total / (1024 ** 3)
+    return disponible / (1024**3), total / (1024**3)

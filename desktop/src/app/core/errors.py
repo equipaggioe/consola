@@ -22,5 +22,5 @@ class MissingConfig(TaskError):
 
     def __init__(self, keys: list[str]) -> None:
         self.keys = list(keys)
-        faltan = ', '.join(self.keys)
+        faltan = ", ".join(self.keys)
         super().__init__(f"Falta configurar: {faltan}")

@@ -1,15 +1,23 @@
 from __future__ import annotations
+
 import os
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QFileDialog, QMenu, QSizePolicy, QPushButton
-from PySide6.QtCore import Qt, Signal, QRectF, QPointF
-from PySide6.QtGui import (
-    QPainter, QColor, QPainterPath, QFont, QAction, QPen
+
+from PySide6.QtCore import QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QAction, QColor, QFont, QPainter, QPainterPath, QPen
+from PySide6.QtWidgets import (
+    QFileDialog,
+    QHBoxLayout,
+    QLabel,
+    QMenu,
+    QPushButton,
+    QSizePolicy,
+    QWidget,
 )
 
-from app.theme import Colors, Fonts, tint
-from app.ui.widgets import ReorderableTab, ReorderableBar
-from app.ui import project_store, palettes, params_store, repo_logo
 from app.core.projects import Project
+from app.theme import Colors, Fonts, tint
+from app.ui import palettes, params_store, project_store, repo_logo
+from app.ui.widgets import ReorderableBar, ReorderableTab
 
 
 class ProjectTab(ReorderableTab, QWidget):
@@ -22,6 +30,7 @@ class ProjectTab(ReorderableTab, QWidget):
     activa, que es lo que una pestana de atras tiene que hacer, y aun asi
     cada una dice de que color es.
     """
+
     clicked = Signal()
     close_requested = Signal()
     theme_changed = Signal()
@@ -81,7 +90,8 @@ class ProjectTab(ReorderableTab, QWidget):
 
     def set_active_palette(self, pal) -> None:
         """La paleta del repo activo: el fondo de esta pestana cuando no lo
-        es. La pone la barra al seleccionar o al recolorear (`ProjectTabBar`)."""
+        es. La pone la barra al seleccionar o al recolorear (`ProjectTabBar`).
+        """
         self.active_pal = pal
         self._sync_text()
         self.update()
@@ -204,7 +214,8 @@ class ProjectTab(ReorderableTab, QWidget):
     def paintEvent(self, event):
         """La seleccionada: `chrome`, la banda de la fila de abajo. Las demas:
         el acento del repo activo —el color de la barra donde se apoyan— y el
-        contorno del «+», que es lo unico que las recorta; el hover lo sube."""
+        contorno del «+», que es lo unico que las recorta; el hover lo sube.
+        """
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(1.5, 5.0, -1.5, -5.0)
@@ -236,6 +247,7 @@ class AddProjectTab(QWidget):
     el mismo de una pestana no seleccionada: es una pestana mas, la que
     todavia no tiene repo.
     """
+
     clicked = Signal()
 
     def __init__(self, parent=None):
@@ -295,10 +307,11 @@ class AddProjectTab(QWidget):
 
 class ProjectTabBar(ReorderableBar, QWidget):
     """Nivel superior de pestanas: un repositorio por pestana + boton '+'."""
-    project_selected = Signal(object)   # Project
-    project_added = Signal(object)      # Project
-    project_removed = Signal(object)    # Project
-    project_retinted = Signal(object)   # Project: eligio otro color
+
+    project_selected = Signal(object)  # Project
+    project_added = Signal(object)  # Project
+    project_removed = Signal(object)  # Project
+    project_retinted = Signal(object)  # Project: eligio otro color
 
     def __init__(self, parent=None):
         super().__init__(parent)
@@ -331,7 +344,8 @@ class ProjectTabBar(ReorderableBar, QWidget):
     def _persist(self) -> None:
         """Guarda la lista entera de repos (ruta y nombre) en el
         orden actual: anadir, quitar y reordenar sobreviven al reinicio
-        (`ui/project_store.py`)."""
+        (`ui/project_store.py`).
+        """
         if self._loading:
             return
         project_store.save([t.project for t in self.tabs])
@@ -355,8 +369,7 @@ class ProjectTabBar(ReorderableBar, QWidget):
     def find_tab(self, path: str) -> ProjectTab | None:
         """La pestana de esa carpeta, sin importar como este escrita la ruta."""
         key = project_store.identity(path)
-        return next((t for t in self.tabs
-                     if project_store.identity(t.project.path) == key), None)
+        return next((t for t in self.tabs if project_store.identity(t.project.path) == key), None)
 
     def add_project(self, project: Project, select: bool = False) -> ProjectTab:
         # Una carpeta, una pestana: dos pestanas del mismo repo serian dos
@@ -470,4 +483,3 @@ class ProjectTabBar(ReorderableBar, QWidget):
         project = Project(name, limpia, theme)
         self.add_project(project, select=True)
         self.project_added.emit(project)
-

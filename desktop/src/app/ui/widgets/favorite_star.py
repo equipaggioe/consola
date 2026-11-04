@@ -1,6 +1,7 @@
 from __future__ import annotations
-from PySide6.QtWidgets import QPushButton
+
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QPushButton
 
 from app.theme import Colors, Fonts, tint
 
@@ -12,10 +13,11 @@ class FavoriteStar(QPushButton):
     fila. Esta estrella hace lo mismo desde la cabecera de los parametros: la
     accion abierta se marca sin volver a buscarla.
     """
+
     marked = Signal(bool)
 
-    FULL = '★'
-    EMPTY = '☆'
+    FULL = "★"
+    EMPTY = "☆"
 
     def __init__(self, accent: str = Colors.ACCENT, parent=None):
         super().__init__(parent)
@@ -46,8 +48,7 @@ class FavoriteStar(QPushButton):
     def _restyle(self) -> None:
         self.setText(self.FULL if self._favorite else self.EMPTY)
         color = self.accent if self._favorite else Colors.TEXT_MUTED
-        self.setToolTip("Quitar de favoritas" if self._favorite
-                        else "Marcar como favorita")
+        self.setToolTip("Quitar de favoritas" if self._favorite else "Marcar como favorita")
         self.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: none; border-radius: 5px;

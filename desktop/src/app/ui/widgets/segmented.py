@@ -1,6 +1,7 @@
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QPushButton
+
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QHBoxLayout, QPushButton, QWidget
 
 from app.theme import Colors, Fonts
 
@@ -11,17 +12,26 @@ class Segmented(QWidget):
     Pedir dos valores a la vez seria un absurdo (start + stop), asi que el
     control impide expresarlo — a diferencia de las casillas.
     """
+
     value_changed = Signal(str)
 
-    def __init__(self, values: list[str], current: str = '', accent: str = Colors.ACCENT,
-                 danger: set[str] | None = None, parent=None):
+    def __init__(
+        self,
+        values: list[str],
+        current: str = "",
+        accent: str = Colors.ACCENT,
+        danger: set[str] | None = None,
+        parent=None,
+    ):
         super().__init__(parent)
         self.accent = accent
         self.danger = danger or set()
-        self._value = current or (values[0] if values else '')
+        self._value = current or (values[0] if values else "")
         self._buttons: dict[str, QPushButton] = {}
 
-        self.setStyleSheet(f"Segmented {{ background: {Colors.SURFACE_ALT}; border-radius: 6px; }}")
+        self.setStyleSheet(
+            f"Segmented {{ background: {Colors.SURFACE_ALT}; border-radius: 6px; }}"
+        )
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(3, 3, 3, 3)
@@ -60,7 +70,7 @@ class Segmented(QWidget):
                 bg = Colors.ERROR if value in self.danger else self.accent
                 fg = Colors.BG
             else:
-                bg = 'transparent'
+                bg = "transparent"
                 fg = Colors.ERROR if value in self.danger else Colors.TEXT_DIM
             btn.setStyleSheet(f"""
                 QPushButton {{
@@ -70,7 +80,7 @@ class Segmented(QWidget):
                     border-radius: 4px;
                     padding: 5px 12px;
                     font-size: {Fonts.SIZE_SM}px;
-                    font-weight: {'600' if active else '400'};
+                    font-weight: {"600" if active else "400"};
                 }}
                 QPushButton:hover {{
                     background: {bg if active else Colors.SURFACE_HOVER};

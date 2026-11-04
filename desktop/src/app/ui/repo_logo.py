@@ -1,15 +1,16 @@
 from __future__ import annotations
+
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtWidgets import QWidget
-from PySide6.QtCore import Qt, QRect, QRectF, QSize
-from PySide6.QtGui import QPainter, QColor, QFont, QIcon, QImage
+from PySide6.QtCore import QRect, QRectF, QSize, Qt
+from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
+from PySide6.QtWidgets import QWidget
 
-from app.theme import Colors
 from app.core import envfile, icons
 from app.core.errors import TaskError
+from app.theme import Colors
 
 """
 El logo de un repo en la UI: la pestana, la cabecera de la columna derecha, la
@@ -21,7 +22,7 @@ declara un logo que no se puede leer muestra el error, no la marca: la marca
 diria que falta un logo cuando lo que hay es una ruta rota.
 """
 
-EQUIPAGGIO = Path(__file__).with_name('assets') / 'equipaggio.png'
+EQUIPAGGIO = Path(__file__).with_name("assets") / "equipaggio.png"
 
 # Lado al que se rasteriza el logo antes de recortarlo: el de la bienvenida,
 # 64 px, a 200 % y con margen.
@@ -34,21 +35,22 @@ _VISIBLE_ALPHA = 8
 @dataclass(frozen=True)
 class RepoLogo:
     """Lo que se pinta: la imagen, o el error que impide pintarla."""
+
     source: Path | None
-    error: str = ''
+    error: str = ""
 
 
 def resolve(repo_path: str) -> RepoLogo:
     """El logo del repo segun su `config.env` de ahora."""
-    value = envfile.load_config(repo_path).get('BRAND_ICON', '')
+    value = envfile.load_config(repo_path).get("BRAND_ICON", "")
     if not value:
         return RepoLogo(EQUIPAGGIO)
     try:
-        svg = icons.brand_file(Path(repo_path), value, 'BRAND_ICON')
+        svg = icons.brand_file(Path(repo_path), value, "BRAND_ICON")
     except TaskError as e:
         return RepoLogo(None, str(e))
     if not QSvgRenderer(str(svg)).isValid():
-        return RepoLogo(None, f'Qt no pudo leer {svg.name} como SVG.')
+        return RepoLogo(None, f"Qt no pudo leer {svg.name} como SVG.")
     return RepoLogo(svg)
 
 
@@ -67,13 +69,15 @@ def trimmed(source: Path) -> QImage:
     pintor.end()
     # ARGB32 va en memoria como BGRA: el alfa es el cuarto byte de cada pixel.
     alfa = bytes(imagen.constBits())[3::4]
-    filas = [y for y in range(_RASTER)
-             if max(alfa[y * _RASTER:(y + 1) * _RASTER]) > _VISIBLE_ALPHA]
+    filas = [
+        y for y in range(_RASTER) if max(alfa[y * _RASTER : (y + 1) * _RASTER]) > _VISIBLE_ALPHA
+    ]
     columnas = [x for x in range(_RASTER) if max(alfa[x::_RASTER]) > _VISIBLE_ALPHA]
     if not filas:
         return imagen
-    return imagen.copy(QRect(columnas[0], filas[0],
-                             columnas[-1] - columnas[0] + 1, filas[-1] - filas[0] + 1))
+    return imagen.copy(
+        QRect(columnas[0], filas[0], columnas[-1] - columnas[0] + 1, filas[-1] - filas[0] + 1)
+    )
 
 
 class RepoLogoView(QWidget):
@@ -105,8 +109,10 @@ class RepoLogoView(QWidget):
                 # `scaled` promedia los pixeles de origen; dibujar la imagen
                 # grande en un rectangulo chico solo muestrea, y dentaba.
                 self._scaled = self._image.scaled(
-                    QSize(lado, lado), Qt.AspectRatioMode.KeepAspectRatio,
-                    Qt.TransformationMode.SmoothTransformation)
+                    QSize(lado, lado),
+                    Qt.AspectRatioMode.KeepAspectRatio,
+                    Qt.TransformationMode.SmoothTransformation,
+                )
                 self._scaled.setDevicePixelRatio(dpr)
             caja = QRectF(0, 0, self._scaled.width() / dpr, self._scaled.height() / dpr)
             caja.moveCenter(QRectF(self.rect()).center())
@@ -116,4 +122,4 @@ class RepoLogoView(QWidget):
         f.setPixelSize(round(self.height() * 0.8))
         p.setFont(f)
         p.setPen(QColor(Colors.ERROR))
-        p.drawText(QRectF(self.rect()), Qt.AlignmentFlag.AlignCenter, '⚠')
+        p.drawText(QRectF(self.rect()), Qt.AlignmentFlag.AlignCenter, "⚠")

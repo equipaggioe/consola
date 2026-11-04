@@ -1,11 +1,12 @@
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QPushButton
-from PySide6.QtCore import Qt, Signal, QPoint, QPointF, QRectF
-from PySide6.QtGui import QPainter, QColor, QPen, QPolygonF
 
-from app.theme import Colors, Fonts, tint, on_color
-from app.ui.project_tabs import ProjectTab
+from PySide6.QtCore import QPoint, QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QPainter, QPen, QPolygonF
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+
+from app.theme import Colors, Fonts, on_color, tint
 from app.ui.palettes import NEUTRAL, Palette
+from app.ui.project_tabs import ProjectTab
 
 
 class Diamond(QWidget):
@@ -38,8 +39,14 @@ class Diamond(QWidget):
         p.setBrush(Qt.BrushStyle.NoBrush)
         c = QRectF(self.rect()).center()
         h = self.SIZE / 2 - self.STROKE / 2
-        rombo = QPolygonF([QPointF(c.x(), c.y() - h), QPointF(c.x() + h, c.y()),
-                           QPointF(c.x(), c.y() + h), QPointF(c.x() - h, c.y())])
+        rombo = QPolygonF(
+            [
+                QPointF(c.x(), c.y() - h),
+                QPointF(c.x() + h, c.y()),
+                QPointF(c.x(), c.y() + h),
+                QPointF(c.x() - h, c.y()),
+            ]
+        )
         p.drawPolygon(rombo)
         p.end()
 
@@ -96,11 +103,11 @@ class WindowButton(QPushButton):
 
     WIDTH = 46
     STROKE = 1.6
-    GLYPH = 11          # lado del cuadrado / de la equis, en pixeles
+    GLYPH = 11  # lado del cuadrado / de la equis, en pixeles
 
     def __init__(self, kind: str, parent=None):
         super().__init__(parent)
-        self.kind = kind                    # 'min' | 'max' | 'close'
+        self.kind = kind  # 'min' | 'max' | 'close'
         self.maximized = False
         self.setFixedWidth(self.WIDTH)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -117,12 +124,13 @@ class WindowButton(QPushButton):
         ES el aviso.
         """
         self._fg = color
-        hover = Colors.ERROR if self.kind == 'close' else tint(color, 0.16)
+        hover = Colors.ERROR if self.kind == "close" else tint(color, 0.16)
         self.setStyleSheet(f"""
             QPushButton {{ background: transparent; border: none; padding: 0; }}
             QPushButton:hover {{ background: {hover}; }}
-            QPushButton:pressed {{ background: {tint(
-                Colors.ERROR if self.kind == 'close' else color, 0.32)}; }}
+            QPushButton:pressed {{ background: {
+            tint(Colors.ERROR if self.kind == "close" else color, 0.32)
+        }; }}
         """)
         self.update()
 
@@ -131,11 +139,10 @@ class WindowButton(QPushButton):
         self.update()
 
     def paintEvent(self, event):
-        super().paintEvent(event)           # el fondo del hover lo pone la hoja
+        super().paintEvent(event)  # el fondo del hover lo pone la hoja
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color = QColor(Colors.TEXT if (self.kind == 'close' and self.underMouse())
-                       else self._fg)
+        color = QColor(Colors.TEXT if (self.kind == "close" and self.underMouse()) else self._fg)
         pen = QPen(color)
         pen.setWidthF(self.STROKE)
         pen.setCapStyle(Qt.PenCapStyle.FlatCap)
@@ -144,19 +151,17 @@ class WindowButton(QPushButton):
 
         c = QRectF(self.rect()).center()
         h = self.GLYPH / 2
-        if self.kind == 'min':
+        if self.kind == "min":
             p.drawLine(QPointF(c.x() - h, c.y()), QPointF(c.x() + h, c.y()))
-        elif self.kind == 'max':
+        elif self.kind == "max":
             if self.maximized:
                 # Restaurar: la hoja de atras asomando por arriba y a la derecha.
-                p.drawRect(QRectF(c.x() - h, c.y() - h + 2.5, self.GLYPH - 2.5,
-                                  self.GLYPH - 2.5))
-                p.drawLine(QPointF(c.x() - h + 2.5, c.y() - h + 2.5),
-                           QPointF(c.x() - h + 2.5, c.y() - h))
-                p.drawLine(QPointF(c.x() - h + 2.5, c.y() - h),
-                           QPointF(c.x() + h, c.y() - h))
-                p.drawLine(QPointF(c.x() + h, c.y() - h),
-                           QPointF(c.x() + h, c.y() + h - 2.5))
+                p.drawRect(QRectF(c.x() - h, c.y() - h + 2.5, self.GLYPH - 2.5, self.GLYPH - 2.5))
+                p.drawLine(
+                    QPointF(c.x() - h + 2.5, c.y() - h + 2.5), QPointF(c.x() - h + 2.5, c.y() - h)
+                )
+                p.drawLine(QPointF(c.x() - h + 2.5, c.y() - h), QPointF(c.x() + h, c.y() - h))
+                p.drawLine(QPointF(c.x() + h, c.y() - h), QPointF(c.x() + h, c.y() + h - 2.5))
             else:
                 p.drawRect(QRectF(c.x() - h, c.y() - h, self.GLYPH, self.GLYPH))
         else:
@@ -209,9 +214,9 @@ class TitleBar(QWidget):
         self.tabs = tabs
         layout.addWidget(self.tabs, 1)
 
-        self.min_btn = WindowButton('min')
-        self.max_btn = WindowButton('max')
-        self.close_btn = WindowButton('close')
+        self.min_btn = WindowButton("min")
+        self.max_btn = WindowButton("max")
+        self.close_btn = WindowButton("close")
         for btn in (self.min_btn, self.max_btn, self.close_btn):
             btn.setFixedHeight(self.HEIGHT)
         self.min_btn.clicked.connect(self.minimize_requested.emit)

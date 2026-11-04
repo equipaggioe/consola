@@ -26,17 +26,25 @@ por el `TaskContext` que recibe y levanta `TaskError` cuando no puede seguir
     projects    el dataclass Project (la lista la maneja la UI)
 """
 
-from app.core.errors import Cancelled, MissingConfig, TaskError
 from app.core.context import Level, TaskContext
 from app.core.envfile import Config
+from app.core.errors import Cancelled, MissingConfig, TaskError
 from app.core.projects import Project
 from app.core.registry import AxisDef, Capability, Registry, Step, registry
 from app.core.ssh import Remote
 
 __all__ = [
-    'Cancelled', 'MissingConfig', 'TaskError',
-    'Level', 'TaskContext', 'Config',
-    'Project',
-    'Registry', 'registry', 'Capability', 'AxisDef', 'Step',
-    'Remote',
+    "Cancelled",
+    "MissingConfig",
+    "TaskError",
+    "Level",
+    "TaskContext",
+    "Config",
+    "Project",
+    "Registry",
+    "registry",
+    "Capability",
+    "AxisDef",
+    "Step",
+    "Remote",
 ]

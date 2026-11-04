@@ -1,19 +1,18 @@
 from __future__ import annotations
 
-from PySide6.QtWidgets import QMenuBar, QMenu
-from PySide6.QtGui import QAction, QKeySequence
 from PySide6.QtCore import Signal
+from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtWidgets import QMenu, QMenuBar
 
-from app.theme import Colors, Fonts
-from app.ui.palettes import NEUTRAL, Palette
-from app.ui import favorites
 from app.core.registry import registry
-
+from app.theme import Colors, Fonts
+from app.ui import favorites
+from app.ui.palettes import NEUTRAL, Palette
 
 # Marcador de texto en vez de pintado propio: un `QMenu` no deja tenir un
 # item suelto, y se lee igual de bien sin costar un `QWidgetAction` (que
 # seria reimplementar `ActionRow` dentro del popup).
-MARK_DANGER = '⚠'   # destructiva: revisar antes de apretar
+MARK_DANGER = "⚠"  # destructiva: revisar antes de apretar
 
 
 class ActionMenuBar(QMenuBar):
@@ -26,7 +25,7 @@ class ActionMenuBar(QMenuBar):
     buscador.
     """
 
-    action_requested = Signal(str)        # capability_id: abrir su pestana
+    action_requested = Signal(str)  # capability_id: abrir su pestana
     focus_search_requested = Signal()
 
     def __init__(self, parent=None):
@@ -34,7 +33,7 @@ class ActionMenuBar(QMenuBar):
         self.pal = NEUTRAL
         self.setStyleSheet(self._bar_style())
 
-        self._actions: dict[str, QAction] = {}   # capability_id -> item del menu
+        self._actions: dict[str, QAction] = {}  # capability_id -> item del menu
         self._group_menus: list[QMenu] = []
         # Todos los menus de la barra, de grupo o no: lo que hay que repintar
         # cuando cambia el repo activo.
@@ -76,7 +75,8 @@ class ActionMenuBar(QMenuBar):
         abajo los pone la fila que la contiene, que llega mas a la derecha que
         el menu (ahi va el interruptor de favoritos). Lo que si se pinta es el
         titulo del menu abierto, que se pone del fondo del popup que cuelga de
-        el para que se lean como una sola pieza."""
+        el para que se lean como una sola pieza.
+        """
         return f"""
             QMenuBar {{
                 background: transparent; color: {Colors.TEXT};
@@ -100,7 +100,8 @@ class ActionMenuBar(QMenuBar):
         el `QMenu`, Qt deja de dibujar la linea nativa del separador y solo
         queda su alto en blanco — la misma trampa que ya documentaba
         `_build_action_menus` para `addSection`. Sin esta regla, los cortes de
-        ADR-0043 se ven como un espacio vacio, no como una raya."""
+        ADR-0043 se ven como un espacio vacio, no como una raya.
+        """
         return f"""
             QMenu {{
                 background: {self.pal.panel}; color: {Colors.TEXT};
@@ -151,7 +152,7 @@ class ActionMenuBar(QMenuBar):
             blocks: list[tuple[QAction | None, list[str]]] = []
             destructivas = False
             for cap in capabilities:
-                primera_destructiva = cap.kind == 'destructive' and not destructivas
+                primera_destructiva = cap.kind == "destructive" and not destructivas
                 destructivas = destructivas or primera_destructiva
                 if not blocks:
                     blocks.append((None, []))
@@ -164,32 +165,35 @@ class ActionMenuBar(QMenuBar):
 
     def _make_action(self, menu: QMenu, cap) -> QAction:
         label = f"{cap.icon}  {cap.name}".strip()
-        if cap.kind == 'destructive':
+        if cap.kind == "destructive":
             label += f"  {MARK_DANGER}"
         action = QAction(label, menu)
         action.setToolTip(_tooltip(cap))
-        action.triggered.connect(lambda _checked=False, cid=cap.id: self.action_requested.emit(cid))
+        action.triggered.connect(
+            lambda _checked=False, cid=cap.id: self.action_requested.emit(cid)
+        )
         self._actions[cap.id] = action
         return action
 
     def _build_view_menu(self) -> None:
-        menu = self._add_menu('Ver')
-        buscar = QAction('Buscar acciones', self)
-        buscar.setShortcut(QKeySequence('Ctrl+L'))
+        menu = self._add_menu("Ver")
+        buscar = QAction("Buscar acciones", self)
+        buscar.setShortcut(QKeySequence("Ctrl+L"))
         buscar.triggered.connect(self.focus_search_requested.emit)
         menu.addAction(buscar)
 
     def _build_help_menu(self) -> None:
         """Solo la leyenda del marcador."""
-        menu = self._add_menu('Ayuda')
-        item = QAction(f'{MARK_DANGER}  = destructiva', self)
+        menu = self._add_menu("Ayuda")
+        item = QAction(f"{MARK_DANGER}  = destructiva", self)
         item.setEnabled(False)
         menu.addAction(item)
 
     # --- estado -----------------------------------------------------------
     def set_project_active(self, active: bool) -> None:
         """Sin repo en pestanas no hay nada sobre lo que correr: los menus de
-        acciones se deshabilitan enteros, igual que el buscador."""
+        acciones se deshabilitan enteros, igual que el buscador.
+        """
         for menu in self._group_menus:
             menu.setEnabled(active)
 
@@ -210,7 +214,8 @@ class ActionMenuBar(QMenuBar):
     def set_only_favorites(self, value: bool) -> None:
         """El interruptor de la barra de titulo: con el puesto, los menus de
         grupo muestran solo las acciones marcadas — y el grupo que no tenga
-        ninguna desaparece de la barra, no queda como un menu vacio."""
+        ninguna desaparece de la barra, no queda como un menu vacio.
+        """
         if value == self._only_favorites:
             return
         self._only_favorites = value
@@ -218,7 +223,8 @@ class ActionMenuBar(QMenuBar):
 
     def set_favorites(self, ids: set[str]) -> None:
         """Se marco o desmarco una favorita en otra superficie (el filete del
-        buscador, la estrella de la cabecera de parametros)."""
+        buscador, la estrella de la cabecera de parametros).
+        """
         if ids == self._favorites:
             return
         self._favorites = set(ids)
@@ -226,14 +232,16 @@ class ActionMenuBar(QMenuBar):
 
     def _apply_filters(self) -> None:
         """Los dos filtros de la barra, en una sola pasada: lo que no aplica a
-        este repo y —si el interruptor esta puesto— lo que no esta marcado."""
+        este repo y —si el interruptor esta puesto— lo que no esta marcado.
+        """
         for menu in self._group_menus:
             vivos = 0
             for separator, cap_ids in self._blocks[menu]:
                 visibles = 0
                 for cap_id in cap_ids:
                     ver = (self._applicable is None or cap_id in self._applicable) and (
-                        not self._only_favorites or cap_id in self._favorites)
+                        not self._only_favorites or cap_id in self._favorites
+                    )
                     self._actions[cap_id].setVisible(ver)
                     visibles += int(ver)
                 # Una raya solo separa si quedo algo de los dos lados.
@@ -245,16 +253,15 @@ class ActionMenuBar(QMenuBar):
 
 def _tooltip(cap) -> str:
     """El mismo contenido que el tooltip de las filas del buscador (`ActionRow._tooltip`):
-    que hace, de que nivel es, y como se usa la entrada."""
+    que hace, de que nivel es, y como se usa la entrada.
+    """
     composite = bool(cap.composed_of or len(cap.steps) > 1)
-    level = ('Compuesta · encadena varias atómicas' if composite
-             else 'Atómica · un solo paso')
+    level = "Compuesta · encadena varias atómicas" if composite else "Atómica · un solo paso"
     if cap.is_machine_wide:
-        level += ' · de la máquina, no del repo'
+        level += " · de la máquina, no del repo"
     lines = [f"<b>{cap.name}</b>"]
     if cap.description:
         lines.append(cap.description)
     lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>{level}</span>")
-    lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>"
-                 "Clic para abrir</span>")
-    return '<br>'.join(lines)
+    lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>Clic para abrir</span>")
+    return "<br>".join(lines)

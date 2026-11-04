@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from PySide6.QtCore import QSettings
 
 """
@@ -10,8 +11,8 @@ de uso, no algo que cambie de un repo a otro. Se guarda en QSettings, igual
 que el orden de pestanas (`ui/project_tabs.py`).
 """
 
-_IDS_KEY = 'favorites/ids'
-_ONLY_KEY = 'favorites/only'
+_IDS_KEY = "favorites/ids"
+_ONLY_KEY = "favorites/only"
 
 
 def favorite_ids() -> set[str]:
@@ -41,7 +42,7 @@ def toggle(capability_id: str) -> bool:
 
 def only_favorites() -> bool:
     raw = QSettings().value(_ONLY_KEY, False)
-    return raw in (True, 'true', 'True', 1, '1')
+    return raw in (True, "true", "True", 1, "1")
 
 
 def set_only_favorites(value: bool) -> None:

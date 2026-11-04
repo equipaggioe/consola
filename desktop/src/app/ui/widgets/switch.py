@@ -1,7 +1,8 @@
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget, QHBoxLayout, QLabel, QSizePolicy
-from PySide6.QtCore import Qt, Signal, QRectF
-from PySide6.QtGui import QPainter, QColor, QFont
+
+from PySide6.QtCore import QRectF, Qt, Signal
+from PySide6.QtGui import QColor, QFont, QPainter
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QSizePolicy, QWidget
 
 from app.theme import Colors, Fonts
 
@@ -12,13 +13,15 @@ class ToggleSwitch(QWidget):
     Un QCheckBox diria 'casilla de un formulario': esto no es un parametro
     de ejecucion sino un modo de la vista, y el interruptor lo dice.
     """
+
     toggled = Signal(bool)
 
     TRACK_W = 30
     TRACK_H = 16
 
-    def __init__(self, label: str, checked: bool = False,
-                 accent: str = Colors.ACCENT, parent=None):
+    def __init__(
+        self, label: str, checked: bool = False, accent: str = Colors.ACCENT, parent=None
+    ):
         super().__init__(parent)
         self.accent = accent
         self._checked = checked
@@ -67,7 +70,8 @@ class ToggleSwitch(QWidget):
     # --- interaccion ---------------------------------------------------
     def mouseReleaseEvent(self, event):
         if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
-                event.position().toPoint()):
+            event.position().toPoint()
+        ):
             self.set_checked(not self._checked)
         super().mouseReleaseEvent(event)
 

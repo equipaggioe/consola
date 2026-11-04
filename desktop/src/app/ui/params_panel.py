@@ -1,23 +1,35 @@
 from __future__ import annotations
+
 from dataclasses import replace
 
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QHBoxLayout, QLabel, QCheckBox, QPushButton,
-    QScrollArea, QFrame, QButtonGroup, QLineEdit, QPlainTextEdit, QComboBox,
-    QCompleter, QSizePolicy
-)
-from PySide6.QtCore import Qt, Signal, QThread
+from PySide6.QtCore import Qt, QThread, Signal
 from PySide6.QtGui import QIntValidator
+from PySide6.QtWidgets import (
+    QButtonGroup,
+    QCheckBox,
+    QComboBox,
+    QCompleter,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QPlainTextEdit,
+    QPushButton,
+    QScrollArea,
+    QSizePolicy,
+    QVBoxLayout,
+    QWidget,
+)
 
-from app.theme import Colors, Fonts
-from app.ui.palettes import Palette
 from app.core import envfile
 from app.core.catalog import for_project, queried_values
 from app.core.errors import TaskError
-from app.core.registry import Capability, AxisDef, Step, registry
 from app.core.projects import Project
+from app.core.registry import AxisDef, Capability, Step, registry
 from app.core.settings import relevant_keys_for, required_keys_for
-from app.ui import params_store, palettes
+from app.theme import Colors, Fonts
+from app.ui import palettes, params_store
+from app.ui.palettes import Palette
 
 
 class SectionLabel(QLabel):
@@ -43,10 +55,12 @@ class AxesLoader(QThread):
     apagada. Por eso el loader recibe la config del proyecto — es lo que dice a
     que VPS preguntarle — y no solo la capacidad.
     """
+
     ready = Signal(dict)
 
-    def __init__(self, capability: Capability, config, root: str = '',
-                 refresh: bool = False, parent=None):
+    def __init__(
+        self, capability: Capability, config, root: str = "", refresh: bool = False, parent=None
+    ):
         super().__init__(parent)
         self._capability = capability
         self._config = config
@@ -62,16 +76,18 @@ class AxesLoader(QThread):
             if not axis.is_queried:
                 continue
             try:
-                resuelto[axis.name] = queried_values(axis.source, refresh=self._refresh,
-                                                     config=self._config, root=self._root)
+                resuelto[axis.name] = queried_values(
+                    axis.source, refresh=self._refresh, config=self._config, root=self._root
+                )
             except TaskError as exc:
                 # The axis stays empty and the panel says why (ADR-0076).
                 resuelto[axis.name] = ([], {})
                 errores[axis.name] = str(exc)
         if self._capability.live_state:
             try:
-                resuelto[_LIVE] = queried_values(self._capability.live_state,
-                                                 config=self._config, root=self._root)
+                resuelto[_LIVE] = queried_values(
+                    self._capability.live_state, config=self._config, root=self._root
+                )
             except TaskError as exc:
                 resuelto[_LIVE] = ([], {})
                 errores[_LIVE] = str(exc)
@@ -81,9 +97,9 @@ class AxesLoader(QThread):
 
 # Clave con la que viaja el inventario de "lo que esta corriendo" dentro del
 # resultado del loader. No es un eje: no se elige, se mira y se apaga.
-_LIVE = '@live'
+_LIVE = "@live"
 # Y la de los ejes cuya consulta fallo, con el porque de cada uno.
-_ERRORS = '@errors'
+_ERRORS = "@errors"
 
 # Ancho de la etiqueta de cada caracteristica de un eje `pick` con `facets`.
 # Fijo y compartido para que las listas queden alineadas en columna: tres combos
@@ -107,10 +123,11 @@ class ParamsPanel(QWidget):
     Vive dentro de la pestana de la accion, asi que su estado sobrevive a
     cambiar de pestana y volver — y desde ahi se puede volver a correr.
     """
+
     execute_requested = Signal(dict)
-    params_changed = Signal()   # lo guardado cambio: se revisa que puede correr de una
+    params_changed = Signal()  # lo guardado cambio: se revisa que puede correr de una
     stop_requested = Signal(str)  # apagar algo que esta corriendo (un serial de emulador)
-    clear_requested = Signal()    # Limpiar del pie: vaciar el log de la pestana
+    clear_requested = Signal()  # Limpiar del pie: vaciar el log de la pestana
 
     def __init__(self, capability: Capability, project: Project, env_panel, parent=None):
         super().__init__(parent)
@@ -129,10 +146,10 @@ class ParamsPanel(QWidget):
         self.steps: list[Step] = registry.resolve_steps(self.capability)
         self._env: dict[str, str] = {}
 
-        self._checks: dict[str, dict[str, QCheckBox]] = {}   # axis -> value -> check
+        self._checks: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check
         self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
         self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}  # axis -> valor escrito
-        self._picks: dict[str, QComboBox] = {}   # axis -> lista larga con busqueda
+        self._picks: dict[str, QComboBox] = {}  # axis -> lista larga con busqueda
         # axis -> caracteristica -> su lista corta. Es el mismo eje `pick` que
         # arriba, dibujado en varias listas que se recortan entre si
         # (`core/registry.py::Facet`); su valor sigue siendo el id entero, asi
@@ -144,11 +161,11 @@ class ParamsPanel(QWidget):
         self._loader: AxesLoader | None = None
         self._loading = any(a.is_queried for a in self.capability.axes)
         self._option_groups: dict[str, QButtonGroup] = {}  # axis -> su grupo excluyente
-                               # vivo. Es dict y no lista porque un eje consultado se
-                               # rellena de nuevo cada vez que se muestra la pestana, y
-                               # hay que soltar el grupo que reemplaza.
+        # vivo. Es dict y no lista porque un eje consultado se
+        # rellena de nuevo cada vez que se muestra la pestana, y
+        # hay que soltar el grupo que reemplaza.
         self._step_checks: dict[str, QCheckBox] = {}
-        self._restoring = True   # mientras se arma, ningun cambio se guarda
+        self._restoring = True  # mientras se arma, ningun cambio se guarda
         # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
         # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
         # seccion no se teñia del color del repo.
@@ -184,8 +201,13 @@ class ParamsPanel(QWidget):
             return
         self._loading = any(a.is_queried for a in self.capability.axes)
         self._refresh_summary()
-        self._loader = AxesLoader(self.capability, envfile.Config.for_project(self.project.path),
-                                  self.project.path, refresh, self)
+        self._loader = AxesLoader(
+            self.capability,
+            envfile.Config.for_project(self.project.path),
+            self.project.path,
+            refresh,
+            self,
+        )
         self._loader.ready.connect(self._on_machine_ready)
         self._loader.start()
 
@@ -198,7 +220,7 @@ class ParamsPanel(QWidget):
                 if axis.name not in resuelto:
                     continue
                 axis.values, axis.labels = resuelto[axis.name]
-                axis.query_error = resuelto[_ERRORS].get(axis.name, '')
+                axis.query_error = resuelto[_ERRORS].get(axis.name, "")
                 if axis.name in self._facets:
                     self._fill_facets(axis)
                 elif axis.name in self._picks:
@@ -207,7 +229,7 @@ class ParamsPanel(QWidget):
                     self._fill_multi(axis)
                 elif axis.name in self._option_layouts:
                     self._fill_options(axis)
-            self._fill_live(resuelto.get(_LIVE, ([], {})), resuelto[_ERRORS].get(_LIVE, ''))
+            self._fill_live(resuelto.get(_LIVE, ([], {})), resuelto[_ERRORS].get(_LIVE, ""))
         finally:
             self._restoring = False
         self._loading = False
@@ -241,7 +263,7 @@ class ParamsPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll   # lo repinta `_restyle`
+        self._scroll = scroll  # lo repinta `_restyle`
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
@@ -347,8 +369,7 @@ class ParamsPanel(QWidget):
         # apretada. Con esto el combo se conforma con `_COMBO_MIN_CHARS` y
         # ocupa lo que la fila le de; lo largo se lee al desplegar, donde la
         # lista se ensancha sola (`_fit_popup`).
-        combo.setSizeAdjustPolicy(
-            QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
+        combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(_COMBO_MIN_CHARS)
         combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         if buscable:
@@ -374,7 +395,8 @@ class ParamsPanel(QWidget):
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}")
+            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+        )
 
     def _combo_style(self) -> str:
         return f"""
@@ -425,8 +447,7 @@ class ParamsPanel(QWidget):
                 f"font-size: {Fonts.SIZE_XS}px;"
             )
             combo = self._pick_combo(buscable=False)
-            combo.currentIndexChanged.connect(
-                lambda _i, a=axis: self._on_facet_changed(a))
+            combo.currentIndexChanged.connect(lambda _i, a=axis: self._on_facet_changed(a))
             self._facets[axis.name][facet.name] = combo
             fila.addWidget(etiqueta)
             fila.addWidget(combo, 1)
@@ -448,7 +469,7 @@ class ParamsPanel(QWidget):
         combos = self._facets.get(axis.name) or {}
         if not combos:
             return
-        actual = {nombre: (c.currentData() or '') for nombre, c in combos.items()}
+        actual = {nombre: (c.currentData() or "") for nombre, c in combos.items()}
         resuelto = axis.resolve_facets(actual)
         for facet in axis.facets:
             combo = combos[facet.name]
@@ -458,9 +479,13 @@ class ParamsPanel(QWidget):
             for value in opciones:
                 combo.addItem(axis.text_of(value), value)
             if not opciones:
-                combo.addItem('leyendo el catálogo…' if self._loading
-                              else f'no hay ninguna {axis.query_place}', '')
-            indice = combo.findData(resuelto.get(facet.name, ''))
+                combo.addItem(
+                    "leyendo el catálogo…"
+                    if self._loading
+                    else f"no hay ninguna {axis.query_place}",
+                    "",
+                )
+            indice = combo.findData(resuelto.get(facet.name, ""))
             combo.setCurrentIndex(max(indice, 0))
             combo.blockSignals(False)
             self._fit_popup(combo)
@@ -475,8 +500,9 @@ class ParamsPanel(QWidget):
         cortadas justo donde se estaba eligiendo.
         """
         metrics = combo.fontMetrics()
-        ancho = max((metrics.horizontalAdvance(combo.itemText(i))
-                     for i in range(combo.count())), default=0)
+        ancho = max(
+            (metrics.horizontalAdvance(combo.itemText(i)) for i in range(combo.count())), default=0
+        )
         combo.view().setMinimumWidth(min(ancho + 28, _POPUP_MAX_WIDTH))
 
     def _fill_pick(self, axis: AxisDef) -> None:
@@ -491,12 +517,13 @@ class ParamsPanel(QWidget):
             # Primera entrada y valor vacio: "no elijo, que decida la funcion".
             # No es un valor mas del catalogo, asi que se pone aca y no en
             # `values` — el catalogo de la maquina lo pisa en cada refresco.
-            combo.addItem(axis.text_of('') or 'automático', '')
+            combo.addItem(axis.text_of("") or "automático", "")
         for value in axis.values:
             combo.addItem(axis.text_of(value), value)
         if not axis.values:
             combo.lineEdit().setPlaceholderText(
-                'leyendo el catálogo…' if self._loading else f'no hay ninguno {axis.query_place}')
+                "leyendo el catálogo…" if self._loading else f"no hay ninguno {axis.query_place}"
+            )
         indice = combo.findData(anterior)
         combo.setCurrentIndex(indice if indice >= 0 else 0)
         combo.blockSignals(False)
@@ -522,7 +549,7 @@ class ParamsPanel(QWidget):
             check.stateChanged.connect(self._refresh_summary)
             self._checks[axis.name][value] = check
             lay.addWidget(check)
-        texto = axis.query_error or f'no hay ninguno {axis.query_place}'
+        texto = axis.query_error or f"no hay ninguno {axis.query_place}"
         # Los ejes de la camara fallan juntos y con el mismo mensaje: lo dice el
         # primero y los demas quedan vacios.
         repetido = any(n.text() == texto for n in self._empty_notes.values())
@@ -531,8 +558,10 @@ class ParamsPanel(QWidget):
             # la fuente fallo, lo que dijo, que es lo que hay que arreglar.
             nota = QLabel(texto)
             nota.setWordWrap(True)
-            nota.setStyleSheet(f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                               f"font-size: {Fonts.SIZE_XS}px;")
+            nota.setStyleSheet(
+                f"background: transparent; color: {Colors.TEXT_MUTED}; "
+                f"font-size: {Fonts.SIZE_XS}px;"
+            )
             self._empty_notes[axis.name] = nota
             lay.addWidget(nota)
 
@@ -543,12 +572,12 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
-        lay.addWidget(SectionLabel('Corriendo ahora'))
+        lay.addWidget(SectionLabel("Corriendo ahora"))
         self._live_layout = lay
         box.setVisible(False)
         return box
 
-    def _fill_live(self, inventario: tuple, error: str = '') -> None:
+    def _fill_live(self, inventario: tuple, error: str = "") -> None:
         """Rehace la lista de lo vivo. Vacia y sin error, la cabecera entera desaparece."""
         valores, etiquetas = inventario
         while self._live_layout.count() > 1:
@@ -563,13 +592,14 @@ class ParamsPanel(QWidget):
             flay.setContentsMargins(0, 0, 0, 0)
             flay.setSpacing(6)
 
-            texto = QLabel(f'● {etiquetas.get(value, value)}')
+            texto = QLabel(f"● {etiquetas.get(value, value)}")
             texto.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;")
-            apagar = QPushButton('✕')
+                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
+            )
+            apagar = QPushButton("✕")
             apagar.setFixedSize(20, 20)
             apagar.setCursor(Qt.CursorShape.PointingHandCursor)
-            apagar.setToolTip('Apagar')
+            apagar.setToolTip("Apagar")
             apagar.setStyleSheet(f"""
                 QPushButton {{ background: transparent; border: none;
                                color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px; }}
@@ -586,7 +616,8 @@ class ParamsPanel(QWidget):
             motivo = QLabel(error)
             motivo.setWordWrap(True)
             motivo.setStyleSheet(
-                f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_SM}px;")
+                f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_SM}px;"
+            )
             self._live_layout.addWidget(motivo)
         self._live_box.setVisible(bool(valores) or bool(error))
 
@@ -613,16 +644,16 @@ class ParamsPanel(QWidget):
 
             # `values[0]` es el valor por defecto, y se escribe en el campo en
             # vez de dejarlo de marca de agua: asi se ve que se va a usar.
-            default = axis.values[0] if axis.values else ''
+            default = axis.values[0] if axis.values else ""
             if axis.multiline:
                 field = QPlainTextEdit(default)
-                field.setFixedHeight(88)   # ~4 renglones: la lista tipica entra entera
+                field.setFixedHeight(88)  # ~4 renglones: la lista tipica entra entera
                 field.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
                 field.textChanged.connect(self._refresh_summary)
             else:
                 field = QLineEdit(default)
                 field.setFixedHeight(30)
-                if axis.cast == 'int':
+                if axis.cast == "int":
                     # Un eje que declara `cast='int'` no acepta que se escriba
                     # otra cosa: es mas barato no dejar teclear la letra que
                     # explicar despues por que el puerto volvio a 8000.
@@ -721,7 +752,8 @@ class ParamsPanel(QWidget):
     def _fill_options(self, axis: AxisDef) -> None:
         """(Re)crea las casillas excluyentes de un eje. Sirve para los dos
         casos: dibujarlo la primera vez, y rehacerlo cuando el catalogo que lo
-        llena termino de contestar."""
+        llena termino de contestar.
+        """
         lay = self._option_layouts.get(axis.name)
         if lay is None:
             return
@@ -775,10 +807,13 @@ class ParamsPanel(QWidget):
         if not axis.values:
             # El mismo texto que la marca de agua de una lista larga vacia: el
             # hueco tiene que decir por que esta vacio, no quedarse mudo.
-            nota = QLabel('leyendo el catálogo…' if self._loading
-                          else f'no hay ninguno {axis.query_place}')
-            nota.setStyleSheet(f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                               f"font-size: {Fonts.SIZE_XS}px;")
+            nota = QLabel(
+                "leyendo el catálogo…" if self._loading else f"no hay ninguno {axis.query_place}"
+            )
+            nota.setStyleSheet(
+                f"background: transparent; color: {Colors.TEXT_MUTED}; "
+                f"font-size: {Fonts.SIZE_XS}px;"
+            )
             self._empty_notes[axis.name] = nota
             lay.addWidget(nota)
 
@@ -786,7 +821,7 @@ class ParamsPanel(QWidget):
         return f"""
             QLineEdit, QPlainTextEdit {{
                 background: {self.pal.surface_alt}; border: 1px solid {self.pal.border};
-                border-radius: 5px; padding: {'5px 8px' if multiline else '0 8px'};
+                border-radius: 5px; padding: {"5px 8px" if multiline else "0 8px"};
                 color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
             }}
             QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {self.pal.accent}; }}
@@ -796,9 +831,9 @@ class ParamsPanel(QWidget):
     def _dry_run_axis(self) -> AxisDef | None:
         """El eje excluyente que ofrece un simulacro (`clean_artifacts`,
         `sync_common_files`, borrar emuladores). Su presencia es lo que hace
-        aparecer el boton Simulacro."""
-        return next((a for a in self.capability.single_axes
-                     if 'simulacro' in a.values), None)
+        aparecer el boton Simulacro.
+        """
+        return next((a for a in self.capability.single_axes if "simulacro" in a.values), None)
 
     def _build_footer(self) -> QWidget:
         foot = QWidget()
@@ -841,14 +876,17 @@ class ParamsPanel(QWidget):
     def active_steps(self) -> list[Step]:
         # Con un solo paso obligatorio no se dibuja la seccion: sin casilla,
         # el paso esta activo por definicion.
-        return [s for s in self.steps
-                if s.id not in self._step_checks or self._step_checks[s.id].isChecked()]
+        return [
+            s
+            for s in self.steps
+            if s.id not in self._step_checks or self._step_checks[s.id].isChecked()
+        ]
 
     def option_value(self, axis_name: str) -> str:
         for value, check in self._options.get(axis_name, {}).items():
             if check.isChecked():
                 return value
-        return ''
+        return ""
 
     def option_values(self, axis_name: str) -> list[str]:
         return [v for v, c in self._options.get(axis_name, {}).items() if c.isChecked()]
@@ -858,7 +896,8 @@ class ParamsPanel(QWidget):
 
     def _option_payload(self, axis_name: str):
         """Un eje con `combine` puede tener dos marcas a la vez (p. ej.
-        `patch` + `build`): viaja como lista. El resto, como un solo valor."""
+        `patch` + `build`): viaja como lista. El resto, como un solo valor.
+        """
         axis = self._axis(axis_name)
         if axis and axis.combine:
             return self.option_values(axis_name)
@@ -875,17 +914,18 @@ class ParamsPanel(QWidget):
         if combos is not None:
             axis = self._axis(axis_name)
             if axis is None:
-                return ''
-            return axis.value_for({n: (c.currentData() or '') for n, c in combos.items()})
+                return ""
+            return axis.value_for({n: (c.currentData() or "") for n, c in combos.items()})
         combo = self._picks.get(axis_name)
         if combo is None:
-            return ''
+            return ""
         value = combo.currentData()
-        return value if isinstance(value, str) else ''
+        return value if isinstance(value, str) else ""
 
     def _pick_names(self) -> list[str]:
         """Los ejes que guardan un id suelto, se dibujen como una lista o como
-        varias: los dos casos viajan en el mismo balde `picks`."""
+        varias: los dos casos viajan en el mismo balde `picks`.
+        """
         return [*self._picks, *self._facets]
 
     def field_value(self, axis_name: str) -> str:
@@ -896,29 +936,30 @@ class ParamsPanel(QWidget):
         """
         field = self._fields.get(axis_name)
         if field is None:
-            return ''
-        leer = getattr(field, 'toPlainText', None) or field.text
+            return ""
+        leer = getattr(field, "toPlainText", None) or field.text
         return leer().strip()
 
     def state(self) -> dict:
         """Lo que hay marcado ahora mismo, en forma serializable."""
         return {
-            'variants': {name: self.selection(name) for name in self._checks},
-            'steps': [s.id for s in self.active_steps()],
-            'options': {name: self._option_payload(name) for name in self._options},
-            'fields': {name: self.field_value(name) for name in self._fields},
-            'picks': {name: self.pick_value(name) for name in self._pick_names()},
+            "variants": {name: self.selection(name) for name in self._checks},
+            "steps": [s.id for s in self.active_steps()],
+            "options": {name: self._option_payload(name) for name in self._options},
+            "fields": {name: self.field_value(name) for name in self._fields},
+            "picks": {name: self.pick_value(name) for name in self._pick_names()},
         }
 
     def apply_state(self, state: dict | None) -> None:
         """Vuelve a marcar lo guardado. Tolera un catalogo que cambio: los
         valores que ya no existen se ignoran y los ejes nuevos se quedan con
-        su valor por defecto."""
+        su valor por defecto.
+        """
         if not state:
             return
         previous, self._restoring = self._restoring, True
         try:
-            variants = state.get('variants') or {}
+            variants = state.get("variants") or {}
             for axis_name, checks in self._checks.items():
                 saved = variants.get(axis_name)
                 if saved is None:
@@ -926,12 +967,12 @@ class ParamsPanel(QWidget):
                 for value, check in checks.items():
                     check.setChecked(value in saved)
 
-            steps = state.get('steps')
+            steps = state.get("steps")
             if steps is not None:
                 for step_id, check in self._step_checks.items():
                     check.setChecked(step_id in steps)
 
-            options = state.get('options') or {}
+            options = state.get("options") or {}
             for axis_name, checks in self._options.items():
                 saved = options.get(axis_name)
                 if saved is None:
@@ -941,14 +982,14 @@ class ParamsPanel(QWidget):
                 combine = axis.combine if axis else set()
                 for value, check in checks.items():
                     if not check.isEnabled():
-                        continue   # eje fijo: su marca no se toca
+                        continue  # eje fijo: su marca no se toca
                     if value in combine:
                         # Un guardado sin este valor = toggle desmarcado.
                         check.setChecked(value in marcados)
                     elif value in marcados:
-                        check.setChecked(True)   # el grupo excluyente desmarca al resto
+                        check.setChecked(True)  # el grupo excluyente desmarca al resto
 
-            picks = state.get('picks') or {}
+            picks = state.get("picks") or {}
             for axis_name, combo in self._picks.items():
                 elegido = picks.get(axis_name)
                 if not elegido:
@@ -980,13 +1021,13 @@ class ParamsPanel(QWidget):
                     combo.setCurrentIndex(indice)
                 self._fill_facets(axis)
 
-            fields = state.get('fields') or {}
+            fields = state.get("fields") or {}
             for axis_name, field in self._fields.items():
                 saved = fields.get(axis_name)
                 # Una cadena vacia guardada es una eleccion valida (vuelve al
                 # valor por defecto de la funcion); un eje nuevo no lo es.
                 if saved is not None:
-                    escribir = getattr(field, 'setPlainText', None) or field.setText
+                    escribir = getattr(field, "setPlainText", None) or field.setText
                     escribir(saved)
         finally:
             self._restoring = previous
@@ -1002,7 +1043,7 @@ class ParamsPanel(QWidget):
         for axis in self.capability.axes:
             if not (axis.is_queried and not axis.values):
                 continue
-            for balde in ('variants', 'picks'):
+            for balde in ("variants", "picks"):
                 previo = guardado.get(balde) or {}
                 if axis.name in previo:
                     estado[balde][axis.name] = previo[axis.name]
@@ -1014,14 +1055,14 @@ class ParamsPanel(QWidget):
 
     def payload(self) -> dict:
         return {
-            'capability_id': self.capability.id,
-            'project': self.project.name,
-            'variants': {name: self.selection(name) for name in self._checks},
-            'steps': [s.id for s in self.active_steps()],
-            'options': {name: self._option_payload(name) for name in self._options},
-            'fields': {name: self.field_value(name) for name in self._fields},
-            'picks': {name: self.pick_value(name) for name in self._pick_names()},
-            'missing_env': self._missing_keys(),
+            "capability_id": self.capability.id,
+            "project": self.project.name,
+            "variants": {name: self.selection(name) for name in self._checks},
+            "steps": [s.id for s in self.active_steps()],
+            "options": {name: self._option_payload(name) for name in self._options},
+            "fields": {name: self.field_value(name) for name in self._fields},
+            "picks": {name: self.pick_value(name) for name in self._pick_names()},
+            "missing_env": self._missing_keys(),
         }
 
     def set_env(self, values: dict[str, str]) -> None:
@@ -1033,7 +1074,8 @@ class ParamsPanel(QWidget):
         """Cambio de color del repo: se repinta el panel entero, no solo el
         boton Ejecutar. Los campos y las listas se quedaron con la hoja de
         estilo que se les dicto al construirlos, asi que hay que volver a
-        dictarsela una por una."""
+        dictarsela una por una.
+        """
         self.pal = pal
         self._restyle()
 
@@ -1046,7 +1088,8 @@ class ParamsPanel(QWidget):
         self.setStyleSheet(f"ParamsPanel {{ background: {self.pal.panel}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
         self.footer.setStyleSheet(
-            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};")
+            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
+        )
         for boton in (self.clear_btn, self.dry_btn):
             if boton is not None:
                 boton.setStyleSheet(self._secondary_style())
@@ -1060,7 +1103,8 @@ class ParamsPanel(QWidget):
 
     def _secondary_style(self) -> str:
         """Limpiar y Simulacro: contorno, no relleno. El unico boton lleno del
-        pie es Ejecutar."""
+        pie es Ejecutar.
+        """
         return f"""
             QPushButton {{
                 background: transparent; border: 1px solid {self.pal.border};
@@ -1082,7 +1126,8 @@ class ParamsPanel(QWidget):
 
     def natural_height(self) -> int:
         """Alto que necesita para mostrar todo su contenido sin scroll, para
-        que el panel de `.env` se quede con el resto del espacio vertical."""
+        que el panel de `.env` se quede con el resto del espacio vertical.
+        """
         return self._content.sizeHint().height() + 4
 
     def relevant_keys(self) -> set[str]:
@@ -1135,7 +1180,8 @@ class ParamsPanel(QWidget):
 
     def blockers(self) -> list[str]:
         """Publico para `quick_run`: por que no se puede correr sin abrir la
-        pestana (`ui/tab_panel.py::quick_run` lo reporta en la consola)."""
+        pestana (`ui/tab_panel.py::quick_run` lo reporta en la consola).
+        """
         return self._blockers()
 
     def _blockers(self) -> list[str]:
@@ -1155,7 +1201,7 @@ class ParamsPanel(QWidget):
                 if axis.query_error not in reasons:
                     reasons.append(axis.query_error)
                 continue
-            donde = axis.query_place if axis.is_queried else 'en este repo'
+            donde = axis.query_place if axis.is_queried else "en este repo"
             # Un eje opcional que ademas admite estar vacio (las dos listas de
             # "Liberar disco") no bloquea: que no haya AVD creados no impide
             # borrar una imagen.
@@ -1188,8 +1234,10 @@ class ParamsPanel(QWidget):
         if self.dry_btn is not None:
             self.dry_btn.setEnabled(not blockers)
             self.dry_btn.setToolTip(
-                blockers[0].capitalize() if blockers
-                else "Corre sin tocar nada: solo muestra qué haría")
+                blockers[0].capitalize()
+                if blockers
+                else "Corre sin tocar nada: solo muestra qué haría"
+            )
         self._restyle_run()
 
     def _restyle_run(self) -> None:
@@ -1214,7 +1262,7 @@ class ParamsPanel(QWidget):
             if axis is not None:
                 # No toca lo guardado: solo fuerza el modo seguro en el payload
                 # de ESTA corrida.
-                payload['options'] = {**payload['options'], axis.name: 'simulacro'}
+                payload["options"] = {**payload["options"], axis.name: "simulacro"}
         self.execute_requested.emit(payload)
         return True
 
@@ -1222,5 +1270,6 @@ class ParamsPanel(QWidget):
         """Ejecuta con los parametros actuales de la pestana — que al
         abrirse son los guardados para este boton en este repo, o los por
         defecto si nunca se tocaron. Lo usa el boton ▶ del buscador.
-        Devuelve si corrio."""
+        Devuelve si corrio.
+        """
         return self._emit_execute()

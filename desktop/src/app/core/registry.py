@@ -1,6 +1,9 @@
 from __future__ import annotations
+
+from collections.abc import Callable
 from dataclasses import dataclass, field
-from typing import Callable, Any
+from typing import Any
+
 
 @dataclass(frozen=True)
 class Facet:
@@ -21,6 +24,7 @@ class Facet:
 
     `part` es el indice dentro del valor partido por `AxisDef.facet_sep`.
     """
+
     name: str
     label: str
     part: int
@@ -34,87 +38,88 @@ class AxisDef:
     'many' = casillas (tiene sentido pedir dos a la vez: panel + backoffice),
     'one'  = segmentado (pedir dos es un absurdo: start + stop).
     """
+
     name: str
     values: list[str]
     expand: str  # 'checks' | 'buttons' | 'menu' | 'field' | 'scope' | 'pick'
     danger: set[str] = field(default_factory=set)
-    label: str = ''
-    select: str = 'one'  # 'one' | 'many'
+    label: str = ""
+    select: str = "one"  # 'one' | 'many'
     checked_by_default: bool = True  # solo para select='many': todas marcadas, o ninguna.
-                                # Es el caso degenerado de `defaults`: cuando el default es
-                                # "todas" o "ninguna" no hace falta enumerarlas.
+    # Es el caso degenerado de `defaults`: cuando el default es
+    # "todas" o "ninguna" no hace falta enumerarlas.
     defaults: set[str] = field(default_factory=set)  # solo para select='many': cuales arrancan
-                                # marcadas cuando no son ni todas ni ninguna (los cinco paquetes
-                                # base de nueve). Declarar el default como dato evita partir un
-                                # eje en dos secciones solo para expresarlo: la division
-                                # base/opcional no es una propiedad del dominio (`postgis` es
-                                # base en un repo con datos geograficos), es este default.
+    # marcadas cuando no son ni todas ni ninguna (los cinco paquetes
+    # base de nueve). Declarar el default como dato evita partir un
+    # eje en dos secciones solo para expresarlo: la division
+    # base/opcional no es una propiedad del dominio (`postgis` es
+    # base en un repo con datos geograficos), es este default.
     allow_empty: bool = False  # no elegir nada es una eleccion valida, no "olvidaste elegir".
-                                # En select='many', ninguna casilla marcada (ej. 'Pesados' en
-                                # clean_artifacts). En expand='pick', la lista trae una primera
-                                # entrada vacia y elegirla significa "que lo decida la funcion":
-                                # el emulador de 'App movil' no se elige salvo que haya dos vivos,
-                                # y exigirlo dejaria el boton en ambar cuando no hay ninguno.
+    # En select='many', ninguna casilla marcada (ej. 'Pesados' en
+    # clean_artifacts). En expand='pick', la lista trae una primera
+    # entrada vacia y elegirla significa "que lo decida la funcion":
+    # el emulador de 'App movil' no se elige salvo que haya dos vivos,
+    # y exigirlo dejaria el boton en ambar cuando no hay ninguno.
     discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
-    source: str = ''            # catalogo CONSULTADO que llena este eje
-                                # (`core/catalog.py::queried_values`): el
-                                # dispositivo o la maquina virtual no salen de
-                                # mirar el repo abierto, salen de preguntarle al
-                                # SDK; los servicios systemd, de preguntarle al
-                                # VPS del repo. Se resuelve igual que `discover`,
-                                # pero contra esa fuente y no contra la carpeta.
-    query_error: str = ''       # por que la fuente consultada no contesto, cuando lo que
-                                # dijo es lo que hay que arreglar (la camara del repo,
-                                # ADR-0054). Lo llena el panel; manda sobre "no hay ninguno".
+    source: str = ""  # catalogo CONSULTADO que llena este eje
+    # (`core/catalog.py::queried_values`): el
+    # dispositivo o la maquina virtual no salen de
+    # mirar el repo abierto, salen de preguntarle al
+    # SDK; los servicios systemd, de preguntarle al
+    # VPS del repo. Se resuelve igual que `discover`,
+    # pero contra esa fuente y no contra la carpeta.
+    query_error: str = ""  # por que la fuente consultada no contesto, cuando lo que
+    # dijo es lo que hay que arreglar (la camara del repo,
+    # ADR-0054). Lo llena el panel; manda sobre "no hay ninguno".
     labels: dict = field(default_factory=dict)  # valor -> como se lee. Para las
-                                # listas largas de `expand='pick'`, donde el
-                                # valor real es un id feo
-                                # (`system-images;android-36;google_apis;x86_64`)
-                                # y lo que se elige es "Android 36 | Google APIs".
-    multiline: bool = False     # solo expand='field': caja de varios renglones, un valor por
-                                # linea. Para listas cortas que se escriben a mano (las rutas
-                                # a copiar): en una sola linea no se ve donde termina cada una.
-    required: bool = False      # solo expand='field': dejarlo vacio NO es una eleccion.
-                                # Los campos de Consola son casi todos "vacio = el
-                                # default de la funcion" (la carpeta del build, el
-                                # mensaje de la migracion) y por eso no bloquean; la
-                                # URL del repo a clonar no tiene default posible, y
-                                # sin esto el boton se dejaba apretar para morir en
-                                # la primera linea de la tarea.
-    cast: str = ''              # solo expand='field': 'int' cuando lo escrito es un numero. Un
-                                # campo devuelve texto y hay seis parametros que son enteros (el
-                                # puerto del backend, las lineas del journal, el TTL de
-                                # Cloudflare): sin esto el panel le pasaba '8000' a una funcion
-                                # que hace aritmetica con el. El tipo es parte de la forma del
-                                # eje, asi que se declara con ella y no se arregla en la funcion.
+    # listas largas de `expand='pick'`, donde el
+    # valor real es un id feo
+    # (`system-images;android-36;google_apis;x86_64`)
+    # y lo que se elige es "Android 36 | Google APIs".
+    multiline: bool = False  # solo expand='field': caja de varios renglones, un valor por
+    # linea. Para listas cortas que se escriben a mano (las rutas
+    # a copiar): en una sola linea no se ve donde termina cada una.
+    required: bool = False  # solo expand='field': dejarlo vacio NO es una eleccion.
+    # Los campos de Consola son casi todos "vacio = el
+    # default de la funcion" (la carpeta del build, el
+    # mensaje de la migracion) y por eso no bloquean; la
+    # URL del repo a clonar no tiene default posible, y
+    # sin esto el boton se dejaba apretar para morir en
+    # la primera linea de la tarea.
+    cast: str = ""  # solo expand='field': 'int' cuando lo escrito es un numero. Un
+    # campo devuelve texto y hay seis parametros que son enteros (el
+    # puerto del backend, las lineas del journal, el TTL de
+    # Cloudflare): sin esto el panel le pasaba '8000' a una funcion
+    # que hace aritmetica con el. El tipo es parte de la forma del
+    # eje, asi que se declara con ella y no se arregla en la funcion.
     combine: set[str] = field(default_factory=set)  # solo select='one': valores que se marcan
-                                # aparte del grupo excluyente y stackean con el (ej. 'build' en
-                                # bump_mode: patch|minor|major|none son excluyentes, 'build' suma)
-    default: str = ''           # solo select='one': valor excluyente marcado al inicio;
-                                # vacio = el primero que no este en `combine`
-    truthy: str = ''            # solo select='one' de dos valores: cual significa True.
-                                # Un segmentado de dos ('simulacro'/'borrar') es un booleano
-                                # con dos rotulos legibles: sin esto, quien lee el payload
-                                # tiene que comparar la cadena a mano y el catalogo pierde el
-                                # control de como se lee su propio eje.
-    join: str = ''              # solo con `combine`: como se unen el valor excluyente y los
-                                # combinados en la cadena que espera la funcion
-                                # ('patch' + 'build' -> 'patch+build')
+    # aparte del grupo excluyente y stackean con el (ej. 'build' en
+    # bump_mode: patch|minor|major|none son excluyentes, 'build' suma)
+    default: str = ""  # solo select='one': valor excluyente marcado al inicio;
+    # vacio = el primero que no este en `combine`
+    truthy: str = ""  # solo select='one' de dos valores: cual significa True.
+    # Un segmentado de dos ('simulacro'/'borrar') es un booleano
+    # con dos rotulos legibles: sin esto, quien lee el payload
+    # tiene que comparar la cadena a mano y el catalogo pierde el
+    # control de como se lee su propio eje.
+    join: str = ""  # solo con `combine`: como se unen el valor excluyente y los
+    # combinados en la cadena que espera la funcion
+    # ('patch' + 'build' -> 'patch+build')
     requires_env: dict = field(default_factory=dict)  # valor -> claves de config.env que
-                                # exige elegirlo. El ambito `remoto` pide la IP y la llave
-                                # del VPS y `local` no: exigirlas en la capacidad dejaba
-                                # en ambar la base local de un repo sin VPS.
+    # exige elegirlo. El ambito `remoto` pide la IP y la llave
+    # del VPS y `local` no: exigirlas en la capacidad dejaba
+    # en ambar la base local de un repo sin VPS.
 
     facets: tuple = field(default_factory=tuple)  # solo expand='pick': las caracteristicas
-                                # en las que se descompone cada valor (`Facet`). Con esto el
-                                # panel dibuja una lista corta por caracteristica en vez de una
-                                # larga con todas las combinaciones.
-    facet_sep: str = ';'        # con que se parte el valor para sacar sus caracteristicas
+    # en las que se descompone cada valor (`Facet`). Con esto el
+    # panel dibuja una lista corta por caracteristica en vez de una
+    # larga con todas las combinaciones.
+    facet_sep: str = ";"  # con que se parte el valor para sacar sus caracteristicas
 
     uses_env: dict = field(default_factory=dict)  # valor -> claves de config.env que usa
-                                # elegirlo, sin exigirlas. Solo filtran el panel de
-                                # configuracion: la carpeta del build web no tiene nada que
-                                # hacer en pantalla si no se marco Web.
+    # elegirlo, sin exigirlas. Solo filtran el panel de
+    # configuracion: la carpeta del build web no tiene nada que
+    # hacer en pantalla si no se marco Web.
 
     def keys_for(self, chosen) -> set[str]:
         return set().union(*(self.requires_env.get(v, set()) for v in chosen))
@@ -127,12 +132,12 @@ class AxisDef:
     def facet_of(self, value: str, facet: Facet) -> str:
         """Que dice esta caracteristica en este valor."""
         partes = value.split(self.facet_sep)
-        return partes[facet.part] if facet.part < len(partes) else ''
+        return partes[facet.part] if facet.part < len(partes) else ""
 
     def _upstream(self, name: str) -> list[Facet]:
         """Las caracteristicas declaradas ANTES que esta."""
         nombres = [f.name for f in self.facets]
-        return list(self.facets[:nombres.index(name)]) if name in nombres else []
+        return list(self.facets[: nombres.index(name)]) if name in nombres else []
 
     def facet_values(self, facet: Facet, chosen: dict) -> list[str]:
         """Lo que esta caracteristica puede tomar dado lo elegido mas arriba.
@@ -154,8 +159,9 @@ class AxisDef:
         salida: list[str] = []
         arriba = self._upstream(facet.name)
         for value in self.values:
-            if any(chosen.get(f.name) and self.facet_of(value, f) != chosen[f.name]
-                   for f in arriba):
+            if any(
+                chosen.get(f.name) and self.facet_of(value, f) != chosen[f.name] for f in arriba
+            ):
                 continue
             parte = self.facet_of(value, facet)
             if parte and parte not in salida:
@@ -174,16 +180,22 @@ class AxisDef:
         resuelto: dict[str, str] = {}
         for facet in self.facets:
             opciones = self.facet_values(facet, resuelto)
-            actual = chosen.get(facet.name, '')
-            resuelto[facet.name] = actual if actual in opciones else (
-                opciones[0] if opciones else '')
+            actual = chosen.get(facet.name, "")
+            resuelto[facet.name] = (
+                actual if actual in opciones else (opciones[0] if opciones else "")
+            )
         return resuelto
 
     def value_for(self, chosen: dict) -> str:
         """El valor del catalogo que cumple con todas las caracteristicas."""
-        return next((v for v in self.values
-                     if all(self.facet_of(v, f) == chosen.get(f.name)
-                            for f in self.facets)), '')
+        return next(
+            (
+                v
+                for v in self.values
+                if all(self.facet_of(v, f) == chosen.get(f.name) for f in self.facets)
+            ),
+            "",
+        )
 
     def facets_of(self, value: str) -> dict:
         """El camino inverso: de un valor guardado, que hay que marcar."""
@@ -199,11 +211,11 @@ class AxisDef:
         opciones = self.exclusive_values
         if self.default in opciones:
             return self.default
-        return opciones[0] if opciones else ''
+        return opciones[0] if opciones else ""
 
     @property
     def is_multi(self) -> bool:
-        return self.select == 'many'
+        return self.select == "many"
 
     def starts_checked(self, value: str) -> bool:
         """Si esta casilla arranca marcada. Sin `defaults`, manda el booleano global."""
@@ -220,23 +232,24 @@ class AxisDef:
     def query_place(self) -> str:
         """Donde vive lo que este eje lista. Es la frase con la que el panel
         explica un eje vacio: "no hay servicio en este VPS" dice que mirar, y
-        "en esta maquina" mandaria a buscar al lado equivocado."""
-        if self.source.startswith('vps'):
-            return 'en este VPS'
+        "en esta maquina" mandaria a buscar al lado equivocado.
+        """
+        if self.source.startswith("vps"):
+            return "en este VPS"
         # Los respaldos estan en esta maquina, pero decir eso mandaria a buscar
         # al SDK: lo que hay que mirar es la carpeta que declara BACKUP_DIR, que
         # ni siquiera tiene por que estar dentro del repo.
-        if self.source.startswith('backup'):
-            return 'en la carpeta de respaldos'
-        if self.source.startswith('shots'):
-            return 'en la cámara del repo'
+        if self.source.startswith("backup"):
+            return "en la carpeta de respaldos"
+        if self.source.startswith("shots"):
+            return "en la cámara del repo"
         # Las apps estan en el repo, pero no todas: solo las que dicen donde va
         # su icono. "En este repo" mandaria a buscar una app que si esta.
-        if self.source.startswith('icon'):
-            return 'con ícono a cargo de Consola'
-        if self.source.startswith('releases'):
-            return 'firmado en GitHub'
-        return 'en esta máquina'
+        if self.source.startswith("icon"):
+            return "con ícono a cargo de Consola"
+        if self.source.startswith("releases"):
+            return "firmado en GitHub"
+        return "en esta máquina"
 
     @property
     def is_discovered(self) -> bool:
@@ -250,7 +263,7 @@ class AxisDef:
 
     @property
     def display(self) -> str:
-        return self.label or self.name.replace('_', ' ').capitalize()
+        return self.label or self.name.replace("_", " ").capitalize()
 
     def text_of(self, value: str) -> str:
         """Como se lee un valor. Sin etiqueta declarada, el valor tal cual."""
@@ -266,25 +279,28 @@ class Step:
     su compilacion (APK, Vite) lo hacen porque sin ella queda un modo con
     sentido: subir el artefacto que ya esta en disco.
     """
+
     id: str
     label: str
     optional: bool = True
     default: bool = True
     requires_env: set[str] = field(default_factory=set)
-    requires_repo: str = ''  # caracteristica del repo sin la cual el paso no existe
-                        # (`core/targets.py`: MIGRATIONS). No es lo mismo que
-                        # `requires_env`, que deja la casilla a la vista en ambar
-                        # porque lo que falta se puede cargar: aca no falta un
-                        # dato, falta el objeto sobre el que actuar. Un repo que
-                        # no versiona su esquema no tiene "ejecutar migraciones"
-                        # apagado, no lo tiene — y ofrecerlo era prometer un paso
-                        # que solo podia terminar en el error de Alembic.
+    requires_repo: str = ""  # caracteristica del repo sin la cual el paso no existe
+    # (`core/targets.py`: MIGRATIONS). No es lo mismo que
+    # `requires_env`, que deja la casilla a la vista en ambar
+    # porque lo que falta se puede cargar: aca no falta un
+    # dato, falta el objeto sobre el que actuar. Un repo que
+    # no versiona su esquema no tiene "ejecutar migraciones"
+    # apagado, no lo tiene — y ofrecerlo era prometer un paso
+    # que solo podia terminar en el error de Alembic.
 
 
 @dataclass
 class Capability:
     """Una capacidad registrada. Genera UN boton en el rail; sus variantes
-    y pasos viven en el panel de parametros, no en filas duplicadas."""
+    y pasos viven en el panel de parametros, no en filas duplicadas.
+    """
+
     id: str
     name: str
     group: str
@@ -292,48 +308,48 @@ class Capability:
     axes: list[AxisDef] = field(default_factory=list)
     composed_of: list[str] = field(default_factory=list)
     steps: list[Step] = field(default_factory=list)
-    icon: str = ''
-    description: str = ''  # una linea: que hace el boton, en tooltip y cabecera
-    level: str = ''        # 'A' | 'C'; vacio = se deduce de steps/composed_of
-    scope: str = 'repo'    # 'repo' | 'machine': ver `is_machine_wide`
-    hidden: bool = False   # capacidad atomica: existe como paso, no como boton
-    cut: bool = False       # en el menu, una raya justo encima de este boton.
-                           # No es una seccion con el rotulo apagado: no tiene
-                           # nombre, no agrupa y nadie pregunta a que tramo
-                           # pertenece un boton. Declara un borde y nada mas —
-                           # donde el menu deja de hablar de una cosa y empieza
-                           # a hablar de otra. La raya de los destructivos no se
-                           # declara aca: sale sola de `kind` (ADR-0043).
-    requires_repo: str = ''  # lo mismo que en `Step`, para el boton entero: la
-                           # capacidad cuyos pasos son TODOS de esa caracteristica
-                           # no queda vacia, desaparece (ADR-0007).
+    icon: str = ""
+    description: str = ""  # una linea: que hace el boton, en tooltip y cabecera
+    level: str = ""  # 'A' | 'C'; vacio = se deduce de steps/composed_of
+    scope: str = "repo"  # 'repo' | 'machine': ver `is_machine_wide`
+    hidden: bool = False  # capacidad atomica: existe como paso, no como boton
+    cut: bool = False  # en el menu, una raya justo encima de este boton.
+    # No es una seccion con el rotulo apagado: no tiene
+    # nombre, no agrupa y nadie pregunta a que tramo
+    # pertenece un boton. Declara un borde y nada mas —
+    # donde el menu deja de hablar de una cosa y empieza
+    # a hablar de otra. La raya de los destructivos no se
+    # declara aca: sale sola de `kind` (ADR-0043).
+    requires_repo: str = ""  # lo mismo que en `Step`, para el boton entero: la
+    # capacidad cuyos pasos son TODOS de esa caracteristica
+    # no queda vacia, desaparece (ADR-0007).
     opens_repo: bool = False  # lo que entrega la tarea es una carpeta de repo:
-                           # la ventana la abre como pestana al terminar. Es lo
-                           # unico que hace falta declarar para que clonar
-                           # termine donde tiene que terminar, sin que la interfaz
-                           # conozca el id del boton que clona.
-    view: str = ''         # segunda vista de la pestana, ademas de la consola:
-                           # 'web' = navegador embebido apuntado al endpoint que
-                           # la tarea publica con `ctx.serve()`. El log de un
-                           # launcher es el subproducto; lo que entrega es una
-                           # URL (ADR-0008).
-                           # 'db' = explorador de base sobre la conexion que
-                           # publica `explore_db` (ADR-0015).
-    fanout: str = ''       # solo kind='live': nombre del eje `select='many'`
-                           # cuyos valores NO se corren en un bucle sino en una
-                           # pestana cada uno. Marcar panel + backoffice son dos
-                           # dev servers vivos a la vez, no dos pasos en fila
-                           # (ADR-0010).
+    # la ventana la abre como pestana al terminar. Es lo
+    # unico que hace falta declarar para que clonar
+    # termine donde tiene que terminar, sin que la interfaz
+    # conozca el id del boton que clona.
+    view: str = ""  # segunda vista de la pestana, ademas de la consola:
+    # 'web' = navegador embebido apuntado al endpoint que
+    # la tarea publica con `ctx.serve()`. El log de un
+    # launcher es el subproducto; lo que entrega es una
+    # URL (ADR-0008).
+    # 'db' = explorador de base sobre la conexion que
+    # publica `explore_db` (ADR-0015).
+    fanout: str = ""  # solo kind='live': nombre del eje `select='many'`
+    # cuyos valores NO se corren en un bucle sino en una
+    # pestana cada uno. Marcar panel + backoffice son dos
+    # dev servers vivos a la vez, no dos pasos en fila
+    # (ADR-0010).
     concurrent: bool = False  # compuesta concurrente: sus pasos son capacidades
-                           # que se lanzan en paralelo, una pestana cada una, y
-                           # ninguna termina. No tiene `func`: su cuerpo es el
-                           # despachador de la interfaz, porque "N pestanas" no
-                           # significa nada en `core/` (ADR-0011).
-    live_state: str = ''   # inventario que el panel muestra como cabecera de
-                           # estado, con su boton de apagar por fila
-                           # (`core/catalog.py::queried_values`). Es lo que
-                           # reemplaza al boton "Apagar emulador": lo que corre
-                           # se ve donde se elige, y se apaga desde ahi.
+    # que se lanzan en paralelo, una pestana cada una, y
+    # ninguna termina. No tiene `func`: su cuerpo es el
+    # despachador de la interfaz, porque "N pestanas" no
+    # significa nada en `core/` (ADR-0011).
+    live_state: str = ""  # inventario que el panel muestra como cabecera de
+    # estado, con su boton de apagar por fila
+    # (`core/catalog.py::queried_values`). Es lo que
+    # reemplaza al boton "Apagar emulador": lo que corre
+    # se ve donde se elige, y se apaga desde ahi.
     stub: bool = True
     func: Callable[..., Any] | None = None
 
@@ -349,7 +365,7 @@ class Capability:
         en casillas ni en un segmentado — pero tampoco es texto libre, porque
         los valores validos son exactamente esos.
         """
-        return [a for a in self.axes if a.expand == 'pick']
+        return [a for a in self.axes if a.expand == "pick"]
 
     @property
     def single_axes(self) -> list[AxisDef]:
@@ -359,21 +375,20 @@ class Capability:
         el valor se escribe (una ruta de instalacion, un API level) en vez de
         elegirse de una lista cerrada.
         """
-        return [a for a in self.axes
-                if not a.is_multi and a.expand not in ('field', 'pick')]
+        return [a for a in self.axes if not a.is_multi and a.expand not in ("field", "pick")]
 
     @property
     def field_axes(self) -> list[AxisDef]:
         """Ejes que se escriben a mano. `values[0]` es el valor por defecto."""
-        return [a for a in self.axes if a.expand == 'field']
+        return [a for a in self.axes if a.expand == "field"]
 
     @property
     def has_web_view(self) -> bool:
-        return self.view == 'web'
+        return self.view == "web"
 
     @property
     def has_db_view(self) -> bool:
-        return self.view == 'db'
+        return self.view == "db"
 
     @property
     def is_composite(self) -> bool:
@@ -385,12 +400,12 @@ class Capability:
         catalogo lo dice con `level='C'`. Lo explicito manda.
         """
         if self.level:
-            return self.level.upper().startswith('C')
+            return self.level.upper().startswith("C")
         return bool(self.steps or self.composed_of)
 
     @property
     def level_label(self) -> str:
-        return 'Compuesta' if self.is_composite else 'Atómica'
+        return "Compuesta" if self.is_composite else "Atómica"
 
     def kwargs_from(self, payload: dict) -> dict:
         """Los keyword-arguments de la funcion, leidos de lo que marco el panel.
@@ -405,7 +420,7 @@ class Capability:
         botones encadena este boton, no casillas con un booleano detras. Quien
         quiere una casilla por paso declara `steps=`.
         """
-        marcados = set(payload.get('steps') or ())
+        marcados = set(payload.get("steps") or ())
         kwargs = {axis.name: self._axis_value(axis, payload) for axis in self.axes}
         kwargs.update({step.id: step.id in marcados for step in self.steps})
         return kwargs
@@ -418,31 +433,31 @@ class Capability:
         `picks` las listas largas), asi que hay que saber en cual cayo cada eje
         — y eso es justo lo que dicen su `expand` y su `select`.
         """
-        if axis.expand == 'field':
+        if axis.expand == "field":
             # Vacio es una eleccion valida: quien borro el campo pide el valor
             # por defecto de la funcion, no el del catalogo.
-            escrito = (payload.get('fields') or {}).get(axis.name, '')
+            escrito = (payload.get("fields") or {}).get(axis.name, "")
             # Una caja de varios renglones ES una lista: un valor por linea. Lo
             # que la separa es el salto de linea, no una coma que despues haya
             # que explicar al costado del campo.
             if axis.multiline:
                 return [ln.strip() for ln in escrito.splitlines() if ln.strip()]
-            if axis.cast == 'int':
+            if axis.cast == "int":
                 # Un campo vacio pide el default declarado, igual que arriba:
                 # borrar el puerto es "el de siempre", no "el puerto cero".
                 texto = escrito.strip()
-                return int(texto) if texto.lstrip('-').isdigit() else int(axis.values[0] or 0)
+                return int(texto) if texto.lstrip("-").isdigit() else int(axis.values[0] or 0)
             return escrito
-        if axis.expand == 'pick':
-            return (payload.get('picks') or {}).get(axis.name, '')
+        if axis.expand == "pick":
+            return (payload.get("picks") or {}).get(axis.name, "")
         if axis.is_multi:
-            marcados = list((payload.get('variants') or {}).get(axis.name) or ())
+            marcados = list((payload.get("variants") or {}).get(axis.name) or ())
             # El eje de `fanout` ya viene repartido: `TabPanel._run_fanout` abre
             # una pestana por valor, asi que aca llega uno solo, no la lista.
             if axis.name and axis.name == self.fanout:
-                return marcados[0] if marcados else ''
+                return marcados[0] if marcados else ""
             return marcados
-        crudo = (payload.get('options') or {}).get(axis.name)
+        crudo = (payload.get("options") or {}).get(axis.name)
         if axis.combine:
             # Un eje con `combine` puede traer dos marcas (`['patch', 'build']`).
             # El orden de la cadena lo fija el catalogo, no el orden en que el
@@ -474,24 +489,25 @@ class Capability:
         (`ui/params_store.py`) en vez de por repo, y no tiene sentido que la
         accion dependa de que haya un proyecto abierto.
         """
-        return self.scope == 'machine'
+        return self.scope == "machine"
 
 
 GROUP_ICONS = {
-    'Ejecutar': '🚀',
-    'Compilar': '🔨',
-    'Imágenes': '🖼️',
-    'Repositorio': '🐙',
-    'Base de datos': '🗄️',
-    'Despliegue': '🖥️',
-    'VPS': '🔧',
-    'Emuladores': '📱',
-    'SDKs': '🧰',
+    "Ejecutar": "🚀",
+    "Compilar": "🔨",
+    "Imágenes": "🖼️",
+    "Repositorio": "🐙",
+    "Base de datos": "🗄️",
+    "Despliegue": "🖥️",
+    "VPS": "🔧",
+    "Emuladores": "📱",
+    "SDKs": "🧰",
 }
 
 
 class Registry:
     """Registro global de capacidades."""
+
     def __init__(self):
         self._capabilities: dict[str, Capability] = {}
         self._group_order: list[str] = []
@@ -510,7 +526,7 @@ class Registry:
         """
         cap = self._capabilities.get(cap_id)
         if cap is None:
-            raise KeyError(f'No hay ninguna capacidad registrada con id {cap_id!r}')
+            raise KeyError(f"No hay ninguna capacidad registrada con id {cap_id!r}")
         cap.func = func
         cap.stub = False
         return func
@@ -534,7 +550,7 @@ class Registry:
         return self._capabilities.get(cap_id)
 
     def get_group_icon(self, group: str) -> str:
-        return GROUP_ICONS.get(group, '')
+        return GROUP_ICONS.get(group, "")
 
     def resolve_steps(self, cap: Capability) -> list[Step]:
         """Pasos efectivos de una capacidad: los que declara, o ella misma.

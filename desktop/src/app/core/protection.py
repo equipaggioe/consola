@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 """
@@ -46,26 +47,57 @@ seria justo el ruido que gasta la senal del aviso de verdad.
 @dataclass(frozen=True)
 class Target:
     """Un tipo de cosa que una accion destructiva puede romper."""
-    id: str             # como se guarda en `.consola/params.json`
-    label: str          # como se lee en el dialogo: "el VPS", "la base de datos"
-    chip: str           # etiqueta corta para la barra de estado: "VPS", "BD"
+
+    id: str  # como se guarda en `.consola/params.json`
+    label: str  # como se lee en el dialogo: "el VPS", "la base de datos"
+    chip: str  # etiqueta corta para la barra de estado: "VPS", "BD"
     setting_label: str  # como se lee el interruptor en la seccion Seguridad
     protected_by_default: bool
-    why: str            # por que ese default, para el tooltip del interruptor
+    why: str  # por que ese default, para el tooltip del interruptor
 
 
 TARGETS: tuple[Target, ...] = (
-    Target('vps', 'el VPS', 'VPS', 'Proteger el VPS', True,
-           'alcanza a una maquina remota y no hay deshacer'),
-    Target('db', 'la base de datos', 'BD', 'Proteger la base de datos', True,
-           'los datos borrados no vuelven sin un backup'),
-    Target('otros_repos', 'otros repositorios', 'otros repos', 'Proteger otros repos', True,
-           'escribe fuera de este repo, en carpetas que no estas mirando'),
-    Target('local', 'archivos de este repo', 'local', 'Proteger archivos locales', False,
-           'apagado por defecto: un artefacto borrado se rehace con un build'),
-    Target('origin', 'origin en GitHub', 'origin', 'Proteger origin (GitHub)', False,
-           'apagado por defecto: reescribe el historial que ven quienes clonaron o '
-           'hicieron fork de este repo, pero no toca esta maquina ni el VPS'),
+    Target(
+        "vps",
+        "el VPS",
+        "VPS",
+        "Proteger el VPS",
+        True,
+        "alcanza a una maquina remota y no hay deshacer",
+    ),
+    Target(
+        "db",
+        "la base de datos",
+        "BD",
+        "Proteger la base de datos",
+        True,
+        "los datos borrados no vuelven sin un backup",
+    ),
+    Target(
+        "otros_repos",
+        "otros repositorios",
+        "otros repos",
+        "Proteger otros repos",
+        True,
+        "escribe fuera de este repo, en carpetas que no estas mirando",
+    ),
+    Target(
+        "local",
+        "archivos de este repo",
+        "local",
+        "Proteger archivos locales",
+        False,
+        "apagado por defecto: un artefacto borrado se rehace con un build",
+    ),
+    Target(
+        "origin",
+        "origin en GitHub",
+        "origin",
+        "Proteger origin (GitHub)",
+        False,
+        "apagado por defecto: reescribe el historial que ven quienes clonaron o "
+        "hicieron fork de este repo, pero no toca esta maquina ni el VPS",
+    ),
 )
 
 _BY_ID = {t.id: t for t in TARGETS}
@@ -81,9 +113,11 @@ def get(target_id: str) -> Target | None:
 # interruptor por repositorio no tendria a que repositorio pertenecer. Se queda
 # con su propia confirmacion escrita.
 
+
 @dataclass(frozen=True)
 class Rule:
     """Objetivos fijos de una accion, mas los que dependen de sus parametros."""
+
     always: tuple[str, ...] = ()
     # nombre del eje -> {valor: objetivos que ese valor agrega}
     when: dict = field(default_factory=dict)
@@ -92,35 +126,29 @@ class Rule:
 
 
 RULES: dict[str, Rule] = {
-    'revoke_ssh': Rule(always=('vps',)),
-
+    "revoke_ssh": Rule(always=("vps",)),
     # `local` no sale de esta maquina; `remoto` alcanza al servidor. El mismo
     # boton, dos radios de dano distintos.
-    'teardown_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
-    'rebuild_db': Rule(always=('db',), when={'scope': {'remoto': ('vps',)}}),
-
+    "teardown_db": Rule(always=("db",), when={"scope": {"remoto": ("vps",)}}),
+    "rebuild_db": Rule(always=("db",), when={"scope": {"remoto": ("vps",)}}),
     # Pisa la base local entera con lo que traiga el dump. No lleva confirmacion
     # escrita propia: el seguro por repo ya la cubre (ADR-0047).
-    'restore_db': Rule(always=('db',)),
-
+    "restore_db": Rule(always=("db",)),
     # Toca dos objetivos: vacia el esquema de la base que diga `scope` y borra
     # los archivos de `alembic/versions/` del repo abierto.
-    'reinit_migrations': Rule(always=('db', 'local'),
-                              when={'scope': {'remoto': ('vps',)}}),
-
-    'clean_artifacts': Rule(always=('local',), dry_run={'apply': ('simulacro',)}),
-    'sync_common_files': Rule(always=('otros_repos',), dry_run={'apply': ('simulacro',)}),
-
+    "reinit_migrations": Rule(always=("db", "local"), when={"scope": {"remoto": ("vps",)}}),
+    "clean_artifacts": Rule(always=("local",), dry_run={"apply": ("simulacro",)}),
+    "sync_common_files": Rule(always=("otros_repos",), dry_run={"apply": ("simulacro",)}),
     # `push` reescribe origin y no deja distinta esta maquina; `reset` descarta
     # commits y archivos de esta maquina.
-    'git_force_push': Rule(always=('origin',)),
-    'git_force_reset': Rule(always=('local',)),
+    "git_force_push": Rule(always=("origin",)),
+    "git_force_reset": Rule(always=("local",)),
 }
 
 
 def _chosen(payload: dict, axis: str) -> set[str]:
     """Lo marcado en un eje, venga como valor suelto o como lista."""
-    raw = (payload.get('options') or {}).get(axis)
+    raw = (payload.get("options") or {}).get(axis)
     if isinstance(raw, list):
         return set(raw)
     return {raw} if raw else set()
@@ -135,7 +163,7 @@ def targets_of(capability_id: str, payload: dict | None = None) -> list[Target]:
 
     for axis, inocuos in rule.dry_run.items():
         if _chosen(payload, axis) & set(inocuos):
-            return []   # un simulacro no destruye: no se pregunta nada
+            return []  # un simulacro no destruye: no se pregunta nada
 
     ids = list(rule.always)
     for axis, mapa in rule.when.items():
@@ -172,13 +200,15 @@ def state_from(stored: dict | None) -> dict:
 
 class Decision:
     """Que hace la consola con una corrida, antes de dejarla arrancar."""
-    ALLOW = 'allow'    # no rompe nada (o es un simulacro): corre sin preguntar
-    REMIND = 'remind'  # rompe algo, pero nada protegido: recordatorio del repo
-    BLOCK = 'block'    # toca un objetivo protegido en este repo: no corre
+
+    ALLOW = "allow"  # no rompe nada (o es un simulacro): corre sin preguntar
+    REMIND = "remind"  # rompe algo, pero nada protegido: recordatorio del repo
+    BLOCK = "block"  # toca un objetivo protegido en este repo: no corre
 
 
-def decide(state: dict, capability_id: str,
-           payload: dict | None = None) -> tuple[str, list[Target]]:
+def decide(
+    state: dict, capability_id: str, payload: dict | None = None
+) -> tuple[str, list[Target]]:
     """Clasifica una corrida. Devuelve la decision y los objetivos que la explican.
 
     - `BLOCK`: algun objetivo del radio de dano esta protegido en este repo. La
@@ -207,5 +237,6 @@ def is_protected(state: dict, target: Target) -> bool:
 def repo_protections(state: dict) -> list[Target]:
     """Todos los objetivos que este repo tiene protegidos, sin mirar ninguna
     accion en particular. Es lo que resume el indicador de la barra de estado
-    (`ui/tab_panel.py::WorkspaceStatusBar`)."""
+    (`ui/tab_panel.py::WorkspaceStatusBar`).
+    """
     return [t for t in TARGETS if is_protected(state, t)]

@@ -1,8 +1,9 @@
 from __future__ import annotations
+
 import os
 import re
+from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
-from typing import Callable, Iterable, Mapping
 
 from app.core.host import HOST
 
@@ -22,18 +23,18 @@ reescribe entero cada vez, asi que reinstalar no deja exports duplicados ni
 rutas viejas colgando, que era el problema que aquellos parcheaban a mano.
 """
 
-BEGIN = '# >>> consola >>>'
-END = '# <<< consola <<<'
-_HEADER = '# Bloque gestionado por Consola: se reescribe completo, no lo edites a mano.'
-_EXPORT = re.compile(r'^\s*export\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$')
+BEGIN = "# >>> consola >>>"
+END = "# <<< consola <<<"
+_HEADER = "# Bloque gestionado por Consola: se reescribe completo, no lo edites a mano."
+_EXPORT = re.compile(r"^\s*export\s+([A-Za-z_][A-Za-z0-9_]*)=(.*)$")
 
 PathFilter = Callable[[str], bool]
 
 
 def profile_path() -> Path:
     """El archivo de arranque del shell del usuario."""
-    shell = (os.environ.get('SHELL') or '').strip()
-    return Path.home() / ('.zshrc' if shell.endswith('zsh') else '.bashrc')
+    shell = (os.environ.get("SHELL") or "").strip()
+    return Path.home() / (".zshrc" if shell.endswith("zsh") else ".bashrc")
 
 
 def configure(
@@ -67,17 +68,19 @@ def _apply_to_process(variables: Mapping[str, str], path_add: list[str]) -> None
     for name, value in variables.items():
         os.environ[name] = value
     separator = os.pathsep
-    current = [p for p in os.environ.get('PATH', '').split(separator) if p]
+    current = [p for p in os.environ.get("PATH", "").split(separator) if p]
     for entry in path_add:
         if entry not in current:
             current.append(entry)
-    os.environ['PATH'] = separator.join(current)
+    os.environ["PATH"] = separator.join(current)
 
 
 # --- POSIX -----------------------------------------------------------------
 
-def _configure_posix(ctx, variables: dict[str, str], path_add: list[str],
-                     path_drop: PathFilter | None) -> None:
+
+def _configure_posix(
+    ctx, variables: dict[str, str], path_add: list[str], path_drop: PathFilter | None
+) -> None:
     profile = profile_path()
     stored, dirs = read_block(profile)
 
@@ -91,11 +94,11 @@ def _configure_posix(ctx, variables: dict[str, str], path_add: list[str],
     _write_block(profile, stored, kept)
 
     for name, value in variables.items():
-        ctx.ok(f'{name} = {value}')
+        ctx.ok(f"{name} = {value}")
     if removed:
-        ctx.info(f'Se quitaron {removed} ruta(s) anteriores del PATH.')
-    ctx.ok(f'Perfil actualizado: {profile}')
-    ctx.info('Abre una terminal nueva para que el PATH se actualice ahi.')
+        ctx.info(f"Se quitaron {removed} ruta(s) anteriores del PATH.")
+    ctx.ok(f"Perfil actualizado: {profile}")
+    ctx.info("Abre una terminal nueva para que el PATH se actualice ahi.")
 
 
 def read_block(profile: Path) -> tuple[dict[str, str], list[str]]:
@@ -109,7 +112,7 @@ def read_block(profile: Path) -> tuple[dict[str, str], list[str]]:
     if not profile.is_file():
         return variables, dirs
 
-    text = profile.read_text(encoding='utf-8', errors='replace')
+    text = profile.read_text(encoding="utf-8", errors="replace")
     start, end = text.find(BEGIN), text.find(END)
     if start < 0 or end < start:
         return variables, dirs
@@ -119,8 +122,8 @@ def read_block(profile: Path) -> tuple[dict[str, str], list[str]]:
         if not match:
             continue
         name, raw = match.group(1), match.group(2).strip().strip('"')
-        if name == 'PATH':
-            dirs.extend(p for p in raw.split(':') if p and p != '$PATH')
+        if name == "PATH":
+            dirs.extend(p for p in raw.split(":") if p and p != "$PATH")
         else:
             variables[name] = raw
     return variables, dirs
@@ -130,39 +133,41 @@ def _write_block(profile: Path, variables: Mapping[str, str], dirs: list[str]) -
     lines = [BEGIN, _HEADER]
     lines += [f'export {name}="{value}"' for name, value in variables.items()]
     if dirs:
-        lines.append('export PATH="$PATH:' + ':'.join(dirs) + '"')
+        lines.append('export PATH="$PATH:' + ":".join(dirs) + '"')
     lines.append(END)
-    block = '\n'.join(lines) + '\n'
+    block = "\n".join(lines) + "\n"
 
-    text = profile.read_text(encoding='utf-8', errors='replace') if profile.is_file() else ''
+    text = profile.read_text(encoding="utf-8", errors="replace") if profile.is_file() else ""
     start, end = text.find(BEGIN), text.find(END)
     if start >= 0 and end > start:
-        text = text[:start] + block + text[end + len(END):].lstrip('\n')
+        text = text[:start] + block + text[end + len(END) :].lstrip("\n")
     else:
-        prefix = text.rstrip('\n') + '\n\n' if text.strip() else ''
+        prefix = text.rstrip("\n") + "\n\n" if text.strip() else ""
         text = prefix + block
 
     profile.parent.mkdir(parents=True, exist_ok=True)
-    profile.write_text(text, encoding='utf-8', newline='\n')
+    profile.write_text(text, encoding="utf-8", newline="\n")
 
 
 # --- Windows ---------------------------------------------------------------
 
-_SYSTEM_ENV_KEY = r'SYSTEM\CurrentControlSet\Control\Session Manager\Environment'
+_SYSTEM_ENV_KEY = r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
 
 
-def _configure_windows(ctx, variables: dict[str, str], path_add: list[str],
-                       path_drop: PathFilter | None) -> None:
+def _configure_windows(
+    ctx, variables: dict[str, str], path_add: list[str], path_drop: PathFilter | None
+) -> None:
     import winreg
 
-    with winreg.CreateKeyEx(winreg.HKEY_CURRENT_USER, 'Environment', 0,
-                            winreg.KEY_READ | winreg.KEY_WRITE) as key:
+    with winreg.CreateKeyEx(
+        winreg.HKEY_CURRENT_USER, "Environment", 0, winreg.KEY_READ | winreg.KEY_WRITE
+    ) as key:
         for name, value in variables.items():
             winreg.SetValueEx(key, name, 0, winreg.REG_SZ, value)
-            ctx.ok(f'{name} = {value}')
+            ctx.ok(f"{name} = {value}")
 
-        current, kind = _query(key, 'Path')
-        entries = [e for e in current.split(';') if e.strip()]
+        current, kind = _query(key, "Path")
+        entries = [e for e in current.split(";") if e.strip()]
         kept = [e for e in entries if not (path_drop and path_drop(e))]
         removed = len(entries) - len(kept)
         for entry in path_add:
@@ -172,12 +177,12 @@ def _configure_windows(ctx, variables: dict[str, str], path_add: list[str],
         if kept != entries:
             # Siempre por registro y nunca por `setx`: setx trunca cualquier
             # valor de mas de 1024 caracteres y un PATH real los pasa.
-            winreg.SetValueEx(key, 'Path', 0, kind or winreg.REG_EXPAND_SZ, ';'.join(kept))
+            winreg.SetValueEx(key, "Path", 0, kind or winreg.REG_EXPAND_SZ, ";".join(kept))
             if removed:
-                ctx.info(f'Se quitaron {removed} ruta(s) anteriores del PATH de usuario.')
-            ctx.ok('PATH de usuario actualizado.')
+                ctx.info(f"Se quitaron {removed} ruta(s) anteriores del PATH de usuario.")
+            ctx.ok("PATH de usuario actualizado.")
         else:
-            ctx.ok('El PATH de usuario ya estaba configurado.')
+            ctx.ok("El PATH de usuario ya estaba configurado.")
 
     _broadcast_change()
     _warn_system_path(ctx, path_drop)
@@ -185,11 +190,12 @@ def _configure_windows(ctx, variables: dict[str, str], path_add: list[str],
 
 def _query(key, name: str) -> tuple[str, int | None]:
     import winreg
+
     try:
         value, kind = winreg.QueryValueEx(key, name)
-        return str(value or ''), kind
+        return str(value or ""), kind
     except FileNotFoundError:
-        return '', None
+        return "", None
 
 
 def _warn_system_path(ctx, path_drop: PathFilter | None) -> None:
@@ -203,19 +209,20 @@ def _warn_system_path(ctx, path_drop: PathFilter | None) -> None:
     if path_drop is None:
         return
     import winreg
+
     try:
         with winreg.OpenKey(winreg.HKEY_LOCAL_MACHINE, _SYSTEM_ENV_KEY, 0, winreg.KEY_READ) as key:
-            current, _ = _query(key, 'Path')
+            current, _ = _query(key, "Path")
     except OSError:
         return
 
-    stale = [e for e in current.split(';') if e.strip() and path_drop(e)]
+    stale = [e for e in current.split(";") if e.strip() and path_drop(e)]
     if not stale:
         return
-    ctx.warn('El PATH del sistema todavia tiene rutas anteriores, y tienen prioridad:')
+    ctx.warn("El PATH del sistema todavia tiene rutas anteriores, y tienen prioridad:")
     for entry in stale:
-        ctx.warn(f'  {entry}')
-    ctx.warn('Quitalas desde Variables de entorno del sistema (requiere administrador).')
+        ctx.warn(f"  {entry}")
+    ctx.warn("Quitalas desde Variables de entorno del sistema (requiere administrador).")
 
 
 def _broadcast_change() -> None:
@@ -226,14 +233,19 @@ def _broadcast_change() -> None:
     """
     try:
         import ctypes
+
         ctypes.windll.user32.SendMessageTimeoutW(
-            0xFFFF,   # HWND_BROADCAST
-            0x001A,   # WM_SETTINGCHANGE
-            0, 'Environment', 0x0002, 5000, None,
+            0xFFFF,  # HWND_BROADCAST
+            0x001A,  # WM_SETTINGCHANGE
+            0,
+            "Environment",
+            0x0002,
+            5000,
+            None,
         )
     except (AttributeError, OSError):
         pass
 
 
 # Uno por valor de `HOST.env_store`.
-_STORES = {'profile': _configure_posix, 'registry': _configure_windows}
+_STORES = {"profile": _configure_posix, "registry": _configure_windows}

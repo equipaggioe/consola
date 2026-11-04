@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from PySide6.QtCore import QSettings
 
 """
@@ -7,7 +8,7 @@ Parametros, Configuracion) quedan a la vista. Preferencia global de la app, no
 por repositorio — igual que «solo favoritos» (`ui/favorites.py`), en QSettings.
 """
 
-_HIDDEN_KEY = 'ui/hidden_sections'
+_HIDDEN_KEY = "ui/hidden_sections"
 
 
 def hidden_sections() -> set[str]:

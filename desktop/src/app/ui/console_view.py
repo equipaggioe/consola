@@ -1,14 +1,18 @@
 from __future__ import annotations
+
 import datetime
-from PySide6.QtWidgets import QPlainTextEdit, QLineEdit, QMenu
-from PySide6.QtGui import QTextCharFormat, QColor, QFont, QKeyEvent, QAction
+
 from PySide6.QtCore import Qt, QTimer
+from PySide6.QtGui import QAction, QColor, QFont, QKeyEvent, QTextCharFormat
+from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit
+
 from app.theme import Colors, Fonts, mono
-from app.ui.palettes import Palette, NEUTRAL
+from app.ui.palettes import NEUTRAL, Palette
+
 
 class ConsoleView(QPlainTextEdit):
     """Terminal-like console with colored log levels and blinking cursor."""
-    
+
     def __init__(self, parent=None):
         super().__init__(parent)
         self.setReadOnly(True)
@@ -16,12 +20,12 @@ class ConsoleView(QPlainTextEdit):
         font = mono(QFont())
         font.setPixelSize(Fonts.SIZE_MONO)
         self.setFont(font)
-        
+
         self.cursor_visible = False
         self.cursor_timer = QTimer(self)
         self.cursor_timer.timeout.connect(self._toggle_cursor)
         self.cursor_timer.start(600)
-        
+
         self.search_bar = QLineEdit(self)
         self.search_bar.setPlaceholderText("Search...")
         self.search_bar.hide()
@@ -51,49 +55,49 @@ class ConsoleView(QPlainTextEdit):
                 font-size: 14px;
             }}
         """)
-        
+
     def resizeEvent(self, event):
         super().resizeEvent(event)
         w = 200
         h = 28
         self.search_bar.setGeometry(self.width() - w - 20, 10, w, h)
 
-    def append_log(self, text: str, level: str = 'info') -> None:
+    def append_log(self, text: str, level: str = "info") -> None:
         fmt = QTextCharFormat()
         color_map = {
-            'info': Colors.ACCENT,
-            'ok': Colors.SUCCESS,
-            'warn': Colors.WARNING,
-            'error': Colors.ERROR
+            "info": Colors.ACCENT,
+            "ok": Colors.SUCCESS,
+            "warn": Colors.WARNING,
+            "error": Colors.ERROR,
         }
         level = level.lower()
         level_color = color_map.get(level, Colors.TEXT_DIM)
-        
+
         now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-        
+
         cursor = self.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
         cursor.select(cursor.SelectionType.LineUnderCursor)
         if cursor.selectedText().endswith("▍"):
             cursor.deletePreviousChar()
-            
+
         cursor = self.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
         self.setTextCursor(cursor)
-        
+
         fmt.setForeground(QColor(Colors.TEXT_MUTED))
         self.setCurrentCharFormat(fmt)
         self.insertPlainText(f"[{now}] ")
-        
+
         fmt.setForeground(QColor(level_color))
         self.setCurrentCharFormat(fmt)
         level_str = f"[{level.upper()}]".ljust(7)
         self.insertPlainText(level_str)
-        
+
         fmt.setForeground(QColor(Colors.TEXT_DIM))
         self.setCurrentCharFormat(fmt)
         self.insertPlainText(f" {text}\n")
-        
+
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
     def clear_console(self) -> None:
@@ -108,7 +112,7 @@ class ConsoleView(QPlainTextEdit):
     def _toggle_cursor(self):
         cursor = self.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
-        
+
         if self.cursor_visible:
             cursor.select(cursor.SelectionType.LineUnderCursor)
             if cursor.selectedText().endswith("▍"):
@@ -136,10 +140,10 @@ class ConsoleView(QPlainTextEdit):
         select_all_action.triggered.connect(self.selectAll)
         clear_action = QAction("Clear", self)
         clear_action.triggered.connect(self.clear_console)
-        
+
         menu.addAction(copy_action)
         menu.addAction(select_all_action)
         menu.addSeparator()
         menu.addAction(clear_action)
-        
+
         menu.exec(event.globalPos())

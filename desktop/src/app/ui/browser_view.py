@@ -1,13 +1,12 @@
 from __future__ import annotations
+
 import webbrowser
 
 from PySide6.QtCore import Qt, QUrl, Signal
-from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
-)
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app.theme import Colors, Fonts
-from app.ui.palettes import Palette, NEUTRAL
+from app.ui.palettes import NEUTRAL, Palette
 
 """
 El navegador embebido de una pestana de launcher.
@@ -25,8 +24,9 @@ pestana sigue funcionando; lo unico que se pierde es verlo aca adentro.
 
 try:
     from PySide6.QtWebEngineWidgets import QWebEngineView
+
     WEBENGINE = True
-except ImportError:                                    # pragma: no cover
+except ImportError:  # pragma: no cover
     QWebEngineView = None
     WEBENGINE = False
 
@@ -42,7 +42,7 @@ class BrowserView(QWidget):
 
     closed = Signal()
 
-    def __init__(self, url: str = '', parent=None):
+    def __init__(self, url: str = "", parent=None):
         super().__init__(parent)
         self._url = url
         self.pal = NEUTRAL
@@ -75,17 +75,19 @@ class BrowserView(QWidget):
         lay.setContentsMargins(8, 0, 8, 0)
         lay.setSpacing(4)
 
-        self.back_btn = self._tool('‹', 'Atrás', self._go_back)
-        self.fwd_btn = self._tool('›', 'Adelante', self._go_forward)
-        self.reload_btn = self._tool('↻', 'Recargar', self.reload)
+        self.back_btn = self._tool("‹", "Atrás", self._go_back)
+        self.fwd_btn = self._tool("›", "Adelante", self._go_forward)
+        self.reload_btn = self._tool("↻", "Recargar", self.reload)
 
         self.url_label = QLabel(self._url)
         self.url_label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; "
-            f"font-family: {Fonts.MONO}; font-size: {Fonts.SIZE_XS}px;")
+            f"font-family: {Fonts.MONO}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
-        self.external_btn = self._tool('↗', 'Abrir en el navegador del sistema',
-                                       lambda: open_external(self._url))
+        self.external_btn = self._tool(
+            "↗", "Abrir en el navegador del sistema", lambda: open_external(self._url)
+        )
 
         lay.addWidget(self.back_btn)
         lay.addWidget(self.fwd_btn)
@@ -101,7 +103,8 @@ class BrowserView(QWidget):
 
     def _restyle(self) -> None:
         self._bar.setStyleSheet(
-            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};")
+            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};"
+        )
         if self._fallback is not None:
             self._fallback.setStyleSheet(f"background: {self.pal.bg};")
 
@@ -128,13 +131,16 @@ class BrowserView(QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setSpacing(10)
 
-        texto = QLabel('Esta instalación de PySide6 no trae QtWebEngine.\n'
-                       'Instala «PySide6-Addons» para ver la página aquí dentro.')
+        texto = QLabel(
+            "Esta instalación de PySide6 no trae QtWebEngine.\n"
+            "Instala «PySide6-Addons» para ver la página aquí dentro."
+        )
         texto.setAlignment(Qt.AlignmentFlag.AlignCenter)
         texto.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;")
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;"
+        )
 
-        abrir = QPushButton('Abrir en el navegador del sistema')
+        abrir = QPushButton("Abrir en el navegador del sistema")
         abrir.setCursor(Qt.CursorShape.PointingHandCursor)
         abrir.setStyleSheet(f"""
             QPushButton {{

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 from dataclasses import dataclass, field
 
 from app.core.errors import TaskError
@@ -22,12 +23,12 @@ CELL_CHARS = 2000
 
 # Tipos que no se leen como texto: la geometria llega como EWKB hexadecimal y
 # un bytea como su volcado entero. Se traen convertidos desde el servidor.
-GEOMETRY_TYPES = ('geometry', 'geography')
-BYTEA = 'bytea'
+GEOMETRY_TYPES = ("geometry", "geography")
+BYTEA = "bytea"
 
 # La URL con contrasena no viaja por la barra de la pestana (esa muestra la
 # enmascarada): la tarea la deja en la sesion con esta clave y la vista la lee.
-_SESSION_PREFIX = 'explore_db:url:'
+_SESSION_PREFIX = "explore_db:url:"
 
 
 def session_key(safe_url: str) -> str:
@@ -35,8 +36,11 @@ def session_key(safe_url: str) -> str:
 
 
 KIND_LABELS = {
-    'r': 'tabla', 'p': 'tabla particionada', 'v': 'vista',
-    'm': 'vista materializada', 'f': 'tabla foránea',
+    "r": "tabla",
+    "p": "tabla particionada",
+    "v": "vista",
+    "m": "vista materializada",
+    "f": "tabla foránea",
 }
 
 
@@ -53,18 +57,18 @@ class ServerInfo:
 class Relation:
     schema: str
     name: str
-    kind: str              # relkind: r p v m f
-    estimate: int | None   # reltuples; sin ANALYZE todavia, las filas vivas que
-                           # cuenta el colector. None en una vista.
+    kind: str  # relkind: r p v m f
+    estimate: int | None  # reltuples; sin ANALYZE todavia, las filas vivas que
+    # cuenta el colector. None en una vista.
     size_bytes: int
     comment: str | None
-    parent: str | None     # tabla madre, si es una particion
-    readable: bool         # el rol tiene SELECT
-    extension: bool = False   # la creo una extension (spatial_ref_sys de PostGIS)
+    parent: str | None  # tabla madre, si es una particion
+    readable: bool  # el rol tiene SELECT
+    extension: bool = False  # la creo una extension (spatial_ref_sys de PostGIS)
 
     @property
     def qualified(self) -> str:
-        return f'{self.schema}.{self.name}'
+        return f"{self.schema}.{self.name}"
 
     @property
     def kind_label(self) -> str:
@@ -74,15 +78,15 @@ class Relation:
 @dataclass
 class Column:
     name: str
-    type: str              # con modificador: varchar(120), geometry(Point,4326)
-    base_type: str         # typname: int4, jsonb, geometry
+    type: str  # con modificador: varchar(120), geometry(Point,4326)
+    base_type: str  # typname: int4, jsonb, geometry
     nullable: bool
     default: str | None
-    identity: str          # '' | 'a' (ALWAYS) | 'd' (BY DEFAULT)
-    generated: str         # '' | 's' (STORED)
+    identity: str  # '' | 'a' (ALWAYS) | 'd' (BY DEFAULT)
+    generated: str  # '' | 's' (STORED)
     comment: str | None
     pk: bool = False
-    fk: 'ForeignKey | None' = None   # solo si la FK es de esta unica columna
+    fk: "ForeignKey | None" = None  # solo si la FK es de esta unica columna
 
 
 @dataclass
@@ -97,7 +101,7 @@ class ForeignKey:
 @dataclass
 class Constraint:
     name: str
-    kind: str              # contype: p u f c x
+    kind: str  # contype: p u f c x
     definition: str
 
 
@@ -116,7 +120,7 @@ class TableDetail:
     constraints: list[Constraint]
     indexes: list[Index]
     outgoing: list[ForeignKey]
-    incoming: list[ForeignKey]   # quien apunta a esta tabla: columns = las de la otra
+    incoming: list[ForeignKey]  # quien apunta a esta tabla: columns = las de la otra
 
     @property
     def primary_key(self) -> list[str]:
@@ -134,6 +138,7 @@ class Page:
 @dataclass
 class Filter:
     """Igualdades por columna, en AND. Es lo que arma seguir una FK."""
+
     equals: dict[str, str] = field(default_factory=dict)
 
     def __bool__(self) -> bool:
@@ -142,10 +147,11 @@ class Filter:
 
 # --- conexion ----------------------------------------------------------------
 
+
 def _psycopg():
     try:
         import psycopg
-    except ImportError as exc:                              # pragma: no cover
+    except ImportError as exc:  # pragma: no cover
         raise TaskError('Falta el driver de Postgres: pip install "psycopg[binary]"') from exc
     return psycopg
 
@@ -161,12 +167,11 @@ def open_readonly(url: str):
     cualquier escritura de todas formas.
     """
     psycopg = _psycopg()
-    options = (f'-c default_transaction_read_only=on '
-               f'-c statement_timeout={STATEMENT_TIMEOUT_MS}')
+    options = f"-c default_transaction_read_only=on -c statement_timeout={STATEMENT_TIMEOUT_MS}"
     try:
         return psycopg.connect(url, options=options, connect_timeout=10, autocommit=True)
     except psycopg.OperationalError as exc:
-        raise TaskError(f'No se pudo conectar: {_first_line(exc)}') from exc
+        raise TaskError(f"No se pudo conectar: {_first_line(exc)}") from exc
 
 
 def _first_line(exc: Exception) -> str:
@@ -179,12 +184,15 @@ def _sql():
 
 # --- consultas ---------------------------------------------------------------
 
+
 def server_info(conn) -> ServerInfo:
     row = conn.execute(
-        'SELECT version(), current_database(), current_user, '
-        'pg_database_size(current_database()), inet_server_port()').fetchone()
-    return ServerInfo(version=row[0], database=row[1], user=row[2],
-                      size_bytes=row[3] or 0, port=row[4] or 0)
+        "SELECT version(), current_database(), current_user, "
+        "pg_database_size(current_database()), inet_server_port()"
+    ).fetchone()
+    return ServerInfo(
+        version=row[0], database=row[1], user=row[2], size_bytes=row[3] or 0, port=row[4] or 0
+    )
 
 
 _RELATIONS = """
@@ -211,10 +219,20 @@ ORDER BY n.nspname, c.relname
 
 def list_relations(conn) -> list[Relation]:
     """El arbol entero en una consulta: el catalogo es chico y ya ordenado."""
-    return [Relation(schema=r[0], name=r[1], kind=r[2], estimate=r[3],
-                     size_bytes=r[4] or 0, comment=r[5], parent=r[6], readable=bool(r[7]),
-                     extension=bool(r[8]))
-            for r in conn.execute(_RELATIONS).fetchall()]
+    return [
+        Relation(
+            schema=r[0],
+            name=r[1],
+            kind=r[2],
+            estimate=r[3],
+            size_bytes=r[4] or 0,
+            comment=r[5],
+            parent=r[6],
+            readable=bool(r[7]),
+            extension=bool(r[8]),
+        )
+        for r in conn.execute(_RELATIONS).fetchall()
+    ]
 
 
 _ALL_COLUMNS = """
@@ -235,10 +253,11 @@ def all_columns(conn) -> dict[str, list[tuple[str, str, bool]]]:
     """Columnas de todas las tablas (nombre, tipo, nulo), por `esquema.tabla`.
 
     Una sola consulta para comparar la base entera contra los modelos
-    (`core/db_models.py`) sin un `describe` por tabla."""
+    (`core/db_models.py`) sin un `describe` por tabla.
+    """
     found: dict[str, list[tuple[str, str, bool]]] = {}
     for schema, table, name, type_, nullable in conn.execute(_ALL_COLUMNS).fetchall():
-        found.setdefault(f'{schema}.{table}', []).append((name, type_, bool(nullable)))
+        found.setdefault(f"{schema}.{table}", []).append((name, type_, bool(nullable)))
     return found
 
 
@@ -298,37 +317,51 @@ ORDER BY x.indisprimary DESC, i.relname
 def describe(conn, relation: Relation) -> TableDetail:
     found = conn.execute(_OID, (relation.schema, relation.name)).fetchone()
     if found is None:
-        raise TaskError(f'{relation.qualified} ya no existe.')
+        raise TaskError(f"{relation.qualified} ya no existe.")
     oid = found[0]
 
-    columns = [Column(name=r[0], type=r[1], base_type=r[2], nullable=bool(r[3]),
-                      default=r[4], identity=r[5] or '', generated=r[6] or '', comment=r[7])
-               for r in conn.execute(_COLUMNS, (oid,)).fetchall()]
+    columns = [
+        Column(
+            name=r[0],
+            type=r[1],
+            base_type=r[2],
+            nullable=bool(r[3]),
+            default=r[4],
+            identity=r[5] or "",
+            generated=r[6] or "",
+            comment=r[7],
+        )
+        for r in conn.execute(_COLUMNS, (oid,)).fetchall()
+    ]
     by_name = {c.name: c for c in columns}
 
     constraints, outgoing = [], []
-    for name, kind, definition, ref_schema, ref_table, cols, ref_cols in \
-            conn.execute(_CONSTRAINTS, (oid,)).fetchall():
+    for name, kind, definition, ref_schema, ref_table, cols, ref_cols in conn.execute(
+        _CONSTRAINTS, (oid,)
+    ).fetchall():
         constraints.append(Constraint(name, kind, definition))
-        if kind == 'p':
+        if kind == "p":
             for col in cols:
                 if col in by_name:
                     by_name[col].pk = True
-        elif kind == 'f':
+        elif kind == "f":
             fk = ForeignKey(name, list(cols), ref_schema, ref_table, list(ref_cols))
             outgoing.append(fk)
             if len(cols) == 1 and cols[0] in by_name and by_name[cols[0]].fk is None:
                 by_name[cols[0]].fk = fk
 
-    incoming = [ForeignKey(name, list(ref_cols), schema, table, list(cols))
-                for name, schema, table, cols, ref_cols in
-                conn.execute(_INCOMING, (oid,)).fetchall()]
+    incoming = [
+        ForeignKey(name, list(ref_cols), schema, table, list(cols))
+        for name, schema, table, cols, ref_cols in conn.execute(_INCOMING, (oid,)).fetchall()
+    ]
     # En `incoming`, `columns` son las de ESTA tabla (a las que apuntan) y
     # `ref_*` la tabla que apunta: asi se lee igual que una FK saliente, desde
     # aca hacia afuera, y seguirla es el mismo gesto.
 
-    indexes = [Index(r[0], r[1], bool(r[2]), bool(r[3]))
-               for r in conn.execute(_INDEXES, (oid,)).fetchall()]
+    indexes = [
+        Index(r[0], r[1], bool(r[2]), bool(r[3]))
+        for r in conn.execute(_INDEXES, (oid,)).fetchall()
+    ]
     return TableDetail(relation, columns, constraints, indexes, outgoing, incoming)
 
 
@@ -345,65 +378,85 @@ def _select_list(columns: list[Column]):
     for col in columns:
         ident = sql.Identifier(col.name)
         if col.base_type in GEOMETRY_TYPES:
-            expr = sql.SQL('ST_AsText({})').format(ident)
+            expr = sql.SQL("ST_AsText({})").format(ident)
         elif col.base_type == BYTEA:
-            expr = sql.SQL('octet_length({})::text').format(ident)
+            expr = sql.SQL("octet_length({})::text").format(ident)
         else:
-            expr = sql.SQL('{}::text').format(ident)
-        items.append(sql.SQL('left({}, {})').format(expr, sql.Literal(CELL_CHARS + 1)))
-    return sql.SQL(', ').join(items)
+            expr = sql.SQL("{}::text").format(ident)
+        items.append(sql.SQL("left({}, {})").format(expr, sql.Literal(CELL_CHARS + 1)))
+    return sql.SQL(", ").join(items)
 
 
 def _where(where: Filter | None):
     sql = _sql()
     if not where:
-        return sql.SQL('')
+        return sql.SQL("")
     # Literal sin tipo: Postgres lo infiere de la columna, asi `empresa_id = '7'`
     # usa el indice. Comparar `col::text = %s` recorreria la tabla entera.
-    clauses = [sql.SQL('{} = {}').format(sql.Identifier(col), sql.Literal(value))
-               for col, value in where.equals.items()]
-    return sql.SQL(' WHERE ') + sql.SQL(' AND ').join(clauses)
+    clauses = [
+        sql.SQL("{} = {}").format(sql.Identifier(col), sql.Literal(value))
+        for col, value in where.equals.items()
+    ]
+    return sql.SQL(" WHERE ") + sql.SQL(" AND ").join(clauses)
 
 
-def fetch_rows(conn, detail: TableDetail, *, offset: int = 0, limit: int = PAGE_SIZE,
-               order_by: str | None = None, descending: bool = False,
-               where: Filter | None = None) -> Page:
+def fetch_rows(
+    conn,
+    detail: TableDetail,
+    *,
+    offset: int = 0,
+    limit: int = PAGE_SIZE,
+    order_by: str | None = None,
+    descending: bool = False,
+    where: Filter | None = None,
+) -> Page:
     """Una pagina de filas. El orden es del servidor: ordenar solo lo cargado
-    mentiria. Sin columna elegida se ordena por la PK, que tambien desempata."""
+    mentiria. Sin columna elegida se ordena por la PK, que tambien desempata.
+    """
     sql = _sql()
     rel = detail.relation
-    query = sql.SQL('SELECT {} FROM {}.{}').format(
-        _select_list(detail.columns), sql.Identifier(rel.schema), sql.Identifier(rel.name))
+    query = sql.SQL("SELECT {} FROM {}.{}").format(
+        _select_list(detail.columns), sql.Identifier(rel.schema), sql.Identifier(rel.name)
+    )
     query += _where(where)
 
     keys = []
     if order_by:
-        keys.append(sql.SQL('{} {} NULLS LAST').format(
-            sql.Identifier(order_by), sql.SQL('DESC' if descending else 'ASC')))
+        keys.append(
+            sql.SQL("{} {} NULLS LAST").format(
+                sql.Identifier(order_by), sql.SQL("DESC" if descending else "ASC")
+            )
+        )
     keys += [sql.Identifier(pk) for pk in detail.primary_key if pk != order_by]
     if keys:
-        query += sql.SQL(' ORDER BY ') + sql.SQL(', ').join(keys)
-    query += sql.SQL(' LIMIT {} OFFSET {}').format(sql.Literal(limit + 1), sql.Literal(offset))
+        query += sql.SQL(" ORDER BY ") + sql.SQL(", ").join(keys)
+    query += sql.SQL(" LIMIT {} OFFSET {}").format(sql.Literal(limit + 1), sql.Literal(offset))
 
     rows = conn.execute(query).fetchall()
-    return Page(columns=[c.name for c in detail.columns], rows=rows[:limit],
-                offset=offset, has_more=len(rows) > limit)
+    return Page(
+        columns=[c.name for c in detail.columns],
+        rows=rows[:limit],
+        offset=offset,
+        has_more=len(rows) > limit,
+    )
 
 
 def count_exact(conn, relation: Relation, where: Filter | None = None) -> int:
     sql = _sql()
-    query = sql.SQL('SELECT count(*) FROM {}.{}').format(
-        sql.Identifier(relation.schema), sql.Identifier(relation.name)) + _where(where)
+    query = sql.SQL("SELECT count(*) FROM {}.{}").format(
+        sql.Identifier(relation.schema), sql.Identifier(relation.name)
+    ) + _where(where)
     return conn.execute(query).fetchone()[0]
 
 
 # --- formato -------------------------------------------------------------------
 
+
 def human_count(n: int | None) -> str:
     if n is None:
-        return '?'
-    for limit, suffix in ((1_000_000_000, 'G'), (1_000_000, 'M'), (1_000, 'k')):
+        return "?"
+    for limit, suffix in ((1_000_000_000, "G"), (1_000_000, "M"), (1_000, "k")):
         if n >= limit:
             value = n / limit
-            return f'{value:.1f}{suffix}' if value < 10 else f'{value:.0f}{suffix}'
+            return f"{value:.1f}{suffix}" if value < 10 else f"{value:.0f}{suffix}"
     return str(n)

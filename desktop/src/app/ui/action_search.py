@@ -1,16 +1,22 @@
 from __future__ import annotations
 
+from PySide6.QtCore import QEvent, QPoint, QRect, Qt, Signal
 from PySide6.QtWidgets import (
-    QWidget, QFrame, QVBoxLayout, QHBoxLayout, QLabel, QLineEdit, QScrollArea,
-    QApplication
+    QApplication,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QLineEdit,
+    QScrollArea,
+    QVBoxLayout,
+    QWidget,
 )
-from PySide6.QtCore import Qt, Signal, QEvent, QPoint, QRect
 
-from app.theme import Colors, Fonts
-from app.ui.palettes import NEUTRAL, Palette
-from app.ui import favorites
-from app.ui.widgets import ActionRow
 from app.core.registry import registry
+from app.theme import Colors, Fonts
+from app.ui import favorites
+from app.ui.palettes import NEUTRAL, Palette
+from app.ui.widgets import ActionRow
 
 
 class ActionSearch(QWidget):
@@ -26,12 +32,13 @@ class ActionSearch(QWidget):
     Teclado: flechas para moverse, Enter abre la pestana, Ctrl+Enter la corre
     si esta lista, Esc cierra.
     """
+
     action_requested = Signal(str)
     run_requested = Signal(str)
     favorites_changed = Signal(set)
 
     WIDTH = 240
-    FIELD_HEIGHT = 28       # el de un campo de «Configuracion del repo» (`ui/env_panel.py`)
+    FIELD_HEIGHT = 28  # el de un campo de «Configuracion del repo» (`ui/env_panel.py`)
     POPUP_WIDTH = 440
     POPUP_MAX_HEIGHT = 460
 
@@ -73,7 +80,8 @@ class ActionSearch(QWidget):
         (`ui/env_panel.py`) y nada mas: mismo fondo (`surface_alt`), borde,
         alto, radio, cuerpo de letra y foco. Que sobre `chrome` se recorte
         menos que alla sobre `panel` no lo convierte en otra cosa: un campo de
-        texto de esta ventana se ve asi."""
+        texto de esta ventana se ve asi.
+        """
         self.pal = pal
         self._restyle_box()
         self._restyle_popup()
@@ -92,14 +100,16 @@ class ActionSearch(QWidget):
     def set_applicable(self, ids: set[str]) -> None:
         """Que acciones tienen sentido en el repo abierto
         (`core/catalog.py::applicable_ids`). Se aplica al filtrar, junto con el
-        texto escrito."""
+        texto escrito.
+        """
         self._applicable = set(ids)
         if self.box.text().strip():
             self._on_text(self.box.text())
 
     def set_project_active(self, active: bool) -> None:
         """Sin repo en pestanas no hay sobre que correr: igual que los menus
-        de grupo, el buscador se apaga."""
+        de grupo, el buscador se apaga.
+        """
         self.box.setEnabled(active)
         if not active:
             self.box.clear()
@@ -121,7 +131,8 @@ class ActionSearch(QWidget):
     def _popup_style(self) -> str:
         """La lista cuelga de la fila del menu igual que un menu de grupo, y
         va pintada como ellos (`ui/menu_bar.py::_menu_style`): `panel`, dos
-        escalones por debajo de la barra."""
+        escalones por debajo de la barra.
+        """
         return f"""
             QFrame#actionSearchPopup {{
                 background: {self.pal.panel};
@@ -139,7 +150,8 @@ class ActionSearch(QWidget):
 
     def _restyle_popup(self) -> None:
         """Se construye una sola vez y sobrevive a los cambios de repo: hay
-        que repintarlo, no basta con pintarlo al nacer."""
+        que repintarlo, no basta con pintarlo al nacer.
+        """
         if self._popup is not None:
             self._popup.setStyleSheet(self._popup_style())
             self._scroll.setStyleSheet(self._scroll_style())
@@ -149,7 +161,8 @@ class ActionSearch(QWidget):
         """Hijo de la ventana y no una ventana `Qt.Popup`: un popup de verdad
         se lleva el foco del teclado, y hay que poder seguir escribiendo con
         la lista abierta. Se construye una vez, con todas las acciones, y la
-        busqueda solo cambia que filas se ven."""
+        busqueda solo cambia que filas se ven.
+        """
         popup = QFrame(self.window())
         popup.setObjectName("actionSearchPopup")
         popup.setCursor(Qt.CursorShape.ArrowCursor)
@@ -174,14 +187,22 @@ class ActionSearch(QWidget):
             header = QLabel(f"{registry.get_group_icon(group)}  {group.upper()}".strip())
             header.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; padding: 8px 10px 3px 10px;")
+                f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; padding: 8px 10px 3px 10px;"
+            )
             self._content_layout.addWidget(header)
             rows = []
             for cap in capabilities:
-                row = ActionRow(cap.id, cap.name, cap.icon,
-                                danger=cap.kind == 'destructive', accent=self.pal.accent,
-                                favorite=cap.id in marked, composite=cap.is_composite,
-                                description=cap.description, machine=cap.is_machine_wide)
+                row = ActionRow(
+                    cap.id,
+                    cap.name,
+                    cap.icon,
+                    danger=cap.kind == "destructive",
+                    accent=self.pal.accent,
+                    favorite=cap.id in marked,
+                    composite=cap.is_composite,
+                    description=cap.description,
+                    machine=cap.is_machine_wide,
+                )
                 row.set_ready(cap.id in self._ready)
                 row.triggered.connect(self._open)
                 row.run_requested.connect(self._run)
@@ -194,7 +215,8 @@ class ActionSearch(QWidget):
         self._empty = QLabel("Sin resultados")
         self._empty.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; "
-            f"font-size: {Fonts.SIZE_SM}px; padding: 12px;")
+            f"font-size: {Fonts.SIZE_SM}px; padding: 12px;"
+        )
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._content_layout.addWidget(self._empty)
 
@@ -219,7 +241,8 @@ class ActionSearch(QWidget):
             group_hits = 0
             for row in rows:
                 match = row.matches(needle) and (
-                    self._applicable is None or row.capability_id in self._applicable)
+                    self._applicable is None or row.capability_id in self._applicable
+                )
                 row.setVisible(match)
                 group_hits += int(match)
             header.setVisible(group_hits > 0)
@@ -278,7 +301,8 @@ class ActionSearch(QWidget):
 
     def _on_favorite_toggled(self, cap_id: str, value: bool) -> None:
         """Marcar desde la lista no la cierra: se guarda y se avisa al resto
-        de las superficies."""
+        de las superficies.
+        """
         self.favorites_changed.emit(favorites.set_favorite(cap_id, value))
 
     # --- eventos -------------------------------------------------------------

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import os
 from pathlib import Path
 
@@ -20,20 +21,20 @@ nada mas. Es la unica del modulo que no trabaja sobre el repo abierto.
 
 
 def _git_or_fail() -> None:
-    if not which_any(['git', 'git.exe']):
-        raise TaskError('No se encontro Git en el PATH.')
+    if not which_any(["git", "git.exe"]):
+        raise TaskError("No se encontro Git en el PATH.")
 
 
 def _ensure_git(ctx) -> None:
     _git_or_fail()
-    if not ctx.path('.git').exists():
-        raise TaskError(f'La carpeta abierta no es un repositorio git: {ctx.root}')
+    if not ctx.path(".git").exists():
+        raise TaskError(f"La carpeta abierta no es un repositorio git: {ctx.root}")
 
 
 def _current_branch(ctx) -> str:
-    rama = ctx.capture(['git', 'rev-parse', '--abbrev-ref', 'HEAD'])
-    if rama == 'HEAD':
-        raise TaskError('El repo local esta en HEAD desacoplado: no hay rama que forzar.')
+    rama = ctx.capture(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    if rama == "HEAD":
+        raise TaskError("El repo local esta en HEAD desacoplado: no hay rama que forzar.")
     return rama
 
 
@@ -46,10 +47,10 @@ def force_push(ctx) -> str:
     """
     _ensure_git(ctx)
     rama = _current_branch(ctx)
-    ctx.run(['git', 'fetch', '--quiet'], check=False, echo=False)
-    ctx.run(['git', 'push', '--force', 'origin', rama])
-    revision = ctx.capture(['git', 'rev-parse', '--short', 'HEAD'])
-    ctx.ok(f'origin/{rama} ahora es {revision}, igual que esta maquina.')
+    ctx.run(["git", "fetch", "--quiet"], check=False, echo=False)
+    ctx.run(["git", "push", "--force", "origin", rama])
+    revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"])
+    ctx.ok(f"origin/{rama} ahora es {revision}, igual que esta maquina.")
     return revision
 
 
@@ -63,16 +64,16 @@ def force_reset(ctx, discard_changes: bool = False) -> str:
     """
     _ensure_git(ctx)
     rama = _current_branch(ctx)
-    sucio = ctx.capture(['git', 'status', '--porcelain'])
+    sucio = ctx.capture(["git", "status", "--porcelain"])
     if sucio and not discard_changes:
-        ctx.warn('Esta maquina tiene cambios sin commitear:\n' + sucio)
-        if not ctx.confirm('Descartar esos cambios y resetear igual?', danger=True):
-            raise TaskError('Reset cancelado: hay cambios sin commitear.')
-    ctx.run(['git', 'fetch', 'origin', rama])
-    ctx.run(['git', 'reset', '--hard', f'origin/{rama}'])
-    ctx.run(['git', 'clean', '-fd'])
-    revision = ctx.capture(['git', 'rev-parse', '--short', 'HEAD'])
-    ctx.ok(f'{rama} ahora es {revision}, igual que origin.')
+        ctx.warn("Esta maquina tiene cambios sin commitear:\n" + sucio)
+        if not ctx.confirm("Descartar esos cambios y resetear igual?", danger=True):
+            raise TaskError("Reset cancelado: hay cambios sin commitear.")
+    ctx.run(["git", "fetch", "origin", rama])
+    ctx.run(["git", "reset", "--hard", f"origin/{rama}"])
+    ctx.run(["git", "clean", "-fd"])
+    revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"])
+    ctx.ok(f"{rama} ahora es {revision}, igual que origin.")
     return revision
 
 
@@ -85,16 +86,16 @@ def repo_folder_name(url: str) -> str:
     El separador de esta maquina tambien corta: git clona igual desde una
     carpeta local, y ahi el ultimo tramo viene detras de una barra invertida.
     """
-    limpio = url.strip().rstrip('/')
-    if limpio.endswith('.git'):
+    limpio = url.strip().rstrip("/")
+    if limpio.endswith(".git"):
         limpio = limpio[:-4]
-    nombre = limpio.rsplit('/', 1)[-1].rsplit(os.sep, 1)[-1].rsplit(':', 1)[-1]
+    nombre = limpio.rsplit("/", 1)[-1].rsplit(os.sep, 1)[-1].rsplit(":", 1)[-1]
     if not nombre:
-        raise TaskError(f'No se entiende que repositorio clonar de: {url}')
+        raise TaskError(f"No se entiende que repositorio clonar de: {url}")
     return nombre
 
 
-def clone_repo(ctx, url: str = '', dest: str = '', branch: str = '') -> Path:
+def clone_repo(ctx, url: str = "", dest: str = "", branch: str = "") -> Path:
     """Clona un repositorio de GitHub y devuelve la carpeta donde quedo.
 
     Devolver la ruta no es cosmetico: es lo que la ventana abre como pestana
@@ -106,7 +107,7 @@ def clone_repo(ctx, url: str = '', dest: str = '', branch: str = '') -> Path:
     una carpeta que ya existe: eso no seria clonar sino mezclar dos repos.
     """
     if not url.strip():
-        raise TaskError('Falta la URL del repositorio a clonar.')
+        raise TaskError("Falta la URL del repositorio a clonar.")
     _git_or_fail()
 
     if dest.strip():
@@ -114,25 +115,24 @@ def clone_repo(ctx, url: str = '', dest: str = '', branch: str = '') -> Path:
     elif ctx.project is not None:
         carpeta = ctx.root.parent
     else:
-        raise TaskError('Indica la carpeta destino: no hay ningun repo abierto '
-                        'del que deducirla.')
+        raise TaskError("Indica la carpeta destino: no hay ningun repo abierto del que deducirla.")
 
     destino = carpeta / repo_folder_name(url)
     if destino.exists():
-        raise TaskError(f'Ya existe {destino}. Elige otra carpeta destino o borra esa.')
+        raise TaskError(f"Ya existe {destino}. Elige otra carpeta destino o borra esa.")
     carpeta.mkdir(parents=True, exist_ok=True)
 
-    argv = ['git', 'clone']
+    argv = ["git", "clone"]
     if branch.strip():
-        argv += ['--branch', branch.strip()]
+        argv += ["--branch", branch.strip()]
     argv += [url.strip(), str(destino)]
     ctx.run(argv, cwd=str(carpeta))
-    revision = ctx.capture(['git', 'rev-parse', '--short', 'HEAD'], cwd=str(destino))
-    ctx.ok(f'{destino.name} clonado en {destino} ({revision}).')
+    revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"], cwd=str(destino))
+    ctx.ok(f"{destino.name} clonado en {destino} ({revision}).")
     return destino
 
 
 def bind_all() -> None:
-    registry.bind('git_force_push', force_push)
-    registry.bind('git_force_reset', force_reset)
-    registry.bind('clone_repo', clone_repo)
+    registry.bind("git_force_push", force_push)
+    registry.bind("git_force_reset", force_reset)
+    registry.bind("clone_repo", clone_repo)

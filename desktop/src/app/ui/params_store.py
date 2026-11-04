@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import json
 import os
 import tempfile
@@ -37,24 +38,24 @@ escrituras se juntan en un temporizador corto en vez de bajar al disco por
 pulsacion. `flush()` fuerza la bajada; la llama el cierre de la ventana.
 """
 
-_FILE_NAME = 'params.json'
+_FILE_NAME = "params.json"
 # Los seguros del repo (`core/protection.py`) comparten el archivo con los
 # parametros de cada boton, bajo una clave que ningun `capability_id` puede
 # tener: un id es un identificador de Python y no lleva '@'. Comparten archivo
 # porque comparten naturaleza —decisiones de la consola sobre ESTE repo, no
 # datos que las tareas consuman— y asi comparten tambien el cache, la escritura
 # atomica y el temporizador.
-_PROTECTION_KEY = '@protection'
+_PROTECTION_KEY = "@protection"
 # Las pestanas de accion abiertas de un repo son otra decision de la consola
 # sobre ESTE repo —que botones dejaste a mano para volver a ellos— asi que van
 # al mismo archivo, bajo otra clave con '@' fuera del espacio de los ids.
-_TABS_KEY = '@tabs'
+_TABS_KEY = "@tabs"
 # El color del repo es la tercera decision de la consola sobre ESTE repo: se
 # elige por repo y viaja con el, no con la maquina que lo abrio. Guarda la
 # clave del tema (`ui/palettes.py`), no un hex.
-_THEME_KEY = '@theme'
-_QSETTINGS_PREFIX = 'params'  # namespace de lo que SI sigue en QSettings: las
-                              # capacidades `scope='machine'` (`_machine_key`)
+_THEME_KEY = "@theme"
+_QSETTINGS_PREFIX = "params"  # namespace de lo que SI sigue en QSettings: las
+# capacidades `scope='machine'` (`_machine_key`)
 _FLUSH_MS = 500
 
 # repo normalizado -> {capability_id: estado}. La ruta normalizada sirve de
@@ -66,7 +67,7 @@ _timer: QTimer | None = None
 
 
 def _norm(repo_path: str) -> str:
-    return os.path.normcase(os.path.normpath(repo_path or ''))
+    return os.path.normcase(os.path.normpath(repo_path or ""))
 
 
 def _file(repo_norm: str) -> str:
@@ -81,7 +82,7 @@ def _is_machine(capability_id: str) -> bool:
 
 
 def _machine_key(capability_id: str) -> str:
-    return f'{_QSETTINGS_PREFIX}/machine/{capability_id}'
+    return f"{_QSETTINGS_PREFIX}/machine/{capability_id}"
 
 
 # --- claves de configuracion que son de la maquina -------------------------
@@ -89,13 +90,13 @@ def _machine_key(capability_id: str) -> str:
 # ejecutable no es del repo abierto, asi que no va a su `config.env`. Misma
 # regla que las capacidades `scope='machine'`, mismo sitio: QSettings.
 
+
 def machine_env() -> dict:
     """Los valores de maquina, para mezclarlos con los del repo."""
     from app.core.settings import machine_settings
 
     settings = QSettings()
-    return {s.key: str(settings.value(f'machine/{s.key}', '') or '')
-            for s in machine_settings()}
+    return {s.key: str(settings.value(f"machine/{s.key}", "") or "") for s in machine_settings()}
 
 
 def save_machine_env(values: dict) -> None:
@@ -105,14 +106,16 @@ def save_machine_env(values: dict) -> None:
     settings = QSettings()
     for s in machine_settings():
         if s.key in values:
-            settings.setValue(f'machine/{s.key}', values[s.key])
+            settings.setValue(f"machine/{s.key}", values[s.key])
 
 
 # --- lectura ---------------------------------------------------------------
 
+
 def _read(repo_path: str) -> dict:
     """Todo lo guardado para un repo, cacheado. Nunca lanza: un archivo roto
-    a mano se trata como si no hubiera nada, y el primer guardado lo rehace."""
+    a mano se trata como si no hubiera nada, y el primer guardado lo rehace.
+    """
     key = _norm(repo_path)
     cached = _cache.get(key)
     if cached is not None:
@@ -120,7 +123,7 @@ def _read(repo_path: str) -> dict:
 
     data: dict = {}
     try:
-        with open(_file(key), 'r', encoding='utf-8') as fh:
+        with open(_file(key), "r", encoding="utf-8") as fh:
             loaded = json.load(fh)
         if isinstance(loaded, dict):
             data = {k: v for k, v in loaded.items() if isinstance(v, dict)}
@@ -134,7 +137,7 @@ def _read(repo_path: str) -> dict:
 def load(repo_path: str, capability_id: str) -> dict | None:
     """Lo guardado para ese boton en ese repo, o None si nunca se toco."""
     if _is_machine(capability_id):
-        raw = QSettings().value(_machine_key(capability_id), '')
+        raw = QSettings().value(_machine_key(capability_id), "")
         if not raw:
             return None
         try:
@@ -177,20 +180,22 @@ def save_protection(repo_path: str, state: dict) -> None:
 
 def load_tabs(repo_path: str) -> list[str]:
     """Los `capability_id` de las pestanas de accion que estaban abiertas, en su
-    orden. Vacia si el repo nunca abrio ninguna o si el archivo no lo dice."""
+    orden. Vacia si el repo nunca abrio ninguna o si el archivo no lo dice.
+    """
     raw = _read(repo_path).get(_TABS_KEY)
     if not isinstance(raw, dict):
         return []
-    abiertas = raw.get('open')
+    abiertas = raw.get("open")
     return [str(x) for x in abiertas] if isinstance(abiertas, list) else []
 
 
 def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
     """Guarda que pestanas de accion quedan abiertas, en orden, para reabrirlas
-    tal cual al proximo arranque (`ui/tab_panel.py`)."""
+    tal cual al proximo arranque (`ui/tab_panel.py`).
+    """
     key = _norm(repo_path)
     data = _read(repo_path)
-    limpio = {'open': [str(x) for x in capability_ids]}
+    limpio = {"open": [str(x) for x in capability_ids]}
     if data.get(_TABS_KEY) == limpio:
         return
     data[_TABS_KEY] = limpio
@@ -207,9 +212,9 @@ def load_theme(repo_path: str) -> str:
     """
     raw = _read(repo_path).get(_THEME_KEY)
     if not isinstance(raw, dict):
-        return ''
-    clave = raw.get('key')
-    return clave if isinstance(clave, str) else ''
+        return ""
+    clave = raw.get("key")
+    return clave if isinstance(clave, str) else ""
 
 
 def save_theme(repo_path: str, theme: str) -> None:
@@ -217,7 +222,7 @@ def save_theme(repo_path: str, theme: str) -> None:
     data = _read(repo_path)
     # Envuelto en un objeto como las otras claves con '@': `_read` descarta lo
     # que no sea un objeto, asi que una cadena suelta se perdia al releer.
-    limpio = {'key': str(theme)}
+    limpio = {"key": str(theme)}
     if data.get(_THEME_KEY) == limpio:
         return
     data[_THEME_KEY] = limpio
@@ -227,26 +232,27 @@ def save_theme(repo_path: str, theme: str) -> None:
 
 def stored_steps(repo_path: str, capability_id: str) -> list[str] | None:
     """Pasos activos guardados, para calcular fuera del panel que le falta a
-    una accion para poder correr sin abrir la pestana (`ui/readiness.py`)."""
+    una accion para poder correr sin abrir la pestana (`ui/readiness.py`).
+    """
     state = load(repo_path, capability_id)
     if not state:
         return None
-    steps = state.get('steps')
+    steps = state.get("steps")
     return list(steps) if isinstance(steps, list) else None
 
 
 # --- escritura -------------------------------------------------------------
 
+
 def save(repo_path: str, capability_id: str, state: dict) -> None:
     if _is_machine(capability_id):
-        QSettings().setValue(_machine_key(capability_id),
-                             json.dumps(state, ensure_ascii=False))
+        QSettings().setValue(_machine_key(capability_id), json.dumps(state, ensure_ascii=False))
         return
 
     key = _norm(repo_path)
     data = _read(repo_path)
     if data.get(capability_id) == state:
-        return   # una tecla que no cambio nada no ensucia el archivo
+        return  # una tecla que no cambio nada no ensucia el archivo
     data[capability_id] = state
     _dirty.add(key)
     _schedule()
@@ -276,7 +282,8 @@ def _schedule() -> None:
 def flush() -> None:
     """Baja al disco lo pendiente. La llama el temporizador y el cierre de la
     ventana (`ui/main_window.py::closeEvent`), para que los ultimos cambios no
-    se pierdan si se cierra dentro de la ventana del temporizador."""
+    se pierdan si se cierra dentro de la ventana del temporizador.
+    """
     for key in list(_dirty):
         _dirty.discard(key)
         _write(key, _cache.get(key) or {})
@@ -293,11 +300,11 @@ def _write(repo_norm: str, data: dict) -> None:
     carpeta = os.path.dirname(path)
     try:
         os.makedirs(carpeta, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=carpeta, prefix='.params-', suffix='.tmp')
+        fd, tmp = tempfile.mkstemp(dir=carpeta, prefix=".params-", suffix=".tmp")
         try:
-            with os.fdopen(fd, 'w', encoding='utf-8', newline='\n') as fh:
+            with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
                 json.dump(data, fh, ensure_ascii=False, indent=2, sort_keys=True)
-                fh.write('\n')
+                fh.write("\n")
             os.replace(tmp, path)
         except BaseException:
             try:

@@ -1,10 +1,10 @@
 from __future__ import annotations
-from PySide6.QtWidgets import QWidget, QVBoxLayout, QHBoxLayout, QLabel
-from PySide6.QtCore import Qt, Signal, QSize
+
+from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from app.theme import Colors, Fonts
-from app.ui.palettes import Palette, NEUTRAL
-
+from app.ui.palettes import NEUTRAL, Palette
 
 # `QWIDGETSIZE_MAX`: el valor con el que Qt entiende "sin tope de alto".
 SIN_TOPE = 16777215
@@ -13,7 +13,8 @@ SIN_TOPE = 16777215
 class AccordionHeader(QWidget):
     """La barra clicable de una seccion. Siempre visible, este abierta o no:
     es lo que hace que las tres secciones se sigan viendo aunque solo quepa
-    una desplegada."""
+    una desplegada.
+    """
 
     clicked = Signal()
 
@@ -21,7 +22,7 @@ class AccordionHeader(QWidget):
 
     def __init__(self, title: str, parent=None):
         super().__init__(parent)
-        self.setObjectName('accordionHeader')
+        self.setObjectName("accordionHeader")
         # Un QWidget *derivado* no pinta el fondo de su hoja de estilo sin
         # esto; los QWidget sueltos del resto del archivo si lo hacen.
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -34,21 +35,24 @@ class AccordionHeader(QWidget):
         lay.setContentsMargins(9, 0, 12, 0)
         lay.setSpacing(6)
 
-        self.chevron = QLabel('▾')
+        self.chevron = QLabel("▾")
         self.chevron.setFixedWidth(11)
         self.chevron.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;")
+            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
         self.title = QLabel(title.upper())
         self.title.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;")
+            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;"
+        )
 
         # Lo que la seccion tiene para decir sin abrirla ("3 de 5 protegidos").
         # Vacio por defecto: no toda seccion tiene un resumen que valga.
-        self.summary = QLabel('')
+        self.summary = QLabel("")
         self.summary.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;")
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
         lay.addWidget(self.chevron)
         lay.addWidget(self.title)
@@ -73,8 +77,9 @@ class AccordionHeader(QWidget):
         """)
 
     def mouseReleaseEvent(self, event):
-        if (event.button() == Qt.MouseButton.LeftButton
-                and self.rect().contains(event.position().toPoint())):
+        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
+            event.position().toPoint()
+        ):
             self.clicked.emit()
         super().mouseReleaseEvent(event)
 
@@ -109,7 +114,7 @@ class AccordionSection(QWidget):
         root.addWidget(body, 1)
 
         self._allotted: int | None = None
-        self._expanded = not expanded   # para que `set_expanded` no salga de una
+        self._expanded = not expanded  # para que `set_expanded` no salga de una
         self.set_expanded(expanded, announce=False)
 
     # --- estado -------------------------------------------------------
@@ -145,7 +150,7 @@ class AccordionSection(QWidget):
             return
         self._expanded = value
         self.body.setVisible(value)
-        self.header.chevron.setText('▾' if value else '▸')
+        self.header.chevron.setText("▾" if value else "▸")
         self.setMinimumHeight(AccordionHeader.HEIGHT)
         self.setMaximumHeight(SIN_TOPE if value else AccordionHeader.HEIGHT)
         if announce:
@@ -159,7 +164,8 @@ class AccordionSection(QWidget):
 
     def set_palette(self, pal: Palette) -> None:
         """El cuerpo lo repinta quien lo puso (cada panel tiene el suyo); de
-        aca sale solo la cabecera."""
+        aca sale solo la cabecera.
+        """
         self.header.set_palette(pal)
 
 
@@ -172,15 +178,15 @@ class SectionResizeGrip(QWidget):
     y al menos una abierta debajo—; si no, no hay nada que arrastrar.
     """
 
-    pressed = Signal()      # arranca un arrastre: hay que resincronizar con lo real
-    dragged = Signal(int)   # px movidos desde el ultimo evento (+ = agrandar arriba)
+    pressed = Signal()  # arranca un arrastre: hay que resincronizar con lo real
+    dragged = Signal(int)  # px movidos desde el ultimo evento (+ = agrandar arriba)
     reset = Signal()
 
     HEIGHT = 7
 
     def __init__(self, parent=None):
         super().__init__(parent)
-        self.setObjectName('sectionGrip')
+        self.setObjectName("sectionGrip")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.SplitVCursor)

@@ -1,20 +1,26 @@
 from __future__ import annotations
+
 from pathlib import Path
 
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
-    QHBoxLayout, QLabel, QPushButton, QStackedWidget, QVBoxLayout, QWidget
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QStackedWidget,
+    QVBoxLayout,
+    QWidget,
 )
 
 from app.core import db_explorer, session
 from app.core.envfile import Config
 from app.core.projects import Project
 from app.core.registry import Capability
+from app.theme import Colors, Fonts
 from app.ui.browser_view import BrowserView, open_external
 from app.ui.console_view import ConsoleView
-from app.theme import Colors, Fonts
-from app.ui.palettes import Palette, NEUTRAL
+from app.ui.palettes import NEUTRAL, Palette
 from app.ui.widgets.led import LedIndicator
 
 """
@@ -30,6 +36,7 @@ grilla en lugar de texto, compartiendo el panel de parametros y el pie de la
 pestana. Por eso el conmutador se llama "vista" y no "navegador".
 """
 
+
 def _chip_style(pal: Palette) -> str:
     return f"""
         QPushButton {{
@@ -42,23 +49,24 @@ def _chip_style(pal: Palette) -> str:
     """
 
 
-CONSOLA = 'Consola'
+CONSOLA = "Consola"
 # El rotulo del chip que lleva a la segunda vista, segun `Capability.view`.
-VIEW_NAMES = {'web': 'Navegador', 'db': 'Explorador'}
+VIEW_NAMES = {"web": "Navegador", "db": "Explorador"}
 
 
 class TabView(QWidget):
     """Barra de herramientas + conmutador de vistas + (consola | segunda vista)."""
-    cleared = Signal()   # Limpiar: la pestana decide si ademas detiene su tarea
+
+    cleared = Signal()  # Limpiar: la pestana decide si ademas detiene su tarea
 
     def __init__(self, capability: Capability, project: Project | None = None, parent=None):
         super().__init__(parent)
         self.capability = capability
         self.project = project
-        self._url = ''
+        self._url = ""
         self._web = False
         self._browser: BrowserView | None = None
-        self._explorer = None   # DbExplorerView, importada al primer uso
+        self._explorer = None  # DbExplorerView, importada al primer uso
         self.pal = NEUTRAL
         self._chips: list[QPushButton] = []
 
@@ -78,12 +86,13 @@ class TabView(QWidget):
         # Solo los launchers publican un endpoint que mostrar; «Explorar base»
         # tambien, porque su boton es el unico camino de vuelta a la consola.
         # Limpiar no vive aca: esta en el pie, junto a Ejecutar.
-        self.tool_bar.setVisible(capability.group == 'Ejecutar' or bool(capability.view))
+        self.tool_bar.setVisible(capability.group == "Ejecutar" or bool(capability.view))
 
     # --- construccion --------------------------------------------------
     def _build_tool_bar(self) -> QWidget:
         """La franja de arriba de la pestana: el endpoint que publico la
-        tarea, que aparece y desaparece con la URL."""
+        tarea, que aparece y desaparece con la URL.
+        """
         bar = QWidget()
         bar.setFixedHeight(36)
         lay = QHBoxLayout(bar)
@@ -91,28 +100,37 @@ class TabView(QWidget):
         lay.setSpacing(8)
 
         self.led = LedIndicator(bar, size=9)
-        self.state_label = QLabel('')
+        self.state_label = QLabel("")
         self.state_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;")
+            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
-        self.url_label = QLabel('')
+        self.url_label = QLabel("")
         self.url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.url_label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT}; "
-            f"font-family: {Fonts.MONO}; font-size: {Fonts.SIZE_XS}px;")
+            f"font-family: {Fonts.MONO}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
-        self.copy_btn = self._chip('Copiar', 'Copiar la URL al portapapeles',
-                                   self._copy_url)
-        self.external_btn = self._chip('Abrir ↗', 'Abrir en el navegador del sistema',
-                                       lambda: open_external(self._url))
-        second = VIEW_NAMES.get(self.capability.view, '')
-        self.view_btn = self._chip(second, f'Ver {second.lower()} en esta pestaña',
-                                   self._toggle_view)
+        self.copy_btn = self._chip("Copiar", "Copiar la URL al portapapeles", self._copy_url)
+        self.external_btn = self._chip(
+            "Abrir ↗", "Abrir en el navegador del sistema", lambda: open_external(self._url)
+        )
+        second = VIEW_NAMES.get(self.capability.view, "")
+        self.view_btn = self._chip(
+            second, f"Ver {second.lower()} en esta pestaña", self._toggle_view
+        )
         self.view_btn.setVisible(False)
 
         # Todo lo del endpoint se muestra y se esconde junto.
-        self._endpoint_widgets = [self.led, self.state_label, self.url_label,
-                                  self.copy_btn, self.external_btn, self.view_btn]
+        self._endpoint_widgets = [
+            self.led,
+            self.state_label,
+            self.url_label,
+            self.copy_btn,
+            self.external_btn,
+            self.view_btn,
+        ]
 
         lay.addWidget(self.led)
         lay.addWidget(self.state_label)
@@ -145,9 +163,9 @@ class TabView(QWidget):
         recien abierta; estas tres lineas son las mismas con las que nacio.
         """
         self.console.clear_console()
-        self.console.append_log(f'─── {self.capability.name} ───', 'info')
+        self.console.append_log(f"─── {self.capability.name} ───", "info")
         if self.capability.description:
-            self.console.append_log(self.capability.description, 'info')
+            self.console.append_log(self.capability.description, "info")
         self.cleared.emit()
 
     def _chip(self, text: str, tip: str, slot) -> QPushButton:
@@ -172,7 +190,8 @@ class TabView(QWidget):
 
     def _restyle(self) -> None:
         self.tool_bar.setStyleSheet(
-            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};")
+            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};"
+        )
         for chip in self._chips:
             chip.setStyleSheet(_chip_style(self.pal))
 
@@ -205,28 +224,28 @@ class TabView(QWidget):
         """La tarea termino o se cayo: la URL deja de ofrecerse como viva."""
         if not self._url:
             return
-        self._set_state(session.DOWN, self.state_label.property('label') or '')
+        self._set_state(session.DOWN, self.state_label.property("label") or "")
         self.show_console()
         self._stop_explorer()
         self._show_endpoint(True)
 
-    def _set_state(self, state: str, label: str = '') -> None:
+    def _set_state(self, state: str, label: str = "") -> None:
         textos = {
-            session.STARTING: ('amber', 'arrancando'),
-            session.READY: ('green', 'listo'),
-            session.DOWN: ('red', 'caído'),
+            session.STARTING: ("amber", "arrancando"),
+            session.READY: ("green", "listo"),
+            session.DOWN: ("red", "caído"),
         }
-        led, texto = textos.get(state, ('off', state))
+        led, texto = textos.get(state, ("off", state))
         self.led.set_state(led)
-        self.state_label.setProperty('label', label)
-        self.state_label.setText(f'{label} · {texto}' if label else texto)
+        self.state_label.setProperty("label", label)
+        self.state_label.setText(f"{label} · {texto}" if label else texto)
         vivo = state != session.DOWN
         self.copy_btn.setEnabled(vivo)
         self.external_btn.setEnabled(vivo)
 
     def _copy_url(self) -> None:
         QGuiApplication.clipboard().setText(self._url)
-        self.console.append_log(f'URL copiada: {self._url}', 'ok')
+        self.console.append_log(f"URL copiada: {self._url}", "ok")
 
     # --- vistas --------------------------------------------------------
     def _toggle_view(self) -> None:
@@ -240,7 +259,7 @@ class TabView(QWidget):
 
     def show_console(self) -> None:
         self.stack.setCurrentWidget(self.console)
-        self.view_btn.setText(VIEW_NAMES.get(self.capability.view, ''))
+        self.view_btn.setText(VIEW_NAMES.get(self.capability.view, ""))
 
     def show_browser(self) -> None:
         """Crea el navegador la primera vez que hace falta.
@@ -266,16 +285,20 @@ class TabView(QWidget):
     # --- explorador de base ----------------------------------------------
     def _start_explorer(self, safe_url: str) -> None:
         """La conexion que publico `explore_db`, con su contrasena, sale de la
-        sesion y no de la barra: ahi solo viaja la URL enmascarada."""
+        sesion y no de la barra: ahi solo viaja la URL enmascarada.
+        """
         if self._explorer is not None or self.project is None:
             self.show_explorer()
             return
         url = session.read(self.project.name, db_explorer.session_key(safe_url))
         if not url:
-            self.console.append_log('La tarea no publicó la conexión.', 'error')
+            self.console.append_log("La tarea no publicó la conexión.", "error")
             return
         from app.ui.db_explorer_view import DbExplorerView
-        server_root = Path(self.project.path) /             Config.for_project(self.project.path).get('SERVER_DIR', 'server')
+
+        server_root = Path(self.project.path) / Config.for_project(self.project.path).get(
+            "SERVER_DIR", "server"
+        )
         self._explorer = DbExplorerView(str(url), server_root, self.pal, self)
         self.stack.addWidget(self._explorer)
         self.show_explorer()
@@ -290,7 +313,8 @@ class TabView(QWidget):
 
     def on_shown(self) -> None:
         """La pestana volvio a primer plano: lo consultado se relee al mostrarse,
-        no con un boton de recargar."""
+        no con un boton de recargar.
+        """
         if self._explorer is not None:
             self._explorer.refresh()
 
@@ -299,5 +323,5 @@ class TabView(QWidget):
         self._stop_explorer()
 
     # --- consola (delegacion) ------------------------------------------
-    def append_log(self, text: str, level: str = 'info') -> None:
+    def append_log(self, text: str, level: str = "info") -> None:
         self.console.append_log(text, level)

@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import os
 import re
 import time
@@ -11,16 +12,16 @@ from app.core.host import HOST
 from app.core.process import capture, which_any
 
 _TOOLS = {
-    'adb': ('platform-tools',),
-    'emulator': ('emulator',),
-    'avdmanager': ('cmdline-tools', 'latest', 'bin'),
-    'sdkmanager': ('cmdline-tools', 'latest', 'bin'),
+    "adb": ("platform-tools",),
+    "emulator": ("emulator",),
+    "avdmanager": ("cmdline-tools", "latest", "bin"),
+    "sdkmanager": ("cmdline-tools", "latest", "bin"),
 }
 
 
 def sdk_root() -> Path | None:
-    for var in ('ANDROID_SDK_ROOT', 'ANDROID_HOME'):
-        value = (os.environ.get(var) or '').strip()
+    for var in ("ANDROID_SDK_ROOT", "ANDROID_HOME"):
+        value = (os.environ.get(var) or "").strip()
         if value:
             return Path(value)
     return None
@@ -34,12 +35,13 @@ class Sdk:
     resuelve el SDK una vez y de ahi salen todas: si falta una, se dice cual y
     donde se buscaba, en vez de fallar mas tarde con 'comando no encontrado'.
     """
+
     root: Path | None
 
     def tool(self, name: str) -> str:
         subpath = _TOOLS.get(name)
         if subpath is None:
-            raise TaskError(f'Herramienta desconocida del SDK: {name}')
+            raise TaskError(f"Herramienta desconocida del SDK: {name}")
 
         nombres = HOST.executable_names(name)
 
@@ -49,7 +51,7 @@ class Sdk:
                     return str(candidate)
             raise TaskError(
                 f'No se encontro "{name}" dentro del SDK ({self.root}). '
-                f'Esperado en: {self.root.joinpath(*subpath)}'
+                f"Esperado en: {self.root.joinpath(*subpath)}"
             )
 
         found = which_any(nombres)
@@ -57,16 +59,16 @@ class Sdk:
             return found
         raise TaskError(
             f'No se encontro "{name}". Define ANDROID_SDK_ROOT o instala el SDK '
-            'con la capacidad SDK Android.'
+            "con la capacidad SDK Android."
         )
 
     @property
     def adb(self) -> str:
-        return self.tool('adb')
+        return self.tool("adb")
 
     @property
     def emulator(self) -> str:
-        return self.tool('emulator')
+        return self.tool("emulator")
 
 
 def resolve_sdk() -> Sdk:
@@ -74,8 +76,8 @@ def resolve_sdk() -> Sdk:
 
 
 def avd_home() -> Path:
-    configured = (os.environ.get('ANDROID_AVD_HOME') or '').strip()
-    return Path(configured) if configured else Path.home() / '.android' / 'avd'
+    configured = (os.environ.get("ANDROID_AVD_HOME") or "").strip()
+    return Path(configured) if configured else Path.home() / ".android" / "avd"
 
 
 # --- presets ---------------------------------------------------------------
@@ -85,7 +87,7 @@ def avd_home() -> Path:
 # El numero de modelo dentro del nombre de un dispositivo, para ordenarlos del
 # nuevo al viejo. Exige que antes haya una palabra: sin eso, `3.7" WVGA` entra
 # como modelo 3 y los tamanos de pantalla se mezclan con los Pixel.
-_MODELO = re.compile(r'^[A-Za-z][A-Za-z ]*?\s(\d+)')
+_MODELO = re.compile(r"^[A-Za-z][A-Za-z ]*?\s(\d+)")
 
 
 @dataclass(frozen=True)
@@ -97,10 +99,11 @@ class Device:
     de telefonos, tablets, relojes y televisores — asi que elegir dispositivo
     deja de ser una constante del codigo y pasa a ser un eje del panel.
     """
+
     id: str
-    name: str = ''
-    oem: str = ''
-    tag: str = ''
+    name: str = ""
+    oem: str = ""
+    tag: str = ""
 
     @property
     def label(self) -> str:
@@ -129,14 +132,14 @@ class Device:
         que las system images por API (`Image.order`), y lo que no tiene numero
         (Pixel, Pixel Fold, Pixel Tablet) va despues de los que si.
         """
-        familia = f'{self.tag} {self.id}'.lower()
+        familia = f"{self.tag} {self.id}".lower()
         clave = (-self._modelo, self.name or self.id)
-        for marca in ('tv', 'wear', 'automotive', 'desktop', 'glasses', 'xr'):
+        for marca in ("tv", "wear", "automotive", "desktop", "glasses", "xr"):
             if marca in familia:
                 return (4, *clave)
-        for rango, marcas in enumerate((('pixel',),
-                                        ('phone', 'nexus'),
-                                        ('tablet', 'foldable', 'resizable'))):
+        for rango, marcas in enumerate(
+            (("pixel",), ("phone", "nexus"), ("tablet", "foldable", "resizable"))
+        ):
             if any(m in familia for m in marcas):
                 return (rango, *clave)
         return (3, *clave)
@@ -160,16 +163,17 @@ class Image:
     (`system-images;android-36;google_apis;x86_64`); el resto son sus tres
     partes ya separadas, que es como se lee al elegir.
     """
+
     package: str
-    api: str = ''
-    variant: str = ''
-    abi: str = ''
+    api: str = ""
+    variant: str = ""
+    abi: str = ""
 
     @property
     def label(self) -> str:
         if not self.api:
             return self.package
-        return f'Android {self.api}  |  {VARIANTS.get(self.variant, self.variant)}  |  {self.abi}'
+        return f"Android {self.api}  |  {VARIANTS.get(self.variant, self.variant)}  |  {self.abi}"
 
     @property
     def order(self) -> tuple:
@@ -184,8 +188,13 @@ class Image:
             api = int(self.api)
         except ValueError:
             api = 0
-        return (-api, _VARIANT_RANK.get(self.variant, 9), _ABI_RANK.get(self.abi, 9),
-                self.variant, self.abi)
+        return (
+            -api,
+            _VARIANT_RANK.get(self.variant, 9),
+            _ABI_RANK.get(self.abi, 9),
+            self.variant,
+            self.abi,
+        )
 
 
 @dataclass(frozen=True)
@@ -196,6 +205,7 @@ class AvdSpec:
     se eligen por separado porque se instalan por separado: la imagen se baja
     una vez y sirve para todos los AVD que la usen.
     """
+
     name: str
     device: str
     image: str
@@ -205,24 +215,24 @@ class AvdSpec:
 # muestra tal cual: el catalogo del SDK gana variantes con cada version, y una
 # etiqueta cruda es mejor que esconder la opcion.
 VARIANTS = {
-    'default': 'Android puro',
-    'google_apis': 'Google APIs',
-    'google_apis_playstore': 'Google APIs + Play Store',
-    'android-tv': 'Android TV',
-    'google-tv': 'Google TV',
-    'android-wear': 'Wear OS',
-    'android-automotive': 'Automotive',
-    'aosp_atd': 'AOSP ATD (liviana)',
-    'google_atd': 'Google ATD (liviana)',
+    "default": "Android puro",
+    "google_apis": "Google APIs",
+    "google_apis_playstore": "Google APIs + Play Store",
+    "android-tv": "Android TV",
+    "google-tv": "Google TV",
+    "android-wear": "Wear OS",
+    "android-automotive": "Automotive",
+    "aosp_atd": "AOSP ATD (liviana)",
+    "google_atd": "Google ATD (liviana)",
 }
 
 # Como se lee cada arquitectura. El id crudo no dice lo unico que hay que saber
 # para elegir: si corre nativa en esta maquina o emulada (y por eso, lenta).
 ABIS = {
-    'x86_64': 'x86_64 (Intel / AMD)',
-    'x86': 'x86 (32 bits, en desuso)',
-    'arm64-v8a': 'arm64-v8a (ARM, Apple Silicon)',
-    'armeabi-v7a': 'armeabi-v7a (ARM 32 bits)',
+    "x86_64": "x86_64 (Intel / AMD)",
+    "x86": "x86 (32 bits, en desuso)",
+    "arm64-v8a": "arm64-v8a (ARM, Apple Silicon)",
+    "armeabi-v7a": "armeabi-v7a (ARM 32 bits)",
 }
 
 
@@ -238,7 +248,7 @@ def facet_labels(images: list[Image]) -> dict[str, str]:
     etiquetas: dict[str, str] = {}
     for imagen in images:
         if imagen.api:
-            etiquetas[f'android-{imagen.api}'] = f'Android {imagen.api}'
+            etiquetas[f"android-{imagen.api}"] = f"Android {imagen.api}"
         if imagen.variant:
             etiquetas[imagen.variant] = VARIANTS.get(imagen.variant, imagen.variant)
         if imagen.abi:
@@ -248,18 +258,23 @@ def facet_labels(images: list[Image]) -> dict[str, str]:
 
 # Orden de preferencia dentro de una misma API. Lo que no este listado va al
 # final, en orden alfabetico: son las variantes de nicho (TV, reloj, auto).
-_VARIANT_RANK = {'google_apis_playstore': 0, 'google_apis': 1, 'default': 2,
-                 'google_atd': 3, 'aosp_atd': 4}
-_ABI_RANK = {'x86_64': 0, 'arm64-v8a': 1, 'x86': 2}
+_VARIANT_RANK = {
+    "google_apis_playstore": 0,
+    "google_apis": 1,
+    "default": 2,
+    "google_atd": 3,
+    "aosp_atd": 4,
+}
+_ABI_RANK = {"x86_64": 0, "arm64-v8a": 1, "x86": 2}
 
-DEFAULT_FLAGS = ['-no-boot-anim', '-netdelay', 'none', '-netspeed', 'full']
+DEFAULT_FLAGS = ["-no-boot-anim", "-netdelay", "none", "-netspeed", "full"]
 
 # Rango de puertos que acepta el emulador: pares, de 5554 a 5584. El impar
 # siguiente lo usa adb para hablarle, por eso se salta de dos en dos.
 PORT_RANGE = range(5554, 5586, 2)
 
-_DEVICE_CACHE = 'android-devices'
-_IMAGE_CACHE = 'android-images'
+_DEVICE_CACHE = "android-devices"
+_IMAGE_CACHE = "android-images"
 
 
 def device_catalog(sdk: Sdk, *, refresh: bool = False) -> list[Device]:
@@ -273,22 +288,22 @@ def device_catalog(sdk: Sdk, *, refresh: bool = False) -> list[Device]:
 
 
 def _read_device_catalog(sdk: Sdk) -> list[dict]:
-    salida = capture([sdk.tool('avdmanager'), 'list', 'device'], timeout=120, check=False)
+    salida = capture([sdk.tool("avdmanager"), "list", "device"], timeout=120, check=False)
     dispositivos: list[dict] = []
     actual: dict | None = None
     for linea in salida.splitlines():
         limpia = linea.strip()
-        if limpia.startswith('id:'):
+        if limpia.startswith("id:"):
             # `id: 9 or "pixel_4"` — el id util es el entrecomillado, no el
             # numero: el numero cambia de posicion con cada version del SDK.
             if actual:
                 dispositivos.append(actual)
             partes = limpia.split('"')
-            actual = {'id': partes[1] if len(partes) > 1 else limpia.split(':', 1)[1].strip()}
-        elif actual is not None and ':' in limpia:
-            clave, _, valor = limpia.partition(':')
+            actual = {"id": partes[1] if len(partes) > 1 else limpia.split(":", 1)[1].strip()}
+        elif actual is not None and ":" in limpia:
+            clave, _, valor = limpia.partition(":")
             campo = clave.strip().lower()
-            if campo in ('name', 'oem', 'tag'):
+            if campo in ("name", "oem", "tag"):
                 actual[campo] = valor.strip()
     if actual:
         dispositivos.append(actual)
@@ -302,21 +317,21 @@ def image_catalog(sdk: Sdk, *, refresh: bool = False) -> list[Image]:
 
 
 def _read_image_catalog(sdk: Sdk) -> list[str]:
-    salida = capture([sdk.tool('sdkmanager'), '--list'], timeout=600, check=False)
+    salida = capture([sdk.tool("sdkmanager"), "--list"], timeout=600, check=False)
     vistos: list[str] = []
     for linea in salida.splitlines():
-        paquete = linea.split('|')[0].strip()
-        if paquete.startswith('system-images;') and paquete not in vistos:
+        paquete = linea.split("|")[0].strip()
+        if paquete.startswith("system-images;") and paquete not in vistos:
             vistos.append(paquete)
     return vistos
 
 
 def parse_image(package: str) -> Image:
     """`system-images;android-36;google_apis;x86_64` -> sus tres partes."""
-    partes = package.split(';')
+    partes = package.split(";")
     if len(partes) < 4:
         return Image(package)
-    return Image(package, partes[1].replace('android-', ''), partes[2], partes[3])
+    return Image(package, partes[1].replace("android-", ""), partes[2], partes[3])
 
 
 def forget_catalogs() -> None:
@@ -331,15 +346,18 @@ def suggest_avd_name(device: str, image: str) -> str:
     `avdmanager` solo acepta letras, numeros, guion, punto y guion bajo.
     """
     api = parse_image(image).api
-    crudo = f'{device}_api{api}' if api else device
-    return ''.join(c if c.isalnum() or c in '-_.' else '_' for c in crudo)
+    crudo = f"{device}_api{api}" if api else device
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in crudo)
 
 
 # --- inventario ------------------------------------------------------------
 
+
 def list_avds(sdk: Sdk) -> list[str]:
-    salida = capture([sdk.emulator, '-list-avds'], timeout=60, check=False)
-    return [line.strip() for line in salida.splitlines() if line.strip() and ' ' not in line.strip()]
+    salida = capture([sdk.emulator, "-list-avds"], timeout=60, check=False)
+    return [
+        line.strip() for line in salida.splitlines() if line.strip() and " " not in line.strip()
+    ]
 
 
 def list_images(sdk: Sdk) -> list[str]:
@@ -349,9 +367,12 @@ def list_images(sdk: Sdk) -> list[str]:
     instala o desinstala una, y una lista vieja aca haria que "Crear AVD"
     ofrezca una imagen que ya no esta.
     """
-    salida = capture([sdk.tool('sdkmanager'), '--list_installed'], timeout=180, check=False)
-    return [line.split('|')[0].strip() for line in salida.splitlines()
-            if line.strip().startswith('system-images;')]
+    salida = capture([sdk.tool("sdkmanager"), "--list_installed"], timeout=180, check=False)
+    return [
+        line.split("|")[0].strip()
+        for line in salida.splitlines()
+        if line.strip().startswith("system-images;")
+    ]
 
 
 def list_devices(sdk: Sdk) -> list[str]:
@@ -360,9 +381,12 @@ def list_devices(sdk: Sdk) -> list[str]:
     El emulador se desprende del proceso que lo lanzo (ADR-0028), asi
     que su estado no se puede inferir de un PID: hay que sondearlo.
     """
-    salida = capture([sdk.adb, 'devices'], timeout=30, check=False)
-    return [line.split()[0] for line in salida.splitlines()[1:]
-            if line.strip().endswith('device') and line.startswith('emulator-')]
+    salida = capture([sdk.adb, "devices"], timeout=30, check=False)
+    return [
+        line.split()[0]
+        for line in salida.splitlines()[1:]
+        if line.strip().endswith("device") and line.startswith("emulator-")
+    ]
 
 
 def running(sdk: Sdk) -> dict[str, str]:
@@ -374,10 +398,10 @@ def running(sdk: Sdk) -> dict[str, str]:
     """
     vivos: dict[str, str] = {}
     for serial in list_devices(sdk):
-        salida = capture([sdk.adb, '-s', serial, 'emu', 'avd', 'name'],
-                         timeout=15, check=False)
-        nombre = next((l.strip() for l in salida.splitlines()
-                       if l.strip() and l.strip() != 'OK'), '')
+        salida = capture([sdk.adb, "-s", serial, "emu", "avd", "name"], timeout=15, check=False)
+        nombre = next(
+            (l.strip() for l in salida.splitlines() if l.strip() and l.strip() != "OK"), ""
+        )
         vivos[serial] = nombre
     return vivos
 
@@ -391,21 +415,22 @@ def free_port(sdk: Sdk) -> int:
     contra que dispositivo correr. Sin esto habria que adivinar cual de los
     emuladores vivos es el que lanzo esta pestana.
     """
-    ocupados = {s.rsplit('-', 1)[-1] for s in list_devices(sdk)}
+    ocupados = {s.rsplit("-", 1)[-1] for s in list_devices(sdk)}
     for port in PORT_RANGE:
-        if str(port) not in ocupados and ports.is_free(port, host='127.0.0.1'):
+        if str(port) not in ocupados and ports.is_free(port, host="127.0.0.1"):
             return port
-    raise TaskError('No quedan puertos de emulador libres (5554-5584).')
+    raise TaskError("No quedan puertos de emulador libres (5554-5584).")
 
 
 # --- ciclo de vida ---------------------------------------------------------
 
+
 def ensure_image(ctx, sdk: Sdk, image: str) -> None:
     if image in list_images(sdk):
-        ctx.ok(f'System image ya instalada: {image}')
+        ctx.ok(f"System image ya instalada: {image}")
         return
-    ctx.info(f'Instalando system image: {image}')
-    ctx.run([sdk.tool('sdkmanager'), image])
+    ctx.info(f"Instalando system image: {image}")
+    ctx.run([sdk.tool("sdkmanager"), image])
 
 
 def ensure_avd(ctx, sdk: Sdk, spec: AvdSpec) -> str:
@@ -419,30 +444,49 @@ def ensure_avd(ctx, sdk: Sdk, spec: AvdSpec) -> str:
     else:
         if spec.image not in list_images(sdk):
             raise TaskError(
-                f'La maquina {spec.image} no esta instalada. '
+                f"La maquina {spec.image} no esta instalada. "
                 'Instalala primero con "Instalar maquina".'
             )
         ctx.info(f'Creando AVD "{spec.name}" ({spec.device}).')
-        ctx.run([sdk.tool('avdmanager'), 'create', 'avd', '--name', spec.name,
-                 '--package', spec.image, '--device', spec.device])
+        ctx.run(
+            [
+                sdk.tool("avdmanager"),
+                "create",
+                "avd",
+                "--name",
+                spec.name,
+                "--package",
+                spec.image,
+                "--device",
+                spec.device,
+            ]
+        )
     _enable_hw_keyboard(ctx, spec.name)
     return spec.name
 
 
 def _enable_hw_keyboard(ctx, avd_name: str) -> None:
-    config = avd_home() / f'{avd_name}.avd' / 'config.ini'
+    config = avd_home() / f"{avd_name}.avd" / "config.ini"
     if not config.is_file():
         ctx.warn(f'No se encontro config.ini del AVD "{avd_name}".')
         return
 
-    lines = config.read_text(encoding='utf-8').splitlines()
-    lines = [line for line in lines if not line.strip().startswith('hw.keyboard=')]
-    lines.append('hw.keyboard=yes')
-    config.write_text('\n'.join(lines) + '\n', encoding='utf-8', newline='\n')
+    lines = config.read_text(encoding="utf-8").splitlines()
+    lines = [line for line in lines if not line.strip().startswith("hw.keyboard=")]
+    lines.append("hw.keyboard=yes")
+    config.write_text("\n".join(lines) + "\n", encoding="utf-8", newline="\n")
 
 
-def start(ctx, sdk: Sdk, avd_name: str, *, port: int, flags: list[str] | None = None,
-          read_only: bool = False, wipe: bool = False) -> int:
+def start(
+    ctx,
+    sdk: Sdk,
+    avd_name: str,
+    *,
+    port: int,
+    flags: list[str] | None = None,
+    read_only: bool = False,
+    wipe: bool = False,
+) -> int:
     """Arranca el emulador en un puerto fijo y sigue su salida mientras viva.
 
     `read_only` es lo que permite levantar un AVD que ya esta corriendo: el
@@ -451,15 +495,15 @@ def start(ctx, sdk: Sdk, avd_name: str, *, port: int, flags: list[str] | None = 
     no escribe cambios en el disco del AVD, que es exactamente lo que se quiere
     cuando se abren dos para probar algo entre ellos.
     """
-    argv = [sdk.emulator, '-avd', avd_name, '-port', str(port), *(flags or DEFAULT_FLAGS)]
+    argv = [sdk.emulator, "-avd", avd_name, "-port", str(port), *(flags or DEFAULT_FLAGS)]
     if read_only:
-        argv.append('-read-only')
+        argv.append("-read-only")
     if wipe:
-        argv.append('-wipe-data')
+        argv.append("-wipe-data")
     return ctx.run(argv, check=False)
 
 
-def wait_for_boot(ctx, sdk: Sdk, *, timeout: float = 180.0, serial: str = '') -> str:
+def wait_for_boot(ctx, sdk: Sdk, *, timeout: float = 180.0, serial: str = "") -> str:
     """Espera a que un emulador termine de arrancar y devuelve su serial.
 
     Con `serial` espera a ESE y no al primero que aparezca: con dos emuladores
@@ -468,19 +512,22 @@ def wait_for_boot(ctx, sdk: Sdk, *, timeout: float = 180.0, serial: str = '') ->
     limite = time.time() + timeout
     while time.time() < limite:
         ctx.raise_if_cancelled()
-        for encontrado in ([serial] if serial else list_devices(sdk)):
-            listo = capture([sdk.adb, '-s', encontrado, 'shell', 'getprop', 'sys.boot_completed'],
-                            timeout=15, check=False)
-            if listo.strip() == '1':
+        for encontrado in [serial] if serial else list_devices(sdk):
+            listo = capture(
+                [sdk.adb, "-s", encontrado, "shell", "getprop", "sys.boot_completed"],
+                timeout=15,
+                check=False,
+            )
+            if listo.strip() == "1":
                 return encontrado
         time.sleep(2)
-    raise TaskError(f'Ningun emulador termino de arrancar en {timeout:.0f}s.')
+    raise TaskError(f"Ningun emulador termino de arrancar en {timeout:.0f}s.")
 
 
 def stop(ctx, sdk: Sdk, serial: str) -> None:
     """Apaga el emulador por adb: matar el proceso que lo lanzo no alcanza."""
-    ctx.run([sdk.adb, '-s', serial, 'emu', 'kill'], check=False)
-    ctx.ok(f'Emulador {serial} detenido.')
+    ctx.run([sdk.adb, "-s", serial, "emu", "kill"], check=False)
+    ctx.ok(f"Emulador {serial} detenido.")
 
 
 def stop_quiet(sdk: Sdk, serial: str) -> None:
@@ -493,14 +540,14 @@ def stop_quiet(sdk: Sdk, serial: str) -> None:
     estado — que es justo lo que se pierde si en cambio se mata el proceso.
     """
     try:
-        capture([sdk.adb, '-s', serial, 'emu', 'kill'], timeout=15, check=False)
+        capture([sdk.adb, "-s", serial, "emu", "kill"], timeout=15, check=False)
     except TaskError:
         pass
 
 
 def remove_avd(ctx, sdk: Sdk, name: str) -> None:
-    ctx.run([sdk.tool('avdmanager'), 'delete', 'avd', '--name', name], check=False)
+    ctx.run([sdk.tool("avdmanager"), "delete", "avd", "--name", name], check=False)
 
 
 def remove_image(ctx, sdk: Sdk, image: str) -> None:
-    ctx.run([sdk.tool('sdkmanager'), '--uninstall', image], check=False)
+    ctx.run([sdk.tool("sdkmanager"), "--uninstall", image], check=False)

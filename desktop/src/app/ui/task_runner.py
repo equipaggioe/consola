@@ -1,6 +1,7 @@
 from __future__ import annotations
+
 import threading
-from typing import Callable
+from collections.abc import Callable
 
 from PySide6.QtCore import QThread, Signal
 
@@ -9,7 +10,6 @@ from app.core.envfile import Config
 from app.core.errors import Cancelled, MissingConfig, TaskError
 from app.core.projects import Project
 from app.ui import params_store
-
 
 
 def _config_for(repo_path: str) -> Config:
@@ -39,6 +39,7 @@ class TaskRunner(QThread):
     de Detener todavia no existe en la UI, pero cuando exista no debe encontrarse
     con una tarea dormida para siempre esperando una respuesta que nadie dio.
     """
+
     logged = Signal(str, str)
     noted = Signal(str)
     ask_requested = Signal(str, str, bool, str)  # pregunta, forma, peligrosa, expect
@@ -49,8 +50,9 @@ class TaskRunner(QThread):
     serve_requested = Signal(str, str, bool, str)
     finished_ok = Signal(bool)
 
-    def __init__(self, capability_id: str, project: Project, func: Callable,
-                 kwargs: dict, parent=None):
+    def __init__(
+        self, capability_id: str, project: Project, func: Callable, kwargs: dict, parent=None
+    ):
         super().__init__(parent)
         self._capability_id = capability_id
         self._project = project
@@ -62,14 +64,14 @@ class TaskRunner(QThread):
         # devuelven la carpeta del repo que dejaron en disco, y la ventana la
         # necesita para abrirla como pestana.
         self.result = None
-        self._answer = ''
+        self._answer = ""
         self._answered = threading.Event()
 
     # --- puente de preguntas ------------------------------------------------
 
     def _ask(self, question: str, shape: str, danger: bool, expect: str) -> str:
         """Pregunta desde el hilo de la tarea y espera la respuesta de la UI."""
-        self._answer = ''
+        self._answer = ""
         self._answered.clear()
         self.ask_requested.emit(question, shape, danger, expect)
         while not self._answered.wait(0.1):
@@ -83,7 +85,7 @@ class TaskRunner(QThread):
 
     def _raise_if_cancelled(self) -> None:
         if self._ctx is not None and self._ctx.cancelled:
-            raise Cancelled('Detenido por el usuario.')
+            raise Cancelled("Detenido por el usuario.")
 
     def provide_answer(self, answer: str) -> None:
         """La respuesta del dialogo. La llama el hilo de la interfaz."""
@@ -101,7 +103,7 @@ class TaskRunner(QThread):
         self._answered.set()
         if self._ctx is None:
             return
-        self._ctx._cancel.set()   # inmediato: los bucles largos ya lo ven
+        self._ctx._cancel.set()  # inmediato: los bucles largos ya lo ven
         threading.Thread(target=self._ctx.cancel, daemon=True).start()
 
     @property
@@ -119,13 +121,14 @@ class TaskRunner(QThread):
             ask_sink=self._ask,
             note_sink=lambda entry: self.noted.emit(entry),
             serve_sink=lambda url, label, web, state: self.serve_requested.emit(
-                url, label, web, state),
+                url, label, web, state
+            ),
         )
         self._ctx = ctx
         try:
             self.result = self._func(ctx, **self._kwargs)
         except Cancelled:
-            ctx.warn('Detenido por el usuario.')
+            ctx.warn("Detenido por el usuario.")
             self._done(False)
             return
         except (TaskError, MissingConfig) as exc:
@@ -133,7 +136,7 @@ class TaskRunner(QThread):
             self._done(False)
             return
         except Exception as exc:  # nunca dejar morir el hilo en silencio
-            ctx.error(f'Error inesperado: {exc}')
+            ctx.error(f"Error inesperado: {exc}")
             self._done(False)
             return
         self._done(True)

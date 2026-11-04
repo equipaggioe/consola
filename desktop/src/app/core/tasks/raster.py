@@ -1,4 +1,5 @@
 from __future__ import annotations
+
 import io
 from pathlib import Path
 
@@ -36,13 +37,14 @@ def svg_to_png(svg: Path, lado: int) -> bytes:
     """
     renderer = QSvgRenderer(str(svg))
     if not renderer.isValid():
-        raise TaskError(f'Qt no pudo leer {svg.name} como SVG.')
+        raise TaskError(f"Qt no pudo leer {svg.name} como SVG.")
     caja = renderer.viewBoxF()
     # Qt estira el viewBox hasta llenar la imagen: uno que no es cuadrado sale
     # deformado.
     if abs(caja.width() - caja.height()) > 1e-6:
-        raise TaskError(f'{svg.name} no es cuadrado: su viewBox mide '
-                        f'{caja.width():g}×{caja.height():g}.')
+        raise TaskError(
+            f"{svg.name} no es cuadrado: su viewBox mide {caja.width():g}×{caja.height():g}."
+        )
     imagen = QImage(lado, lado, QImage.Format.Format_ARGB32)
     imagen.fill(Qt.GlobalColor.transparent)
     imagen.setDotsPerMeterX(_DOTS_PER_METER)
@@ -54,7 +56,7 @@ def svg_to_png(svg: Path, lado: int) -> bytes:
     pintor.end()
     buffer = QBuffer()
     buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-    imagen.save(buffer, 'PNG')
+    imagen.save(buffer, "PNG")
     return bytes(buffer.data())
 
 
@@ -66,5 +68,5 @@ def svg_to_ico(svg: Path) -> bytes:
     """
     grande = Image.open(io.BytesIO(svg_to_png(svg, max(ICO_SIZES))))
     salida = io.BytesIO()
-    grande.save(salida, format='ICO', sizes=[(n, n) for n in ICO_SIZES])
+    grande.save(salida, format="ICO", sizes=[(n, n) for n in ICO_SIZES])
     return salida.getvalue()

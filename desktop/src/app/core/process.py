@@ -1,10 +1,11 @@
 from __future__ import annotations
+
 import os
 import shutil
 import subprocess
 import threading
+from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Callable, Iterable, Sequence
 
 from app.core.errors import Cancelled, TaskError
 from app.core.host import HOST
@@ -15,7 +16,7 @@ LineSink = Callable[[str], None]
 
 def format_argv(argv: Argv) -> str:
     """Linea legible para el log. No es para volver a ejecutar: es para leer."""
-    return ' '.join(f'"{a}"' if ' ' in str(a) else str(a) for a in argv)
+    return " ".join(f'"{a}"' if " " in str(a) else str(a) for a in argv)
 
 
 def which_any(names: Iterable[str]) -> str | None:
@@ -36,8 +37,8 @@ def resolve_executable(
     names: Iterable[str],
     *,
     override: str | None = None,
-    label: str = 'ejecutable',
-    hint: str = '',
+    label: str = "ejecutable",
+    hint: str = "",
 ) -> list[str]:
     """Ubica una herramienta externa: primero el override explicito, luego el PATH.
 
@@ -53,7 +54,7 @@ def resolve_executable(
 
     found = which_any(names)
     if not found:
-        extra = f" {hint}" if hint else ''
+        extra = f" {hint}" if hint else ""
         raise TaskError(f"No se encontro {label} en el PATH.{extra}")
     return as_argv(found)
 
@@ -78,8 +79,8 @@ def spawn(
         stderr=subprocess.STDOUT,
         stdin=subprocess.PIPE if stdin else subprocess.DEVNULL,
         text=True,
-        encoding='utf-8',
-        errors='replace',
+        encoding="utf-8",
+        errors="replace",
         bufsize=1,
         **HOST.spawn_options(detached=detached),
     )
@@ -129,8 +130,8 @@ def stream(
         for raw in proc.stdout:
             if cancel is not None and cancel.is_set():
                 kill_tree(proc)
-                raise Cancelled('Detenido por el usuario.')
-            line = raw.rstrip('\r\n')
+                raise Cancelled("Detenido por el usuario.")
+            line = raw.rstrip("\r\n")
             if line:
                 on_line(line)
         return proc.wait()
@@ -162,31 +163,35 @@ def converse(
     Las respuestas nunca pasan por `on_line`.
     """
     proc = subprocess.Popen(
-        [str(a) for a in argv], stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
-        stdin=subprocess.PIPE, **HOST.spawn_options(detached=False))
+        [str(a) for a in argv],
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        stdin=subprocess.PIPE,
+        **HOST.spawn_options(detached=False),
+    )
     if register:
         register(proc)
     pendientes = list(answers)
-    resto = ''
+    resto = ""
     try:
         assert proc.stdout is not None and proc.stdin is not None
         fd = proc.stdout.fileno()
         while True:
             if cancel is not None and cancel.is_set():
                 kill_tree(proc)
-                raise Cancelled('Detenido por el usuario.')
+                raise Cancelled("Detenido por el usuario.")
             bloque = os.read(fd, 4096)
             if not bloque:
                 break
-            resto += bloque.decode('utf-8', errors='replace').replace('\r', '')
-            *lineas, resto = resto.split('\n')
+            resto += bloque.decode("utf-8", errors="replace").replace("\r", "")
+            *lineas, resto = resto.split("\n")
             for linea in lineas:
                 if linea:
                     on_line(linea)
             if pendientes and pendientes[0][0] in resto:
                 on_line(resto)
-                resto = ''
-                proc.stdin.write((pendientes.pop(0)[1] + '\n').encode('utf-8'))
+                resto = ""
+                proc.stdin.write((pendientes.pop(0)[1] + "\n").encode("utf-8"))
                 proc.stdin.flush()
         if resto:
             on_line(resto)
@@ -220,7 +225,7 @@ def capture(
     se cuelga hasta el timeout aunque el comando remoto ya haya terminado.
     `stdin_text` es lo que la consulta lee, y la entrada se cierra despues.
     """
-    entrada = {'stdin': subprocess.DEVNULL} if stdin_text is None else {'input': stdin_text}
+    entrada = {"stdin": subprocess.DEVNULL} if stdin_text is None else {"input": stdin_text}
     try:
         result = subprocess.run(
             [str(a) for a in argv],
@@ -229,8 +234,8 @@ def capture(
             **entrada,
             capture_output=True,
             text=True,
-            encoding='utf-8',
-            errors='replace',
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             **HOST.run_options(),
         )
@@ -240,9 +245,9 @@ def capture(
         raise TaskError(f"El comando excedio {timeout}s: {format_argv(argv)}") from exc
 
     if check and result.returncode != 0:
-        detalle = (result.stderr or result.stdout or '').strip()
+        detalle = (result.stderr or result.stdout or "").strip()
         raise TaskError(f"Fallo ({result.returncode}): {format_argv(argv)}\n{detalle}")
-    return (result.stdout or '').strip()
+    return (result.stdout or "").strip()
 
 
 def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
@@ -259,8 +264,8 @@ def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
             input=stdin_text,
             capture_output=True,
             text=True,
-            encoding='utf-8',
-            errors='replace',
+            encoding="utf-8",
+            errors="replace",
             timeout=timeout,
             **HOST.run_options(),
         )
@@ -268,7 +273,7 @@ def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
         raise TaskError(f"No se encontro el ejecutable: {argv[0]}") from exc
     except subprocess.TimeoutExpired as exc:
         raise TaskError(f"El comando excedio {timeout}s: {format_argv(argv)}") from exc
-    return ((result.stdout or '') + (result.stderr or '')).strip()
+    return ((result.stdout or "") + (result.stderr or "")).strip()
 
 
 def kill_tree(proc: subprocess.Popen, *, grace: float = 5.0) -> None:

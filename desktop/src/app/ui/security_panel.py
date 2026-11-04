@@ -1,14 +1,13 @@
 from __future__ import annotations
-from PySide6.QtWidgets import (
-    QWidget, QVBoxLayout, QScrollArea, QFrame, QCheckBox
-)
+
 from PySide6.QtCore import Qt, Signal
+from PySide6.QtWidgets import QCheckBox, QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from app.core import protection
 from app.core.projects import Project
-from app.ui import params_store
 from app.theme import Fonts
-from app.ui.palettes import Palette, NEUTRAL
+from app.ui import params_store
+from app.ui.palettes import NEUTRAL, Palette
 
 """
 Los seguros del repo: una casilla por tipo de objetivo (`core/protection.py`).
@@ -35,6 +34,7 @@ class SecurityPanel(QWidget):
     la cabecera y el indicador de la barra de estado, que leen lo que hay en
     pantalla y no lo que quedo en disco.
     """
+
     changed = Signal(dict)
 
     def __init__(self, project: Project, parent=None):
@@ -53,7 +53,7 @@ class SecurityPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll   # lo repinta `_restyle`
+        self._scroll = scroll  # lo repinta `_restyle`
 
         self._body = QWidget()
         self.pal = NEUTRAL
@@ -91,7 +91,8 @@ class SecurityPanel(QWidget):
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}")
+            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+        )
 
     def set_palette(self, pal: Palette) -> None:
         self.pal = pal
@@ -109,7 +110,8 @@ class SecurityPanel(QWidget):
     def content_height(self) -> int:
         """Alto que piden las casillas sin scroll — lo usa
         `TabPanel._relayout_right` para decidir cuanto darle a la seccion.
-        Se pregunta al cuerpo y no al scroll, que no tiene alto propio."""
+        Se pregunta al cuerpo y no al scroll, que no tiene alto propio.
+        """
         return self._body.sizeHint().height()
 
     def _toggle(self, target_id: str, marcado: bool) -> None:

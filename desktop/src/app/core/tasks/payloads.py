@@ -18,7 +18,7 @@ con PyInstaller no existe como archivos sueltos— ni el del VPS, que no tiene p
 que recibir un archivo para correr algo que su propio venv ya sabe ejecutar.
 """
 
-SEED = '''
+SEED = """
 import asyncio, importlib, os, pkgutil, sys
 
 package_name = sys.argv[1]
@@ -73,9 +73,9 @@ async def main():
 
 
 asyncio.run(main())
-'''
+"""
 
-PARTITIONS = '''
+PARTITIONS = """
 import asyncio, os, sys
 
 sys.path.insert(0, os.getcwd())
@@ -103,9 +103,9 @@ async def main():
 
 
 asyncio.run(main())
-'''
+"""
 
-SOURCES = {'seed': SEED, 'partitions': PARTITIONS}
+SOURCES = {"seed": SEED, "partitions": PARTITIONS}
 
 
 def run(ctx, runner: Runner, source: str, *args: str) -> int:
@@ -121,7 +121,7 @@ def run(ctx, runner: Runner, source: str, *args: str) -> int:
     tapando la salida del seeder.
     """
     if source not in SOURCES:
-        raise TaskError(f'Payload desconocido: {source!r}')
+        raise TaskError(f"Payload desconocido: {source!r}")
 
-    runner.log_command(ctx, ' '.join(['-c', f'<{source}>', *args]))
-    return runner.run(ctx, '-c', SOURCES[source], *args, echo=False)
+    runner.log_command(ctx, " ".join(["-c", f"<{source}>", *args]))
+    return runner.run(ctx, "-c", SOURCES[source], *args, echo=False)
