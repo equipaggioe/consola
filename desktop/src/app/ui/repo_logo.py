@@ -1,3 +1,13 @@
+"""A repo's logo in the UI (ADR-0058).
+
+It appears on the tab, the right column's header, the welcome screen and
+the guard's notice. It is `BRAND_ICON`, the same SVG its apps' and
+executable's icons come from (ADR-0055). A repo without a logo carries
+the Equipaggio mark. One that declares an unreadable logo shows the
+error, not the mark: the mark would say a logo is missing when what
+exists is a broken path.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -13,36 +23,26 @@ from app.core import envfile, icons
 from app.core.errors import TaskError
 from app.theme import Colors
 
-"""
-El logo de un repo en la UI: la pestana, la cabecera de la columna derecha, la
-bienvenida y el aviso del seguro (ADR-0058).
-
-Es `BRAND_ICON`, el mismo SVG del que salen los iconos de sus apps y de su
-ejecutable (ADR-0055). Un repo sin logo lleva la marca de Equipaggio. Uno que
-declara un logo que no se puede leer muestra el error, no la marca: la marca
-diria que falta un logo cuando lo que hay es una ruta rota.
-"""
-
 EQUIPAGGIO = Path(__file__).with_name("assets") / "equipaggio.png"
 
-# Lado al que se rasteriza el logo antes de recortarlo: el de la bienvenida,
-# 64 px, a 200 % y con margen.
+# The side the logo rasterizes to before cropping: the welcome's, 64 px,
+# at 200 % with a margin.
 _RASTER = 256
-# Alfa desde el que un pixel cuenta como dibujo al recortar: por debajo es la
-# franja del antialiasing.
+# The alpha from which a pixel counts as drawing when cropping: below it
+# is the antialiasing fringe.
 _VISIBLE_ALPHA = 8
 
 
 @dataclass(frozen=True)
 class RepoLogo:
-    """Lo que se pinta: la imagen, o el error que impide pintarla."""
+    """What gets painted: the image, or the error that prevents it."""
 
     source: Path | None
     error: str = ""
 
 
 def resolve(repo_path: str) -> RepoLogo:
-    """El logo del repo segun su `config.env` de ahora."""
+    """Return the repo's logo according to its current `config.env`."""
     value = envfile.load_config(repo_path).get("BRAND_ICON", "")
     if not value:
         return RepoLogo(EQUIPAGGIO)
@@ -56,19 +56,19 @@ def resolve(repo_path: str) -> RepoLogo:
 
 
 def trimmed(source: Path) -> QImage:
-    """El logo rasterizado y recortado a lo que se dibuja.
+    """Return the logo rasterized and cropped to what is drawn.
 
-    El margen transparente es del diseno del logo, no de la UI: el de vettore
-    deja 4 de 64 unidades por lado para el recorte de los iconos de app, y el
-    PNG de Equipaggio es mas angosto que su lienzo. Sin recortarlo, esos dos
-    salian mas chicos que los que llenan su cuadrado.
+    The transparent margin belongs to the logo's design, not to the UI:
+    a logo may leave 4 of 64 units per side for app icon cropping, and
+    the Equipaggio PNG is narrower than its canvas. Without cropping,
+    those came out smaller than the ones that fill their square.
     """
     image = QImage(_RASTER, _RASTER, QImage.Format.Format_ARGB32)
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
     QIcon(str(source)).paint(painter, image.rect())
     painter.end()
-    # ARGB32 va en memoria como BGRA: el alfa es el cuarto byte de cada pixel.
+    # ARGB32 is BGRA in memory: alpha is each pixel's fourth byte.
     alpha = bytes(image.constBits())[3::4]
     rows = [
         y for y in range(_RASTER) if max(alpha[y * _RASTER : (y + 1) * _RASTER]) > _VISIBLE_ALPHA
@@ -82,19 +82,23 @@ def trimmed(source: Path) -> QImage:
 
 
 class RepoLogoView(QWidget):
-    """El logo en un cuadrado de `size` pixeles, llenandolo por su lado largo.
+    """The logo in a square of `size` pixels.
 
-    Se escala al pintar, a la densidad del monitor en el que esta: puesto en un
-    `QLabel` como pixmap, a 150 % saldria borroso.
+    Filling it by its long side.
+
+    It scales when painting, at the density of the monitor it is on: set
+    on a `QLabel` as a pixmap, at 150 % it would blur.
     """
 
     def __init__(self, size: int, logo: RepoLogo, parent: QWidget | None = None) -> None:
+        """Keep the logo and the square's side."""
         super().__init__(parent)
         self.setFixedSize(size, size)
         self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground)
         self.set_logo(logo)
 
     def set_logo(self, logo: RepoLogo) -> None:
+        """Show another logo."""
         self._image = trimmed(logo.source) if logo.source else None
         self._scaled: QImage | None = None
         self.setToolTip(logo.error)
@@ -108,8 +112,9 @@ class RepoLogoView(QWidget):
             dpr = self.devicePixelRatioF()
             side = round(self.width() * dpr)
             if self._scaled is None or self._scaled.devicePixelRatio() != dpr:
-                # `scaled` promedia los pixeles de origen; dibujar la imagen
-                # grande en un rectangulo chico solo muestrea, y dentaba.
+                # `scaled` averages the source pixels; drawing the large
+                # image in a small rectangle only samples, and it came
+                # out jagged.
                 self._scaled = self._image.scaled(
                     QSize(side, side),
                     Qt.AspectRatioMode.KeepAspectRatio,

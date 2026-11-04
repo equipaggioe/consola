@@ -1,3 +1,5 @@
+"""The thread a capability runs in."""
+
 from __future__ import annotations
 
 import threading
@@ -14,11 +16,11 @@ from app.ui import params_store
 
 
 def _config_for(repo_path: str) -> Config:
-    """La configuracion con la que corre una tarea: la del repo, mas las claves
-    de maquina (`ui/params_store.py::machine_env`).
+    """Return the config a task runs with: the repo's plus machine keys.
 
-    Las de maquina van encima porque no hay un valor del repo que pueda
-    competir: `core/envfile.render_config` no las escribe en el archivo.
+    Machine keys (`ui/params_store.py::machine_env`) go on top because
+    no repo value can compete: `core/envfile.render_config` does not
+    write them to the file.
     """
     config = Config.for_project(repo_path)
     config.values.update({k: v for k, v in params_store.machine_env().items() if v})
@@ -26,28 +28,30 @@ def _config_for(repo_path: str) -> Config:
 
 
 class TaskRunner(QThread):
-    """Corre una capacidad de verdad, en un hilo aparte.
+    """Run a capability for real, in a separate thread.
 
-    Puentea los cuatro canales del `TaskContext` hacia la interfaz. Tres son de
-    ida y viajan como senales sueltas (`log`, `note`, `progress`); el cuarto,
-    `ask`, es de ida y vuelta: la tarea se queda esperando la respuesta.
+    It bridges the four channels of `TaskContext` to the interface.
+    Three go one way as loose signals (`log`, `note`, `progress`); the
+    fourth, `ask`, goes both ways: the task stays waiting for the
+    answer.
 
-    Ese cuarto es el que obliga a esta maquinaria. Un dialogo Qt solo puede
-    abrirse en el hilo de la interfaz, pero quien pregunta es este hilo, asi que
-    `_ask` emite la senal y se duerme sobre un `Event` hasta que el hilo de la
-    interfaz llame a `provide_answer`. Se espera en tandas cortas y no de una
-    vez para que `cancel()` pueda cortar tambien con el dialogo abierto: el boton
-    de Detener todavia no existe en la UI, pero cuando exista no debe encontrarse
-    con una tarea dormida para siempre esperando una respuesta que nadie dio.
+    That fourth forces this machinery. A Qt dialog can only open in the
+    interface thread, but this thread asks, so `_ask` emits the signal
+    and sleeps on an `Event` until the interface thread calls
+    `provide_answer`. It waits in short rounds so `cancel()` can also
+    cut with the dialog open: the Stop button does not exist in the UI
+    yet, but when it does it must not meet a task asleep forever on an
+    answer nobody gave.
     """
 
     logged = Signal(str, str)
     noted = Signal(str)
-    ask_requested = Signal(str, str, bool, str)  # pregunta, forma, peligrosa, expect
-    # url, etiqueta, se abre en navegador, estado. Lo emite `ctx.serve()` dos
-    # veces: al anunciar la URL y cuando el puerto contesta de verdad. La
-    # segunda llega desde el hilo que sondea el puerto, no desde este — una
-    # senal Qt entre hilos se entrega igual, en cola (ADR-0008).
+    # question, shape, dangerous, expect; then url, label, opens in
+    # browser, state. `ctx.serve()` emits it twice: when announcing the
+    # URL and when the port truly answers. The second comes from the
+    # thread probing the port, not this one: a Qt signal between threads
+    # is still delivered, queued (ADR-0008).
+    ask_requested = Signal(str, str, bool, str)
     serve_requested = Signal(str, str, bool, str)
     finished_ok = Signal(bool)
 
@@ -59,33 +63,34 @@ class TaskRunner(QThread):
         kwargs: dict[str, Any],
         parent: QObject | None = None,
     ) -> None:
+        """Keep what the run needs; the thread starts with `start()`."""
         super().__init__(parent)
         self._capability_id = capability_id
         self._project = project
         self._func = func
         self._kwargs = kwargs
         self._ctx: TaskContext | None = None
-        # Lo que devolvio la funcion. Casi ninguna capacidad lo usa —lo que
-        # entregan es su log o su endpoint—, pero las que declaran `opens_repo`
-        # devuelven la carpeta del repo que dejaron en disco, y la ventana la
-        # necesita para abrirla como pestana.
+        # What the function returned. Almost no capability uses it,
+        # since they deliver their log or endpoint, but those declaring
+        # `opens_repo` return the folder of the repo they left on disk,
+        # and the window needs it to open it as a tab.
         self.result: object = None
         self._answer = ""
         self._answered = threading.Event()
 
-    # --- puente de preguntas ------------------------------------------------
+    # --- question bridge ---
 
     def _ask(self, question: str, shape: str, danger: bool, expect: str) -> str:
-        """Pregunta desde el hilo de la tarea y espera la respuesta de la UI."""
+        """Ask from the task's thread and wait for the UI's answer."""
         self._answer = ""
         self._answered.clear()
         self.ask_requested.emit(question, shape, danger, expect)
         while not self._answered.wait(0.1):
             self._raise_if_cancelled()
-        # Tambien despues de salir del bucle: `cancel()` levanta el Event para
-        # despertar a la tarea, asi que sin este segundo control la cancelacion
-        # se leeria como una respuesta vacia — es decir, como un "no" — y la
-        # tarea seguiria corriendo el resto de sus pasos.
+        # Also after leaving the loop: `cancel()` raises the Event to
+        # wake the task, so without this second check the cancellation
+        # would read as an empty answer, that is, a «no», and the task
+        # would run the rest of its steps.
         self._raise_if_cancelled()
         return self._answer
 
@@ -94,29 +99,31 @@ class TaskRunner(QThread):
             raise Cancelled("Detenido por el usuario.")
 
     def provide_answer(self, answer: str) -> None:
-        """La respuesta del dialogo. La llama el hilo de la interfaz."""
+        """Give the dialog's answer. The interface thread calls this."""
         self._answer = answer
         self._answered.set()
 
     def cancel(self) -> None:
-        """Detiene la tarea, incluso si esta esperando una respuesta.
+        """Stop the task, even if it is waiting for an answer.
 
-        El apagado corre en un hilo aparte porque quien llama es la interfaz
-        (cerrar la pestana, apretar Detener) y los ganchos de
-        `TaskContext.on_cancel` pueden tardar un segundo o dos — un emulador
-        pidiendole a adb que se cierre. Nada de eso debe congelar la ventana.
+        The shutdown runs in a separate thread because the interface
+        calls it (closing the tab, pressing Stop) and
+        `TaskContext.on_cancel` hooks can take a second or two, such as
+        an emulator asking adb to close. None of that should freeze the
+        window.
         """
         self._answered.set()
         if self._ctx is None:
             return
-        self._ctx._cancel.set()  # inmediato: los bucles largos ya lo ven
+        self._ctx._cancel.set()  # immediate: long loops see it already
         threading.Thread(target=self._ctx.cancel, daemon=True).start()
 
     @property
     def has_tunnel(self) -> bool:
+        """Return whether the task holds a live tunnel."""
         return self._ctx is not None and self._ctx.has_tunnel
 
-    # --- ejecucion ----------------------------------------------------------
+    # --- running ---
 
     @override
     def run(self) -> None:
@@ -142,18 +149,18 @@ class TaskRunner(QThread):
             ctx.error(str(exc))
             self._done(False)
             return
-        except Exception as exc:  # nunca dejar morir el hilo en silencio
+        except Exception as exc:  # never let the thread die in silence
             ctx.error(f"Error inesperado: {exc}")
             self._done(False)
             return
         self._done(True)
 
     def _done(self, ok: bool) -> None:
-        """Cierre unico de la corrida.
+        """Close the run, once.
 
-        Los endpoints se borran aca y no en cada `finally` de cada launcher: el
-        que publico la URL fue el contexto, y una URL que ya no sirve nada no
-        debe seguir ofrecida a la SPA que arranque despues.
+        Endpoints are erased here and not in each launcher's `finally`:
+        the context published the URL, and a URL that serves nothing
+        should not stay offered to the SPA that starts next.
         """
         if self._ctx is not None:
             self._ctx.release_endpoints()

@@ -1,3 +1,33 @@
+"""Parameters chosen in an action's panel.
+
+Per repository AND per button.
+
+**They live in the repo**, in `.consola/params.json`, next to
+`config.env`. Not in QSettings: a global machine table indexed by path
+breaks when the folder moves or is renamed, leaves garbage when the repo
+is deleted and cannot be looked at or edited by hand.
+
+`.consola/` ignores itself in git (`core/envfile.py`), so the file is
+not committed: it stays this machine's preference, only saved where it
+belongs.
+
+The exception is capabilities with `scope='machine'`, such as installing
+an SDK: those happen to the machine, not the repo. A repo has no say
+about where the Android SDK goes, so **they stay in QSettings**. The
+rule is: repo decision, repo file; machine decision, QSettings.
+
+Two accesses dominate performance, and both are hot:
+
+- `ui/readiness.py::missing_keys` calls `stored_steps` once per
+  capability on each repo change (dozens of reads in a row).
+- `ui/params_panel.py::_refresh_summary` calls `save` on each keystroke
+  of a text field.
+
+So the file reads whole ONCE per repo into an in-memory cache, and
+writes gather on a short timer instead of hitting disk per keystroke.
+`flush()` forces the write; the window's closing calls it.
+"""
+
 from __future__ import annotations
 
 import json
@@ -9,59 +39,30 @@ from PySide6.QtCore import QSettings, QTimer
 
 from app.core.envfile import CONSOLA_DIR, ensure_ignored
 
-"""
-Parametros elegidos en el panel de una accion: por repositorio Y por boton.
-
-**Viven en el repo**, en `.consola/params.json`, al lado de `config.env`. No en
-QSettings: una tabla global de la maquina indexada por la ruta se rompe si
-mueves o renombras la carpeta, deja basura cuando borras el repo y no se puede
-mirar ni editar a mano.
-
-`.consola/` esta en el `.gitignore` (`core/envfile.py`), asi que el archivo no
-se commitea: sigue siendo preferencia de esta maquina, solo que guardada donde
-corresponde.
-
-La excepcion son las capacidades con `scope='machine'` (instalar un SDK): esas
-le pasan a la maquina, no al repo. Un repo no puede opinar sobre donde va el
-SDK de Android, asi que **se quedan en QSettings** — la regla es "decision del
-repo -> archivo del repo; decision de la maquina -> QSettings".
-
---- Sobre el rendimiento ---------------------------------------------------
-Dos accesos lo dominan todo y los dos son calientes:
-
-- `ui/readiness.py::missing_keys` llama a `stored_steps` una vez por capacidad
-  cada vez que se cambia de repo (decenas de lecturas seguidas).
-- `ui/params_panel.py::_refresh_summary` llama a `save` en cada tecla de un
-  campo de texto.
-
-Por eso el archivo se lee entero UNA vez por repo a un cache en memoria, y las
-escrituras se juntan en un temporizador corto en vez de bajar al disco por
-pulsacion. `flush()` fuerza la bajada; la llama el cierre de la ventana.
-"""
-
 _FILE_NAME = "params.json"
-# Los seguros del repo (`core/protection.py`) comparten el archivo con los
-# parametros de cada boton, bajo una clave que ningun `capability_id` puede
-# tener: un id es un identificador de Python y no lleva '@'. Comparten archivo
-# porque comparten naturaleza —decisiones de la consola sobre ESTE repo, no
-# datos que las tareas consuman— y asi comparten tambien el cache, la escritura
-# atomica y el temporizador.
+# The repo's guards (`core/protection.py`) share the file with each
+# button's parameters, under a key no `capability_id` can have: an id is
+# a Python identifier and has no '@'. They share a file because they
+# share a nature, console decisions about THIS repo and not data tasks
+# consume, and so they also share the cache, the atomic write and the
+# timer.
 _PROTECTION_KEY = "@protection"
-# Las pestanas de accion abiertas de un repo son otra decision de la consola
-# sobre ESTE repo —que botones dejaste a mano para volver a ellos— asi que van
-# al mismo archivo, bajo otra clave con '@' fuera del espacio de los ids.
+# A repo's open action tabs are another console decision about THIS
+# repo, which buttons were left at hand, so they go to the same file
+# under another key with '@' outside the ids' space.
 _TABS_KEY = "@tabs"
-# El color del repo es la tercera decision de la consola sobre ESTE repo: se
-# elige por repo y viaja con el, no con la maquina que lo abrio. Guarda la
-# clave del tema (`ui/palettes.py`), no un hex.
+# The repo's color is the third console decision about THIS repo: it is
+# chosen per repo and travels with it, not with the machine that opened
+# it. It saves the theme's key (`ui/palettes.py`), not a hex.
 _THEME_KEY = "@theme"
-_QSETTINGS_PREFIX = "params"  # namespace de lo que SI sigue en QSettings: las
-# capacidades `scope='machine'` (`_machine_key`)
+# namespace of what DOES stay in QSettings: `scope='machine'`
+# capabilities (`_machine_key`)
+_QSETTINGS_PREFIX = "params"
 _FLUSH_MS = 500
 
-# repo normalizado -> {capability_id: estado}. La ruta normalizada sirve de
-# clave y de destino de escritura a la vez: `normcase` solo baja mayusculas en
-# Windows, y esa ruta abre el mismo archivo.
+# normalized repo -> {capability_id: state}. The normalized path is both
+# key and write target: `normcase` only lowers capitals on Windows, and
+# that path opens the same file.
 _cache: dict[str, dict[str, Any]] = {}
 _dirty: set[str] = set()
 _timer: QTimer | None = None
@@ -86,14 +87,16 @@ def _machine_key(capability_id: str) -> str:
     return f"{_QSETTINGS_PREFIX}/machine/{capability_id}"
 
 
-# --- claves de configuracion que son de la maquina -------------------------
-# `Setting.scope='machine'` (`core/settings.py`): donde quedo instalado un
-# ejecutable no es del repo abierto, asi que no va a su `config.env`. Misma
-# regla que las capacidades `scope='machine'`, mismo sitio: QSettings.
+# --- configuration keys that belong to the machine ---
+#
+# `Setting.scope='machine'` (`core/settings.py`): where an executable
+# got installed does not belong to the open repo, so it does not go in
+# its `config.env`. Same rule as `scope='machine'` capabilities, same
+# place: QSettings.
 
 
 def machine_env() -> dict[str, Any]:
-    """Los valores de maquina, para mezclarlos con los del repo."""
+    """Return the machine values, to mix them with the repo's."""
     from app.core.settings import machine_settings
 
     settings = QSettings()
@@ -101,7 +104,7 @@ def machine_env() -> dict[str, Any]:
 
 
 def save_machine_env(values: dict[str, Any]) -> None:
-    """Escribe las claves de maquina que vengan en `values`; ignora el resto."""
+    """Write the machine keys in `values`; ignore the rest."""
     from app.core.settings import machine_settings
 
     settings = QSettings()
@@ -110,12 +113,14 @@ def save_machine_env(values: dict[str, Any]) -> None:
             settings.setValue(f"machine/{s.key}", values[s.key])
 
 
-# --- lectura ---------------------------------------------------------------
+# --- reading ---
 
 
 def _read(repo_path: str) -> dict[str, Any]:
-    """Todo lo guardado para un repo, cacheado. Nunca lanza: un archivo roto
-    a mano se trata como si no hubiera nada, y el primer guardado lo rehace.
+    """Return all that is saved for a repo, cached. It never raises.
+
+    A file broken by hand counts as nothing there, and the first save
+    remakes it.
     """
     key = _norm(repo_path)
     cached = _cache.get(key)
@@ -136,7 +141,7 @@ def _read(repo_path: str) -> dict[str, Any]:
 
 
 def load(repo_path: str, capability_id: str) -> dict[str, Any] | None:
-    """Lo guardado para ese boton en ese repo, o None si nunca se toco."""
+    """Return what is saved for that button in that repo, or None."""
     if _is_machine(capability_id):
         raw = QSettings().value(_machine_key(capability_id), "")
         if not raw:
@@ -152,10 +157,10 @@ def load(repo_path: str, capability_id: str) -> dict[str, Any] | None:
 
 
 def load_protection(repo_path: str) -> dict[str, Any]:
-    """Los seguros del repo, completados con sus defaults.
+    """Return the repo's guards, completed with their defaults.
 
-    Un repo que nunca los toco arranca protegido en todo menos en `local`
-    (`core/protection.py`), asi que no hace falta que el archivo diga nada.
+    A repo that never touched them starts protected in all but `local`
+    (`core/protection.py`), so the file need not say anything.
     """
     from app.core import protection
 
@@ -163,11 +168,11 @@ def load_protection(repo_path: str) -> dict[str, Any]:
 
 
 def save_protection(repo_path: str, state: dict[str, Any]) -> None:
-    """Guarda los seguros enteros, no el que se toco.
+    """Save the whole guards, not just the one touched.
 
-    Enteros porque el estado es de cinco casillas que se leen juntas, y porque
-    asi el archivo queda con las cinco escritas aunque una valga su default:
-    un seguro que no aparece en el archivo se lee peor que uno que dice `false`.
+    Whole because the state is five checkboxes that read together, and
+    the file stays with all five written even if one has its default: a
+    guard absent from the file reads worse than one that says `false`.
     """
     key = _norm(repo_path)
     data = _read(repo_path)
@@ -180,8 +185,9 @@ def save_protection(repo_path: str, state: dict[str, Any]) -> None:
 
 
 def load_tabs(repo_path: str) -> list[str]:
-    """Los `capability_id` de las pestanas de accion que estaban abiertas, en su
-    orden. Vacia si el repo nunca abrio ninguna o si el archivo no lo dice.
+    """Return the `capability_id` of the open action tabs, in order.
+
+    Empty if the repo never opened any or the file does not say.
     """
     raw = _read(repo_path).get(_TABS_KEY)
     if not isinstance(raw, dict):
@@ -191,8 +197,9 @@ def load_tabs(repo_path: str) -> list[str]:
 
 
 def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
-    """Guarda que pestanas de accion quedan abiertas, en orden, para reabrirlas
-    tal cual al proximo arranque (`ui/tab_panel.py`).
+    """Save which action tabs stay open, in order, to reopen them.
+
+    They reopen as they were on the next start (`ui/tab_panel.py`).
     """
     key = _norm(repo_path)
     data = _read(repo_path)
@@ -205,11 +212,14 @@ def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
 
 
 def load_theme(repo_path: str) -> str:
-    """La clave del tema de color de ese repo, o vacio si nunca eligio uno.
+    """Return the repo's color theme key.
 
-    Quien la traduce a colores es `ui/palettes.py`; aca es una cadena y nada
-    mas. Vacio no es un error: un repo recien clonado no trae `.consola`, y
-    quien lo abre le da el primer tema libre (`ui/project_store.py`).
+    Or empty if it never chose one.
+
+    `ui/palettes.py` translates it to colors; here it is a string and
+    nothing else. Empty is no error: a fresh clone brings no `.consola`,
+    and whoever opens it gives it the first free theme
+    (`ui/project_store.py`).
     """
     raw = _read(repo_path).get(_THEME_KEY)
     if not isinstance(raw, dict):
@@ -219,10 +229,11 @@ def load_theme(repo_path: str) -> str:
 
 
 def save_theme(repo_path: str, theme: str) -> None:
+    """Save the repo's color theme key."""
     key = _norm(repo_path)
     data = _read(repo_path)
-    # Envuelto en un objeto como las otras claves con '@': `_read` descarta lo
-    # que no sea un objeto, asi que una cadena suelta se perdia al releer.
+    # Wrapped in an object like the other '@' keys: `_read` discards
+    # what is not an object, so a loose string was lost on rereading.
     clean = {"key": str(theme)}
     if data.get(_THEME_KEY) == clean:
         return
@@ -232,8 +243,10 @@ def save_theme(repo_path: str, theme: str) -> None:
 
 
 def stored_steps(repo_path: str, capability_id: str) -> list[str] | None:
-    """Pasos activos guardados, para calcular fuera del panel que le falta a
-    una accion para poder correr sin abrir la pestana (`ui/readiness.py`).
+    """Return the saved active steps.
+
+    They compute outside the panel what an action lacks to run without
+    opening the tab (`ui/readiness.py`).
     """
     state = load(repo_path, capability_id)
     if not state:
@@ -242,10 +255,11 @@ def stored_steps(repo_path: str, capability_id: str) -> list[str] | None:
     return list(steps) if isinstance(steps, list) else None
 
 
-# --- escritura -------------------------------------------------------------
+# --- writing ---
 
 
 def save(repo_path: str, capability_id: str, state: dict[str, Any]) -> None:
+    """Save what was chosen for that button in that repo."""
     if _is_machine(capability_id):
         QSettings().setValue(_machine_key(capability_id), json.dumps(state, ensure_ascii=False))
         return
@@ -253,13 +267,15 @@ def save(repo_path: str, capability_id: str, state: dict[str, Any]) -> None:
     key = _norm(repo_path)
     data = _read(repo_path)
     if data.get(capability_id) == state:
-        return  # una tecla que no cambio nada no ensucia el archivo
+        # a keystroke that changed nothing does not dirty the file
+        return
     data[capability_id] = state
     _dirty.add(key)
     _schedule()
 
 
 def clear(repo_path: str, capability_id: str) -> None:
+    """Forget what was saved for that button in that repo."""
     if _is_machine(capability_id):
         QSettings().remove(_machine_key(capability_id))
         return
@@ -270,7 +286,7 @@ def clear(repo_path: str, capability_id: str) -> None:
 
 
 def _schedule() -> None:
-    """Junta las escrituras de una rafaga de tecleo en una sola bajada."""
+    """Gather a burst of keystrokes' writes into a single one."""
     global _timer
     if _timer is None:
         _timer = QTimer()
@@ -281,9 +297,11 @@ def _schedule() -> None:
 
 
 def flush() -> None:
-    """Baja al disco lo pendiente. La llama el temporizador y el cierre de la
-    ventana (`ui/main_window.py::closeEvent`), para que los ultimos cambios no
-    se pierdan si se cierra dentro de la ventana del temporizador.
+    """Write what is pending to disk.
+
+    The timer and the window's closing call it
+    (`ui/main_window.py::closeEvent`), so the last changes are not lost
+    if it closes within the timer's window.
     """
     for key in list(_dirty):
         _dirty.discard(key)
@@ -291,11 +309,11 @@ def flush() -> None:
 
 
 def _write(repo_norm: str, data: dict[str, Any]) -> None:
-    """Escritura atomica: se arma al lado y se renombra encima.
+    """Write atomically: build it alongside and rename over.
 
-    Ahora es UN archivo por repo, no una clave por boton: un corte a mitad de
-    escritura se llevaria todos los parametros del repo, no uno. `os.replace`
-    es atomico en el mismo volumen y en Windows tambien.
+    It is ONE file per repo, not a key per button: a cut mid-write would
+    take all the repo's parameters, not one. `os.replace` is atomic on
+    one volume, on Windows too.
     """
     path = _file(repo_norm)
     folder = os.path.dirname(path)
@@ -314,14 +332,15 @@ def _write(repo_norm: str, data: dict[str, Any]) -> None:
                 pass
             raise
     except OSError:
-        # Un repo en un disco desconectado o de solo lectura no debe tumbar la
-        # interfaz: lo elegido sigue en el cache y vale para esta sesion.
+        # A repo on a disconnected or read-only disk should not bring
+        # the interface down: what was chosen stays in the cache and
+        # holds for this session.
         return
     ensure_ignored(repo_norm)
 
 
 def forget(repo_path: str) -> None:
-    """Suelta el cache de un repo que se quito de las pestanas."""
+    """Release the cache of a repo removed from the tabs."""
     key = _norm(repo_path)
     if key in _dirty:
         _dirty.discard(key)

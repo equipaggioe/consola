@@ -1,3 +1,23 @@
+"""The guard's two notices by target type (`core/protection.py`).
+
+Neither asks to type anything: not a word, not the repo's name.
+
+- `BlockedDialog`: a target in the blast radius is protected in this
+  repo. The action does NOT run and this dialog has no way to let it
+  run: its only button closes. The guard comes off in Settings, Security
+  section, once. A guard that can be skipped with the same gesture that
+  presses Run is no guard.
+
+- `ReminderDialog`: the action destroys something, but this repo does
+  not protect that target. There is nothing to check, only something to
+  remember: which repo this is. Cancel and Continue, and Continue is
+  never the default, so one Enter too many destroys nothing.
+
+Both catch the same error: pressing the right button in the wrong repo.
+So both show the repo's identity in large type, with its color, icon and
+full path: what gets taken for granted when one mistakes the tab.
+"""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
@@ -8,30 +28,9 @@ from app.core.protection import Target
 from app.theme import Colors, Fonts
 from app.ui import palettes, repo_logo
 
-"""
-Los dos avisos del seguro por tipo de objetivo (`core/protection.py`). Ninguno
-pide escribir nada: ni una palabra, ni el nombre del repo.
-
-- `BlockedDialog` — un objetivo del radio de dano esta protegido en este repo.
-  La accion NO corre y este dialogo no tiene forma de dejarla correr: su unico
-  boton cierra. El seguro se quita en Configuracion, seccion Seguridad, una vez.
-  Un seguro que se puede saltar en el mismo gesto con el que se aprieta Ejecutar
-  no es un seguro.
-
-- `ReminderDialog` — la accion destruye algo pero este repo no protege ese
-  objetivo. No hay nada que comprobar, solo algo que recordar: sobre que repo se
-  esta trabajando. Cancelar y Continuar, y Continuar nunca es el predeterminado
-  —un Enter de mas no destruye nada—.
-
-El error que los dos atajan es el mismo: apretar el boton correcto en el repo
-equivocado. Por eso los dos muestran la identidad del repo en grande, con su
-color, su icono y su ruta completa — el dato que se da por sabido cuando uno se
-confunde de pestana.
-"""
-
 
 class _GuardDialog(QDialog):
-    """Base de los dos avisos: el encabezado, la tarjeta del repo y la nota."""
+    """Base of both notices: heading, repo card and note."""
 
     def __init__(
         self,
@@ -43,8 +42,8 @@ class _GuardDialog(QDialog):
     ) -> None:
         super().__init__(parent)
         self.project = project
-        # El aviso es de ESTE repo: se pinta con su paleta, como el espacio de
-        # trabajo del que sale.
+        # The notice belongs to THIS repo: it paints with its palette,
+        # like the workspace it comes from.
         self.pal = palettes.get(project.theme)
         self.setWindowTitle(window_title)
         self.setMinimumWidth(460)
@@ -106,14 +105,16 @@ class _GuardDialog(QDialog):
 
 
 class BlockedDialog(_GuardDialog):
-    """La accion toca un objetivo protegido: se informa y no corre.
+    """The action touches a protected target: report it and do not run.
 
-    No hereda de nadie que tenga boton de aceptar: aca no hay 'continuar igual'.
+    It inherits from nothing with an accept button: there is no
+    «continue anyway» here.
     """
 
     def __init__(
         self, project: Project, action: str, targets: list[Target], parent: QWidget | None = None
     ) -> None:
+        """Build the notice."""
         which = _join_words([t.label for t in targets])
         super().__init__(
             project,
@@ -149,11 +150,12 @@ class BlockedDialog(_GuardDialog):
 
 
 class ReminderDialog(_GuardDialog):
-    """La accion destruye algo no protegido: recordatorio del repo, sin mas."""
+    """The action destroys something unprotected: a repo reminder."""
 
     def __init__(
         self, project: Project, action: str, targets: list[Target], parent: QWidget | None = None
     ) -> None:
+        """Build the notice."""
         which = _join_words([t.label for t in targets])
         super().__init__(
             project,
@@ -180,7 +182,7 @@ class ReminderDialog(_GuardDialog):
         cancel.clicked.connect(self.reject)
 
         proceed = self._button("Continuar")
-        # Nunca es el boton por defecto: un Enter de mas no destruye nada.
+        # Never the default button: one Enter too many destroys nothing.
         proceed.setAutoDefault(False)
         proceed.setDefault(False)
         proceed.setStyleSheet(f"""

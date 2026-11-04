@@ -22,7 +22,7 @@ Cada repo tiene su propio `TabPanel`, indexado por la ruta normalizada de su car
 
 ## 2. El color del repo
 
-Cada repo tiene un **tema** y un **logo**. El tema es una clave (`azul`, `indigo`, `violeta`, `rosa`, `coral`, `ambar`, `verde`, `cian`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú; al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
+Cada repo tiene un **tema** y un **logo**. El tema es una clave (`blue`, `indigo`, `violet`, `pink`, `coral`, `amber`, `green`, `cyan`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú; al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
 
 Una paleta es un acento más la escalera de fondos que se deriva de él. Los fondos son **color, no gris**: el tono del acento a una saturación fija por rol, del 38 % al 55 % en HSL. Teñir **no cambia la luminosidad** del neutro de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
 

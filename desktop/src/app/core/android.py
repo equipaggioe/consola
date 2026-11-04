@@ -1,3 +1,5 @@
+"""SDK, AVDs, system images and emulators."""
+
 from __future__ import annotations
 
 import os
@@ -22,6 +24,7 @@ _TOOLS = {
 
 
 def sdk_root() -> Path | None:
+    """Return the Android SDK's root declared in the environment."""
     for var in ("ANDROID_SDK_ROOT", "ANDROID_HOME"):
         value = (os.environ.get(var) or "").strip()
         if value:
@@ -31,16 +34,17 @@ def sdk_root() -> Path | None:
 
 @dataclass(frozen=True)
 class Sdk:
-    """Las cuatro herramientas del SDK que Consola necesita, ya localizadas.
+    """The four SDK tools Consola needs, already located.
 
-    Los scripts resolvian cada binario por separado y en cada archivo. Aca se
-    resuelve el SDK una vez y de ahi salen todas: si falta una, se dice cual y
-    donde se buscaba, en vez de fallar mas tarde con 'comando no encontrado'.
+    The SDK resolves once and they all come from it: if one is missing,
+    it says which and where it looked, instead of failing later with
+    «command not found».
     """
 
     root: Path | None
 
     def tool(self, name: str) -> str:
+        """Return the path of a tool of the SDK."""
         subpath = _TOOLS.get(name)
         if subpath is None:
             raise TaskError(f"Herramienta desconocida del SDK: {name}")
@@ -66,40 +70,43 @@ class Sdk:
 
     @property
     def adb(self) -> str:
+        """Return the path of `adb`."""
         return self.tool("adb")
 
     @property
     def emulator(self) -> str:
+        """Return the path of `emulator`."""
         return self.tool("emulator")
 
 
 def resolve_sdk() -> Sdk:
+    """Return the installed SDK, or stop saying what to install."""
     return Sdk(sdk_root())
 
 
 def avd_home() -> Path:
+    """Return the folder where AVDs live."""
     configured = (os.environ.get("ANDROID_AVD_HOME") or "").strip()
     return Path(configured) if configured else Path.home() / ".android" / "avd"
 
 
-# --- presets ---------------------------------------------------------------
+# --- presets ---
 
-# --- catalogos y perfiles --------------------------------------------------
+# --- catalogs and profiles ---
 
-# El numero de modelo dentro del nombre de un dispositivo, para ordenarlos del
-# nuevo al viejo. Exige que antes haya una palabra: sin eso, `3.7" WVGA` entra
-# como modelo 3 y los tamanos de pantalla se mezclan con los Pixel.
+# The model number inside a device's name, to sort from new to old. A
+# word has to come first: without that, `3.7" WVGA` enters as model 3
+# and screen sizes mix with the Pixels.
 _MODEL = re.compile(r"^[A-Za-z][A-Za-z ]*?\s(\d+)")
 
 
 @dataclass(frozen=True)
 class Device:
-    """Un perfil de hardware del catalogo de `avdmanager list device`.
+    """A hardware profile from `avdmanager list device`'s catalog.
 
-    Los tres `run_emulator_N.py` traian tres ids escritos a mano (`pixel_4`,
-    `pixel_8`, `resizable`). El SDK publica el catalogo completo — un centenar
-    de telefonos, tablets, relojes y televisores — asi que elegir dispositivo
-    deja de ser una constante del codigo y pasa a ser un eje del panel.
+    The SDK publishes the whole catalog, a hundred phones, tablets,
+    watches and TVs, so choosing a device is an axis of the panel and
+    not a constant of the code.
     """
 
     id: str
@@ -109,30 +116,32 @@ class Device:
 
     @property
     def label(self) -> str:
-        """Solo el modelo.
+        """Return only the model.
 
-        El fabricante estaba al lado y no distinguia nada: el catalogo entero
-        son 64 `Google` y 24 `Generic`, y `Generic` ya se omitia. O sea que la
-        mitad de cada etiqueta repetia la misma palabra y la otra mitad no la
-        decia — un dato que nunca cambia entre dos opciones no ayuda a elegir
-        entre ellas, solo gasta el ancho del panel.
+        The maker was next to it and told nothing apart: the whole
+        catalog is 64 `Google` and 24 `Generic`. A datum that never
+        changes between two options does not help choose, and only
+        spends the panel's width.
         """
         return self.name or self.id
 
     @property
     def order(self) -> tuple[Any, ...]:
-        """Telefonos y tablets primero; TV, reloj, auto y demas, despues. Y
-        dentro de cada familia, el modelo nuevo antes que el viejo.
+        """Return the sort key: phones and tablets first.
 
-        El catalogo viene ordenado por id, y asi la lista abre en
-        "AI Glasses" — un dispositivo que casi nadie emula. Lo que se elige el
-        99% de las veces es un telefono.
+        The rest after.
 
-        El desempate por nombre tampoco alcanzaba: alfabeticamente "Pixel 2" va
-        antes que "Pixel 9", asi que la lista abria en el telefono mas viejo de
-        la familia mas usada. Se ordena por numero de modelo descendente, igual
-        que las system images por API (`Image.order`), y lo que no tiene numero
-        (Pixel, Pixel Fold, Pixel Tablet) va despues de los que si.
+        Then, inside each family, the new model before the old.
+
+        The catalog comes sorted by id, so the list opened on «AI
+        Glasses», a device almost nobody emulates. A phone is chosen 99
+        % of the time.
+
+        Name as the tie-break was not enough: alphabetically «Pixel 2»
+        goes before «Pixel 9», so the list opened on the oldest phone of
+        the most used family. It sorts by descending model number, like
+        system images by API (`Image.order`), and what has no number
+        (Pixel, Pixel Fold, Pixel Tablet) goes after those that do.
         """
         family = f"{self.tag} {self.id}".lower()
         key = (-self._model, self.name or self.id)
@@ -148,10 +157,12 @@ class Device:
 
     @property
     def _model(self) -> int:
-        """El numero de modelo del nombre: 9 en "Pixel 9 Pro", 10 en "Nexus 10".
+        """Return the name's model number.
 
-        Tiene que empezar por letra para no confundir el modelo con el tamano
-        de pantalla: `3.7" WVGA (Nexus One)` no es un Pixel 3.
+        9 in «Pixel 9 Pro», 10 in «Nexus 10».
+
+        It has to start with a letter so as not to mistake the model for
+        the screen size: `3.7" WVGA (Nexus One)` is not a Pixel 3.
         """
         match = _MODEL.match(self.name or self.id)
         return int(match.group(1)) if match else 0
@@ -159,11 +170,11 @@ class Device:
 
 @dataclass(frozen=True)
 class Image:
-    """Una system image: la maquina virtual que el AVD va a correr.
+    """A system image: the virtual machine the AVD will run.
 
-    `package` es el id que entiende sdkmanager
-    (`system-images;android-36;google_apis;x86_64`); el resto son sus tres
-    partes ya separadas, que es como se lee al elegir.
+    `package` is the id sdkmanager understands
+    (`system-images;android-36;google_apis;x86_64`); the rest are its
+    three parts already split, which is how it reads when choosing.
     """
 
     package: str
@@ -173,18 +184,19 @@ class Image:
 
     @property
     def label(self) -> str:
+        """Return how it reads when choosing."""
         if not self.api:
             return self.package
         return f"Android {self.api}  |  {VARIANTS.get(self.variant, self.variant)}  |  {self.abi}"
 
     @property
     def order(self) -> tuple[Any, ...]:
-        """Lo que se elige casi siempre, primero.
+        """Return the sort key: what is almost always chosen, first.
 
-        API nueva antes que vieja; dentro de una API, las variantes de telefono
-        antes que las de TV o reloj; y dentro de una variante, la arquitectura
-        de la maquina antes que la emulada. Sin esto, un catalogo ordenado
-        alfabeticamente abre en "Android TV | arm64", que no quiere casi nadie.
+        New API before old; inside an API, phone variants before TV or
+        watch; and inside a variant, the machine's architecture before
+        the emulated one. Without this, an alphabetical catalog opens on
+        «Android TV | arm64», which almost nobody wants.
         """
         try:
             api = int(self.api)
@@ -201,11 +213,10 @@ class Image:
 
 @dataclass(frozen=True)
 class AvdSpec:
-    """Lo que hace falta para crear un AVD: un dispositivo y una maquina.
+    """What creating an AVD takes: a device and a machine.
 
-    Reemplaza al viejo `Preset`, que ataba las dos cosas en una constante. Ahora
-    se eligen por separado porque se instalan por separado: la imagen se baja
-    una vez y sirve para todos los AVD que la usen.
+    They are chosen separately because they install separately: an image
+    downloads once and serves every AVD using it.
     """
 
     name: str
@@ -213,9 +224,9 @@ class AvdSpec:
     image: str
 
 
-# Nombre legible de cada variante de system image. Lo que no este listado se
-# muestra tal cual: el catalogo del SDK gana variantes con cada version, y una
-# etiqueta cruda es mejor que esconder la opcion.
+# Readable name of each system image variant. What is not listed shows
+# as is: the SDK's catalog gains variants with each version, and a raw
+# label beats hiding the option.
 VARIANTS = {
     "default": "Android puro",
     "google_apis": "Google APIs",
@@ -228,8 +239,9 @@ VARIANTS = {
     "google_atd": "Google ATD (liviana)",
 }
 
-# Como se lee cada arquitectura. El id crudo no dice lo unico que hay que saber
-# para elegir: si corre nativa en esta maquina o emulada (y por eso, lenta).
+# How each architecture reads. The raw id does not say the one thing to
+# know when choosing: whether it runs native on this machine or
+# emulated, and so slowly.
 ABIS = {
     "x86_64": "x86_64 (Intel / AMD)",
     "x86": "x86 (32 bits, en desuso)",
@@ -239,13 +251,14 @@ ABIS = {
 
 
 def facet_labels(images: list[Image]) -> dict[str, str]:
-    """Como se lee cada parte suelta de una system image.
+    """Return how each loose part of a system image reads.
 
-    El panel elige la imagen por caracteristica (`core/registry.py::Facet`), asi
-    que ademas de la etiqueta del paquete entero hacen falta las de sus tres
-    pedazos tal como aparecen en el id: `android-36`, `google_apis`, `x86_64`.
-    Se arman de las imagenes que hay y no de una tabla fija porque las versiones
-    salen del catalogo del SDK, que gana una por ano.
+    The panel chooses the image by feature (`core/registry.py::Facet`),
+    so besides the whole package's label it needs those of its three
+    pieces as they appear in the id: `android-36`, `google_apis`,
+    `x86_64`. They build from the images present and not a fixed table
+    because versions come from the SDK's catalog, which gains one a
+    year.
     """
     labels: dict[str, str] = {}
     for image in images:
@@ -258,8 +271,8 @@ def facet_labels(images: list[Image]) -> dict[str, str]:
     return labels
 
 
-# Orden de preferencia dentro de una misma API. Lo que no este listado va al
-# final, en orden alfabetico: son las variantes de nicho (TV, reloj, auto).
+# Order of preference within one API. What is not listed goes last,
+# alphabetically: the niche variants (TV, watch, car).
 _VARIANT_RANK = {
     "google_apis_playstore": 0,
     "google_apis": 1,
@@ -271,8 +284,8 @@ _ABI_RANK = {"x86_64": 0, "arm64-v8a": 1, "x86": 2}
 
 DEFAULT_FLAGS = ["-no-boot-anim", "-netdelay", "none", "-netspeed", "full"]
 
-# Rango de puertos que acepta el emulador: pares, de 5554 a 5584. El impar
-# siguiente lo usa adb para hablarle, por eso se salta de dos en dos.
+# The ports the emulator accepts: even ones, from 5554 to 5584. adb uses
+# the next odd one to speak to it, hence steps of two.
 PORT_RANGE = range(5554, 5586, 2)
 
 _DEVICE_CACHE = "android-devices"
@@ -280,10 +293,10 @@ _IMAGE_CACHE = "android-images"
 
 
 def device_catalog(sdk: Sdk, *, refresh: bool = False) -> list[Device]:
-    """Todos los perfiles de dispositivo que ofrece el SDK.
+    """Return all the device profiles the SDK offers.
 
-    Cacheado en disco (`core/cache.py`): la consulta tarda varios segundos y el
-    catalogo cambia cuando se actualiza el SDK, no durante una sesion.
+    Cached on disk (`core/cache.py`): the query takes several seconds
+    and the catalog changes when the SDK updates, not during a session.
     """
     raws = cache.cached(_DEVICE_CACHE, lambda: _read_device_catalog(sdk), refresh=refresh)
     return sorted((Device(**d) for d in raws), key=lambda d: d.order)
@@ -296,8 +309,8 @@ def _read_device_catalog(sdk: Sdk) -> list[dict[str, str]]:
     for line in output.splitlines():
         clean = line.strip()
         if clean.startswith("id:"):
-            # `id: 9 or "pixel_4"` — el id util es el entrecomillado, no el
-            # numero: el numero cambia de posicion con cada version del SDK.
+            # `id: 9 or "pixel_4"`: the useful id is the quoted one, not
+            # the number, which changes position with each SDK version.
             if current:
                 devices.append(current)
             parts = clean.split('"')
@@ -313,7 +326,7 @@ def _read_device_catalog(sdk: Sdk) -> list[dict[str, str]]:
 
 
 def image_catalog(sdk: Sdk, *, refresh: bool = False) -> list[Image]:
-    """Todas las system images publicadas, esten instaladas o no."""
+    """Return all published system images, installed or not."""
     packages = cache.cached(_IMAGE_CACHE, lambda: _read_image_catalog(sdk), refresh=refresh)
     return sorted((parse_image(p) for p in packages), key=lambda i: i.order)
 
@@ -329,7 +342,10 @@ def _read_image_catalog(sdk: Sdk) -> list[str]:
 
 
 def parse_image(package: str) -> Image:
-    """`system-images;android-36;google_apis;x86_64` -> sus tres partes."""
+    """Split `system-images;android-36;google_apis;x86_64`.
+
+    In three parts.
+    """
     parts = package.split(";")
     if len(parts) < 4:
         return Image(package)
@@ -337,25 +353,30 @@ def parse_image(package: str) -> Image:
 
 
 def forget_catalogs() -> None:
-    """Invalida los dos catalogos. La llama quien acaba de tocar el SDK."""
+    """Invalidate both catalogs.
+
+    Whoever just touched the SDK calls this.
+    """
     cache.forget(_DEVICE_CACHE)
     cache.forget(_IMAGE_CACHE)
 
 
 def suggest_avd_name(device: str, image: str) -> str:
-    """Nombre por defecto de un AVD nuevo: dispositivo + API.
+    """Return a new AVD's default name: device plus API.
 
-    `avdmanager` solo acepta letras, numeros, guion, punto y guion bajo.
+    `avdmanager` only accepts letters, numbers, hyphen, dot and
+    underscore.
     """
     api = parse_image(image).api
     raw = f"{device}_api{api}" if api else device
     return "".join(c if c.isalnum() or c in "-_." else "_" for c in raw)
 
 
-# --- inventario ------------------------------------------------------------
+# --- inventory ---
 
 
 def list_avds(sdk: Sdk) -> list[str]:
+    """Return the names of the AVDs that exist."""
     output = capture([sdk.emulator, "-list-avds"], timeout=60, check=False)
     return [
         line.strip() for line in output.splitlines() if line.strip() and " " not in line.strip()
@@ -363,11 +384,11 @@ def list_avds(sdk: Sdk) -> list[str]:
 
 
 def list_images(sdk: Sdk) -> list[str]:
-    """System images instaladas, segun el propio sdkmanager.
+    """Return the installed system images, according to sdkmanager.
 
-    Sin cache, a diferencia del catalogo: esto cambia cada vez que alguien
-    instala o desinstala una, y una lista vieja aca haria que "Crear AVD"
-    ofrezca una imagen que ya no esta.
+    Uncached, unlike the catalog: this changes each time one installs or
+    uninstalls, and an old list would make «Crear AVD» offer an image
+    that is gone.
     """
     output = capture([sdk.tool("sdkmanager"), "--list_installed"], timeout=180, check=False)
     return [
@@ -378,10 +399,10 @@ def list_images(sdk: Sdk) -> list[str]:
 
 
 def list_devices(sdk: Sdk) -> list[str]:
-    """Seriales de emuladores vivos, preguntandole a adb.
+    """Return the live emulators' serials, asking adb.
 
-    El emulador se desprende del proceso que lo lanzo (ADR-0028), asi
-    que su estado no se puede inferir de un PID: hay que sondearlo.
+    The emulator detaches from the process that launched it (ADR-0028),
+    so its state cannot be inferred from a PID: it has to be probed.
     """
     output = capture([sdk.adb, "devices"], timeout=30, check=False)
     return [
@@ -392,30 +413,30 @@ def list_devices(sdk: Sdk) -> list[str]:
 
 
 def running(sdk: Sdk) -> dict[str, str]:
-    """Serial -> nombre del AVD, para cada emulador vivo.
+    """Return serial -> AVD name for each live emulator.
 
-    El serial solo dice el puerto; para saber *que* AVD es hay que
-    preguntarselo a la consola del propio emulador. Es lo que permite avisar
-    que un AVD ya esta corriendo antes de lanzarlo por segunda vez.
+    The serial only says the port; to know *which* AVD it is, the
+    emulator's own console has to be asked. That allows warning that an
+    AVD is already running before launching it a second time.
     """
     alive: dict[str, str] = {}
     for serial in list_devices(sdk):
         output = capture([sdk.adb, "-s", serial, "emu", "avd", "name"], timeout=15, check=False)
         name = next(
-            (l.strip() for l in output.splitlines() if l.strip() and l.strip() != "OK"), ""
+            (row.strip() for row in output.splitlines() if row.strip() and row.strip() != "OK"), ""
         )
         alive[serial] = name
     return alive
 
 
 def free_port(sdk: Sdk) -> int:
-    """Un puerto de emulador libre.
+    """Return a free emulator port.
 
-    Se elige aca y se le pasa con `-port` en vez de dejar que lo elija el
-    emulador: asi el serial (`emulator-5554`) se conoce ANTES de arrancar, y
-    con el se puede apagar limpio al cerrar la pestana y decirle a la app movil
-    contra que dispositivo correr. Sin esto habria que adivinar cual de los
-    emuladores vivos es el que lanzo esta pestana.
+    It is chosen here and passed with `-port` instead of leaving it to
+    the emulator: so the serial (`emulator-5554`) is known BEFORE
+    starting, and with it one can stop cleanly on closing the tab and
+    tell the mobile app which device to run against. Otherwise one would
+    have to guess which live emulator this tab launched.
     """
     busy = {s.rsplit("-", 1)[-1] for s in list_devices(sdk)}
     for port in PORT_RANGE:
@@ -424,10 +445,11 @@ def free_port(sdk: Sdk) -> int:
     raise TaskError("No quedan puertos de emulador libres (5554-5584).")
 
 
-# --- ciclo de vida ---------------------------------------------------------
+# --- life cycle ---
 
 
 def ensure_image(ctx: TaskContext, sdk: Sdk, image: str) -> None:
+    """Download the system image if it is missing."""
     if image in list_images(sdk):
         ctx.ok(f"System image ya instalada: {image}")
         return
@@ -436,10 +458,10 @@ def ensure_image(ctx: TaskContext, sdk: Sdk, image: str) -> None:
 
 
 def ensure_avd(ctx: TaskContext, sdk: Sdk, spec: AvdSpec) -> str:
-    """Crea el AVD si falta y le deja el teclado de hardware activo.
+    """Create the AVD if missing, leaving the hardware keyboard on.
 
-    Sin `hw.keyboard=yes` el emulador ignora el teclado real y hay que tipear
-    en la pantalla tactil, que es lo que el script original venia parcheando.
+    Without `hw.keyboard=yes` the emulator ignores the real keyboard and
+    one has to type on the touch screen.
     """
     if spec.name in list_avds(sdk):
         ctx.info(f'El AVD "{spec.name}" ya existe.')
@@ -489,13 +511,15 @@ def start(
     read_only: bool = False,
     wipe: bool = False,
 ) -> int:
-    """Arranca el emulador en un puerto fijo y sigue su salida mientras viva.
+    """Start the emulator on a fixed port.
 
-    `read_only` es lo que permite levantar un AVD que ya esta corriendo: el
-    emulador toma un lock sobre la carpeta del AVD, y sin este flag el segundo
-    arranque muere con "another emulator instance is running". La segunda copia
-    no escribe cambios en el disco del AVD, que es exactamente lo que se quiere
-    cuando se abren dos para probar algo entre ellos.
+    Following its output while it lives.
+
+    `read_only` allows bringing up an AVD that is already running: the
+    emulator takes a lock on the AVD's folder, and without this flag the
+    second start dies with «another emulator instance is running». The
+    second copy writes no changes to the AVD's disk, exactly what is
+    wanted when opening two to try something between them.
     """
     argv = [sdk.emulator, "-avd", avd_name, "-port", str(port), *(flags or DEFAULT_FLAGS)]
     if read_only:
@@ -506,10 +530,10 @@ def start(
 
 
 def wait_for_boot(ctx: TaskContext, sdk: Sdk, *, timeout: float = 180.0, serial: str = "") -> str:
-    """Espera a que un emulador termine de arrancar y devuelve su serial.
+    """Wait for an emulator to finish starting and return its serial.
 
-    Con `serial` espera a ESE y no al primero que aparezca: con dos emuladores
-    vivos, "el primero" es una loteria.
+    With `serial` it waits for THAT one and not the first to appear:
+    with two live emulators, «the first» is a lottery.
     """
     limit = time.time() + timeout
     while time.time() < limit:
@@ -527,19 +551,22 @@ def wait_for_boot(ctx: TaskContext, sdk: Sdk, *, timeout: float = 180.0, serial:
 
 
 def stop(ctx: TaskContext, sdk: Sdk, serial: str) -> None:
-    """Apaga el emulador por adb: matar el proceso que lo lanzo no alcanza."""
+    """Stop the emulator through adb.
+
+    Killing its launcher is not enough.
+    """
     ctx.run([sdk.adb, "-s", serial, "emu", "kill"], check=False)
     ctx.ok(f"Emulador {serial} detenido.")
 
 
 def stop_quiet(sdk: Sdk, serial: str) -> None:
-    """Le pide al emulador que se apague, sin log y sin esperar.
+    """Ask the emulator to stop, without a log and without waiting.
 
-    Es la version que se puede llamar desde el gancho de cancelacion
-    (`TaskContext.on_cancel`): ahi la consola de la pestana quiza ya no exista
-    y nadie puede quedarse esperando. `adb emu kill` vuelve enseguida; el
-    emulador tarda un par de segundos en cerrarse solo, y en ese rato guarda su
-    estado — que es justo lo que se pierde si en cambio se mata el proceso.
+    It is the version callable from the cancellation hook
+    (`TaskContext.on_cancel`): there the tab's console may be gone and
+    nobody can stay waiting. `adb emu kill` returns right away; the
+    emulator takes a couple of seconds to close and saves its state in
+    that time, which is what is lost by killing the process instead.
     """
     try:
         capture([sdk.adb, "-s", serial, "emu", "kill"], timeout=15, check=False)
@@ -548,8 +575,10 @@ def stop_quiet(sdk: Sdk, serial: str) -> None:
 
 
 def remove_avd(ctx: TaskContext, sdk: Sdk, name: str) -> None:
+    """Delete an AVD."""
     ctx.run([sdk.tool("avdmanager"), "delete", "avd", "--name", name], check=False)
 
 
 def remove_image(ctx: TaskContext, sdk: Sdk, image: str) -> None:
+    """Uninstall a system image."""
     ctx.run([sdk.tool("sdkmanager"), "--uninstall", image], check=False)

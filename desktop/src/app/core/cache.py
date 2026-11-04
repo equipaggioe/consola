@@ -1,3 +1,19 @@
+r"""Disk cache for catalogs that are expensive to query.
+
+It exists for the two emulator catalogs. `avdmanager list device` and
+`sdkmanager --list` take seconds to tens of seconds, and the parameters
+panel needs them each time it draws: asking the SDK on every tab would
+freeze the interface for something that changes every few months.
+
+It caches *catalogs*, not state: lists a tool publishes (which devices
+exist, which images can be downloaded). What changes by itself, such as
+which AVD exists or which emulator is alive, is never cached: it is
+cheap to ask, and an old answer would be a lie.
+
+It lives in `%LOCALAPPDATA%/Consola/cache` (or `~/.cache/consola`),
+outside the repos: it is history of the machine.
+"""
+
 from __future__ import annotations
 
 import json
@@ -9,28 +25,9 @@ from typing import Any
 from app.core.errors import TaskError
 from app.core.host import HOST
 
-"""
-Cache en disco para catalogos caros de consultar.
-
-Existe por un caso concreto: los dos catalogos del emulador. `avdmanager list
-device` y `sdkmanager --list` tardan de segundos a decenas de segundos, y el
-panel de parametros los necesita cada vez que se dibuja — preguntarselos al SDK
-en cada apertura de pestana congelaria la interfaz por algo que no cambia en
-meses.
-
-Es cache de *catalogo*, no de estado: lo que se guarda aca son listas
-publicadas por una herramienta (que dispositivos existen, que imagenes se
-pueden bajar). Lo que cambia solo — que AVD hay creado, que emulador esta
-vivo — no se cachea nunca: se pregunta cada vez, porque es barato y porque una
-respuesta vieja ahi seria mentira.
-
-Vive en `%LOCALAPPDATA%\\Consola\\cache` (o `~/.cache/consola`), fuera de los
-repos: es historia de la maquina, igual que el SQLite de docs/arquitectura/30_riesgos_y_pendientes.md.
-"""
-
 
 def app_dir() -> Path:
-    """Carpeta de datos de Consola en esta maquina."""
+    """Return Consola's data folder on this machine."""
     return HOST.data_dir()
 
 
@@ -39,10 +36,12 @@ def _file(name: str) -> Path:
 
 
 def read(name: str, *, max_age: float) -> Any | None:
-    """What is saved under that name, or `None` if it is missing or older than `max_age`.
+    """Return what is saved under that name.
 
-    A file that cannot be read stops the task and is named: it does not count as empty
-    (ADR-0076).
+    Or `None` if it is missing or older than `max_age`.
+
+    A file that cannot be read stops the task and is named: it does not
+    count as empty (ADR-0076).
     """
     path = _file(name)
     try:
@@ -56,6 +55,7 @@ def read(name: str, *, max_age: float) -> Any | None:
 
 
 def write(name: str, value: Any) -> None:
+    """Save a value under that name."""
     path = _file(name)
     try:
         path.parent.mkdir(parents=True, exist_ok=True)
@@ -65,7 +65,7 @@ def write(name: str, value: Any) -> None:
 
 
 def forget(name: str) -> None:
-    """Invalida una entrada. La llama quien acaba de cambiar lo que describe."""
+    """Invalidate an entry, after changing what it describes."""
     _file(name).unlink(missing_ok=True)
 
 
@@ -76,11 +76,11 @@ def cached(
     max_age: float = 30 * 24 * 3600,
     refresh: bool = False,
 ) -> Any:
-    """Lo cacheado, o el resultado de `producer` recien calculado y guardado.
+    """Return the cached value, or compute and save it with `producer`.
 
-    `max_age` por defecto es un mes: los catalogos del SDK crecen cuando sale
-    una API nueva, no durante una sesion de trabajo. `refresh=True` es el boton
-    ↻ del panel.
+    `max_age` defaults to a month: SDK catalogs grow when a new API
+    ships, not during a work session. `refresh=True` is the panel's ↻
+    button.
     """
     if not refresh:
         hit = read(name, max_age=max_age)

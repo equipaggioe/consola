@@ -1,3 +1,10 @@
+"""The repo's logo as PNG or ICO.
+
+Qt comes in only as an image library (ADR-0055): no application, no
+widgets and no signals. App icons (`images.py`) and the executable's
+(`builders.py`) use it.
+"""
+
 from __future__ import annotations
 
 import io
@@ -10,37 +17,29 @@ from PySide6.QtSvg import QSvgRenderer
 
 from app.core.errors import TaskError
 
-"""
-El logo del repo como PNG o como ICO.
-
-Qt entra aca solo como biblioteca de imagenes (ADR-0055): sin aplicacion, sin
-widgets y sin senales. Lo usan los iconos de las apps (`images.py`) y el del
-ejecutable (`builders.py`).
-"""
-
-# Los lados que lleva un `.ico`: los que pide Windows para el explorador, la
-# barra de tareas y los accesos directos.
+# The sides of an `.ico`: what Windows asks for Explorer, the taskbar
+# and shortcuts.
 ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
 
-# La resolucion que se anota en el PNG, en puntos por metro. Sin fijarla, Qt
-# anota la del monitor cuando hay una aplicacion abierta y 3937 cuando no: el
-# mismo logo salia con otros bytes desde la ventana, y el boton reescribia
-# iconos que no cambiaron.
+# The resolution written in the PNG, in dots per meter. Unset, Qt writes
+# the monitor's with an open application and 3937 without one: the same
+# logo came out with other bytes from the window, and the button rewrote
+# icons that had not changed.
 _DOTS_PER_METER = 3937
 
 
 def svg_to_png(svg: Path, side: int) -> bytes:
-    """El SVG como PNG cuadrado de `lado` pixeles, con antialiasing.
+    """Return the SVG as a square PNG of `side` pixels, antialiased.
 
-    QtSvg implementa SVG Tiny 1.2: un logo con filtros, mascaras o CSS sale
-    distinto que en el navegador (ADR-0055).
+    QtSvg implements SVG Tiny 1.2: a logo with filters, masks or CSS
+    looks different than in the browser (ADR-0055).
     """
     renderer = QSvgRenderer(str(svg))
     if not renderer.isValid():
         raise TaskError(f"Qt no pudo leer {svg.name} como SVG.")
     box = renderer.viewBoxF()
-    # Qt estira el viewBox hasta llenar la imagen: uno que no es cuadrado sale
-    # deformado.
+    # Qt stretches the viewBox to fill the image: a non-square one comes
+    # out distorted.
     if abs(box.width() - box.height()) > 1e-6:
         raise TaskError(
             f"{svg.name} no es cuadrado: su viewBox mide {box.width():g}×{box.height():g}."
@@ -61,10 +60,10 @@ def svg_to_png(svg: Path, side: int) -> bytes:
 
 
 def svg_to_ico(svg: Path) -> bytes:
-    """El SVG como `.ico` con todos los lados de `ICO_SIZES`.
+    """Return the SVG as an `.ico` with every side of `ICO_SIZES`.
 
-    Qt escribe un ICO de una sola imagen; Pillow arma el de varias a partir
-    del lado mas grande.
+    Qt writes a one-image ICO; Pillow builds the multi-image one from
+    the largest side.
     """
     large = Image.open(io.BytesIO(svg_to_png(svg, max(ICO_SIZES))))
     output = io.BytesIO()

@@ -1,3 +1,5 @@
+"""Consola's entry point."""
+
 from __future__ import annotations
 
 import sys
@@ -13,6 +15,7 @@ from app.ui.main_window import MainWindow
 
 def main() -> None:
     # Enable high-DPI scaling
+    """Create the QApplication and open the main window."""
     QApplication.setHighDpiScaleFactorRoundingPolicy(
         Qt.HighDpiScaleFactorRoundingPolicy.PassThrough
     )
@@ -21,11 +24,12 @@ def main() -> None:
     app.setApplicationName("Consola")
     app.setOrganizationName("Consola")
 
-    # El catalogo declara la forma de cada capacidad; core/tasks le da cuerpo.
+    # The catalog declares each capability's shape; core/tasks gives it
+    # a body.
     load_catalog()
     bind_all()
 
-    # Apply premium dark theme
+    # Apply the theme
     apply_theme(app)
 
     # Show main window

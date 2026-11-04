@@ -1,3 +1,5 @@
+"""The capabilities: their shape, axes, steps and registry."""
+
 from __future__ import annotations
 
 from collections.abc import Callable, Collection, Iterable
@@ -7,22 +9,23 @@ from typing import Any
 
 @dataclass(frozen=True)
 class Facet:
-    """Una caracteristica de un valor compuesto, con lista propia en el panel.
+    """A feature of a composite value, with its own list in the panel.
 
-    Un eje `pick` ofrece valores enteros; sus `facets` dicen que ese valor esta
-    hecho de partes que se eligen por separado. El valor guardado no cambia —
-    sigue siendo el id completo que entiende la herramienta—, cambia como se
-    llega a el.
+    A `pick` axis offers whole values; its `facets` say the value is
+    made of parts chosen separately. The saved value does not change,
+    still the full id the tool understands; what changes is how one gets
+    to it.
 
-    Nace de las system images del SDK. El catalogo trae varios cientos de
-    paquetes (`system-images;android-36;google_apis;x86_64`) que en realidad son
-    la combinacion de tres cosas: la version de Android, la variante y la
-    arquitectura. Una sola lista con las tres permutadas en una linea obliga a
-    leer trescientas etiquetas casi iguales para encontrar la que cambia en un
-    solo campo. Tres listas cortas que se recortan entre si contestan la
-    pregunta que uno trae ("quiero la 36 con Play Store") en tres miradas.
+    It comes from the SDK's system images. The catalog brings several
+    hundred packages (`system-images;android-36;google_apis;x86_64`)
+    that are really the combination of three things: Android version,
+    variant and architecture. One list with all three permuted forces
+    reading three hundred almost equal labels to find the one that
+    changes in a single field. Three short lists trimming each other
+    answer the question one comes with («I want 36 with Play Store») in
+    three glances.
 
-    `part` es el indice dentro del valor partido por `AxisDef.facet_sep`.
+    `part` is the index inside the value split by `AxisDef.facet_sep`.
     """
 
     name: str
@@ -32,135 +35,148 @@ class Facet:
 
 @dataclass
 class AxisDef:
-    """Un eje que genera opciones en el panel de parametros.
+    """An axis that generates options in the parameters panel.
 
-    `select` es la decision importante (ADR-0004):
-    'many' = casillas (tiene sentido pedir dos a la vez: panel + backoffice),
-    'one'  = segmentado (pedir dos es un absurdo: start + stop).
+    `select` is the important decision (ADR-0004): 'many' = checkboxes
+    (asking for two at once makes sense: panel + backoffice), 'one' =
+    segmented (asking for two is absurd: start + stop).
     """
 
     name: str
     values: list[str]
-    expand: str  # 'checks' | 'buttons' | 'menu' | 'field' | 'scope' | 'pick'
+    # 'checks' | 'buttons' | 'menu' | 'field' | 'scope' | 'pick'
+    expand: str
     danger: set[str] = field(default_factory=set)
     label: str = ""
     select: str = "one"  # 'one' | 'many'
-    checked_by_default: bool = True  # solo para select='many': todas marcadas, o ninguna.
-    # Es el caso degenerado de `defaults`: cuando el default es
-    # "todas" o "ninguna" no hace falta enumerarlas.
-    defaults: set[str] = field(default_factory=set)  # solo para select='many': cuales arrancan
-    # marcadas cuando no son ni todas ni ninguna (los cinco paquetes
-    # base de nueve). Declarar el default como dato evita partir un
-    # eje en dos secciones solo para expresarlo: la division
-    # base/opcional no es una propiedad del dominio (`postgis` es
-    # base en un repo con datos geograficos), es este default.
-    allow_empty: bool = False  # no elegir nada es una eleccion valida, no "olvidaste elegir".
-    # En select='many', ninguna casilla marcada (ej. 'Pesados' en
-    # clean_artifacts). En expand='pick', la lista trae una primera
-    # entrada vacia y elegirla significa "que lo decida la funcion":
-    # el emulador de 'App movil' no se elige salvo que haya dos vivos,
-    # y exigirlo dejaria el boton en ambar cuando no hay ninguno.
-    discover: tuple[str, ...] = ()  # tipos de `core/targets.py` cuyos nombres son los valores
-    source: str = ""  # catalogo CONSULTADO que llena este eje
-    # (`core/catalog.py::queried_values`): el
-    # dispositivo o la maquina virtual no salen de
-    # mirar el repo abierto, salen de preguntarle al
-    # SDK; los servicios systemd, de preguntarle al
-    # VPS del repo. Se resuelve igual que `discover`,
-    # pero contra esa fuente y no contra la carpeta.
-    query_error: str = ""  # por que la fuente consultada no contesto, cuando lo que
-    # dijo es lo que hay que arreglar (la camara del repo,
-    # ADR-0054). Lo llena el panel; manda sobre "no hay ninguno".
-    labels: dict[str, str] = field(default_factory=dict)  # valor -> como se lee. Para las
-    # listas largas de `expand='pick'`, donde el
-    # valor real es un id feo
-    # (`system-images;android-36;google_apis;x86_64`)
-    # y lo que se elige es "Android 36 | Google APIs".
-    multiline: bool = False  # solo expand='field': caja de varios renglones, un valor por
-    # linea. Para listas cortas que se escriben a mano (las rutas
-    # a copiar): en una sola linea no se ve donde termina cada una.
-    required: bool = False  # solo expand='field': dejarlo vacio NO es una eleccion.
-    # Los campos de Consola son casi todos "vacio = el
-    # default de la funcion" (la carpeta del build, el
-    # mensaje de la migracion) y por eso no bloquean; la
-    # URL del repo a clonar no tiene default posible, y
-    # sin esto el boton se dejaba apretar para morir en
-    # la primera linea de la tarea.
-    cast: str = ""  # solo expand='field': 'int' cuando lo escrito es un numero. Un
-    # campo devuelve texto y hay seis parametros que son enteros (el
-    # puerto del backend, las lineas del journal, el TTL de
-    # Cloudflare): sin esto el panel le pasaba '8000' a una funcion
-    # que hace aritmetica con el. El tipo es parte de la forma del
-    # eje, asi que se declara con ella y no se arregla en la funcion.
-    combine: set[str] = field(default_factory=set)  # solo select='one': valores que se marcan
-    # aparte del grupo excluyente y stackean con el (ej. 'build' en
-    # bump_mode: patch|minor|major|none son excluyentes, 'build' suma)
-    default: str = ""  # solo select='one': valor excluyente marcado al inicio;
-    # vacio = el primero que no este en `combine`
-    truthy: str = ""  # solo select='one' de dos valores: cual significa True.
-    # Un segmentado de dos ('simulacro'/'borrar') es un booleano
-    # con dos rotulos legibles: sin esto, quien lee el payload
-    # tiene que comparar la cadena a mano y el catalogo pierde el
-    # control de como se lee su propio eje.
-    join: str = ""  # solo con `combine`: como se unen el valor excluyente y los
-    # combinados en la cadena que espera la funcion
+    # only for select='many': all checked, or none. It is the degenerate
+    # case of `defaults`: when the default is «all» or «none» there is
+    # no need to enumerate them.
+    checked_by_default: bool = True
+    # only for select='many': which start checked when neither all nor
+    # none (five base packages of nine). Declaring the default as data
+    # avoids splitting an axis in two sections just to express it: the
+    # base/optional division is no property of the domain (`postgis` is
+    # base in a repo with geographic data), it is this default.
+    defaults: set[str] = field(default_factory=set)
+    # choosing nothing is a valid choice, not «you forgot to choose». In
+    # select='many', no box checked ('Pesados' in clean_artifacts). In
+    # expand='pick', the list brings a first empty entry and choosing it
+    # means «let the function decide»: the emulator of 'App móvil' is
+    # not chosen unless two are alive, and requiring it would leave the
+    # button amber when there is none.
+    allow_empty: bool = False
+    # types of `core/targets.py` whose names are the values
+    discover: tuple[str, ...] = ()
+    # QUERIED catalog that fills this axis
+    # (`core/catalog.py::queried_values`): the device or the virtual
+    # machine do not come from looking at the open repo but from asking
+    # the SDK; systemd services, from asking the repo's VPS. It resolves
+    # like `discover`, but against that source and not the folder.
+    source: str = ""
+    # why the queried source did not answer, when what it said is what
+    # has to be fixed (the repo's camera, ADR-0054). The panel fills it;
+    # it wins over «there is none».
+    query_error: str = ""
+    # value -> how it reads. For the long lists of `expand='pick'`,
+    # where the real value is an ugly id
+    # (`system-images;android-36;google_apis;x86_64`) and what is chosen
+    # is «Android 36 | Google APIs».
+    labels: dict[str, str] = field(default_factory=dict)
+    # only expand='field': a multi-line box, one value per line. For
+    # short lists written by hand (the paths to copy): on one line one
+    # cannot see where each ends.
+    multiline: bool = False
+    # only expand='field': leaving it empty is NOT a choice. Consola's
+    # fields are almost all «empty = the function's default» (the
+    # build's folder, the migration's message) so they do not block; the
+    # URL of a repo to clone has no possible default, and without this
+    # the button could be pressed to die on the task's first line.
+    required: bool = False
+    # only expand='field': 'int' when what is written is a number. A
+    # field returns text and six parameters are integers (the backend's
+    # port, the journal's lines, Cloudflare's TTL): without this the
+    # panel passed '8000' to a function doing arithmetic with it. The
+    # type is part of the axis's shape, so it is declared with it and
+    # not fixed in the function.
+    cast: str = ""
+    # only select='one': values checked apart from the exclusive group
+    # that stack with it ('build' in bump_mode: patch, minor, major and
+    # none are exclusive, 'build' adds)
+    combine: set[str] = field(default_factory=set)
+    # only select='one': exclusive value checked at the start; empty =
+    # the first not in `combine`
+    default: str = ""
+    # only select='one' of two values: which one means True. A two-way
+    # segment ('dry_run'/'delete') is a boolean with two readable
+    # labels: without this, whoever reads the payload has to compare the
+    # string by hand and the catalog loses control of how its own axis
+    # reads.
+    truthy: str = ""
+    # only with `combine`: how the exclusive value and the combined ones
+    # join in the string the function expects
+    join: str = ""
     # ('patch' + 'build' -> 'patch+build')
     requires_env: dict[str, set[str]] = field(
         default_factory=dict
-    )  # valor -> claves de config.env que
-    # exige elegirlo. El ambito `remoto` pide la IP y la llave
-    # del VPS y `local` no: exigirlas en la capacidad dejaba
-    # en ambar la base local de un repo sin VPS.
+        # value -> config.env keys choosing it requires. The `remote`
+        # scope asks for the VPS's IP and key and `local` does not:
+        # requiring them on the capability left a repo without a VPS's
+        # local database amber.
+    )
 
     facets: tuple[Facet, ...] = field(
         default_factory=tuple
-    )  # solo expand='pick': las caracteristicas
-    # en las que se descompone cada valor (`Facet`). Con esto el
-    # panel dibuja una lista corta por caracteristica en vez de una
-    # larga con todas las combinaciones.
-    facet_sep: str = ";"  # con que se parte el valor para sacar sus caracteristicas
+        # only expand='pick': the features each value breaks into
+        # (`Facet`). With this the panel draws one short list per
+        # feature instead of a long one with all the combinations.
+    )
+    facet_sep: str = ";"  # what splits the value to get its features
 
     uses_env: dict[str, set[str]] = field(
         default_factory=dict
-    )  # valor -> claves de config.env que usa
-    # elegirlo, sin exigirlas. Solo filtran el panel de
-    # configuracion: la carpeta del build web no tiene nada que
-    # hacer en pantalla si no se marco Web.
+        # value -> config.env keys choosing it uses, without requiring
+        # them. They only filter the settings panel: the web build's
+        # folder has nothing to do on screen if Web is not checked.
+    )
 
     def keys_for(self, chosen: Iterable[str]) -> set[str]:
+        """Return the keys the chosen values require."""
         return set().union(*(self.requires_env.get(v, set()) for v in chosen))
 
-    # --- caracteristicas ---------------------------------------------------
-    # Todo lo que sigue es logica pura sobre `values`: el panel solo dibuja lo
-    # que estas cuatro devuelven, para que la cascada se pueda leer (y probar)
-    # sin una ventana abierta.
+    # --- features ---
+    #
+    # All that follows is pure logic on `values`: the panel only draws
+    # what these four return, so the cascade can be read and tested
+    # without an open window.
 
     def facet_of(self, value: str, facet: Facet) -> str:
-        """Que dice esta caracteristica en este valor."""
+        """Return what this feature says in this value."""
         parts = value.split(self.facet_sep)
         return parts[facet.part] if facet.part < len(parts) else ""
 
     def _upstream(self, name: str) -> list[Facet]:
-        """Las caracteristicas declaradas ANTES que esta."""
+        """Return the features declared BEFORE this one."""
         names = [f.name for f in self.facets]
         return list(self.facets[: names.index(name)]) if name in names else []
 
     def facet_values(self, facet: Facet, chosen: dict[str, str]) -> list[str]:
-        """Lo que esta caracteristica puede tomar dado lo elegido mas arriba.
+        """Return what this feature can take given what is chosen above.
 
-        Es una cascada y no un filtro cruzado: cada lista se recorta con las
-        que estan ANTES, nunca con las de abajo. Por eso el orden en que se
-        declaran las caracteristicas es el orden en que se deciden — primero
-        que version de Android, despues que variante hay para esa version,
-        despues que arquitecturas hay para esa combinacion.
+        It is a cascade and not a cross filter: each list trims with
+        those BEFORE it, never those below. So the order features are
+        declared in is the order they are decided in: first the Android
+        version, then which variant exists for it, then which
+        architectures for that combination.
 
-        Recortar tambien hacia arriba parece mas listo y deja la primera lista
-        sin salida: con "Play Store" marcado, las versiones que no lo publican
-        desaparecen de la lista de versiones, y no queda forma de llegar a
-        ellas desde el unico control que deberia poder cambiarlo todo.
+        Also trimming upward seems smarter and leaves the first list
+        with no way out: with «Play Store» checked, versions not
+        publishing it vanish from the versions list, and there is no way
+        to reach them from the one control that should be able to change
+        everything.
 
-        El orden de las opciones es el de `values`, que ya viene ordenado por
-        lo que se elige casi siempre: la primera es la buena por defecto.
+        Options keep the order of `values`, already sorted by what is
+        almost always chosen: the first is the good default.
         """
         output: list[str] = []
         above = self._upstream(facet.name)
@@ -175,13 +191,15 @@ class AxisDef:
         return output
 
     def resolve_facets(self, chosen: dict[str, str]) -> dict[str, str]:
-        """Lo elegido en cada caracteristica, corregido para que exista.
+        """Return what is chosen in each feature.
 
-        Cambiar una de arriba puede dejar a las de abajo en un valor imposible
-        (no hay Wear OS en Android 36): esas caen en su mejor opcion disponible
-        en vez de quedar apuntando a una combinacion que el SDK no publica. Las
-        de arriba no se tocan nunca, que es lo que hace predecible la cascada:
-        lo que uno acaba de elegir no se mueve solo.
+        Corrected so it exists.
+
+        Changing one above can leave those below on an impossible value
+        (no Wear OS on Android 36): they fall to their best available
+        option instead of pointing at a combination the SDK does not
+        publish. Those above are never touched, which makes the cascade
+        predictable: what one just chose does not move by itself.
         """
         resolved: dict[str, str] = {}
         for facet in self.facets:
@@ -193,7 +211,7 @@ class AxisDef:
         return resolved
 
     def value_for(self, chosen: dict[str, str]) -> str:
-        """El valor del catalogo que cumple con todas las caracteristicas."""
+        """Return the catalog value that meets all the features."""
         return next(
             (
                 v
@@ -204,16 +222,17 @@ class AxisDef:
         )
 
     def facets_of(self, value: str) -> dict[str, str]:
-        """El camino inverso: de un valor guardado, que hay que marcar."""
+        """Return what to mark, from a saved value: the reverse path."""
         return {f.name: self.facet_of(value, f) for f in self.facets}
 
     @property
     def exclusive_values(self) -> list[str]:
+        """Return the values not in `combine`."""
         return [v for v in self.values if v not in self.combine]
 
     @property
     def initial(self) -> str:
-        """El valor excluyente que arranca marcado."""
+        """Return the exclusive value that starts checked."""
         options = self.exclusive_values
         if self.default in options:
             return self.default
@@ -221,36 +240,48 @@ class AxisDef:
 
     @property
     def is_multi(self) -> bool:
+        """Return whether it allows several values."""
         return self.select == "many"
 
     def starts_checked(self, value: str) -> bool:
-        """Si esta casilla arranca marcada. Sin `defaults`, manda el booleano global."""
+        """Return whether this box starts checked.
+
+        `defaults` wins over the flag.
+        """
         if self.defaults:
             return value in self.defaults
         return self.checked_by_default
 
     @property
     def is_queried(self) -> bool:
-        """Sus valores salen de preguntar —al SDK o al VPS—, no del catalogo ni del repo."""
+        """Return whether its values come from asking.
+
+        The SDK or the VPS.
+
+        They do not come from the catalog or the repo.
+        """
         return bool(self.source)
 
     @property
     def query_place(self) -> str:
-        """Donde vive lo que este eje lista. Es la frase con la que el panel
-        explica un eje vacio: "no hay servicio en este VPS" dice que mirar, y
-        "en esta maquina" mandaria a buscar al lado equivocado.
+        """Return where what this axis lists lives.
+
+        It is the phrase the panel explains an empty axis with: «no hay
+        servicio en este VPS» says what to look at, and «en esta
+        máquina» would send one to the wrong side.
         """
         if self.source.startswith("vps"):
             return "en este VPS"
-        # Los respaldos estan en esta maquina, pero decir eso mandaria a buscar
-        # al SDK: lo que hay que mirar es la carpeta que declara BACKUP_DIR, que
-        # ni siquiera tiene por que estar dentro del repo.
+        # Backups are on this machine, but saying so would send one to
+        # the SDK: what has to be looked at is the folder BACKUP_DIR
+        # declares, which need not even be inside the repo.
         if self.source.startswith("backup"):
             return "en la carpeta de respaldos"
         if self.source.startswith("shots"):
             return "en la cámara del repo"
-        # Las apps estan en el repo, pero no todas: solo las que dicen donde va
-        # su icono. "En este repo" mandaria a buscar una app que si esta.
+        # Apps are in the repo, but not all: only those that say where
+        # their icon goes. «En este repo» would send one to look for an
+        # app that is there.
         if self.source.startswith("icon"):
             return "con ícono a cargo de Consola"
         if self.source.startswith("releases"):
@@ -259,31 +290,35 @@ class AxisDef:
 
     @property
     def is_discovered(self) -> bool:
-        """Sus valores salen de mirar el repo abierto, no del catalogo (ADR-0006).
+        """Return whether its values come from looking at the open repo.
 
-        El catalogo se carga una sola vez al arrancar y el repo cambia con el
-        selector, asi que un eje descubierto se declara vacio aca y lo llena
-        `catalog.for_project()` cada vez que se arma un panel.
+        They do not come from the catalog (ADR-0006). The catalog loads
+        once at startup and the repo changes with the selector, so a
+        discovered axis is declared empty here and
+        `catalog.for_project()` fills it each time a panel builds.
         """
         return bool(self.discover) or bool(self.source)
 
     @property
     def display(self) -> str:
+        """Return the label the panel shows."""
         return self.label or self.name.replace("_", " ").capitalize()
 
     def text_of(self, value: str) -> str:
-        """Como se lee un valor. Sin etiqueta declarada, el valor tal cual."""
+        """Return how a value reads: its label, or the value as is."""
         return self.labels.get(value, value)
 
 
 @dataclass
 class Step:
-    """Un paso de una capacidad compuesta, con casilla propia en el panel.
+    """A step of a composite capability.
 
-    `optional=False` se dibuja marcado y deshabilitado: un 'Compilar ejecutable' sin
-    build no es una variante, es un error. Los builders que si dejan desmarcar
-    su compilacion (APK, Vite) lo hacen porque sin ella queda un modo con
-    sentido: subir el artefacto que ya esta en disco.
+    With its own checkbox in the panel.
+
+    `optional=False` draws checked and disabled: a «Compilar ejecutable»
+    without a build is not a variant but an error. Builders that let one
+    uncheck compiling (APK, Vite) do so because a meaningful mode
+    remains without it: uploading the artifact already on disk.
     """
 
     id: str
@@ -291,119 +326,131 @@ class Step:
     optional: bool = True
     default: bool = True
     requires_env: set[str] = field(default_factory=set)
-    requires_repo: str = ""  # caracteristica del repo sin la cual el paso no existe
-    # (`core/targets.py`: MIGRATIONS). No es lo mismo que
-    # `requires_env`, que deja la casilla a la vista en ambar
-    # porque lo que falta se puede cargar: aca no falta un
-    # dato, falta el objeto sobre el que actuar. Un repo que
-    # no versiona su esquema no tiene "ejecutar migraciones"
-    # apagado, no lo tiene — y ofrecerlo era prometer un paso
-    # que solo podia terminar en el error de Alembic.
+    # repo feature without which the step does not exist
+    # (`core/targets.py`: MIGRATIONS). It differs from `requires_env`,
+    # which leaves the box in view in amber because what is missing can
+    # be loaded: here no datum is missing but the object to act on. A
+    # repo that does not version its schema does not have «ejecutar
+    # migraciones» turned off, it does not have it.
+    requires_repo: str = ""
 
 
 @dataclass
 class Capability:
-    """Una capacidad registrada. Genera UN boton en el rail; sus variantes
-    y pasos viven en el panel de parametros, no en filas duplicadas.
+    """A registered capability.
+
+    It generates ONE button in the rail; its variants and steps live in
+    the parameters panel, not in duplicate rows.
     """
 
     id: str
     name: str
     group: str
-    kind: str  # 'live' | 'once' | 'destructive' | 'interactive' | 'background'
+    # 'live' | 'once' | 'destructive' | 'interactive' | 'background'
+    kind: str
     axes: list[AxisDef] = field(default_factory=list)
     composed_of: list[str] = field(default_factory=list)
     steps: list[Step] = field(default_factory=list)
     icon: str = ""
-    description: str = ""  # una linea: que hace el boton, en tooltip y cabecera
-    level: str = ""  # 'A' | 'C'; vacio = se deduce de steps/composed_of
+    # one line: what the button does, in the tooltip and header
+    description: str = ""
+    level: str = ""  # 'A' | 'C'; empty = deduced from steps/composed_of
     scope: str = "repo"  # 'repo' | 'machine': ver `is_machine_wide`
-    hidden: bool = False  # capacidad atomica: existe como paso, no como boton
-    cut: bool = False  # en el menu, una raya justo encima de este boton.
-    # No es una seccion con el rotulo apagado: no tiene
-    # nombre, no agrupa y nadie pregunta a que tramo
-    # pertenece un boton. Declara un borde y nada mas —
-    # donde el menu deja de hablar de una cosa y empieza
-    # a hablar de otra. La raya de los destructivos no se
-    # declara aca: sale sola de `kind` (ADR-0043).
-    requires_repo: str = ""  # lo mismo que en `Step`, para el boton entero: la
-    # capacidad cuyos pasos son TODOS de esa caracteristica
-    # no queda vacia, desaparece (ADR-0007).
-    opens_repo: bool = False  # lo que entrega la tarea es una carpeta de repo:
-    # la ventana la abre como pestana al terminar. Es lo
-    # unico que hace falta declarar para que clonar
-    # termine donde tiene que terminar, sin que la interfaz
-    # conozca el id del boton que clona.
-    view: str = ""  # segunda vista de la pestana, ademas de la consola:
-    # 'web' = navegador embebido apuntado al endpoint que
-    # la tarea publica con `ctx.serve()`. El log de un
-    # launcher es el subproducto; lo que entrega es una
-    # URL (ADR-0008).
-    # 'db' = explorador de base sobre la conexion que
-    # publica `explore_db` (ADR-0015).
-    fanout: str = ""  # solo kind='live': nombre del eje `select='many'`
-    # cuyos valores NO se corren en un bucle sino en una
-    # pestana cada uno. Marcar panel + backoffice son dos
-    # dev servers vivos a la vez, no dos pasos en fila
+    # atomic capability: it exists as a step, not a button in the menu,
+    # a line right above this button. It is not a section with a dim
+    # label: it has no name, groups nothing and nobody asks which
+    # stretch a button belongs to. It declares an edge and nothing else,
+    # where the menu stops speaking of one thing. The line of
+    # destructive buttons is not declared here: it comes by itself from
+    hidden: bool = False
+    # `kind` (ADR-0043).
+    cut: bool = False
+    # the same as in `Step`, for the whole button: a capability whose
+    # steps ALL need that feature does not stay empty, it disappears
+    # (ADR-0007).
+    requires_repo: str = ""
+    # what the task delivers is a repo folder: the window opens it as a
+    # tab at the end. It is all that has to be declared for cloning to
+    # end where it should, without the interface knowing the cloning
+    # button's id.
+    opens_repo: bool = False
+    # the tab's second view, besides the console: 'web' = embedded
+    # browser pointed at the endpoint the task publishes with
+    # `ctx.serve()`. A launcher's log is the by-product; it delivers a
+    # URL (ADR-0008). 'db' = database explorer on the connection
+    # `explore_db` publishes (ADR-0015).
+    view: str = ""
+    # only kind='live': name of the `select='many'` axis whose values do
+    # NOT run in a loop but in one tab each. Checking panel + backoffice
+    # is two live dev servers at once, not two steps in a row
+    fanout: str = ""
     # (ADR-0010).
-    concurrent: bool = False  # compuesta concurrente: sus pasos son capacidades
-    # que se lanzan en paralelo, una pestana cada una, y
-    # ninguna termina. No tiene `func`: su cuerpo es el
-    # despachador de la interfaz, porque "N pestanas" no
-    # significa nada en `core/` (ADR-0011).
-    live_state: str = ""  # inventario que el panel muestra como cabecera de
-    # estado, con su boton de apagar por fila
-    # (`core/catalog.py::queried_values`). Es lo que
-    # reemplaza al boton "Apagar emulador": lo que corre
-    # se ve donde se elige, y se apaga desde ahi.
+    # concurrent composite: its steps are capabilities launched in
+    # parallel, one tab each, and none ends. It has no `func`: its body
+    # is the interface's dispatcher, because «N tabs» means nothing in
+    # `core/` (ADR-0011).
+    concurrent: bool = False
+    # inventory the panel shows as a status header, with a stop button
+    # per row (`core/catalog.py::queried_values`). It replaces a «stop
+    # emulator» button: what runs shows where one chooses, and stops
+    # from there.
+    live_state: str = ""
     stub: bool = True
     func: Callable[..., Any] | None = None
 
     @property
     def multi_axes(self) -> list[AxisDef]:
+        """Return the axes with several values."""
         return [a for a in self.axes if a.is_multi]
 
     @property
     def pick_axes(self) -> list[AxisDef]:
-        """Ejes de lista larga y cerrada: se eligen buscando, no marcando.
+        """Return the long, closed list axes.
 
-        Un catalogo de cien dispositivos o de trescientas system images no entra
-        en casillas ni en un segmentado — pero tampoco es texto libre, porque
-        los valores validos son exactamente esos.
+        Chosen by searching, not checking.
+
+        A catalog of a hundred devices or three hundred system images
+        fits no checkboxes or segment, but it is no free text either,
+        because the valid values are exactly those.
         """
         return [a for a in self.axes if a.expand == "pick"]
 
     @property
     def single_axes(self) -> list[AxisDef]:
-        """Ejes de eleccion unica que se dibujan como opciones excluyentes.
+        """Return the single-choice axes that draw as exclusive options.
 
-        Los de `expand='field'` quedan fuera: tambien son de valor unico, pero
-        el valor se escribe (una ruta de instalacion, un API level) en vez de
-        elegirse de una lista cerrada.
+        Those of `expand='field'` stay out: also single-valued, but the
+        value is written (an install path, an API level) instead of
+        chosen from a closed list.
         """
         return [a for a in self.axes if not a.is_multi and a.expand not in ("field", "pick")]
 
     @property
     def field_axes(self) -> list[AxisDef]:
-        """Ejes que se escriben a mano. `values[0]` es el valor por defecto."""
+        """Return the axes written by hand; `values[0]` is default."""
         return [a for a in self.axes if a.expand == "field"]
 
     @property
     def has_web_view(self) -> bool:
+        """Return whether it has the browser view."""
         return self.view == "web"
 
     @property
     def has_db_view(self) -> bool:
+        """Return whether it has the explorer view."""
         return self.view == "db"
 
     @property
     def is_composite(self) -> bool:
-        """Compuesta = encadena varias atomicas (ADR-0004).
+        """Return whether it is composite.
 
-        Lo normal es que se note sola: si declara `steps` o `composed_of`, es
-        compuesta. Pero varias compuestas reales (`bootstrap_db`,
-        `teardown_db`...) no publican sus pasos en el panel, y ahi el
-        catalogo lo dice con `level='C'`. Lo explicito manda.
+        It chains several atomic capabilities.
+
+        ADR-0004. Normally it shows by itself: declaring `steps` or
+        `composed_of` makes it composite. But several real composites
+        (`bootstrap_db`, `teardown_db`) do not publish their steps in
+        the panel, and there the catalog says so with `level='C'`. What
+        is explicit wins.
         """
         if self.level:
             return self.level.upper().startswith("C")
@@ -411,20 +458,22 @@ class Capability:
 
     @property
     def level_label(self) -> str:
+        """Return the level's label."""
         return "Compuesta" if self.is_composite else "Atómica"
 
     def kwargs_from(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Los keyword-arguments de la funcion, leidos de lo que marco el panel.
+        """Return the function's keyword arguments.
 
-        Es el reemplazo generico de `ui/task_adapters.py`: no hay una tabla por
-        capacidad porque no hace falta, la capacidad ya se declara a si misma.
-        El contrato que lo permite (ADR-0003) es que el `name`
-        de un eje y el `id` de un paso SEAN el nombre del parametro; la etiqueta
-        que lee el humano vive aparte, en `label`/`labels`.
+        From what the panel checked.
 
-        Los pasos derivados de `composed_of` no entran: son documentacion de que
-        botones encadena este boton, no casillas con un booleano detras. Quien
-        quiere una casilla por paso declara `steps=`.
+        No table per capability is needed, since the capability declares
+        itself. The contract that allows this (ADR-0003) is that an
+        axis's `name` and a step's `id` ARE the parameter's name; the
+        label people read lives apart, in `label` and `labels`.
+
+        Steps derived from `composed_of` do not enter: they document
+        which buttons this one chains, not checkboxes with a boolean
+        behind. Whoever wants a checkbox per step declares `steps=`.
         """
         checked = set(payload.get("steps") or ())
         kwargs = {axis.name: self._axis_value(axis, payload) for axis in self.axes}
@@ -432,25 +481,28 @@ class Capability:
         return kwargs
 
     def _axis_value(self, axis: AxisDef, payload: dict[str, Any]) -> Any:
-        """El valor de un eje, buscado en el balde donde el panel lo dejo.
+        """Return an axis's value.
 
-        `ParamsPanel.payload()` agrupa por tipo de control y no por significado
-        (`variants` las casillas, `options` lo excluyente, `fields` lo escrito,
-        `picks` las listas largas), asi que hay que saber en cual cayo cada eje
-        — y eso es justo lo que dicen su `expand` y su `select`.
+        From the bucket where the panel left it.
+
+        `ParamsPanel.payload()` groups by control type and not meaning
+        (`variants` the checkboxes, `options` the exclusive, `fields`
+        the written, `picks` the long lists), so one has to know which
+        each axis fell in, which is what its `expand` and `select` say.
         """
         if axis.expand == "field":
-            # Vacio es una eleccion valida: quien borro el campo pide el valor
-            # por defecto de la funcion, no el del catalogo.
+            # Empty is a valid choice: whoever cleared the field asks
+            # for the function's default, not the catalog's.
             written = (payload.get("fields") or {}).get(axis.name, "")
-            # Una caja de varios renglones ES una lista: un valor por linea. Lo
-            # que la separa es el salto de linea, no una coma que despues haya
-            # que explicar al costado del campo.
+            # A multi-line box IS a list: one value per line. The line
+            # break separates it, not a comma that would have to be
+            # explained next to the field.
             if axis.multiline:
                 return [ln.strip() for ln in written.splitlines() if ln.strip()]
             if axis.cast == "int":
-                # Un campo vacio pide el default declarado, igual que arriba:
-                # borrar el puerto es "el de siempre", no "el puerto cero".
+                # An empty field asks for the declared default, as
+                # above: clearing the port means «the usual», not «port
+                # zero».
                 text = written.strip()
                 return int(text) if text.lstrip("-").isdigit() else int(axis.values[0] or 0)
             return written
@@ -458,42 +510,49 @@ class Capability:
             return (payload.get("picks") or {}).get(axis.name, "")
         if axis.is_multi:
             checked = list((payload.get("variants") or {}).get(axis.name) or ())
-            # El eje de `fanout` ya viene repartido: `TabPanel._run_fanout` abre
-            # una pestana por valor, asi que aca llega uno solo, no la lista.
+            # The `fanout` axis comes already split:
+            # `TabPanel._run_fanout` opens one tab per value, so one
+            # arrives here, not the list.
             if axis.name and axis.name == self.fanout:
                 return checked[0] if checked else ""
             return checked
         raw = (payload.get("options") or {}).get(axis.name)
         if axis.combine:
-            # Un eje con `combine` puede traer dos marcas (`['patch', 'build']`).
-            # El orden de la cadena lo fija el catalogo, no el orden en que el
-            # panel las devolvio: primero el excluyente, despues los combinados.
+            # A `combine` axis can bring two marks (`['patch',
+            # 'build']`). The catalog sets the string's order, not the
+            # order the panel returned them in: first the exclusive,
+            # then the combined.
             checked = [raw] if isinstance(raw, str) else list(raw or ())
             base = next((v for v in checked if v not in axis.combine), axis.initial)
             extra = [v for v in axis.values if v in axis.combine and v in checked]
             return axis.join.join([base, *extra]) if axis.join else base
-        # Ausente o vacio = el eje no se dibujo (un preset guardado antes de que
-        # existiera, o un repo con un solo valor que descubrir): vale el default
-        # declarado, que es lo que el panel habria mostrado.
+        # Absent or empty = the axis did not draw (a preset saved before
+        # it existed, or a repo with one value to discover): the
+        # declared default holds, what the panel would have shown.
         value = raw or axis.initial
         return value == axis.truthy if axis.truthy else value
 
     def applies_to(self, features: Collection[str]) -> bool:
-        """Si este boton tiene sentido en un repo con esas caracteristicas."""
+        """Return whether this button makes sense in a repo.
+
+        With those features.
+        """
         return not self.requires_repo or self.requires_repo in features
 
     def steps_for(self, features: Collection[str]) -> list[Step]:
-        """Los pasos que quedan en un repo con esas caracteristicas."""
+        """Return the steps left in a repo with those features."""
         return [s for s in self.steps if not s.requires_repo or s.requires_repo in features]
 
     @property
     def is_machine_wide(self) -> bool:
-        """Si la accion le pasa a la maquina y no al repo abierto.
+        """Return whether the action happens.
 
-        Instalar un SDK no es una decision de un repositorio: el directorio
-        elegido vale para todos. Por eso sus parametros se guardan una sola vez
-        (`ui/params_store.py`) en vez de por repo, y no tiene sentido que la
-        accion dependa de que haya un proyecto abierto.
+        To the machine and not the open repo.
+
+        Installing an SDK is no repository's decision: the chosen folder
+        holds for all. So its parameters save once
+        (`ui/params_store.py`) instead of per repo, and the action does
+        not depend on an open project.
         """
         return self.scope == "machine"
 
@@ -512,23 +571,25 @@ GROUP_ICONS = {
 
 
 class Registry:
-    """Registro global de capacidades."""
+    """The global registry of capabilities."""
 
     def __init__(self) -> None:
+        """Start empty."""
         self._capabilities: dict[str, Capability] = {}
         self._group_order: list[str] = []
 
     def register(self, cap: Capability) -> None:
+        """Register a capability."""
         if cap.group and cap.group not in self._group_order:
             self._group_order.append(cap.group)
         self._capabilities[cap.id] = cap
 
     def bind(self, cap_id: str, func: Callable[..., Any]) -> Callable[..., Any]:
-        """Le da cuerpo real a una capacidad declarada en el catalogo.
+        """Give a real body to a capability declared in the catalog.
 
-        El catalogo (`core/catalog.py`) declara la forma: grupo, ejes,
-        pasos. `core/tasks/` la implementa. Mientras nadie llame a `bind`, la
-        capacidad sigue siendo un stub y la UI la dibuja como tal.
+        The catalog (`core/catalog.py`) declares the shape: group, axes,
+        steps. `core/tasks/` implements it. While nobody calls `bind`,
+        the capability stays a stub and the UI draws it as one.
         """
         cap = self._capabilities.get(cap_id)
         if cap is None:
@@ -538,12 +599,15 @@ class Registry:
         return func
 
     def implemented(self) -> list[Capability]:
+        """Return the capabilities that are not stubs."""
         return [c for c in self._capabilities.values() if not c.stub]
 
     def get_all(self) -> list[Capability]:
+        """Return all capabilities."""
         return list(self._capabilities.values())
 
     def get_groups(self, include_hidden: bool = False) -> dict[str, list[Capability]]:
+        """Return the capabilities by group."""
         groups: dict[str, list[Capability]] = {group: [] for group in self._group_order}
         for cap in self._capabilities.values():
             if cap.hidden and not include_hidden:
@@ -553,26 +617,28 @@ class Registry:
         return {g: caps for g, caps in groups.items() if caps}
 
     def get_capability(self, cap_id: str) -> Capability | None:
+        """Return the capability with that id."""
         return self._capabilities.get(cap_id)
 
     def get_group_icon(self, group: str) -> str:
+        """Return the group's icon."""
         return GROUP_ICONS.get(group, "")
 
     def resolve_steps(self, cap: Capability) -> list[Step]:
-        """Pasos efectivos de una capacidad: los que declara, o ella misma.
+        """Return a capability's effective steps.
 
-        `composed_of` NO deriva pasos. Es documentacion —de que botones esta
-        hecho este boton— y sus entradas son ids de CAPACIDAD, que jamas van a
-        coincidir con el nombre de un parametro (`generate_remote_keypair`
-        contra `generate`). Derivar de ahi producia casillas cuyo id no le
-        correspondia a nada, y por eso once capacidades ya declaraban `steps=`
-        a mano para taparlo (ADR-0003).
+        Those declared, or itself.
 
-        Quien quiere una casilla por paso la declara. Sin `steps`, la capacidad
-        es un solo paso obligatorio y el panel no dibuja la seccion.
+        `composed_of` does NOT derive steps. It documents which buttons
+        this one is made of, and its entries are CAPABILITY ids, which
+        never match a parameter's name (ADR-0003).
+
+        Whoever wants a checkbox per step declares it. Without `steps`,
+        the capability is one required step and the panel does not draw
+        the section.
         """
         return cap.steps or [Step(cap.id, cap.name, optional=False)]
 
 
-# Singleton a nivel de modulo
+# Module-level singleton
 registry = Registry()

@@ -1,3 +1,16 @@
+"""The database explorer's thread (ADR-0015).
+
+psycopg does not allow two queries at once on the same connection, and
+the interface cannot wait for the network: one thread owns the
+connection and serves requests in a queue. Each answer comes back with
+its request's id, and the view discards those it no longer wants, for
+example when the table changed before the previous answer arrived.
+
+The connection is its own and not that of the `explore_db` task: a
+psycopg connection does not pass between threads. The task owns the
+tunnel; this thread owns the SQL session.
+"""
+
 from __future__ import annotations
 
 import queue
@@ -11,40 +24,31 @@ from PySide6.QtWidgets import QApplication
 from app.core import db_explorer, db_models
 from app.core.errors import TaskError
 
-"""
-El hilo del explorador de base (ADR-0015).
-
-psycopg no admite dos consultas a la vez sobre la misma conexion, y la interfaz
-no puede esperar a la red: un solo hilo es dueno de la conexion y atiende los
-pedidos en fila. Cada respuesta vuelve con el id de su pedido, y la vista
-descarta las que ya no le interesan —cambiaste de tabla antes de que llegara la
-anterior—.
-
-La conexion es propia y no la de la tarea `explore_db`: una conexion psycopg no
-se pasa entre hilos. La tarea es duena del tunel; este hilo, de la sesion SQL.
-"""
-
 _STOP = object()
-# Referencia viva a cada hilo hasta que termine de verdad: soltar un QThread que
-# todavia corre tumba la aplicacion. Detener no espera —una consulta lenta puede
-# tardar hasta el `statement_timeout`— asi que el hilo sigue aca hasta salir.
+# A live reference to each thread until it truly ends: dropping a
+# QThread that still runs brings the application down. Stopping does not
+# wait, since a slow query can take up to `statement_timeout`, so the
+# thread stays here until it exits.
 _alive: set["DbWorker"] = set()
 _quit_hooked = False
 
 
 class DbWorker(QThread):
-    result = Signal(int, str, object)  # id del pedido, tipo, resultado
-    failed = Signal(int, str, str)  # id del pedido, tipo, mensaje
+    """The thread that owns the explorer's connection."""
+
+    result = Signal(int, str, object)  # request id, kind, result
+    failed = Signal(int, str, str)  # request id, kind, message
 
     def __init__(
         self, url: str, server_root: Path | None = None, parent: QObject | None = None
     ) -> None:
+        """Keep the URL; the connection opens on the first request."""
         super().__init__(parent)
         self._url = url
         self._server_root = server_root
-        # Los modelos se releen solo si cambio algun .py (`db_models.signature`):
-        # importarlos lanza un Python, y la comparacion se pide cada vez que se
-        # muestra la pestana.
+        # Models are reread only if a .py changed
+        # (`db_models.signature`): importing them launches a Python, and
+        # the comparison is requested each time the tab shows.
         self._models: tuple[tuple[tuple[str, int], ...], list[db_models.ModelTable]] | None = None
         self._queue: queue.Queue[tuple[int, str, dict[str, Any]] | object] = queue.Queue()
         self._next_id = 0
@@ -58,14 +62,15 @@ class DbWorker(QThread):
             app.aboutToQuit.connect(_stop_all)
             _quit_hooked = True
 
-    # --- pedidos (hilo de la interfaz) -----------------------------------------
+    # --- requests (interface thread) ---
     def request(self, kind: str, **kwargs: Any) -> int:
+        """Queue a request and return its id."""
         self._next_id += 1
         self._queue.put((self._next_id, kind, kwargs))
         return self._next_id
 
     def stop(self) -> None:
-        """Corta lo que este corriendo y sale. No espera: ver `_alive`."""
+        """Cut what is running and exit, not waiting: see `_alive`."""
         self._stopping = True
         conn = self._conn
         if conn is not None:
@@ -75,7 +80,7 @@ class DbWorker(QThread):
                 pass
         self._queue.put(_STOP)
 
-    # --- hilo --------------------------------------------------------------------
+    # --- thread ---
     @override
     def run(self) -> None:
         try:
@@ -101,8 +106,10 @@ class DbWorker(QThread):
                 self._conn = None
 
     def _connection(self) -> Connection:
-        """La conexion, reabierta si se cayo: un Postgres reiniciado o un tunel
-        que se reconecto no deberian obligar a cerrar la pestana.
+        """Return the connection, reopened if it fell.
+
+        A restarted Postgres or a reconnected tunnel should not force
+        closing the tab.
         """
         if self._conn is None or self._conn.closed or self._conn.broken:
             self._conn = db_explorer.open_readonly(self._url)
@@ -134,9 +141,7 @@ class DbWorker(QThread):
 
 
 def _message(exc: Exception) -> str:
-    """La primera linea del error, sin el volcado de psycopg: la vista lo
-    muestra en un renglon.
-    """
+    """Return the error's first line, without psycopg's dump."""
     text = str(exc).strip()
     if not text:
         return type(exc).__name__

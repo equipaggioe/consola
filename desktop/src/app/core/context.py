@@ -1,3 +1,5 @@
+"""TaskContext: log, run, confirm, ask, note, cancel."""
+
 from __future__ import annotations
 
 import subprocess
@@ -20,6 +22,8 @@ __all__ = ["Level", "TaskContext", "TaskError", "Cancelled", "MissingConfig"]
 
 
 class Level:
+    """The levels of a log line."""
+
     INFO = "info"
     OK = "ok"
     WARN = "warn"
@@ -28,24 +32,25 @@ class Level:
 
 
 LogSink = Callable[[str, str], None]
-# pregunta, forma de la respuesta, peligrosa, texto que hay que escribir para
-# aceptar. La forma viaja explicita porque es lo unico que decide que dialogo
-# abre la UI, y deducirla de los otros campos no alcanza: un `ask` corriente
-# —"como se va a llamar la carpeta"— no es secreto ni exige escribir nada, y
-# sin este dato se leia igual que una confirmacion y salia como un si/no.
-ASK_YES_NO = "si_no"  # confirmacion: dos botones
-ASK_TEXT = "texto"  # un dato que la tarea no puede deducir
-ASK_SECRET = "secreto"  # lo mismo, sin mostrarlo mientras se escribe
-# Cerrar el dialogo de texto no es lo mismo que dejarlo vacio, y con una cadena
-# vacia para las dos cosas no habia forma de distinguirlas: `create_avd` toma el
-# vacio como "usa el nombre derivado", asi que un Escape le creaba el AVD igual.
-# La UI contesta esto al cancelar y `ask()` lo convierte en `Cancelled`.
+# question, answer shape, dangerous, text to type to accept. The shape
+# travels explicitly because it alone decides which dialog the UI opens,
+# and deducing it from the other fields is not enough: an ordinary
+# `ask`, such as a folder's name, is not secret and asks for no typing,
+# and without this datum it read like a confirmation and came out as a
+# yes/no.
+ASK_YES_NO = "si_no"  # confirmation: two buttons
+ASK_TEXT = "texto"  # a datum the task cannot deduce
+ASK_SECRET = "secreto"  # the same, hidden while typing
+# Closing the text dialog is not leaving it empty, and an empty string
+# for both made them indistinguishable: `create_avd` takes empty as «use
+# the derived name», so an Escape created the AVD anyway. The UI answers
+# this on cancel and `ask()` turns it into `Cancelled`.
 ASK_CANCELLED = "\x00cancelado"
 AskSink = Callable[[str, str, bool, str], str]
 ProgressSink = Callable[[int, int, str], None]
 NoteSink = Callable[[str], None]
-# url, etiqueta, se abre en navegador, estado. Lo que la pestana necesita para
-# dibujar su barra de endpoint y decidir si ofrece la vista de navegador.
+# url, label, opens in browser, state. What the tab needs to draw its
+# endpoint bar and decide whether to offer the browser view.
 ServeSink = Callable[[str, str, bool, str], None]
 
 _YES = ("s", "si", "sí", "y", "yes", "ok")
@@ -54,12 +59,11 @@ _MASK = "******"
 
 @dataclass
 class TaskContext:
-    """Lo unico que recibe una capacidad. Reemplaza los cuatro patrones que los
-    scripts repetian sueltos: `print`, `subprocess.run`, `SystemExit` e `input`.
+    """All a capability receives.
 
-    Nada de nivel 0 imprime a stdout ni lee de stdin: todo pasa por aca, asi la
-    misma funcion sirve para la consola de una pestana, para un test sin UI y
-    para un paso interno de una capacidad compuesta.
+    Nothing at level 0 prints to stdout or reads stdin: everything goes
+    through here, so the same function serves a tab's console, a UI-less
+    test and an inner step of a composite.
     """
 
     capability_id: str
@@ -80,53 +84,59 @@ class TaskContext:
     _published: list[tuple[str, str]] = field(default_factory=list, repr=False)
     _tunnels: list[Tunnel] = field(default_factory=list, repr=False)
 
-    # --- raiz del proyecto -------------------------------------------------
+    # --- project root ---
 
     @property
     def root(self) -> Path:
+        """Return the project's root, or stop if none is open."""
         if self.project is None:
             raise TaskError("No hay proyecto abierto.")
         return Path(self.project.path)
 
     @property
     def project_name(self) -> str:
+        """Return the project's name, or stop if none is open."""
         if self.project is None:
             raise TaskError("No hay proyecto abierto.")
         return self.project.name
 
     def path(self, *parts: str) -> Path:
+        """Return a path inside the project."""
         return self.root.joinpath(*parts)
 
-    # --- log ---------------------------------------------------------------
+    # --- log ---
 
     def log(self, msg: str, level: str = Level.INFO) -> None:
+        """Write a line to the log, masking secrets."""
         if self.log_sink:
             self.log_sink(self.mask(msg), level)
 
     def info(self, msg: str) -> None:
+        """Log an informative line."""
         self.log(msg, Level.INFO)
 
     def ok(self, msg: str) -> None:
+        """Log a success."""
         self.log(msg, Level.OK)
 
     def warn(self, msg: str) -> None:
+        """Log a warning."""
         self.log(msg, Level.WARN)
 
     def error(self, msg: str) -> None:
+        """Log an error."""
         self.log(msg, Level.ERROR)
 
     def step(self, step_id: str) -> None:
-        """Encabezado de un paso dentro de una compuesta.
+        """Write the heading of a step inside a composite.
 
-        El log de una receta queda plano, con un encabezado por paso y sin
-        sub-pestanas (ADR-0005).
+        A recipe's log stays flat, with one heading per step and no
+        sub-tabs (ADR-0005).
 
-        Recibe el ID del paso y la etiqueta la resuelve del catalogo, que es
-        donde ya estaba escrita para la casilla del panel. Antes se pasaba el
-        texto suelto y quedaba escrito dos veces, en dos archivos: la casilla
-        decia 'Crear rol de la aplicación' y el log 'Crear el rol de la
-        aplicacion'. Un paso que no es casilla de nadie se imprime tal cual: no todo paso del log tiene por
-        que ser una decision del panel.
+        It receives the step's ID and resolves the label from the
+        catalog, where the panel's checkbox already has it. A step that
+        is no one's checkbox prints as is: not every step of the log has
+        to be a panel decision.
         """
         self.log(f"--- {self._step_label(step_id)}", Level.INFO)
 
@@ -140,20 +150,21 @@ class TaskContext:
                     return step.label
         return step_id
 
-    # --- secretos ----------------------------------------------------------
+    # --- secrets ---
 
     def guard(self, *values: str) -> None:
-        """Marca valores para enmascararlos en la consola y en el log guardado."""
+        """Mark values to mask in the console and the saved log."""
         for value in values:
             if value and len(value) >= 4:
                 self._secrets.add(value)
 
     def mask(self, text: str) -> str:
+        """Return the text with marked values masked."""
         for secret in self._secrets:
             text = text.replace(secret, _MASK)
         return text
 
-    # --- ejecucion ---------------------------------------------------------
+    # --- running ---
 
     def run(
         self,
@@ -165,9 +176,9 @@ class TaskContext:
         echo: bool = True,
         stdin_text: str | None = None,
     ) -> int:
-        """Corre un binario externo con streaming en vivo y cancelacion.
+        """Run an external binary with live streaming and cancellation.
 
-        `stdin_text` va a la entrada del proceso y no al log.
+        `stdin_text` goes to the process's input and not the log.
         """
         self.raise_if_cancelled()
         if echo:
@@ -189,8 +200,11 @@ class TaskContext:
     def converse(
         self, argv: Sequence[str], answers: Sequence[tuple[str, str]], *, check: bool = True
     ) -> int:
-        """Corre un programa que pregunta y le contesta cada pregunta al verla
-        (`process.converse`). Las respuestas no pasan por el log.
+        """Run a program that asks.
+
+        Answering each question on seeing it.
+
+        See `process.converse`. Answers do not pass through the log.
         """
         self.raise_if_cancelled()
         self.log(process.format_argv(argv), Level.CMD)
@@ -216,7 +230,10 @@ class TaskContext:
         timeout: float | None = None,
         check: bool = True,
     ) -> str:
-        """Corre un comando corto y devuelve su salida, sin volcarla al log."""
+        """Run a short command and return its output.
+
+        Without logging it.
+        """
         self.raise_if_cancelled()
         return process.capture(
             argv,
@@ -229,29 +246,29 @@ class TaskContext:
     def detach(
         self, argv: Sequence[str], *, cwd: Path | str | None = None
     ) -> subprocess.Popen[str]:
-        """Arranca un proceso que sobrevive a su pestana (servicio de fondo, 7.2)."""
+        """Start a background service, which outlives its tab."""
         self.log(process.format_argv(argv), Level.CMD)
         return process.spawn(argv, cwd=cwd or self._default_cwd(), detached=True)
 
     def _default_cwd(self) -> str | None:
         return self.project.path if self.project else None
 
-    # --- endpoints ---------------------------------------------------------
+    # --- endpoints ---
 
     def serve(
         self, url: str, *, key: str = "", label: str = "", web: bool = True, wait: float = 90.0
     ) -> None:
-        """Anuncia que esta tarea va a servir en esa URL.
+        """Announce that this task will serve at that URL.
 
-        Lo que un launcher entrega no es su log, es un endpoint: la consola es
-        el subproducto (ADR-0008). Llamar a esto antes de arrancar el
-        proceso hace tres cosas de una sola vez —la barra de la pestana con su
-        URL, la vista de navegador embebido, y la senal de "listo" que esperan
-        los launchers que dependen de este.
+        What a launcher delivers is not its log but an endpoint: the
+        console is the by-product (ADR-0008). Calling this before
+        starting the process does three things at once: the tab's bar
+        with its URL, the embedded browser view, and the «ready» signal
+        dependent launchers wait for.
 
-        Se llama ANTES de `ctx.run()`, que bloquea hasta que el proceso muere:
-        el puerto ya se eligio (`ports.resolve_port`), asi que la URL se conoce
-        sin tener que olfatear la salida de vite o de uvicorn.
+        It is called BEFORE `ctx.run()`, which blocks until the process
+        dies: the port was already chosen (`ports.resolve_port`), so the
+        URL is known without sniffing vite's or uvicorn's output.
         """
         endpoint_key = key or self.capability_id
         project = self.project.name if self.project else ""
@@ -269,11 +286,11 @@ class TaskContext:
             ).start()
 
     def _watch_endpoint(self, endpoint: Endpoint, timeout: float) -> None:
-        """Sondea el puerto hasta que conteste, en un hilo aparte.
+        """Probe the port until it answers, in a separate thread.
 
-        Aparte porque quien llama a `serve()` sigue derecho a `ctx.run()`, que
-        no vuelve hasta que el proceso muere: si la espera fuera aca, la URL
-        nunca pasaria de "arrancando".
+        Separate because whoever calls `serve()` goes straight on to
+        `ctx.run()`, which does not return until the process dies:
+        waiting here, the URL would never get past «starting».
         """
         host, port = ports.split_host_port(endpoint.url)
         ready = ports.wait_until_serving(port, host=host, timeout=timeout, cancel=self._cancel)
@@ -295,15 +312,19 @@ class TaskContext:
             self.serve_sink(endpoint.url, endpoint.label, endpoint.web, endpoint.state)
 
     def endpoint(self, key: str, *, wait: float = 0.0) -> Endpoint | None:
-        """El endpoint que publico otra tarea de este proyecto, si existe."""
+        """Return the endpoint another task of this project published.
+
+        If any.
+        """
         if self.project is None:
             return None
         return session.wait_for_endpoint(self.project.name, key, wait)
 
     def release_endpoints(self) -> None:
-        """Borra los endpoints y valores que esta tarea publico. La llama quien
-        la corre cuando termina: una URL que ya no sirve nada no debe seguir
-        ofrecida.
+        """Erase the endpoints and values this task published.
+
+        Whoever runs it calls this at the end: a URL that serves nothing
+        should not stay offered.
         """
         for project, endpoint_key in self._served:
             if project:
@@ -314,22 +335,22 @@ class TaskContext:
         self._published.clear()
 
     def publish(self, key: str, value: object) -> None:
-        """Deja un valor en la sesion del proyecto mientras la tarea viva.
+        """Leave a value in the project's session while the task lives.
 
-        Es la otra mitad de `serve()` para lo que no se puede mostrar en la
-        barra: la URL con contrasena que el explorador necesita para abrir su
-        propia conexion (ADR-0015). Queda en memoria y se borra
-        sola cuando la tarea termina.
+        It is the other half of `serve()` for what cannot show in the
+        bar: the URL with a password the explorer needs to open its own
+        connection (ADR-0015). It stays in memory and erases by itself
+        when the task ends.
         """
         if self.project is None:
             return
         session.publish(self.project.name, key, value)
         self._published.append((self.project.name, key))
 
-    # --- interaccion -------------------------------------------------------
+    # --- interaction ---
 
     def confirm(self, question: str, *, danger: bool = False, expect: str = "") -> bool:
-        """Pregunta si seguir. `expect` exige escribir ese texto (destructivos, 7.5)."""
+        """Ask whether to go on. `expect` requires typing that text."""
         if self.ask_sink is None:
             return not danger
         answer = self.ask_sink(question, ASK_YES_NO, danger, expect)
@@ -338,6 +359,10 @@ class TaskContext:
         return answer.strip().lower() in _YES
 
     def ask(self, prompt: str, *, secret: bool = False) -> str:
+        """Ask for a datum and return the answer.
+
+        Closing the dialog cancels.
+        """
         if self.ask_sink is None:
             raise TaskError(f"Hace falta un dato que nadie puede responder: {prompt}")
         answer = self.ask_sink(prompt, ASK_SECRET if secret else ASK_TEXT, False, "")
@@ -348,96 +373,115 @@ class TaskContext:
         return answer
 
     def ask_once(self, prompt: str, *, secret: bool = False) -> str:
-        """Como `ask`, pero recuerda la respuesta durante el resto de la corrida.
+        """Like `ask`, but remember the answer for the rest of the run.
 
-        Una compuesta que abre varias conexiones de root preguntaria la misma
-        contrasena una vez por atomica: cada atomica es independiente a
-        proposito y ninguna sabe que las otras ya la pidieron. La memoria vive
-        en el contexto de esta corrida, se comparte con los `child()` y muere
-        con ella; no se escribe a ningun archivo.
+        A composite opening several root connections would ask for the
+        same password once per atomic capability: each is independent on
+        purpose and none knows the others asked. The memory lives in
+        this run's context, shared with `child()`, and dies with it; it
+        goes to no file.
         """
         if prompt not in self._asked:
             self._asked[prompt] = self.ask(prompt, secret=secret)
         return self._asked[prompt]
 
     def progress(self, done: int, total: int, label: str = "") -> None:
+        """Report the progress of a long step."""
         if self.progress_sink:
             self.progress_sink(done, total, label)
 
     def note(self, entry: str) -> None:
-        """Deja una entrada automatica en la bitacora del proyecto (docs/arquitectura/30_riesgos_y_pendientes.md)."""
+        """Leave an automatic entry in the project's log book.
+
+        See docs/arquitectura/30_riesgos_y_pendientes.md.
+        """
         if self.note_sink:
             self.note_sink(self.mask(entry))
 
-    # --- configuracion -----------------------------------------------------
+    # --- configuration ---
 
     def require_config(self, *keys: str) -> None:
-        """Falla antes de empezar si falta configuracion, no a mitad de flujo."""
+        """Fail before starting, not midway, if config is missing."""
         missing = self.config.missing(*keys)
         if missing:
             raise MissingConfig(missing)
 
-    # --- cancelacion -------------------------------------------------------
+    # --- cancellation ---
 
     @property
     def cancelled(self) -> bool:
+        """Return whether the task was stopped."""
         return self._cancel.is_set()
 
     def on_cancel(self, stopper: Callable[[], None]) -> None:
-        """Registra un apagado limpio para cuando detengan la tarea.
+        """Register a clean shutdown for when the task is stopped.
 
-        Matar el proceso sirve para casi todo, pero no para lo que guarda estado
-        al cerrarse: al emulador hay que pedirle `adb emu kill` y darle un
-        momento, o el AVD queda a medio escribir (ADR-0028). El gancho
-        corre ANTES que `kill_tree`, que asi casi siempre encuentra el proceso
-        ya terminado y no tiene nada que matar.
+        Killing the process serves almost everything, but not what saves
+        state on closing: the emulator has to be asked with `adb emu
+        kill` and given a moment, or the AVD stays half written
+        (ADR-0028). The hook runs BEFORE `kill_tree`, which then almost
+        always finds the process already ended.
         """
         self._stoppers.append(stopper)
 
     def cancel(self) -> None:
+        """Stop the task: run its hooks and kill its processes."""
         self._cancel.set()
         for stopper in list(self._stoppers):
             try:
                 stopper()
             except Exception:
-                pass  # un apagado limpio que falla no impide el sucio
+                # a clean shutdown that fails does not prevent the dirty
+                # one
+                pass
         for child in list(self._children):
             process.kill_tree(child)
 
     def kill_children(self) -> None:
-        """Mata los procesos vivos de la tarea sin detenerla: el `ctx.run` que
-        los esperaba vuelve con su codigo y la tarea sigue. Es el relanzar del
-        vigilante de `run_python_app`.
+        """Kill the task's live processes without stopping it.
+
+        The `ctx.run` waiting for them returns with its code and the
+        task goes on. It is the relaunch of `run_python_app`'s watcher.
         """
         for child in list(self._children):
             process.kill_tree(child)
 
     def hold_tunnel(self, tunnel: Tunnel) -> None:
-        """Anota un tunel SSH de esta tarea: Limpiar la pestana la detiene si
-        tiene alguno vivo (`ui/tab_panel.py::_on_cleared`).
+        """Note an SSH tunnel of this task.
+
+        Clearing the tab stops it if it has a live one
+        (`ui/tab_panel.py::_on_cleared`).
         """
         self._tunnels.append(tunnel)
 
     @property
     def has_tunnel(self) -> bool:
+        """Return whether the task holds a live tunnel."""
         return any(t.alive for t in self._tunnels)
 
     def wait_cancelled(self, timeout: float | None = None) -> bool:
-        """Duerme hasta que detengan la tarea o pase `timeout`; dice si la
-        detuvieron. Lo usa lo que vive sin un proceso que lo sostenga — una
-        conexion abierta — y solo espera a que cierren la pestana.
+        """Sleep until the task is stopped or `timeout` passes.
+
+        Say if stopped.
+
+        What lives without a process holding it, such as an open
+        connection, uses it to wait for the tab to close.
         """
         return self._cancel.wait(timeout)
 
     def raise_if_cancelled(self) -> None:
+        """Raise `Cancelled` if the task was stopped."""
         if self._cancel.is_set():
             raise Cancelled("Detenido por el usuario.")
 
     def child(self, capability_id: str) -> "TaskContext":
-        """Contexto para un paso interno: misma consola, misma cancelacion.
+        """Return a context for an inner step.
 
-        Una compuesta llama a sus atomicas con esto, no con un contexto nuevo:
-        el usuario ve un solo log y un solo boton de Detener (ADR-0005).
+        Same console, same cancellation.
+
+        A composite calls its atomic capabilities with this and not a
+        new context: the user sees one log and one Stop button
+        (ADR-0005).
         """
         return TaskContext(
             capability_id=capability_id,
@@ -460,7 +504,7 @@ class TaskContext:
 
 
 def _guess_level(line: str) -> str:
-    """Colorea la salida de un binario externo por su propia etiqueta."""
+    """Color an external binary's output by its own tag."""
     head = line.lstrip().lower()
     if head.startswith(("error", "[error", "fatal")):
         return Level.ERROR

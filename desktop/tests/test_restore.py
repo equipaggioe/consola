@@ -1,4 +1,4 @@
-"""Lo que se restaura de un respaldo, y como entra SSH a un VPS nuevo."""
+"""What a backup restores, and how SSH enters a new VPS."""
 
 from pathlib import Path
 
@@ -6,7 +6,8 @@ from app.core import ssh
 from app.core.tasks.database import _without_extensions
 
 
-def test_la_restauracion_no_toca_las_extensiones() -> None:
+def test_the_restore_does_not_touch_extensions() -> None:
+    """The restore leaves extensions out."""
     content = (
         "; Archive created\n"
         "215; 1259 16400 TABLE public dato prueba\n"
@@ -21,7 +22,8 @@ def test_la_restauracion_no_toca_las_extensiones() -> None:
     )
 
 
-def test_un_vps_nuevo_anota_su_huella_y_una_distinta_corta() -> None:
+def test_a_new_vps_records_its_fingerprint_and_a_different_one_stops() -> None:
+    """SSH accepts a new fingerprint and rejects a changed one."""
     remote = ssh.Remote("192.0.2.1", "admin", Path("llave"))
     assert "StrictHostKeyChecking=accept-new" in remote.argv("true")
     assert "StrictHostKeyChecking=accept-new" in remote.scp_argv(Path("a"), "/b")

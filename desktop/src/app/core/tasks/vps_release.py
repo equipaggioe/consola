@@ -1,3 +1,14 @@
+"""Deployment group, versions.
+
+Publish, sign and deploy a tag (ADR-0059).
+
+With each tag, the repo's `release.yml` builds the artifact and
+publishes it in a GitHub release with its `.sha256`. This machine signs
+that `.sha256` with `VPS_KEY_NAME`, outside GitHub, and the VPS installs
+it with the `deploy.py` that `install.py` left, which only accepts what
+a key in `allowed_signers` signs (despliegue.md of canone, «Versiones»).
+"""
+
 from __future__ import annotations
 
 import json
@@ -13,19 +24,9 @@ from app.core.registry import registry
 from app.core.tasks.git import _current_branch, _ensure_git
 from app.core.tasks.vps_setup import Access, access
 
-"""
-Grupo Despliegue - versiones: publicar, firmar y desplegar un tag (ADR-0059).
-
-Con cada tag, el `release.yml` del repo construye el artefacto y lo publica en
-un release de GitHub con su `.sha256`. Esta maquina firma ese `.sha256` con
-`VPS_KEY_NAME`, fuera de GitHub, y el VPS lo instala con el `deploy.py` que dejo
-`install.py`, que solo acepta lo que firma una llave de `allowed_signers`
-(despliegue.md de canone, «Versiones»).
-"""
-
 WORKFLOW = "release.yml"
-# Cada cuanto se pregunta por la corrida de `release.yml`, y cuantas veces se
-# pregunta si ya existe antes de darla por perdida.
+# How often to ask about the `release.yml` run, and how many times to
+# ask whether it exists before giving it up.
 _POLL = 15
 _APPEARS = 12
 
@@ -39,13 +40,16 @@ def _gh() -> list[str]:
 
 
 def _repo(root: Path) -> tuple[str, str]:
-    """`dueño/repo` en GitHub y el `<app>` de canone, que es el nombre del repo."""
+    """Return `owner/repo` on GitHub and canone's `<app>`.
+
+    The repo's name.
+    """
     owner, app = canone.origin(root)
     return f"{owner}/{app}", app
 
 
 def releases(root: Path) -> list[dict[str, Any]]:
-    """Los releases del repo, del mas nuevo al mas viejo, con sus archivos."""
+    """Return the repo's releases, newest first, with their files."""
     repo, _ = _repo(root)
     return json.loads(
         process.capture(
@@ -55,7 +59,7 @@ def releases(root: Path) -> list[dict[str, Any]]:
 
 
 def _latest(ctx: TaskContext) -> dict[str, Any]:
-    """El ultimo release publicado: el que GitHub da como `latest`."""
+    """Return the last published release: GitHub's `latest`."""
     repo, _ = _repo(ctx.root)
     try:
         return json.loads(
@@ -65,13 +69,14 @@ def _latest(ctx: TaskContext) -> dict[str, Any]:
         raise TaskError(f"{repo} no tiene releases publicados: corre «Publicar versión».") from exc
 
 
-# --- atomicas --------------------------------------------------------------
+# --- atomic ---
 
 
 def _pushed(ctx: TaskContext) -> None:
-    """Corta si hay algo que el tag no lleva: cambios sin commitear o commits sin empujar.
+    """Stop if the tag would not carry something.
 
-    El CI construye el commit del tag en GitHub, no esta carpeta.
+    That is, uncommitted changes or unpushed commits: CI builds the
+    tag's commit on GitHub, not this folder.
     """
     _ensure_git(ctx)
     branch = _current_branch(ctx)
@@ -89,7 +94,10 @@ def _pushed(ctx: TaskContext) -> None:
 
 
 def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
-    """La corrida de `release.yml` que disparo el tag. GitHub la crea unos segundos despues."""
+    """Return the `release.yml` run the tag fired.
+
+    GitHub creates it a few seconds later.
+    """
     for _ in range(_APPEARS):
         run = ctx.capture(
             [
@@ -120,7 +128,7 @@ def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
 
 
 def _watch(ctx: TaskContext, repo: str, tag: str) -> None:
-    """Espera a que `release.yml` termine, y corta si no termina bien."""
+    """Wait for `release.yml`, and stop if it does not end well."""
     gh = _gh()
     run = _run_id(ctx, gh, repo, tag)
     ctx.info(f"{WORKFLOW} corre en https://github.com/{repo}/actions/runs/{run}")
@@ -145,10 +153,10 @@ def _watch(ctx: TaskContext, repo: str, tag: str) -> None:
 
 
 def create_tag(ctx: TaskContext, part: str = "patch") -> str:
-    """Crea el tag que sigue al ultimo de origin, lo empuja y espera a `release.yml`.
+    """Create the tag after origin's last, push it and wait for CI.
 
-    El numero sale de los tags de origin y no de los locales: un tag que quedo
-    sin empujar no adelanta la version.
+    The number comes from origin's tags and not the local ones: an
+    unpushed tag does not move the version forward.
     """
     _pushed(ctx)
     repo, _ = _repo(ctx.root)
@@ -163,11 +171,13 @@ def create_tag(ctx: TaskContext, part: str = "patch") -> str:
 
 
 def sign_release(ctx: TaskContext, tag: str) -> None:
-    """Firma el `.sha256` del release con `VPS_KEY_NAME` y sube la firma.
+    """Sign the release's `.sha256` with `VPS_KEY_NAME`.
 
-    `-n deploy` es el espacio de nombres que comprueba `deploy.py`: separa esta
-    firma de cualquier otro uso de la llave. Un release que ya tiene su firma no
-    se vuelve a firmar.
+    Upload the signature.
+
+    `-n deploy` is the namespace `deploy.py` checks: it separates this
+    signature from any other use of the key. A release that has its
+    signature is not signed again.
     """
     repo, app = _repo(ctx.root)
     gh = _gh()
@@ -205,11 +215,12 @@ def sign_release(ctx: TaskContext, tag: str) -> None:
 
 
 def deploy_release(ctx: TaskContext, tag: str) -> None:
-    """Corre en el VPS `deploy.py` con el tag, desde la cuenta que administra.
+    """Run `deploy.py` on the VPS with the tag, from the admin account.
 
-    `deploy.py` baja el release, comprueba la firma, migra, cambia `current` y
-    espera a que la salud responda; si no responde, vuelve a la version anterior
-    cuando no hubo migraciones.
+    `deploy.py` downloads the release, checks the signature, migrates,
+    switches `current` and waits for health to answer; if it does not
+    answer, it goes back to the previous version when there were no
+    migrations.
     """
     _, app = _repo(ctx.root)
     _deploy(ctx, _admin(ctx), app, tag)
@@ -231,11 +242,11 @@ def _deploy(ctx: TaskContext, entry: Access, app: str, tag: str) -> None:
 
 
 def deploy_latest(ctx: TaskContext) -> str:
-    """Despliega el ultimo release publicado, si esta firmado: el primer despliegue
-    de «Configurar VPS».
+    """Deploy the last published release, if signed.
 
-    Si `current` ya es ese release no hace nada, para que la compuesta se pueda
-    volver a correr: `deploy.py` no instala dos veces la misma version.
+    It is the first deployment of «Configurar VPS». If `current` is
+    already that release it does nothing, so the composite can run
+    again: `deploy.py` does not install the same version twice.
     """
     _, app = _repo(ctx.root)
     last = _latest(ctx)
@@ -256,7 +267,7 @@ def deploy_latest(ctx: TaskContext) -> str:
     return tag
 
 
-# --- botones ---------------------------------------------------------------
+# --- buttons ---
 
 
 def publish_release(
@@ -267,10 +278,10 @@ def publish_release(
     sign: bool = True,
     deploy: bool = True,
 ) -> str:
-    """Tag → `release.yml` → firma → `deploy.py`.
+    """Tag, `release.yml`, signature, then `deploy.py`.
 
-    Sin «Crear tag», firma y despliega el ultimo release publicado: es lo que
-    hace falta para retomar una publicacion que corto despues del CI.
+    Without «Crear tag», it signs and deploys the last published
+    release: that resumes a publication cut after CI.
     """
     if tag:
         ctx.step("tag")
@@ -288,8 +299,10 @@ def publish_release(
 
 
 def deploy_version(ctx: TaskContext, version: str = "") -> None:
-    """Instala un release ya firmado. `deploy.py` no instala una version que siga
-    en `/srv/<app>/releases/`, donde quedan las cinco mas nuevas.
+    """Install a signed release.
+
+    `deploy.py` does not install a version that remains in
+    `/srv/<app>/releases/`, where the newest five stay.
     """
     if not version:
         raise TaskError("Elige la versión que se despliega.")
@@ -297,5 +310,6 @@ def deploy_version(ctx: TaskContext, version: str = "") -> None:
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("publish_release", publish_release)
     registry.bind("deploy_version", deploy_version)

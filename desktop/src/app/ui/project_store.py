@@ -1,3 +1,21 @@
+"""The set of repositories open as top-level tabs.
+
+The first time Consola opens there are none: the bar starts empty and
+the first is added with «+». From then on the whole list is saved, path
+and name, so the UI starts as it was left: adding, removing and
+reordering survive a restart.
+
+**This DOES go in QSettings**, unlike each action's parameters, which
+live in the repo (`ui/params_store.py`). The rule is whose decision it
+is: which repos are open in tabs is a decision of THIS machine, since a
+repo cannot know it is on your bar, while how the steps of an action
+stayed checked is a decision about THAT repo.
+
+**Color does not go here**: it is a decision about THAT repo, so it
+lives in its `.consola/params.json` and travels with it. It is read on
+load and attached to each `Project` (`_resolve_themes`).
+"""
+
 from __future__ import annotations
 
 import json
@@ -9,43 +27,28 @@ from PySide6.QtCore import QSettings
 from app.core.projects import Project
 from app.ui import palettes, params_store
 
-"""
-Conjunto de repositorios abiertos como pestanas de nivel superior.
-
-La primera vez que se abre Consola no hay ninguno: la barra arranca vacia y el
-primero se anade con «+». A partir de ahi se guarda la lista entera —ruta y
-nombre— para que la UI arranque como quedo: anadir, quitar y reordenar
-sobreviven al reinicio.
-
-**Esto SI va en QSettings**, a diferencia de los parametros de cada accion, que
-viven en el repo (`ui/params_store.py`). La regla es de quien es la decision:
-que repos tengo abiertos en pestanas es una decision de ESTA maquina —un repo
-no puede saber que esta en tu barra— mientras que como quedaron marcados los
-pasos de «Actualizar remoto» es una decision sobre ESE repo.
-
-**El color no va aca**: es una decision sobre ESE repo, asi que vive en su
-`.consola/params.json` y viaja con el. Aca se lee al cargar y se le pega a
-cada `Project` (`_resolve_themes`).
-"""
-
 _KEY = "projects/list"
 _LEGACY_ORDER_KEY = "projects/order"
 
 
 def identity(path: str) -> str:
-    """Clave estable de un repo: su ruta normalizada.
+    """Return a repo's stable key: its normalized path.
 
-    Es la identidad que se usa para todo lo indexado por repo —el espacio de
-    trabajo abierto (`ui/main_window.py`), el cache de parametros
-    (`ui/params_store.py`)— porque la misma carpeta escrita con barras al reves,
-    con otra caja o con separador final tiene que contar como un solo repo.
+    It is the identity of everything indexed by repo, such as the open
+    workspace (`ui/main_window.py`) and the parameter cache
+    (`ui/params_store.py`), because the same folder written with
+    reversed slashes, another case or a final separator has to count as
+    one repo.
     """
     return os.path.normcase(os.path.normpath(path or ""))
 
 
 def display_path(path: str) -> str:
-    """La forma en que se guarda y se muestra: barras hacia adelante, sin
-    separador final. Normaliza sin destruir las mayusculas que el usuario ve.
+    """Return how a path is saved and shown.
+
+    Forward slashes, no final separator.
+
+    It normalizes without destroying the capitals the user sees.
     """
     return os.path.normpath(path or "").replace(os.sep, "/")
 
@@ -55,7 +58,10 @@ def _to_dict(p: Project) -> dict[str, Any]:
 
 
 def _from_dict(d: dict[str, Any]) -> Project | None:
-    """Una entrada de la lista guardada. El tema llega despues, del repo."""
+    """Return an entry of the saved list.
+
+    The theme comes later, from the repo.
+    """
     try:
         path = display_path(str(d["path"]))
     except (KeyError, TypeError):
@@ -66,13 +72,13 @@ def _from_dict(d: dict[str, Any]) -> Project | None:
 
 
 def _resolve_themes(projects: list[Project]) -> list[Project]:
-    """Le pone a cada repo el tema que tiene guardado, o el primero libre.
+    """Give each repo its saved theme, or the first free one.
 
-    Sin tema guardado hay dos casos y los dos son lo mismo: un repo que se
-    abrio antes de que hubiera temas, y uno recien clonado que todavia no
-    tiene `.consola`. En los dos se elige como al anadirlo con «+» —el primer
-    tema que ningun otro repo abierto este usando— y se guarda en el acto, asi
-    que el proximo arranque ya lo encuentra.
+    Without a saved theme there are two cases and both are the same: a
+    repo opened before themes existed, and a freshly cloned one with no
+    `.consola` yet. Both choose as when adding with «+», the first theme
+    no other open repo uses, and it is saved at once so the next start
+    finds it.
     """
     used: list[str] = []
     for p in projects:
@@ -86,11 +92,11 @@ def _resolve_themes(projects: list[Project]) -> list[Project]:
 
 
 def dedupe(projects: list[Project]) -> list[Project]:
-    """Un repo por carpeta, el primero gana.
+    """Keep one repo per folder; the first wins.
 
-    Dos pestanas de la misma carpeta serian dos espacios de trabajo escribiendo
-    el mismo `.consola/params.json`, y el ultimo en guardar le pisaria lo
-    elegido al otro sin que se note.
+    Two tabs of the same folder would be two workspaces writing the same
+    `.consola/params.json`, and the last to save would silently
+    overwrite the other's choices.
     """
     seen: set[str] = set()
     unique = []
@@ -104,7 +110,7 @@ def dedupe(projects: list[Project]) -> list[Project]:
 
 
 def load() -> list[Project]:
-    """Los repos guardados, en orden. Vacia la primera vez."""
+    """Return the saved repos in order. Empty the first time."""
     raw = QSettings().value(_KEY, "")
     if not raw:
         return []
@@ -120,12 +126,13 @@ def load() -> list[Project]:
 
 
 def save(projects: list[Project]) -> None:
+    """Save the list of open repos."""
     QSettings().setValue(
         _KEY, json.dumps([_to_dict(p) for p in dedupe(projects)], ensure_ascii=False)
     )
 
 
 def clear() -> None:
-    """Deja la barra vacia, como la primera vez."""
+    """Leave the bar empty, like the first time."""
     QSettings().remove(_KEY)
     QSettings().remove(_LEGACY_ORDER_KEY)

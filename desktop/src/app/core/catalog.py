@@ -1,7 +1,9 @@
+"""The catalog: the shape of each button."""
+
 from __future__ import annotations
 
 from dataclasses import replace
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core import android, cache, canone, files, icons, shots, ssh, targets, toolchain, vps
@@ -12,89 +14,103 @@ from app.core.registry import AxisDef, Capability, Facet, Step, registry
 
 _VPS_KEYS = {"VPS_IP", "VPS_USER", "VPS_KEY_NAME", "VPS_DEPLOY_DIR"}
 
-# Las tres cosas que de verdad se eligen de una system image. El id del SDK las
-# trae permutadas en un solo paquete
-# (`system-images;android-36;google_apis;x86_64`), y el catalogo publica varios
-# cientos: una lista con todas es la misma pregunta hecha trescientas veces.
-# Declaradas asi, el panel dibuja tres listas cortas que se recortan entre si
-# —cambiar la version deja solo las variantes que existen para esa version— y
-# el valor que se guarda sigue siendo el paquete entero.
+# The three things truly chosen of a system image. The SDK's id brings
+# them permuted in one package
+# (`system-images;android-36;google_apis;x86_64`), and the catalog
+# publishes several hundred: a list with all of them is the same
+# question asked three hundred times. Declared this way, the panel draws
+# three short lists trimming each other, so changing the version leaves
+# only the variants existing for it, and the saved value is still the
+# whole package.
 _IMAGE_FACETS = (
     Facet("api", "Versión", 1),
     Facet("variant", "Variante", 2),
     Facet("abi", "Arquitectura", 3),
 )
 
-# El eje 'local'/'remoto' se repite igual en una docena de botones (DB,
-# scripts de setup): una sola tabla de etiquetas para que el panel no muestre
-# los valores crudos en minúscula.
+# The 'local'/'remote' axis repeats alike on a dozen buttons: one table
+# of labels so the panel does not show raw lower-case values.
 _SCOPE_LABELS = {"local": "Local", "remote": "Remoto"}
 
-# Todo boton con este eje conecta a la base (`db.credentials`): usuario, base y
-# contrasena en los dos ambitos, y en remoto ademas lo que abre el SSH.
+# Every button with this axis connects to the database
+# (`db.credentials`): user, database and password on both scopes, and on
+# remote also what opens SSH.
 _DB_KEYS = {"DB_USER", "DB_NAME", "DB_PASSWORD"}
-_SCOPE_AXIS = lambda: AxisDef(
-    "scope",
-    ["local", "remote"],
-    "scope",
-    labels=_SCOPE_LABELS,
-    requires_env={"local": _DB_KEYS, "remote": _DB_KEYS | {"VPS_IP", "VPS_USER", "VPS_KEY_NAME"}},
-)
 
-# Que unidad systemd toca la accion. En el mismo VPS corren tres servicios —el
-# del repo, coturn y Caddy— y los tres se reinician, se paran y se leen igual. Es un eje y no tres botones nuevos por lo
-# mismo que `action` es un eje y no nueve botones: lo unico que cambia entre
-# ellos es un nombre.
+
+def _scope_axis() -> AxisDef:
+    return AxisDef(
+        "scope",
+        ["local", "remote"],
+        "scope",
+        labels=_SCOPE_LABELS,
+        requires_env={
+            "local": _DB_KEYS,
+            "remote": _DB_KEYS | {"VPS_IP", "VPS_USER", "VPS_KEY_NAME"},
+        },
+    )
+
+
+# Which systemd unit the action touches. Three services run on the same
+# VPS, the repo's, coturn and Caddy, and all three restart, stop and
+# read alike. It is an axis and not three new buttons for the same
+# reason `action` is an axis and not nine buttons: all that changes
+# between them is a name.
 #
-# Los valores no se enumeran: salen de preguntarle al VPS de ESTE repo cuales de
-# las unidades de canone existen (`VPS_SERVICES`). Ofrecerlas todas siempre era
-# ofrecer reiniciar un coturn que no esta instalado, y enterarse recien al apretar.
-_SERVICE_AXIS = lambda: AxisDef(
-    "service", [], "scope", label="Servicio", default=vps.MAIN_SERVICE, source=VPS_SERVICES
-)
+# Values are not enumerated: they come from asking THIS repo's VPS which
+# of canone's units exist (`VPS_SERVICES`). Always offering them all
+# offered restarting a coturn that is not installed, finding out only on
+# pressing.
+def _service_axis() -> AxisDef:
+    return AxisDef(
+        "service", [], "scope", label="Servicio", default=vps.MAIN_SERVICE, source=VPS_SERVICES
+    )
 
-# `host` es del uvicorn que se levanta en ESTA maquina: escuchar en todas las
-# interfaces (para probar desde el telefono) o solo en loopback. Los valores son
-# los que entiende uvicorn; lo que se lee va en `labels`, porque `0.0.0.0` no es
-# una frase.
-_HOST_AXIS = lambda: AxisDef(
-    "host",
-    ["0.0.0.0", "127.0.0.1"],
-    "scope",
-    label="Escucha en",
-    labels={"0.0.0.0": "Toda la red", "127.0.0.1": "Solo esta máquina"},
-)
+
+# `host` belongs to the uvicorn brought up on THIS machine: listen on
+# all interfaces, to try from the phone, or only loopback. Values are
+# what uvicorn understands; what reads goes in `labels`, because
+# `0.0.0.0` is no phrase.
+def _host_axis() -> AxisDef:
+    return AxisDef(
+        "host",
+        ["0.0.0.0", "127.0.0.1"],
+        "scope",
+        label="Escucha en",
+        labels={"0.0.0.0": "Toda la red", "127.0.0.1": "Solo esta máquina"},
+    )
 
 
 def for_project(cap: Capability, root: Path | str | None) -> Capability:
-    """La capacidad tal como se ve con este repo abierto.
+    """Return the capability as seen with this repo open.
 
-    Los ejes descubiertos (ADR-0006) no pueden declararse en `load_catalog()`:
-    el catalogo se arma una vez al arrancar y el repo cambia con el selector.
-    Aca se les llenan los valores mirando el repo, justo antes de dibujar el
-    panel — un repo con tres SPA da tres valores, uno con una sola da uno, y un
-    subproyecto nuevo aparece sin tocar el catalogo.
+    Discovered axes (ADR-0006) cannot be declared in `load_catalog()`:
+    the catalog builds once at startup and the repo changes with the
+    selector. Here their values fill by looking at the repo, right
+    before drawing the panel: a repo with three SPAs gives three values,
+    one with one gives one, and a new subproject appears without
+    touching the catalog.
 
-    Lo mismo vale para los pasos: los que exigen una caracteristica que el repo
-    no tiene (`Step.requires_repo`) no se dibujan. No van en ambar como los que
-    esperan una clave — ahi falta un dato que se puede cargar; aca falta el
-    objeto sobre el que actuar, y la casilla no llevaria a ninguna parte.
+    The same holds for steps: those requiring a feature the repo lacks
+    (`Step.requires_repo`) do not draw. They do not go amber like those
+    waiting for a key: there a datum that can be loaded is missing; here
+    the object to act on is, and the checkbox would lead nowhere.
 
-    Los pasos se caen de la COPIA que mira el panel, no del catalogo: quien
-    arma los kwargs es la capacidad registrada (`TabPanel._run` la busca por id)
-    y un paso que el panel no dibujo no viene marcado en el payload, o sea que
-    llega a la funcion en False. El paso no queda "sin decidir": queda apagado,
-    que es lo correcto.
+    Steps drop from the COPY the panel looks at, not the catalog: the
+    registered capability builds the kwargs (`TabPanel._run` finds it by
+    id), and a step the panel did not draw is not checked in the
+    payload, so it reaches the function as False. That is right: the
+    step stays off.
 
-    Devuelve la misma capacidad cuando no hay nada que descubrir, asi que no
-    cuesta nada llamarla para todas.
+    It returns the same capability when there is nothing to discover, so
+    calling it for all costs nothing.
     """
     if not root:
         return cap
     has_steps = any(s.requires_repo for s in cap.steps)
     if not has_steps and not any(a.is_discovered for a in cap.axes):
         return cap
-    # `Project.path` es un str; el descubrimiento trabaja con rutas.
+    # `Project.path` is a str; discovery works with paths.
     folder = Path(root)
     if not folder.is_dir():
         return cap
@@ -107,7 +123,10 @@ def for_project(cap: Capability, root: Path | str | None) -> Capability:
 
 
 def repo_features(root: Path | str | None) -> frozenset[str]:
-    """Que caracteristicas tiene este repo (`core/targets.py::features`)."""
+    """Return which features this repo has.
+
+    See `core/targets.py::features`.
+    """
     if not root:
         return frozenset()
     folder = Path(root)
@@ -115,12 +134,12 @@ def repo_features(root: Path | str | None) -> frozenset[str]:
 
 
 def applicable_ids(root: Path | str | None) -> set[str]:
-    """Los botones que tienen sentido en este repo.
+    """Return the buttons that make sense in this repo.
 
-    Los que no —"Migrar" en un repo sin migraciones— se ocultan enteros en vez
-    de quedar en ambar: no les falta configuracion, les falta sobre que actuar
-    (ADR-0007). Un repo sin nada abierto no oculta nada:
-    los menus ya estan deshabilitados por completo.
+    Those that do not, such as «Migrar» in a repo without migrations,
+    hide whole instead of staying amber: they lack no configuration but
+    something to act on (ADR-0007). With nothing open nothing hides: the
+    menus are already fully disabled.
     """
     if not root:
         return {cap.id for cap in registry.get_all()}
@@ -128,37 +147,42 @@ def applicable_ids(root: Path | str | None) -> set[str]:
     return {cap.id for cap in registry.get_all() if cap.applies_to(features)}
 
 
-# --- catalogos que se consultan -------------------------------------------
-# Un eje `discover` se llena mirando el repo abierto (`core/targets.py`). Estos
-# se llenan preguntandole a algo: al SDK, que dispositivos y que maquinas
-# virtuales hay; al VPS del repo, cuales de los servicios que Consola administra
-# existen ahi. Son la misma idea de ADR-0006 contra una fuente que no es la
-# carpeta — y por eso viven aca, al lado de `for_project`, y no en el catalogo
-# de botones.
+# --- catalogs that are queried ---
 #
-# La diferencia entre las dos familias es a quien se le pregunta, y con ella
-# cuanto tarda: el SDK es local, el VPS es una vuelta de SSH. Por eso las dos se
-# resuelven fuera del hilo de la interfaz (`ui/params_panel.py::AxesLoader`) y
-# las dos se cachean.
+# A `discover` axis fills by looking at the open repo
+# (`core/targets.py`). These fill by asking something: the SDK, which
+# devices and virtual machines exist; the repo's VPS, which of the
+# services Consola administers exist there. They are the same idea as
+# ADR-0006 against a source that is not the folder, so they live here,
+# next to `for_project`, and not in the catalog of buttons.
+#
+# The difference between the two families is who is asked, and with it
+# how long it takes: the SDK is local, the VPS an SSH round trip. So
+# both resolve off the interface thread
+# (`ui/params_panel.py::AxesLoader`) and both are cached.
 
-ANDROID_DEVICES = "android_devices"  # catalogo de dispositivos
-ANDROID_IMAGES = "android_images"  # catalogo de maquinas publicadas
-ANDROID_IMAGES_INSTALLED = "android_installed"  # maquinas ya instaladas
-ANDROID_AVDS = "android_avds"  # AVD ya creados
-ANDROID_RUNNING = "android_running"  # emuladores vivos ahora mismo
-VPS_SERVICES = "vps_services"  # servicios systemd que existen en el VPS
-BACKUP_FILES = "backup_files"  # respaldos ya guardados de este repo
-RELEASES = "releases"  # releases firmados del repo en GitHub
-SHOTS_APPS = "shots_apps"  # lo que la camara del repo dice que captura:
-SHOTS_THEMES = "shots_themes"  # sus apps, sus temas y sus idiomas (ADR-0054)
+ANDROID_DEVICES = "android_devices"  # device catalog
+ANDROID_IMAGES = "android_images"  # catalog of published machines
+# machines already installed
+ANDROID_IMAGES_INSTALLED = "android_installed"
+ANDROID_AVDS = "android_avds"  # AVDs already created
+ANDROID_RUNNING = "android_running"  # emulators alive right now
+VPS_SERVICES = "vps_services"  # systemd services existing on the VPS
+BACKUP_FILES = "backup_files"  # backups of this repo already saved
+RELEASES = "releases"  # the repo's signed releases on GitHub
+# what the repo's camera says it captures: its apps, themes and
+# languages (ADR-0054)
+SHOTS_APPS = "shots_apps"
+SHOTS_THEMES = "shots_themes"
 SHOTS_LANGUAGES = "shots_languages"
 _SHOTS_AXES = {SHOTS_APPS: "apps", SHOTS_THEMES: "themes", SHOTS_LANGUAGES: "languages"}
-ICON_APPS = "icon_apps"  # apps del repo que toman su icono del logo
+# the repo's apps that take their icon from the logo
+ICON_APPS = "icon_apps"
 
-# Lo instalado y lo creado cambian mientras Consola esta abierta, asi que se
-# cachean por un minuto y nada mas: alcanza para no repetir la consulta al abrir
-# tres pestanas seguidas, y no alcanza para mentir despues de una instalacion.
-# Los dos catalogos grandes usan el mes por defecto de `core/cache.py`.
+# What is installed and created changes while Consola is open, so they
+# cache for a minute and no more: enough not to repeat the query on
+# opening three tabs in a row, and not enough to lie after an install.
+# The two large catalogs use the month default of `core/cache.py`.
 _FRESH = 60.0
 
 
@@ -169,10 +193,10 @@ def queried_values(
     config: Config | None = None,
     root: Path | str | None = None,
 ) -> tuple[list[str], dict[str, str]]:
-    """Los valores de un eje consultado, con sus etiquetas legibles.
+    """Return a queried axis's values, with their readable labels.
 
-    A source that fails raises `TaskError`, and the panel shows why in place of the
-    axis: an empty axis would hide it (ADR-0076).
+    A source that fails raises `TaskError`, and the panel shows why in
+    place of the axis: an empty axis would hide it (ADR-0076).
     """
     if source == VPS_SERVICES:
         return _vps_services(config, root, refresh=refresh)
@@ -203,20 +227,22 @@ def queried_values(
         )
         return list(names), {}
     if source == ANDROID_RUNNING:
-        # Nunca cacheado: es estado, no catalogo. Una respuesta vieja aca
-        # ofreceria apagar un emulador que ya no existe.
+        # Never cached: it is state, not catalog. An old answer here
+        # would offer stopping an emulator that no longer exists.
         alive = android.running(sdk)
         return list(alive), {s: f"{n or '?'}  ({s})" for s, n in alive.items()}
     raise TaskError(f"Fuente desconocida: {source}")
 
 
 def _image_labels(images: list[android.Image]) -> dict[str, str]:
-    """Las etiquetas de un eje de system images: el paquete entero y sus partes.
+    """Return the labels of a system image axis.
 
-    Las dos en la misma tabla porque `AxisDef.text_of` es una sola, y los ids no
-    se pisan: un paquete siempre empieza con `system-images;`. El eje se dibuja
-    por caracteristica (`_IMAGE_FACETS`), pero el paquete entero se sigue
-    leyendo en el resumen de la corrida y en la lista de 'Liberar disco'.
+    Whole package and parts.
+
+    Both in the same table because `AxisDef.text_of` is one, and the ids
+    do not clash: a package always starts with `system-images;`. The
+    axis draws by feature (`_IMAGE_FACETS`), but the whole package still
+    reads in the run's summary and the «Liberar disco» list.
     """
     return {**{i.package: i.label for i in images}, **android.facet_labels(images)}
 
@@ -224,14 +250,15 @@ def _image_labels(images: list[android.Image]) -> dict[str, str]:
 def _vps_services(
     config: Config | None, root: Path | str | None, *, refresh: bool = False
 ) -> tuple[list[str], dict[str, str]]:
-    """Los servicios que existen en el VPS de ESTE repo.
+    """Return the services that exist on THIS repo's VPS.
 
-    Sin configuracion no hay a quien preguntarle, y devolverlos todos seria
-    ofrecer coturn en un repo que todavia no tiene ni IP: el eje queda vacio y
-    el panel lo dice, igual que cuando no hay AVD creados.
+    Without configuration there is nobody to ask, and returning them all
+    would offer coturn in a repo that has no IP yet: the axis stays
+    empty and the panel says so, as when no AVDs exist.
 
-    La cache es por host y no global: dos repos abiertos son casi siempre dos
-    VPS, y compartir la respuesta le mostraria a uno los servicios del otro.
+    The cache is per host and not global: two open repos are almost
+    always two VPSs, and sharing the answer would show one the other's
+    services.
     """
     if config is None or root is None or not config.get("VPS_IP"):
         return [], {}
@@ -250,36 +277,38 @@ def _vps_services(
 def _backup_files(
     config: Config | None, root: Path | str | None
 ) -> tuple[list[str], dict[str, str]]:
-    """Los respaldos ya guardados de este repo, del mas nuevo al mas viejo.
+    """Return this repo's saved backups, newest first.
 
-    **Sin cache**, por lo mismo que `ANDROID_RUNNING`: es estado, no catalogo.
-    Una lista vieja ofreceria restaurar un dump que la rotacion acaba de borrar.
+    **Uncached**, like `ANDROID_RUNNING`: it is state, not catalog. An
+    old list would offer restoring a dump rotation just deleted.
 
-    Del mas nuevo al mas viejo para que el que queda preseleccionado sea el
-    ultimo respaldo, que es el que se quiere casi siempre.
+    Newest first so the preselected one is the last backup, almost
+    always what is wanted.
 
-    Es el unico eje consultado que necesita la raiz del repo ademas de la
-    configuracion: la carpeta puede ser relativa a ella. Los demas preguntan al
-    SDK o al VPS, que no dependen de donde este el repo.
+    It is the only queried axis needing the repo's root besides the
+    configuration: the folder may be relative to it. The others ask the
+    SDK or the VPS, which do not depend on where the repo is.
     """
     if config is None or not root:
         return [], {}
-    from app.core.tasks.database import list_backups  # circular: tasks importa el registro
+    # circular: tasks imports the registry
+    from app.core.tasks.database import list_backups
 
     values = list_backups(config, Path(root))
     return [p.name for p in values], {p.name: _backup_label(p) for p in values}
 
 
 def _releases(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
-    """Los releases del repo que traen su firma, del mas nuevo al mas viejo.
+    """Return the repo's releases with their signature, newest first.
 
-    Sin cache, por lo mismo que `BACKUP_FILES`: un release se firma mientras
-    Consola esta abierta. Si GitHub no contesta, el `TaskError` sube con lo que
-    dijo `gh`: un eje vacio diria que no hay releases.
+    Uncached, like `BACKUP_FILES`: a release gets signed while Consola
+    is open. If GitHub does not answer, the `TaskError` rises with what
+    `gh` said: an empty axis would say there are no releases.
     """
     if not root:
         return [], {}
-    from app.core.tasks.vps_release import releases  # circular: tasks importa el registro
+    # circular: tasks imports the registry
+    from app.core.tasks.vps_release import releases
 
     _, app = canone.origin(Path(root))
     signed = canone.signed(app, releases(Path(root)))
@@ -290,12 +319,12 @@ def _releases(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
 
 
 def _icon_apps(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
-    """Las apps que dicen donde va su icono (ADR-0055).
+    """Return the apps that say where their icon goes (ADR-0055).
 
-    Mira el repo y no una herramienta, pero no alcanza con el tipo de la app:
-    una SPA que importa el logo por su cuenta (la landing de vettore) no lleva
-    `favicon.svg`, y ofrecerla marcada era fallar en cada corrida hasta que
-    alguien la desmarcara. Sin cache: es leer dos archivos por app.
+    It looks at the repo and no tool, but the app's type is not enough:
+    an SPA importing the logo by itself carries no `favicon.svg`, and
+    offering it checked meant failing each run until someone unchecked
+    it. Uncached: it is reading two files per app.
     """
     if not root or not Path(root).is_dir():
         return [], {}
@@ -305,15 +334,16 @@ def _icon_apps(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
 def _shots_axis(
     source: str, config: Config | None, root: Path | str | None, *, refresh: bool = False
 ) -> tuple[list[str], dict[str, str]]:
-    """Un eje de la camara, con lo que ella dice que captura (ADR-0054).
+    """Return a camera axis, with what it says it captures (ADR-0054).
 
-    Preguntarle es arrancar node, y los tres ejes preguntan lo mismo: se cachea
-    por repo un minuto, como los AVD. Cambiar la camara se ve al minuto o con
-    Recargar.
+    Asking it means starting node, and the three axes ask the same: it
+    caches per repo for a minute, like AVDs. A changed camera shows in a
+    minute or with Reload.
     """
     if config is None or not root:
         return [], {}
-    from app.core.tasks.images import camera_supported  # circular: tasks importa el registro
+    # circular: tasks imports the registry
+    from app.core.tasks.images import camera_supported
 
     key = "".join(c if c.isalnum() else "-" for c in str(Path(root).resolve()))
     declared = cache.cached(
@@ -328,30 +358,38 @@ def _shots_axis(
 
 
 def _backup_label(path: Path) -> str:
-    """`2026-09-23 14:30  ·  12,4 MB`. El valor real es el nombre del archivo,
-    que lleva el sello pegado y sin separar: ilegible en una lista.
+    """Return `2026-09-23 14:30  ·  12,4 MB` for a backup.
+
+    The real value is the file's name, which carries the stamp stuck on
+    and unseparated: unreadable in a list.
     """
     parts = path.stem.rsplit("-", 2)
     try:
-        when = datetime.strptime("-".join(parts[-2:]), "%Y%m%d-%H%M%S")
+        when = (
+            datetime.strptime("-".join(parts[-2:]), "%Y%m%d-%H%M%S")
+            .replace(tzinfo=UTC)
+            .astimezone()
+        )
     except ValueError:
         return path.name
     return f"{when:%Y-%m-%d %H:%M}  ·  {files.human_size(files.size_of(path))}"
 
 
 def forget_machine_cache() -> None:
-    """Olvida lo que cambia al instalar, crear o borrar. La llama la UI cuando
-    termina una tarea de maquina: el proximo panel ve el estado nuevo.
+    """Forget what changes on installing, creating or deleting.
+
+    The UI calls it when a machine task ends: the next panel sees the
+    new state.
     """
     cache.forget("android-installed")
     cache.forget("android-avds")
 
 
-# Valores por defecto de los SDK. Viven aca, con el resto de la forma de los
-# botones, y `core/tasks/utils.py` los importa para usar el mismo cuando se le
-# llama sin parametros: asi el panel y la funcion no pueden discrepar.
-# En Linux se usan las rutas convencionales bajo el home; en Windows, las
-# unidades que ya usaban los scripts.
+# The SDKs' default values. They live here, with the rest of the
+# buttons' shape, and `core/tasks/utils.py` imports them to use the same
+# when called without parameters: so the panel and the function cannot
+# disagree. Linux uses the conventional paths under home; Windows, fixed
+# drives.
 ANDROID_DIR_DEFAULT = HOST.android_dir_default
 FLUTTER_DIR_DEFAULT = HOST.flutter_dir_default
 API_LEVEL_DEFAULT = "36"
@@ -369,11 +407,9 @@ ANDROID_PACKAGE_AXES = [
     AxisDef("build_tools", [BUILD_TOOLS_DEFAULT], "field", label="Build-tools"),
 ]
 
-# Los ejes de 'clean_artifacts'. Los valores son las claves que entiende
-# `core/tasks/utils.py::find_artifacts` y las etiquetas van aparte, en `labels`:
-# antes los valores ERAN el texto visible y `ui/task_adapters.py` mantenia dos
-# tablas para traducirlos de vuelta, que es exactamente la duplicacion que el
-# contrato de nombres saca (ADR-0003).
+# The axes of 'clean_artifacts'. Values are the keys
+# `core/tasks/utils.py::find_artifacts` understands and labels go apart,
+# in `labels`: that is the naming contract (ADR-0003).
 FAMILY_AXIS_VALUES = ["python", "gradle", "flutter", "crash"]
 FAMILY_AXIS_LABELS = {
     "python": "Python",
@@ -389,32 +425,37 @@ HEAVY_AXIS_LABELS = {
     "dart_tool": ".dart_tool",
 }
 
-# Solo el ejecutable sube la version del manifiesto (ADR-0059). Se muestran de
-# mayor a menor, y el default real es `patch`.
+# Only the executable bumps the manifest's version (ADR-0059). They show
+# from major to minor, and the real default is `patch`.
 SEMVER_MODES = ["major", "minor", "patch", "none"]
-_SEMVER_AXIS = lambda: AxisDef("bump_mode", SEMVER_MODES, "scope", label="Bump", default="patch")
 
-# Solo las que esta maquina puede compilar: ofrecer Windows en Linux seria
-# ofrecer una casilla que siempre termina en error. Cada una trae su carpeta de
-# salida de `config.env`, que solo aparece en pantalla si la plataforma esta
-# marcada.
-_PLATFORMS_AXIS = lambda: AxisDef(
-    "platforms",
-    toolchain.host_platforms(),
-    "checks",
-    select="many",
-    label="Plataformas",
-    defaults={"apk"},
-    labels={k: p.label for k, p in toolchain.BUILD_PLATFORMS.items()},
-    uses_env={k: {toolchain.out_key(k)} for k in toolchain.BUILD_PLATFORMS},
-)
 
-# 'Compilar binario' no es obligatorio: el script original tenia
-# `BUILD_BINARY=false` para subir el ejecutable que ya estaba en `dist/` sin
-# volver a empaquetarlo, para retomar un `scp` cortado. 'Checksum SHA-256' es
-# propio del binario: un ejecutable que alguien descarga no se puede mirar por
-# dentro, y el hash es lo unico que deja comprobar que lo bajado es lo que se
-# publico.
+def _semver_axis() -> AxisDef:
+    return AxisDef("bump_mode", SEMVER_MODES, "scope", label="Bump", default="patch")
+
+
+# Only those this machine can compile: offering Windows on Linux would
+# be offering a checkbox that always ends in error. Each brings its
+# output folder from `config.env`, which only appears on screen if the
+# platform is checked.
+def _platforms_axis() -> AxisDef:
+    return AxisDef(
+        "platforms",
+        toolchain.host_platforms(),
+        "checks",
+        select="many",
+        label="Plataformas",
+        defaults={"apk"},
+        labels={k: p.label for k, p in toolchain.BUILD_PLATFORMS.items()},
+        uses_env={k: {toolchain.out_key(k)} for k in toolchain.BUILD_PLATFORMS},
+    )
+
+
+# «Compilar binario» is not required: uploading the executable already
+# in `dist/` without packaging again resumes a cut `scp`. «Checksum
+# SHA-256» belongs to the binary: a downloaded executable cannot be
+# looked into, and the hash is all that lets one check that what was
+# downloaded is what was published.
 BUILD_BINARY_STEPS = [
     Step("bump", "Subir número de versión"),
     Step("build", "Compilar binario"),
@@ -422,26 +463,24 @@ BUILD_BINARY_STEPS = [
     Step("upload", "Subir al VPS", default=False, requires_env=_VPS_KEYS),
 ]
 
-# Los ocho pasos de `database.bootstrap_db` son sus ocho booleanos: termina
-# en una base usable, con particiones y datos, no solo en el esquema creado.
+# The eight steps of `database.bootstrap_db` are its eight booleans: it
+# ends in a usable database, with partitions and data, not only the
+# created schema.
 #
-# 'Extensiones' arranca desmarcado porque el paquete de sistema de PostGIS no
-# siempre esta: marcarlo por default prometia una extension que la maquina no
-# tenia.
-# Antes ni siquiera era una casilla y `enable_extensions` corria siempre.
+# «Extensiones» starts unchecked because PostGIS's system package is not
+# always there: checking it by default promised an extension the machine
+# did not have.
 #
-# Cuales extensiones son sale de `DB_EXTENSIONS`, no se deduce. Salian de los
-# `CREATE EXTENSION` de las migraciones del repo y eso no podia funcionar:
-# `alembic revision --autogenerate` nunca escribe uno, asi que la lista salia
-# vacia; y una migracion que si lo declarara es la que necesita la extension ya
-# creada para poder aplicarse. La casilla sigue eligiendo si el paso corre; el
-# QUE no es un parametro de la corrida sino configuracion del repo, y por eso no
-# tiene eje: no cambia entre dos veces que se aprieta el boton.
+# Which extensions comes from `DB_EXTENSIONS`, not deduced: `alembic
+# revision --autogenerate` never writes a `CREATE EXTENSION`, and a
+# migration declaring one needs the extension already created to apply.
+# The checkbox chooses whether the step runs; WHICH is no run parameter
+# but repo configuration, so it has no axis.
 #
-# Las etiquetas son verbos y dicen sobre qué actúan: una casilla que dice
-# 'Migraciones' no distingue entre generarlas y ejecutarlas, y en una compuesta
-# destructiva 'Base de datos' no dice si la crea o la borra. El sustantivo
-# nombra el objeto; la casilla tiene que nombrar el acto.
+# Labels are verbs and say what they act on: a box saying «Migraciones»
+# does not tell generating from running them, and in a destructive
+# composite «Base de datos» does not say whether it creates or deletes.
+# The noun names the object; the checkbox has to name the act.
 BOOTSTRAP_DB_STEPS = [
     Step("role", "Crear rol de la aplicación"),
     Step("database", "Crear base de datos"),
@@ -454,13 +493,11 @@ BOOTSTRAP_DB_STEPS = [
 ]
 
 
-# Los cinco de `database.rebuild_db`, en el orden de la funcion. Reemplazan al
-# `composed_of` que derivaba solo dos casillas (los seeders) para una compuesta
-# de varios parametros: lo destructivo — vaciar el esquema — no se elegia, y es
-# justo lo que uno quiere poder desmarcar.
+# The five of `database.rebuild_db`, in the function's order.
 #
-# Reconstruir ya no reescribe el historial de migraciones: aplica el que hay.
-# Borrarlo y escribir una inicial nueva es `reinit_migrations`, su propio boton.
+# Rebuilding does not rewrite the migration history: it applies what is
+# there. Deleting it and writing a new initial one is
+# `reinit_migrations`, its own button.
 REBUILD_DB_STEPS = [
     Step("drop", "Borrar tablas"),
     Step("migrate", "Ejecutar migraciones", requires_repo=targets.MIGRATIONS),
@@ -470,9 +507,10 @@ REBUILD_DB_STEPS = [
 ]
 
 
-# Los tres de `database.reinit_migrations`. 'Vaciar esquema' es un paso suyo y
-# no una precondicion que haya que recordar: el autogenerate compara contra la
-# base viva, y sobre una base con tablas la "inicial" sale vacia.
+# The three of `database.reinit_migrations`. «Vaciar esquema» is a step
+# of its own and no precondition to remember: autogenerate compares
+# against the live database, and over a database with tables the
+# «initial» comes out empty.
 REINIT_MIGRATIONS_STEPS = [
     Step("drop", "Borrar tablas"),
     Step("reset", "Borrar migraciones"),
@@ -480,18 +518,19 @@ REINIT_MIGRATIONS_STEPS = [
 ]
 
 
-# Los dos pasos de `database.migrate_db`. Antes no eran casillas y `migrate_db`
-# generaba y aplicaba siempre: no habia forma de generar la revision para
-# mirarla antes de aplicar, ni de poner al dia una base atrasada sin autogenerar.
+# The two steps of `database.migrate_db`: generating the revision to
+# look at before applying, or bringing a late database up to date
+# without autogenerating.
 MIGRATE_DB_STEPS = [
     Step("generate", "Generar migración"),
     Step("apply", "Ejecutar migraciones"),
 ]
 
 
-# Configurar VPS, en el orden en que la maquina lo necesita: `install.py` falla
-# sin los paquetes o sin swap, y `credentials.py` lo instala `install.py`. Refrescar
-# la huella arranca desmarcado: hace falta solo despues de reinstalar el VPS.
+# Configure VPS, in the order the machine needs: `install.py` fails
+# without the packages or swap, and `install.py` installs what
+# `credentials.py` needs. Refreshing the fingerprint starts unchecked:
+# it is needed only after reinstalling the VPS.
 BOOTSTRAP_VPS_STEPS = [
     Step("known_host", "Refrescar known_hosts", default=False),
     Step("software", "Instalar paquetes y uv"),
@@ -505,8 +544,8 @@ BOOTSTRAP_VPS_STEPS = [
     Step("deploy", "Desplegar el último release"),
 ]
 
-# Tag → `release.yml` → firma → `deploy.py`. Las claves van por paso: crear el
-# tag no alcanza el VPS, y firmar solo pide la llave.
+# Tag, `release.yml`, signature, `deploy.py`. Keys go per step: creating
+# the tag does not reach the VPS, and signing only asks for the key.
 PUBLISH_RELEASE_STEPS = [
     Step("tag", "Crear tag"),
     Step("sign", "Firmar release", requires_env={"VPS_KEY_NAME"}),
@@ -514,35 +553,33 @@ PUBLISH_RELEASE_STEPS = [
 ]
 
 
-# Los tres launchers del arranque diario, como pasos de una compuesta que NO es
-# una secuencia: se lanzan a la vez, cada uno en su pestana, y ninguno termina
-# (ADR-0011). El orden de esta lista es el de despacho, y el unico
-# que importa es que el backend salga primero: los otros dos esperan su endpoint.
-# Los pasos de abajo existian como parametros de su funcion y no como casillas:
-# el catalogo dejaba que `composed_of` los derivara, y `composed_of` nombra
-# CAPACIDADES (`generate_remote_keypair`), no parametros (`generate`). El panel
-# dibujaba casillas cuyo id no le correspondia a nada y la funcion corria
-# siempre con sus defaults (ADR-0003).
+# The three launchers of the daily start, as steps of a composite that
+# is NOT a sequence: they launch at once, each in its tab, and none ends
+# (ADR-0011). This list's order is the dispatch's, and all that matters
+# is that the backend goes first: the other two wait for its endpoint.
+#
+# The steps below are parameters of their function: `composed_of` names
+# CAPABILITIES (`generate_remote_keypair`), not parameters (`generate`),
+# so steps cannot derive from it (ADR-0003).
 
-# Los dos lados de la clave con la que entra ESTA maquina. Desmarcar el local
-# es el caso de revocar el acceso de una maquina que ya no se tiene enfrente.
+# The two sides of the key THIS machine enters with. Unchecking the
+# local one is the case of revoking access of a machine no longer at
+# hand.
 REVOKE_SSH_STEPS = [
     Step("remote_side", "Borrar clave del VPS"),
     Step("local_side", "Borrar clave de esta máquina"),
 ]
 
-# Los tres pasos de `utils.install_android_sdk`. Era la unica compuesta que
-# recibia la lista de ids en vez de un booleano por paso: ahora recibe los tres
-# booleanos como las otras doce (ADR-0003).
+# The three steps of `utils.install_android_sdk`, one boolean each
+# (ADR-0003).
 INSTALL_ANDROID_SDK_STEPS = [
     Step("tools", "Instalar herramientas de línea de comandos"),
     Step("packages", "Instalar paquetes del SDK"),
     Step("hypervisor", "Instalar aceleración del emulador"),
 ]
 
-# `teardown_db` era `level='C'` sin pasos: sus dos booleanos no tenian casilla y
-# borraba siempre las dos cosas. Borrar la base y dejar el rol es lo que se
-# quiere antes de un bootstrap: el rol lo usan otras bases del mismo servidor.
+# Deleting the database and leaving the role is what is wanted before a
+# bootstrap: other databases on the same server use the role.
 TEARDOWN_DB_STEPS = [
     Step("database", "Borrar base de datos"),
     Step("role", "Borrar rol de la aplicación"),
@@ -557,40 +594,49 @@ SHOT_DESTINATION_LABELS = {
     "social": "Redes sociales",
     "presskit": "Press kit",
 }
-_SHOT_DESTINATIONS_AXIS = lambda: AxisDef(
-    "destinations",
-    list(SHOT_DESTINATION_LABELS),
-    "checks",
-    select="many",
-    label="Destinos",
-    defaults={"landing"},
-    labels=SHOT_DESTINATION_LABELS,
-)
+
+
+def _shot_destinations_axis() -> AxisDef:
+    return AxisDef(
+        "destinations",
+        list(SHOT_DESTINATION_LABELS),
+        "checks",
+        select="many",
+        label="Destinos",
+        defaults={"landing"},
+        labels=SHOT_DESTINATION_LABELS,
+    )
+
 
 SHOT_THEME_LABELS = {"claro": "Claro", "oscuro": "Oscuro"}
 
-# Lo que Consola le pasa a la camara del repo como argumentos (`--apps`,
-# `--themes`, `--languages`, y `--device` con el serial del AVD elegido). Las
-# apps, los temas y los idiomas los ofrece la propia camara (ADR-0054): se
-# ofrece solo lo que sabe capturar. Las pantallas no se eligen: son suyas.
-_SHOT_CAMERA_AXES = lambda: [
-    AxisDef("apps", [], "checks", select="many", label="Apps", source=SHOTS_APPS),
-    AxisDef("themes", [], "checks", select="many", label="Temas", source=SHOTS_THEMES),
-    AxisDef("languages", [], "checks", select="many", label="Idiomas", source=SHOTS_LANGUAGES),
-    # El emulador lo elige y lo arranca Consola, no el script (ADR-0049): se
-    # elige un AVD creado, y si no esta vivo se levanta antes de correr la
-    # camara. Si una app lo necesita lo sabe la camara (ADR-0052): sin
-    # ninguno, es ella la que corta antes de sacar la primera foto.
-    AxisDef(
-        "avd",
-        [],
-        "pick",
-        label="Emulador",
-        source=ANDROID_AVDS,
-        allow_empty=True,
-        labels={"": "Ninguno"},
-    ),
-]
+
+# What Consola passes the repo's camera as arguments (`--apps`,
+# `--themes`, `--languages`, and `--device` with the chosen AVD's
+# serial). The camera itself offers the apps, themes and languages
+# (ADR-0054): only what it can capture is offered. Screens are not
+# chosen: they are its own.
+def _shot_camera_axes() -> list[AxisDef]:
+    return [
+        AxisDef("apps", [], "checks", select="many", label="Apps", source=SHOTS_APPS),
+        AxisDef("themes", [], "checks", select="many", label="Temas", source=SHOTS_THEMES),
+        AxisDef("languages", [], "checks", select="many", label="Idiomas", source=SHOTS_LANGUAGES),
+        # Consola chooses and starts the emulator, not the script
+        # (ADR-0049): a created AVD is chosen, and if not alive it comes
+        # up before running the camera. The camera knows whether an app
+        # needs it (ADR-0052): with none, it stops before the first
+        # shot.
+        AxisDef(
+            "avd",
+            [],
+            "pick",
+            label="Emulador",
+            source=ANDROID_AVDS,
+            allow_empty=True,
+            labels={"": "Ninguno"},
+        ),
+    ]
+
 
 SCREENSHOTS_STEPS = [
     Step("shoot", "Sacar capturas", requires_env={"SHOTS_CMD"}),
@@ -605,23 +651,26 @@ DEV_ENV_STEPS = [
 
 
 def load_catalog() -> None:
-    """Declara la forma de cada boton.
+    """Declare the shape of each button.
 
-    `description` es la linea que la UI muestra en el tooltip del rail y bajo el
-    nombre de la accion: que hace, en presente y en una oracion. `level` solo se
-    escribe cuando no se deduce solo: una compuesta que no publica sus pasos
-    (`teardown_db`, `migrate_db`) tiene que declararse `level='C'` a mano,
-    porque sin `steps` ni `composed_of` la UI la tomaria por atomica.
+    `description` is the line the UI shows in the rail's tooltip and
+    under the action's name: what it does, in the present, in one
+    sentence. `level` is only written when not deduced by itself: a
+    composite not publishing its steps (`teardown_db`, `migrate_db`) has
+    to declare `level='C'` by hand, because without `steps` or
+    `composed_of` the UI would take it for atomic.
     """
-    # --- Ejecutar ------------------------------------------------------------
-    # Lo que el launcher TE ENTREGA decide si su pestana tiene segunda vista:
-    # una URL se mira en un navegador, un emulador se mira en su ventana
+    # --- Run ---
+    #
+    # What the launcher DELIVERS decides whether its tab has a second
+    # view: a URL is looked at in a browser, an emulator in its window
     # (ADR-0008).
     #
-    # `view='web'` no es un boton mas ni una capacidad aparte: es la segunda
-    # vista de la pestana del propio launcher, apuntada al endpoint que la tarea
-    # publica con `ctx.serve()`. Un boton "abrir navegador" en el rail seria una
-    # capacidad que no ejecuta nada, no registra nada y no tiene parametros.
+    # `view='web'` is no extra button or separate capability: it is the
+    # second view of the launcher's own tab, pointed at the endpoint the
+    # task publishes with `ctx.serve()`. An «open browser» button in the
+    # rail would be a capability that runs nothing, records nothing and
+    # has no parameters.
     registry.register(
         Capability(
             id="backend",
@@ -631,20 +680,19 @@ def load_catalog() -> None:
             icon="▶",
             view="web",
             description="Levanta el servidor FastAPI del repo, local o contra el VPS.",
-            # El servidor se descubre como las SPA: la carpeta cuyo modulo de
-            # arranque crea `FastAPI(`, se llame `server/` o `backend/`.
-            # Los tres parametros que la funcion ya recibia y el catalogo no
-            # ofrecia: corria clavada en 0.0.0.0:8000 con --reload. El puerto es
-            # solo el preferido — `core/ports.py` busca el siguiente libre — y por
-            # eso se puede dejar como esta sin miedo a chocar con otra pestana.
+            # The server is discovered like SPAs: the folder whose
+            # startup module creates `FastAPI(`, called `server/` or
+            # `backend/`. The port is only the preferred one, since
+            # `core/ports.py` looks for the next free, so it can stay as
+            # is without fear of clashing with another tab.
             axes=[
                 AxisDef("target", [], "scope", label="Servidor", discover=(targets.FASTAPI,)),
-                _SCOPE_AXIS(),
-                _HOST_AXIS(),
+                _scope_axis(),
+                _host_axis(),
                 AxisDef("preferred_port", ["8000"], "field", label="Puerto", cast="int"),
-                # Sin recarga es el modo en que se prueba lo que va a correr en el
-                # VPS: `--reload` cambia como arranca la app y esconde los errores
-                # que solo pasan una vez.
+                # No reload is the mode for trying what will run on the
+                # VPS: `--reload` changes how the app starts and hides
+                # errors that only happen once.
                 AxisDef(
                     "reload",
                     ["reload", "no_reload"],
@@ -657,9 +705,9 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # `fanout='target'`: marcar panel + backoffice son dos dev servers vivos a la
-    # vez, no dos pasos en fila. Un eje `many` se recorre en bucle cuando la
-    # capacidad termina (`build_vite`) y se reparte en pestanas cuando no
+    # `fanout='target'`: checking panel + backoffice is two live dev
+    # servers at once, not two steps in a row. A `many` axis loops when
+    # the capability ends (`build_vite`) and shares into tabs when not
     # (ADR-0010).
     registry.register(
         Capability(
@@ -680,17 +728,17 @@ def load_catalog() -> None:
                     label="Apps",
                     discover=(targets.SPA_VITE,),
                 ),
-                # El puerto preferido, no el definitivo: con dos SPA marcadas la
-                # segunda pestana toma el siguiente libre sola.
+                # The preferred port, not the final one: with two SPAs
+                # checked the second tab takes the next free by itself.
                 AxisDef("preferred_port", ["5173"], "field", label="Puerto", cast="int"),
             ],
             stub=True,
         )
     )
-    # No hay eje `framework`: elegir "Flutter o Flet" seria pedir que confirmen
-    # algo que la carpeta ya contesta. Se elige la app; el framework viene con ella.
-    # Tampoco tiene `view`: lo que entrega no es una URL, es una app en un
-    # emulador, y esa ventana la dibuja Android.
+    # No `framework` axis: choosing «Flutter or Flet» would ask to
+    # confirm what the folder already answers. The app is chosen; the
+    # framework comes with it. No `view` either: what it delivers is not
+    # a URL but an app on an emulator, and Android draws that window.
     registry.register(
         Capability(
             id="run_mobile",
@@ -699,11 +747,12 @@ def load_catalog() -> None:
             kind="live",
             icon="📲",
             description="Corre la app móvil en el emulador o dispositivo conectado.",
-            # `device` admite vacio y arranca vacio: la funcion ya elige sola —el
-            # emulador que lanzo esta sesion, y si no el primero que conteste— y
-            # solo hace falta decirlo cuando hay dos vivos. Un eje que obligara a
-            # elegir dejaria el boton en ambar justo cuando no hay ninguno, que es
-            # cuando el mensaje util es el de la funcion ("arranca uno primero").
+            # `device` admits empty and starts empty: the function
+            # already chooses by itself, the emulator this session
+            # launched or else the first to answer, and it only has to
+            # be said with two alive. An axis forcing a choice would
+            # leave the button amber right when there is none, when the
+            # useful message is the function's.
             axes=[
                 AxisDef("target", [], "scope", label="App móvil", discover=targets.MOBILE_APP),
                 AxisDef(
@@ -719,9 +768,9 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # Cualquier app Python del repo que no sea el servidor: PySide6, Flet de
-    # escritorio, un bot. Como `serve_vite`, marcar varias abre una pestana por
-    # cada una (ADR-0010).
+    # Any Python app of the repo that is not the server: PySide6,
+    # desktop Flet, a bot. Like `serve_vite`, checking several opens one
+    # tab each (ADR-0010).
     registry.register(
         Capability(
             id="run_python",
@@ -741,8 +790,9 @@ def load_catalog() -> None:
                     discover=targets.DESKTOP_APP,
                 )
             ],
-            # Dos booleanos sueltos, no un paso encadenado: casilla real, no el
-            # segmentado de `scope` (que es para "uno de estos dos", no "si o no").
+            # Two loose booleans, not a chained step: a real checkbox,
+            # not `scope`'s segment, which is for «one of these two»,
+            # not «yes or no».
             steps=[
                 Step("watch", "Relanzar al detectar cambios"),
                 Step("auto_login", "Auto-login de dev", default=False),
@@ -750,10 +800,10 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # La compuesta concurrente del grupo. No tiene `func` ni adaptador: su
-    # cuerpo es el despachador de `ui/tab_panel.py`, porque "una pestana por
-    # paso, todas vivas a la vez" no significa nada dentro de `core/`
-    # (ADR-0011). Por eso se declara `stub=False` a mano.
+    # The group's concurrent composite. It has no `func` or adapter: its
+    # body is the dispatcher of `ui/tab_panel.py`, because «one tab per
+    # step, all alive at once» means nothing inside `core/` (ADR-0011).
+    # So it declares `stub=False` by hand.
     registry.register(
         Capability(
             id="dev_env",
@@ -771,13 +821,15 @@ def load_catalog() -> None:
         )
     )
 
-    # --- Compilar ------------------------------------------------------------
-    # Sin ejes: el nombre de la carpeta se pregunta al correr (`ctx.ask`), no
-    # se guarda. No es un parametro —un parametro es una decision que uno repite
-    # igual, y el catalogo la recuerda por repo— ni un dato de configuracion:
-    # cada SPA nueva se llama distinto, y guardado dejaba la segunda corrida
-    # arrancando con el nombre de la primera, o sea con una carpeta que ya
-    # existe. Tampoco es un eje descubierto: la carpeta todavia no esta.
+    # --- Build ---
+    #
+    # No axes: the folder's name is asked when running (`ctx.ask`) and
+    # not saved. It is not a parameter, since a parameter is a decision
+    # repeated alike that the catalog remembers per repo, or a
+    # configuration datum: each new SPA has another name, and saved it
+    # left the second run starting with the first's name, a folder that
+    # exists. It is not a discovered axis either: the folder is not
+    # there yet.
     registry.register(
         Capability(
             id="create_spa",
@@ -789,10 +841,11 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # `app` se descubre: un valor por app móvil del repo, sea Flutter o Flet. El
-    # framework no se pregunta aparte porque viaja dentro del target elegido.
-    # `bump_mode` es una lista cerrada, no un texto: va como opción excluyente
-    # (igual que `dry_run` en clean_artifacts) y no como campo escrito.
+    # `app` is discovered: one value per mobile app of the repo, Flutter
+    # or Flet. The framework is not asked apart because it travels
+    # inside the chosen target. `bump_mode` is a closed list, not text:
+    # it goes as an exclusive option (like `dry_run` in clean_artifacts)
+    # and not a written field.
     registry.register(
         Capability(
             id="build_flutter",
@@ -800,10 +853,11 @@ def load_catalog() -> None:
             group="Compilar",
             kind="once",
             icon="📦",
-            description="Compila la app Flutter o Flet para las plataformas marcadas: APK, web, escritorio o iOS.",
+            description="Compila la app Flutter o Flet para las plataformas marcadas: APK, web, "
+            "escritorio o iOS.",
             axes=[
                 AxisDef("directory", [], "scope", label="App", discover=targets.MOBILE_APP),
-                _PLATFORMS_AXIS(),
+                _platforms_axis(),
             ],
             stub=True,
         )
@@ -829,13 +883,13 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # El tercer builder, y el unico que sube la version y publica en el VPS. Sus
-    # ejes son campos y no una lista descubierta: el script original empaquetaba
-    # *cualquier* ruta del repo (`server/main.py`, `tools/cli.py`), y un eje
-    # `app` descubierto vacío dejaría en ámbar justo al repo que se empaqueta
-    # desde su raíz — que es el caso de la propia Consola (ADR-0007).
-    # Vacío no es "falta un dato": `resolve_entrypoint` deduce `src/main.py` de
-    # la única app Python del repo, igual que hace el launcher App Python.
+    # The third builder, and the only one that bumps the version and
+    # publishes on the VPS. Its axes are fields and not a discovered
+    # list: *any* path of the repo can package (`server/main.py`,
+    # `tools/cli.py`), and an empty discovered `app` axis would leave
+    # amber the repo packaging from its root (ADR-0007). Empty is not a
+    # missing datum: `resolve_entrypoint` deduces `src/main.py` from the
+    # repo's only Python app, as the App Python launcher does.
     registry.register(
         Capability(
             id="build_binary",
@@ -848,8 +902,9 @@ def load_catalog() -> None:
             axes=[
                 AxisDef("entrypoint", [""], "field", label="Punto de entrada"),
                 AxisDef("name", [""], "field", label="Nombre del ejecutable"),
-                # Las dos decisiones de PyInstaller que cambian *que* se entrega:
-                # un archivo suelto o una carpeta, y con o sin consola detras.
+                # PyInstaller's two decisions changing *what* gets
+                # delivered: a loose file or a folder, and with or
+                # without a console behind.
                 AxisDef(
                     "onefile",
                     ["single_file", "folder"],
@@ -866,7 +921,7 @@ def load_catalog() -> None:
                     truthy="window",
                     labels={"console": "Consola", "window": "Ventana"},
                 ),
-                _SEMVER_AXIS(),
+                _semver_axis(),
             ],
             steps=BUILD_BINARY_STEPS,
             stub=True,
@@ -924,12 +979,13 @@ def load_catalog() -> None:
         )
     )
 
-    # --- Imágenes ------------------------------------------------------------
-    # Los iconos salen del logo del repo: Consola lo rasteriza y lo deja donde
-    # cada app lo toma (el `flutter_launcher_icons` del pubspec, el favicon de
-    # la SPA). A diferencia de las capturas no hace falta un script del repo:
-    # el repo solo pone el SVG. Se ofrecen solo las apps que dicen donde va su
-    # icono (ADR-0055).
+    # --- Images ---
+    #
+    # Icons come from the repo's logo: Consola rasterizes it and leaves
+    # it where each app takes it (the pubspec's
+    # `flutter_launcher_icons`, the SPA's favicon). Unlike screenshots
+    # no repo script is needed: the repo only supplies the SVG. Only
+    # apps that say where their icon goes are offered (ADR-0055).
     registry.register(
         Capability(
             id="generate_icons",
@@ -943,11 +999,13 @@ def load_catalog() -> None:
         )
     )
 
-    # El repo pone la camara y Consola el revelado: navegar la app, sembrar sus
-    # datos y sacar el PNG es codigo del repo (importa sus modulos, conoce sus
-    # selectores); convertir cada PNG a las medidas de cada destino es igual en
-    # todos. Consola le pasa al script que apps, temas e idiomas capturar
-    # (`_SHOT_CAMERA_AXES`); que pantallas hay lo decide el script.
+    # The repo supplies the camera and Consola the development:
+    # navigating the app, seeding its data and taking the PNG is the
+    # repo's code (it imports its modules, knows its selectors);
+    # converting each PNG to each destination's sizes is the same for
+    # all. Consola passes the script which apps, themes and languages to
+    # capture (`_shot_camera_axes`); the script decides which screens
+    # exist.
     registry.register(
         Capability(
             id="shoot_screens",
@@ -957,13 +1015,14 @@ def load_catalog() -> None:
             kind="once",
             icon="📷",
             description="Corre la cámara del repo, que deja las capturas crudas de sus apps.",
-            axes=_SHOT_CAMERA_AXES(),
+            axes=_shot_camera_axes(),
             stub=True,
         )
     )
-    # Un destino es un preset de medidas y formato (landing, tiendas, redes).
-    # Solo arranca marcada la landing: las tiendas se publican de vez en cuando
-    # y sus medidas hay que verificarlas antes contra la ficha vigente.
+    # A destination is a preset of sizes and format (landing, stores,
+    # social). Only the landing starts checked: stores publish now and
+    # then, and their sizes have to be checked first against the current
+    # listing.
     registry.register(
         Capability(
             id="render_shots",
@@ -972,13 +1031,13 @@ def load_catalog() -> None:
             kind="once",
             icon="🎞️",
             description="Convierte las capturas crudas a las medidas y formatos de cada destino.",
-            axes=[_SHOT_DESTINATIONS_AXIS()],
+            axes=[_shot_destinations_axis()],
             stub=True,
         )
     )
-    # Los dos pasos se desmarcan: sin fotografiar queda revelar lo que ya esta en
-    # disco, que es lo que se hace cuando cambia la medida de una tienda y no la
-    # app. Mismo criterio que la compilacion desmarcable de los builders.
+    # Both steps uncheck: without shooting, developing what is on disk
+    # remains, for when a store's size changes and the app does not. The
+    # same criterion as the builders' uncheckable compile.
     registry.register(
         Capability(
             id="screenshots",
@@ -988,26 +1047,29 @@ def load_catalog() -> None:
             kind="once",
             icon="📸",
             level="C",
-            description="Saca las capturas de las apps del repo y las deja listas en cada destino.",
+            description="Saca las capturas de las apps del repo y las deja listas en cada "
+            "destino.",
             composed_of=["shoot_screens", "render_shots"],
-            axes=[*_SHOT_CAMERA_AXES(), _SHOT_DESTINATIONS_AXIS()],
+            axes=[*_shot_camera_axes(), _shot_destinations_axis()],
             steps=SCREENSHOTS_STEPS,
             stub=True,
         )
     )
 
-    # --- Repositorio ---------------------------------------------------------
-    # Clonar es la unica accion del catalogo que no le pasa al repo abierto sino
-    # a uno que todavia no existe, y por eso es `scope='machine'`: sus campos se
-    # guardan una sola vez y no por repositorio (`ui/params_store.py`). La
-    # carpeta destino vacia significa "al lado de los repos que ya tengo
-    # abiertos" — el destino real casi siempre es la carpeta que contiene al
-    # repo de la pestana, y escribirla a mano seria escribir lo que ya se sabe.
+    # --- Repository ---
     #
-    # `opens_repo=True` es el final del boton y no un extra: clonar para tener
-    # que anadir la carpeta con «+» a continuacion deja la accion a mitad de
-    # camino. Lo declara el catalogo y lo ejecuta la ventana, que es la unica
-    # que sabe lo que es una pestana.
+    # Cloning is the catalog's only action that does not happen to the
+    # open repo but to one that does not exist yet, so it is
+    # `scope='machine'`: its fields save once and not per repository
+    # (`ui/params_store.py`). An empty target folder means «next to the
+    # repos already open»: the real target is almost always the folder
+    # holding the tab's repo, and writing it by hand would write what is
+    # already known.
+    #
+    # `opens_repo=True` is the button's end and no extra: cloning only
+    # to then add the folder with «+» leaves the action halfway. The
+    # catalog declares it and the window executes it, being the only one
+    # that knows what a tab is.
     registry.register(
         Capability(
             id="clone_repo",
@@ -1033,7 +1095,8 @@ def load_catalog() -> None:
             group="Repositorio",
             kind="destructive",
             icon="🔄",
-            description="Copia los archivos compartidos a los otros repos; en simulacro solo compara.",
+            description="Copia los archivos compartidos a los otros repos; en simulacro solo "
+            "compara.",
             axes=[
                 AxisDef("targets", [""], "field", label="Repos destino", multiline=True),
                 AxisDef("paths", [""], "field", label="Archivos a copiar", multiline=True),
@@ -1049,9 +1112,9 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # Los dos forzados existen para el caso en que alguien ya decidio que un
-    # lado gana igual. Corren solo en esta maquina: el VPS no tiene clon del
-    # repo (ADR-0061).
+    # The two forced operations exist for when someone already decided
+    # one side wins anyway. They run only on this machine: the VPS has
+    # no clone of the repo (ADR-0061).
     registry.register(
         Capability(
             id="git_force_push",
@@ -1060,7 +1123,8 @@ def load_catalog() -> None:
             group="Repositorio",
             kind="destructive",
             icon="⏫",
-            description="Empuja a origin con --force la rama de esta máquina, aunque haya divergido.",
+            description="Empuja a origin con --force la rama de esta máquina, aunque haya "
+            "divergido.",
             stub=True,
         )
     )
@@ -1071,7 +1135,8 @@ def load_catalog() -> None:
             group="Repositorio",
             kind="destructive",
             icon="⏬",
-            description="Descarta los commits y los cambios de esta máquina para dejarla igual a origin.",
+            description="Descarta los commits y los cambios de esta máquina para dejarla igual "
+            "a origin.",
             axes=[
                 AxisDef(
                     "discard_changes",
@@ -1087,10 +1152,11 @@ def load_catalog() -> None:
         )
     )
 
-    # --- Base de datos -------------------------------------------------------
-    # Cuatro botones sin eje `scope`: actuan solo sobre la base local. En el VPS
-    # la base la crea `install.py`, migra `deploy.py` y respalda la receptora
-    # de canone (ADR-0060).
+    # --- Database ---
+    #
+    # Four buttons without a `scope` axis: they act only on the local
+    # database. On the VPS `install.py` creates the database,
+    # `deploy.py` migrates and canone's receiver backs it up (ADR-0060).
     registry.register(
         Capability(
             id="bootstrap_db",
@@ -1098,7 +1164,8 @@ def load_catalog() -> None:
             group="Base de datos",
             kind="once",
             icon="🏗️",
-            description="Deja la base local usable desde cero: creada, migrada y con sus datos mínimos.",
+            description="Deja la base local usable desde cero: creada, migrada y con sus datos "
+            "mínimos.",
             steps=BOOTSTRAP_DB_STEPS,
             stub=True,
         )
@@ -1111,7 +1178,7 @@ def load_catalog() -> None:
             kind="once",
             icon="🧩",
             description="Crea en la base las extensiones de Postgres que declara el repo.",
-            axes=[_SCOPE_AXIS()],
+            axes=[_scope_axis()],
             stub=True,
         )
     )
@@ -1128,8 +1195,8 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # Las cuatro reciben `scope` en su funcion y el catalogo nunca les dio el
-    # eje: corrian clavadas contra `local`, que es el default de la firma.
+    # All four receive `scope` in their function, with the axis now
+    # offering it instead of the signature's `local`.
     registry.register(
         Capability(
             id="run_seeders",
@@ -1139,7 +1206,7 @@ def load_catalog() -> None:
             kind="once",
             icon="🌱",
             description="Carga los datos mínimos que la app necesita para arrancar.",
-            axes=[_SCOPE_AXIS()],
+            axes=[_scope_axis()],
             stub=True,
         )
     )
@@ -1151,13 +1218,13 @@ def load_catalog() -> None:
             kind="once",
             icon="🎭",
             description="Carga datos de prueba encima de los datos base.",
-            axes=[_SCOPE_AXIS()],
+            axes=[_scope_axis()],
             stub=True,
         )
     )
-    # Viva como un launcher: sostiene la conexion (y en remoto el tunel) hasta
-    # cerrar la pestana, y lo que entrega es la vista de arbol y datos, no el
-    # log (ADR-0015).
+    # Live like a launcher: it holds the connection, and on remote the
+    # tunnel, until the tab closes, and it delivers the tree and data
+    # view, not the log (ADR-0015).
     registry.register(
         Capability(
             id="explore_db",
@@ -1168,12 +1235,13 @@ def load_catalog() -> None:
             view="db",
             icon="🗂️",
             description="Navega esquemas, tablas y datos de la base, en solo lectura.",
-            axes=[_SCOPE_AXIS()],
+            axes=[_scope_axis()],
             stub=True,
         )
     )
-    # El tunel no tiene parametros: el puerto remoto sale del VPS y el local lo
-    # elige `core/ports.py` si el de enfrente esta ocupado.
+    # The tunnel has no parameters: the remote port comes from the VPS
+    # and `core/ports.py` chooses the local one if the given one is
+    # taken.
     registry.register(
         Capability(
             id="ssh_tunnel",
@@ -1196,9 +1264,10 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # Destructiva: pisa la base entera con lo que traiga el dump. La lista de
-    # respaldos no se enumera ni sale del repo: sale de mirar `BACKUP_DIR`, que
-    # puede estar fuera del arbol de trabajo (ADR-0047).
+    # Destructive: it overwrites the whole database with the dump. The
+    # backup list is not enumerated and does not come from the repo: it
+    # comes from looking at `BACKUP_DIR`, which may be outside the
+    # working tree (ADR-0047).
     registry.register(
         Capability(
             id="restore_db",
@@ -1218,8 +1287,9 @@ def load_catalog() -> None:
             group="Base de datos",
             kind="destructive",
             icon="🔁",
-            description="Vacía las tablas y vuelve a llenar la base: migraciones, particiones y seeders.",
-            axes=[_SCOPE_AXIS()],
+            description="Vacía las tablas y vuelve a llenar la base: migraciones, particiones y "
+            "seeders.",
+            axes=[_scope_axis()],
             steps=REBUILD_DB_STEPS,
             stub=True,
         )
@@ -1232,8 +1302,9 @@ def load_catalog() -> None:
             kind="destructive",
             icon="🧨",
             requires_repo=targets.MIGRATIONS,
-            description="Reinicia el historial de migraciones: deja una sola inicial con los modelos de hoy.",
-            axes=[_SCOPE_AXIS()],
+            description="Reinicia el historial de migraciones: deja una sola inicial con los "
+            "modelos de hoy.",
+            axes=[_scope_axis()],
             steps=REINIT_MIGRATIONS_STEPS,
             stub=True,
         )
@@ -1246,22 +1317,21 @@ def load_catalog() -> None:
             kind="destructive",
             icon="💥",
             description="Borra la base de la aplicación y su rol.",
-            axes=[_SCOPE_AXIS()],
+            axes=[_scope_axis()],
             steps=TEARDOWN_DB_STEPS,
             stub=True,
         )
     )
 
-    # --- Despliegue ----------------------------------------------------------
-    # El despliegue propio salio entero (ADR-0059): quedan las versiones de
-    # canone y los dos botones que operan los servicios que ya estan en el VPS.
+    # --- Deployment ---
     #
-    # Un solo eje y no dos: `systemd_action` recibe UN parametro, y el catalogo
-    # lo partia en 'buttons' (start/stop/restart/status) y 'menu' (el resto).
-    # La particion no existia ni siquiera en el panel, que dibuja igual los dos
-    # `expand`; lo unico que lograba era que el segundo eje no llegara a la
-    # funcion. El default es 'status' —el de la firma— y no 'start': el valor
-    # que arranca marcado es el que corre si alguien aprieta Ejecutar sin mirar.
+    # canone's versions and the two buttons operating the services
+    # already on the VPS (ADR-0059).
+    #
+    # One axis and not two: `systemd_action` receives ONE parameter. The
+    # default is 'status', the signature's, and not 'start': the value
+    # starting checked is what runs if someone presses Run without
+    # looking.
     registry.register(
         Capability(
             id="systemd_action",
@@ -1271,7 +1341,7 @@ def load_catalog() -> None:
             icon="⚙️",
             description="Manda una acción al servicio systemd elegido en el VPS.",
             axes=[
-                _SERVICE_AXIS(),
+                _service_axis(),
                 AxisDef(
                     "action",
                     [
@@ -1294,8 +1364,7 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # `follow` era un `expand='field'` con valores ['sí','no']: un booleano
-    # dibujado como campo de texto libre, que ademas nunca llegaba a la funcion.
+    # `follow` is a boolean, not a free text field.
     registry.register(
         Capability(
             id="view_logs",
@@ -1305,7 +1374,7 @@ def load_catalog() -> None:
             icon="📋",
             description="Muestra el journal del servicio elegido, de una o siguiéndolo en vivo.",
             axes=[
-                _SERVICE_AXIS(),
+                _service_axis(),
                 AxisDef(
                     "follow",
                     ["follow", "once"],
@@ -1318,8 +1387,8 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # Las versiones (ADR-0059): un tag que publica el `release.yml` del repo,
-    # se firma en esta maquina y lo instala el `deploy.py` de canone.
+    # Versions (ADR-0059): a tag the repo's `release.yml` publishes,
+    # signed on this machine and installed by canone's `deploy.py`.
     registry.register(
         Capability(
             id="publish_release",
@@ -1327,7 +1396,8 @@ def load_catalog() -> None:
             group="Despliegue",
             kind="once",
             icon="🏷️",
-            description="Crea el tag siguiente, espera a release.yml, firma el release y lo despliega.",
+            description="Crea el tag siguiente, espera a release.yml, firma el release y lo "
+            "despliega.",
             axes=[
                 AxisDef(
                     "part",
@@ -1367,8 +1437,10 @@ def load_catalog() -> None:
         )
     )
 
-    # --- VPS -----------------------------------------------------------------
-    # Lo que se instala y como sale del repo (ADR-0059): no hay ejes que elegir.
+    # --- VPS ---
+    #
+    # What installs and how comes from the repo (ADR-0059): there are no
+    # axes to choose.
     registry.register(
         Capability(
             id="bootstrap_vps",
@@ -1376,7 +1448,8 @@ def load_catalog() -> None:
             group="VPS",
             kind="once",
             icon="🚀",
-            description="Deja el VPS listo con los programas de canone: paquetes, swap, install.py, credenciales y el último release.",
+            description="Deja el VPS listo con los programas de canone: paquetes, swap, "
+            "install.py, credenciales y el último release.",
             steps=BOOTSTRAP_VPS_STEPS,
             stub=True,
         )
@@ -1485,12 +1558,13 @@ def load_catalog() -> None:
         )
     )
 
-    # --- Emuladores ----------------------------------------------------------
-    # Los cuatro botones son de la maquina, no del repo: un AVD sirve para
-    # cualquier proyecto, igual que el SDK. Instalar la maquina virtual, crear
-    # el AVD y arrancarlo dejaron de ser tres casillas de una compuesta y son
-    # tres botones, porque cada uno tiene su propio catalogo de opciones: un
-    # paso con opciones propias ya no entra en una casilla (ADR-0027).
+    # --- Emulators ---
+    #
+    # The four buttons belong to the machine, not the repo: an AVD
+    # serves any project, like the SDK. Installing the virtual machine,
+    # creating the AVD and starting it are three buttons, because each
+    # has its own catalog of options: a step with options of its own no
+    # longer fits in a checkbox (ADR-0027).
     registry.register(
         Capability(
             id="install_system_image",
@@ -1499,7 +1573,8 @@ def load_catalog() -> None:
             kind="once",
             icon="💿",
             scope="machine",
-            description="Descarga del SDK la máquina virtual (system image) que va a correr el AVD.",
+            description="Descarga del SDK la máquina virtual (system image) que va a correr el "
+            "AVD.",
             axes=[
                 AxisDef(
                     "image",
@@ -1524,11 +1599,12 @@ def load_catalog() -> None:
             description="Crea el dispositivo virtual eligiéndolo del catálogo del SDK.",
             axes=[
                 AxisDef("device", [], "pick", label="Dispositivo", source=ANDROID_DEVICES),
-                # Sin `facets`, a diferencia de 'Instalar máquina': acá la lista
-                # son las que ya están bajadas, casi siempre una o dos. Partir dos
-                # entradas en tres listas no ahorra ninguna lectura y hace creer
-                # que hay un catálogo detrás — la forma del control estaría
-                # diciendo algo falso sobre cuántas opciones hay.
+                # No `facets`, unlike «Instalar máquina»: here the list
+                # is what is downloaded, almost always one or two.
+                # Splitting two entries in three lists saves no reading
+                # and suggests a catalog behind: the control's shape
+                # would say something false about how many options there
+                # are.
                 AxisDef(
                     "image",
                     [],
@@ -1560,11 +1636,10 @@ def load_catalog() -> None:
                     danger={"wipe_data"},
                     labels={"normal": "Normal", "wipe_data": "Borrar datos"},
                 ),
-                # Los tres flags que de verdad se escriben. Eran texto libre
-                # —habia que acordarse de como se llaman y escribirlos bien— y
-                # son una eleccion de si o no, que es exactamente una casilla.
-                # El nombre del flag ES el valor: asi no hace falta una tabla
-                # que traduzca, y `core/tasks/emulators.py` los suma tal cual.
+                # The three flags truly written. A yes or no choice,
+                # which is exactly a checkbox. The flag's name IS the
+                # value: so no translating table is needed, and
+                # `core/tasks/emulators.py` adds them as they are.
                 AxisDef(
                     "boot_flags",
                     ["-no-snapshot-load", "-no-snapshot-save", "-no-window"],
@@ -1579,8 +1654,8 @@ def load_catalog() -> None:
                         "-no-window": "Sin ventana (headless, solo adb)",
                     },
                 ),
-                # El renderizado es excluyente, no una casilla: pedir host y
-                # software a la vez no significa nada.
+                # Rendering is exclusive, not a checkbox: asking for
+                # host and software at once means nothing.
                 AxisDef(
                     "gpu",
                     ["host", "software"],
@@ -1588,24 +1663,26 @@ def load_catalog() -> None:
                     label="GPU",
                     labels={"host": "Host (GPU real)", "software": "Software (swiftshader)"},
                 ),
-                # Lo que queda de la linea de comandos, para el flag que no esta
-                # arriba (`-memory 4096`, `-http-proxy ...`). Se suma a las
-                # casillas y a los flags de siempre de `core/android.py`
-                # (`-no-boot-anim`, `-netdelay none`...) en vez de reemplazarlos.
-                # Una sola linea porque es una linea de comandos: se parte en
-                # tokens como la partiria una shell, y `-memory 4096` son dos.
+                # What is left of the command line, for a flag not above
+                # (`-memory 4096`, `-http-proxy ...`). It adds to the
+                # checkboxes and `core/android.py`'s usual flags
+                # (`-no-boot-anim`, `-netdelay none`) instead of
+                # replacing them. One line because it is a command line:
+                # it splits in tokens as a shell would, and `-memory
+                # 4096` is two.
                 AxisDef("flags", [""], "field", label="Flags extra del emulador"),
             ],
             live_state=ANDROID_RUNNING,
             stub=True,
         )
     )
-    # Hidden atomic capabilities
-    # Apagar no es un boton del rail: cerrar la pestana del emulador ya lo
-    # apaga, y para los huerfanos —un emulador de una sesion anterior o
-    # arrancado desde Android Studio— esta el ✕ de la cabecera de estado del
-    # panel, que es donde se ven. Sigue siendo una capacidad porque la corre el
-    # runner como cualquier otra, con su log en la consola.
+    # Hidden atomic capabilities.
+    #
+    # Stopping is no rail button: closing the emulator's tab stops it,
+    # and for orphans, an emulator from an earlier session or started
+    # from Android Studio, there is the panel's status header ✕, where
+    # they show. It stays a capability because the runner runs it like
+    # any other, with its log in the console.
     registry.register(
         Capability(
             id="stop_emulator",
@@ -1615,17 +1692,18 @@ def load_catalog() -> None:
             icon="⏹",
             scope="machine",
             description="Apaga por adb el emulador indicado.",
-            # No se dibuja ningun panel para esta capacidad, pero el eje se declara
-            # igual: es la unica forma de que el serial que le pasa el ✕ llegue a la
-            # funcion. La declaracion es el contrato, la haya dibujado alguien o no.
+            # No panel draws for this capability, but the axis is
+            # declared anyway: it is the only way the serial the ✕
+            # passes reaches the function. The declaration is the
+            # contract, whether or not anyone drew it.
             axes=[AxisDef("serial", [], "pick", label="Emulador", source=ANDROID_RUNNING)],
             hidden=True,
             stub=True,
         )
     )
-    # Un solo boton de limpieza para las dos cosas que ocupan disco: el AVD
-    # pesa cientos de MB y la maquina virtual, varios GB. Borrar uno suelto es
-    # marcar una casilla, no otro boton (ADR-0004).
+    # One cleaning button for the two things taking disk: the AVD weighs
+    # hundreds of MB and the virtual machine several GB. Deleting one is
+    # checking a box, not another button (ADR-0004).
     registry.register(
         Capability(
             id="purge_emulators",
@@ -1634,7 +1712,8 @@ def load_catalog() -> None:
             kind="destructive",
             icon="🗑️",
             scope="machine",
-            description="Borra AVD y máquinas virtuales; en simulacro solo los lista con su tamaño.",
+            description="Borra AVD y máquinas virtuales; en simulacro solo los lista con su "
+            "tamaño.",
             axes=[
                 AxisDef(
                     "avds",
@@ -1669,7 +1748,7 @@ def load_catalog() -> None:
         )
     )
 
-    # --- SDKs ----------------------------------------------------------------
+    # --- SDKs ---
     registry.register(
         Capability(
             id="install_android_sdk",
@@ -1692,10 +1771,11 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # Los SDK son de la maquina, no del repo abierto: `scope='machine'`. La
-    # instalacion se parte en tres atomicas porque agregar paquetes es lo que
-    # se repite (una API nueva, otro build-tools) y no tiene por que arrastrar
-    # la descarga del SDK ni tocar el PATH.
+    # The SDKs belong to the machine, not the open repo:
+    # `scope='machine'`. The install splits in three atomic capabilities
+    # because adding packages is what repeats (a new API, another
+    # build-tools), and it need not drag the SDK's download or touch the
+    # PATH.
     registry.register(
         Capability(
             id="install_android_tools",
@@ -1705,7 +1785,8 @@ def load_catalog() -> None:
             kind="once",
             icon="🧰",
             scope="machine",
-            description="Descarga las command-line tools del SDK y las deja en el entorno del usuario.",
+            description="Descarga las command-line tools del SDK y las deja en el entorno del "
+            "usuario.",
             axes=[AxisDef("install_dir", [ANDROID_DIR_DEFAULT], "field", label="Directorio")],
             stub=True,
         )
@@ -1731,7 +1812,8 @@ def load_catalog() -> None:
             kind="once",
             icon="⚡",
             scope="machine",
-            description="Verifica la virtualización que el emulador necesita, y en Windows instala el driver.",
+            description="Verifica la virtualización que el emulador necesita, y en Windows "
+            "instala el driver.",
             stub=True,
         )
     )

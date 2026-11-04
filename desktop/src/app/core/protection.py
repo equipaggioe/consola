@@ -1,60 +1,60 @@
+"""A guard per repository and per TARGET TYPE.
+
+The problem is not pressing a button by accident but pressing it in the
+wrong repo. And not all destructive actions are equally serious:
+emptying a toy repo's artifact folder is redone with a build; deleting
+the production VPS's database is not.
+
+Three decisions hold the design up:
+
+1. **The guard is per target type, not per button.** What matters is the
+   blast radius: the VPS, the database, other repos. One button can
+   touch two targets (`reinit_migrations` empties the database and
+   deletes repo files), and one button can touch different targets by
+   its parameters (`teardown_db` against `local` stays on this machine;
+   against `remote` it reaches the VPS).
+
+2. **The switch lives in its own section, not the parameters panel.**
+   Deliberately: a guard removed with the same gesture that presses Run
+   becomes part of the gesture, and in two weeks it comes off unread.
+   Here it is decided ONCE, when adding the repo. A switch touched every
+   few months does not become a reflex.
+
+It saves in `.consola/params.json` (`ui/params_store.py`), not
+`config.env`: the .env file is the DATA tasks need, such as the IP, the
+user and the token, and no step ever reads a `PROTECT_*`. It is a
+decision of the console about this repo, like the steps left checked in
+a panel, and it goes where those go.
+
+3. **What repeats is the written confirmation, and it verifies
+   identity.** Typing `BORRAR` is right in any repo: the habit always
+   hits and the check checks nothing. Typing the REPO'S NAME is right
+   only in the repo one thinks is open: on a mistake, one's fingers type
+   the other's name and the action does not run. The habit does not
+   erode this check: it is what makes it work.
+
+A dry run fires nothing. `clean_artifacts` and `sync_common_files` in
+`dry_run` mode destroy nothing: asking for confirmation would be the
+noise that wears out the real notice's signal.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 from typing import Any
 
-"""
-Seguro por repositorio y por TIPO DE OBJETIVO.
-
-El problema que resuelve no es "apretar un boton sin querer": es apretarlo en el
-repo equivocado. Y no todos los destructivos son igual de graves — vaciar la
-carpeta de artefactos de un repo de juguete se rehace con un build; borrar la
-base del VPS de produccion, no.
-
-Tres decisiones sostienen el diseno:
-
-1. **El seguro es por tipo de objetivo, no por boton.** Lo que importa es el
-   radio de dano: el VPS, la base, los otros repos. Un mismo boton puede tocar
-   dos objetivos (`reinit_migrations` vacia la base y borra archivos del repo)
-   y un mismo boton puede tocar objetivos distintos segun sus parametros
-   (`teardown_db` contra `local` no sale de esta maquina; contra `remoto`
-   alcanza al VPS).
-
-2. **El interruptor vive en su propia seccion, no en el panel de parametros.**
-   Es deliberado: un seguro que se quita en el mismo gesto con el que se aprieta
-   Ejecutar se vuelve parte del gesto, y a las dos semanas se quita sin leerlo.
-   Aca se decide UNA vez, cuando se da de alta el repo. Un interruptor que se
-   toca cada varios meses no llega a ser un reflejo.
-
-   Se guarda en `.consola/params.json` (`ui/params_store.py`), no en
-   `config.env`: el archivo .env son los DATOS que las tareas necesitan para
-   hacer su trabajo —la IP, el usuario, el token—, y ningun paso lee jamas un
-   `PROTECT_*`. Es una decision de la consola sobre este repo, de la misma
-   familia que los pasos que quedan marcados en un panel, y va donde van esas.
-
-3. **Lo que se repite es la confirmacion escrita, y verifica identidad.**
-   Escribir `BORRAR` es correcto en cualquier repo: el automatismo siempre
-   acierta y la comprobacion no comprueba nada. Escribir el NOMBRE DEL REPO
-   solo es correcto en el repo que crees que tienes abierto — si te
-   equivocaste, tus dedos escriben el nombre del otro y la accion no corre. El
-   automatismo no erosiona esta comprobacion: es lo que la hace funcionar.
-
-Un simulacro no dispara nada. `clean_artifacts` en modo `simulacro` y
-`sync_common_files` en modo `simulacro` no destruyen: pedirles confirmacion
-seria justo el ruido que gasta la senal del aviso de verdad.
-"""
-
 
 @dataclass(frozen=True)
 class Target:
-    """Un tipo de cosa que una accion destructiva puede romper."""
+    """A type of thing a destructive action can break."""
 
-    id: str  # como se guarda en `.consola/params.json`
-    label: str  # como se lee en el dialogo: "el VPS", "la base de datos"
-    chip: str  # etiqueta corta para la barra de estado: "VPS", "BD"
-    setting_label: str  # como se lee el interruptor en la seccion Seguridad
+    id: str  # how it saves in `.consola/params.json`
+    # how it reads in the dialog: «el VPS», «la base de datos»
+    label: str
+    chip: str  # short label for the status bar: «VPS», «BD»
+    setting_label: str  # how the switch reads in the Security section
     protected_by_default: bool
-    why: str  # por que ese default, para el tooltip del interruptor
+    why: str  # why that default, for the switch's tooltip
 
 
 TARGETS: tuple[Target, ...] = (
@@ -105,50 +105,57 @@ _BY_ID = {t.id: t for t in TARGETS}
 
 
 def get(target_id: str) -> Target | None:
+    """Return the target with that id."""
     return _BY_ID.get(target_id)
 
 
-# --- que rompe cada accion -------------------------------------------------
-# Solo las `kind='destructive'`. `purge_emulators` no esta: es `scope='machine'`
-# (borra AVDs e imagenes del SDK, que no son de ningun repo), asi que un
-# interruptor por repositorio no tendria a que repositorio pertenecer. Se queda
-# con su propia confirmacion escrita.
+# --- what each action breaks ---
+#
+# Only `kind='destructive'`. `purge_emulators` is not here: it is
+# `scope='machine'` (it deletes AVDs and SDK images, which belong to no
+# repo), so a per-repo switch would have no repo to belong to. It keeps
+# its own written confirmation.
 
 
 @dataclass(frozen=True)
 class Rule:
-    """Objetivos fijos de una accion, mas los que dependen de sus parametros."""
+    """An action's fixed targets.
+
+    Plus those depending on its parameters.
+    """
 
     always: tuple[str, ...] = ()
-    # nombre del eje -> {valor: objetivos que ese valor agrega}
+    # axis name -> {value: targets that value adds}
     when: dict[str, dict[str, tuple[str, ...]]] = field(default_factory=dict)
-    # nombre del eje -> valores con los que la accion NO destruye nada
+    # axis name -> values with which the action destroys nothing
     dry_run: dict[str, tuple[str, ...]] = field(default_factory=dict)
 
 
 RULES: dict[str, Rule] = {
     "revoke_ssh": Rule(always=("vps",)),
-    # `local` no sale de esta maquina; `remoto` alcanza al servidor. El mismo
-    # boton, dos radios de dano distintos.
+    # `local` stays on this machine; `remote` reaches the server. The
+    # same button, two different blast radii.
     "teardown_db": Rule(always=("db",), when={"scope": {"remote": ("vps",)}}),
     "rebuild_db": Rule(always=("db",), when={"scope": {"remote": ("vps",)}}),
-    # Pisa la base local entera con lo que traiga el dump. No lleva confirmacion
-    # escrita propia: el seguro por repo ya la cubre (ADR-0047).
+    # It overwrites the whole local database with the dump. It has no
+    # written confirmation of its own: the per-repo guard covers it
+    # (ADR-0047).
     "restore_db": Rule(always=("db",)),
-    # Toca dos objetivos: vacia el esquema de la base que diga `scope` y borra
-    # los archivos de `alembic/versions/` del repo abierto.
+    # It touches two targets: it empties the schema of the database
+    # `scope` says and deletes the files in the open repo's
+    # `alembic/versions/`.
     "reinit_migrations": Rule(always=("db", "local"), when={"scope": {"remote": ("vps",)}}),
     "clean_artifacts": Rule(always=("local",), dry_run={"apply": ("dry_run",)}),
     "sync_common_files": Rule(always=("other_repos",), dry_run={"apply": ("dry_run",)}),
-    # `push` reescribe origin y no deja distinta esta maquina; `reset` descarta
-    # commits y archivos de esta maquina.
+    # `push` rewrites origin and leaves this machine as is; `reset`
+    # discards this machine's commits and files.
     "git_force_push": Rule(always=("origin",)),
     "git_force_reset": Rule(always=("local",)),
 }
 
 
 def _chosen(payload: dict[str, Any], axis: str) -> set[str]:
-    """Lo marcado en un eje, venga como valor suelto o como lista."""
+    """Return what is checked on an axis, as a loose value or a list."""
     raw = (payload.get("options") or {}).get(axis)
     if isinstance(raw, list):
         return set(raw)
@@ -156,7 +163,10 @@ def _chosen(payload: dict[str, Any], axis: str) -> set[str]:
 
 
 def targets_of(capability_id: str, payload: dict[str, Any] | None = None) -> list[Target]:
-    """Que va a romper esta corrida, con estos parametros. Vacio = nada."""
+    """Return what this run will break with these parameters.
+
+    Empty = nothing.
+    """
     rule = RULES.get(capability_id)
     if rule is None:
         return []
@@ -164,7 +174,7 @@ def targets_of(capability_id: str, payload: dict[str, Any] | None = None) -> lis
 
     for axis, harmless in rule.dry_run.items():
         if _chosen(payload, axis) & set(harmless):
-            return []  # un simulacro no destruye: no se pregunta nada
+            return []  # a dry run destroys nothing: nothing is asked
 
     ids = list(rule.always)
     for axis, mapping in rule.when.items():
@@ -182,16 +192,16 @@ def targets_of(capability_id: str, payload: dict[str, Any] | None = None) -> lis
 
 
 def defaults() -> dict[str, Any]:
-    """Como arranca un repo que todavia no dijo nada."""
+    """Return how a repo starts before it has said anything."""
     return {t.id: t.protected_by_default for t in TARGETS}
 
 
 def state_from(stored: dict[str, Any] | None) -> dict[str, Any]:
-    """El estado completo a partir de lo guardado, que puede ser parcial.
+    """Return the full state from what was saved, which may be partial.
 
-    Un objetivo que no figura en el json cae en su default —protegido, salvo
-    `local`—: agregar un objetivo nuevo no puede dejar desprotegidos a los
-    repos que ya existen.
+    A target missing from the json falls to its default, protected
+    except `local`: adding a new target cannot leave existing repos
+    unprotected.
     """
     state = defaults()
     for tid, value in (stored or {}).items():
@@ -201,27 +211,33 @@ def state_from(stored: dict[str, Any] | None) -> dict[str, Any]:
 
 
 class Decision:
-    """Que hace la consola con una corrida, antes de dejarla arrancar."""
+    """What the console does with a run before letting it start."""
 
-    ALLOW = "allow"  # no rompe nada (o es un simulacro): corre sin preguntar
-    REMIND = "remind"  # rompe algo, pero nada protegido: recordatorio del repo
-    BLOCK = "block"  # toca un objetivo protegido en este repo: no corre
+    # it breaks nothing (or is a dry run): it runs without asking
+    ALLOW = "allow"
+    # it breaks something, but nothing protected: a repo reminder
+    REMIND = "remind"
+    # it touches a target protected in this repo: it does not run
+    BLOCK = "block"
 
 
 def decide(
     state: dict[str, Any], capability_id: str, payload: dict[str, Any] | None = None
 ) -> tuple[str, list[Target]]:
-    """Clasifica una corrida. Devuelve la decision y los objetivos que la explican.
+    """Classify a run: return the decision.
 
-    - `BLOCK`: algun objetivo del radio de dano esta protegido en este repo. La
-      accion no corre, y el aviso no ofrece forma de saltarlo — el seguro se
-      quita en la seccion Seguridad, una vez, con la cabeza fria.
-    - `REMIND`: la accion destruye algo pero este repo no protege ninguno de
-      esos objetivos. Un recordatorio de sobre que repo se esta trabajando, con
-      Cancelar y Continuar, y nada mas: ni palabra escrita ni nombre de repo.
-    - `ALLOW`: no hay nada que destruir con estos parametros, o es un simulacro.
+    And the targets that explain it.
 
-    `state` es lo que devuelve `state_from`: `{target_id: bool}`.
+    - `BLOCK`: a target in the blast radius is protected in this repo.
+      The action does not run and the notice offers no way past it: the
+      guard comes off in the Security section, once, with a cool head.
+    - `REMIND`: the action destroys something but this repo protects
+      none of those targets. A reminder of which repo this is, with
+      Cancel and Continue and nothing else: no typed word or repo name.
+    - `ALLOW`: nothing to destroy with these parameters, or it is a dry
+      run.
+
+    `state` is what `state_from` returns: `{target_id: bool}`.
     """
     targets = targets_of(capability_id, payload)
     if not targets:
@@ -233,12 +249,14 @@ def decide(
 
 
 def is_protected(state: dict[str, Any], target: Target) -> bool:
+    """Return whether this repo protects that target."""
     return bool(state.get(target.id, target.protected_by_default))
 
 
 def repo_protections(state: dict[str, Any]) -> list[Target]:
-    """Todos los objetivos que este repo tiene protegidos, sin mirar ninguna
-    accion en particular. Es lo que resume el indicador de la barra de estado
+    """Return all the targets this repo protects, regardless of action.
+
+    The status bar's indicator summarizes it
     (`ui/tab_panel.py::WorkspaceStatusBar`).
     """
     return [t for t in TARGETS if is_protected(state, t)]

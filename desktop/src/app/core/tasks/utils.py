@@ -1,3 +1,11 @@
+"""Utils group.
+
+What crosses everything: clean artifacts, update DNS, sync common files
+between repos and install the SDKs. All destructive tasks here share one
+pattern: first the exact list of what will happen, and only then the
+deletion (ADR-0018).
+"""
+
 from __future__ import annotations
 
 import getpass
@@ -5,11 +13,10 @@ import json
 import os
 import re
 import tempfile
-import urllib.request
 from pathlib import Path
 from typing import Any
 
-from app.core import android, files, userenv
+from app.core import android, files, http, userenv
 from app.core.catalog import (
     ANDROID_DIR_DEFAULT,
     API_LEVEL_DEFAULT,
@@ -22,19 +29,10 @@ from app.core.host import HOST
 from app.core.process import as_argv, feed, format_argv, which_any
 from app.core.registry import registry
 
-"""
-Grupo Utils.
-
-Lo transversal: limpiar artefactos, actualizar el DNS, sincronizar los archivos
-comunes entre repos e instalar los SDK. Todos los destructivos de este grupo
-comparten el mismo patron: primero la lista exacta de lo que va a pasar, y recien
-despues el borrado (ADR-0018).
-"""
-
-# Familias de artefactos livianos: se recorren y se listan archivo por
-# archivo. Cada clave es lo que entiende `find_artifacts(families=...)`, y es
-# tambien el valor del eje del catalogo: lo que se lee en la casilla
-# ('Gradle/Android') va en `labels`, no en el valor.
+# Light artifact families: they are walked and listed file by file. Each
+# key is what `find_artifacts(families=...)` understands and also the
+# catalog axis's value; what reads on the checkbox ('Gradle/Android')
+# goes in `labels`.
 FAMILIES: dict[str, dict[str, tuple[str, ...]]] = {
     "python": {"dirs": ("__pycache__",), "suffixes": (".pyc", ".pyo")},
     "gradle": {"dirs": (".gradle", ".kotlin", ".cxx")},
@@ -42,10 +40,10 @@ FAMILIES: dict[str, dict[str, tuple[str, ...]]] = {
     "crash": {"files": ("CMakeOutput.log",), "prefixes": ("hs_err_pid", "replay_pid")},
 }
 
-# Carpetas pesadas: no se listan por dentro, se listan como una unidad y se
-# borran enteras. Apagadas por defecto (ADR-0018: lo caro se pide
-# explicito). Varios nombres por clave porque node_modules no cambia, pero
-# "venv" y "build" si.
+# Heavy folders: not listed inside, they list as a unit and delete
+# whole. Off by default (ADR-0018: what is expensive is asked for
+# explicitly). Several names per key because node_modules does not
+# change, but «venv» and «build» do.
 HEAVY_DIRS: dict[str, tuple[str, ...]] = {
     "node_modules": ("node_modules",),
     "venv": (".venv", "venv"),
@@ -53,8 +51,8 @@ HEAVY_DIRS: dict[str, tuple[str, ...]] = {
     "dart_tool": (".dart_tool",),
 }
 
-# Nunca se entra a estas, sin importar que se haya pedido: no son artefactos,
-# son el propio control de versiones y la config de Consola.
+# Never entered, whatever was asked: they are not artifacts but version
+# control itself and Consola's config.
 ALWAYS_SKIP_DIRS = {".git", ".consola"}
 
 COMMON_PATHS = (
@@ -70,26 +68,27 @@ CF_API = "https://api.cloudflare.com/client/v4"
 IP_SERVICES = ("https://api.ipify.org", "https://ifconfig.me/ip")
 
 
-# --- limpieza --------------------------------------------------------------
+# --- cleaning ---
 
 
 def find_artifacts(
     ctx: TaskContext, families: list[str] | None = None, heavy: list[str] | None = None
 ) -> list[Path]:
-    """Lista los artefactos borrables del repo, sin tocar nada.
+    """List the repo's deletable artifacts, touching nothing.
 
-    Atomica de solo lectura: es el simulacro que alimenta al boton destructivo,
-    y sirve sola para saber cuanto espacio hay para recuperar.
+    A read-only atomic capability: it is the dry run that feeds the
+    destructive button, and it alone tells how much space can be
+    recovered.
 
-    `families` filtra que tipos de cache liviana se listan (por defecto,
-    todas: `FAMILIES`). `heavy` son carpetas pesadas (`node_modules`, `.venv`,
-    `build`/`dist`, `.dart_tool`) que se listan enteras, no por dentro; por
-    defecto ninguna, para no ofrecer un borrado caro sin que se pida.
+    `families` filters which light cache types list (by default all:
+    `FAMILIES`). `heavy` are heavy folders (`node_modules`, `.venv`,
+    `build`, `dist`, `.dart_tool`) that list whole, not inside; by
+    default none, to not offer an expensive deletion unasked.
     """
     active_families = set(FAMILIES) if families is None else set(families)
     active_heavy_dirnames = {name for key in (heavy or ()) for name in HEAVY_DIRS.get(key, ())}
-    # Lo pesado que no se pidio sigue sin recorrerse: entrar a node_modules
-    # o .venv solo para no listar nada de adentro seria trabajo tirado.
+    # Heavy folders not asked for stay unwalked: entering node_modules
+    # or .venv only to list nothing inside would be wasted work.
     skip_unrequested = {
         name for names in HEAVY_DIRS.values() for name in names
     } - active_heavy_dirnames
@@ -103,7 +102,8 @@ def find_artifacts(
                 continue
             if filename in active_heavy_dirnames:
                 found.append(base / filename)
-                continue  # se borra entera: no hace falta bajar a mirarla
+                # it deletes whole: no need to go down and look
+                continue
             if ("gradle" in active_families and filename in FAMILIES["gradle"]["dirs"]) or (
                 "python" in active_families and filename in FAMILIES["python"]["dirs"]
             ):
@@ -131,7 +131,7 @@ def clean_artifacts(
     families: list[str] | None = None,
     heavy: list[str] | None = None,
 ) -> list[Path]:
-    """Borra los artefactos listados. En simulacro solo los muestra."""
+    """Delete the listed artifacts. On a dry run it only shows them."""
     found = find_artifacts(ctx, families, heavy)
     if not found:
         ctx.ok("No hay artefactos para limpiar.")
@@ -154,17 +154,16 @@ def clean_artifacts(
     return found
 
 
-# --- sincronizacion entre repos --------------------------------------------
+# --- sync between repos ---
 
 
 def compare_common_files(
     ctx: TaskContext, targets: list[str], paths: list[str] | None = None
 ) -> list[tuple[Path, str, str]]:
-    """Compara los archivos compartidos del repo actual contra los otros repos.
+    """Compare the repo's shared files against the other repos.
 
-    Devuelve `(destino, ruta, estado)` con estado NEW / DIFF / SAME. Es lo que
-    se muestra antes de habilitar Aplicar; `verify_projects.py` no era mas que
-    esto, y por eso deja de ser una capacidad aparte (ADR-0004).
+    It returns `(target, path, state)` with state NEW, DIFF or SAME:
+    what shows before enabling Apply (ADR-0004).
     """
     rel_paths = list(paths or COMMON_PATHS)
     result: list[tuple[Path, str, str]] = []
@@ -187,10 +186,9 @@ def sync_common_files(
     paths: list[str] | None = None,
     apply: bool = False,
 ) -> list[tuple[Path, str, str]]:
-    """Copia los archivos compartidos a los otros repos gestionados.
+    """Copy the shared files to the other managed repos.
 
-    Ya no incluye `scripts/`: esa carpeta deja de existir cuando Consola es la
-    herramienta, y era la unica razon original de este script (ADR-0059).
+    It no longer includes `scripts/` (ADR-0059).
     """
     if not targets:
         raise TaskError("No hay repos destino seleccionados.")
@@ -213,15 +211,14 @@ def sync_common_files(
     return differences
 
 
-# --- DNS -------------------------------------------------------------------
+# --- DNS ---
 
 
 def detect_public_ip(ctx: TaskContext) -> str:
-    """La IP publica de esta maquina, preguntandole a un servicio externo."""
+    """Return this machine's public IP, asking an external service."""
     for service in IP_SERVICES:
         try:
-            with urllib.request.urlopen(service, timeout=10) as answer:
-                ip = answer.read().decode("utf-8").strip()
+            ip = http.request(service, timeout=10).decode("utf-8").strip()
             if ip:
                 ctx.info(f"IP publica detectada: {ip}")
                 return ip
@@ -235,16 +232,14 @@ def _cloudflare(
 ) -> dict[str, Any]:
     token = ctx.config.require("CF_API_TOKEN")
     ctx.guard(token)
-    response_data = json.dumps(body).encode("utf-8") if body is not None else None
-    request = urllib.request.Request(
-        f"{CF_API}{path}",
-        data=response_data,
-        method=method,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-    )
     try:
-        with urllib.request.urlopen(request, timeout=30) as answer:
-            payload = json.loads(answer.read())
+        answer = http.request(
+            f"{CF_API}{path}",
+            method=method,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            body=json.dumps(body).encode("utf-8") if body is not None else None,
+        )
+        payload = json.loads(answer)
     except OSError as exc:
         raise TaskError(f"No se pudo hablar con Cloudflare: {exc}") from exc
 
@@ -256,7 +251,10 @@ def _cloudflare(
 def update_cloudflare(
     ctx: TaskContext, ip_mode: str = "vps", custom_ip: str = "", ttl: int = 1, proxied: bool = True
 ) -> str:
-    """Apunta el registro DNS a la IP elegida: detectada, la del VPS, o una fija."""
+    """Point the DNS record to the chosen IP.
+
+    Detected, the VPS's or fixed.
+    """
     if ip_mode == "detect":
         ip = detect_public_ip(ctx)
     elif ip_mode == "static":
@@ -294,7 +292,7 @@ def update_cloudflare(
     return ip
 
 
-# --- SDKs: plomeria comun --------------------------------------------------
+# --- SDKs: common plumbing ---
 
 ANDROID_STUDIO_URL = "https://developer.android.com/studio#command-line-tools-only"
 ANDROID_REPO_URL = "https://dl.google.com/android/repository/"
@@ -307,40 +305,44 @@ FLUTTER_RELEASES_JSON = {
 
 
 def _fetch_text(url: str) -> str:
-    request = urllib.request.Request(url, headers={"User-Agent": "Mozilla/5.0"})
     try:
-        with urllib.request.urlopen(request, timeout=60) as response:
-            return response.read().decode("utf-8", errors="replace")
+        answer = http.request(url, headers={"User-Agent": "Mozilla/5.0"}, timeout=60)
+        return answer.decode("utf-8", errors="replace")
     except OSError as exc:
         raise TaskError(f"No se pudo consultar {url}: {exc}") from exc
 
 
 def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
-    """Descarga informando el avance y atendiendo a Detener.
+    """Download, reporting progress and attending to Stop.
 
-    El `urlretrieve` a secas de los scripts dejaba la interfaz muda durante los
-    cientos de megas del SDK y no habia forma de frenarlo a mitad de camino.
+    A bare `urlretrieve` left the interface mute during the SDK's
+    hundreds of megabytes, with no way to stop it midway.
     """
     ctx.info(f"Descargando {url}")
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    def progress(blocks: int, size: int, total: int) -> None:
-        ctx.raise_if_cancelled()
+    def progress(done: int, total: int) -> None:
         if total > 0:
-            done = min(blocks * size, total)
             ctx.progress(done, total, f"{files.human_size(done)} de {files.human_size(total)}")
 
     try:
-        urllib.request.urlretrieve(url, destination, progress)
+        with destination.open("wb") as target:
+            http.download(
+                url, target.write, on_progress=progress, should_stop=lambda: ctx.cancelled
+            )
     except OSError as exc:
         raise TaskError(f"Fallo la descarga: {exc}") from exc
+    ctx.raise_if_cancelled()
 
     ctx.ok(f"Descargado: {files.human_size(files.size_of(destination))}")
     return destination
 
 
 def _verify(ctx: TaskContext, archive: Path, expected: str, algorithm: str) -> None:
-    """Comprueba la huella publicada. Un SDK a medio bajar falla mas tarde y peor."""
+    """Check the published digest.
+
+    A half-downloaded SDK fails later and worse.
+    """
     current = files.digest(archive, algorithm)
     if current.lower() != expected.lower():
         raise TaskError(
@@ -350,7 +352,7 @@ def _verify(ctx: TaskContext, archive: Path, expected: str, algorithm: str) -> N
     ctx.ok(f"{algorithm.upper()} verificado.")
 
 
-# --- SDK de Android --------------------------------------------------------
+# --- Android SDK ---
 
 ANDROID_COMPONENTS = ("platform-tools", "emulator", "build-tools", "platform")
 
@@ -360,7 +362,7 @@ def _android_root(install_dir: str = "") -> Path:
 
 
 def _is_android_path(entry: str) -> bool:
-    """Si una entrada del PATH pertenece a una instalacion anterior del SDK."""
+    """Return whether a PATH entry belongs to an earlier SDK install."""
     path = entry.strip().strip('"').replace("\\", "/").rstrip("/").lower()
     return path.endswith(("/platform-tools", "/emulator", "/cmdline-tools/latest/bin"))
 
@@ -375,11 +377,13 @@ def _ensure_java(ctx: TaskContext) -> None:
 
 
 def _resolve_cmdline_tools(ctx: TaskContext, os_key: str) -> tuple[str, str]:
-    """URL y SHA-1 de las cmdline-tools, leidos de la pagina oficial.
+    """Return the URL and SHA-1 of cmdline-tools.
 
-    No se guarda la URL como constante a proposito: Google le cambia el numero
-    de build a cada version y una constante vieja falla con un 404 que no
-    explica nada.
+    From the official page.
+
+    The URL is not a constant on purpose: Google changes the build
+    number with each version, and an old constant fails with a 404 that
+    explains nothing.
     """
     html = _fetch_text(ANDROID_STUDIO_URL)
     pattern = rf"commandlinetools-{'win' if os_key == 'windows' else os_key}-\d+_latest\.zip"
@@ -388,7 +392,8 @@ def _resolve_cmdline_tools(ctx: TaskContext, os_key: str) -> tuple[str, str]:
     if len(names) != 1:
         raise TaskError(
             "No se pudo identificar el zip de cmdline-tools en la pagina de Android Studio "
-            f"({len(names)} coincidencias para {os_key}). Puede que Google haya cambiado la pagina."
+            f"({len(names)} coincidencias para {os_key}). Puede que Google haya cambiado la "
+            f"pagina."
         )
 
     filename = names[0]
@@ -406,8 +411,9 @@ def _extract_cmdline_tools(ctx: TaskContext, archive: Path, latest: Path) -> Non
     ctx.info(f"Descomprimiendo en {latest}")
     files.extract_zip(archive, latest)
 
-    # El zip trae todo colgando de `cmdline-tools/`, pero sdkmanager deduce el
-    # sdk_root desde su propia ruta y exige quedar en `cmdline-tools/latest/bin`.
+    # The zip hangs everything from `cmdline-tools/`, but sdkmanager
+    # deduces sdk_root from its own path and requires being in
+    # `cmdline-tools/latest/bin`.
     interior = latest / "cmdline-tools"
     if interior.is_dir():
         for item in interior.iterdir():
@@ -416,12 +422,13 @@ def _extract_cmdline_tools(ctx: TaskContext, archive: Path, latest: Path) -> Non
 
 
 def install_android_tools(ctx: TaskContext, install_dir: str = "") -> Path:
-    """Deja las command-line tools del SDK de Android instaladas y en el entorno.
+    """Install the Android command-line tools into the environment.
 
-    Atomica: resuelve la version publicada, la verifica, la descomprime y
-    escribe ANDROID_SDK_ROOT / ANDROID_HOME / ANDROID_AVD_HOME y el PATH del
-    usuario. No instala paquetes: de eso se ocupa `install_android_packages`,
-    que se corre solo cada vez que hace falta otra API o otro build-tools.
+    Atomic: it resolves the published version, verifies it, extracts it
+    and writes ANDROID_SDK_ROOT, ANDROID_HOME, ANDROID_AVD_HOME and the
+    user's PATH. It installs no packages: `install_android_packages`
+    handles that, run alone whenever another API or build-tools is
+    needed.
     """
     os_key = HOST.sdk_key
     if os_key not in ("windows", "linux"):
@@ -460,11 +467,11 @@ def install_android_tools(ctx: TaskContext, install_dir: str = "") -> Path:
 
 
 def _sdkmanager(ctx: TaskContext) -> tuple[list[str], Path]:
-    """El sdkmanager instalado y la raiz del SDK a la que pertenece.
+    """Return the installed sdkmanager and the SDK root it belongs to.
 
-    Se resuelve por `core/android.py`, que ya explica que hacer cuando falta;
-    asi la dependencia entre las dos atomicas no las acopla: si todavia no se
-    instalaron las herramientas, el error lo dice con esas palabras.
+    It resolves through `core/android.py`, which explains what to do
+    when missing, so the dependency does not couple the two atomic
+    capabilities: if the tools are not installed yet, the error says so.
     """
     sdk = android.resolve_sdk()
     path = sdk.tool("sdkmanager")
@@ -496,12 +503,11 @@ def install_android_packages(
     api_level: str = "",
     build_tools: str = "",
 ) -> list[str]:
-    """Instala en el SDK ya presente los paquetes que falten.
+    """Install the missing packages in the present SDK.
 
-    Es atomica aparte de la instalacion de las herramientas porque es la que se
-    repite: cuando sale una API nueva o un repo pide otro build-tools se agrega
-    ese paquete sin volver a bajar el SDK entero ni tocar el PATH. En los
-    scripts esto obligaba a editar dos constantes y correr todo de nuevo.
+    It is apart from the tools' install because it repeats: when a new
+    API ships or a repo asks for another build-tools, that package adds
+    without downloading the whole SDK again or touching the PATH.
     """
     chosen = list(ANDROID_COMPONENTS if components is None else components)
     if not chosen:
@@ -535,19 +541,20 @@ def install_android_packages(
 
 
 def install_android_hypervisor(ctx: TaskContext) -> bool:
-    """Deja lista la aceleracion por hardware del emulador.
+    """Leave the emulator's hardware acceleration ready.
 
-    Va aparte por dos razones. Es lo unico de toda la instalacion que necesita
-    permisos elevados (en Windows es un driver de kernel; en Linux, pertenecer
-    al grupo kvm), asi que separandolo las otras dos atomicas no piden ninguno.
-    Y es lo que se rompe solo: una actualizacion del sistema deja el emulador
-    lentisimo sin que el resto del SDK haya cambiado.
+    It goes apart for two reasons. It is the only part of the whole
+    install needing elevated rights (a kernel driver on Windows;
+    belonging to the kvm group on Linux), so separating it means the
+    other two ask for none. And it is what breaks by itself: a system
+    update leaves the emulator very slow with the rest of the SDK
+    unchanged.
     """
     return _ACCELERATIONS[HOST.emulator_acceleration](ctx)
 
 
 def _install_hypervisor_driver(ctx: TaskContext) -> bool:
-    """En Windows la aceleracion es un driver de kernel que se instala."""
+    """Install the kernel driver that accelerates on Windows."""
     try:
         ctx.capture(["sc", "query", "gvm"], timeout=30)
         ctx.ok("El Hypervisor Driver ya esta instalado (servicio gvm).")
@@ -573,10 +580,11 @@ def _install_hypervisor_driver(ctx: TaskContext) -> bool:
 
 
 def _check_kvm(ctx: TaskContext) -> bool:
-    """En Linux la aceleracion no se instala: se verifica y, si falta, se explica.
+    """On Linux, acceleration is verified and, if missing, explained.
 
-    Meter la mano con sudo desde una interfaz grafica seria peor que decir el
-    comando exacto: el cambio de grupo ademas no surte efecto hasta reingresar.
+    Reaching in with sudo from a graphical interface would be worse than
+    saying the exact command: the group change also takes no effect
+    until signing in again.
     """
     device = Path("/dev/kvm")
     if not device.exists():
@@ -596,16 +604,15 @@ def _check_kvm(ctx: TaskContext) -> bool:
     return False
 
 
-# Uno por valor de `HOST.emulator_acceleration`.
+# One per value of `HOST.emulator_acceleration`.
 _ACCELERATIONS = {"driver": _install_hypervisor_driver, "kvm": _check_kvm}
 
 
 def _run_elevated(ctx: TaskContext, program: Path) -> None:
-    """Lanza un programa pidiendo elevacion: un solo aviso de UAC.
+    """Launch a program asking for elevation: a single UAC prompt.
 
-    Es preferible a exigir que Consola entera corra como administrador, que es
-    lo que hacia falta con los scripts: todo lo demas escribe en HKCU y no
-    necesita permisos.
+    It beats requiring all of Consola to run as administrator:
+    everything else writes to HKCU and needs no rights.
     """
     import ctypes
 
@@ -632,16 +639,12 @@ def install_android_sdk(
     packages: bool = True,
     hypervisor: bool = True,
 ) -> Path:
-    """Instalacion completa del SDK de Android, de punta a punta.
+    """Install the whole Android SDK, end to end.
 
-    Compuesta: encadena las tres atomicas en el unico orden que funciona, y
-    cada una sigue estando disponible sola desde su propio boton.
-
-    Un booleano por paso, como las otras doce compuestas. Antes recibia la
-    lista de ids (`steps=['install_android_tools', ...]`) y era la unica que lo
-    hacia: eso obligaba al catalogo a nombrar sus casillas con ids de capacidad
-    en vez de con nombres de parametro, que es justo lo que el contrato de
-    nombres saca (ADR-0003).
+    Composite: it chains the three atomic capabilities in the only order
+    that works, and each stays available alone from its own button. One
+    boolean per step, like the other composites, because the naming
+    contract asks for parameter names and not capability ids (ADR-0003).
     """
     root = _android_root(install_dir)
 
@@ -663,14 +666,14 @@ def install_android_sdk(
     return root
 
 
-# --- SDK de Flutter --------------------------------------------------------
+# --- Flutter SDK ---
 
 
 def _is_flutter_path(entry: str) -> bool:
-    """Si una entrada del PATH es el `bin` de una instalacion anterior de Flutter.
+    """Return whether a PATH entry is an old Flutter's `bin`.
 
-    Mira el directorio padre y no solo el nombre exacto, para reconocer tambien
-    las instalaciones en un directorio propio (`~/sdk/flutter-stable/bin`).
+    It looks at the parent folder and not only the exact name, to also
+    recognize installs in their own folder (`~/sdk/flutter-stable/bin`).
     """
     parts = entry.strip().strip('"').replace("\\", "/").rstrip("/").lower().split("/")
     return len(parts) >= 2 and parts[-1] == "bin" and "flutter" in parts[-2]
@@ -683,7 +686,10 @@ def _ensure_git(ctx: TaskContext) -> None:
 
 
 def _resolve_flutter_stable(ctx: TaskContext, os_key: str) -> tuple[str, str]:
-    """URL y SHA-256 del canal stable, desde el indice oficial de releases."""
+    """Return the stable channel's URL and SHA-256.
+
+    From the releases index.
+    """
     filename = FLUTTER_RELEASES_JSON.get(os_key)
     if not filename:
         raise TaskError(f"Flutter no publica releases para este sistema: {os_key}.")
@@ -715,7 +721,10 @@ def _resolve_flutter_stable(ctx: TaskContext, os_key: str) -> tuple[str, str]:
 
 
 def _extract_flutter(ctx: TaskContext, archive: Path, home: Path) -> None:
-    """Descomprime el SDK, que trae su propia carpeta `flutter/` en la raiz."""
+    """Extract the SDK, which brings its own `flutter/` folder.
+
+    At the root.
+    """
     destination = home.parent
     ctx.info(f"Descomprimiendo en {home}")
     destination.mkdir(parents=True, exist_ok=True)
@@ -729,11 +738,10 @@ def _extract_flutter(ctx: TaskContext, archive: Path, home: Path) -> None:
 
 
 def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
-    """Instala el SDK de Flutter del canal stable y lo deja en el entorno.
+    """Install the Flutter SDK's stable channel into the environment.
 
-    Sigue siendo una sola atomica, a diferencia de Android: Flutter no tiene
-    paquetes sueltos que se agreguen despues, se actualiza entero con
-    `flutter upgrade`.
+    One atomic capability, unlike Android: Flutter has no loose packages
+    added later, and it updates whole with `flutter upgrade`.
     """
     os_key = HOST.sdk_key
     _ensure_git(ctx)
@@ -768,6 +776,7 @@ def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("clean_artifacts", clean_artifacts)
     registry.bind("update_cloudflare", update_cloudflare)
     registry.bind("sync_common_files", sync_common_files)

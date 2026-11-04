@@ -1,23 +1,24 @@
+"""The one deliberate exception to «no subprocesses into Python code».
+
+Seeders and partition maintenance are not operations on the database:
+they are *project code* (`seeders/`, `mock_data/`,
+`app.services.maintenance`) that can only be imported from the server's
+venv, with its dependencies and models. Consola cannot import them with
+its own interpreter, so it launches these short programs with the
+project's Python (`core/runner.py`).
+
+They are not scripts of the managed repo: they live here, there is one
+copy, and they enter as `python -c <source>`. They never touch a disk:
+not this one, since a packaged Consola does not exist as loose files,
+and not the VPS's, which need not receive a file to run something its
+own venv can execute.
+"""
+
 from __future__ import annotations
 
 from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.runner import Runner
-
-"""
-La unica excepcion deliberada a "nada de subprocesos a codigo Python".
-
-Los seeders y el mantenimiento de particiones no son operaciones sobre la base:
-son *codigo del proyecto* (`seeders/`, `mock_data/`, `app.services.maintenance`)
-que solo se puede importar desde el venv del servidor, con sus dependencias y
-sus modelos. Consola no puede importarlos con su propio interprete, asi que
-lanza estos programas cortos con el Python del proyecto (`core/runner.py`).
-
-No son scripts del repo gestionado: viven aca, hay una sola copia, y entran como
-`python -c <fuente>`. Nunca tocan el disco: ni el de aca —Consola empaquetada
-con PyInstaller no existe como archivos sueltos— ni el del VPS, que no tiene por
-que recibir un archivo para correr algo que su propio venv ya sabe ejecutar.
-"""
 
 SEED = """
 import asyncio, importlib, os, pkgutil, sys
@@ -110,16 +111,16 @@ SOURCES = {"seed": SEED, "partitions": PARTITIONS}
 
 
 def run(ctx: TaskContext, runner: Runner, source: str, *args: str) -> int:
-    """Ejecuta un payload con el Python del proyecto, del lado que diga el runner.
+    """Run a payload with the project's Python, where the runner says.
 
-    Los payloads no necesitan saber donde corren: lo unico que toman del entorno
-    es el directorio de trabajo —de ahi sale el `sys.path` que les deja importar
-    `app.` y `seeders.`— y `DATABASE_URL`, y las dos cosas las pone el `Runner`.
-    Por eso el mismo texto sirve igual aca y en el VPS.
+    Payloads need not know where they run: all they take from the
+    environment is the working directory, which gives the `sys.path`
+    that lets them import `app.` and `seeders.`, and `DATABASE_URL`. The
+    `Runner` sets both, so the same text works here and on the VPS.
 
-    El log muestra un resumen y no el argv real: `-c` lleva el programa entero
-    como un solo argumento, y volcarlo tal cual serian cincuenta lineas de codigo
-    tapando la salida del seeder.
+    The log shows a summary and not the real argv: `-c` carries the
+    whole program as one argument, and dumping it would be fifty lines
+    of code hiding the seeder's output.
     """
     if source not in SOURCES:
         raise TaskError(f"Payload desconocido: {source!r}")

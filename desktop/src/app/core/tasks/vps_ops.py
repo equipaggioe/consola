@@ -1,3 +1,9 @@
+"""VPS group: ops.
+
+Diagnostics, a loose command and removing this machine's key. None of
+them writes the VPS configuration.
+"""
+
 from __future__ import annotations
 
 import json
@@ -8,29 +14,25 @@ from app.core.errors import TaskError
 from app.core.registry import registry
 from app.core.tasks.vps_setup import access
 
-"""
-Grupo VPS - ops: diagnostico, un comando suelto y quitar la llave de esta
-maquina. Ninguno escribe la configuracion del VPS.
-"""
-
 
 def _remote(ctx: TaskContext) -> ssh.Remote:
     return ssh.resolve_remote(ctx.config)
 
 
-# --- diagnostico -----------------------------------------------------------
+# --- diagnostics ---
 
-# Lo que responde un servidor sano (fastapi.md de canone, «Salud»).
+# What a healthy server answers (fastapi.md of canone, «Salud»).
 HEALTHY = "204"
 HEALTH_TOKEN = "HEALTH_TOKEN"
 
 
 def health_check(ctx: TaskContext) -> dict[str, str]:
-    """Resumen de salud del VPS, los errores recientes del servidor y `GET /api/health`.
+    """Show VPS health, recent server errors and `GET /api/health`.
 
-    `access` corta si no se entra: lo demas ya sabe que hay maquina. Falla al
-    final, y no en cuanto la API no contesta, porque el resumen y los errores son
-    justo lo que hace falta leer para saber por que.
+    `access` stops if it cannot get in: the rest already knows there is
+    a machine. It fails at the end, not as soon as the API does not
+    answer, because the summary and the errors are what has to be read
+    to know why.
     """
     entry = access(ctx)
     service = vps.resolve_service(canone.origin(ctx.root)[1])
@@ -44,9 +46,9 @@ def health_check(ctx: TaskContext) -> dict[str, str]:
 
 
 def view_events(ctx: TaskContext) -> dict[str, str]:
-    """`GET /api/health/events`: los ultimos eventos, el ultimo respaldo y el disco.
+    """Show `GET /api/health/events`: events, last backup and disk.
 
-    Solo los muestra: canone deja a quien consulta decidir cuando avisar.
+    It only shows them: canone lets whoever asks decide when to alert.
     """
     token = ctx.config.require(HEALTH_TOKEN)
     ctx.guard(token)
@@ -60,20 +62,20 @@ def view_events(ctx: TaskContext) -> dict[str, str]:
 
 
 def run_command(ctx: TaskContext, command: str = "") -> int:
-    """Un comando cualquiera en el VPS, con la salida en vivo."""
+    """Run any command on the VPS, with live output."""
     if not command.strip():
         raise TaskError("No hay ningun comando para correr.")
     return ssh.run(ctx, _remote(ctx), command, check=False)
 
 
-# --- revocacion ------------------------------------------------------------
+# --- revocation ---
 
 
 def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bool = True) -> None:
-    """Saca la llave del `authorized_keys` del VPS y borra el par local.
+    """Remove the key from the VPS and delete the local pair.
 
-    Muestra la huella exacta que va a sacar antes de tocar nada: revocar la
-    llave equivocada deja el servidor inalcanzable.
+    It shows the exact fingerprint it will remove before touching
+    anything: revoking the wrong key leaves the server unreachable.
     """
     key_name = ctx.config.require("VPS_KEY_NAME")
     private = ssh.identity_path(key_name)
@@ -85,7 +87,8 @@ def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bo
     if remote_side:
         key = ssh.quote(publishes)
         try:
-            # The first grep fails if the key is not there; the second, if it is the last one.
+            # The first grep fails if the key is not there; the second,
+            # if it is the last one.
             ssh.run(
                 ctx,
                 _remote(ctx),
@@ -111,6 +114,7 @@ def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bo
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("health_check", health_check)
     registry.bind("view_events", view_events)
     registry.bind("run_command", run_command)

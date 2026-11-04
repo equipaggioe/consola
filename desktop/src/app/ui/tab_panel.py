@@ -1,3 +1,5 @@
+"""The workspace of one repository, with its tabs and right column."""
+
 from __future__ import annotations
 
 import time
@@ -57,10 +59,10 @@ from app.ui.widgets.led import LedIndicator
 
 
 class SubTabButton(ReorderableTab):
-    """Pestana de segundo nivel: una ejecucion dentro del repo activo.
+    """A second-level tab: one run inside the active repo.
 
-    Subordinada visualmente al nivel superior: mas baja, tipografia menor
-    y subrayado (no barra superior) en el color del repo.
+    Visually subordinate to the top level: lower, smaller type and
+    underlined, not with a top bar, in the repo's color.
     """
 
     clicked = Signal()
@@ -69,6 +71,7 @@ class SubTabButton(ReorderableTab):
     HEIGHT = 34
 
     def __init__(self, title: str, icon: str, pal: Palette, parent: QWidget | None = None) -> None:
+        """Build the tab."""
         super().__init__(parent)
         self.title = title
         self.pal = pal
@@ -113,10 +116,12 @@ class SubTabButton(ReorderableTab):
         self._sync_text()
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self.update()
 
     def set_active(self, active: bool) -> None:
+        """Set whether it is the active tab."""
         self.is_active = active
         self._sync_text()
         self.update()
@@ -198,9 +203,10 @@ class SubTabButton(ReorderableTab):
 
 
 class PadlockChip(QLabel):
-    """Un objetivo de proteccion en la barra de estado: su nombre corto con un
-    candado cerrado (protegido) o abierto (sin proteger). Clic -> salta a la
-    seccion Seguridad.
+    """A protection target on the status bar.
+
+    Its short name with a padlock, closed (protected) or open
+    (unprotected). A click jumps to the Security section.
     """
 
     clicked = Signal()
@@ -208,10 +214,11 @@ class PadlockChip(QLabel):
     def __init__(
         self, chip: str, label: str, protected: bool, pal: Palette, parent: QWidget | None = None
     ) -> None:
+        """Build the chip."""
         super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        # Cerrado = a salvo (el color del repo); abierto = expuesto a un
-        # destructivo sin red, y eso es rojo en todos los repos.
+        # Closed = safe (the repo's color); open = exposed to a
+        # destructive action with no net, and that is red in every repo.
         color = pal.accent if protected else Colors.ERROR
         self.setStyleSheet(
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
@@ -231,25 +238,23 @@ class PadlockChip(QLabel):
 
 
 class WorkspaceStatusBar(QWidget):
-    """Barra inferior del espacio de trabajo: repo activo, servicios y estado.
+    """The workspace's bottom bar: active repo, services and state."""
 
-    Antes eran dos barras apiladas (un selector de vistas que no cambiaba
-    ninguna vista, y una barra de estado global repitiendo el mismo reloj).
-    Se fusionaron en una sola.
-    """
-
-    security_clicked = Signal()  # clic en el indicador de seguros del repo activo
+    # click on the active repo's guards indicator
+    security_clicked = Signal()
 
     def __init__(self, pal: Palette, parent: QWidget | None = None) -> None:
+        """Build the bar."""
         super().__init__(parent)
         self.pal = pal
-        # Lo ultimo que se mostro en los candados: al cambiar de color hay que
-        # volver a pintarlos, y el estado lo tiene el repo, no la barra.
+        # What the padlocks last showed: on changing color they have to
+        # be repainted, and the repo holds the state, not the bar.
         self._protection: dict[str, Any] = {}
         self.setFixedHeight(34)
-        # Sin esto un QWidget derivado no pinta ni el fondo ni el borde de su
-        # hoja de estilo: la linea de arriba que la separa del contenido no se
-        # veia (mismo motivo que en `ui/widgets/accordion.py`).
+        # Without this a QWidget subclass paints neither background nor
+        # border from its style sheet: the top line separating it from
+        # the content did not show (same reason as in
+        # `ui/widgets/accordion.py`).
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         layout = QHBoxLayout(self)
@@ -262,21 +267,23 @@ class WorkspaceStatusBar(QWidget):
 
         layout.addStretch()
 
-        # De aca a la derecha, cada seccion va separada de la anterior por una
-        # linea fina: entorno · seguros · estado se leen como bloques distintos.
+        # From here rightward, each section is separated from the
+        # previous by a thin line: environment, guards and state read as
+        # distinct blocks.
         self._sep_tools = self._divider()
         layout.addWidget(self._sep_tools)
 
-        # Estado del entorno: se chequea solo, no con un boton. Va antes del
-        # reloj porque es informacion de la maquina, no de esta corrida.
+        # Environment state: it checks itself, not with a button. It
+        # goes before the clock because it is the machine's information,
+        # not this run's.
         self.tools_layout = QHBoxLayout()
         self.tools_layout.setSpacing(10)
         layout.addLayout(self.tools_layout)
         self._tools: dict[str, tuple[LedIndicator, QLabel]] = {}
         self.refresh_tools()
 
-        # RAM disponible: a diferencia de los SDK, cambia todo el tiempo (no
-        # solo tras una instalacion), asi que tiene su propio timer.
+        # Available RAM: unlike the SDKs, it changes all the time and
+        # not only after an install, so it has its own timer.
         self.ram_label = QLabel()
         self.ram_label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
@@ -290,10 +297,10 @@ class WorkspaceStatusBar(QWidget):
         self._sep_security = self._divider()
         layout.addWidget(self._sep_security)
 
-        # Los objetivos de proteccion del repo activo (`core/protection.py`),
-        # cada uno con su candado abierto o cerrado, siempre a la vista sin
-        # importar que accion este abierta arriba (`ADR-0018`
-        # §4). El clic en cualquiera salta a la seccion Seguridad.
+        # The active repo's protection targets (`core/protection.py`),
+        # each with its open or closed padlock, always in view whichever
+        # action is open above (`ADR-0018` §4). A click on any jumps to
+        # the Security section.
         self.security_box = QWidget()
         self.security_box.setStyleSheet("background: transparent;")
         self._security_row = QHBoxLayout(self.security_box)
@@ -313,7 +320,7 @@ class WorkspaceStatusBar(QWidget):
         self._restyle()
 
     def _divider(self) -> QFrame:
-        """Linea vertical fina entre dos secciones de la barra."""
+        """Return a thin vertical line between two bar sections."""
         line = QFrame()
         line.setFrameShape(QFrame.Shape.VLine)
         line.setFixedWidth(1)
@@ -322,18 +329,21 @@ class WorkspaceStatusBar(QWidget):
         return line
 
     def refresh_tools(self) -> None:
-        """Vuelve a mirar el disco y repinta los indicadores del entorno.
+        """Look at the disk again.
 
-        Se llama al construir la barra y despues de cada accion de maquina
-        (instalar un SDK): como la instalacion deja las variables en el
-        `os.environ` del proceso, el LED se pone en verde sin reiniciar nada.
+        And repaint the environment's indicators.
+
+        It is called on building the bar and after each machine action,
+        such as installing an SDK: since the install leaves its
+        variables in the process's `os.environ`, the LED turns green
+        without restarting anything.
         """
         for tool in toolstatus.detect():
             if tool.key not in self._tools:
                 self._tools[tool.key] = self._build_tool(tool)
             led, label = self._tools[tool.key]
-            # 'on', no 'green': el verde que late dice "esto esta corriendo",
-            # y una herramienta instalada es un hecho quieto.
+            # 'on', not 'green': the pulsing green says «this is
+            # running», and an installed tool is a still fact.
             led.set_state("on" if tool.found else "off")
             tip = f"{tool.label}: {tool.detail}"
             led.setToolTip(tip)
@@ -344,8 +354,10 @@ class WorkspaceStatusBar(QWidget):
             )
 
     def refresh_ram(self) -> None:
-        """RAM disponible/total, redondeada al GB: alcanza para ver de un
-        vistazo si conviene cerrar algo antes de lanzar una build pesada.
+        """Show available and total RAM, rounded to the GB.
+
+        Enough to see at a glance whether to close something before
+        launching a heavy build.
         """
         ram = sysinfo.available_ram()
         if ram is None:
@@ -376,6 +388,7 @@ class WorkspaceStatusBar(QWidget):
         return led, label
 
     def add_service(self, name: str) -> None:
+        """Add a service indicator."""
         container = QWidget()
         container.setObjectName(f"service_{name}")
         container.setStyleSheet("background: transparent;")
@@ -396,23 +409,32 @@ class WorkspaceStatusBar(QWidget):
         self.services_layout.addWidget(container)
 
     def set_status(self, text: str) -> None:
+        """Set the state's text."""
         self.status_label.setText(text)
 
     def clear(self) -> None:
-        """Sin ningun repositorio abierto: nada que decir sobre seguros ni
-        tareas activas (`ui/main_window.py::_show_empty_state`).
+        """Show nothing about guards or active tasks.
+
+        No repository is open.
+
+        See `ui/main_window.py::_show_empty_state`.
         """
         self.security_box.setVisible(False)
-        # Sin seguros que mostrar, la division que los precede sobra.
+        # With no guards to show, the divider preceding them is not
+        # needed.
         self._sep_security.setVisible(False)
         self.set_status("")
 
     def set_protection(self, state: dict[str, Any]) -> None:
-        """Refresca los candados con el estado de CADA objetivo de proteccion
-        (`core/protection.TARGETS`), no solo los protegidos: un objetivo sin
-        seguro tambien es un dato, y con su candado abierto se ve de un
-        vistazo. `state` es `{target_id: bool}` (`ui/security_panel.py`). Se
-        llama al cambiar de repo y cada vez que se toca un interruptor.
+        """Refresh the padlocks with the state.
+
+        Of EACH protection target.
+
+        From `core/protection.TARGETS`, not only the protected ones: a
+        target with no guard is also a datum, and its open padlock shows
+        at a glance. `state` is `{target_id: bool}`
+        (`ui/security_panel.py`). It is called on changing repo and each
+        time a switch is touched.
         """
         self._protection = dict(state)
         while self._security_row.count():
@@ -431,10 +453,11 @@ class WorkspaceStatusBar(QWidget):
         self._restyle()
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
-        # Los candados se pintan del acento cuando estan cerrados, asi que hay
-        # que rehacerlos; con la barra vacia no hay ninguno que rehacer.
+        # Padlocks paint in the accent when closed, so they have to be
+        # redone; with an empty bar there are none to redo.
         if self.security_box.isVisible():
             self.set_protection(self._protection)
 
@@ -450,27 +473,33 @@ class WorkspaceStatusBar(QWidget):
 
 
 class TabPanel(ReorderableBar):
-    """Espacio de trabajo de UN repositorio.
+    """The workspace of ONE repository.
 
-    Contiene el segundo nivel de pestanas (las ejecuciones de ese repo),
-    el area de consola y la barra de vistas. Cada repo tiene su propia
-    instancia, asi que las sub-pestanas nunca se mezclan entre repos.
+    It holds the second level of tabs, that repo's runs, the console
+    area and the views bar. Each repo has its own instance, so sub-tabs
+    never mix between repos.
     """
 
-    params_changed = Signal()  # algun panel guardo parametros nuevos
+    params_changed = Signal()  # some panel saved new parameters
     machine_changed = (
         Signal()
-    )  # una tarea de maquina cambio el entorno (SDK instalado, AVD creado)
-    favorite_changed = Signal()  # se marco/desmarco una favorita desde la estrella
-    sections_changed = Signal()  # se mostro/oculto una seccion de la columna lateral
-    repo_ready = Signal(str)  # una tarea dejo un repo nuevo en disco (clonar):
-    # su carpeta, para abrirla como pestana
-    logo_changed = Signal(object)  # se releyo config.env: el `RepoLogo`, para la pestana del repo
+        # a machine task changed the environment (SDK installed, AVD
+        # created)
+    )
+    # a favorite was marked or unmarked from the star
+    favorite_changed = Signal()
+    # a section of the side column was shown or hidden a task left a new
+    # repo on disk (clone): its folder, to open it as a tab
+    sections_changed = Signal()
+    repo_ready = Signal(str)
+    # config.env was reread: the `RepoLogo`, for the repo's tab
+    logo_changed = Signal(object)
 
-    # Piso del cuerpo de una seccion del acordeon al arrastrarla a mano.
+    # Floor of an accordion section's body when dragging it by hand.
     MIN_BODY = 48
 
     def __init__(self, project: Project, parent: QWidget | None = None) -> None:
+        """Build the workspace and reopen its saved tabs."""
         super().__init__(parent)
         self.project = project
         self.pal = palettes.get(project.theme)
@@ -480,7 +509,7 @@ class TabPanel(ReorderableBar):
         self.root_layout.setContentsMargins(0, 0, 0, 0)
         self.root_layout.setSpacing(0)
 
-        # --- barra de sub-pestanas -----------------------------------
+        # --- sub-tabs bar ---
         self.sub_bar = QWidget()
         self.sub_bar.setObjectName("subBar")
         self.sub_bar.setFixedHeight(SubTabButton.HEIGHT + 4)
@@ -500,17 +529,20 @@ class TabPanel(ReorderableBar):
         sub_bar_layout.addWidget(self.empty_hint)
         sub_bar_layout.addStretch()
 
-        # --- area de contenido ---------------------------------------
+        # --- content area ---
         self.content_area = QStackedWidget()
 
         self.welcome_widget = self._build_welcome()
         self.content_area.addWidget(self.welcome_widget)
 
-        # --- columna derecha: cabecera unica + acordeon de secciones ---
-        # Acordeon y no pestanas porque las tres se leen juntas: un bloqueo de
-        # `ParamsPanel` puede decir "faltan claves de configuracion: VPS_IP" y
-        # esa clave esta en la seccion de abajo. Con pestanas, el mensaje
-        # apuntaria a algo que no se ve. Ver `ui/widgets/accordion.py`.
+        # --- right column: a single header and an accordion of sections
+        # ---
+        #
+        # An accordion and not tabs because the three read together: a
+        # `ParamsPanel` block may say config keys are missing, «VPS_IP»,
+        # and that key is in the section below. With tabs, the message
+        # would point at something out of view. See
+        # `ui/widgets/accordion.py`.
         self.params_stack = QStackedWidget()
         self.params_stack.addWidget(self._build_params_placeholder())
 
@@ -519,43 +551,47 @@ class TabPanel(ReorderableBar):
         self.env_panel.reloaded.connect(self._on_env_reloaded)
         self.env_panel.saved.connect(self._refresh_logo)
 
-        # Los seguros no salen de `config.env`: viven en `.consola/params.json`
-        # y se guardan al tocarlos, sin pasar por el boton Guardar de
-        # Configuracion (`ui/security_panel.py`).
+        # Guards do not come from `config.env`: they live in
+        # `.consola/params.json` and save on touching them, without
+        # going through Settings's Save button (`ui/security_panel.py`).
         self.security_panel = SecurityPanel(project)
         self.security_panel.changed.connect(self._refresh_security_summary)
 
-        # Seccion de arriba: la descripcion larga de la accion abierta y sus
-        # pasos. Su cabecera siempre dice «Acción»; plegada, eso es todo lo que
-        # se ve.
+        # Top section: the open action's long description and its steps.
+        # Its header always says «Acción»; folded, that is all that
+        # shows.
         self.info_panel = CommandInfoPanel()
         self.info_section = AccordionSection("Acción", self.info_panel, expanded=False)
-        # Plegada de entrada: su cabecera ya resume cuantos objetivos estan
-        # protegidos (`_refresh_security_summary`), asi que abrirla es solo para
-        # tocar los seguros, no para enterarse.
+        # Folded at first: its header already sums up how many targets
+        # are protected (`_refresh_security_summary`), so opening it is
+        # only to touch the guards, not to find out.
         self.security_section = AccordionSection("Seguridad", self.security_panel, expanded=False)
-        # Desplegada de entrada y sin plegarse sola: es la seccion que se usa en
-        # cada corrida, y abrir una accion para tener que abrirla ademas es un
-        # clic de mas. `_relayout_right` le da su alto natural completo.
+        # Open at first and without folding by itself: it is the section
+        # used on each run, and opening an action only to have to open
+        # this too is one click too many. `_relayout_right` gives it its
+        # full natural height.
         self.params_section = AccordionSection("Parámetros", self.params_stack, expanded=True)
         self.config_section = AccordionSection("Configuración del repo", self.env_panel)
-        # El estado de config.env va en el rotulo de la seccion, no en un
-        # renglon aparte de su pie.
+        # config.env's state goes in the section's label, not on a
+        # separate line of its footer.
         self.env_panel.file_status_changed.connect(self.config_section.set_summary)
         self.config_section.set_summary(self.env_panel.file_status)
 
-        # Un layout y no un `QSplitter`: plegar es ponerle un tope de alto a la
-        # seccion, y un splitter guarda sus propios tamanos aparte — los dos
-        # mandos peleaban y el reparto solo cuajaba un turno despues.
+        # A layout and not a `QSplitter`: folding is setting a height
+        # cap on the section, and a splitter keeps its own sizes apart;
+        # the two controls fought and the allotment only settled a turn
+        # later.
         #
-        # Quien reparte es `_relayout_right`, que le calcula el tope a cada una;
-        # el layout solo lo obedece. Dejarselo a los factores de estiramiento no
-        # alcanzaba: `params_stack` y `env_panel` piden alturas que no tienen
-        # nada que ver con lo que la columna puede dar, y negociando entre ellos
-        # una seccion terminaba con el alto de otra.
-        # Alto de cuerpo (sin cabecera) elegido a mano arrastrando la barra de
-        # abajo. `None` = seguir el reparto automatico de `_relayout_right`. Se
-        # limpia sola al plegar la seccion: reabrirla vuelve a autoajustarse.
+        # `_relayout_right` shares out, computing each one's cap; the
+        # layout only obeys. Leaving it to stretch factors was not
+        # enough: `params_stack` and `env_panel` ask for heights
+        # unrelated to what the column can give, and negotiating among
+        # them one section ended up with another's height.
+        #
+        # Body height (without header) chosen by hand by dragging the
+        # bar below. `None` = follow `_relayout_right`'s automatic
+        # share. It clears by itself on folding the section: reopening
+        # autosizes again.
         self._manual: dict[AccordionSection, int | None] = {}
         self._grips: dict[AccordionSection, SectionResizeGrip] = {}
         self._all_sections = (
@@ -564,7 +600,7 @@ class TabPanel(ReorderableBar):
             self.params_section,
             self.config_section,
         )
-        # Clave con la que se guarda cada una en `ui/section_visibility.py`.
+        # The key each one saves under in `ui/section_visibility.py`.
         self._section_ids = {
             self.info_section: "accion",
             self.security_section: "seguridad",
@@ -583,13 +619,14 @@ class TabPanel(ReorderableBar):
                 self._show_sections_menu(h.mapToGlobal(pos))
 
             section.header.customContextMenuRequested.connect(on_section_menu)
-            # Quien estira lo decide `_relayout_right` con `setStretchFactor`:
-            # tiene que ser la ultima seccion abierta que no este fijada a mano,
-            # que no siempre es Configuracion. Sin eso, con Configuracion plegada
-            # el sobrante caia en el resorte del final y quedaba un hueco muerto.
+            # `_relayout_right` decides who stretches with
+            # `setStretchFactor`: it has to be the last open section not
+            # fixed by hand, which is not always Settings. Without that,
+            # with Settings folded the excess fell in the final spring
+            # and left a dead gap.
             self._column.addWidget(section, 0)
             section.toggled.connect(self._on_section_toggled)
-            # Configuracion es la ultima: no tiene con quien negociar hacia abajo.
+            # Settings is last: it has no one to negotiate with below.
             if section is not self.config_section:
                 self._manual[section] = None
                 grip = SectionResizeGrip()
@@ -602,17 +639,18 @@ class TabPanel(ReorderableBar):
                 grip.reset.connect(lambda s=section: self._resize_section(s, None))
                 self._column.addWidget(grip)
                 self._grips[section] = grip
-        # Con TODO plegado no queda quien estire: este resorte se come el
-        # sobrante para que las cabeceras se apilen arriba.
+        # With ALL folded nobody is left to stretch: this spring eats
+        # the excess so the headers stack on top.
         self._column.addStretch(0)
-        # Recien ahora: el filtro dispara `_relayout_right`, que necesita las
-        # secciones y las barras ya armadas.
-        self.right_column.installEventFilter(self)  # ver `eventFilter`
+        # Only now: the filter fires `_relayout_right`, which needs the
+        # sections and bars built.
+        self.right_column.installEventFilter(self)  # see `eventFilter`
 
-        self._header_cap_id = ""  # accion que muestra la cabecera, para la estrella
+        # action the header shows, for the star
+        self._header_cap_id = ""
         self.right_header = self._build_right_header()
-        # La cabecera nunca se oculta: con todas las secciones escondidas sigue
-        # habiendo donde hacer clic derecho para traerlas de vuelta.
+        # The header never hides: with all sections hidden there is
+        # still somewhere to right-click to bring them back.
         self.right_header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
 
         def on_header_menu(pos: QPoint) -> None:
@@ -621,11 +659,11 @@ class TabPanel(ReorderableBar):
         self.right_header.customContextMenuRequested.connect(on_header_menu)
         self.apply_section_visibility()
 
-        # Pie fijo con Ejecutar / Simulacro: fuera del acordeon, para que el
-        # boton no se pliegue con la seccion de Parametros ni haya que
-        # scrollear hasta el. Una pila con un pie por accion abierta
-        # (`ParamsPanel.footer`), mas un placeholder deshabilitado para cuando
-        # no hay ninguna.
+        # Fixed footer with Run and Dry run: outside the accordion, so
+        # the button does not fold with the Parameters section or need
+        # scrolling to. A stack with one footer per open action
+        # (`ParamsPanel.footer`), plus a disabled placeholder for when
+        # there is none.
         self.run_footer = QStackedWidget()
         self.run_footer.addWidget(self._build_footer_placeholder())
 
@@ -644,42 +682,44 @@ class TabPanel(ReorderableBar):
         self.splitter.setStretchFactor(1, 0)
         self.splitter.setSizes([880, 330])
 
-        # La barra de estado ya no vive aca: es una sola, a lo ancho de toda la
-        # ventana, y la arma `MainWindow` debajo del espacio de trabajo
-        # (`ui/main_window.py`). Este panel solo le avisa, con `machine_changed`,
-        # cuando una tarea de maquina toca el entorno.
+        # `MainWindow` builds the single status bar across the whole
+        # window, below the workspace (`ui/main_window.py`). This panel
+        # only tells it, with `machine_changed`, when a machine task
+        # touches the environment.
 
         self.root_layout.addWidget(self.sub_bar)
         self.root_layout.addWidget(self.splitter, 1)
 
         self.tabs: list[SubTabButton] = []
-        # La pestana ya no es una consola suelta: es una caja con la consola y,
-        # cuando la accion publica un endpoint, un navegador al lado
-        # (`ui/tab_view.py`, ADR-0008). `_consoles` sigue existiendo
-        # porque casi todo el archivo habla con la consola y no con la caja.
+        # A tab is a box with the console and, when the action publishes
+        # an endpoint, a browser next to it (`ui/tab_view.py`,
+        # ADR-0008). `_consoles` exists because almost all this file
+        # speaks to the console and not the box.
         self._views: dict[SubTabButton, TabView] = {}
         self._consoles: dict[SubTabButton, ConsoleView] = {}
         self._params: dict[SubTabButton, ParamsPanel] = {}
         self._runners: set[TaskRunner] = (
             set()
-        )  # referencias vivas: sin esto Qt las recolecta a mitad de hilo
-        self._busy: dict[SubTabButton, TaskRunner] = {}  # que pestana tiene tarea corriendo
-        # Mientras se reabren las pestanas guardadas no hay que volver a
-        # guardarlas paso a paso: se guarda una vez al terminar el bucle.
+        )  # live references: without this Qt collects them mid-thread
+        # which tab has a running task
+        self._busy: dict[SubTabButton, TaskRunner] = {}
+        # While saved tabs reopen they should not be saved step by step:
+        # it saves once when the loop ends.
         self._restoring = False
 
-        # Todo el espacio de trabajo nace con el color del repo: las
-        # cabeceras del acordeon y los paneles se construyen en gris y de aca
-        # sale su primera paleta, la misma que aplica un cambio de tema.
+        # The whole workspace is born with the repo's color: the
+        # accordion's headers and panels build in gray and their first
+        # palette comes from here, the same a theme change applies.
         self.set_palette(self.pal)
         self._refresh_security_summary(self.security_panel.state())
         self._restore_tabs()
         QTimer.singleShot(0, self._relayout_right)
 
     def _restore_tabs(self) -> None:
-        """Reabre las pestanas de accion que quedaron abiertas la vez anterior
-        (`ui/params_store.py`), en su orden. Ninguna corre nada: abrir una
-        pestana es solo eso.
+        """Reopen the action tabs left open last time, in their order.
+
+        From `ui/params_store.py`. None runs anything: opening a tab is
+        only that.
         """
         self._restoring = True
         try:
@@ -689,13 +729,14 @@ class TabPanel(ReorderableBar):
                     self.open_tab(capability)
         finally:
             self._restoring = False
-        # Reescribe la lista ya limpia: si el catalogo perdio un boton, su id
-        # guardado no vuelve a arrastrarse.
+        # Rewrite the cleaned list: if the catalog lost a button, its
+        # saved id does not drag on.
         self._persist_tabs()
 
     def _persist_tabs(self) -> None:
-        """Anota que pestanas quedan abiertas, en orden, para el proximo
-        arranque. Una pestana sin panel (a medio cerrar) se salta.
+        """Note which tabs stay open, in order, for the next start.
+
+        A tab without a panel, half closed, is skipped.
         """
         if self._restoring:
             return
@@ -706,20 +747,23 @@ class TabPanel(ReorderableBar):
     def tabs_reordered(self) -> None:
         self._persist_tabs()
 
-    # --- construccion ------------------------------------------------
+    # --- building ------------------------------------------------
     def _build_right_header(self) -> QWidget:
-        """Cabecera unica de la columna derecha: reemplaza el rotulo fijo
-        'Configuracion del repo' — muestra el repo activo sin pestana
-        abierta, y el nombre de la accion en curso cuando hay una.
+        """Build the right column's single header.
+
+        It shows the active repo with no tab open, and the current
+        action's name when there is one.
         """
         head = QWidget()
-        # Por nombre: sin selector, la raya de abajo se heredaba a cada hijo.
+        # By name: without a selector, the bottom line was inherited by
+        # each child.
         head.setObjectName("rightHeader")
         lay = QHBoxLayout(head)
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
 
-        # Sin accion abierta, el logo del repo; con una, el emoji de la accion.
+        # With no action open, the repo's logo; with one, the action's
+        # emoji.
         self.right_header_logo = repo_logo.RepoLogoView(20, self.logo)
         self.right_header_icon = QLabel()
         self.right_header_icon.setStyleSheet(
@@ -735,14 +779,15 @@ class TabPanel(ReorderableBar):
             f"background: transparent; color: {Colors.TEXT}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
         )
-        # La descripcion de la accion vive ahora en la seccion «Acción» del
-        # acordeon, que la muestra entera con sus pasos. Aca solo el nombre.
+        # The action's description lives in the accordion's «Acción»
+        # section, which shows it whole with its steps. Here only the
+        # name.
         titles.addWidget(self.right_header_name)
 
-        # Marcar favorita la accion abierta, al lado de su nombre: el otro
-        # lugar donde se marca es el filete de la fila del buscador, que hay
-        # que ir a buscar. Sin accion abierta la cabecera muestra el repo, y entonces
-        # no hay nada que marcar.
+        # Mark the open action a favorite, next to its name: the other
+        # place to mark is the search row's stripe, which has to be gone
+        # to. With no action open the header shows the repo, and there
+        # is nothing to mark.
         self.fav_star = FavoriteStar(self.pal.accent)
         self.fav_star.setEnabled(False)
         self.fav_star.marked.connect(self._on_star_marked)
@@ -761,14 +806,15 @@ class TabPanel(ReorderableBar):
         self.favorite_changed.emit()
 
     def refresh_favorite_star(self) -> None:
-        """Se marco la misma accion desde otra superficie: la estrella se pone al dia
-        sin volver a guardar nada.
+        """Catch the star up when another surface marked its action.
+
+        It saves nothing again.
         """
         if self._header_cap_id:
             self.fav_star.set_favorite(favorites.is_favorite(self._header_cap_id))
 
     def _set_right_header(self, capability: Capability | None) -> None:
-        """La accion abierta, o el repo si no hay ninguna."""
+        """Show the open action, or the repo if there is none."""
         self.right_header_logo.setVisible(capability is None)
         self.right_header_icon.setVisible(capability is not None)
         if capability is None:
@@ -792,7 +838,8 @@ class TabPanel(ReorderableBar):
 
         self.welcome_title = QLabel(self.project.name.upper())
         self.welcome_title.setStyleSheet(
-            f"color: {Colors.TEXT}; font-size: {Fonts.SIZE_XXL}px; font-weight: 300; letter-spacing: 8px;"
+            f"color: {Colors.TEXT}; font-size: {Fonts.SIZE_XXL}px; font-weight: 300; "
+            f"letter-spacing: 8px;"
         )
         self.welcome_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
@@ -831,8 +878,11 @@ class TabPanel(ReorderableBar):
         return w
 
     def _build_footer_placeholder(self) -> QWidget:
-        """Pie sin accion abierta: Ejecutar visible pero deshabilitado, para
-        que la barra no cambie de alto al abrir la primera accion.
+        """Show the footer with no action open.
+
+        Run visible but disabled.
+
+        So the bar does not change height on opening the first action.
         """
         foot = QWidget()
         self._footer_placeholder = foot
@@ -847,49 +897,51 @@ class TabPanel(ReorderableBar):
         lay.addWidget(btn)
         return foot
 
-    # --- reordenar arrastrando ---------------------------------------
+    # --- reorder by dragging ---------------------------------------
     @override
     def _tab_layout(self) -> QHBoxLayout:
         return self.tabs_layout
 
     # --- API ---------------------------------------------------------
     def quick_run(self, capability: Capability) -> None:
-        """Boton ▶ del buscador: abre (o reusa) la pestana y la
-        ejecuta de una, con los parametros de esa pestana — que al abrirse
-        son los guardados para este boton en este repo (`ui/params_store`),
-        y los por defecto solo si nunca se tocaron.
+        """Open or reuse the tab and run at once: the search's ▶.
+
+        With that tab's parameters: on opening they are those saved for
+        this button in this repo (`ui/params_store`), and the defaults
+        only if never touched.
         """
         console = self.open_tab(capability)
         panel = self.current_params()
         if panel is None:
             return
         if not panel.try_run():
-            # El buscador creyo que podia correr: decir por que no, en la misma
-            # consola donde habria salido el resultado.
+            # The search thought it could run: say why not, in the same
+            # console where the result would have appeared.
             for reason in panel.blockers():
                 console.append_log(f"no se puede correr: {reason}", "warn")
 
     def open_tab(self, capability: Capability, axis_value: str = "") -> ConsoleView:
-        """Abre (o enfoca) la pestana de una accion. **No ejecuta nada**:
-        ejecutar es apretar Ejecutar en el panel de parametros.
+        """Open or focus an action's tab. **It runs nothing**.
+
+        Running is pressing Run in the parameters panel.
         """
         return self._open(capability, axis_value)[1].console
 
     def _open(self, capability: Capability, axis_value: str = "") -> tuple[SubTabButton, TabView]:
-        """Lo mismo que `open_tab`, devolviendo tambien la pestana.
+        """Do the same as `open_tab`, also returning the tab.
 
-        El reparto en pestanas de un eje `fanout` (ADR-0010)
-        necesita correr una tarea *en* la pestana que acaba de abrir, y para eso
-        hace falta el boton, no solo su consola.
+        A `fanout` axis's sharing into tabs (ADR-0010) needs to run a
+        task *in* the tab just opened, and that takes the button, not
+        only its console.
         """
         title = f"{capability.name} {axis_value}".strip()
 
         for tab in self.tabs:
             if tab.title != title:
                 continue
-            # Una pestana ocupada por algo que corre en vivo no se reusa: se
-            # abre otra. Es lo que permite tener dos emuladores a la vez sin
-            # tener que esperar a que se cierre el primero.
+            # A tab busy with something running live is not reused:
+            # another opens. That allows two emulators at once without
+            # waiting for the first to close.
             if capability.kind == "live" and tab in self._busy:
                 title = self._next_title(title)
                 break
@@ -902,8 +954,8 @@ class TabPanel(ReorderableBar):
         self.tabs.append(tab)
 
         view = TabView(capability, self.project, self.content_area)
-        # La pestana nace con el color del repo, no con los grises: sin esto
-        # solo se tenia al cambiar de tema.
+        # The tab is born with the repo's color, not the grays: without
+        # this it only had it on changing theme.
         view.set_palette(self.pal)
         console = view.console
         console.append_log(f"─── {capability.name} ───", "info")
@@ -942,11 +994,11 @@ class TabPanel(ReorderableBar):
         return tab, view
 
     def _retitle(self, tab: SubTabButton, title: str) -> None:
-        """Renombra una pestana ya abierta.
+        """Rename an open tab.
 
-        Lo usa el reparto de `fanout`: la pestana generica «SPA Vite»
-        pasa a llamarse «SPA Vite panel» cuando se sabe cual arranco. Una
-        pestana por proceso vivo, y el nombre dice cual (ADR-0010).
+        `fanout`'s sharing uses it: the generic «SPA Vite» tab becomes
+        «SPA Vite panel» when known which one started. One tab per live
+        process, and the name says which (ADR-0010).
         """
         used = {t.title for t in self.tabs if t is not tab}
         if title in used:
@@ -956,7 +1008,10 @@ class TabPanel(ReorderableBar):
         tab._sync_text()
 
     def _next_title(self, title: str) -> str:
-        """`Emulador`, `Emulador 2`, `Emulador 3`... el primero que este libre."""
+        """`Emulador`, `Emulador 2`, `Emulador 3`....
+
+        The first free one.
+        """
         used = {t.title for t in self.tabs}
         n = 2
         while f"{title} {n}" in used:
@@ -964,10 +1019,11 @@ class TabPanel(ReorderableBar):
         return f"{title} {n}"
 
     def _stop_live(self, tab: SubTabButton, serial: str) -> None:
-        """El ✕ de la cabecera de estado: apaga algo que quedo corriendo.
+        """Stop something left running: the status header's ✕.
 
-        Corre la capacidad oculta `stop_emulator` como cualquier otra tarea —
-        misma consola, mismo log — en vez de tocar adb desde la interfaz.
+        It runs the hidden `stop_emulator` capability like any other
+        task, same console and same log, instead of touching adb from
+        the interface.
         """
         capability = registry.get_capability("stop_emulator")
         console = self._consoles.get(tab)
@@ -976,19 +1032,24 @@ class TabPanel(ReorderableBar):
         self._run_real(tab, console, capability, {"serial": serial}, track=False)
 
     def _on_cleared(self, tab: SubTabButton) -> None:
-        """Limpiar cierra los tuneles SSH de la pestana. Un tunel es de su tarea
-        —el explorador o el backend conectan por el— asi que se detiene la tarea,
-        y es ella la que lo cierra. Lo que no tiene tunel sigue corriendo.
+        """Clear closes the tab's SSH tunnels.
+
+        A tunnel belongs to its task, since the explorer or the backend
+        connects through it, so the task stops and it closes the tunnel.
+        What has no tunnel keeps running.
         """
         runner = self._busy.get(tab)
         if runner is not None and runner.has_tunnel:
             runner.cancel()
 
     def shutdown(self, timeout_ms: int = 5000) -> None:
-        """Consola se cierra: detiene cada tarea como lo haria cerrar su pestana,
-        y espera a que terminen sus apagados limpios (el tunel, `adb emu kill`).
-        Lo que no alcance a cerrar en ese tiempo lo mata el Job Object
-        (`core/process.py::bind_to_app`).
+        """Stop each task as closing its tab would.
+
+        Since Consola is closing.
+
+        It waits for their clean shutdowns to end (the tunnel, `adb emu
+        kill`). What does not get to close in that time the Job Object
+        kills (`core/process.py::bind_to_app`).
         """
         runners = list(self._runners)
         for runner in runners:
@@ -1000,13 +1061,14 @@ class TabPanel(ReorderableBar):
             runner.wait(max(0, int((deadline - time.monotonic()) * 1000)))
 
     def close_tab(self, tab: SubTabButton) -> None:
+        """Close a tab and stop what runs in it."""
         if tab not in self.tabs:
             return
-        # Cerrar la pestana detiene lo que estaba corriendo en ella: para el
-        # emulador, eso es `adb emu kill` y no matarle el proceso
-        # (`core/tasks/emulators.py`). Las senales se cortan primero porque la
-        # consola se destruye en este mismo metodo y la tarea sigue viva unos
-        # instantes mas.
+        # Closing the tab stops what was running in it: for the
+        # emulator, that is `adb emu kill` and not killing its process
+        # (`core/tasks/emulators.py`). Signals cut first because the
+        # console is destroyed in this very method and the task stays
+        # alive a few moments more.
         runner = self._busy.pop(tab, None)
         if runner is not None:
             try:
@@ -1052,16 +1114,16 @@ class TabPanel(ReorderableBar):
             self._set_right_header(None)
             self.info_panel.set_capability(None)
             self.info_section.set_expanded(False, announce=False)
-            # Parametros se queda desplegada: es su estado por defecto (aunque
-            # ahora solo muestre el placeholder).
+            # Parameters stays open: it is its default state, even if it
+            # only shows the placeholder now.
             self._relayout_right()
 
     def current_console(self) -> ConsoleView | None:
-        """La consola de la pestana activa.
+        """Return the active tab's console.
 
-        Se resuelve por la pestana y no por el widget visible: con el navegador
-        arriba, el widget visible no es la consola — pero la consola sigue
-        siendo la de esa pestana, y ahi es donde tiene que escribirse.
+        It resolves by the tab and not the visible widget: with the
+        browser on top, the visible widget is not the console, but the
+        console is still that tab's and where it has to write.
         """
         for tab in self.tabs:
             if tab.is_active:
@@ -1069,18 +1131,20 @@ class TabPanel(ReorderableBar):
         return None
 
     def current_view(self) -> TabView | None:
+        """Return the active tab's view."""
         w = self.content_area.currentWidget()
         return w if isinstance(w, TabView) else None
 
     def current_params(self) -> ParamsPanel | None:
+        """Return the active tab's parameters panel."""
         w = self.params_stack.currentWidget()
         return w if isinstance(w, ParamsPanel) else None
 
     def set_palette(self, pal: Palette) -> None:
-        """El repo eligio otro color: se repinta el espacio de trabajo entero.
+        """Repaint the whole workspace: the repo chose another color.
 
-        No alcanza con el acento — la paleta son los fondos de cada panel, y
-        cada uno guarda la hoja de estilo que se le dicto al construirlo.
+        The accent is not enough: the palette is each panel's
+        backgrounds, and each keeps the style sheet dictated when built.
         """
         self.pal = pal
         self._restyle()
@@ -1102,12 +1166,15 @@ class TabPanel(ReorderableBar):
         self.fav_star.set_accent(pal.accent)
 
     def _restyle(self) -> None:
-        """Los fondos que pone ESTE panel: la sub-barra de ejecuciones, el
-        lienzo de la consola, la cabecera de la columna derecha y los dos
-        marcadores de posicion. Lo de adentro lo repinta cada panel.
+        """Paint the backgrounds THIS panel sets.
+
+        The runs sub-bar, the console's canvas, the right column's
+        header and the two placeholders. Each panel repaints what is
+        inside it.
         """
-        # La barra de pestanas de acciones NO se tine: va en el gris neutro
-        # `Colors.SURFACE` en los ocho temas. La linea de abajo si es del repo.
+        # The action tabs bar is NOT tinted: it goes in the neutral gray
+        # `Colors.SURFACE` in all eight themes. The line below does
+        # belong to the repo.
         self.sub_bar.setStyleSheet(f"""
             QWidget#subBar {{
                 background: {Colors.SURFACE};
@@ -1132,12 +1199,13 @@ class TabPanel(ReorderableBar):
         """)
 
     def reveal_security(self) -> None:
-        """Despliega la seccion Seguridad de este repo. La llama el indicador
-        de la barra de estado (`ui/main_window.py`).
+        """Open this repo's Security section.
+
+        The status bar's indicator calls it (`ui/main_window.py`).
         """
         self.security_section.set_expanded(True)
 
-    # --- interno ------------------------------------------------------
+    # --- internal ---
     def _activate(self, tab: SubTabButton) -> None:
         for t in self.tabs:
             t.set_active(t is tab)
@@ -1149,85 +1217,90 @@ class TabPanel(ReorderableBar):
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
             self.run_footer.setCurrentWidget(panel.footer)
-            # Mostrar la pestana ES el pedido de ver la lista al dia: los ejes
-            # que se consultan (los AVD del SDK, los servicios del VPS) se
-            # releen aca y no contra un boton de recargar. Va sin `refresh`, asi
-            # que lo que caduca rapido se vuelve a preguntar y los catalogos
-            # grandes del SDK siguen saliendo de la cache.
+            # Showing the tab IS the request to see the list up to date:
+            # queried axes (the SDK's AVDs, the VPS's services) reread
+            # here and not with a reload button. It goes without
+            # `refresh`, so what expires fast is asked again and the
+            # SDK's large catalogs stay from the cache.
             panel.reload_catalogs()
             self.env_panel.filter_for(panel.relevant_keys())
             self._set_right_header(panel.capability)
             self.info_panel.set_capability(panel.capability)
-            # Abrir una accion despliega sus parametros; si la habias plegado
-            # a mano, vuelve a abrirse — es lo que fuiste a buscar al clic.
+            # Opening an action opens its parameters; if it was folded
+            # by hand, it opens again: it is what the click went looking
+            # for.
             self.params_section.set_expanded(True, announce=False)
             QTimer.singleShot(0, self._relayout_right)
 
     def _refilter_env(self, panel: ParamsPanel) -> None:
-        """Marcar o desmarcar un valor puede sumar o sacar claves del panel de
-        configuracion (`AxisDef.uses_env`), y eso solo importa en la pestana
-        que se esta mirando.
+        """Refilter the settings when a value is marked or unmarked.
+
+        That can add or remove keys of the settings panel
+        (`AxisDef.uses_env`), and it only matters on the tab being
+        looked at.
         """
         if self.current_params() is panel:
             self.env_panel.filter_for(panel.relevant_keys())
 
     @override
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        """La columna derecha cambio de alto (ventana redimensionada, o la
-        cabecera crecio con la descripcion de la accion): hay que repartir de
-        nuevo, porque el alto de Configuracion es «lo que sobre».
+        """Share out again: the right column changed height.
+
+        A resized window, or the header grew with the action's
+        description. Settings's height is «what is left».
         """
         if obj is self.right_column and event.type() == QEvent.Type.Resize:
             self._relayout_right()
         return super().eventFilter(obj, event)
 
     def _relayout_right(self, *_args) -> None:
-        """Le calcula el alto a cada una de las secciones visibles.
+        """Compute the height of each visible section.
 
-        Plegada, una seccion es solo su cabecera. Abiertas, Seguridad se queda
-        con lo que sus casillas necesitan y Parametros con lo que pida su
-        accion —hasta la mitad larga de la columna, para que una accion con
-        muchas opciones no deje al resto en un hilo—; Configuracion recibe lo
-        que sobre, que para eso es la unica con scroll largo. Una seccion
-        arrastrada a mano (`_manual`) manda sobre todo eso.
+        Folded, a section is only its header. Open, Security keeps what
+        its checkboxes need and Parameters what its action asks for, up
+        to the long half of the column, so an action with many options
+        does not leave the rest by a thread; Settings gets what is left,
+        since it is the only one with a long scroll. A section dragged
+        by hand (`_manual`) wins over all that.
 
-        Reparte CUERPOS, no secciones enteras: `alto` arranca en la cabecera y
-        lo que se suma es el cuerpo. Mezclar las dos unidades hacia que la
-        primera arrastrada saltara el alto de su cabecera de golpe.
+        It shares out BODIES, not whole sections: `height` starts at the
+        header and what adds is the body. Mixing the two units made the
+        first dragged section jump its header's height at once.
         """
         total = self.right_column.height()
         if total <= 0:
             return
         sections = self._sections
         self._sync_grips()
-        # Las barras de arrastre tambien ocupan alto. Sin descontarlas se
-        # repartian mas pixeles de los que hay y el layout tenia que apretar
-        # algun cuerpo por debajo de su minimo para que entrara todo.
+        # Drag bars also take height. Without subtracting them more
+        # pixels were shared than there are, and the layout had to
+        # squeeze some body below its minimum to fit.
         spent = sum(s.header_height() for s in sections) + sum(
             SectionResizeGrip.HEIGHT for s in sections[:-1] if self._grip_visible(s)
         )
         height = {s: s.header_height() for s in sections}
         free = max(0, total - spent)
 
-        # El sobrante va a la ultima seccion abierta — normalmente Configuracion,
-        # pero si esta plegada lo absorbe Parametros, y asi hacia arriba. Antes
-        # iba siempre a Configuracion: con ella plegada el resto caia en el
-        # resorte del final y la ultima cabecera se despegaba del borde de abajo
-        # dejando un hueco muerto.
+        # The excess goes to the last open section, normally Settings,
+        # but if folded Parameters absorbs it, and so on upward.
+        # Otherwise, with it folded the rest fell in the final spring
+        # and the last header came off the bottom edge, leaving a dead
+        # gap.
         absorbing = next((s for s in reversed(sections) if s.is_expanded()), None)
-        # La ultima abierta no tiene barra propia (no hay con quien negociar
-        # debajo), asi que un alto a mano suyo es de un estado anterior: se cae.
-        # Si no, ese valor viejo se quedaba corto y volvia el hueco.
+        # The last open section has no bar of its own, with no one below
+        # to negotiate with, so a manual height of its own is from an
+        # old state: it drops. Otherwise that old value fell short and
+        # the gap returned.
         if absorbing in self._manual:
             self._manual[absorbing] = None
 
         for i, section in enumerate(sections[:-1]):
             if not section.is_expanded():
                 continue
-            # Le guardamos el piso a cada seccion abierta que quede debajo: una
-            # seccion desplegada que muestra cero cuerpo se lee como rota. Es lo
-            # que hace que la barra tope al arrastrar en vez de borrar lo de
-            # abajo. Configuracion, ademas, tiene un minimo mas generoso.
+            # Keep the floor for each open section left below: an open
+            # section showing no body reads as broken. That makes the
+            # bar stop on dragging instead of erasing what is below.
+            # Settings also has a roomier minimum.
             reserve = self.MIN_BODY * sum(1 for s in sections[i + 1 :] if s.is_expanded())
             if (
                 self._manual[section] is None
@@ -1235,7 +1308,7 @@ class TabPanel(ReorderableBar):
                 and self.config_section.is_expanded()
             ):
                 reserve = max(reserve, 120)
-            # Pero la reserva no puede comerse el piso de esta misma seccion.
+            # But the reserve cannot eat this very section's floor.
             reserve = min(reserve, max(0, free - self.MIN_BODY))
             dar = max(0, min(self._section_wanted(section), free - reserve))
             height[section] += dar
@@ -1245,39 +1318,45 @@ class TabPanel(ReorderableBar):
             height[absorbing] += free
 
         for section, value in height.items():
-            # Tope y no alto fijo: con las tres clavadas, la columna imponia su
-            # suma como alto minimo y la ventana ya no se podia achicar. El
-            # piso queda en la cabecera, que es lo unico irrenunciable.
+            # A cap and not a fixed height: with all three pinned, the
+            # column imposed their sum as minimum height and the window
+            # could no longer shrink. The floor stays at the header, the
+            # one thing that cannot be given up.
             section.setMaximumHeight(value)
             section.setMinimumHeight(section.header_height())
-            # Y ademas el hint, que es por donde el layout reparte de verdad
-            # (ver `AccordionSection.set_allotted`).
+            # And also the hint, which is how the layout truly shares
+            # out (see `AccordionSection.set_allotted`).
             section.set_allotted(value)
-            # Si igual sobrara un pixel por redondeo, que se lo quede la
-            # absorbente y no el resorte del final.
+            # If a pixel were still left over from rounding, the
+            # absorbing section keeps it and not the final spring.
             self._column.setStretchFactor(section, 1 if section is absorbing else 0)
 
     def _on_section_toggled(self, *_args) -> None:
-        # Plegar una seccion descarta su alto manual: al reabrirla se espera el
-        # tamano que le calcula el contenido, no el que tenia hace tres clics.
+        # Folding a section discards its manual height: reopening
+        # expects the size its content computes, not what it had three
+        # clicks ago.
         for section in self._manual:
             if not section.is_expanded():
                 self._manual[section] = None
         self._relayout_right()
 
     def _begin_resize(self, section: AccordionSection) -> None:
-        """Arranca un arrastre desde el alto que la seccion tiene EN PANTALLA.
+        """Start a drag from the height the section has ON SCREEN.
 
-        Sin esto el arrastre seguia contando desde el valor guardado, que el
-        reparto pudo haber recortado (no habia lugar): quedaba una zona muerta
-        en la que mover el mouse no movia nada hasta recuperar la diferencia.
+        Without this the drag kept counting from the saved value, which
+        the share may have cut for lack of room: there was a dead zone
+        where moving the mouse moved nothing until recovering the
+        difference.
         """
         if section in self._manual:
             self._manual[section] = max(0, section.height() - section.header_height())
 
     def _resize_section(self, section: AccordionSection, delta: int | None) -> None:
-        """Fija (o suelta, con `delta=None`) el alto del cuerpo de una seccion.
-        El resto se reparte lo que quede en `_relayout_right`.
+        """Fix, or release with `delta=None`.
+
+        The height of a section's body.
+
+        The rest share what is left in `_relayout_right`.
         """
         if delta is None:
             self._manual[section] = None
@@ -1285,19 +1364,22 @@ class TabPanel(ReorderableBar):
             base = self._manual[section]
             if base is None:
                 base = max(0, section.height() - section.header_height())
-            # Piso: por debajo el scroll del cuerpo queda mas chico que su propia
-            # barra y no se puede ni scrollear. Para achicar mas esta el chevron.
+            # Floor: below it the body's scroll is smaller than its own
+            # bar and cannot even scroll. To shrink further there is the
+            # chevron.
             self._manual[section] = max(self.MIN_BODY, base + delta)
         self._relayout_right()
 
     @property
     def _sections(self) -> tuple[AccordionSection, ...]:
-        """Las secciones que el usuario dejo a la vista, en orden: el reparto
-        de alto y las barras de arrastre solo cuentan con estas.
+        """Return the sections the user left in view, in order.
+
+        The height share and the drag bars only count these.
         """
         return tuple(s for s in self._all_sections if not s.isHidden())
 
     def apply_section_visibility(self) -> None:
+        """Show or hide the sections by the saved preference."""
         hidden = section_visibility.hidden_sections()
         for section in self._all_sections:
             section.setHidden(self._section_ids[section] in hidden)
@@ -1323,8 +1405,10 @@ class TabPanel(ReorderableBar):
         self.sections_changed.emit()
 
     def _grip_visible(self, section: AccordionSection) -> bool:
-        """Hay algo que negociar: la seccion esta abierta y hay alguna abierta
-        debajo con la que intercambiar alto.
+        """Return whether there is something to negotiate.
+
+        The section is open and some section open below can trade
+        height.
         """
         sections = self._sections
         if section not in sections:
@@ -1337,7 +1421,7 @@ class TabPanel(ReorderableBar):
             grip.setVisible(self._grip_visible(section))
 
     def _section_wanted(self, section: AccordionSection) -> int:
-        """Alto de cuerpo que pide una seccion abierta."""
+        """Return the body height an open section asks for."""
         manual = self._manual.get(section)
         if manual is not None:
             return manual
@@ -1345,9 +1429,10 @@ class TabPanel(ReorderableBar):
             return self._info_wanted()
         if section is self.security_section:
             return self._security_wanted()
-        # Parametros pide su alto natural entero: la idea es ver todas las
-        # opciones de la accion sin scroll. Que Configuracion no se quede sin
-        # nada lo cubre la reserva de `_relayout_right`, no un tope aca.
+        # Parameters asks for its whole natural height: the idea is
+        # seeing all the action's options without scrolling.
+        # `_relayout_right`'s reserve keeps Settings from being left
+        # with nothing, not a cap here.
         return self._params_wanted()
 
     def _params_wanted(self) -> int:
@@ -1357,18 +1442,19 @@ class TabPanel(ReorderableBar):
         return max(160, panel.natural_height())
 
     def _security_wanted(self) -> int:
-        # Al contenido, no al scroll que lo envuelve: un `QScrollArea` no tiene
-        # alto propio y contestaria un `sizeHint` generico.
+        # From the content, not the scroll wrapping it: a `QScrollArea`
+        # has no height of its own and would answer a generic
+        # `sizeHint`.
         return self.security_panel.content_height()
 
     def _info_wanted(self) -> int:
         return self.info_panel.content_height() + 28
 
     def _refresh_security_summary(self, state: dict[str, Any]) -> None:
-        """Cuantos objetivos estan protegidos, en la cabecera de la seccion.
+        """Show how many targets are protected in the section's header.
 
-        Es lo que hace que cerrarla no cueste informacion: plegada sigue
-        diciendo el unico dato por el que se abre.
+        So closing it costs no information: folded it still says the one
+        datum it opens for.
         """
         protected = len(protection.repo_protections(state))
         total = len(protection.TARGETS)
@@ -1381,35 +1467,34 @@ class TabPanel(ReorderableBar):
             panel.set_env(values)
 
     def _on_env_reloaded(self) -> None:
-        """Recargar `config.env` recarga tambien los parametros.
+        """Reload the parameters too when reloading `config.env`.
 
-        No es cortesia: los ejes consultados salen de preguntarle al VPS del
-        repo, y a que VPS se le pregunta lo dice `config.env`. Releer el
-        archivo sin releer los ejes dejaria la lista contestada por la maquina
-        anterior. Va forzado —salteando la cache— porque justamente esto es el
-        camino de "quiero el estado de ahora".
+        It is no courtesy: queried axes come from asking the repo's VPS,
+        and `config.env` says which VPS. Rereading the file without
+        rereading the axes would leave the list answered by the previous
+        machine. It is forced, skipping the cache, because this is the
+        «I want the state right now» path.
         """
         for panel in self._params.values():
             panel.refresh_machine()
         self._refresh_logo()
 
     def _refresh_logo(self, *_args) -> None:
-        """`BRAND_ICON` pudo cambiar: el logo se relee del archivo guardado."""
+        """`BRAND_ICON` may have changed.
+
+        The logo rereads from the saved file.
+        """
         self.logo = repo_logo.resolve(self.project.path)
         self.right_header_logo.set_logo(self.logo)
         self.welcome_logo.set_logo(self.logo)
         self.logo_changed.emit(self.logo)
 
     def _run(self, tab: SubTabButton, payload: dict[str, Any]) -> None:
-        """Punto unico de 'Ejecutar': corre de verdad lo que ya tiene cuerpo
-        (`func`); lo que todavia no lo tiene sigue simulado, para que el rail y
-        el panel funcionen igual mientras se escribe (ADR-0002).
+        """Run for real what has a body: the single point of «Ejecutar».
 
-        Tener cuerpo es la unica condicion. Antes hacian falta dos —cuerpo y una
-        entrada en `ADAPTERS`— y ese diccionario terminaba siendo una compuerta:
-        veinte capacidades escritas y probadas se simulaban porque les faltaba
-        una linea ahi (ADR-0003). Los kwargs los arma
-        ahora la propia capacidad desde su declaracion.
+        What has `func` runs; what has none stays simulated, so the rail
+        and panel work the same while writing (ADR-0002). The capability
+        itself builds the kwargs from its declaration (ADR-0003).
         """
         console = self._consoles.get(tab)
         if console is None:
@@ -1420,15 +1505,15 @@ class TabPanel(ReorderableBar):
             self._run_stub(console, payload)
             return
 
-        # El seguro va aca y no en el panel de parametros porque este es el
-        # unico punto por el que pasan LAS DOS formas de ejecutar: el boton
-        # Ejecutar y el boton de correr del rail (`quick_run`). Ponerlo en el
-        # panel dejaria el segundo camino sin red.
+        # The guard goes here and not in the parameters panel because
+        # this is the only point BOTH ways of running pass through: the
+        # Run button and the rail's run button (`quick_run`). Placing it
+        # in the panel would leave the second path with no net.
         if not self._guard_ok(capability, payload, console):
             return
 
-        # Una compuesta concurrente no corre nada por si misma: reparte sus
-        # pasos, que son capacidades, una por pestana (ADR-0011).
+        # A concurrent composite runs nothing itself: it shares out its
+        # steps, which are capabilities, one per tab (ADR-0011).
         if capability.concurrent:
             self._run_concurrent(tab, capability, payload)
             return
@@ -1443,17 +1528,20 @@ class TabPanel(ReorderableBar):
         else:
             self._run_real(tab, console, capability, capability.kwargs_from(payload))
 
-    # --- seguro por tipo de objetivo ----------------------------------
+    # --- guard by target type ---
     def _guard_ok(
         self, capability: Capability, payload: dict[str, Any], console: ConsoleView
     ) -> bool:
-        """Deja pasar, avisa, o bloquea — segun `core/protection.decide`.
+        """Let pass, warn or block.
 
-        Lo que decide no es "es destructivo" sino "que rompe, con ESTOS
-        parametros, y esta protegido en ESTE repo": un simulacro de
-        `clean_artifacts` no pregunta nada, `teardown_db` contra `local` no
-        decide lo mismo que contra `remoto`, y un objetivo protegido no abre una
-        puerta para saltarse el seguro — la cierra.
+        According to `core/protection.decide`.
+
+        What decides is not «it is destructive» but «what it breaks,
+        with THESE parameters, and whether that is protected in THIS
+        repo»: a dry run of `clean_artifacts` asks nothing,
+        `teardown_db` against `local` does not decide the same as
+        against `remote`, and a protected target does not open a door to
+        skip the guard: it closes it.
         """
         decision, targets = protection.decide(self.security_panel.state(), capability.id, payload)
         if decision == protection.Decision.ALLOW:
@@ -1478,14 +1566,14 @@ class TabPanel(ReorderableBar):
         )
         return False
 
-    # --- reparto en pestanas ------------------------------------------
+    # --- sharing into tabs ---
     def _fanout_values(self, capability: Capability, payload: dict[str, Any]) -> list[str]:
-        """Los valores del eje que se reparte en pestanas, si lo hay.
+        """Return the values of the axis shared into tabs, if any.
 
-        Solo para lo que corre en vivo: un eje `many` de una capacidad que
-        termina (`build_vite`) se recorre en un bucle dentro de su propia
-        consola, porque ver los builds en fila es lo correcto. Tres dev servers
-        en una sola consola, no (ADR-0010).
+        Only for what runs live: a `many` axis of a capability that ends
+        (`build_vite`) loops inside its own console, because seeing the
+        builds in a row is right. Three dev servers in one console are
+        not (ADR-0010).
         """
         if capability.kind != "live" or not capability.fanout:
             return []
@@ -1498,11 +1586,11 @@ class TabPanel(ReorderableBar):
         payload: dict[str, Any],
         values: list[str],
     ) -> None:
-        """Una pestana por valor marcado, cada una con su proceso vivo.
+        """Run one tab per checked value, each with its live process.
 
-        El primero se queda en la pestana desde la que se apreto Ejecutar (solo
-        cambia de nombre): asi el caso normal —un repo con una sola SPA— se ve
-        exactamente igual que antes, sin una pestana de mas.
+        The first stays in the tab Run was pressed from, only changing
+        name: so the normal case, a repo with one SPA, looks the same,
+        without an extra tab.
         """
 
         def _payload_for(value: str) -> dict[str, Any]:
@@ -1531,16 +1619,17 @@ class TabPanel(ReorderableBar):
     def _run_concurrent(
         self, tab: SubTabButton, capability: Capability, payload: dict[str, Any]
     ) -> None:
-        """Compuesta concurrente: lanza cada paso en su propia pestana.
+        """Run a concurrent composite: launch each step in its own tab.
 
-        No hay `func` que llamar. Sus pasos son capacidades con boton propio, y
-        cada una arranca con los parametros que ya tiene guardados para este
-        repo — es exactamente lo que hace el boton de correr del rail, asi que
-        se reusa `quick_run` en vez de rearmar un payload a mano.
+        There is no `func` to call. Its steps are capabilities with
+        their own button, and each starts with the parameters already
+        saved for this repo: exactly what the rail's run button does, so
+        `quick_run` is reused instead of rebuilding a payload by hand.
 
-        El orden de la lista es el de despacho y el unico que importa es que el
-        backend salga primero: los demas esperan su endpoint desde adentro
-        (`launchers.backend_url(wait=...)`), no por un `sleep` de la interfaz.
+        The list's order is the dispatch's, and all that matters is that
+        the backend goes first: the others wait for its endpoint from
+        inside (`launchers.backend_url(wait=...)`), not by an interface
+        `sleep`.
         """
         console = self._consoles[tab]
         console.append_log(f"{capability.name}: cada paso va a su propia pestaña.", "info")
@@ -1567,10 +1656,12 @@ class TabPanel(ReorderableBar):
         kwargs: dict[str, Any],
         track: bool = True,
     ) -> None:
-        """`track=False` para lo que corre *dentro* de una pestana ajena — el ✕
-        que apaga un emulador huerfano no debe pasar por dueno de la pestana:
-        si lo hiciera, cerrarla detendria el apagado y no el emulador que esa
-        pestana lanzo.
+        """Run a capability for real.
+
+        `track=False` is for what runs *inside* a foreign tab: the ✕
+        stopping an orphan emulator must not pass as the tab's owner, or
+        closing it would stop the shutdown and not the emulator that tab
+        launched.
         """
         console.append_log("─" * 46, "info")
         panel = self._params.get(tab)
@@ -1584,14 +1675,16 @@ class TabPanel(ReorderableBar):
         if track:
             self._busy[tab] = runner
         runner.logged.connect(console.append_log)
-        # Lo que la tarea publica con `ctx.serve()`: la barra con la URL y, si
-        # la capacidad declara `view='web'`, el navegador de esta misma pestana.
+        # What the task publishes with `ctx.serve()`: the bar with the
+        # URL and, if the capability declares `view='web'`, the browser
+        # of this same tab.
         view = self._views.get(tab)
         if view is not None:
             runner.serve_requested.connect(view.set_endpoint)
 
-        # La bitacora todavia no existe (`core/store.py`, docs/arquitectura/30_riesgos_y_pendientes.md): hasta que
-        # exista, una nota no se pierde — se deja marcada en la consola.
+        # The log book does not exist yet (`core/store.py`,
+        # docs/arquitectura/30_riesgos_y_pendientes.md): until it does,
+        # a note is not lost but left marked in the console.
         def on_note(entry: str) -> None:
             console.append_log(f"✱ {entry}", "ok")
 
@@ -1603,8 +1696,8 @@ class TabPanel(ReorderableBar):
 
         def _on_done(ok: bool) -> None:
             console.append_log("Hecho" if ok else "Terminó con errores", "ok" if ok else "error")
-            # El proceso murio: la URL deja de ofrecerse como viva y la pestana
-            # vuelve a la consola, que es donde esta el motivo.
+            # The process died: the URL stops being offered as alive and
+            # the tab returns to the console, where the reason is.
             if view is not None:
                 view.endpoint_down()
             self._runners.discard(runner)
@@ -1612,52 +1705,54 @@ class TabPanel(ReorderableBar):
                 self._busy.pop(tab, None)
             if panel is not None:
                 panel.refresh_run_state()
-            # Lo que la tarea entrego es un repo (`Capability.opens_repo`):
-            # la ventana lo abre como pestana. La capacidad declara que su
-            # resultado es una carpeta de repo y la interfaz hace el resto:
-            # aca no hay ningun id de boton escrito.
+            # What the task delivered is a repo
+            # (`Capability.opens_repo`): the window opens it as a tab.
+            # The capability declares that its result is a repo folder
+            # and the interface does the rest: no button id is written
+            # here.
             if ok and capability.opens_repo and runner.result:
                 self.repo_ready.emit(str(runner.result))
             if capability.is_machine_wide:
-                # Instalar una imagen, crear un AVD o apagar un emulador cambia
-                # justo lo que los paneles de este grupo listan. Se olvida lo
-                # cacheado y se releen: si no, el AVD recien creado no aparece
-                # hasta reabrir la pestana.
+                # Installing an image, creating an AVD or stopping an
+                # emulator changes exactly what this group's panels
+                # list. What is cached is forgotten and they reread:
+                # otherwise a fresh AVD does not appear until reopening
+                # the tab.
                 forget_machine_cache()
                 for other in self._params.values():
                     if other.capability.group == capability.group:
                         other.refresh_machine()
-                # Instalar un SDK cambia el entorno de la maquina: los
-                # indicadores de la barra tienen que reflejarlo ya, no al
-                # proximo arranque.
+                # Installing an SDK changes the machine's environment:
+                # the bar's indicators have to reflect it now, not on
+                # the next start.
                 self.machine_changed.emit()
 
         runner.finished_ok.connect(_on_done)
-        self._runners.add(runner)  # referencia viva mientras el hilo corre
+        # live reference while the thread runs
+        self._runners.add(runner)
         runner.start()
 
     def _answer_task(
         self, runner: TaskRunner, question: str, shape: str, danger: bool, expect: str
     ) -> None:
-        """Contesta una pregunta de la tarea. Corre en el hilo de la interfaz.
+        """Answer a task's question, on the interface thread.
 
-        Cuatro dialogos, elegidos por lo que la tarea espera de vuelta
-        (`core/context.py::ASK_*`) y no por como se ve la pregunta:
+        Four dialogs, chosen by what the task expects back
+        (`core/context.py::ASK_*`) and not by how the question looks:
 
-        - `expect` — hay que escribir un texto exacto (borrar una base, pisar
-          una carpeta). Campo de texto: la friccion es el punto.
-        - `ASK_SECRET` — un dato que no se debe ver mientras se escribe.
-        - `ASK_TEXT` — un dato que la tarea no puede deducir y que no es de
-          este repo ni de esta maquina, asi que no tiene donde guardarse: el
-          nombre de la carpeta de una SPA nueva es distinto cada vez, y como
-          parametro guardado la segunda corrida arrancaba con el nombre de la
-          primera — o sea, con una carpeta que ya existe.
-        - el resto — si/no, con el boton peligroso sin ser el predeterminado,
-          para que un Enter de mas no descarte nada.
+        - `expect`: an exact text has to be typed (deleting a database,
+          overwriting a folder). A text field: the friction is the
+          point.
+        - `ASK_SECRET`: a datum that should not show while typing.
+        - `ASK_TEXT`: a datum the task cannot deduce and that belongs
+          neither to this repo nor this machine, so it has nowhere to be
+          saved: a new SPA's folder name differs each time.
+        - the rest: yes/no, with the dangerous button not the default,
+          so one Enter too many discards nothing.
 
-        Siempre llama a `provide_answer`, tambien cuando se cierra el dialogo
-        con la X: sin eso la tarea se queda esperando una respuesta que no
-        llega. Una respuesta vacia es un "no" para `confirm`.
+        It always calls `provide_answer`, also when the dialog closes
+        with the X: without that the task stays waiting for an answer
+        that never comes. An empty answer is a «no» for `confirm`.
         """
         if expect:
             answer, ok = QInputDialog.getText(
@@ -1673,8 +1768,9 @@ class TabPanel(ReorderableBar):
                 else QLineEdit.EchoMode.Normal
             )
             answer, ok = QInputDialog.getText(self, "Dato requerido", question, mode)
-            # Cancelar no es responder vacio: hay preguntas donde el vacio
-            # significa "usa el valor derivado" (`core/context.py::ASK_CANCELLED`).
+            # Cancelling is not answering empty: for some questions
+            # empty means «use the derived value»
+            # (`core/context.py::ASK_CANCELLED`).
             runner.provide_answer(answer if ok else context.ASK_CANCELLED)
             return
 
@@ -1689,7 +1785,10 @@ class TabPanel(ReorderableBar):
         runner.provide_answer("no" if box.clickedButton() is no else "si")
 
     def _run_stub(self, console: ConsoleView, payload: dict[str, Any]) -> None:
-        """Ejecucion simulada: reporta exactamente lo que correria (stub, ADR-0002)."""
+        """Simulate the run: report exactly what would run.
+
+        A stub, ADR-0002.
+        """
         console.append_log("─" * 46, "info")
 
         variants = {k: v for k, v in payload["variants"].items() if v}

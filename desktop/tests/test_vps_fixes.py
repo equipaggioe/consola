@@ -1,6 +1,9 @@
-"""What canone rules out in the VPS buttons, and what they do when a step fails.
+"""What canone rules out in the VPS buttons.
 
-SSH is replaced: these cover the decisions around it, not the remote commands.
+And what they do when a step fails.
+
+SSH is replaced: these cover the decisions around it, not the remote
+commands.
 """
 
 import types
@@ -40,6 +43,7 @@ def _revoke_context(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> tuple[Pa
 def test_a_failed_remote_revoke_keeps_the_local_key(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """A failed remote revoke keeps the local key."""
     folder, ctx = _revoke_context(monkeypatch, tmp_path)
 
     def fails(*args: object, **kwargs: object) -> None:
@@ -48,12 +52,14 @@ def test_a_failed_remote_revoke_keeps_the_local_key(
     monkeypatch.setattr(ssh, "run", fails)
     with pytest.raises(TaskError, match="La llave local sigue"):
         vps_ops.revoke_ssh_key(ctx)
-    assert (folder / "key").is_file() and (folder / "key.pub").is_file()
+    assert (folder / "key").is_file()
+    assert (folder / "key.pub").is_file()
 
 
 def test_a_good_remote_revoke_removes_the_local_key(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
+    """A good remote revoke removes the local key."""
     folder, ctx = _revoke_context(monkeypatch, tmp_path)
     monkeypatch.setattr(ssh, "run", _ignore)
     vps_ops.revoke_ssh_key(ctx)
@@ -62,6 +68,7 @@ def test_a_good_remote_revoke_removes_the_local_key(
 
 @pytest.mark.parametrize("action", ["start", "restart"])
 def test_the_backup_is_not_started_from_the_service_control(action: str) -> None:
+    """The backup does not start from the service control."""
     with pytest.raises(TaskError, match="receptora"):
         vps_server.systemd_action(
             cast(TaskContext, types.SimpleNamespace()), action=action, service="backup"
@@ -71,6 +78,7 @@ def test_the_backup_is_not_started_from_the_service_control(action: str) -> None
 def test_a_declared_extension_the_system_lacks_stops_the_task(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
+    """A declared extension the system lacks stops the task."""
     created: list[tuple[object, ...]] = []
 
     def query(*args: object, **kwargs: object) -> str:
@@ -101,9 +109,10 @@ def test_a_declared_extension_the_system_lacks_stops_the_task(
 
 
 @pytest.mark.parametrize("values", [{}, {"DB_EXTENSIONS": ""}])
-def test_no_declared_extension_reaches_no_package_or_argument(
+def test_without_a_declared_extension_no_package_or_argument_is_added(
     tmp_path: Path, values: dict[str, str]
 ) -> None:
+    """Without a declared extension, no package or argument is added."""
     config = Config(
         {"DOMAIN": "example.net", "VALKEY_MEMORY": "256mb", "VPS_USER": "admin", **values}
     )
@@ -113,6 +122,7 @@ def test_no_declared_extension_reaches_no_package_or_argument(
 
 
 def test_an_empty_list_enables_nothing() -> None:
+    """An empty list enables nothing."""
     messages: list[str] = []
     ctx = cast(
         TaskContext,

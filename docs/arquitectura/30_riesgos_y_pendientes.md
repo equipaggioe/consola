@@ -38,7 +38,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 | Qué | ADR | Plan |
 |---|---|---|
-| Lo que Consola todavía no cumple de canone: lo que queda de `ruff check` (docstrings, `W505`, nombres), el código en inglés, `windows/`, `dialogs/` y `widgets/`, `IniFormat`, Qt Linguist, `release.yml` y `pysidedeploy.spec`. El CI queda en rojo hasta entonces | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | — |
+| Lo que Consola todavía no cumple de canone: `windows/`, `dialogs/` y `widgets/`, `IniFormat`, Qt Linguist, `release.yml` y `pysidedeploy.spec`. El CI queda en rojo hasta entonces | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | — |
 | «Compilar ejecutable»: empaquetar solo en CI con `pyside6-deploy`, sin PyInstaller, sin subir al VPS, sin número de versión ni manifiesto. Sale el ADR-0024 y cambian el 0025, el 0026 y el punto 4 del 0056 | [0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | «Vaciar VPS» con el programa que desinstala, cuando canone lo traiga. Hasta entonces, desarmar un VPS es reinstalarlo desde el proveedor | [0062](../adr/0062-vaciar-vps-sale.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | Bitácora, historial y presets en un SQLite de la máquina (`core/store.py`) | — | — |
@@ -88,7 +88,7 @@ Construido y nunca probado en condiciones reales:
 
 - **Las pruebas cubren la lógica pura.** Lo que Consola ejecuta de verdad (SSH, `subprocess`, el driver de Postgres) no se prueba aquí: son efectos sobre máquinas y repos ajenos. Sigue sin ejercitar parte de esa lógica pura: `AxisDef` y `kwargs_from` (`core/registry.py`), `protection.decide`, `core/targets.py` y `core/versioning.py`.
 - **La interfaz asume una sola ventana.** `favorites`, `section_visibility` y `project_store` escriben en `QSettings` global, sin instancia.
-- **`ui/tab_panel.py` tiene 1.715 líneas** y concentra el espacio de trabajo entero: sub-pestañas, acordeón, barra de estado, despacho de la ejecución y los diálogos de las preguntas.
+- **`ui/tab_panel.py` tiene 1.815 líneas** y concentra el espacio de trabajo entero: sub-pestañas, acordeón, barra de estado, despacho de la ejecución y los diálogos de las preguntas.
 - **La app móvil solo se ejecuta contra Android.** `run_mobile` busca emuladores Android y `pick_emulator` filtra por `targetPlatform` que empiece con `android`.
 - **En Linux un túnel sobrevive a una caída de Consola.** `PosixHost.bind_to_app` no hace nada; al cerrar normalmente lo apaga `TabPanel.shutdown()`. El camino es `PR_SET_PDEATHSIG` lanzando los túneles desde un hilo que viva lo que la aplicación ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md), «Descartado»).
 - **En Linux el PATH de los SDK va a `~/.bashrc` o `~/.zshrc`**, que solo leen las terminales. Consola abierta desde el menú del escritorio no lo ve hasta que se lanza desde una terminal.

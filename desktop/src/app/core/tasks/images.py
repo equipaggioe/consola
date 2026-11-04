@@ -1,3 +1,17 @@
+"""Images group: the icons and publishable screenshots.
+
+Of the repo's apps.
+
+Icons come from the repo's SVGs: Consola rasterizes them (`raster.py`,
+ADR-0055) and leaves them where each app declares it takes its own
+(ADR-0056).
+
+The camera is a script of the repo and Consola only fires it (ADR-0049):
+it passes which apps, themes and languages to capture, and the emulator
+already on if one was chosen (ADR-0052). Then it reads the raw shots
+left behind and develops them for each destination.
+"""
+
 from __future__ import annotations
 
 import os
@@ -14,25 +28,14 @@ from app.core.errors import TaskError
 from app.core.registry import registry
 from app.core.tasks import raster
 
-"""
-Grupo Imágenes: los iconos y las capturas publicables de las apps del repo.
-
-Los iconos salen de los SVG del repo: Consola los rasteriza (`raster.py`,
-ADR-0055) y los deja donde cada app declara que toma el suyo (ADR-0056).
-
-La camara es un script del repo y Consola solo la dispara (ADR-0049): le pasa
-que apps, temas e idiomas capturar, y el emulador ya encendido si se eligio uno
-(ADR-0052). Despues lee los crudos que dejo y los revela para cada destino.
-"""
-
 LANDING = "landing"
-# Lo que tarda la camara en decir que captura: arrancar node y cargar su modulo,
-# sin levantar nada.
+# How long the camera takes to say what it captures: start node and load
+# its module, without bringing anything up.
 _SUPPORTED_TIMEOUT = 60
 
 
 def generate_icons(ctx: TaskContext, apps: Sequence[str] = ()) -> None:
-    """Deja el logo del repo, y sus capas, como icono de cada app marcada."""
+    """Leave the logo and its layers as each checked app's icon."""
     ctx.require_config("BRAND_ICON")
     if not apps:
         raise TaskError("Marca al menos una app.")
@@ -42,8 +45,8 @@ def generate_icons(ctx: TaskContext, apps: Sequence[str] = ()) -> None:
         if ctx.config.get(key)
     }
 
-    # Se planean todas antes de escribir ninguna: una app mal declarada corta
-    # la corrida, no la deja con unos iconos nuevos y otros viejos.
+    # All are planned before writing any: a badly declared app stops the
+    # run instead of leaving some new icons and some old.
     jobs = [icons.plan(ctx.root, name, layers) for name in apps]
     dart = toolchain.dart_cmd() if any(t.is_flutter for t in jobs) else []
     for work in jobs:
@@ -57,7 +60,10 @@ def generate_icons(ctx: TaskContext, apps: Sequence[str] = ()) -> None:
 
 
 def _render(svg: Path, place: icons.Place) -> bytes:
-    """El contenido del archivo segun su formato: el SVG tal cual, un PNG o un ICO."""
+    """Return the file's content by format.
+
+    The SVG as is, a PNG or an ICO.
+    """
     suffix = place.path.suffix.lower()
     if suffix == ".svg":
         return svg.read_bytes()
@@ -67,7 +73,10 @@ def _render(svg: Path, place: icons.Place) -> bytes:
 
 
 def _write(ctx: TaskContext, destination: Path, content: bytes) -> None:
-    """Escribe el archivo solo si cambia, y dice que paso (ADR-0039)."""
+    """Write the file only if it changes, and say what happened.
+
+    ADR-0039.
+    """
     name = destination.relative_to(ctx.root).as_posix()
     if destination.is_file() and destination.read_bytes() == content:
         ctx.info(f"  sin cambios: {name}")
@@ -79,7 +88,7 @@ def _write(ctx: TaskContext, destination: Path, content: bytes) -> None:
 
 
 def camera_command(config: Config) -> list[str]:
-    """`SHOTS_CMD` listo para correr, con su ejecutable ubicado."""
+    """Return `SHOTS_CMD` ready to run, with its executable located."""
     if not config.get("SHOTS_CMD"):
         raise TaskError(
             "Falta SHOTS_CMD en la configuración: es el comando de la cámara del repo."
@@ -92,18 +101,18 @@ def camera_command(config: Config) -> list[str]:
 
 
 def camera_supported(root: Path, config: Config) -> dict[str, dict[str, Any]]:
-    """Las apps, temas e idiomas que la camara sabe capturar (ADR-0054).
+    """Return the apps, themes and languages the camera can capture.
 
-    Se le pregunta a ella con `--supported`: lo declara en su codigo, donde
-    tambien lo usa para rechazar lo que no sabe, y asi no hay una segunda copia
-    que pueda quedar distinta.
+    It asks the camera with `--supported` (ADR-0054): it declares them
+    in its code, where it also rejects what it cannot do, so no second
+    copy can drift.
     """
     argv = [*camera_command(config), "--supported", "--kit", str(shots.KIT)]
     try:
         output = process.capture(argv, cwd=root, timeout=_SUPPORTED_TIMEOUT)
     except TaskError as exc:
-        # El mensaje de `capture` empieza con la linea de comando entera; lo
-        # que sirve es lo que dijo la camara.
+        # `capture`'s message starts with the whole command line; what
+        # matters is what the camera said.
         detail = str(exc).split("\n", 1)[-1].strip()
         raise TaskError(f"La cámara no dijo qué sabe capturar: {detail}") from exc
     return shots.parse_supported(output)
@@ -116,7 +125,7 @@ def shoot_screens(
     languages: Sequence[str] = (),
     avd: str = "",
 ) -> Path:
-    """Corre la camara del repo y comprueba que dejo lo que se le pidio."""
+    """Run the repo's camera and check it left what was asked."""
     ctx.require_config("SHOTS_CMD")
     if not (apps and themes and languages):
         raise TaskError("Marca al menos una app, un tema y un idioma.")
@@ -130,12 +139,12 @@ def shoot_screens(
         ctx.info(f"Se borraron {deleted} capturas de la corrida anterior.")
 
     command = camera_command(ctx.config)
-    # ADR-0052: si una app necesita emulador lo sabe la camara, no Consola. Se
-    # enciende el que se eligio; sin ninguno, la camara corta antes de la
-    # primera foto si alguna app pedida lo necesita.
+    # ADR-0052: the camera knows whether an app needs an emulator, not
+    # Consola. The chosen one turns on; without one, the camera stops
+    # before the first shot if a requested app needs it.
     serial, on = _emulator(ctx, avd) if avd else ("", False)
-    # La camara maneja el dispositivo con `adb` (ADR-0051): el del SDK que
-    # encontro Consola, este o no en el PATH de la maquina.
+    # The camera drives the device with `adb` (ADR-0051): the one from
+    # the SDK Consola found, whether or not it is on the machine's PATH.
     environment = (
         {
             "PATH": os.pathsep.join(
@@ -164,10 +173,10 @@ def shoot_screens(
 
 
 def _emulator(ctx: TaskContext, avd: str) -> tuple[str, bool]:
-    """El serial del AVD elegido, encendiendolo si hace falta.
+    """Return the chosen AVD's serial, turning it on if needed.
 
-    Devuelve tambien si lo encendio esta corrida: el que ya estaba vivo se deja
-    como estaba, el que se encendio aca se apaga al terminar.
+    It also returns whether this run turned it on: one already alive
+    stays as it was, and one turned on here turns off at the end.
     """
     sdk = android.resolve_sdk()
     for serial, name in android.running(sdk).items():
@@ -180,8 +189,9 @@ def _emulator(ctx: TaskContext, avd: str) -> tuple[str, bool]:
     port = android.free_port(sdk)
     serial = f"emulator-{port}"
     ctx.info(f"Encendiendo {avd} como {serial}.")
-    # La salida del emulador no le sirve a quien mira las capturas: solo pasan
-    # sus avisos y errores. Comparte la cancelacion con esta corrida.
+    # The emulator's output is no use to someone watching screenshots:
+    # only its warnings and errors pass. It shares cancellation with
+    # this run.
     quiet = ctx.child("launch_emulator")
     quiet.log_sink = lambda msg, level: (
         ctx.log(msg, level) if level in (Level.WARN, Level.ERROR) else None
@@ -199,7 +209,10 @@ def _emulator(ctx: TaskContext, avd: str) -> tuple[str, bool]:
 
 
 def _run_quietly(func: Callable[..., object], *args: object, **kwargs: Any) -> None:
-    """Corre el emulador en su hilo. Si muere, `wait_for_boot` es quien lo dice."""
+    """Run the emulator in its thread.
+
+    If it dies, `wait_for_boot` says so.
+    """
     try:
         func(*args, **kwargs)
     except Exception:
@@ -207,7 +220,10 @@ def _run_quietly(func: Callable[..., object], *args: object, **kwargs: Any) -> N
 
 
 def render_shots(ctx: TaskContext, destinations: Sequence[str] = (LANDING,)) -> None:
-    """Convierte los crudos para cada destino marcado y deja un manifiesto por destino."""
+    """Convert the raw shots for each destination.
+
+    With a manifest for each.
+    """
     if not destinations:
         raise TaskError("Marca al menos un destino.")
     presets = shots.load_presets()
@@ -222,9 +238,9 @@ def render_shots(ctx: TaskContext, destinations: Sequence[str] = (LANDING,)) -> 
     if not raws:
         raise TaskError(f"No hay capturas en {raw}. Sácalas primero.")
 
-    # Se planea todo antes de convertir nada: un destino al que no le sirven
-    # los crudos corta la corrida, no la deja a medias con unas carpetas hechas
-    # y otras no.
+    # All is planned before converting anything: a destination the raw
+    # shots do not suit stops the run instead of leaving it half done,
+    # with some folders ready and others not.
     jobs = {d: shots.plan(_label(d), presets[d], raws) for d in destinations}
     for destination, work in jobs.items():
         output = _out_dir(ctx, destination)
@@ -277,10 +293,10 @@ def screenshots(
     shoot: bool = True,
     render: bool = True,
 ) -> None:
-    """Compuesta: sacar las capturas y revelarlas.
+    """Composite: take the screenshots and develop them.
 
-    Sin `shoot` se revela lo que ya esta en disco: es lo que se hace cuando
-    cambio la medida de un destino y no la app.
+    Without `shoot` it develops what is on disk: that is for when a
+    destination's size changed and the app did not.
     """
     if shoot:
         ctx.step("shoot")
@@ -291,6 +307,7 @@ def screenshots(
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("generate_icons", generate_icons)
     registry.bind("shoot_screens", shoot_screens)
     registry.bind("render_shots", render_shots)

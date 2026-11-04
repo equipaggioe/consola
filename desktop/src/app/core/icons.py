@@ -1,3 +1,21 @@
+"""App icons from the repo's logo.
+
+The repo supplies the SVGs and each app says where its icon goes
+(ADR-0055, ADR-0056):
+
+- a Flutter app, in the `flutter_launcher_icons:` section of its
+  pubspec;
+- a Flet app, with the `src/assets/icon.png` that `flet build` takes;
+- an SPA, with the `<link rel="icon">` and `<link
+  rel="apple-touch-icon">` of its `+layout.svelte`, `app.html` or
+  `index.html`, and with the `icons` of the manifest its `<link
+  rel="manifest">` links (ADR-0057).
+
+Everything but rasterizing lives here: which apps take their icon from
+Consola and which layer goes to each file. Rasterizing uses Qt and lives
+in `core/tasks/raster.py`.
+"""
+
 from __future__ import annotations
 
 import json
@@ -10,25 +28,10 @@ from app.core import targets
 from app.core.errors import MissingConfig, TaskError
 from app.core.files import read_text
 
-"""
-Iconos de las apps a partir del logo del repo.
-
-El repo pone los SVG y cada app dice donde va su icono (ADR-0055, ADR-0056):
-
-- una app Flutter, en la seccion `flutter_launcher_icons:` de su pubspec;
-- una app Flet, con el `src/assets/icon.png` que toma `flet build`;
-- una SPA, con los `<link rel="icon">` y `<link rel="apple-touch-icon">` de su
-  `+layout.svelte`, su `app.html` o su `index.html`, y con los `icons` del
-  manifest que enlaza su `<link rel="manifest">` (ADR-0057).
-
-Aca vive todo lo que no es rasterizar: que apps toman su icono de Consola y que
-capa va a cada archivo. Rasterizar usa Qt y vive en `core/tasks/raster.py`.
-"""
-
 ICON_KINDS = (targets.FLUTTER_APP, targets.FLET_APP, targets.SPA_VITE)
 
-# Las capas: el logo, la capa frontal del icono adaptativo de Android y el
-# icono maskable de una PWA. Cada una es un SVG del repo, con su clave.
+# The layers: the logo, the front layer of Android's adaptive icon and a
+# PWA's maskable icon. Each is an SVG of the repo, with its key.
 LOGO = "logo"
 FOREGROUND = "foreground"
 MASKABLE = "maskable"
@@ -39,8 +42,8 @@ LAYER_KEYS = {
 }
 
 SECTION = "flutter_launcher_icons"
-# Las claves del pubspec que llevan el logo tal cual. Las anidadas van con su
-# plataforma delante, como las devuelve `yaml_section`.
+# The pubspec keys that carry the logo as is. Nested ones go with their
+# platform first, as `yaml_section` returns them.
 LOGO_KEYS = (
     "image_path",
     "image_path_android",
@@ -50,36 +53,37 @@ LOGO_KEYS = (
     "macos.image_path",
 )
 FOREGROUND_KEY = "adaptive_icon_foreground"
-# Cualquier otra clave que apunte a una imagen pide un dibujo que el repo no
-# declara (el monocromo de Android, el oscuro de iOS): no se adivina cual es.
+# Any other key pointing to an image asks for a drawing the repo does
+# not declare (Android's monochrome, iOS's dark): it is not guessed.
 _IMAGE_VALUE = re.compile(r"\.(png|jpe?g|webp)$", re.IGNORECASE)
 
-# Lado del PNG que se le da a `flutter_launcher_icons` y a `flet build`: el de
-# la tienda de iOS, el mas grande que recortan.
+# The side of the PNG given to `flutter_launcher_icons` and `flet
+# build`: the iOS store's, the largest they crop.
 RASTER_SIZE = 1024
 
 FLET_ICON = Path("src/assets/icon.png")
 
-# YAML: un `#` abre comentario al principio de la linea o despues de un blanco.
-# Dentro de comillas (`"#0b1224"`) no hay blanco delante, y no se toca.
+# YAML: a `#` opens a comment at the start of the line or after a blank.
+# Inside quotes (`"#0b1224"`) no blank comes first, and it stays.
 _COMMENT = re.compile(r"(?:^|\s)#.*$")
 
 _LINK = re.compile(r"<link\b[^>]*>", re.IGNORECASE | re.DOTALL)
 _ATTR = re.compile(r'([\w-]+)\s*=\s*(?:"([^"]*)"|\'([^\']*)\'|\{([^}]*)\})')
 _ICON_RELS = ("icon", "apple-touch-icon")
 _SIZE = re.compile(r"(\d+)x(\d+)")
-# El plugin de PWA (`VitePWA` de `vite-plugin-pwa`, `SvelteKitPWA` de
-# `@vite-pwa/sveltekit`) genera el manifest salvo que se le diga `manifest: false`.
+# The PWA plugin (`VitePWA` of `vite-plugin-pwa`, `SvelteKitPWA` of
+# `@vite-pwa/sveltekit`) generates the manifest unless told `manifest:
+# false`.
 _PWA_PLUGIN = re.compile(r"\b(?:VitePWA|SvelteKitPWA)\(")
 _MANIFEST_OFF = re.compile(r"\bmanifest\s*:\s*false\b")
 
 
 @dataclass(frozen=True)
 class Place:
-    """Un archivo de la app que lleva una capa del logo.
+    """A file of the app that carries a layer of the logo.
 
-    `size` es el lado del PNG. Un `.svg` recibe la capa tal cual y un `.ico`
-    lleva los lados de `raster.ICO_SIZES`: en los dos es 0.
+    `size` is the PNG's side. An `.svg` receives the layer as is and an
+    `.ico` carries the sides of `raster.ICO_SIZES`: on both it is 0.
     """
 
     path: Path
@@ -89,25 +93,26 @@ class Place:
 
 @dataclass(frozen=True)
 class IconJob:
-    """Lo que se genera para una app: que SVG va a que archivo."""
+    """What is generated for an app: which SVG goes to which file."""
 
     app: str
     kind: str
     path: Path
-    writes: tuple[tuple[Path, Place], ...]  # (SVG de origen, archivo de la app)
+    writes: tuple[tuple[Path, Place], ...]  # (source SVG, app file)
 
     @property
     def is_flutter(self) -> bool:
+        """Return whether the app is a Flutter one."""
         return self.kind == targets.FLUTTER_APP
 
 
 def yaml_section(text: str, name: str) -> dict[str, str] | None:
-    """Las claves de una seccion de primer nivel de un YAML, o None si no esta.
+    """Return the keys of a top-level YAML section, or None if absent.
 
-    Las anidadas vuelven como `web.image_path`, y una clave que abre un bloque
-    vuelve con valor vacio. Alcanza para lo que se lee de un pubspec: mapas de
-    escalares, sin listas ni textos de varias lineas. Consola no depende de un
-    lector de YAML para leer diez renglones.
+    Nested ones return as `web.image_path`, and a key that opens a block
+    returns with an empty value. That is enough for a pubspec: maps of
+    scalars, without lists or multi-line text. Consola needs no YAML
+    reader for ten lines.
     """
     output: dict[str, str] = {}
     found = inside = False
@@ -135,14 +140,17 @@ def yaml_section(text: str, name: str) -> dict[str, str] | None:
     return output if found else None
 
 
-# --- donde va el icono de cada tipo de app ---------------------------------
+# --- where each app type's icon goes ---
 
 
 def places(target: targets.Target) -> list[Place]:
-    """Los archivos donde la app toma su icono. Vacio si no declara ninguno.
+    """Return the files where the app takes its icon.
 
-    Una declaracion que Consola no sabe llenar corta con el motivo: la app
-    pide un icono, y callarlo dejaria uno viejo sin que nadie lo note.
+    Empty if none declared.
+
+    A declaration Consola cannot fill stops with the reason: the app
+    asks for an icon, and keeping quiet would leave an old one
+    unnoticed.
     """
     if target.kind == targets.FLUTTER_APP:
         return _flutter_places(target)
@@ -158,11 +166,13 @@ def places(target: targets.Target) -> list[Place]:
 
 
 def _flutter_places(target: targets.Target) -> list[Place]:
-    """Los PNG que lee `flutter_launcher_icons`, en las rutas que declara el pubspec.
+    """Return the PNGs `flutter_launcher_icons` reads.
 
-    Las rutas se leen del pubspec y no de otra clave: ese archivo ya dice que
-    PNG consume el paquete, y escribirlas dos veces seria una segunda fuente que
-    se desfasa.
+    At the pubspec's paths.
+
+    Paths are read from the pubspec and no other key: that file already
+    says which PNGs the package consumes, and writing them twice would
+    be a second source that drifts.
     """
     pubspec = read_text(target.path / "pubspec.yaml")
     section = yaml_section(pubspec, SECTION)
@@ -188,13 +198,15 @@ def _flutter_places(target: targets.Target) -> list[Place]:
 
 
 def _link_places(target: targets.Target) -> list[Place]:
-    """Los `<link rel="icon">` y `rel="apple-touch-icon"` de la app.
+    """Return the app's `<link rel="icon">`.
 
-    En el `+layout.svelte` el `href` es una variable importada: cuenta si el
-    import es de `$lib/`, que es de la app. Uno que importa el logo de otro
-    lado (`$brand/logomark.svg` en la landing de vettore) ya lo lee de la
-    fuente y no hay nada que generar. En `app.html` e `index.html` el `href` es
-    una ruta de los archivos estaticos.
+    And `rel="apple-touch-icon"`.
+
+    In `+layout.svelte` the `href` is an imported variable: it counts if
+    the import is from `$lib/`, the app's. One importing the logo from
+    elsewhere (`$brand/logomark.svg`) already reads it from the source
+    and there is nothing to generate. In `app.html` and `index.html` the
+    `href` is a static file's path.
     """
     found_places = []
     layout = target.path / "src" / "routes" / "+layout.svelte"
@@ -218,13 +230,19 @@ def _link_places(target: targets.Target) -> list[Place]:
 
 
 def _html(target: targets.Target) -> list[str]:
-    """El `app.html` de SvelteKit y el `index.html` de Vite que tenga la app."""
+    """Return SvelteKit's `app.html` and Vite's `index.html`.
+
+    As present.
+    """
     files = (target.path / "src" / "app.html", target.path / "index.html")
     return [read_text(a) for a in files if a.is_file()]
 
 
 def _icon_links(text: str, rels: tuple[str, ...] = _ICON_RELS) -> list[tuple[str, str, bool]]:
-    """(href, sizes, si el href es texto literal) de cada `<link>` con uno de `rels`."""
+    """Return (href, sizes, whether literal) of each `<link>`.
+
+    With one of `rels`.
+    """
     output = []
     for label in _LINK.findall(text):
         attrs = {
@@ -243,17 +261,18 @@ def _icon_links(text: str, rels: tuple[str, ...] = _ICON_RELS) -> list[tuple[str
 
 
 def _static_dir(target: targets.Target) -> Path:
-    """Donde sirve la app sus archivos estaticos: `static/` en SvelteKit, `public/` en Vite.
+    """Return where the app serves static files.
 
-    SvelteKit se reconoce por su paquete y no por `svelte.config.js`, que
-    tambien lo tiene una app de Svelte sin Kit (`spazio/frontend`).
+    That is `static/` in SvelteKit and `public/` in Vite. SvelteKit is
+    recognized by its package and not `svelte.config.js`, which a Svelte
+    app without Kit also has.
     """
     sveltekit = '"@sveltejs/kit"' in read_text(target.path / "package.json")
     return target.path / ("static" if sveltekit else "public")
 
 
 def _static_path(target: targets.Target, href: str) -> Path:
-    """El archivo de `static/` o `public/` que sirve un `href` de la app."""
+    """Return the `static/` or `public/` file an app's `href` serves."""
     if _external(href):
         raise TaskError(f"{target.name}: el ícono apunta fuera de la app: {href}")
     return _static_dir(target) / re.sub(r"^%sveltekit\.assets%", "", href).lstrip("/")
@@ -268,7 +287,7 @@ def _static_place(target: targets.Target, href: str, size: str) -> Place:
 
 
 def _place(target: targets.Target, path: Path, size: str, source: str) -> Place:
-    """El lugar que corresponde a un archivo por su extension."""
+    """Return the place for a file, by its extension."""
     suffix = path.suffix.lower()
     if suffix in (".svg", ".ico"):
         return Place(path, LOGO)
@@ -289,11 +308,11 @@ def _place(target: targets.Target, path: Path, size: str, source: str) -> Place:
 
 
 def _manifest_places(target: targets.Target) -> list[Place]:
-    """Los iconos del manifest de la PWA, con su capa segun el `purpose`.
+    """Return the PWA manifest's icons, with their layer by `purpose`.
 
-    El manifest es un archivo estatico que la app enlaza con `<link
-    rel="manifest">`, y se lee como JSON (ADR-0057). Un `src` relativo se
-    resuelve contra la carpeta del manifest, como en el navegador.
+    The manifest is a static file the app links with `<link
+    rel="manifest">`, and reads as JSON (ADR-0057). A relative `src`
+    resolves against the manifest's folder, as in the browser.
     """
     _no_generated_manifest(target)
     found_places: list[Place] = []
@@ -322,8 +341,8 @@ def _manifest_place(target: targets.Target, manifest: Path, icon: dict[str, Any]
         raise TaskError(f"{target.name}: el ícono apunta fuera de la app: {src}")
     path = _static_path(target, src) if src.startswith("/") else manifest.parent / src
     place = _place(target, path, size, src)
-    # Android recorta el maskable y el `any` se ve entero: el mismo dibujo no
-    # sirve para los dos, y cada uno va en su archivo.
+    # Android crops the maskable and `any` shows whole: the same drawing
+    # does not serve both, and each goes in its own file.
     purpose = icon.get("purpose", "any").split()
     if purpose not in (["any"], ["maskable"]):
         raise TaskError(
@@ -334,10 +353,10 @@ def _manifest_place(target: targets.Target, manifest: Path, icon: dict[str, Any]
 
 
 def _no_generated_manifest(target: targets.Target) -> None:
-    """Corta si el plugin de PWA genera el manifest desde `vite.config`.
+    """Stop if the PWA plugin generates the manifest from `vite.config`.
 
-    Ese manifest es un objeto de TypeScript que Consola no lee: sus iconos se
-    quedarian viejos sin que nadie lo note.
+    That manifest is a TypeScript object Consola does not read: its
+    icons would go stale unnoticed.
     """
     for config in sorted(target.path.glob("vite.config.*")):
         text = read_text(config)
@@ -350,7 +369,7 @@ def _no_generated_manifest(target: targets.Target) -> None:
 
 
 def _merge(app: str, found_places: list[Place]) -> list[Place]:
-    """Un lugar por archivo. Un archivo declarado dos veces pide lo mismo las dos."""
+    """Keep one place per file: twice asks for the same."""
     by_path: dict[Path, Place] = {}
     for place in found_places:
         previous = by_path.setdefault(place.path, place)
@@ -367,14 +386,16 @@ def _merge(app: str, found_places: list[Place]) -> list[Place]:
     return list(by_path.values())
 
 
-# --- que se ofrece y que se escribe ----------------------------------------
+# --- what is offered and what is written ---
 
 
 def takes_icon(target: targets.Target) -> bool:
-    """Si la app dice donde va su icono, que es lo que la hace elegible.
+    """Return whether the app says where its icon goes.
 
-    Una declaracion rota tambien cuenta: la app se ofrece y la corrida dice
-    que tiene mal. Esconderla dejaria el error sin mostrar.
+    That makes it eligible.
+
+    A broken declaration counts too: the app is offered and the run says
+    what is wrong. Hiding it would leave the error unshown.
     """
     try:
         return bool(places(target))
@@ -383,14 +404,17 @@ def takes_icon(target: targets.Target) -> bool:
 
 
 def icon_apps(root: Path) -> list[targets.Target]:
-    """Las apps del repo que toman su icono de Consola, por nombre."""
+    """Return the repo's apps that take their icon from Consola.
+
+    By name.
+    """
     return sorted(
         (t for t in targets.by_kinds(root, ICON_KINDS) if takes_icon(t)), key=lambda t: t.name
     )
 
 
 def brand_file(root: Path, value: str, key: str) -> Path:
-    """Un SVG de la configuracion, relativo a la raiz del repo."""
+    """Return a config SVG, relative to the repo's root."""
     path = root / value
     if path.suffix.lower() != ".svg":
         raise TaskError(f"{key} tiene que ser un SVG: {value}")
@@ -400,10 +424,12 @@ def brand_file(root: Path, value: str, key: str) -> Path:
 
 
 def plan(root: Path, name: str, layers: dict[str, Path]) -> IconJob:
-    """Que capa va a que archivo en la app `name`. Corta antes de escribir nada.
+    """Return which layer goes to which file in app `name`.
 
-    `layers` trae los SVG de las capas configuradas. Una capa que la app pide y
-    no esta configurada abre la configuracion en esa clave.
+    Before any write.
+
+    `layers` brings the configured layers' SVGs. A layer the app asks
+    for that is not configured opens the settings on that key.
     """
     target = targets.pick(root, ICON_KINDS, name)
     found_places = places(target)

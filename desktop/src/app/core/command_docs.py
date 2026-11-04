@@ -1,35 +1,39 @@
+"""Long descriptions of the commands.
+
+For the right panel's help section.
+
+A `Capability`'s `description` is one line: enough for the rail's
+tooltip and the header. The long text lives here: what the command does
+and which steps it runs, in order.
+
+Only what the button does. The `steps` are the exact trail of the run,
+in the real order: one operation per line and one line per branch the
+code takes. They are not the panel's checkboxes, since one checkbox
+abstracts several operations, but the plumbing: what is read from disk,
+what goes over SSH, which binary runs and with which flags. Reading the
+list from top to bottom has to be enough to tell whether a step is
+missing, extra or out of order.
+
+The text draws as plain text (`ui/command_info_panel.py`), so it carries
+no markup: no backticks or tags.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
 
-"""
-Descripciones largas de los comandos, para la seccion de ayuda del panel derecho.
-
-La `description` de una `Capability` es una linea — lo justo para el tooltip del
-rail y la cabecera. Aca vive el texto largo: que hace el comando y que pasos
-ejecuta, en orden.
-
-Solo lo que el boton hace. Los `steps` son el rastro exacto de la corrida, en el
-orden real en que ocurre: una operacion por linea, y una linea por cada rama que
-el codigo toma. No son las casillas del panel de parametros —una casilla abstrae
-varias operaciones— sino la plomeria: que se lee del disco, que se manda por SSH,
-que binario se invoca y con que banderas. Leer la lista de arriba abajo tiene que
-alcanzar para decir si falta un paso, si sobra, o si estan en el orden
-equivocado.
-
-El texto se dibuja como texto plano (`ui/command_info_panel.py`), asi que no
-lleva marcado: nada de backticks ni de etiquetas.
-"""
-
 
 @dataclass(frozen=True)
 class CommandDoc:
-    summary: str  # que hace
-    steps: list[str] = field(default_factory=list)  # que ejecuta, en orden
+    """The long text of one command."""
+
+    summary: str  # what it does
+    # what it runs, in order
+    steps: list[str] = field(default_factory=list)
 
 
 DOCS: dict[str, CommandDoc] = {
-    # --- Ejecutar ---------------------------------------------------------
+    # --- Run ---
     "backend": CommandDoc(
         summary=(
             "Levanta con uvicorn el servidor FastAPI del repo y publica su URL "
@@ -131,7 +135,7 @@ DOCS: dict[str, CommandDoc] = {
             "Informa en la consola cuáles quedaron lanzados.",
         ],
     ),
-    # --- Compilar ----------------------------------------------------------
+    # --- Build ---
     "build_flutter": CommandDoc(
         summary=(
             "Compila la app Flutter o Flet del repo para las plataformas "
@@ -184,7 +188,7 @@ DOCS: dict[str, CommandDoc] = {
             "Copia por scp el binario con chmod 755, después el manifiesto y después el checksum.",
         ],
     ),
-    # --- Imágenes -----------------------------------------------------------
+    # --- Images ---
     "generate_icons": CommandDoc(
         summary=(
             "Deja el logo del repo, BRAND_ICON, como ícono de cada app marcada, "
@@ -278,7 +282,7 @@ DOCS: dict[str, CommandDoc] = {
             "SHOTS_RAW como el botón Revelar capturas.",
         ],
     ),
-    # --- Emuladores ---------------------------------------------------------
+    # --- Emulators ---
     "install_system_image": CommandDoc(
         summary=(
             "Descarga del SDK la máquina virtual (system image) sobre la que después corre un AVD."
@@ -343,7 +347,7 @@ DOCS: dict[str, CommandDoc] = {
             "Olvida las cachés de AVD y de imágenes instaladas.",
         ],
     ),
-    # --- Despliegue y VPS ---------------------------------------------------------
+    # --- Deployment and VPS ---
     "ssh_login": CommandDoc(
         summary=(
             "Abre una sesión SSH interactiva contra el VPS del repo, en una terminal del sistema."
@@ -403,7 +407,7 @@ DOCS: dict[str, CommandDoc] = {
             "Borra en esta máquina la clave privada y su .pub, solo si lo anterior salió bien.",
         ],
     ),
-    # --- Despliegue ------------------------------------------------------
+    # --- Deployment ---
     "publish_release": CommandDoc(
         summary=(
             "Publica una versión: crea el tag siguiente, espera a que release.yml "
@@ -496,7 +500,8 @@ DOCS: dict[str, CommandDoc] = {
     "install_software": CommandDoc(
         summary="Instala en el VPS los paquetes que canone pide para este repo, y uv.",
         steps=[
-            "Entra como VPS_USER si la llave ya lo deja entrar, con la contraseña de sudo de SUDO_PASSWORD o pedida una vez por sesión; si no, como root con la "
+            "Entra como VPS_USER si la llave ya lo deja entrar, con la contraseña de sudo de "
+            "SUDO_PASSWORD o pedida una vez por sesión; si no, como root con la "
             "misma llave.",
             "Arma la lista: los de la máquina de canone, más PostGIS si "
             "DB_EXTENSIONS la nombra, coturn con TURN y lo del journal con LOGS.",
@@ -513,7 +518,8 @@ DOCS: dict[str, CommandDoc] = {
             "Corta si config.env tiene una clave que no es de Consola ni un "
             "campo, o si falta el valor de un campo o de RESTIC_PASSWORD (y de "
             "GITHUB_TOKEN con PRIVATE).",
-            "Entra como VPS_USER si la llave ya lo deja entrar, con la contraseña de sudo de SUDO_PASSWORD o pedida una vez por sesión; si no, como root con la "
+            "Entra como VPS_USER si la llave ya lo deja entrar, con la contraseña de sudo de "
+            "SUDO_PASSWORD o pedida una vez por sesión; si no, como root con la "
             "misma llave.",
             "Corta si todavía no existe la cuenta que administra.",
             "Sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone.",
@@ -529,7 +535,7 @@ DOCS: dict[str, CommandDoc] = {
             "Corre ssh-keygen -R contra ese host.",
         ],
     ),
-    # --- Base de datos -----------------------------------------------------
+    # --- Database ---
     "bootstrap_db": CommandDoc(
         summary=(
             "Deja la base local usable desde cero: rol, base, permisos, "
@@ -694,7 +700,7 @@ DOCS: dict[str, CommandDoc] = {
             "Espera hasta que cierres la pestaña; si el túnel se cae, termina con error.",
         ],
     ),
-    # --- Utils -------------------------------------------------------------
+    # --- Utils ---
     "clean_artifacts": CommandDoc(
         summary=(
             "Borra las cachés y la basura de build del repo abierto. En "
@@ -844,4 +850,5 @@ DOCS: dict[str, CommandDoc] = {
 
 
 def get(capability_id: str) -> CommandDoc | None:
+    """Return the command's long text, if it has one."""
     return DOCS.get(capability_id)

@@ -1,3 +1,5 @@
+"""The long description of the open action."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt
@@ -19,23 +21,24 @@ class _Heading(QLabel):
 
 
 class CommandInfoPanel(QWidget):
-    """Descripcion larga de la accion abierta y los pasos que ejecuta.
+    """The open action's long description and the steps it runs.
 
-    Vive en la seccion de arriba del acordeon derecho. La cabecera de esa
-    seccion lleva el nombre de la accion (lo pone `TabPanel`), asi que plegada
-    no se pierde nada: sigue diciendo cual es. El texto sale de
-    `core/command_docs.py` cuando existe, y si no de la descripcion de una
-    linea de la capacidad mas las etiquetas de sus pasos.
+    It lives in the top section of the right accordion. That section's
+    header carries the action's name, set by `TabPanel`, so collapsed it
+    still says which one it is. The text comes from
+    `core/command_docs.py` when it exists, and otherwise from the
+    capability's one-line description plus its steps' labels.
 
-    Solo que hace el boton y en que orden: la ficha no tiene una seccion de
-    advertencias ni de casos borde.
+    Only what the button does and in which order: the sheet has no
+    section of warnings or edge cases.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the scrollable column."""
         super().__init__(parent)
-        # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
-        # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
-        # seccion no se teñia del color del repo.
+        # Without this, a QWidget subclass ignores its own sheet's
+        # background and shows the global sheet's gray (`theme.py`): the
+        # section's body did not take the repo's color.
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.pal = NEUTRAL
 
@@ -46,7 +49,7 @@ class CommandInfoPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll  # lo repinta `_restyle`
+        self._scroll = scroll  # `_restyle` repaints it
 
         self._content = QWidget()
         self._content.setStyleSheet("background: transparent;")
@@ -62,14 +65,15 @@ class CommandInfoPanel(QWidget):
         self.set_capability(None)
 
     def _scroll_style(self) -> str:
-        """El scroll no tiene fondo propio: deja ver el del panel.
+        """Leave the scroll with no background, showing the panel's.
 
-        El canal de la barra si lo necesita. Cae bajo el mismo
-        `QScrollArea > QWidget > QWidget` que deja transparente al viewport
-        —la barra es hija del viewport—, y transparente lo pintaba el gris de
-        la paleta de Qt, no el fondo del panel: un filete gris al borde de una
-        columna teñida. Se le da el color a mano y en esta misma hoja, que es
-        la mas cercana y la que manda.
+        The bar's groove does need one. It falls under the same
+        `QScrollArea > QWidget > QWidget` that makes the viewport
+        transparent, since the bar is a child of the viewport, and
+        transparent painted Qt's palette gray instead of the panel's
+        background: a gray stripe at the edge of a tinted column. It
+        gets its color by hand in this same sheet, which is the closest
+        and the one that wins.
         """
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
@@ -78,22 +82,26 @@ class CommandInfoPanel(QWidget):
         )
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 
     def _restyle(self) -> None:
-        # Cuerpo de seccion: `panel`, un escalon por debajo de su cabecera.
+        # Section body: `panel`, one step below its header.
         self.setStyleSheet(f"CommandInfoPanel {{ background: {self.pal.panel}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
 
-    # --- API ---------------------------------------------------------------
+    # --- API ---
     def content_height(self) -> int:
-        """Alto que pide el texto sin scroll — lo usa `TabPanel._relayout_right`
-        para decidir cuanto darle a la seccion.
+        """Return the height the text asks for without scrolling.
+
+        `TabPanel._relayout_right` uses it to decide how much to give
+        the section.
         """
         return self._content.sizeHint().height()
 
     def set_capability(self, capability: Capability | None) -> None:
+        """Show the description of that capability, or nothing."""
         self._clear()
         if capability is None:
             self._lay.addWidget(
@@ -115,7 +123,7 @@ class CommandInfoPanel(QWidget):
             for i, text in enumerate(steps, 1):
                 self._lay.addWidget(self._step(i, text))
 
-    # --- interno ---------------------------------------------------------
+    # --- internal ---
     def _clear(self) -> None:
         while self._lay.count():
             item = self._lay.takeAt(0)

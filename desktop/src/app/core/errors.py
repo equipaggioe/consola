@@ -1,26 +1,33 @@
+"""The errors a capability can raise."""
+
 from __future__ import annotations
 
 
 class TaskError(RuntimeError):
-    """Falla esperable de una capacidad: marca la pestana en rojo, no tumba la app.
+    """An expected failure: it turns the tab red.
 
-    Reemplaza el `print("[ERROR] ...") + raise SystemExit(1)` que repetian todos
-    los scripts. Nivel 0 nunca imprime ni sale del proceso: informa y devuelve.
+    And leaves the app running.
+
+    Level 0 never prints or exits the process: it reports and returns.
     """
 
 
 class Cancelled(RuntimeError):
-    """El usuario detuvo la tarea. No es un error: la pestana queda gris, no roja."""
+    """The user stopped the task.
+
+    Not an error: the tab stays gray, not red.
+    """
 
 
 class MissingConfig(TaskError):
-    """Faltan claves de `.consola/config.env` para poder correr.
+    """Keys missing from `.consola/config.env` for the task to run.
 
-    Se distingue de TaskError comun para que la UI pueda ofrecer el engranaje
-    de Configuracion filtrado a `keys` en vez de un mensaje suelto (ADR-0064).
+    It differs from a plain TaskError so the UI can offer the Settings
+    gear filtered to `keys` instead of a loose message (ADR-0064).
     """
 
     def __init__(self, keys: list[str]) -> None:
+        """Keep the missing keys and name them in the message."""
         self.keys = list(keys)
         missing = ", ".join(self.keys)
         super().__init__(f"Falta configurar: {missing}")

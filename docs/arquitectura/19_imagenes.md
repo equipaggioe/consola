@@ -7,7 +7,7 @@ El grupo **Imágenes** produce el material gráfico de las apps de un repo: sus 
 | Parte | Quién | Dónde |
 |---|---|---|
 | El escenario, las rutas del servidor ficticio, entrar sin login, navegar | el script del repo | lo que declara `SHOTS_CMD` |
-| Leer el contrato, servidor ficticio, Vite, página, reintentos, emulador | el kit de Consola, que corre dentro de la cámara | `camara/index.mjs` (§6) |
+| Leer el contrato, servidor ficticio, Vite, página, reintentos, emulador | el kit de Consola, que corre dentro de la cámara | `camera/index.mjs` (§6) |
 | Elegir apps, temas, idiomas y emulador; encender el emulador | Consola | `core/tasks/images.py::shoot_screens` |
 | Validar lo que dejó la cámara | Consola | `core/shots.py::collect`, `missing_combinations` |
 | Convertir cada crudo para cada destino y escribir el manifiesto | Consola | `core/shots.py` (`render_*`, `write_manifest`), `core/shots_presets.json` |
@@ -40,7 +40,7 @@ Eje de `render_shots` y de la compuesta: `destinations` (`landing`, `play`, `app
 1. Comprueba que cada app marcada sea una app del repo con pantalla. No mira si hace falta emulador: eso lo decide la cámara (ADR-0052), que corta antes de la primera foto si una app lo necesita y no llegó `--device`.
 2. Borra de `SHOTS_RAW` los crudos de las combinaciones pedidas (`clear_raw`): una pantalla que el script dejó de sacar no sobrevive a la corrida siguiente. Las combinaciones no pedidas no se tocan.
 3. Con un AVD elegido: si ya está encendido, usa su serial; si no, lo enciende en un hilo aparte con un puerto elegido de antemano, espera el arranque, y lo apaga por adb al terminar. De su salida solo pasan al log los avisos y los errores.
-4. Corre `SHOTS_CMD` desde la raíz del repo con los argumentos de §2, `--output` con `SHOTS_RAW` absoluta y `--kit` con la ruta de `camara/index.mjs` (`shots.KIT`). El primer token se resuelve en el PATH; el resto va tal cual. Con un AVD elegido, la carpeta del `adb` del SDK va primera en el PATH de la cámara.
+4. Corre `SHOTS_CMD` desde la raíz del repo con los argumentos de §2, `--output` con `SHOTS_RAW` absoluta y `--kit` con la ruta de `camera/index.mjs` (`shots.KIT`). El primer token se resuelve en el PATH; el resto va tal cual. Con un AVD elegido, la carpeta del `adb` del SDK va primera en el PATH de la cámara.
 5. Lee los crudos de las apps pedidas y corta si un archivo no sigue el nombre, o si alguna combinación app × tema × idioma quedó sin captura.
 
 ## 4. El nombre de los crudos
@@ -83,7 +83,7 @@ La conversión usa Pillow.
 
 ## 6. El kit de la cámara
 
-`camara/index.mjs`, JS sin dependencias. La cámara lo importa desde la ruta que recibe en `--kit` y le pasa lo que necesite de Playwright.
+`camera/index.mjs`, JS sin dependencias. La cámara lo importa desde la ruta que recibe en `--kit` y le pasa lo que necesite de Playwright.
 
 | Export | Qué hace |
 |---|---|
@@ -100,7 +100,7 @@ La conversión usa Pillow.
 | `android(device)` | `adb` sobre el dispositivo: zona horaria, `root`, reloj fijo y restaurarlo |
 | `flutterDrive({...})` | `flutter drive` para un tema e idioma. A la prueba le pasa `SHOTS_THEME` y `SHOTS_LANGUAGE` por `--dart-define`; al driver, `SHOTS_DIR` y `SHOTS_SUFFIX` en el entorno, para que guarde `<SHOTS_DIR>/<pantalla>.<SHOTS_SUFFIX>.png` |
 
-Las pruebas del kit están en `camara/index.test.mjs` (`node --test`), y `tests/test_camara.py` las corre dentro de pytest.
+Las pruebas del kit están en `camera/index.test.mjs` (`node --test`), y `tests/test_camera.py` las corre dentro de pytest.
 
 ## 7. Los íconos
 

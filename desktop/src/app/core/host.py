@@ -1,3 +1,16 @@
+"""Everything that changes from one system to another on THIS machine.
+
+ADR-0048. Consola runs on Windows and Linux. The VPS does not pass
+through here: it is always Linux and receives POSIX commands, wherever
+Consola runs.
+
+Each difference is an abstract method or attribute of `Host`, with one
+class per system. A class missing one cannot be instantiated on any
+machine, so `tests/test_host.py` detects the missing Linux piece from
+Windows, and vice versa. Outside this file nobody asks about `os.name`:
+they ask `HOST`.
+"""
+
 from __future__ import annotations
 
 import os
@@ -14,31 +27,18 @@ from typing import Any
 
 from app.core.errors import TaskError
 
-"""
-Todo lo que cambia de un sistema a otro en ESTA maquina (ADR-0048).
-
-Consola corre en Windows y en Linux. El VPS no pasa por aqui: es siempre Linux y
-lo que se le manda son comandos POSIX, se corra Consola donde se corra.
-
-Cada diferencia es un metodo o atributo abstracto de `Host`, con una clase por
-sistema. A una clase que le falte uno no se la puede instanciar en ninguna
-maquina, asi que `tests/test_host.py` detecta desde Windows la pieza de Linux
-que falta, y al reves. Fuera de este archivo nadie pregunta `os.name`: le pide
-la respuesta a `HOST`.
-"""
-
-# `<version>` es el nombre de la carpeta de cada instalacion de Postgres, en los
-# dos sistemas: `C:\Program Files\PostgreSQL\17`, `/usr/lib/postgresql/17`.
+# `<version>` is the folder name of each Postgres install on both
+# systems: `C:/Program Files/PostgreSQL/17`, `/usr/lib/postgresql/17`.
 _PG_VERSION = re.compile(r"^(\d+)")
 _PORT_LINE = re.compile(r"^port\s*=\s*'?(\d+)'?")
 
 
 def _newest_first(root: Path) -> list[Path]:
-    """Las carpetas de version de Postgres, de la mas nueva a la mas vieja.
+    """Return Postgres's version folders, newest first.
 
-    Por numero y no por nombre: como texto, `9.6` queda antes que `17`. Una
-    maquina con 15 y 17 tiene que usar la 17, porque la 15 se niega a leer un
-    servidor 17.
+    By number and not name: as text, `9.6` comes before `17`. A machine
+    with 15 and 17 has to use 17, because 15 refuses to read a 17
+    server.
     """
     if not root.is_dir():
         return []
@@ -59,130 +59,154 @@ def _port_in(conf: Path) -> int | None:
 
 
 class Host(ABC):
-    """Las respuestas que dependen del sistema donde corre Consola."""
+    """The answers that depend on the system Consola runs on."""
 
-    # `platform.system()`: con esto se etiqueta un binario y se decide que
-    # plataformas se pueden compilar aqui.
+    # `platform.system()`: it labels a binary and decides which
+    # platforms can compile here.
     system: str = platform.system()
 
-    # --- ejecutables -----------------------------------------------------
+    # --- executables ---
 
     @property
     @abstractmethod
     def executable_suffix(self) -> str:
-        """Lo que PyInstaller le agrega al ejecutable de `--onefile`."""
+        """What PyInstaller adds to the `--onefile` executable."""
 
     @abstractmethod
     def executable_names(self, name: str) -> list[str]:
-        """Los nombres que puede tener en disco el ejecutable `name`."""
+        """Return the names the executable `name` can have on disk."""
 
     @abstractmethod
     def script_name(self, name: str) -> str:
-        """El lanzador de un SDK (`flutter`, `sdkmanager`): en Windows es `.bat`."""
+        """Return an SDK's launcher (`flutter`, `sdkmanager`).
+
+        `.bat` on Windows.
+        """
 
     @abstractmethod
     def venv_bin(self, venv: Path) -> Path:
-        """La carpeta de ejecutables de un venv."""
+        """Return a venv's folder of executables."""
 
     @abstractmethod
     def venv_python(self, venv: Path) -> Path:
-        """El interprete de un venv. Solo ubica: no comprueba que exista."""
+        """Return a venv's interpreter.
 
-    # --- procesos --------------------------------------------------------
+        It only locates, without checking.
+        """
+
+    # --- processes ---
 
     @abstractmethod
     def wrap_script(self, executable: str) -> list[str]:
-        """El argv que corre `executable`, que en Windows puede ser un shim."""
+        """Return the argv that runs `executable`.
+
+        Maybe a shim on Windows.
+        """
 
     @abstractmethod
     def spawn_options(self, *, detached: bool) -> dict[str, Any]:
-        """Argumentos de `Popen` para un proceso que `kill_group` pueda matar."""
+        """Return `Popen` arguments that let `kill_group` kill it."""
 
     @abstractmethod
     def run_options(self) -> dict[str, Any]:
-        """Argumentos de `subprocess.run` para una consulta corta."""
+        """Return `subprocess.run` arguments for a short query."""
 
     @abstractmethod
     def kill_group(self, proc: subprocess.Popen[str]) -> None:
-        """Termina el proceso y todo lo que lanzo. Puede lanzar `OSError`."""
+        """End the process and all it launched, or raise `OSError`."""
 
     @abstractmethod
     def bind_to_app(self, proc: subprocess.Popen[str]) -> None:
-        """Hace que el proceso muera con Consola, aunque Consola se caiga."""
+        """Make the process die with Consola, even on a crash."""
 
-    # --- ssh -------------------------------------------------------------
+    # --- ssh ---
 
     @property
     @abstractmethod
     def ssh_multiplex(self) -> bool:
-        """Si `ssh` puede reusar una conexion entre invocaciones."""
+        """Return whether `ssh` can reuse a connection."""
 
     @abstractmethod
     def terminal_argv(self, argv: list[str]) -> list[str]:
-        """`argv` dentro de una terminal nueva, con TTY real."""
+        """Return `argv` inside a new terminal, with a real TTY."""
 
-    # --- postgres local --------------------------------------------------
+    # --- local postgres ---
 
     @abstractmethod
     def pg_tool(self, name: str) -> Path:
-        """`psql`, `pg_dump` o `pg_restore` de la instalacion mas nueva."""
+        """Return `psql`, `pg_dump` or `pg_restore`.
+
+        Of the newest install.
+        """
 
     @abstractmethod
     def pg_port(self) -> int:
-        """El puerto del Postgres local, leido de su propia configuracion."""
+        """Return the local Postgres's port.
 
-    # --- maquina ---------------------------------------------------------
+        Read from its own configuration.
+        """
+
+    # --- machine ---
 
     @property
     @abstractmethod
     def sdk_key(self) -> str:
-        """Como nombran a este sistema las descargas de Android y Flutter."""
+        """Return how Android and Flutter downloads name this system."""
 
     @property
     @abstractmethod
-    def android_dir_default(self) -> str: ...
+    def android_dir_default(self) -> str:
+        """Return the default folder of the Android SDK."""
 
     @property
     @abstractmethod
-    def flutter_dir_default(self) -> str: ...
+    def flutter_dir_default(self) -> str:
+        """Return the default folder of the Flutter SDK."""
 
     @property
     @abstractmethod
     def unix_modes(self) -> bool:
-        """Si los permisos que trae un zip hay que aplicarlos al descomprimir."""
+        """Return whether extracting a zip applies its permissions."""
 
     @property
     @abstractmethod
     def env_store(self) -> str:
-        """Donde persiste el entorno del usuario: `registry` o `profile`
-        (`core/userenv.py`).
+        """Return where the user environment persists.
+
+        `registry` or `profile` (`core/userenv.py`).
         """
 
     @property
     @abstractmethod
     def emulator_acceleration(self) -> str:
-        """`driver` si se instala, `kvm` si solo se verifica
-        (`core/tasks/utils.py::install_android_hypervisor`).
+        """Return `driver` if it installs, `kvm` if it only verifies.
+
+        See `core/tasks/utils.py::install_android_hypervisor`.
         """
 
     @abstractmethod
     def data_dir(self) -> Path:
-        """Carpeta de datos de Consola en esta maquina."""
+        """Return Consola's data folder on this machine."""
 
     @abstractmethod
     def memory(self) -> tuple[int, int] | None:
-        """RAM disponible y total, en bytes. `None` si no se pudo leer."""
+        """Return available and total RAM in bytes.
+
+        Or `None` if unreadable.
+        """
 
 
 class WindowsHost(Host):
+    """The answers on Windows."""
+
     PG_ROOT = Path(r"C:\Program Files\PostgreSQL")
 
     _NO_WINDOW = 0x08000000  # CREATE_NO_WINDOW
     _NEW_PROCESS_GROUP = 0x00000200  # CREATE_NEW_PROCESS_GROUP
 
     executable_suffix = ".exe"
-    # El ControlMaster de Win32-OpenSSH emula sockets Unix con pipes y falla al
-    # reusar el socket entre invocaciones.
+    # Win32-OpenSSH's ControlMaster emulates Unix sockets with pipes and
+    # fails to reuse the socket between invocations.
     ssh_multiplex = False
     sdk_key = "windows"
     android_dir_default = r"D:\Android"
@@ -192,36 +216,48 @@ class WindowsHost(Host):
     emulator_acceleration = "driver"
 
     def __init__(self) -> None:
+        """Start with no job object yet."""
         self._job: int | None = None
         self._job_lock = threading.Lock()
 
     def executable_names(self, name: str) -> list[str]:
+        """Return the name with Windows's executable extensions."""
         return [f"{name}.exe", f"{name}.bat", f"{name}.cmd"]
 
     def script_name(self, name: str) -> str:
+        """Return the script's `.bat` name."""
         return f"{name}.bat"
 
     def venv_bin(self, venv: Path) -> Path:
+        """Return the venv's `Scripts` folder."""
         return venv / "Scripts"
 
     def venv_python(self, venv: Path) -> Path:
+        """Return the venv's `python.exe`."""
         return self.venv_bin(venv) / "python.exe"
 
     def wrap_script(self, executable: str) -> list[str]:
-        # `flutter.bat` o `pnpm.cmd` no son ejecutables reales: solo corren a
-        # traves de `cmd.exe /c`.
+        # `flutter.bat` or `pnpm.cmd` are not real executables: they
+        # only run through `cmd.exe /c`.
+        """Return the argv that runs it.
+
+        Through `cmd.exe` if it is a shim.
+        """
         if executable.lower().endswith((".bat", ".cmd")):
             return ["cmd.exe", "/c", executable]
         return [executable]
 
     def spawn_options(self, *, detached: bool) -> dict[str, Any]:
+        """Return the process-group and window flags."""
         flags = self._NO_WINDOW | (self._NEW_PROCESS_GROUP if detached else 0)
         return {"creationflags": flags}
 
     def run_options(self) -> dict[str, Any]:
+        """Return the flag that hides the console window."""
         return {"creationflags": self._NO_WINDOW}
 
     def kill_group(self, proc: subprocess.Popen[str]) -> None:
+        """Run `taskkill /T` over the process tree."""
         subprocess.run(
             ["taskkill", "/PID", str(proc.pid), "/T", "/F"],
             capture_output=True,
@@ -229,9 +265,10 @@ class WindowsHost(Host):
         )
 
     def bind_to_app(self, proc: subprocess.Popen[str]) -> None:
-        """Un Job Object con KILL_ON_JOB_CLOSE: el handle del job lo tiene solo
-        este proceso, y cuando muere el sistema cierra el handle y mata lo que
-        hay adentro.
+        """Add the process to a Job Object with KILL_ON_JOB_CLOSE.
+
+        Only this process holds the job's handle, and when it dies the
+        system closes the handle and kills what is inside.
         """
         import ctypes
         from ctypes import wintypes
@@ -290,7 +327,8 @@ class WindowsHost(Host):
                     if not job:
                         return
                     info = _Extended()
-                    info.BasicLimitInformation.LimitFlags = 0x2000  # KILL_ON_JOB_CLOSE
+                    # KILL_ON_JOB_CLOSE
+                    info.BasicLimitInformation.LimitFlags = 0x2000
                     if not kernel32.SetInformationJobObject(
                         job,
                         9,
@@ -305,9 +343,11 @@ class WindowsHost(Host):
             raise OSError("Solo existe en Windows.")
 
     def terminal_argv(self, argv: list[str]) -> list[str]:
+        """Return `argv` in a new console window."""
         return ["wt.exe", *argv]
 
     def pg_tool(self, name: str) -> Path:
+        """Return the tool from the newest `Program Files` install."""
         for version_dir in _newest_first(self.PG_ROOT):
             candidate = version_dir / "bin" / f"{name}.exe"
             if candidate.is_file():
@@ -317,6 +357,7 @@ class WindowsHost(Host):
         )
 
     def pg_port(self) -> int:
+        """Return the port in the newest `postgresql.conf`."""
         for version_dir in _newest_first(self.PG_ROOT):
             conf = version_dir / "data" / "postgresql.conf"
             if conf.is_file() and (port := _port_in(conf)) is not None:
@@ -324,10 +365,12 @@ class WindowsHost(Host):
         return 5432
 
     def data_dir(self) -> Path:
+        """Return `%LOCALAPPDATA%/Consola`."""
         base = os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local")
         return Path(base) / "Consola"
 
     def memory(self) -> tuple[int, int] | None:
+        """Return RAM from `GlobalMemoryStatusEx`."""
         import ctypes
 
         class _MEMORYSTATUSEX(ctypes.Structure):
@@ -354,8 +397,11 @@ class WindowsHost(Host):
 
 
 class PosixHost(Host):
-    # Las rutas de Debian y Ubuntu: `postgresql-common` instala cada version
-    # en su carpeta y deja un cluster `main` por version (ADR-0048).
+    # Debian and Ubuntu's paths: `postgresql-common` installs each
+    # version in its folder and leaves one `main` cluster per version
+    # (ADR-0048).
+    """The answers on Linux."""
+
     PG_ROOT = Path("/usr/lib/postgresql")
     PG_CONF_ROOT = Path("/etc/postgresql")
     TERMINAL = "x-terminal-emulator"
@@ -370,50 +416,62 @@ class PosixHost(Host):
 
     @property
     def sdk_key(self) -> str:
+        """Return how Android and Flutter downloads name Linux."""
         return "mac" if sys.platform == "darwin" else "linux"
 
     def executable_names(self, name: str) -> list[str]:
+        """Return the name as is."""
         return [name]
 
     def script_name(self, name: str) -> str:
+        """Return the script's name as is."""
         return name
 
     def venv_bin(self, venv: Path) -> Path:
+        """Return the venv's `bin` folder."""
         return venv / "bin"
 
     def venv_python(self, venv: Path) -> Path:
+        """Return the venv's `python`."""
         return self.venv_bin(venv) / "python"
 
     def wrap_script(self, executable: str) -> list[str]:
+        """Return the executable as is."""
         return [executable]
 
     def spawn_options(self, *, detached: bool) -> dict[str, Any]:
-        # Siempre en una sesion propia, no solo lo desacoplado: `kill_group`
-        # manda la senal al grupo del proceso, y un hijo que comparte el grupo
-        # de Consola se la haria llegar a Consola tambien. Detener una tarea
-        # cerraba la aplicacion entera.
+        # Always in a session of its own, not only when detached:
+        # `kill_group` signals the process's group, and a child sharing
+        # Consola's group would pass it on to Consola. Stopping a task
+        # closed the whole application.
+        """Return `start_new_session`."""
         return {"start_new_session": True}
 
     def run_options(self) -> dict[str, Any]:
+        """Return no extra options."""
         return {}
 
     def kill_group(self, proc: subprocess.Popen[str]) -> None:
-        # Con `start_new_session` el proceso es lider de su grupo: su pid es el
-        # del grupo.
+        # With `start_new_session` the process leads its group: its pid
+        # is the group's.
+        """Send SIGTERM to the process's group."""
         if sys.platform != "win32":
             os.killpg(proc.pid, signal.SIGTERM)
         else:
             raise OSError("Solo existe en POSIX.")
 
     def bind_to_app(self, proc: subprocess.Popen[str]) -> None:
-        """Sin equivalente todavia: si Consola se cae de golpe, el proceso
-        sigue vivo (docs/arquitectura/30_riesgos_y_pendientes.md). Al cerrarla
-        normalmente lo apaga `TabPanel.shutdown()`.
+        """Do nothing: there is no equivalent yet.
+
+        If Consola crashes, the process stays alive
+        (docs/arquitectura/30_riesgos_y_pendientes.md). On a normal
+        close `TabPanel.shutdown()` stops it.
         """
 
     def terminal_argv(self, argv: list[str]) -> list[str]:
-        # La alternativa de Debian: apunta a la terminal que tenga el escritorio,
-        # y la politica de Debian obliga a que acepte `-e programa argumentos...`.
+        # Debian's alternative: it points to the desktop's terminal, and
+        # Debian's policy requires accepting `-e program arguments...`.
+        """Return `argv` in the desktop's terminal."""
         terminal = shutil.which(self.TERMINAL)
         if not terminal:
             raise TaskError(
@@ -424,6 +482,7 @@ class PosixHost(Host):
         return [terminal, "-e", *argv]
 
     def pg_tool(self, name: str) -> Path:
+        """Return the tool from the newest cluster's folder."""
         for version_dir in _newest_first(self.PG_ROOT):
             candidate = version_dir / "bin" / name
             if candidate.is_file():
@@ -434,6 +493,7 @@ class PosixHost(Host):
         )
 
     def pg_port(self) -> int:
+        """Return the port in the newest `postgresql.conf`."""
         for version_dir in _newest_first(self.PG_CONF_ROOT):
             conf = version_dir / "main" / "postgresql.conf"
             if conf.is_file() and (port := _port_in(conf)) is not None:
@@ -441,10 +501,12 @@ class PosixHost(Host):
         return 5432
 
     def data_dir(self) -> Path:
+        """Return `$XDG_CACHE_HOME/consola` or `~/.cache/consola`."""
         base = os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")
         return Path(base) / "consola"
 
     def memory(self) -> tuple[int, int] | None:
+        """Return RAM from `/proc/meminfo`."""
         try:
             with open("/proc/meminfo") as f:
                 data: dict[str, int] = {}

@@ -1,7 +1,8 @@
-"""Lo que Consola le pasa a los programas de canone.
+"""What Consola passes to canone's programs.
 
-`core/canone.py` arma los argumentos de `install.py` y las lineas de
-`credentials.py` sin tocar red: se prueba contra un repo falso en disco.
+`core/canone.py` builds the arguments of `install.py` and the lines of
+`credentials.py` without touching the network: it tests against a fake
+repo on disk.
 """
 
 from pathlib import Path
@@ -28,6 +29,7 @@ class Settings(BaseSettings):
 
 
 def repo(tmp_path: Path, **values: str) -> tuple[Path, Config]:
+    """Return a fake repo and its config."""
     (tmp_path / "server" / "src" / "app").mkdir(parents=True)
     (tmp_path / "server" / "src" / "app" / "config.py").write_text(CONFIG_PY, encoding="utf-8")
     (tmp_path / "panel").mkdir()
@@ -42,7 +44,8 @@ def repo(tmp_path: Path, **values: str) -> tuple[Path, Config]:
     return tmp_path, Config.for_project(str(tmp_path))
 
 
-def test_install_args_salen_del_repo_y_de_la_configuracion(tmp_path: Path) -> None:
+def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -> None:
+    """Install arguments come from the repo and the configuration."""
     root, config = repo(tmp_path, PRIVATE="si", PERMISSIONS_ALLOW="camera")
     workflows = root / ".github" / "workflows"
     workflows.mkdir(parents=True)
@@ -59,44 +62,53 @@ def test_install_args_salen_del_repo_y_de_la_configuracion(tmp_path: Path) -> No
         "--admin",
         "pablo",
     ]
-    assert args.count("--key") == 2 and args.count("--signer") == 2
+    assert args.count("--key") == 2
+    assert args.count("--signer") == 2
     assert "--private" in args
     assert ["--desktop", "linux"] == args[args.index("--desktop") : args.index("--desktop") + 2]
-    # Tiene panel/, no web/ ni landing/.
+    # It has panel/, not web/ or landing/.
     sin = [args[i + 1] for i, a in enumerate(args) if a == "--without"]
     assert sin == ["web", "landing"]
-    assert "--turn" not in args and "--logs" not in args
+    assert "--turn" not in args
+    assert "--logs" not in args
 
 
-def test_logs_van_los_tres_o_ninguno(tmp_path: Path) -> None:
+def test_logs_go_all_three_or_none(tmp_path: Path) -> None:
+    """The log arguments go all three or none."""
     root, config = repo(tmp_path)
-    # LOGS es de la maquina: llega a la corrida desde QSettings, no desde config.env.
+    # LOGS belongs to the machine: it reaches the run from QSettings,
+    # not from config.env.
     config = Config({**config.values, "LOGS": "equipaggio.net:51820"}, repo_name="demo")
     with pytest.raises(TaskError):
         canone.install_args(root, config, "demo", "equipaggio", KEYS)
 
 
-def test_turn_ip_sin_turn_corta(tmp_path: Path) -> None:
+def test_turn_ip_without_turn_stops(tmp_path: Path) -> None:
+    """`TURN_IP` without `TURN` stops."""
     root, config = repo(tmp_path, TURN_IP="203.0.113.5")
     with pytest.raises(TaskError):
         canone.install_args(root, config, "demo", "equipaggio", KEYS)
 
 
-def test_paquetes_segun_el_repo(tmp_path: Path) -> None:
+def test_packages_by_repo(tmp_path: Path) -> None:
+    """Packages depend on the repo."""
     _, config = repo(tmp_path, DB_EXTENSIONS="postgis", TURN="si")
     packages = canone.packages(config)
-    assert canone.POSTGIS_PACKAGE in packages and "coturn" in packages
+    assert canone.POSTGIS_PACKAGE in packages
+    assert "coturn" in packages
     assert "wireguard-tools" not in packages
 
 
-def test_credenciales_por_fuente(tmp_path: Path) -> None:
+def test_credentials_by_source(tmp_path: Path) -> None:
+    """Credentials come by source."""
     root, config = repo(tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r")
     assert canone.credential_lines(root, config) == (
         "health_token=h\npage_token_key=p\nrestic_password=r\n"
     )
 
 
-def test_una_clave_ajena_corta_antes_de_enviar(tmp_path: Path) -> None:
+def test_a_foreign_key_stops_before_sending(tmp_path: Path) -> None:
+    """A key in no source stops before sending."""
     root, config = repo(
         tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r", TURN_SECRET="viejo"
     )
@@ -105,26 +117,32 @@ def test_una_clave_ajena_corta_antes_de_enviar(tmp_path: Path) -> None:
     assert "TURN_SECRET" in str(error.value)
 
 
-def test_un_campo_vacio_corta(tmp_path: Path) -> None:
+def test_an_empty_field_stops(tmp_path: Path) -> None:
+    """An empty field stops."""
     root, config = repo(tmp_path, HEALTH_TOKEN="h", RESTIC_PASSWORD="r", PRIVATE="si")
     with pytest.raises(TaskError) as error:
         canone.credential_lines(root, config)
-    assert "PAGE_TOKEN_KEY" in str(error.value) and "GITHUB_TOKEN" in str(error.value)
+    assert "PAGE_TOKEN_KEY" in str(error.value)
+    assert "GITHUB_TOKEN" in str(error.value)
 
 
-def test_el_tag_sigue_al_mas_alto() -> None:
+def test_the_tag_follows_the_highest() -> None:
+    """The tag follows the highest."""
     tags = ["v1.2.9", "v1.10.0", "v0.9.0", "probar", "v2.0"]
     assert canone.next_tag(tags, "patch") == "v1.10.1"
     assert canone.next_tag(tags, "minor") == "v1.11.0"
     assert canone.next_tag(tags, "major") == "v2.0.0"
 
 
-def test_sin_tags_sube_desde_cero() -> None:
+def test_without_tags_it_rises_from_zero() -> None:
+    """Without tags it rises from zero."""
     assert canone.next_tag([], "patch") == "v0.0.1"
     assert canone.next_tag([], "minor") == "v0.1.0"
 
 
-def test_solo_cuentan_los_releases_publicados_y_firmados() -> None:
+def test_only_published_and_signed_releases_count() -> None:
+    """Only published and signed releases count."""
+
     def release(tag: str, *names: str, draft: bool = False) -> dict[str, Any]:
         return {"tag_name": tag, "draft": draft, "assets": [{"name": n} for n in names]}
 
@@ -137,7 +155,8 @@ def test_solo_cuentan_los_releases_publicados_y_firmados() -> None:
     assert [r["tag_name"] for r in canone.signed("demo", items)] == ["v1.1.0"]
 
 
-def test_deploy_py_solo_recibe_un_tag() -> None:
+def test_deploy_py_only_receives_a_tag() -> None:
+    """`deploy.py` only receives a tag."""
     assert (
         canone.deploy_command("demo", "v1.4.0") == "python3 /usr/local/lib/demo/deploy.py v1.4.0"
     )
@@ -145,7 +164,8 @@ def test_deploy_py_solo_recibe_un_tag() -> None:
         canone.deploy_command("demo", "v1.4.0; reboot")
 
 
-def test_el_resumen_de_eventos_dice_ninguno_si_no_hay() -> None:
+def test_the_events_summary_says_none_if_there_are_none() -> None:
+    """The events summary says none if there are none."""
     summary = canone.events_summary(
         {
             "lastEventAt": "2026-11-02T08:00:00Z",
@@ -163,7 +183,8 @@ def test_el_resumen_de_eventos_dice_ninguno_si_no_hay() -> None:
     }
 
 
-def test_el_dueno_es_el_rol_con_owner() -> None:
+def test_the_owner_is_the_role_with_owner() -> None:
+    """The owner is the role with `_owner`."""
     assert (
         canone.owner_url("postgresql+asyncpg://app@127.0.0.1:5440/app")
         == "postgresql+asyncpg://app_owner@127.0.0.1:5440/app"
@@ -174,7 +195,8 @@ def test_el_dueno_es_el_rol_con_owner() -> None:
     )
 
 
-def test_una_url_sin_rol_no_tiene_dueno() -> None:
+def test_a_url_without_a_role_has_no_owner() -> None:
+    """A URL without a role has no owner."""
     with pytest.raises(TaskError, match="no nombra su rol"):
         canone.owner_url("postgresql+asyncpg://127.0.0.1:5440/app")
 
@@ -186,7 +208,8 @@ def _server(tmp_path: Path) -> Path:
     return tmp_path / "server"
 
 
-def test_los_archivos_de_desarrollo_salen_de_config_env(tmp_path: Path) -> None:
+def test_the_development_files_come_from_config_env(tmp_path: Path) -> None:
+    """The development files come from `config.env`."""
     config = Config(
         {"DATABASE_URL": "postgresql://app@h/app", "HEALTH_TOKEN": "t", "PAGE_TOKEN_KEY": "k"}
     )
@@ -197,7 +220,8 @@ def test_los_archivos_de_desarrollo_salen_de_config_env(tmp_path: Path) -> None:
     }
 
 
-def test_alembic_entra_como_el_dueno(tmp_path: Path) -> None:
+def test_alembic_enters_as_the_owner(tmp_path: Path) -> None:
+    """Alembic enters as the owner."""
     config = Config(
         {"DATABASE_URL": "postgresql://app@h/app", "HEALTH_TOKEN": "t", "PAGE_TOKEN_KEY": "k"}
     )
@@ -206,7 +230,8 @@ def test_alembic_entra_como_el_dueno(tmp_path: Path) -> None:
     assert files["app_health_token"] == "t"
 
 
-def test_los_archivos_de_desarrollo_cortan_si_falta_un_campo(tmp_path: Path) -> None:
+def test_the_development_files_stop_if_a_field_is_missing(tmp_path: Path) -> None:
+    """The development files stop if a field is missing."""
     with pytest.raises(TaskError, match="DATABASE_URL, PAGE_TOKEN_KEY"):
         canone.credential_files(_server(tmp_path), Config({"HEALTH_TOKEN": "t"}))
 
@@ -225,6 +250,7 @@ def _repo_with_canone_gitignore(tmp_path: Path) -> Path:
 
 
 def test_the_owner_folder_only_needs_the_canone_gitignore(tmp_path: Path) -> None:
+    """The owner's folder only needs canone's gitignore."""
     server = _repo_with_canone_gitignore(tmp_path)
     folder = runner.write_credentials(
         cast(TaskContext, _GitContext()),
@@ -237,6 +263,7 @@ def test_the_owner_folder_only_needs_the_canone_gitignore(tmp_path: Path) -> Non
 
 
 def test_the_server_folder_keeps_the_owner_folder(tmp_path: Path) -> None:
+    """The server's folder keeps the owner's folder."""
     server = _repo_with_canone_gitignore(tmp_path)
     owner = runner.write_credentials(
         cast(TaskContext, _GitContext()),

@@ -1,3 +1,20 @@
+"""The repo's guards: one checkbox per target type.
+
+See `core/protection.py`.
+
+**They do not live in `config.env`.** That file holds the data tasks
+need to work: the VPS's IP, the user, the token, the paths. No step ever
+reads a guard: the console looks at them before letting something run
+(`TabPanel._guard_ok`). They belong with the steps left checked in an
+action's panel, so they go to the same file, `.consola/params.json`
+(`ui/params_store.py`).
+
+Another file has a visible consequence: there is no Save button here.
+Touching a checkbox saves it, as in the parameters panel. The Save
+button of Settings only rules `config.env`, and a section depending on
+another's button is what made it look like guards were not being saved.
+"""
+
 from __future__ import annotations
 
 from typing import Any
@@ -11,35 +28,19 @@ from app.theme import Fonts
 from app.ui import params_store
 from app.ui.palettes import NEUTRAL, Palette
 
-"""
-Los seguros del repo: una casilla por tipo de objetivo (`core/protection.py`).
-
-**No viven en `config.env`.** Ese archivo son los datos que las tareas
-necesitan para trabajar —la IP del VPS, el usuario, el token, las rutas—, y
-ningun paso lee jamas un seguro: quien los mira es la consola, antes de dejar
-correr (`TabPanel._guard_ok`). Son de la misma familia que los pasos que quedan
-marcados en el panel de una accion, asi que van al mismo archivo que ellos,
-`.consola/params.json` (`ui/params_store.py`).
-
-Que sea un archivo distinto tiene ademas una consecuencia visible: aca no hay
-boton Guardar. Tocar una casilla la guarda, como en el panel de parametros. El
-boton Guardar de Configuracion solo manda sobre `config.env`, y que una seccion
-dependiera del boton de otra era justo lo que hacia creer que los seguros no se
-estaban guardando.
-"""
-
 
 class SecurityPanel(QWidget):
-    """La seccion «Seguridad» del panel derecho.
+    """The «Seguridad» section of the right panel.
 
-    Emite `changed` con el estado entero ({target_id: bool}) para el resumen de
-    la cabecera y el indicador de la barra de estado, que leen lo que hay en
-    pantalla y no lo que quedo en disco.
+    It emits `changed` with the whole state ({target_id: bool}) for the
+    header's summary and the status bar indicator, which read what is on
+    screen and not what stayed on disk.
     """
 
     changed = Signal(dict)
 
     def __init__(self, project: Project, parent: QWidget | None = None) -> None:
+        """Build one checkbox per target, with its saved state."""
         super().__init__(parent)
         self.project = project
         self._state = params_store.load_protection(project.path)
@@ -49,13 +50,13 @@ class SecurityPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Son cinco casillas fijas, pero igual van dentro de un scroll: la
-        # seccion del acordeon se arrastra a mano y sin el, achicarla de mas
-        # aplastaba las casillas una contra otra en vez de recortarlas.
+        # Five fixed checkboxes, and still inside a scroll: the
+        # accordion section drags by hand and without it, shrinking too
+        # much crushed the checkboxes instead of cropping them.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll  # lo repinta `_restyle`
+        self._scroll = scroll  # `_restyle` repaints it
 
         self._body = QWidget()
         self.pal = NEUTRAL
@@ -66,8 +67,9 @@ class SecurityPanel(QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         for target in protection.TARGETS:
-            # La explicacion vive en el tooltip y no en un texto al lado: la
-            # etiqueta de la casilla ya dice que protege.
+            # The explanation lives in the tooltip, not in text
+            # alongside: the checkbox's label already says what it
+            # protects.
             check = QCheckBox(target.setting_label)
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.setChecked(self._state[target.id])
@@ -85,14 +87,15 @@ class SecurityPanel(QWidget):
         root.addWidget(scroll)
 
     def _scroll_style(self) -> str:
-        """El scroll no tiene fondo propio: deja ver el del panel.
+        """Leave the scroll with no background, showing the panel's.
 
-        El canal de la barra si lo necesita. Cae bajo el mismo
-        `QScrollArea > QWidget > QWidget` que deja transparente al viewport
-        —la barra es hija del viewport—, y transparente lo pintaba el gris de
-        la paleta de Qt, no el fondo del panel: un filete gris al borde de una
-        columna teñida. Se le da el color a mano y en esta misma hoja, que es
-        la mas cercana y la que manda.
+        The bar's groove does need one. It falls under the same
+        `QScrollArea > QWidget > QWidget` that makes the viewport
+        transparent, since the bar is a child of the viewport, and
+        transparent painted Qt's palette gray instead of the panel's
+        background: a gray stripe at the edge of a tinted column. It
+        gets its color by hand in this same sheet, which is the closest
+        and the one that wins.
         """
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
@@ -101,22 +104,28 @@ class SecurityPanel(QWidget):
         )
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 
     def _restyle(self) -> None:
-        # Cuerpo de seccion: `panel`, un escalon por debajo de su cabecera.
+        # Section body: `panel`, one step below its header.
         self._body.setStyleSheet(f"background: {self.pal.panel};")
         self._scroll.setStyleSheet(self._scroll_style())
 
     def state(self) -> dict[str, Any]:
-        """Lo que se ve, que es lo que `TabPanel._guard_ok` va a aplicar."""
+        """Return what is shown.
+
+        Which is what `TabPanel._guard_ok` applies.
+        """
         return dict(self._state)
 
     def content_height(self) -> int:
-        """Alto que piden las casillas sin scroll — lo usa
-        `TabPanel._relayout_right` para decidir cuanto darle a la seccion.
-        Se pregunta al cuerpo y no al scroll, que no tiene alto propio.
+        """Return the height the checkboxes ask for without scrolling.
+
+        `TabPanel._relayout_right` uses it to decide how much to give
+        the section. It asks the body and not the scroll, which has no
+        height of its own.
         """
         return self._body.sizeHint().height()
 

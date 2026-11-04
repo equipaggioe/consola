@@ -1,3 +1,19 @@
+"""Run group.
+
+The port is in-memory session state (`core/session.py`): whoever starts
+the backend publishes it and whoever starts later reads it.
+
+What a launcher delivers is not its log but an **endpoint**, a URL. So
+they all call `ctx.serve()` as soon as they know their port, before
+starting the process. The tab's bar, the embedded browser and the signal
+the next launcher waits for all come from there (ADR-0008).
+
+None of the `resolve_*` functions here is an atomic capability with a
+button: they are the plumbing of those that are, like `_download` or
+`_extract` inside `install_android_tools` (ADR-0004). `serve_backend` is
+ONE atomic capability made of five functions.
+"""
+
 from __future__ import annotations
 
 import threading
@@ -11,42 +27,24 @@ from app.core.registry import registry
 from app.core.tasks import emulators
 from app.core.toolchain import venv_python
 
-"""
-Grupo Ejecutar.
-
-Los launchers eran cuatro scripts que se pasaban datos por el `.env`: el backend
-escribia `SERVER_PORT` a disco y el terminal y las SPA lo leian despues. Aca ese
-puerto es estado de sesion en memoria (`core/session.py`), lo publica quien
-arranca el backend y lo leen los que arrancan despues.
-
-Lo que un launcher entrega no es su log: es un **endpoint**, una URL. Por eso
-todos llaman a `ctx.serve()` apenas conocen su puerto, antes de arrancar el
-proceso. De ahi salen la barra de la pestana, el navegador embebido y la senal
-que espera el launcher siguiente (ADR-0008).
-
-Ninguna de las funciones `resolve_*` de este modulo es una atomica con boton:
-son la plomeria de las que si lo son, igual que `_download` o `_extract` dentro
-de `install_android_tools` (ADR-0004). `serve_backend` es UNA atomica
-hecha de cinco funciones.
-"""
-
 SERVER_PORT = "SERVER_PORT"
-BACKEND = "backend"  # clave del endpoint del backend en `core/session`
+BACKEND = "backend"  # key of the backend's endpoint in `core/session`
 
-# Cuanto espera un launcher dependiente a que el backend conteste. Generoso
-# porque el caso que importa es el arranque conjunto (ADR-0011):
-# uvicorn con --reload y una base remota por tunel tarda sus buenos segundos.
+# How long a dependent launcher waits for the backend to answer.
+# Generous because the case that matters is starting together
+# (ADR-0011): uvicorn with --reload and a remote database through a
+# tunnel takes a good few seconds.
 BACKEND_WAIT = 90.0
 
 
-# --- atomicas --------------------------------------------------------------
+# --- atomic ---
 
 
 def resolve_server_port(ctx: TaskContext, preferred: int = 8000, search: bool = True) -> int:
-    """Elige el puerto del backend y lo publica para las tareas que vengan despues.
+    """Choose the backend's port and publish it for later tasks.
 
-    No es un boton: nadie pide "elige un puerto y nada mas". Es plomeria de
-    `serve_backend`, que si lo es (ADR-0008).
+    Not a button: nobody asks to choose a port and nothing else. It is
+    plumbing of `serve_backend`, which is one (ADR-0008).
     """
     port = ports.resolve_port(preferred, search=search, label="puerto del backend")
     session.publish(ctx.project_name, SERVER_PORT, port)
@@ -55,15 +53,16 @@ def resolve_server_port(ctx: TaskContext, preferred: int = 8000, search: bool = 
 
 
 def backend_url(ctx: TaskContext, *, wait: float = 0.0, required: bool = True) -> str:
-    """La URL del backend de esta corrida, para los launchers que la necesitan.
+    """Return this run's backend URL, for the launchers that need it.
 
-    Con `wait`, espera a que el backend conteste de verdad en vez de mirar solo
-    si alguien publico un puerto. Es lo que hace que "Entorno de desarrollo"
-    funcione sin depender del orden en que arrancaron las pestanas: la SPA se
-    queda esperando el endpoint del backend, no un `sleep` (ADR-0011).
+    With `wait`, it waits for the backend to truly answer instead of
+    only checking that someone published a port. That makes «Entorno de
+    desarrollo» work regardless of the order tabs started in: the SPA
+    waits on the backend's endpoint, not on a `sleep` (ADR-0011).
 
-    Con `required=False` devuelve cadena vacia si no hay backend, en vez de
-    fallar: para la SPA eso no es un error, es arrancar con su propia config.
+    With `required=False` it returns an empty string if there is no
+    backend instead of failing: for the SPA that is no error but
+    starting with its own config.
     """
     endpoint = ctx.endpoint(BACKEND, wait=wait)
     if endpoint is not None:
@@ -79,10 +78,10 @@ def backend_url(ctx: TaskContext, *, wait: float = 0.0, required: bool = True) -
 
 
 def resolve_tls(ctx: TaskContext, server: Path) -> tuple[Path, Path] | None:
-    """Los certificados del backend, si estan. Sin ellos arranca en texto plano.
+    """Return the backend's certificates, if any.
 
-    Se buscan en `certs/` de la carpeta del servidor, como hacia el script
-    original.
+    Without them it starts in plain text. They are looked for in
+    `certs/` of the server's folder.
     """
     cert = server / "certs" / "cert.pem"
     key = server / "certs" / "key.pem"
@@ -92,7 +91,7 @@ def resolve_tls(ctx: TaskContext, server: Path) -> tuple[Path, Path] | None:
     return None
 
 
-# --- launchers -------------------------------------------------------------
+# --- launchers ---
 
 
 def serve_backend(
@@ -103,11 +102,12 @@ def serve_backend(
     preferred_port: int = 8000,
     reload: bool = True,
 ) -> None:
-    """Arranca uvicorn con la base del ambito elegido.
+    """Start uvicorn with the chosen scope's database.
 
-    El tunel, si el ambito es remoto, vive lo que vive el servidor: se cierra
-    solo cuando se detiene la pestana. Un repo de canone corre con sus
-    credenciales de desarrollo y solo contra la base local (ADR-0069).
+    The tunnel, if the scope is remote, lives as long as the server: it
+    closes only when the tab stops. A canone repo runs with its
+    development credentials and only against the local database
+    (ADR-0069).
     """
     server = targets.pick(ctx.root, (targets.FASTAPI,), target).path
     interpreter = venv_python(server / ".venv")
@@ -121,9 +121,9 @@ def serve_backend(
     if tls:
         argv.extend(["--ssl-certfile", str(tls[0]), "--ssl-keyfile", str(tls[1])])
 
-    # La URL que se anuncia no es la de escucha: `0.0.0.0` es donde escucha,
-    # `localhost` es por donde se entra. Un navegador apuntado a `0.0.0.0` no
-    # llega a ningun lado.
+    # The announced URL is not the listening one: `0.0.0.0` is where it
+    # listens, `localhost` is the way in. A browser pointed at `0.0.0.0`
+    # reaches nothing.
     schema = "https" if tls else "http"
 
     def start(environment: dict[str, str]) -> None:
@@ -143,7 +143,8 @@ def serve_backend(
     folder = runner.write_credentials(
         ctx, server, runner.CREDENTIALS, canone.credential_files(server, ctx.config)
     )
-    # `.env` es el del repo: dice, por ejemplo, donde esta `STATE_DIRECTORY`.
+    # `.env` is the repo's: it says, for example, where
+    # `STATE_DIRECTORY` is.
     start({**envfile.load_env(str(server / ".env")), "CREDENTIALS_DIRECTORY": str(folder)})
 
 
@@ -153,18 +154,20 @@ def serve_spa(
     preferred_port: int = 5173,
     wait_backend: float = BACKEND_WAIT,
 ) -> None:
-    """Arranca `pnpm run dev` de una SPA, apuntandola al backend de esta sesion.
+    """Start an SPA's `pnpm run dev`, pointed at this session's backend.
 
-    Corre UNA sola SPA. Marcar varias en el panel no la hace iterar: cada una es
-    un proceso vivo con su puerto y su consola, asi que la interfaz abre una
-    pestana por cada una y llama aca una vez por pestana (ADR-0010).
+    It runs ONE SPA. Checking several in the panel does not make it
+    iterate: each one is a live process with its port and console, so
+    the interface opens one tab each and calls this once per tab
+    (ADR-0010).
     """
     spa = targets.pick(ctx.root, (targets.SPA_VITE,), target)
     port = ports.resolve_port(preferred_port, label=f"puerto de {spa.name}")
 
-    # Sin backend no es un error: la SPA arranca con lo que tenga en su .env.
-    # Con backend arrancando en otra pestana, se lo espera — el orden en que se
-    # apretaron los botones no deberia decidir si la SPA sabe adonde pegarle.
+    # No backend is no error: the SPA starts with what its .env has.
+    # With a backend starting in another tab, it waits: the order the
+    # buttons were pressed in should not decide whether the SPA knows
+    # where to connect.
     api = backend_url(ctx, wait=wait_backend, required=False)
     if api:
         ctx.info(f"Backend detectado: {api}")
@@ -172,7 +175,8 @@ def serve_spa(
         ctx.warn("El backend no esta corriendo: la SPA va a usar su propia configuracion.")
 
     ctx.serve(f"http://localhost:{port}", key=f"spa:{spa.name}", label=spa.name)
-    # pnpm hands the options after the script to it: a `--` would reach Vite as is.
+    # pnpm hands the options after the script to it: a `--` would reach
+    # Vite as is.
     ctx.run(
         [*toolchain.pnpm_cmd(), "run", "dev", "--port", str(port)],
         cwd=spa.path,
@@ -182,17 +186,20 @@ def serve_spa(
 
 
 def run_mobile(ctx: TaskContext, target: str = "", device: str = "") -> None:
-    """Corre la app movil en el emulador activo, con el framework que detecte.
+    """Run the mobile app on the active emulator.
 
-    Si no hay emulador vivo lo dice y no intenta arrancar contra el escritorio:
-    ese era el modo mas facil de perder diez minutos con `flutter run`.
+    With the detected framework.
+
+    If no emulator is alive it says so and does not try to start against
+    the desktop: that was the easiest way to lose ten minutes with
+    `flutter run`.
     """
     app = targets.pick(ctx.root, targets.MOBILE_APP, target)
     kind = toolchain.detect_app_kind(app.path)
 
-    # Orden de preferencia: lo que se pidio a mano, el emulador que arranco la
-    # pestana "Emulador" de esta sesion, y recien despues el primero que
-    # conteste. Con dos emuladores vivos, "el primero" es una loteria.
+    # Order of preference: what was asked by hand, the emulator this
+    # session's «Emulador» tab started, and only then the first to
+    # answer. With two live emulators, «the first» is a lottery.
     serial = (
         device
         or session.read(session.MACHINE, emulators.EMULATOR_SERIAL, "")
@@ -223,13 +230,15 @@ def run_python_app(
     watch: bool = True,
     wait_backend: float = BACKEND_WAIT,
 ) -> None:
-    """Arranca una app Python del repo, con recarga al cambiar sus fuentes.
+    """Start a Python app of the repo.
 
-    Corre UNA app: marcar varias abre una pestana por cada una, igual que las
-    SPA (ADR-0010). Con `watch` son dos niveles de proceso: el
-    vigilante y su hijo, y detener la pestana mata los dos, de abajo hacia
-    arriba (ADR-0005). Sin `watch` es un solo proceso, para la app que
-    no tiene sentido relanzar sola (un bot, un script de un solo uso).
+    Reloading when its sources change.
+
+    It runs ONE app: checking several opens one tab each, like SPAs
+    (ADR-0010). With `watch` there are two process levels, the watcher
+    and its child, and stopping the tab kills both bottom up (ADR-0005).
+    Without `watch` it is one process, for an app that should not
+    relaunch by itself (a bot, a one-off script).
     """
     app = targets.pick(ctx.root, targets.DESKTOP_APP, target)
     entry = targets.python_entrypoint(app.path)
@@ -240,8 +249,9 @@ def run_python_app(
     source = entry.parent
     interpreter = toolchain.app_python(app.path, ctx.root)
 
-    # Con backend se le pasa su URL; sin el, la app arranca igual con su propia
-    # configuracion, como la SPA. Que le haga falta o no es asunto de la app.
+    # With a backend it gets its URL; without one, the app starts anyway
+    # with its own configuration, like the SPA. Whether it needs one is
+    # the app's business.
     environment = {}
     api = backend_url(ctx, wait=wait_backend, required=False)
     if api:
@@ -257,9 +267,10 @@ def run_python_app(
 
     while not ctx.cancelled:
         ctx.info(f"Lanzando {app.name}...")
-        # El vigilante corre al lado del proceso y lo mata apenas cambia un
-        # fuente: `ctx.run` vuelve y la vuelta siguiente lo relanza. Si el
-        # proceso termina solo, sin cambios, la tarea termina con el.
+        # The watcher runs next to the process and kills it as soon as a
+        # source changes: `ctx.run` returns and the next round
+        # relaunches it. If the process ends by itself with no changes,
+        # the task ends with it.
         change, end = threading.Event(), threading.Event()
         watchdog = threading.Thread(target=_watch, args=(ctx, source, change, end), daemon=True)
         watchdog.start()
@@ -282,10 +293,10 @@ def run_python_app(
         ctx.info("Cambios detectados: reiniciando.")
 
 
-# Cada cuanto se miran los fuentes. El script original usaba 0.35 s; medio
-# segundo no se nota al guardar y recorre la mitad de veces.
+# How often sources are checked. Half a second goes unnoticed when
+# saving.
 WATCH_INTERVAL = 0.5
-# Lo que el script original vigilaba: codigo y hojas de estilo de Qt.
+# What gets watched: code and Qt style sheets.
 _WATCHED = {".py", ".qss"}
 
 
@@ -295,7 +306,8 @@ def _watch(ctx: TaskContext, root: Path, change: threading.Event, end: threading
         try:
             current = _snapshot(root)
         except OSError:
-            continue  # un archivo borrado a mitad del recorrido: se mira en la vuelta siguiente
+            # a file deleted mid-walk: it is checked on the next round
+            continue
         if current != signature:
             change.set()
             ctx.kill_children()
@@ -303,8 +315,8 @@ def _watch(ctx: TaskContext, root: Path, change: threading.Event, end: threading
 
 
 def _snapshot(root: Path) -> dict[str, float]:
-    # Sin el venv ni los artefactos: una app en la raiz del repo tendria que
-    # recorrerlos enteros en cada vuelta.
+    # Without the venv or artifacts: an app at the repo's root would
+    # have to walk them whole each round.
     return {
         str(p): p.stat().st_mtime
         for p in root.rglob("*")
@@ -318,13 +330,19 @@ def _snapshot(root: Path) -> dict[str, float]:
 
 
 def open_ssh_session(ctx: TaskContext) -> None:
-    """Abre la sesion SSH en una terminal externa: necesita TTY real (ADR-0005)."""
+    """Open the SSH session in an external terminal.
+
+    It needs a real TTY.
+
+    ADR-0005.
+    """
     remote = ssh.resolve_remote(ctx.config)
     ctx.detach(ssh.terminal_argv(remote))
     ctx.ok(f"Sesion SSH abierta en una terminal externa: {remote.target}")
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("backend", serve_backend)
     registry.bind("serve_vite", serve_spa)
     registry.bind("run_mobile", run_mobile)

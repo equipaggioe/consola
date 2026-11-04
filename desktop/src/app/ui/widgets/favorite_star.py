@@ -1,3 +1,5 @@
+"""The star that marks the open action as a favorite."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
@@ -7,11 +9,11 @@ from app.theme import Colors, Fonts, tint
 
 
 class FavoriteStar(QPushButton):
-    """Marcar como favorita la accion que se esta mirando.
+    """Mark as favorite the action being looked at.
 
-    En el buscador de la barra de menu, favorita se marca en el filete de la
-    fila. Esta estrella hace lo mismo desde la cabecera de los parametros: la
-    accion abierta se marca sin volver a buscarla.
+    In the menu bar search, a favorite is marked on the row's stripe.
+    This star does the same from the parameters header, without
+    searching for the action again.
     """
 
     marked = Signal(bool)
@@ -20,6 +22,7 @@ class FavoriteStar(QPushButton):
     EMPTY = "☆"
 
     def __init__(self, accent: str = Colors.ACCENT, parent: QWidget | None = None) -> None:
+        """Build the star."""
         super().__init__(parent)
         self.accent = accent
         self._favorite = False
@@ -30,15 +33,21 @@ class FavoriteStar(QPushButton):
         self._restyle()
 
     def is_favorite(self) -> bool:
+        """Return whether it is marked."""
         return self._favorite
 
     def set_favorite(self, value: bool, announce: bool = False) -> None:
+        """Mark or unmark it, and tell the listeners.
+
+        If `announce` is set.
+        """
         self._favorite = bool(value)
         self._restyle()
         if announce:
             self.marked.emit(self._favorite)
 
     def set_accent(self, accent: str) -> None:
+        """Change the color of the star."""
         self.accent = accent
         self._restyle()
 

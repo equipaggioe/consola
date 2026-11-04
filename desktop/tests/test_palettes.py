@@ -1,15 +1,15 @@
-"""Contraste de las paletas por repositorio.
+"""Contrast of the per-repository palettes.
 
-Teñir los fondos con ocho tonos distintos mueve el contraste de todo lo que va
-encima, y los tonos calidos (ambar, coral, lima) son los que mas lo mueven.
-Esto lo comprueba con numeros en vez de a ojo: si una receta de
-`ui/palettes.py` se toca, falla aca antes que en la pantalla.
+Tinting backgrounds with eight hues moves the contrast of everything on
+top, and warm hues move it the most. This checks it with numbers and not
+by eye: if a recipe in `ui/palettes.py` changes, it fails here before
+the screen.
 
-Los umbrales son los de WCAG 2.1: 4.5:1 para texto, 3:1 para texto grande y
-elementos de interfaz. Los escalones de elevacion piden mucho menos —1.09:1—
-porque no separan texto de fondo sino un panel de otro; en oscuro, dos fondos
-que se distinguen sin esfuerzo estan a esa distancia (el salto entre la barra
-lateral y el editor de VSCode vale 1.1).
+Thresholds are WCAG 2.1's: 4.5:1 for text, 3:1 for large text and
+interface elements. Elevation steps ask for much less, 1.09:1, because
+they separate one panel from another and not text from background; in
+dark themes, two backgrounds that differ easily are that far apart
+(VSCode's sidebar and editor are 1.1 apart).
 """
 
 import pytest
@@ -34,6 +34,7 @@ def _luminance(hex_color: str) -> float:
 
 
 def contrast(a: str, b: str) -> float:
+    """Return the WCAG contrast between two colors."""
     la, lb = _luminance(a), _luminance(b)
     light, dark = max(la, lb), min(la, lb)
     return (light + 0.05) / (dark + 0.05)
@@ -41,52 +42,57 @@ def contrast(a: str, b: str) -> float:
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
 @pytest.mark.parametrize("background", ["bg", "panel", "surface", "surface_alt"])
-def test_texto_principal_legible(pal: Palette, background: str) -> None:
+def test_main_text_is_legible(pal: Palette, background: str) -> None:
+    """Main text is legible."""
     assert contrast(Colors.TEXT, getattr(pal, background)) >= 4.5
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
 @pytest.mark.parametrize("background", ["bg", "panel", "surface"])
-def test_texto_secundario_legible(pal: Palette, background: str) -> None:
-    """`TEXT_DIM` son rotulos y resumenes de seccion: texto corrido. El texto
-    no se tiñe, pero el fondo si, y hay que comprobarlo tema por tema.
+def test_secondary_text_is_legible(pal: Palette, background: str) -> None:
+    """`TEXT_DIM` is labels and section summaries: running text.
+
+    Text is not tinted but the background is, so it has to be checked
+    theme by theme.
     """
     assert contrast(Colors.TEXT_DIM, getattr(pal, background)) >= 4.5
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
 @pytest.mark.parametrize("background", ["bg", "panel", "surface", "surface_alt"])
-def test_rotulos_de_campo_legibles(pal: Palette, background: str) -> None:
-    """`TEXT_LABEL` son los rotulos de los campos de Parametros y de la
-    configuracion del repo, y el del interruptor «solo favoritos». Es el gris
-    mas claro despues del texto corrido: un rotulo hay que poder leerlo de
-    corrido, no adivinarlo.
+def test_field_labels_are_legible(pal: Palette, background: str) -> None:
+    """`TEXT_LABEL` is the labels of the fields.
+
+    Of Parameters and repo settings, and of the «solo favoritos» switch.
+    It is the lightest gray after running text: a label has to be read,
+    not guessed.
     """
     assert contrast(Colors.TEXT_LABEL, getattr(pal, background)) >= 4.5
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
 @pytest.mark.parametrize("background", ["bg", "panel", "surface"])
-def test_texto_apagado_legible(pal: Palette, background: str) -> None:
-    """`TEXT_MUTED` son pistas cortas y rutas: umbral de texto grande."""
+def test_muted_text_is_legible(pal: Palette, background: str) -> None:
+    """`TEXT_MUTED` is hints and paths: large text threshold."""
     assert contrast(Colors.TEXT_MUTED, getattr(pal, background)) >= 3.0
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
-def test_acento_legible_sobre_los_fondos(pal: Palette) -> None:
-    """El acento se usa como texto e icono (rombo, estrella, filetes)."""
+def test_the_accent_is_legible_over_the_backgrounds(pal: Palette) -> None:
+    """The accent is used as text and icon (diamond, star, stripes)."""
     for background in (pal.bg, pal.panel, pal.surface):
         assert contrast(pal.accent, background) >= 4.5
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
-def test_texto_sobre_el_acento(pal: Palette) -> None:
-    """La barra de titulo se pinta entera del acento (`ui/title_bar.py`)."""
+def test_text_over_the_accent(pal: Palette) -> None:
+    """The title bar paints in the accent (`ui/title_bar.py`)."""
     assert contrast(pal.on_accent, pal.accent) >= 4.5
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
-def test_bordes_se_ven_sobre_su_fondo(pal: Palette) -> None:
+def test_borders_show_on_their_background(pal: Palette) -> None:
+    """Borders show on their background."""
     assert contrast(pal.border, pal.surface) >= 1.5
     assert contrast(pal.border, pal.panel) >= 1.5
 
@@ -95,13 +101,16 @@ def test_bordes_se_ven_sobre_su_fondo(pal: Palette) -> None:
 @pytest.mark.parametrize(
     ("below", "above"), [("bg", "panel"), ("panel", "surface"), ("surface", "surface_alt")]
 )
-def test_los_escalones_se_distinguen(pal: Palette, below: str, above: str) -> None:
-    """La separacion entre paneles es este salto: si se aplana, la columna
-    derecha vuelve a ser una sola mancha. `chrome` no esta en la lista: la
-    fila del menu se separa del lienzo con un borde, no con luminancia.
+def test_the_steps_differ(pal: Palette, below: str, above: str) -> None:
+    """The separation between panels is this jump.
 
-    El piso es 1.09 y no el 1.106 del gris de partida porque el hex final
-    tiene 8 bits por canal: redondear el tono corre el escalon un milesimo.
+    If it flattens, the right column is one stain again. `chrome` is not
+    on the list: the menu row separates from the canvas with a border,
+    not luminance.
+
+    The floor is 1.09 and not the base gray's 1.106 because the final
+    hex has 8 bits per channel: rounding the hue moves the step a
+    thousandth.
     """
     assert contrast(getattr(pal, above), getattr(pal, below)) >= 1.09
 
@@ -110,10 +119,12 @@ def test_los_escalones_se_distinguen(pal: Palette, below: str, above: str) -> No
 @pytest.mark.parametrize(
     "role", ["chrome", "bg", "panel", "surface", "surface_hover", "surface_alt"]
 )
-def test_tenir_no_mueve_el_escalon(pal: Palette, role: str) -> None:
-    """Teñir cambia el tono, no la profundidad: cada fondo conserva la
-    luminancia de su neutro de partida. Es lo que garantiza que el contraste
-    de todo lo que va encima sea el mismo en los ocho temas.
+def test_tinting_does_not_move_the_step(pal: Palette, role: str) -> None:
+    """Tinting changes hue, not depth.
+
+    Each background keeps the luminance of its neutral base. That
+    guarantees the contrast of everything on top is the same in all
+    eight themes.
     """
     base = {
         "chrome": Colors.CHROME,
@@ -127,9 +138,10 @@ def test_tenir_no_mueve_el_escalon(pal: Palette, role: str) -> None:
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
-def test_los_fondos_siguen_siendo_oscuros(pal: Palette) -> None:
-    """El tema oscuro es el punto de partida, no algo que se negocie tono a
-    tono: ningun fondo puede irse a claro.
+def test_backgrounds_stay_dark(pal: Palette) -> None:
+    """The dark theme is the starting point.
+
+    Not something to negotiate hue by hue: no background may go light.
     """
     assert _luminance(pal.surface_alt) < 0.08
 
@@ -138,63 +150,69 @@ def test_los_fondos_siguen_siendo_oscuros(pal: Palette) -> None:
 @pytest.mark.parametrize(
     "role", ["chrome", "bg", "panel", "surface", "surface_hover", "surface_alt"]
 )
-def test_los_fondos_llevan_color_de_verdad(pal: Palette, role: str) -> None:
-    """El fondo tiene que leerse como el color del repo, no como un gris.
+def test_backgrounds_carry_real_color(pal: Palette, role: str) -> None:
+    """A background has to read as the repo's color, not as gray.
 
-    Por debajo del 35 % de saturacion HSL el tono se pierde a tamaño de
-    pantalla y la ventana vuelve a parecer gris — que es justo lo que este
-    diseño viene a corregir. El piso es 0.35 y no la saturacion nominal de la
-    receta porque el hex final tiene 8 bits por canal: redondear un fondo muy
-    oscuro se come unas centesimas.
+    Below 35 % HSL saturation the hue gets lost at screen size and the
+    window looks gray again. The floor is 0.35 and not the recipe's
+    nominal saturation because the final hex has 8 bits per channel:
+    rounding a very dark background eats a few hundredths.
     """
     assert QColor(getattr(pal, role)).saturationF() >= 0.35
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
-def test_la_barra_de_menu_no_es_negra(pal: Palette) -> None:
-    """`chrome` es la banda de la fila del menu, y es la mas clara de la
-    escalera de fondos, no la mas oscura: por encima del cuerpo de las
-    secciones y de las cabeceras.
+def test_the_menu_bar_is_not_black(pal: Palette) -> None:
+    """`chrome` is the menu row's band.
+
+    The lightest of the ladder of backgrounds and not the darkest: above
+    the sections' body and headers.
     """
     assert _luminance(pal.chrome) > _luminance(pal.surface)
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
-def test_la_pestana_seleccionada_se_lee(pal: Palette) -> None:
-    """La pestana del repo seleccionado se pinta de `chrome` —el color de la
-    fila del menu, la de justo debajo— con el nombre en el acento
+def test_the_selected_tab_reads(pal: Palette) -> None:
+    """The selected repo's tab paints in `chrome`.
+
+    The color of the menu row just below, with the name in the accent
     (`ui/project_tabs.py`).
     """
     assert contrast(pal.accent, pal.chrome) >= 4.5
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
-def test_las_pestanas_se_leen_sobre_la_barra(pal: Palette) -> None:
-    """Todas las pestanas de repo llevan el acento del repo activo de fondo
-    —el color con el que queda pintada la barra de titulo— y el nombre, el
-    contorno y la marca `◇ CONSOLA` van en `on_accent` encima
-    (`ui/project_tabs.py`, `ui/title_bar.py`).
+def test_the_tabs_read_on_the_bar(pal: Palette) -> None:
+    """All repo tabs have the active repo's accent as background.
+
+    The color of the title bar, and the name, outline and `◇ CONSOLA`
+    mark go on top in `on_accent` (`ui/project_tabs.py`,
+    `ui/title_bar.py`).
     """
     assert contrast(pal.on_accent, pal.accent) >= 4.5
 
 
-def test_los_estados_no_se_tiñen() -> None:
-    """Un exito y un error significan lo mismo en todos los repos: ningun
-    color semantico sale de una paleta.
+def test_states_are_not_tinted() -> None:
+    """A success and an error mean the same in every repo.
+
+    No semantic color comes from a palette.
     """
     fields = set(palettes.Palette.__dataclass_fields__)
     assert {"success", "warning", "error"}.isdisjoint(fields)
 
 
-def test_cada_tema_tiene_su_clave() -> None:
+def test_each_theme_has_its_key() -> None:
+    """Each theme has its key."""
     assert all(key == pal.key for key, pal in palettes.THEMES.items())
 
 
-def test_no_repite_mientras_queden_temas() -> None:
+def test_it_does_not_repeat_while_themes_remain() -> None:
+    """It does not repeat while themes remain."""
     used: list[str] = []
     for _ in palettes.THEMES:
         key = palettes.first_free(used)
         assert key not in used
         used.append(key)
-    # Agotados los ocho, vuelve al primero en vez de quedarse sin respuesta.
+    # With all eight used, it returns to the first instead of having no
+    # answer.
     assert palettes.first_free(used) == next(iter(palettes.THEMES))

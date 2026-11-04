@@ -1,7 +1,9 @@
-"""El contrato con la camara del repo y el revelado para la landing.
+"""The contract with the repo's camera.
 
-Se arma un repo falso con dos apps (una SPA y una Flutter) para que
-`targets.by_kinds` las encuentre como en un repo real.
+And the development for the landing.
+
+It builds a fake repo with two apps, an SPA and a Flutter one, so
+`targets.by_kinds` finds them as in a real repo.
 """
 
 from pathlib import Path
@@ -16,6 +18,7 @@ from app.core.shots import Shot
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
+    """Return a repo with two apps."""
     panel = tmp_path / "panel"
     panel.mkdir()
     (panel / "package.json").write_text("{}", encoding="utf-8")
@@ -27,12 +30,14 @@ def repo(tmp_path: Path) -> Path:
 
 
 def png(path: Path, width: int, height: int) -> Path:
+    """Write a PNG of that size."""
     path.parent.mkdir(parents=True, exist_ok=True)
     Image.new("RGB", (width, height), (20, 40, 80)).save(path)
     return path
 
 
-def test_los_argumentos_llevan_la_seleccion_y_el_dispositivo_solo_si_hay() -> None:
+def test_the_arguments_carry_the_selection_and_the_device_only_if_any() -> None:
+    """The arguments carry the selection, and the device only if any."""
     output = Path("/repo/demo/capturas")
     assert shots.camera_args(["panel", "app"], ["oscuro"], ["es", "en"], output) == [
         "--apps",
@@ -53,7 +58,8 @@ def test_los_argumentos_llevan_la_seleccion_y_el_dispositivo_solo_si_hay() -> No
     ]
 
 
-def test_los_ejes_salen_de_lo_que_la_camara_dice_que_captura() -> None:
+def test_the_axes_come_from_what_the_camera_says_it_captures() -> None:
+    """The axes come from what the camera says it captures."""
     declared = shots.parse_supported(
         '{"panel": {"themes": ["oscuro"], "languages": ["es"]},'
         ' "app": {"themes": ["oscuro", "claro"], "languages": ["es", "en"], "mobile": true}}'
@@ -72,17 +78,20 @@ def test_los_ejes_salen_de_lo_que_la_camara_dice_que_captura() -> None:
         ('{"panel": {"themes": ["sepia"], "languages": ["es"]}}', "fuera del contrato: sepia"),
     ],
 )
-def test_lo_que_declara_la_camara_se_revisa(text: str, error: str) -> None:
+def test_what_the_camera_declares_is_checked(text: str, error: str) -> None:
+    """What the camera declares is checked."""
     with pytest.raises(TaskError, match=error):
         shots.parse_supported(text)
 
 
-def test_una_carpeta_relativa_cuelga_del_repo_y_una_absoluta_va_tal_cual(tmp_path: Path) -> None:
+def test_a_relative_folder_hangs_from_the_repo_and_an_absolute_one_stays(tmp_path: Path) -> None:
+    """A relative folder hangs from the repo; an absolute one stays."""
     assert shots.resolve_dir(tmp_path, "demo/capturas") == tmp_path / "demo" / "capturas"
     assert shots.resolve_dir(tmp_path, str(tmp_path / "x")) == tmp_path / "x"
 
 
-def test_lee_los_crudos_con_su_tipo_de_app(repo: Path) -> None:
+def test_it_reads_the_raw_shots_with_their_app_type(repo: Path) -> None:
+    """It reads the raw shots with their app type."""
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     png(raw / "app" / "chats.claro.en.png", 10, 10)
@@ -96,7 +105,8 @@ def test_lee_los_crudos_con_su_tipo_de_app(repo: Path) -> None:
 @pytest.mark.parametrize(
     "name", ["chat.png", "chat.oscuro.png", "chat.oscuro.es.webp", "chat.sepia.es.png"]
 )
-def test_un_nombre_que_no_sigue_el_contrato_corta(repo: Path, name: str) -> None:
+def test_a_name_outside_the_contract_stops(repo: Path, name: str) -> None:
+    """A name outside the contract stops."""
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     (raw / "panel" / name).write_bytes(b"")
@@ -104,14 +114,16 @@ def test_un_nombre_que_no_sigue_el_contrato_corta(repo: Path, name: str) -> None
         shots.collect(repo, raw)
 
 
-def test_una_carpeta_que_no_es_una_app_del_repo_corta(repo: Path) -> None:
+def test_a_folder_that_is_not_an_app_of_the_repo_stops(repo: Path) -> None:
+    """A folder that is not an app of the repo stops."""
     raw = repo / "demo" / "capturas"
     png(raw / "servidor" / "chat.oscuro.es.png", 10, 10)
     with pytest.raises(TaskError, match="no corresponde"):
         shots.collect(repo, raw)
 
 
-def test_dice_que_combinaciones_quedaron_sin_captura(repo: Path) -> None:
+def test_it_says_which_combinations_have_no_shot(repo: Path) -> None:
+    """It says which combinations have no shot."""
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     taken = shots.collect(repo, raw, ["panel"])
@@ -120,7 +132,8 @@ def test_dice_que_combinaciones_quedaron_sin_captura(repo: Path) -> None:
     ]
 
 
-def test_borrar_la_corrida_anterior_solo_toca_lo_que_se_va_a_volver_a_sacar(repo: Path) -> None:
+def test_deleting_the_previous_run_only_touches_what_will_be_taken_again(repo: Path) -> None:
+    """Deleting the previous run touches only what is taken again."""
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     remains = png(raw / "panel" / "chat.oscuro.en.png", 10, 10)
@@ -128,7 +141,8 @@ def test_borrar_la_corrida_anterior_solo_toca_lo_que_se_va_a_volver_a_sacar(repo
     assert [p.name for p in (raw / "panel").iterdir()] == [remains.name]
 
 
-def test_la_landing_achica_al_tope_de_su_tipo_y_nunca_agranda(repo: Path, tmp_path: Path) -> None:
+def test_the_landing_shrinks_to_its_type_cap_and_never_grows(repo: Path, tmp_path: Path) -> None:
+    """The landing shrinks to its type's cap and never grows."""
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
     png(raw / "app" / "chats.oscuro.es.png", 400, 800)
@@ -144,18 +158,23 @@ def test_la_landing_achica_al_tope_de_su_tipo_y_nunca_agranda(repo: Path, tmp_pa
 
 
 def taken(repo: Path, phone: tuple[int, int] = (1080, 2400)) -> list[Shot]:
+    """Return raw shots taken with that phone size."""
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
     png(raw / "app" / "chats.claro.es.png", *phone)
     return shots.collect(repo, raw)
 
 
-def test_play_no_acepta_un_telefono_mas_largo_que_dos_a_uno(repo: Path) -> None:
+def test_play_rejects_a_phone_longer_than_two_to_one(repo: Path) -> None:
+    """Play rejects a phone longer than two to one."""
     with pytest.raises(TaskError, match="2.22:1 pasa de 2:1"):
         shots.plan("Google Play", shots.load_presets()["play"], taken(repo))
 
 
-def test_play_deja_el_crudo_en_su_medida_y_sin_alfa(repo: Path, tmp_path: Path) -> None:
+def test_play_leaves_the_raw_shot_at_its_size_and_without_alpha(
+    repo: Path, tmp_path: Path
+) -> None:
+    """Play leaves the raw shot at its size and without alpha."""
     raws = taken(repo, phone=(1080, 1920))
     phone = next(s for s in raws if s.app == "app")
     Image.new("RGBA", (1080, 1920), (1, 2, 3, 255)).save(phone.path)
@@ -167,9 +186,10 @@ def test_play_deja_el_crudo_en_su_medida_y_sin_alfa(repo: Path, tmp_path: Path) 
         assert (image.mode, image.size) == ("RGB", (1080, 1920))
 
 
-def test_app_store_manda_el_telefono_a_iphone_y_la_tablet_a_ipad(
+def test_app_store_sends_the_phone_to_iphone_and_the_tablet_to_ipad(
     repo: Path, tmp_path: Path
 ) -> None:
+    """App Store sends the phone to iPhone and the tablet to iPad."""
     preset = shots.load_presets()["appstore"]
     phone = shots.plan("App Store", preset, taken(repo))
     assert [m and m["name"] for _, m in phone] == ["iphone"]
@@ -180,12 +200,14 @@ def test_app_store_manda_el_telefono_a_iphone_y_la_tablet_a_ipad(
     assert [m and m["name"] for _, m in tablet] == ["ipad"]
 
 
-def test_app_store_corta_si_hay_que_recortar_de_mas(repo: Path) -> None:
+def test_app_store_stops_if_it_has_to_crop_too_much(repo: Path) -> None:
+    """App Store stops if it has to crop too much."""
     with pytest.raises(TaskError, match="no llega a"):
         shots.plan("App Store", shots.load_presets()["appstore"], taken(repo, (1080, 1920)))
 
 
-def test_open_graph_solo_de_escritorio_y_redes_recortan_lo_que_haga_falta(repo: Path) -> None:
+def test_open_graph_only_takes_desktop_and_social_crops_what_it_must(repo: Path) -> None:
+    """Open Graph only takes desktop, and social crops what it must."""
     raws = taken(repo)
     presets = shots.load_presets()
     assert {s.app for s, _ in shots.plan("og", presets["og"], raws)} == {"panel"}
@@ -194,14 +216,16 @@ def test_open_graph_solo_de_escritorio_y_redes_recortan_lo_que_haga_falta(repo: 
     ) == [("app", "square"), ("app", "story"), ("panel", "square")]
 
 
-def test_un_destino_sin_crudos_de_su_tipo_corta(repo: Path) -> None:
+def test_a_destination_without_raw_shots_of_its_type_stops(repo: Path) -> None:
+    """A destination without raw shots of its type stops."""
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
     with pytest.raises(TaskError, match="ninguna captura"):
         shots.plan("Google Play", shots.load_presets()["play"], shots.collect(repo, raw))
 
 
-def test_el_manual_deja_el_png_a_resolucion_nativa(repo: Path, tmp_path: Path) -> None:
+def test_the_manual_leaves_the_png_at_native_resolution(repo: Path, tmp_path: Path) -> None:
+    """The manual leaves the PNG at native resolution."""
     pairs = shots.plan("Manual", shots.load_presets()["manual"], taken(repo))
     assert all(m is None for _, m in pairs)
     done = shots.render_sized(pairs[0][0], None, tmp_path, "manual")
@@ -209,7 +233,8 @@ def test_el_manual_deja_el_png_a_resolucion_nativa(repo: Path, tmp_path: Path) -
     assert (done.width, done.height) == (1080, 2400)
 
 
-def test_el_press_kit_guarda_los_crudos_sin_comprimir(repo: Path, tmp_path: Path) -> None:
+def test_the_press_kit_keeps_the_raw_shots_uncompressed(repo: Path, tmp_path: Path) -> None:
+    """The press kit keeps the raw shots uncompressed."""
     import zipfile
 
     derived = shots.render_archive(taken(repo), tmp_path, "presskit")
@@ -219,9 +244,10 @@ def test_el_press_kit_guarda_los_crudos_sin_comprimir(repo: Path, tmp_path: Path
     assert {d.archive for d in derived} == {"app/chats.claro.es.png", "panel/chat.oscuro.es.png"}
 
 
-def test_el_manifiesto_es_estable_y_dice_que_cambio_desde_la_corrida_anterior(
+def test_the_manifest_is_stable_and_says_what_changed_since_the_last_run(
     repo: Path, tmp_path: Path
 ) -> None:
+    """The manifest is stable and says what changed since last run."""
     import json
 
     preset = shots.load_presets()["landing"]
@@ -236,7 +262,8 @@ def test_el_manifiesto_es_estable_y_dice_que_cambio_desde_la_corrida_anterior(
     assert (tmp_path / shots.MANIFEST).read_text(encoding="utf-8") == text
 
     panel = next(s for s in raws if s.app == "panel")
-    Image.new("RGB", (2880, 1800), (200, 0, 0)).save(panel.path)  # misma medida, otra pantalla
+    # same size, another screen
+    Image.new("RGB", (2880, 1800), (200, 0, 0)).save(panel.path)
     other = [shots.render_landing(panel, preset, tmp_path)]
     changes = shots.write_manifest(tmp_path, "landing", other)
     assert (changes.changed, changes.removed) == (

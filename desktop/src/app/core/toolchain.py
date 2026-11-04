@@ -1,3 +1,5 @@
+"""Find the build tools and what each one builds."""
+
 from __future__ import annotations
 
 import json
@@ -17,25 +19,27 @@ FLET = "flet"
 
 @dataclass(frozen=True)
 class BuildPlatform:
-    """Una plataforma a la que `build_flutter` sabe compilar.
+    """A platform `build_flutter` can compile to.
 
-    Las salidas son globs relativos a la carpeta de la app: donde deja el build
-    cada framework sin que nadie le diga nada. Flet copia lo suyo a
-    `build/<plataforma>/`, Flutter lo deja enterrado en su arbol de siempre.
+    Outputs are globs relative to the app's folder: where each framework
+    leaves its build unprompted. Flet copies its own to
+    `build/<platform>/`; Flutter buries it in its usual tree.
     """
 
     label: str
-    flutter: str  # subcomando de `flutter build`
-    flet: str  # plataforma de `flet build`
+    flutter: str  # `flutter build` subcommand
+    flet: str  # `flet build` platform
     flutter_out: str
     flet_out: str
-    suffix: str = ""  # extension de un build que es una pieza (`.apk`). Vacio:
-    # el build es una carpeta entera (web, escritorio).
-    host: str = ""  # `platform.system()` donde unicamente se puede compilar.
-    # Ni Flutter ni Flet compilan escritorio o iOS para otro
-    # sistema que el que corre.
+    # extension of a build that is one file (`.apk`). Empty: the build
+    # is a whole folder (web, desktop).
+    suffix: str = ""
+    host: str = ""  # `platform.system()` where it can only compile.
+    # Neither Flutter nor Flet compiles desktop or iOS for a system
+    # other than the one running.
 
     def output(self, kind: str) -> str:
+        """Return the output glob for that framework."""
         return self.flutter_out if kind == FLUTTER else self.flet_out
 
 
@@ -77,8 +81,9 @@ BUILD_PLATFORMS: dict[str, BuildPlatform] = {
         suffix=".app",
         host="Darwin",
     ),
-    # Firmar es asunto del proyecto: Flutter lo toma del equipo configurado en
-    # Xcode, Flet de `[tool.flet.ios]` en su `pyproject.toml`.
+    # Signing is the project's business: Flutter takes it from the team
+    # configured in Xcode, Flet from `[tool.flet.ios]` in its
+    # `pyproject.toml`.
     "ipa": BuildPlatform(
         "iOS", "ipa", "ipa", "build/ios/ipa/*.ipa", "build/ipa/*.ipa", suffix=".ipa", host="Darwin"
     ),
@@ -86,16 +91,17 @@ BUILD_PLATFORMS: dict[str, BuildPlatform] = {
 
 
 def host_platforms() -> list[str]:
-    """Las plataformas que se pueden compilar en esta maquina."""
+    """Return the platforms that can compile on this machine."""
     return [k for k, p in BUILD_PLATFORMS.items() if not p.host or p.host == HOST.system]
 
 
 def out_key(platform_id: str) -> str:
-    """La clave de `config.env` con la carpeta donde queda el build."""
+    """Return the `config.env` key of the build's folder."""
     return f"BUILD_OUT_{platform_id.upper()}"
 
 
 def flutter_cmd(override: str = "") -> list[str]:
+    """Return the argv prefix for `flutter`."""
     return resolve_executable(
         ["flutter", "flutter.bat", "flutter.cmd", "flutter.exe"],
         override=override,
@@ -105,7 +111,10 @@ def flutter_cmd(override: str = "") -> list[str]:
 
 
 def dart_cmd() -> list[str]:
-    """El `dart` que trae el SDK Flutter, en la misma carpeta que `flutter`."""
+    """Return the `dart` of the Flutter SDK.
+
+    In the same folder as `flutter`.
+    """
     return resolve_executable(
         ["dart", "dart.bat", "dart.exe"],
         label="Dart",
@@ -114,6 +123,7 @@ def dart_cmd() -> list[str]:
 
 
 def flet_cmd(override: str = "") -> list[str]:
+    """Return the argv prefix for `flet`."""
     return resolve_executable(
         ["flet", "flet.bat", "flet.cmd", "flet.exe"],
         override=override,
@@ -123,10 +133,12 @@ def flet_cmd(override: str = "") -> list[str]:
 
 
 def python_cmd() -> list[str]:
+    """Return the argv prefix for Python."""
     return resolve_executable(["python", "python3", "python.exe"], label="Python")
 
 
 def pnpm_cmd(override: str = "") -> list[str]:
+    """Return the argv prefix for `pnpm`."""
     return resolve_executable(
         ["pnpm", "pnpm.cmd", "pnpm.exe"],
         override=override,
@@ -136,17 +148,15 @@ def pnpm_cmd(override: str = "") -> list[str]:
 
 
 def pyinstaller_cmd(app_dir: Path | None = None, override: str = "") -> list[str]:
-    """PyInstaller, prefiriendo el del venv de la app que se va a empaquetar.
+    """Return PyInstaller, preferring the venv of the app to package.
 
-    PyInstaller congela el entorno desde el que corre: el global no ve las
-    dependencias del proyecto y deja un binario que muere al primer import. El
-    script original resolvia solo por PATH (o `PYINSTALLER_BIN`), asi que
-    empaquetar bien dependia de haber activado el venv correcto antes de
-    lanzarlo — algo que un boton no puede pedir.
+    PyInstaller freezes the environment it runs from: the global one
+    does not see the project's dependencies and leaves a binary that
+    dies at the first import.
 
-    Se mira el mismo `.venv` que usa el launcher App Python
-    (`core/tasks/launchers.py`), y solo se prefiere si PyInstaller esta
-    realmente instalado ahi; si no, se cae al PATH como antes.
+    It looks at the same `.venv` the App Python launcher uses
+    (`core/tasks/launchers.py`), and prefers it only if PyInstaller is
+    really installed there; otherwise it goes to the PATH.
     """
     if not override and app_dir is not None:
         del_venv = _venv_tool(app_dir / ".venv", "pyinstaller")
@@ -162,7 +172,7 @@ def pyinstaller_cmd(app_dir: Path | None = None, override: str = "") -> list[str
 
 
 def _venv_tool(venv_dir: Path, name: str) -> Path | None:
-    """Un ejecutable dentro de un venv, o None si ese venv no lo tiene."""
+    """Return an executable inside a venv, or None if it lacks it."""
     for tool_name in HOST.executable_names(name):
         path = HOST.venv_bin(venv_dir) / tool_name
         if path.is_file():
@@ -171,7 +181,7 @@ def _venv_tool(venv_dir: Path, name: str) -> Path | None:
 
 
 def app_cmd(kind: str) -> list[str]:
-    """El binario que corresponde al tipo de app movil detectado."""
+    """Return the binary for the detected mobile app type."""
     if kind == FLUTTER:
         return flutter_cmd()
     if kind == FLET:
@@ -180,11 +190,11 @@ def app_cmd(kind: str) -> list[str]:
 
 
 def venv_python(venv_dir: Path) -> Path:
-    """El interprete de un venv, en el subdirectorio que use cada sistema.
+    """Return a venv's interpreter, in the subfolder each system uses.
 
-    Solo ubica: a diferencia de los scripts, no relanza el proceso actual con
-    otro Python (`os.execv`) porque aca el venv es el entorno de un subproceso,
-    no el de la app.
+    It only locates: it does not relaunch the current process with
+    another Python, because here the venv is a subprocess's environment
+    and not the app's.
     """
     exe = HOST.venv_python(venv_dir)
     if not exe.is_file():
@@ -193,10 +203,10 @@ def venv_python(venv_dir: Path) -> Path:
 
 
 def app_python(app_dir: Path, repo_root: Path) -> list[str]:
-    """El interprete con que corre una app Python del repo.
+    """Return the interpreter a Python app of the repo runs with.
 
-    El venv de la app, si no el de la raiz del repo (un repo con un solo venv
-    para todo), y si no hay ninguno el Python del PATH.
+    The app's venv, else the repo root's (a repo with one venv for all),
+    and with none the PATH's Python.
     """
     for venv in (app_dir / ".venv", repo_root / ".venv"):
         exe = HOST.venv_python(venv)
@@ -210,10 +220,10 @@ def app_python(app_dir: Path, repo_root: Path) -> list[str]:
 
 
 def detect_app_kind(project_dir: Path) -> str:
-    """Distingue un proyecto Flutter de uno Flet por sus marcadores de archivo.
+    """Tell a Flutter project from a Flet one by their marker files.
 
-    Es el eje `framework` descubierto de ADR-0006: no se declara a mano en
-    ningun catalogo, sale de mirar el repo abierto.
+    It is the discovered `framework` axis of ADR-0006: declared in no
+    catalog by hand, it comes from looking at the open repo.
     """
     pubspec = project_dir / "pubspec.yaml"
     pyproject = project_dir / "pyproject.toml"
@@ -231,10 +241,11 @@ def detect_app_kind(project_dir: Path) -> str:
 
 
 def devices(ctx: TaskContext, project_dir: Path) -> list[dict[str, Any]]:
-    """Dispositivos que ve Flutter, en JSON.
+    """Return the devices Flutter sees, from its JSON.
 
-    Flet no tiene deteccion propia (su `flet devices` parsea la tabla de texto
-    del Flutter subyacente), asi que ambos frameworks preguntan por el mismo lado.
+    Flet has no detection of its own, since its `flet devices` parses
+    the underlying Flutter's text table, so both frameworks ask the same
+    way.
     """
     output = ctx.capture([*flutter_cmd(), "devices", "--machine"], cwd=project_dir, timeout=120)
     try:
@@ -245,7 +256,7 @@ def devices(ctx: TaskContext, project_dir: Path) -> list[dict[str, Any]]:
 
 
 def pick_emulator(found: list[dict[str, Any]]) -> str:
-    """Id del emulador Android activo, o cadena vacia si no hay ninguno."""
+    """Return the active Android emulator's id, or an empty string."""
     for device in found:
         device_id = str(device.get("id") or "").strip()
         platform = str(device.get("targetPlatform") or "").lower()

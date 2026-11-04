@@ -1,3 +1,20 @@
+"""Where the project's code runs: here or on the VPS.
+
+Loose SQL could already choose a side: with remote scope,
+`database.Admin` sends `psql` over SSH and opens no tunnel. But what the
+repo's *code* needs, Alembic for autogenerate and the seeders and
+partitions, always ran on this machine regardless of scope.
+
+This module is the missing half of the `scope` axis: it chooses the
+interpreter and the project's folder, here or in the deployed repo, and
+runs there.
+
+It copies nothing to the other side. The program travels in the command
+line (`-m alembic ...`, `-c <source>`) and the interpreter is the venv's
+in the deployed repo; anything the server has in its venv can run this
+way, without uploading a file first.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass
@@ -9,35 +26,15 @@ from app.core.context import Level, TaskContext
 from app.core.errors import TaskError
 from app.core.toolchain import venv_python
 
-# Development credentials of a canone repo (ADR-0069). The owner's folder lives inside
-# the other one, which the canone .gitignore already covers (ADR-0070).
+# Development credentials of a canone repo (ADR-0069). The owner's
+# folder lives inside the other one, which the canone .gitignore already
+# covers (ADR-0070).
 CREDENTIALS = "credentials"
 MIGRATE_CREDENTIALS = "credentials/migrate"
 
-"""
-Donde corre el codigo del proyecto: aca o en el VPS.
-
-El SQL suelto ya sabia elegir lado. Con ambito remoto, `database.Admin` manda
-`psql` por SSH y no abre ningun tunel. Pero lo que necesita el *codigo* del repo
-—Alembic, que importa los modelos para el autogenerate; los seeders y las
-particiones, que importan `app.core.settings`— corria siempre en esta maquina,
-con el venv de Windows, sin mirar el ambito: reconstruir la base del VPS borraba
-las tablas por SSH y despues moria buscando un `python.exe` local que en un
-equipo que solo opera el servidor no tiene por que existir.
-
-Este modulo es la mitad que faltaba del eje `scope`, y es lo que
-`maybe_dispatch_remote` hacia en `scripts/common.py`: elegir el interprete y el
-directorio del proyecto —los de aca o los del repo desplegado— y correr ahi.
-
-No copia nada al otro lado. El programa viaja en la linea de comandos (`-m
-alembic ...`, `-c <fuente>`) y el interprete es el del venv que ya este en el
-repo desplegado; cualquier cosa que el servidor tenga en su venv se puede correr
-asi, sin subir un archivo primero.
-"""
-
 
 def server_root(ctx: TaskContext) -> Path:
-    """La carpeta del servidor dentro del repo abierto."""
+    """Return the server's folder inside the open repo."""
     root = ctx.root / ctx.config.get("SERVER_DIR", "server")
     if not root.is_dir():
         raise TaskError(f"No existe la carpeta del servidor: {root}")
@@ -46,33 +43,39 @@ def server_root(ctx: TaskContext) -> Path:
 
 @dataclass(frozen=True)
 class Runner:
-    """Un interprete de Python del proyecto, con su directorio y su base.
+    """A Python interpreter of the project.
 
-    Hermano de `database.Admin`: mismo reparto, otro canal. `Admin` corre SQL
-    como superusuario —local por `psql`, remoto por SSH—; `Runner` corre
-    programas Python con las dependencias del servidor, del mismo lado.
+    With its folder and database.
+
+    A sibling of `database.Admin`: same split, another channel. `Admin`
+    runs SQL as superuser, local with `psql` and remote over SSH;
+    `Runner` runs Python programs with the server's dependencies, on the
+    same side.
     """
 
     python: str
     cwd: str
     database_url: str
     remote: ssh.Remote | None = None
-    # La carpeta de credenciales, en un repo de canone: su `Settings` lee solo
-    # de ahi, y `database_url` no le llega.
+    # The credentials folder in a canone repo: its `Settings` reads only
+    # from there, and `database_url` does not reach it.
     credentials: str = ""
 
     @property
     def is_remote(self) -> bool:
+        """Return whether it runs on the VPS."""
         return self.remote is not None
 
     def run(self, ctx: TaskContext, *args: str, echo: bool = True) -> int:
-        """`python <args>` en el directorio del servidor, con DATABASE_URL puesto.
+        """Run `python <args>` in the server folder.
 
-        `DATABASE_URL` viaja por el entorno del proceso, nunca escrito a un
-        archivo: es el mismo dato que ya resolvio quien pidio el runner, no una
-        segunda resolucion (ni un segundo tunel). Del lado remoto va como
-        asignacion delante del comando, igual que hacia `maybe_dispatch_remote`;
-        la contrasena esta enmascarada en el log por `ctx.guard`.
+        With DATABASE_URL set.
+
+        `DATABASE_URL` travels in the process's environment, never
+        written to a file: it is what the runner's caller already
+        resolved, not a second resolution or a second tunnel. On the
+        remote side it goes as an assignment before the command;
+        `ctx.guard` masks the password in the log.
         """
         if self.remote is None:
             environment = (
@@ -90,22 +93,25 @@ class Runner:
         )
 
     def log_command(self, ctx: TaskContext, summary: str) -> None:
-        """Anuncia en el log un comando cuyo argv real no se puede leer.
+        """Announce in the log a command whose real argv cannot be read.
 
-        Un payload entra como `-c <programa entero>`: volcarlo tal cual llena la
-        consola con cincuenta lineas de codigo que no dicen nada. Quien lo use
-        pasa `echo=False` a `run`.
+        A payload enters as `-c <whole program>`: dumping it fills the
+        console with fifty lines of code that say nothing. Whoever uses
+        this passes `echo=False` to `run`.
         """
         donde = f"{self.remote.target}:" if self.remote else ""
         ctx.log(f"{donde}{self.python} {summary}", Level.CMD)
 
 
 def resolve(ctx: TaskContext, scope: str = db.LOCAL) -> Runner:
-    """El runner del ambito pedido: aca contra la base local, o en el VPS contra la suya.
+    """Return the runner of that scope.
 
-    Es el camino de todo lo que solo toca la base —aplicar migraciones, sembrar,
-    asegurar particiones—: nada de eso escribe en el repo, asi que corre bien de
-    los dos lados y conviene que corra donde esta la base.
+    Local base here, or the VPS's there.
+
+    It is the path of what only touches the database: applying
+    migrations, seeding, ensuring partitions. None of that writes in the
+    repo, so it runs fine on both sides and should run where the
+    database is.
     """
     if scope not in db.SCOPES:
         raise TaskError(f"Ambito invalido: {scope!r}. Usa {' | '.join(db.SCOPES)}.")
@@ -127,18 +133,20 @@ def resolve(ctx: TaskContext, scope: str = db.LOCAL) -> Runner:
 
 
 def write_credentials(ctx: TaskContext, server: Path, folder: str, files: dict[str, str]) -> Path:
-    """Escribe una carpeta de credenciales de desarrollo y devuelve su ruta.
+    """Write a development credentials folder and return its path.
 
-    Corta si git no la ignora: un secreto commiteado por escribirlo aca no se
-    borra con otro commit. Un `app_*` que ya no es un campo de `Settings` sale,
-    para que la carpeta diga lo mismo que `config.env`.
+    It stops if git does not ignore it: a secret committed through this
+    is not erased by another commit. An `app_*` that is no longer a
+    `Settings` field goes away, so the folder says the same as
+    `config.env`.
     """
     credentials_folder = server / folder
     try:
         ctx.capture(["git", "check-ignore", "-q", f"{credentials_folder}/"], cwd=server)
     except TaskError as exc:
         raise TaskError(
-            f"git no ignora {credentials_folder}: agrégala a .gitignore antes de escribir credenciales ahí."
+            f"git no ignora {credentials_folder}: agrégala a .gitignore antes de escribir "
+            f"credenciales ahí."
         ) from exc
     credentials_folder.mkdir(parents=True, exist_ok=True)
     for old in credentials_folder.glob("app_*"):
@@ -150,10 +158,10 @@ def write_credentials(ctx: TaskContext, server: Path, folder: str, files: dict[s
 
 
 def local(ctx: TaskContext) -> Runner:
-    """Siempre en esta maquina y contra la base local.
+    """Return the runner on this machine, against the local database.
 
-    Un repo de canone corre Alembic como el dueño del esquema, con sus propias
-    credenciales (ADR-0069). Los demas siguen recibiendo `DATABASE_URL`.
+    A canone repo runs Alembic as the schema's owner, with its own
+    credentials (ADR-0069). The others still receive `DATABASE_URL`.
     """
     root = server_root(ctx)
     if not fields.settings_fields(root):
@@ -168,13 +176,13 @@ def local(ctx: TaskContext) -> Runner:
 
 
 def here(ctx: TaskContext, conn: db.Connection) -> Runner:
-    """Siempre en esta maquina, contra la base que diga `conn` —con su tunel si
-    esa base es la del VPS.
+    """Return the runner on this machine, against `conn`'s database.
 
-    Es para lo que ademas de tocar la base escribe en el repo abierto: Alembic
-    `revision --autogenerate` deja un archivo en `alembic/versions/` que hay que
-    revisar y comitear. Generado en el VPS caeria en el repo desplegado, que no
-    es el que se commitea.
+    With its tunnel if that database is the VPS's. It is for what also
+    writes in the open repo: Alembic `revision --autogenerate` leaves a
+    file in `alembic/versions/` to review and commit. Generated on the
+    VPS it would land in the deployed repo, which is not the one that
+    gets committed.
     """
     root = server_root(ctx)
     return Runner(str(venv_python(root / ".venv")), str(root), conn.url)

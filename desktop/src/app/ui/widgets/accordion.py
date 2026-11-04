@@ -1,3 +1,5 @@
+"""The sections of the right column."""
+
 from __future__ import annotations
 
 from typing import override
@@ -9,14 +11,14 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 from app.theme import Colors, Fonts
 from app.ui.palettes import NEUTRAL, Palette
 
-# `QWIDGETSIZE_MAX`: el valor con el que Qt entiende "sin tope de alto".
+# `QWIDGETSIZE_MAX`: what Qt understands as «no height limit».
 NO_CAP = 16777215
 
 
 class AccordionHeader(QWidget):
-    """La barra clicable de una seccion. Siempre visible, este abierta o no:
-    es lo que hace que las tres secciones se sigan viendo aunque solo quepa
-    una desplegada.
+    """A section's clickable bar, always visible, open or not.
+
+    It is what keeps all sections visible even if only one fits open.
     """
 
     clicked = Signal()
@@ -24,10 +26,12 @@ class AccordionHeader(QWidget):
     HEIGHT = 30
 
     def __init__(self, title: str, parent: QWidget | None = None) -> None:
+        """Build the bar."""
         super().__init__(parent)
         self.setObjectName("accordionHeader")
-        # Un QWidget *derivado* no pinta el fondo de su hoja de estilo sin
-        # esto; los QWidget sueltos del resto del archivo si lo hacen.
+        # A *subclassed* QWidget does not paint its style sheet's
+        # background without this; the plain QWidgets in the rest of the
+        # file do.
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -50,8 +54,9 @@ class AccordionHeader(QWidget):
             f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;"
         )
 
-        # Lo que la seccion tiene para decir sin abrirla ("3 de 5 protegidos").
-        # Vacio por defecto: no toda seccion tiene un resumen que valga.
+        # What the section has to say without opening it («3 de 5
+        # protegidos»). Empty by default: not every section has a useful
+        # summary.
         self.summary = QLabel("")
         self.summary.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
@@ -63,14 +68,15 @@ class AccordionHeader(QWidget):
         lay.addWidget(self.summary)
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 
     def _restyle(self) -> None:
-        # La cabecera va un escalon MAS CLARA que el cuerpo de su seccion
-        # (`pal.panel`): es lo que separa una seccion de la de al lado y el
-        # rotulo de su contenido. Antes las dos eran el mismo gris y la
-        # columna derecha se leia como una sola mancha.
+        # The header goes one step LIGHTER than its section's body
+        # (`pal.panel`): that separates a section from its neighbor and
+        # the label from its content. When both were the same gray, the
+        # right column read as one stain.
         self.setStyleSheet(f"""
             QWidget#accordionHeader {{
                 background: {self.pal.surface};
@@ -89,17 +95,17 @@ class AccordionHeader(QWidget):
 
 
 class AccordionSection(QWidget):
-    """Cabecera + cuerpo plegable, al estilo de la barra lateral de VSCode.
+    """A header and a collapsible body, like VSCode's sidebar.
 
-    Pensada para vivir dentro de un `QSplitter` vertical: cerrada se pone un
-    `maximumHeight` de la altura de su cabecera, que es lo unico que el
-    splitter respeta para no dejar arrastrarla mas alla. Abierta lo suelta y
-    quien la contiene reparte el alto (`TabPanel._relayout_right`).
+    It is meant to live in a vertical `QSplitter`: closed, it sets a
+    `maximumHeight` of its header's height, the only thing the splitter
+    respects to stop dragging it further. Open, it lets go and its
+    container shares out the height (`TabPanel._relayout_right`).
 
-    No se eligio pestanas justamente por esto: las tres secciones del panel
-    derecho se leen juntas —un bloqueo de `ParamsPanel` puede decir "faltan
-    claves de configuracion" y esas claves estan en la seccion de abajo—, y
-    unas pestañas obligarian a alternar entre lo que se compara.
+    Tabs were not chosen for this reason: the right panel's sections
+    read together. A `ParamsPanel` block may say config keys are missing
+    while those keys are in the section below, and tabs would force
+    switching between what is being compared.
     """
 
     toggled = Signal(bool)
@@ -107,6 +113,7 @@ class AccordionSection(QWidget):
     def __init__(
         self, title: str, body: QWidget, expanded: bool = True, parent: QWidget | None = None
     ) -> None:
+        """Build the section around its body."""
         super().__init__(parent)
         self.body = body
 
@@ -120,22 +127,26 @@ class AccordionSection(QWidget):
         root.addWidget(body, 1)
 
         self._allotted: int | None = None
-        self._expanded = not expanded  # para que `set_expanded` no salga de una
+        # so `set_expanded` does not leave at once
+        self._expanded = not expanded
         self.set_expanded(expanded, announce=False)
 
-    # --- estado -------------------------------------------------------
+    # --- state -------------------------------------------------------
     def is_expanded(self) -> bool:
+        """Return whether it is open."""
         return self._expanded
 
     def set_allotted(self, height: int) -> None:
-        """El alto que el reparto le concedio (`TabPanel._relayout_right`).
+        """Return the height the allotment granted.
 
-        Hace falta ademas del `maximumHeight` porque `QBoxLayout` reparte por
-        `sizeHint` y solo usa el tope para recortar: un cuerpo que pide menos de
-        lo concedido —cualquiera envuelto en un `QScrollArea`, que no tiene alto
-        propio— se quedaba en su hint y los pixeles que sobraban caian en el
-        resorte del final de la columna, o sea un hueco muerto abajo. Contestando
-        aca lo concedido, la suma de los hints da exacto y no sobra nada.
+        See `TabPanel._relayout_right`.
+
+        It is needed besides `maximumHeight` because `QBoxLayout` shares
+        out by `sizeHint` and only crops with the limit: a body asking
+        for less than granted, such as anything in a `QScrollArea`,
+        stayed at its hint and the spare pixels fell into the column's
+        final spring, a dead gap below. Answering the grant here makes
+        the hints add up exactly.
         """
         if height == self._allotted:
             return
@@ -150,9 +161,14 @@ class AccordionSection(QWidget):
         return QSize(hint.width(), self._allotted)
 
     def header_height(self) -> int:
+        """Return the height of the header alone."""
         return AccordionHeader.HEIGHT
 
     def set_expanded(self, value: bool, announce: bool = True) -> None:
+        """Open or close it, and tell the listeners.
+
+        If `announce` is set.
+        """
         if value == self._expanded:
             return
         self._expanded = value
@@ -164,34 +180,39 @@ class AccordionSection(QWidget):
             self.toggled.emit(value)
 
     def toggle(self) -> None:
+        """Flip open and closed."""
         self.set_expanded(not self._expanded)
 
     def set_summary(self, text: str) -> None:
+        """Set the summary shown while closed."""
         self.header.summary.setText(text)
 
     def set_palette(self, pal: Palette) -> None:
-        """El cuerpo lo repinta quien lo puso (cada panel tiene el suyo); de
-        aca sale solo la cabecera.
+        """Repaint the header.
+
+        Whoever set the body repaints it, since each panel has its own.
         """
         self.header.set_palette(pal)
 
 
 class SectionResizeGrip(QWidget):
-    """Barra fina entre dos secciones abiertas del acordeon.
+    """A thin bar between two open sections of the accordion.
 
-    Arrastrarla reparte el alto a mano: lo que la seccion de arriba gana, lo
-    pierde el resto (`TabPanel._resize_section`). Doble clic vuelve al reparto
-    automatico. Solo se ve cuando hay algo con que negociar —su seccion abierta
-    y al menos una abierta debajo—; si no, no hay nada que arrastrar.
+    Dragging it shares the height by hand: what the upper section gains,
+    the rest lose (`TabPanel._resize_section`). A double click returns
+    to the automatic sharing. It shows only when there is something to
+    negotiate with: its section open and at least one open below.
     """
 
-    pressed = Signal()  # arranca un arrastre: hay que resincronizar con lo real
-    dragged = Signal(int)  # px movidos desde el ultimo evento (+ = agrandar arriba)
+    pressed = Signal()  # a drag starts: resync with reality
+    # px moved since the last event (+ = grow the upper section)
+    dragged = Signal(int)
     reset = Signal()
 
     HEIGHT = 7
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the bar."""
         super().__init__(parent)
         self.setObjectName("sectionGrip")
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
@@ -202,6 +223,7 @@ class SectionResizeGrip(QWidget):
         self._last_y: float | None = None
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 

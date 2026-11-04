@@ -1,3 +1,13 @@
+"""What Consola passes to canone's programs (ADR-0059).
+
+canone fixes each program by its interface: `install.py` by its
+arguments, `credentials.py` by the lines it reads from stdin,
+`deploy.py` by the tag and the release's file names. What the machine
+has to have before `install.py`, its packages and swap, is left to
+whoever prepares it. All that is built here from `config.env` and the
+repo, with no effects: it can be tested without a VPS.
+"""
+
 from __future__ import annotations
 
 import re
@@ -10,18 +20,8 @@ from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.settings import get_setting
 
-"""
-Lo que Consola le pasa a los programas de canone (ADR-0059).
-
-canone fija cada programa por su interfaz: `install.py` por sus argumentos,
-`credentials.py` por las lineas que lee de stdin, `deploy.py` por el tag y los
-nombres de los archivos del release, y lo que la maquina tiene que tener antes
-de `install.py` (sus paquetes y el swap) lo deja a quien la prepara.
-Aca se arma eso desde `config.env` y desde el repo, sin efectos: es lo que se
-puede probar sin un VPS.
-"""
-
-# Lo que `install.py` da por instalado (despliegue.md de canone, «Maquina»).
+# What `install.py` assumes installed (despliegue.md of canone,
+# «Maquina»).
 BASE_PACKAGES = (
     "caddy",
     "postgresql",
@@ -38,19 +38,22 @@ POSTGIS_PACKAGE = "postgresql-17-postgis-3"
 TURN_PACKAGES = ("coturn",)
 LOGS_PACKAGES = ("systemd-journal-remote", "wireguard-tools")
 
-# Las piezas que `install.py --without` puede dejar fuera, salvo `sweep`: para
-# esa no hay una señal en el repo, y la plantilla trae la tarea siempre.
+# The pieces `install.py --without` can leave out, except `sweep`: the
+# repo has no signal for it, and the template always brings the task.
 SURFACES = ("web", "panel", "landing")
 RELEASE = Path(".github") / "workflows" / "release.yml"
 _DESKTOP = re.compile(r"^  desktop-(linux|windows|macos):", re.M)
 _GITHUB = re.compile(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$")
-# Un tag que despliega `deploy.py` (despliegue.md de canone, «Versiones»).
+# A tag `deploy.py` deploys (despliegue.md of canone, «Versiones»).
 _TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
 PARTS = ("major", "minor", "patch")
 
 
 def infra_dir(config: Config) -> Path:
-    """`plantilla/infra/` de la copia local de canone (`CANONE_DIR`)."""
+    """Return `plantilla/infra/` of the local canone copy.
+
+    See `CANONE_DIR`.
+    """
     folder = Path(config.require("CANONE_DIR")) / "plantilla" / "infra"
     if not (folder / "install.py").is_file():
         raise TaskError(
@@ -60,7 +63,10 @@ def infra_dir(config: Config) -> Path:
 
 
 def spa_template(config: Config) -> Path:
-    """`plantilla/sveltekit/` of the local copy of canone (`CANONE_DIR`)."""
+    """`plantilla/sveltekit/` of the local copy of canone.
+
+    See `CANONE_DIR`.
+    """
     folder = Path(config.require("CANONE_DIR")) / "plantilla" / "sveltekit"
     if not (folder / "vite.config.ts").is_file():
         raise TaskError(
@@ -70,10 +76,10 @@ def spa_template(config: Config) -> Path:
 
 
 def origin(root: Path) -> tuple[str, str]:
-    """El dueño y el nombre del repo en GitHub, de `git remote get-url origin`.
+    """Return the repo's GitHub owner and name, from its origin remote.
 
-    El nombre es el `<app>` de canone: nombra la cuenta, la base, las unidades
-    y las carpetas del VPS.
+    The name is canone's `<app>`: it names the account, the database,
+    the units and the VPS's folders.
     """
     url = process.capture(["git", "remote", "get-url", "origin"], cwd=root)
     found = _GITHUB.search(url.strip())
@@ -83,7 +89,7 @@ def origin(root: Path) -> tuple[str, str]:
 
 
 def packages(config: Config) -> list[str]:
-    """Los paquetes que la maquina necesita para este repo."""
+    """Return the packages the machine needs for this repo."""
     names = list(BASE_PACKAGES)
     if "postgis" in envfile.split_list(config.get("DB_EXTENSIONS")):
         names.append(POSTGIS_PACKAGE)
@@ -95,7 +101,10 @@ def packages(config: Config) -> list[str]:
 
 
 def desktops(root: Path) -> list[str]:
-    """Cada `desktop-<sistema>` del `release.yml` del repo, o ninguno si no lo tiene."""
+    """Return each `desktop-<system>` of the repo's `release.yml`.
+
+    If any.
+    """
     release = root / RELEASE
     if not release.is_file():
         return []
@@ -103,12 +112,15 @@ def desktops(root: Path) -> list[str]:
 
 
 def without(root: Path) -> list[str]:
-    """Las piezas que el repo no tiene, por su carpeta en la raiz."""
+    """Return the pieces the repo lacks, by their folder at the root."""
     return [piece for piece in SURFACES if not (root / piece).is_dir()]
 
 
 def _logs(config: Config) -> tuple[str, str, str] | None:
-    """`--logs`, `--logs-key` y `--logs-ip`: los tres o ninguno (ADR-0100 de canone)."""
+    """Return `--logs`, `--logs-key` and `--logs-ip`: all three or none.
+
+    ADR-0100 of canone.
+    """
     logs, key, ip = (config.get(k) for k in ("LOGS", "LOGS_KEY", "LOGS_IP"))
     if not (logs or key or ip):
         return None
@@ -120,11 +132,11 @@ def _logs(config: Config) -> tuple[str, str, str] | None:
 def install_args(
     root: Path, config: Config, app: str, owner: str, keys: tuple[str, str]
 ) -> list[str]:
-    """Los argumentos de `install.py`, sin el programa.
+    """Return the arguments of `install.py`, without the program.
 
-    `keys` son las dos llaves publicas: la de `VPS_KEY_NAME` y la guardada fuera.
-    Son las dos `--key` de la cuenta y las dos `--signer` de los releases. En una
-    maquina que ya las tiene, `install.py` no agrega nada.
+    `keys` are the two public keys: `VPS_KEY_NAME`'s and the one kept
+    elsewhere. They are the account's two `--key` and the releases' two
+    `--signer`. On a machine that has them, `install.py` adds nothing.
     """
     args = [
         app,
@@ -162,9 +174,10 @@ def install_args(
 
 
 def next_tag(tags: list[str], part: str) -> str:
-    """El tag que sigue al mas alto de `tags`, subiendo `part`.
+    """Return the tag after the highest of `tags`, bumping `part`.
 
-    Los que no son `vX.Y.Z` no cuentan. Sin ninguno se sube desde `v0.0.0`.
+    Those that are not `vX.Y.Z` do not count. With none it bumps from
+    `v0.0.0`.
     """
     if part not in PARTS:
         raise TaskError(f"No se sube {part!r}: es una de {', '.join(PARTS)}.")
@@ -178,19 +191,19 @@ def next_tag(tags: list[str], part: str) -> str:
 
 
 def checksum(app: str, tag: str) -> str:
-    """El `.sha256` del release, que lleva el SHA-256 de cada archivo."""
+    """Return the release's `.sha256`, with each file's SHA-256."""
     return f"{app}-{tag}.sha256"
 
 
 def signature(app: str, tag: str) -> str:
-    """La firma del `.sha256`, el nombre que busca `deploy.py`."""
+    """Return the signature's name, which `deploy.py` looks for."""
     return f"{checksum(app, tag)}.sig"
 
 
 def signed(app: str, releases: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Los releases publicados que traen su firma, en el orden de `releases`.
+    """Return the published releases with their signature, in order.
 
-    `releases` es la respuesta de `GET /repos/{dueño}/{repo}/releases`.
+    `releases` is the answer of `GET /repos/{owner}/{repo}/releases`.
     """
     return [
         r
@@ -200,7 +213,7 @@ def signed(app: str, releases: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def events_summary(events: dict[str, Any]) -> dict[str, str]:
-    """Lo que responde `GET /api/health/events`, con los nombres que lleva el log."""
+    """Return `GET /api/health/events` with the log's names."""
     free, total = events["diskFreeBytes"] / 10**9, events["diskTotalBytes"] / 10**9
     return {
         "último evento": events["lastEventAt"] or "ninguno",
@@ -211,14 +224,20 @@ def events_summary(events: dict[str, Any]) -> dict[str, str]:
 
 
 def deploy_command(app: str, tag: str) -> str:
-    """`deploy.py`, que instala `install.py` con los datos de la app (ADR-0106 de canone)."""
+    """`deploy.py`, which `install.py` installs with the app's data.
+
+    ADR-0106 of canone.
+    """
     if not _TAG.fullmatch(tag):
         raise TaskError(f"{tag!r} no es un tag como v1.4.0.")
     return f"python3 /usr/local/lib/{app}/deploy.py {tag}"
 
 
 def owner_url(url: str) -> str:
-    """La misma base como el dueño del esquema: el rol `<rol>_owner` de `install.py`."""
+    """Return the same database as the schema's owner.
+
+    That is the `<role>_owner` role of `install.py`.
+    """
     parts = urlsplit(url)
     if not parts.username:
         raise TaskError("DATABASE_URL no nombra su rol: hace falta para entrar como el dueño.")
@@ -227,11 +246,12 @@ def owner_url(url: str) -> str:
 
 
 def credential_files(server: Path, config: Config, *, owner: bool = False) -> dict[str, str]:
-    """Los archivos `app_<campo>` de desarrollo, con los valores de `config.env` (ADR-0069).
+    """Return the development `app_<field>` files from `config.env`.
 
-    Son los mismos de produccion, salvo `database_url`, que es `DATABASE_URL`: la
-    base local. Con `owner`, entra como el dueño del esquema, que es lo que usa
-    Alembic. Corta antes de escribir nada si falta el valor de un campo.
+    They are the same as production (ADR-0069), except `database_url`,
+    which is `DATABASE_URL`: the local database. With `owner`, it enters
+    as the schema's owner, which Alembic uses. It stops before writing
+    if a field's value is missing.
     """
     declared_fields = fields.settings_fields(server)
     missing = [field.upper() for field in declared_fields if not config.get(field.upper())]
@@ -244,10 +264,11 @@ def credential_files(server: Path, config: Config, *, owner: bool = False) -> di
 
 
 def credential_lines(root: Path, config: Config) -> str:
-    """Las lineas `campo=valor` que lee `credentials.py`, por la fuente de cada clave (ADR-0063).
+    """Return the `field=value` lines `credentials.py` reads.
 
-    Corta antes de enviar nada si una clave de `config.env` no cae en ninguna
-    fuente, o si falta el valor de un campo.
+    They come from each key's source (ADR-0063). It stops before sending
+    anything if a `config.env` key falls in no source, or if a field's
+    value is missing.
     """
     server = root / config.get("SERVER_DIR")
     declared_fields = fields.field_settings(server)

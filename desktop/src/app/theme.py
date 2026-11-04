@@ -1,3 +1,5 @@
+"""The neutral colors, sizes and global style sheet of the app."""
+
 from __future__ import annotations
 
 from PySide6.QtGui import QColor, QFont, QPalette
@@ -5,20 +7,23 @@ from PySide6.QtWidgets import QApplication
 
 
 class Colors:
-    INK = "#0a0b10"  # tinta oscura sobre un fondo claro (`on_color`). No es fondo de nada
-    CHROME = "#262d3d"  # fila de la barra de menu: una banda propia, por encima de las secciones
-    BG = "#0d1117"  # lienzo de contenido: consola y lienzo izquierdo
-    PANEL = "#1c212b"  # cuerpo de las secciones de la columna derecha
-    SURFACE = "#232935"  # sub-barra, cabeceras de seccion, pie, barra de estado
+    """The neutral colors. `ui/palettes.py` tints them per repo."""
+
+    # dark ink over a light background (`on_color`); never a background
+    INK = "#0a0b10"
+    CHROME = "#262d3d"  # menu bar row: its own band, above the sections
+    BG = "#0d1117"  # content canvas: console and left canvas
+    PANEL = "#1c212b"  # body of the right column's sections
+    SURFACE = "#232935"  # sub-bar, section headers, footer, status bar
     SURFACE_HOVER = "#2b3240"
-    SURFACE_ALT = "#2f3745"  # campos de entrada, chips — la superficie mas clara
+    # input fields and chips: the lightest surface
+    SURFACE_ALT = "#2f3745"
     BORDER = "#3d4657"
     BORDER_LIGHT = "#4e586a"
     TEXT = "#f0f4f8"
     TEXT_DIM = "#9aa4b2"
-    TEXT_LABEL = (
-        "#c6cfdb"  # rotulo de un campo: mas claro que TEXT_DIM, sin llegar al blanco de TEXT
-    )
+    # a field's label: lighter than TEXT_DIM, short of TEXT's white
+    TEXT_LABEL = "#c6cfdb"
     TEXT_MUTED = "#6b7484"
     ACCENT = "#58a6ff"
     ACCENT_PURPLE = "#bc8cff"
@@ -29,6 +34,8 @@ class Colors:
 
 
 class Fonts:
+    """The font families and sizes."""
+
     FAMILY = '"Inter", "Segoe UI", "Helvetica Neue", sans-serif'
     MONO = '"Cascadia Code", "Fira Code", "Consolas", monospace'
     SIZE_XS = 12
@@ -41,6 +48,8 @@ class Fonts:
 
 
 class Spacing:
+    """The spacing steps."""
+
     XS = 4
     SM = 8
     MD = 12
@@ -50,6 +59,8 @@ class Spacing:
 
 
 class Radius:
+    """The corner radii."""
+
     SM = 4
     MD = 8
     LG = 12
@@ -57,15 +68,13 @@ class Radius:
 
 
 def tint(hex_color: str, alpha: float) -> str:
-    """rgba(...) a partir de un hex, para halos y fondos teñidos."""
+    """Return rgba(...) from a hex, for halos and tinted backgrounds."""
     c = QColor(hex_color)
     return f"rgba({c.red()}, {c.green()}, {c.blue()}, {alpha:.2f})"
 
 
 def on_color(hex_color: str) -> str:
-    """Texto legible sobre un fondo de ese color: oscuro sobre los claros y
-    claro sobre los oscuros (luminancia relativa, WCAG).
-    """
+    """Return legible text over that color (WCAG relative luminance)."""
     c = QColor(hex_color)
 
     def lin(channel: int) -> float:
@@ -77,11 +86,12 @@ def on_color(hex_color: str) -> str:
 
 
 def mono(font: QFont) -> QFont:
-    """`font` con la familia de ancho fijo del tema (`Fonts.MONO`).
+    """Return `font` with the theme's fixed-width family (`Fonts.MONO`).
 
-    Las familias van todas, en orden, y el tipo como ultima palabra: en una
-    maquina que no tiene ninguna —un Linux sin Cascadia ni Consolas— Qt elige
-    otra de ancho fijo en vez de caer en la proporcional por defecto.
+    All the families go, in order, with the kind as the last word: on a
+    machine that has none of them, such as a Linux without Cascadia or
+    Consolas, Qt picks another fixed-width font instead of falling back
+    to the default proportional one.
     """
     families = [f.strip().strip('"') for f in Fonts.MONO.split(",")]
     font.setFamilies([f for f in families if f != "monospace"])
@@ -90,6 +100,7 @@ def mono(font: QFont) -> QFont:
 
 
 def apply_theme(app: QApplication) -> None:
+    """Set the font, the style sheet and the palette of the app."""
     font = QFont()
     font.setFamily("Inter")
     font.setPixelSize(Fonts.SIZE_BASE)
@@ -113,6 +124,7 @@ def apply_theme(app: QApplication) -> None:
 
 
 def global_stylesheet() -> str:
+    """Return the app's global style sheet."""
     return f"""
     QWidget {{
         background-color: {Colors.BG};

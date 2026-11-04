@@ -1,3 +1,17 @@
+"""The repo's models against the live database (ADR-0015).
+
+No Qt. It compares what Alembic compares: the `Base.metadata` that
+`app.models` builds, the package `alembic/env.py` imports. Files are not
+parsed: types come from `type_annotation_map`, from `Annotated` aliases
+in `base.py` and from enums whose length is only known by executing.
+Reading them by hand would give differences that do not exist.
+
+That is why it imports with the project's Python (the `server/` venv, or
+the PATH's if the repo has none), like the seeder and partition
+payloads. The program travels through `-c` and returns JSON; it does not
+touch the database.
+"""
+
 from __future__ import annotations
 
 import json
@@ -9,24 +23,10 @@ from app.core import db_explorer, process
 from app.core.errors import TaskError
 from app.core.host import HOST
 
-"""
-Los modelos del repo contra la base viva (ADR-0015).
-
-Sin Qt. Lo que se compara es lo mismo que compara Alembic: el `Base.metadata`
-que arma `app.models`, el paquete que importa `alembic/env.py` en todos los
-repos. No se parsean los archivos: los tipos salen de `type_annotation_map`, de
-alias `Annotated` en `base.py` y de enums cuyo largo solo se sabe ejecutando.
-Leerlos a mano daria diferencias que no existen.
-
-Por eso se importa con el Python del proyecto (el venv de `server/`, o el del
-PATH si el repo no tiene uno), como los payloads de seeders y particiones. El
-programa viaja por `-c` y devuelve JSON; no toca la base.
-"""
-
 MODELS_PACKAGE = "app.models"
 MODELS_DIR = Path("app") / "models"
-# Tablas que no son de ningun modelo y no cuentan como diferencia: la de
-# Alembic, y las que crea una extension (`Relation.extension`).
+# Tables that belong to no model and count as no difference: Alembic's,
+# and those an extension creates (`Relation.extension`).
 ALEMBIC_TABLE = "alembic_version"
 DEFAULT_SCHEMA = "public"
 
@@ -69,6 +69,8 @@ _MARK = "@@MODELS@@"
 
 @dataclass
 class ModelColumn:
+    """A column as a model declares it."""
+
     name: str
     type: str
     nullable: bool
@@ -77,28 +79,35 @@ class ModelColumn:
 
 @dataclass
 class ModelTable:
+    """A table as a model declares it."""
+
     schema: str
     name: str
-    folder: str  # carpeta dentro de app/models: 'billing', '' en la raiz
+    folder: str  # folder inside app/models: 'billing', '' at the root
     file: str  # 'invoice.py'
     columns: list[ModelColumn]
 
     @property
     def qualified(self) -> str:
+        """Return `schema.table`."""
         return f"{self.schema}.{self.name}"
 
     @property
     def source(self) -> str:
+        """Return the file that declares it, relative to app/models."""
         return "/".join(p for p in (self.folder, self.file) if p)
 
 
-# --- leer ----------------------------------------------------------------------
+# --- read ---
 
 
 def signature(server_root: Path) -> tuple[tuple[str, int], ...]:
-    """Lo que cambia si cambia algun modelo: ruta y mtime de cada .py. Cuesta
-    un `stat` por archivo, y evita relanzar Python cada vez que se muestra la
-    pestana.
+    """Return what changes if a model changes.
+
+    Each .py's path and mtime.
+
+    It costs one `stat` per file and avoids relaunching Python each time
+    the tab shows.
     """
     folder = server_root / MODELS_DIR
     if not folder.is_dir():
@@ -122,13 +131,14 @@ def _python(server_root: Path) -> str:
 
 
 def read_models(server_root: Path) -> list[ModelTable]:
+    """Return the models of the repo, importing them with its Python."""
     if not (server_root / MODELS_DIR).is_dir():
         raise TaskError(f"No existe {server_root / MODELS_DIR}.")
     try:
         out = process.capture([_python(server_root), "-c", _PAYLOAD], cwd=server_root, timeout=60)
     except TaskError as exc:
-        # La ultima linea del traceback es la que dice que falto.
-        lines = [l for l in str(exc).strip().splitlines() if l.strip()]
+        # The traceback's last line is what says what was missing.
+        lines = [row for row in str(exc).strip().splitlines() if row.strip()]
         raise TaskError(
             f"No se pudieron importar los modelos: {lines[-1] if lines else exc}"
         ) from exc
@@ -147,23 +157,27 @@ def read_models(server_root: Path) -> list[ModelTable]:
     ]
 
 
-# --- comparar --------------------------------------------------------------------
+# --- compare ---
 
 OK = "ok"
-MISSING = "missing"  # en los modelos, no en la base
-UNMODELED = "unmodeled"  # en la base, no en los modelos
-CHANGED = "changed"  # en los dos, con columnas distintas
-SYSTEM = "system"  # alembic_version, tablas de extensiones: no cuentan
+MISSING = "missing"  # in the models, not in the database
+UNMODELED = "unmodeled"  # in the database, not in the models
+CHANGED = "changed"  # in both, with different columns
+# alembic_version, extension tables: they do not count
+SYSTEM = "system"
 
 
 @dataclass
 class ColumnDiff:
+    """One column that differs."""
+
     column: str
-    db: str  # como esta en la base; '' si falta
-    model: str  # como esta en el modelo; '' si sobra
+    db: str  # as it is in the database; '' if missing
+    model: str  # as it is in the model; '' if extra
 
     @property
     def text(self) -> str:
+        """Return the difference as text."""
         if not self.db:
             return f"{self.column}: falta en la base ({self.model})"
         if not self.model:
@@ -173,6 +187,8 @@ class ColumnDiff:
 
 @dataclass
 class TableStatus:
+    """A table's state against its model."""
+
     status: str
     model: ModelTable | None = None
     diffs: list[ColumnDiff] = field(default_factory=list)
@@ -180,18 +196,23 @@ class TableStatus:
 
 @dataclass
 class Comparison:
+    """The whole comparison."""
+
     models: list[ModelTable]
-    tables: dict[str, TableStatus]  # por `esquema.tabla`, de los dos lados
+    tables: dict[str, TableStatus]  # by `schema.table`, from both sides
 
     def count(self, status: str) -> int:
+        """Return how many tables have that status."""
         return sum(1 for t in self.tables.values() if t.status == status)
 
     def missing(self) -> list[ModelTable]:
+        """Return the models whose table the database lacks."""
         return [t.model for t in self.tables.values() if t.status == MISSING and t.model]
 
 
-# Lo que SQLAlchemy escribe con otro nombre que `format_type`. Los timestamps
-# no hacen falta: el dialecto de Postgres ya los escribe `WITH/WITHOUT TIME ZONE`.
+# What SQLAlchemy writes under another name than `format_type`.
+# Timestamps need no entry: the Postgres dialect already writes
+# `WITH/WITHOUT TIME ZONE`.
 _ALIASES = {
     "varchar": "character varying",
     "char": "character",
@@ -202,8 +223,10 @@ _LEADING_WORD = re.compile(r"^[a-z_]+")
 
 
 def normalize_type(text: str) -> str:
-    """El mismo tipo escrito por SQLAlchemy (`VARCHAR(7)`, `NUMERIC(14, 2)`)
-    y por `format_type` de Postgres (`character varying(7)`, `numeric(14,2)`).
+    """Normalize a type as SQLAlchemy and `format_type` write it.
+
+    SQLAlchemy writes `VARCHAR(7)` and `NUMERIC(14, 2)`; Postgres's
+    `format_type` writes `character varying(7)` and `numeric(14,2)`.
     """
     t = " ".join(text.strip().lower().replace('"', "").split())
     t = re.sub(r"\s*,\s*", ",", t)
@@ -215,6 +238,7 @@ def compare(
     columns: dict[str, list[tuple[str, str, bool]]],
     models: list[ModelTable],
 ) -> Comparison:
+    """Compare the database's relations against the models."""
     tables: dict[str, TableStatus] = {}
     by_name = {r.qualified: r for r in relations}
 
@@ -228,7 +252,7 @@ def compare(
 
     for rel in relations:
         if rel.qualified in tables or rel.parent or rel.kind not in ("r", "p", "f"):
-            # Las particiones siguen a su madre; las vistas no se modelan.
+            # Partitions follow their parent; views are not modeled.
             continue
         system = rel.extension or rel.name == ALEMBIC_TABLE
         tables[rel.qualified] = TableStatus(SYSTEM if system else UNMODELED)

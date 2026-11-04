@@ -1,3 +1,5 @@
+"""The schema of the configuration keys."""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -5,10 +7,10 @@ from dataclasses import dataclass, field
 
 @dataclass(frozen=True)
 class Setting:
-    """Una clave de `.consola/config.env`, declarada una sola vez.
+    """A key of `.consola/config.env`, declared only once.
 
-    Dos consumidores (ADR-0064): el formulario de Configuracion y la
-    validacion previa que marca en ambar lo que le falta a una accion.
+    It has two consumers (ADR-0064): the Settings form and the check
+    beforehand that marks in amber what an action lacks.
     """
 
     key: str
@@ -16,35 +18,38 @@ class Setting:
     label: str = ""
     secret: bool = False
     default: str = ""
-    default_hint: str = ""  # El default, escrito a mano, para cuando no hay un
-    # `default` que poner: lo que pasa con el campo vacio no
-    # es un valor que se guarde, sino donde lo deja otro (la
-    # carpeta de build de cada framework). Se muestra de
-    # marca de agua igual que un default resuelto, asi que
-    # solo entra aca lo que de verdad se va a usar: una
-    # explicacion de que va en el campo se leeria como un
-    # valor ya cargado.
-    kind: str = "text"  # 'text' | 'list'. 'list' es un campo multilinea: una
-    # entrada por renglon, guardadas separadas por comas.
-    scope: str = "repo"  # 'repo' = va a `.consola/config.env`, porque el valor
-    # es del proyecto. 'machine' = va a QSettings, porque el
-    # valor es de ESTA maquina y escribirlo en cada repo
-    # seria escribir nueve veces lo mismo
+    # The default, written by hand, for when there is no
+    default_hint: str = ""
+    # `default` to set: what happens with an empty field is not a value
+    # to save but where something else leaves it (each framework's build
+    # folder). It shows as a watermark like a resolved default, so only
+    # what will actually be used goes here: an explanation of what goes
+    # in the field would read as a loaded value.
+    # 'text' | 'list'. 'list' is a multi-line field: one entry per line,
+    # saved separated by commas.
+    kind: str = "text"
+    # 'repo' = goes to `.consola/config.env`, because the value is the
+    # project's. 'machine' = goes to QSettings, because the value is
+    # THIS machine's and writing it in each repo would be writing the
+    # same thing nine times.
+    scope: str = "repo"
     # (`ui/params_store.py::machine_env`).
     required_by: tuple[str, ...] = field(default_factory=tuple)
-    # Acciones que USAN la clave pero corren igual sin ella. Aparece en el panel
-    # de configuracion filtrado de esas acciones, y no bloquea su boton. La
-    # distincion importa: `serve_backend` nunca lee `API_URL` —quien la lee es
-    # `compile_flutter`, y ese ya la pide por paso— asi que exigirla dejaba el
-    # Backend en ambar por una clave que jamas iba a mirar (docs/arquitectura/13_configuracion_y_persistencia.md).
+    # Actions that USE the key but run without it. It appears in those
+    # actions' filtered settings panel and does not block their button.
+    # The difference matters: `serve_backend` never reads `API_URL`;
+    # `compile_flutter` does and asks for it per step, so requiring it
+    # left Backend amber for a key it would never look at
+    # (docs/arquitectura/13_configuracion_y_persistencia.md).
     used_by: tuple[str, ...] = field(default_factory=tuple)
 
     @property
     def display(self) -> str:
+        """Return how the key reads in the form."""
         return self.label or self.key
 
 
-# Claves VPS que necesita cualquier operacion que alcance el servidor.
+# VPS keys any operation reaching the server needs.
 _VPS_REACH = (
     "ssh_login",
     "health_check",
@@ -59,19 +64,22 @@ _VPS_REACH = (
     "revoke_ssh",
     "view_events",
 )
-# «Publicar versión» las pide por paso (`core/catalog.py::PUBLISH_RELEASE_STEPS`):
-# crear el tag no alcanza el VPS.
+# «Publicar versión» asks for them per step
+# (`core/catalog.py::PUBLISH_RELEASE_STEPS`): creating the tag does not
+# reach the VPS.
 _VPS_STEPS = ("publish_release",)
 
-# Solo las de base sin eje `scope`: las que lo tienen declaran sus claves en el
-# eje (`core/catalog.py::_SCOPE_AXIS`), porque dependen del ambito elegido. El
-# tunel va siempre al VPS; las otras cuatro, siempre a la base local (ADR-0060).
+# Only those of the database without a `scope` axis: those with one
+# declare their keys on the axis (`core/catalog.py::_scope_axis`), since
+# they depend on the chosen scope. The tunnel always goes to the VPS;
+# the other four, always to the local database (ADR-0060).
 _DB_FIXED = ("ssh_tunnel", "bootstrap_db", "migrate_db", "backup_db", "restore_db")
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---
-    # La exige el build de Flutter, que la compila adentro de la app. `run_mobile`
-    # cae en la URL del backend de esta sesion si esta vacia.
+    #
+    # The Flutter build requires it, compiling it inside the app.
+    # `run_mobile` falls back on this session's backend URL if empty.
     Setting(
         "API_URL",
         "Server",
@@ -94,14 +102,14 @@ SETTINGS: tuple[Setting, ...] = (
         default="root",
         required_by=("install_software", "bootstrap_vps"),
     ),
-    # La cuenta que administra el VPS: la de `--admin` de `install.py`. Sin
-    # default, porque canone no deja que se llame como la app (ADR-0087 de
-    # canone), que era el default de antes.
+    # The account that administers the VPS: the `--admin` of
+    # `install.py`. No default, because canone does not let it be named
+    # like the app (ADR-0087 of canone).
     Setting(
         "VPS_USER", "VPS", "Usuario de despliegue", required_by=_VPS_REACH, used_by=_VPS_STEPS
     ),
-    # La contraseña de esa cuenta, que pide `sudo`. Vacia, Consola la pide una
-    # vez por sesion y la tiene solo en memoria.
+    # That account's password, which `sudo` asks for. Empty, Consola
+    # asks once per session and keeps it only in memory.
     Setting(
         "SUDO_PASSWORD",
         "VPS",
@@ -121,8 +129,8 @@ SETTINGS: tuple[Setting, ...] = (
     Setting(
         "VPS_KEY_NAME", "VPS", "Nombre de la llave SSH", required_by=_VPS_REACH, used_by=_VPS_STEPS
     ),
-    # Los dos los lee el ambito remoto de la base (`core/runner.py`), que corre
-    # el Python del repo desplegado.
+    # Both are read by the database's remote scope (`core/runner.py`),
+    # which runs the deployed repo's Python.
     Setting(
         "VPS_PYTHON",
         "VPS",
@@ -131,14 +139,14 @@ SETTINGS: tuple[Setting, ...] = (
         used_by=("rebuild_db", "run_seeders", "run_mock_seeders"),
     ),
     Setting("VPS_DEPLOY_DIR", "VPS", "Directorio de despliegue", required_by=("upload_to_vps",)),
-    # Los argumentos de `install.py` que cambian entre despliegues (ADR-0063).
-    # El dominio es el de la landing; las demas piezas cuelgan de el
-    # (`app.<dominio>`, `panel.<dominio>`).
+    # The arguments of `install.py` that change between deployments
+    # (ADR-0063). The domain is the landing's; the other pieces hang
+    # from it (`app.<domain>`, `panel.<domain>`).
     Setting("DOMAIN", "VPS", "Dominio", used_by=("bootstrap_vps",)),
-    # El `maxmemory` de su Valkey, como `256mb`. Sin default: depende de la
-    # maquina y de la app, y canone no fija uno.
+    # Its Valkey's `maxmemory`, like `256mb`. No default: it depends on
+    # the machine and the app, and canone fixes none.
     Setting("VALKEY_MEMORY", "VPS", "Memoria de Valkey", used_by=("bootstrap_vps",)),
-    # Las funciones del navegador que se permiten (`--allow`), una por renglon.
+    # The browser features allowed (`--allow`), one per line.
     Setting(
         "PERMISSIONS_ALLOW",
         "VPS",
@@ -146,29 +154,31 @@ SETTINGS: tuple[Setting, ...] = (
         kind="list",
         used_by=("bootstrap_vps",),
     ),
-    # `--turn`: si la app retransmite llamadas con coturn. `si` o `no`.
+    # `--turn`: whether the app relays calls with coturn. `si` or `no`.
     Setting("TURN", "VPS", "Llamadas con coturn", used_by=("bootstrap_vps", "install_software")),
-    # `--turn-ip`: la IPv4 publica, cuando la interfaz solo tiene una privada.
+    # `--turn-ip`: the public IPv4, when the interface only has a
+    # private one.
     Setting("TURN_IP", "VPS", "IP pública para TURN", used_by=("bootstrap_vps",)),
-    # `--logs-ip`: la direccion que Equipaggio le dio a esta maquina. El
-    # destino y la llave son de Equipaggio, y van en el grupo Maquina.
+    # `--logs-ip`: the address Equipaggio gave this machine. The
+    # destination and key are Equipaggio's, and go in the Machine group.
     Setting(
         "LOGS_IP", "VPS", "IP del túnel de logs", used_by=("bootstrap_vps", "install_software")
     ),
-    # Vacio, el rol es el mismo usuario de despliegue (`Config._dynamic_default`).
+    # Empty, the role is the deployment user itself
+    # (`Config._dynamic_default`).
     Setting("DB_USER", "VPS", "Rol de la base", required_by=_DB_FIXED),
     Setting("DB_NAME", "VPS", "Base de datos", required_by=_DB_FIXED),
     Setting("DB_PASSWORD", "VPS", "Password de la base", secret=True, required_by=_DB_FIXED),
-    # Donde caen los volcados de `backup_db` y de donde los lee `restore_db`.
-    # Relativa se resuelve contra la raiz del repo; absoluta se usa tal cual, que
-    # es lo que permite sacarlos de adentro del repo — `.backups/` no esta en
-    # ningun `.gitignore` por defecto, y un volcado con datos reales queda listo
-    # para comitearse sin que nadie avise.
+    # Where `backup_db` dumps fall and where `restore_db` reads them
+    # from. Relative resolves against the repo's root; absolute is used
+    # as is, which lets them leave the repo: `.backups/` is in no
+    # `.gitignore` by default, and a dump with real data stays ready to
+    # commit with no warning.
     #
-    # `used_by` y no `required_by`: las dos tienen `default`, y una clave con
-    # default nunca cuenta como faltante (`Config.get`), asi que exigirlas no
-    # dejaria ningun boton en ambar. Lo que hace `used_by` es que aparezcan en el
-    # panel de configuracion filtrado de estos dos botones.
+    # `used_by` and not `required_by`: both have a `default`, and a key
+    # with a default never counts as missing (`Config.get`), so
+    # requiring them would leave no button amber. `used_by` makes them
+    # appear in these two buttons' filtered settings panel.
     Setting(
         "BACKUP_DIR",
         "VPS",
@@ -176,10 +186,10 @@ SETTINGS: tuple[Setting, ...] = (
         default=".backups",
         used_by=("backup_db", "restore_db"),
     ),
-    # Cuantos volcados sobreviven a la rotacion. Es configuracion y no un eje por
-    # el mismo criterio que `DB_EXTENSIONS`: es un dato que la tarea lee, no una
-    # decision de la corrida. Cuantos respaldos conserva un proyecto no cambia
-    # entre dos veces que se aprieta el boton.
+    # How many dumps survive rotation. Configuration and not an axis by
+    # the same criterion as `DB_EXTENSIONS`: a datum the task reads, not
+    # a decision of the run. How many backups a project keeps does not
+    # change between two presses of the button.
     Setting("BACKUP_KEEP", "VPS", "Respaldos a conservar", default="7", used_by=("backup_db",)),
     Setting(
         "PG_SUPERUSER",
@@ -195,15 +205,16 @@ SETTINGS: tuple[Setting, ...] = (
         secret=True,
         required_by=("bootstrap_db", "teardown_db", "rebuild_db"),
     ),
-    # Configuracion y no parametro de la corrida: que extensiones necesita el
-    # esquema es una propiedad del proyecto. No sale
-    # de ningun catalogo de Postgres —`pg_available_extensions` dice lo que se
-    # PUEDE crear (cientos con contrib) y `pg_extension` lo que YA esta creado—
-    # ni de las migraciones, que con `--autogenerate` nunca escriben un
-    # `CREATE EXTENSION`. Se declara.
+    # Configuration and not a run parameter: which extensions the schema
+    # needs is a property of the project. It comes from no Postgres
+    # catalog, since `pg_available_extensions` says what CAN be created
+    # (hundreds with contrib) and `pg_extension` what IS created, nor
+    # from migrations, which with `--autogenerate` never write a `CREATE
+    # EXTENSION`. It is declared.
     #
-    # No default: an empty list means none. canone installs PostGIS only if the app
-    # uses it, and an extension nobody uses would land in every VPS (ADR-0071).
+    # No default: an empty list means none. canone installs PostGIS only
+    # if the app uses it, and an extension nobody uses would land in
+    # every VPS (ADR-0071).
     Setting(
         "DB_EXTENSIONS",
         "VPS",
@@ -212,22 +223,27 @@ SETTINGS: tuple[Setting, ...] = (
         used_by=("bootstrap_db", "enable_extensions"),
     ),
     # --- GitHub ---
-    # De ahi sale el nombre del repo en el VPS (`vps.repo_name`), que nombra su
-    # carpeta en el ambito remoto de la base.
+    #
+    # The repo's name on the VPS comes from it (`vps.repo_name`), which
+    # names its folder in the database's remote scope.
     Setting(
         "GIT_REPO_URL",
         "GitHub",
         "URL del repositorio",
         used_by=("systemd_action", "view_logs", "health_check"),
     ),
-    # `--private`: el VPS baja el release con un token. `si` o `no`.
+    # `--private`: the VPS downloads the release with a token. `si` or
+    # `no`.
     Setting("PRIVATE", "GitHub", "Repo privado", used_by=("bootstrap_vps", "load_credentials")),
-    # --- Credenciales ---
-    # Las dos que `credentials.py` recibe con nombre fijo, ademas de los campos
-    # de `Settings` del repo, que se suman a este grupo al abrirlo
+    # --- Credentials ---
+    #
+    # The two `credentials.py` receives with a fixed name, besides the
+    # repo's `Settings` fields, added to this group on opening it
     # (`core/fields.py`, ADR-0063).
-    # La base local de un repo de canone: `app_database_url` de sus credenciales
-    # de desarrollo (ADR-0069). En el VPS la escribe `install.py`.
+    #
+    # The local database of a canone repo: `app_database_url` of its
+    # development credentials (ADR-0069). On the VPS `install.py` writes
+    # it.
     Setting(
         "DATABASE_URL",
         "Credenciales",
@@ -242,8 +258,8 @@ SETTINGS: tuple[Setting, ...] = (
         secret=True,
         required_by=("load_credentials",),
     ),
-    # El token de solo lectura con el que el VPS baja el release de un repo
-    # privado.
+    # The read-only token the VPS downloads a private repo's release
+    # with.
     Setting(
         "GITHUB_TOKEN",
         "Credenciales",
@@ -260,11 +276,12 @@ SETTINGS: tuple[Setting, ...] = (
         used_by=("load_credentials",),
     ),
     # --- Builds ---
-    # Donde queda cada build de `build_flutter`, relativo a la carpeta de la app.
-    # Vacia, donde lo deja el framework: la marca de agua dice cual es. Con valor,
-    # el build se copia ahi. Sin `used_by`: las reclama la casilla de cada
-    # plataforma (`AxisDef.uses_env` del catalogo), y solo se muestran las de
-    # las plataformas marcadas.
+    #
+    # Where each `build_flutter` build lands, relative to the app's
+    # folder. Empty, where the framework leaves it: the watermark says
+    # which. With a value, the build copies there. No `used_by`: each
+    # platform's checkbox claims them (`AxisDef.uses_env` of the
+    # catalog), and only those of the checked platforms show.
     *(
         Setting(f"BUILD_OUT_{key}", "Builds", f"Carpeta del build {name}", default_hint=default)
         for key, name, default in (
@@ -277,10 +294,12 @@ SETTINGS: tuple[Setting, ...] = (
             ("IPA", "iOS", "build/ios/ipa · en Flet: build/ipa"),
         )
     ),
-    # --- Marca ---
-    # El logo es del repo y Consola lo rasteriza para cada app y para el
-    # ejecutable. Sin default: un repo sin logo no tiene iconos que generar.
-    # Por convencion los tres SVG viven en `brand/` (ADR-0056).
+    # --- Brand ---
+    #
+    # The logo belongs to the repo and Consola rasterizes it for each
+    # app and the executable. No default: a repo without a logo has no
+    # icons to generate. By convention the three SVGs live in `brand/`
+    # (ADR-0056).
     Setting(
         "BRAND_ICON",
         "Marca",
@@ -288,22 +307,24 @@ SETTINGS: tuple[Setting, ...] = (
         required_by=("generate_icons",),
         used_by=("build_binary",),
     ),
-    # La capa de adelante del icono adaptativo de Android: el mismo logo, con el
-    # margen que exige el recorte del sistema. Solo la pide la app Flutter cuyo
-    # pubspec declara `adaptive_icon_foreground`, y ahi falta es error.
+    # The front layer of Android's adaptive icon: the same logo, with
+    # the margin the system's crop demands. Only the Flutter app whose
+    # pubspec declares `adaptive_icon_foreground` asks for it, and there
+    # missing is an error.
     Setting(
         "BRAND_ICON_FOREGROUND", "Marca", "Capa frontal Android (SVG)", used_by=("generate_icons",)
     ),
-    # El icono maskable de una PWA: fondo a sangre y el logo dentro del circulo
-    # central del 80 %, que es lo que Android no recorta. Solo lo pide la SPA
-    # cuyo manifest declara un icono `maskable`.
+    # A PWA's maskable icon: a full-bleed background and the logo inside
+    # the central 80 % circle, which Android does not crop. Only the SPA
+    # whose manifest declares a `maskable` icon asks for it.
     Setting(
         "BRAND_ICON_MASKABLE", "Marca", "Ícono maskable de PWA (SVG)", used_by=("generate_icons",)
     ),
-    # --- Capturas ---
-    # La camara es un script del repo (Playwright, `flutter drive`): Consola lo
-    # corre y no pregunta que hace por dentro. Sin default: ningun repo tiene
-    # camara hasta que la escribe.
+    # --- Screenshots ---
+    #
+    # The camera is a script of the repo (Playwright, `flutter drive`):
+    # Consola runs it and does not ask what it does inside. No default:
+    # no repo has a camera until it writes one.
     Setting("SHOTS_CMD", "Capturas", "Comando para capturas", required_by=("shoot_screens",)),
     Setting(
         "SHOTS_RAW",
@@ -319,8 +340,9 @@ SETTINGS: tuple[Setting, ...] = (
         default="landing/static/capturas",
         used_by=("render_shots", "screenshots"),
     ),
-    # Todo destino que no es la landing (tiendas, manual, redes, press kit): una
-    # carpeta por destino, con su manifiesto. Son entregables, no del sitio.
+    # Any destination that is not the landing (stores, manual, social,
+    # press kit): one folder per destination, with its manifest. They
+    # are deliverables, not the site's.
     Setting(
         "SHOTS_DIST",
         "Capturas",
@@ -328,15 +350,17 @@ SETTINGS: tuple[Setting, ...] = (
         default="demo/publicables",
         used_by=("render_shots", "screenshots"),
     ),
-    # --- Maquina ---
-    # El `PYINSTALLER_BIN` del script original, y por el mismo motivo: `pip
-    # install pyinstaller` deja el ejecutable en el Scripts del usuario, que en
-    # Windows no siempre esta en el PATH. No bloquea el boton — vacio, se busca
-    # primero en el venv de la app y despues en el PATH.
+    # --- Machine ---
     #
-    # `scope='machine'`: donde quedo instalado un ejecutable es de la maquina,
-    # no del proyecto. En `config.env` habia que escribir la misma ruta en cada
-    # repo, y nueve copias de un dato son ocho oportunidades de que discrepen.
+    # `pip install pyinstaller` leaves the executable in the user's
+    # Scripts, which on Windows is not always on the PATH. It does not
+    # block the button: empty, it looks first in the app's venv and then
+    # the PATH.
+    #
+    # `scope='machine'`: where an executable got installed belongs to
+    # the machine, not the project. In `config.env` the same path would
+    # be written in each repo, and nine copies of a datum are eight
+    # chances to disagree.
     Setting(
         "PYINSTALLER_BIN",
         "Máquina",
@@ -344,9 +368,9 @@ SETTINGS: tuple[Setting, ...] = (
         scope="machine",
         used_by=("build_binary",),
     ),
-    # La llave publica guardada fuera de esta maquina (una llave fisica, por
-    # ejemplo): con la de `VPS_KEY_NAME`, son las dos `--key` y las dos
-    # `--signer` de `install.py`. Es una sola para todos los VPS.
+    # The public key kept off this machine (a physical key, for
+    # example): with `VPS_KEY_NAME`'s, they are the two `--key` and two
+    # `--signer` of `install.py`. It is one for all VPSs.
     Setting(
         "OFFLINE_KEY",
         "Máquina",
@@ -354,8 +378,8 @@ SETTINGS: tuple[Setting, ...] = (
         scope="machine",
         used_by=("bootstrap_vps",),
     ),
-    # La copia local de canone: de su `plantilla/infra/` salen los programas
-    # que Consola sube al VPS (ADR-0059).
+    # The local canone copy: the programs Consola uploads to the VPS
+    # come from its `plantilla/infra/` (ADR-0059).
     Setting(
         "CANONE_DIR",
         "Máquina",
@@ -363,8 +387,9 @@ SETTINGS: tuple[Setting, ...] = (
         scope="machine",
         required_by=("install_software", "bootstrap_vps", "load_credentials", "create_spa"),
     ),
-    # `--logs` y `--logs-key`: el endpoint WireGuard de Equipaggio y su llave
-    # publica. Son los mismos para todos los VPS que le mandan su journal.
+    # `--logs` and `--logs-key`: Equipaggio's WireGuard endpoint and its
+    # public key. They are the same for all VPSs sending it their
+    # journal.
     Setting(
         "LOGS",
         "Máquina",
@@ -388,26 +413,32 @@ GROUP_ORDER = (
     "Máquina",
 )
 
-# Los seguros del repo (`PROTECT_*`) NO estan aca y no son un `Setting`: no son
-# un dato que una tarea consuma —ningun paso lee uno— sino una decision de la
-# consola sobre este repo, y viven con las demas en `.consola/params.json`
-# (`ui/security_panel.py`, `ui/params_store.py::load_protection`).
+# The repo's guards (`PROTECT_*`) are NOT here and are no `Setting`:
+# they are no datum a task consumes, since no step reads one, but a
+# console decision about this repo, and they live with the others in
+# `.consola/params.json` (`ui/security_panel.py`,
+# `ui/params_store.py::load_protection`).
 
 
 def repo_settings() -> tuple[Setting, ...]:
-    """Las que se escriben en `.consola/config.env`. Es lo que regenera el
-    archivo (`core/envfile.py`): una clave de maquina ahi seria un dato del
-    proyecto que no es del proyecto.
+    """Return those written in `.consola/config.env`.
+
+    That is what regenerates the file (`core/envfile.py`): a machine key
+    there would be a project datum that is not the project's.
     """
     return tuple(s for s in SETTINGS if s.scope == "repo")
 
 
 def machine_settings() -> tuple[Setting, ...]:
+    """Return those saved in QSettings."""
     return tuple(s for s in SETTINGS if s.scope == "machine")
 
 
 def settings_by_group(fields: tuple[Setting, ...] = ()) -> dict[str, list[Setting]]:
-    """El esquema por grupo, con los campos de `Settings` del repo si se pasan."""
+    """Return the schema by group.
+
+    With the repo's `Settings` fields if given.
+    """
     groups: dict[str, list[Setting]] = {g: [] for g in GROUP_ORDER}
     for s in (*SETTINGS, *fields):
         groups.setdefault(s.group, []).append(s)
@@ -415,6 +446,7 @@ def settings_by_group(fields: tuple[Setting, ...] = ()) -> dict[str, list[Settin
 
 
 def get_setting(key: str) -> Setting | None:
+    """Return the key's declaration, if any."""
     for s in SETTINGS:
         if s.key == key:
             return s
@@ -422,16 +454,18 @@ def get_setting(key: str) -> Setting | None:
 
 
 def required_keys_for(capability_id: str) -> list[str]:
-    """Sin estas, la accion no puede correr: su boton queda en ambar."""
+    """Return those without which the action cannot run.
+
+    Its button stays amber.
+    """
     return [s.key for s in SETTINGS if capability_id in s.required_by]
 
 
 def relevant_keys_for(capability_id: str) -> list[str]:
-    """Las que la accion puede llegar a mirar, obligatorias o no.
+    """Return those the action may come to look at, required or not.
 
-    Es lo que filtra el panel de configuracion: que `API_URL` no bloquee al
-    Backend no quiere decir que no sea el lugar donde uno la busca cuando
-    tiene esa pestana abierta.
+    That filters the settings panel: `API_URL` not blocking Backend does
+    not mean it is not where one looks for it with that tab open.
     """
     return [
         s.key for s in SETTINGS if capability_id in s.required_by or capability_id in s.used_by

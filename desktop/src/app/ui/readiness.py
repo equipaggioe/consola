@@ -1,3 +1,5 @@
+"""Which actions can run without opening their tab."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -11,23 +13,22 @@ from app.ui import params_store
 
 
 def missing_keys(capability: Capability, env: dict[str, str], repo_path: str) -> list[str]:
-    """Que le falta a una accion para poder correr sin abrir la pestana.
+    """Return what an action lacks to run without opening the tab.
 
-    Correr de una (el boton ▶ del buscador) usa los
-    parametros guardados para ese boton en ese repo, asi que se mira
-    exactamente lo que esos parametros van a correr: los pasos apagados no
-    pueden reclamar claves. Sin nada guardado se cuentan todos los pasos, que
-    es lo que correria por defecto.
+    Running at once, the search's ▶ button, uses the parameters saved
+    for that button in that repo, so it looks at exactly what those
+    parameters will run: steps turned off cannot claim keys. With
+    nothing saved all steps count, which is what would run by default.
 
-    La pregunta final se la hace a un `Config`, igual que
-    `ui/params_panel.py::_missing_keys`: una clave con default fijo
-    (`SERVER_DIR='server'`) o dinamico (`DB_USER` -> nombre del repo) se
-    resuelve sola al correr, y mirando el texto crudo del campo el ▶ la
-    marcaba como faltante mientras el panel la daba por buena.
+    The final question goes to a `Config`, like
+    `ui/params_panel.py::_missing_keys`: a key with a fixed default
+    (`SERVER_DIR='server'`) or a dynamic one (`DB_USER` from the repo's
+    name) resolves by itself when running. Looking at the field's raw
+    text, ▶ marked it as missing while the panel accepted it.
     """
     active = params_store.stored_steps(repo_path, capability.id)
-    # Los pasos que este repo no tiene (las migraciones de un repo sin Alembic)
-    # tampoco reclaman claves: no se dibujan ni corren.
+    # Steps this repo lacks, such as the migrations of a repo without
+    # Alembic, claim no keys either: they neither draw nor run.
     capability = for_project(capability, repo_path)
     needed = set(required_keys_for(capability.id))
     state = params_store.load(repo_path, capability.id) or {}
@@ -44,7 +45,7 @@ def missing_keys(capability: Capability, env: dict[str, str], repo_path: str) ->
 
 
 def _chosen(axis: AxisDef, state: dict[str, Any]) -> list[str]:
-    """Los valores del eje que correrian: los guardados o, sin nada, los de por defecto."""
+    """Return the axis values that would run: saved, or defaults."""
     saved = (state.get("variants" if axis.is_multi else "options") or {}).get(axis.name)
     if saved is not None:
         return list(saved) if isinstance(saved, list) else [saved]
@@ -54,22 +55,22 @@ def _chosen(axis: AxisDef, state: dict[str, Any]) -> list[str]:
 
 
 def ready_ids(project: Project | None) -> set[str]:
-    """Ids de las acciones que pueden correr ya sobre `project`, con su
-    `.consola/config.env` guardado y sus parametros guardados.
+    """Return the ids of the actions that can run now on `project`.
 
-    La muestra el ▶ de cada fila del buscador de la barra de menu.
+    They use its saved `.consola/config.env` and saved parameters. The ▶
+    of each row of the menu bar search shows it.
 
-    Sin repo abierto no hay nada listo, ni siquiera las acciones que no piden
-    ninguna clave: no hay sobre que correrlas. Contarlas dejaba el menu con 22
-    acciones marcadas como listas mientras sus menus estaban deshabilitados.
+    With no repo open nothing is ready, not even actions that ask for no
+    key: there is nothing to run them on. Counting them left the menu
+    with 22 actions marked ready while their menus were disabled.
     """
     if project is None:
         return set()
     env = envfile.load_config(project.path)
     path = project.path
-    # Todas las capacidades se resuelven contra el MISMO repo, y cada una lo
-    # volvia a recorrer entera: `one_scan` reparte un solo recorrido entre
-    # todas (`core/targets.py`).
+    # All capabilities resolve against the SAME repo, and each one
+    # walked it whole again: `one_scan` shares a single walk among them
+    # (`core/targets.py`).
     with targets.one_scan():
         applicable = applicable_ids(path)
         return {

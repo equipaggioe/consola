@@ -1,3 +1,5 @@
+"""The reusable widgets."""
+
 from __future__ import annotations
 
 from app.ui.widgets.accordion import NO_CAP, AccordionHeader, AccordionSection, SectionResizeGrip

@@ -1,3 +1,5 @@
+"""The top-level tabs: one per repository."""
+
 from __future__ import annotations
 
 import os
@@ -34,32 +36,34 @@ from app.ui.widgets import ReorderableBar, ReorderableTab
 
 
 class ProjectTab(ReorderableTab):
-    """Pestana de nivel superior: un repositorio.
+    """A top-level tab: one repository.
 
-    La activa se pinta de su acento, el mismo de la barra de titulo que la
-    sostiene, y va sin contorno: se funde con ella. Las demas se pintan del
-    fondo del repo ACTIVO (`chrome`, la banda de la fila de abajo) y llevan
-    contorno y nombre en el acento de SU repo — se hunden respecto de la
-    activa, que es lo que una pestana de atras tiene que hacer, y aun asi
-    cada una dice de que color es.
+    The active one paints in its accent, the same as the title bar
+    holding it, with no outline: it melts into it. The others paint in
+    the ACTIVE repo's background (`chrome`, the band of the row below)
+    with outline and name in THEIR repo's accent: they sink against the
+    active one, as a back tab should, and each still says which color it
+    is.
     """
 
     clicked = Signal()
     close_requested = Signal()
     theme_changed = Signal()
 
-    # Alto de la barra de titulo entera. 44 y no 38: dentro del contorno, a
-    # 38 el nombre quedaba pegado al borde de abajo.
+    # The whole title bar's height. 44 and not 38: inside the outline,
+    # at 38 the name stuck to the bottom edge.
     HEIGHT = 44
     LOGO = 18
 
     def __init__(self, project: Project, parent: QWidget | None = None) -> None:
+        """Build the tab."""
         super().__init__(parent)
         self.project = project
-        # `pal` y no `palette`: `QWidget.palette()` ya existe y es otra cosa.
+        # `pal` and not `palette`: `QWidget.palette()` exists and is
+        # something else.
         self.pal = palettes.get(project.theme)
-        # La del repo activo, que es de quien esta pintada la barra: de ahi
-        # sale el fondo de esta pestana mientras NO sea la activa.
+        # The active repo's, whose color the bar is painted in: this
+        # tab's background while it is NOT the active one.
         self.active_pal = self.pal
         self.is_active = False
         self._hovered = False
@@ -75,8 +79,8 @@ class ProjectTab(ReorderableTab):
         layout.setContentsMargins(12, 0, 10, 0)
         layout.setSpacing(8)
 
-        # A la izquierda del nombre: a la derecha esta la ×, y el logo pegado a
-        # ella se leeria como otro boton.
+        # Left of the name: the × is on the right, and a logo next to it
+        # would read as another button.
         self.logo = repo_logo.RepoLogoView(self.LOGO, repo_logo.resolve(project.path))
 
         self.name_label = QLabel(project.name)
@@ -95,26 +99,33 @@ class ProjectTab(ReorderableTab):
         self._sync_text()
         self.set_closable(True)
 
-    # --- estado -----------------------------------------------------
+    # --- state -----------------------------------------------------
     def set_active(self, active: bool) -> None:
+        """Set whether it is the active tab."""
         self.is_active = active
         self._sync_text()
         self.update()
 
     def set_active_palette(self, pal: Palette) -> None:
-        """La paleta del repo activo: el fondo de esta pestana cuando no lo
-        es. La pone la barra al seleccionar o al recolorear (`ProjectTabBar`).
+        """Set the active repo's palette.
+
+        This tab's background when not it.
+
+        The bar sets it when selecting or recoloring (`ProjectTabBar`).
         """
         self.active_pal = pal
         self._sync_text()
         self.update()
 
     def set_logo(self, logo: repo_logo.RepoLogo) -> None:
+        """Show another logo."""
         self.logo.set_logo(logo)
 
     def set_closable(self, closable: bool) -> None:
+        """Set whether the × shows."""
         self._closable = closable
-        self.close_btn.setVisible(closable)  # visible siempre que se pueda cerrar
+        # visible whenever it can close
+        self.close_btn.setVisible(closable)
 
     def _sync_text(self) -> None:
         f = QFont(self.name_label.font())
@@ -122,9 +133,9 @@ class ProjectTab(ReorderableTab):
         f.setBold(self.is_active)
         f.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 0.6 if self.is_active else 0.0)
         self.name_label.setFont(f)
-        # Seleccionada: el acento del repo sobre su banda oscura. Las otras:
-        # la tinta que se lee sobre el acento del repo activo, que es el fondo
-        # de la barra en el que se apoyan.
+        # Selected: the repo's accent over its dark band. The others:
+        # the ink that reads over the active repo's accent, the
+        # background of the bar they rest on.
         color = self.pal.accent if self.is_active else self.active_pal.on_accent
         self.name_label.setStyleSheet(f"background: transparent; color: {color};")
         self.close_btn.setStyleSheet(f"""
@@ -149,7 +160,7 @@ class ProjectTab(ReorderableTab):
         s.setHeight(self.HEIGHT)
         return s
 
-    # --- interaccion -------------------------------------------------
+    # --- interaction -------------------------------------------------
     @override
     def enterEvent(self, event: QEnterEvent) -> None:
         self._hovered = True
@@ -183,14 +194,17 @@ class ProjectTab(ReorderableTab):
         self._reorder_release(event)
         super().mouseReleaseEvent(event)
 
-    # --- tema ---------------------------------------------------------
+    # --- theme ---
     def set_theme(self, key: str) -> None:
-        """Cambia el color del repo. Lo repinta todo: la pestana de aca y,
-        via `theme_changed`, el espacio de trabajo entero — la paleta no es un
-        acento suelto, son los fondos de todos sus paneles.
+        """Change the repo's color, repainting everything.
 
-        Se guarda en el repo (`.consola/params.json`) y no en esta maquina: el
-        color es una decision sobre ESE repo y viaja con el.
+        This tab and, through `theme_changed`, the whole workspace: the
+        palette is not a loose accent but the backgrounds of all its
+        panels.
+
+        It saves in the repo (`.consola/params.json`) and not on this
+        machine: color is a decision about THAT repo and travels with
+        it.
         """
         if key == self.project.theme:
             return
@@ -203,13 +217,12 @@ class ProjectTab(ReorderableTab):
 
     @override
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
-        """La ruta y los colores, sin un nivel de por medio.
+        """Show the path and the colors, with no level in between.
 
-        Los ocho temas van sueltos en el menu y no dentro de un submenu: el
-        menu no tiene nada mas que ofrecer, asi que un submenu seria un paso
-        extra para llegar a lo unico que hay. Quitar el repo tampoco esta:
-        para eso esta la × de la pestana, y repetirlo aca no agrega un camino,
-        agrega una lista mas larga.
+        The eight themes go loose in the menu and not in a submenu: the
+        menu offers nothing else, so a submenu would be an extra step to
+        reach all there is. Removing the repo is not here either: the
+        tab's × does it.
         """
         self._context_menu().exec(event.globalPos())
 
@@ -220,8 +233,8 @@ class ProjectTab(ReorderableTab):
         menu.addAction(path_action)
         menu.addSeparator()
 
-        # El color se elige, no toca en suerte: al anadir un repo se le da el
-        # primer tema libre y desde aca se cambia por cualquier otro.
+        # Color is chosen, not assigned by chance: adding a repo gives
+        # it the first free theme, and any other can be picked here.
         for key, pal in palettes.THEMES.items():
             action = QAction(pal.label, self)
             action.setCheckable(True)
@@ -230,12 +243,15 @@ class ProjectTab(ReorderableTab):
             menu.addAction(action)
         return menu
 
-    # --- pintura -----------------------------------------------------
+    # --- paint -----------------------------------------------------
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
-        """La seleccionada: `chrome`, la banda de la fila de abajo. Las demas:
-        el acento del repo activo —el color de la barra donde se apoyan— y el
-        contorno del «+», que es lo unico que las recorta; el hover lo sube.
+        """Return the tab's style.
+
+        Selected: `chrome`, the band of the row below. The others: the
+        active repo's accent, the color of the bar they rest on, and the
+        «+»'s outline, which is all that sets them apart; hover raises
+        it.
         """
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -262,16 +278,17 @@ class ProjectTab(ReorderableTab):
 
 
 class AddProjectTab(QWidget):
-    """Pestana corta con el signo de mas: anadir repositorio.
+    """A short tab with the plus sign: add a repository.
 
-    Lleva el contorno de `on_accent` sobre la barra del repo activo, que es
-    el mismo de una pestana no seleccionada: es una pestana mas, la que
-    todavia no tiene repo.
+    It carries the `on_accent` outline over the active repo's bar, the
+    same as an unselected tab: it is one more tab, the one with no repo
+    yet.
     """
 
     clicked = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the tab."""
         super().__init__(parent)
         self.setFixedSize(48, ProjectTab.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -281,6 +298,7 @@ class AddProjectTab(QWidget):
         self.setToolTip("Anadir repositorio")
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self.update()
 
@@ -331,20 +349,22 @@ class AddProjectTab(QWidget):
 
 
 class ProjectTabBar(ReorderableBar):
-    """Nivel superior de pestanas: un repositorio por pestana + boton '+'."""
+    """Top level of tabs: one repository per tab and a «+» button."""
 
     project_selected = Signal(object)  # Project
     project_added = Signal(object)  # Project
     project_removed = Signal(object)  # Project
-    project_retinted = Signal(object)  # Project: eligio otro color
+    project_retinted = Signal(object)  # Project: it chose another color
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the empty bar."""
         super().__init__(parent)
         self.setFixedHeight(ProjectTab.HEIGHT)
         self.tabs: list[ProjectTab] = []
         self._active: ProjectTab | None = None
-        # Mientras MainWindow puebla las pestanas al arrancar no hay que
-        # reescribir el store en cada `add_project`: se guarda ya al terminar.
+        # While MainWindow populates tabs at startup, the store should
+        # not be rewritten on each `add_project`: it saves once at the
+        # end.
         self._loading = False
 
         self.row_layout = QHBoxLayout(self)
@@ -357,7 +377,7 @@ class ProjectTabBar(ReorderableBar):
         self.row_layout.addWidget(self.add_tab)
         self.row_layout.addStretch()
 
-    # --- reordenar arrastrando ---------------------------------------
+    # --- reorder by dragging ---------------------------------------
     @override
     def _tab_layout(self) -> QHBoxLayout:
         return self.row_layout
@@ -367,10 +387,13 @@ class ProjectTabBar(ReorderableBar):
         self.update()
         self._persist()
 
-    # --- conjunto persistente ----------------------------------------
+    # --- persistent set ----------------------------------------
     def _persist(self) -> None:
-        """Guarda la lista entera de repos (ruta y nombre) en el
-        orden actual: anadir, quitar y reordenar sobreviven al reinicio
+        """Save the whole list of repos, path and name.
+
+        In current order.
+
+        Adding, removing and reordering survive a restart
         (`ui/project_store.py`).
         """
         if self._loading:
@@ -379,11 +402,13 @@ class ProjectTabBar(ReorderableBar):
 
     # --- API ---------------------------------------------------------
     def load_projects(self, projects: list[Project]) -> None:
-        """Puebla la barra al arrancar sin reescribir el store en cada paso.
+        """Populate the bar at startup.
 
-        Existe para que MainWindow no tenga que tocar el guardado por dentro:
-        anadir ocho repos disparaba ocho escrituras de la lista entera, y la
-        ultima era la unica correcta.
+        Without rewriting the store each step.
+
+        It keeps MainWindow from touching the saving internals: adding
+        eight repos fired eight writes of the whole list, and only the
+        last was right.
         """
         self._loading = True
         try:
@@ -394,13 +419,14 @@ class ProjectTabBar(ReorderableBar):
         self._persist()
 
     def find_tab(self, path: str) -> ProjectTab | None:
-        """La pestana de esa carpeta, sin importar como este escrita la ruta."""
+        """Return that folder's tab, however its path is written."""
         key = project_store.identity(path)
         return next((t for t in self.tabs if project_store.identity(t.project.path) == key), None)
 
     def add_project(self, project: Project, select: bool = False) -> ProjectTab:
-        # Una carpeta, una pestana: dos pestanas del mismo repo serian dos
-        # paneles escribiendo el mismo `.consola/params.json`.
+        # One folder, one tab: two tabs of the same repo would be two
+        # panels writing the same `.consola/params.json`.
+        """Add a repo's tab, and select it if asked."""
         existing = self.find_tab(project.path)
         if existing is not None:
             if select:
@@ -424,7 +450,8 @@ class ProjectTabBar(ReorderableBar):
 
     def _on_theme_changed(self, tab: ProjectTab) -> None:
         if tab is self._active:
-            # Recolorear el activo repinta el fondo de TODAS las pestanas.
+            # Recoloring the active one repaints the background of ALL
+            # tabs.
             for t in self.tabs:
                 t.set_active_palette(tab.pal)
             self.add_tab.set_palette(tab.pal)
@@ -432,6 +459,7 @@ class ProjectTabBar(ReorderableBar):
         self.project_retinted.emit(tab.project)
 
     def select_tab(self, tab: ProjectTab) -> None:
+        """Select a tab."""
         if self._active is tab:
             return
         self._active = tab
@@ -443,12 +471,14 @@ class ProjectTabBar(ReorderableBar):
         self.project_selected.emit(tab.project)
 
     def select_project(self, project: Project) -> None:
+        """Select a project's tab."""
         for t in self.tabs:
             if t.project is project:
                 self.select_tab(t)
                 return
 
     def remove_tab(self, tab: ProjectTab) -> None:
+        """Remove a tab."""
         if tab not in self.tabs:
             return
         idx = self.tabs.index(tab)
@@ -461,8 +491,9 @@ class ProjectTabBar(ReorderableBar):
         self._refresh_closable()
         self._persist()
         if was_active:
-            # Quitar el ultimo repo deja la barra vacia: no hay a que saltar y
-            # MainWindow muestra la pantalla de "anade un repositorio".
+            # Removing the last repo leaves the bar empty: there is
+            # nowhere to jump to, and MainWindow shows the «add a
+            # repository» screen.
             self._active = None
             if self.tabs:
                 self.select_tab(self.tabs[min(idx, len(self.tabs) - 1)])
@@ -472,28 +503,29 @@ class ProjectTabBar(ReorderableBar):
 
     @property
     def active_project(self) -> Project | None:
+        """Return the active tab's project."""
         return self._active.project if self._active else None
 
     def _refresh_closable(self) -> None:
-        # Toda pestana se puede cerrar, incluida la ultima: quedarse sin repos
-        # abiertos es un estado valido, no un callejon.
+        # Any tab can close, the last included: having no open repos is
+        # a valid state, not a dead end.
         for t in self.tabs:
             t.set_closable(True)
 
-    # --- anadir repo --------------------------------------------------
+    # --- add a repo --------------------------------------------------
     def _pick_repo(self) -> None:
         path = QFileDialog.getExistingDirectory(self, "Elegir carpeta del repositorio", "")
         if path:
             self.open_path(path)
 
     def open_path(self, path: str) -> None:
-        """Abre esa carpeta como pestana, o salta a la suya si ya esta.
+        """Open that folder as a tab, or jump to its tab if open.
 
-        Lo llaman el «+» y lo que deja una carpeta de repo nueva sin que nadie
-        la elija: clonar de GitHub (`Capability.opens_repo`). Es el mismo
-        camino en los dos casos — primer tema libre y aviso de repo
-        anadido — porque un repo clonado no es un repo distinto
-        de uno elegido a mano.
+        The «+» calls it, and so does whatever leaves a new repo folder
+        with nobody choosing it: cloning from GitHub
+        (`Capability.opens_repo`). Both take the same path, first free
+        theme and added-repo notice, because a cloned repo is no
+        different from one chosen by hand.
         """
         if not path:
             return
@@ -504,8 +536,8 @@ class ProjectTabBar(ReorderableBar):
         clean = project_store.display_path(path)
         name = os.path.basename(clean) or clean
         theme = palettes.first_free(t.project.theme for t in self.tabs)
-        # El color se guarda en el repo desde el primer momento, no al
-        # cambiarlo: abrirlo en otra maquina tiene que dar el mismo color.
+        # Color saves in the repo from the first moment, not on changing
+        # it: opening it on another machine has to give the same color.
         params_store.save_theme(clean, theme)
         project = Project(name, clean, theme)
         self.add_project(project, select=True)

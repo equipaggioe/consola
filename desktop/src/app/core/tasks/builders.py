@@ -1,3 +1,12 @@
+"""Build group.
+
+The version bump is one atomic capability for the three manifests
+(`pubspec.yaml`, `package.json`, `pyproject.toml`), the upload is
+another, and all that is each builder's own is the compile step. Only
+the executable still bumps the version and publishes on the VPS: the
+mobile app and the SPAs compile and nothing else (ADR-0059).
+"""
+
 from __future__ import annotations
 
 import json
@@ -15,46 +24,32 @@ from app.core.host import HOST
 from app.core.registry import registry
 from app.core.tasks import raster
 
-"""
-Grupo Compilar.
-
-Los tres builders eran el mismo esqueleto repetido tres veces: subir la version
-del manifiesto, correr la herramienta que compila, y opcionalmente subir el
-artefacto al VPS. Cada uno traia su propia copia del bump (uno para
-`pubspec.yaml`, otro para `package.json`, otro para `pyproject.toml`) y su
-propia copia del scp.
-
-Aca el bump es una sola atomica que sirve para los tres manifiestos, la subida
-es otra, y lo unico propio de cada builder es el paso de compilacion. Solo el
-ejecutable sigue subiendo la version y publicando en el VPS: la app movil y las
-SPA compilan y nada mas (ADR-0059).
-"""
-
 
 def _target(ctx: TaskContext, kind: str, name: str = "") -> targets.Target:
     return targets.pick(ctx.root, (kind,), name)
 
 
 def _mobile(ctx: TaskContext, name: str = "") -> targets.Target:
-    """La app movil del repo, sea Flutter o Flet.
+    """Return the repo's mobile app, whether Flutter or Flet.
 
-    Los dos tipos se buscan juntos porque el framework no es una eleccion de
-    quien aprieta el boton: es una propiedad de la carpeta, y `compile_flutter` la
-    lee sola. Pedir "Flutter o Flet" seria pedir que confirme lo que el repo ya
-    contesta — y en un repo solo-Flet, exigir `flutter-app` fallaba antes de
-    llegar siquiera a la bifurcacion que ya existia.
+    Both types are looked for together because the framework is not a
+    choice of whoever presses the button: it is a property of the
+    folder, and `compile_flutter` reads it by itself.
     """
     return targets.pick(ctx.root, targets.MOBILE_APP, name)
 
 
-# --- atomicas transversales ------------------------------------------------
+# --- cross-cutting atomic ---
 
 
 def bump_version(ctx: TaskContext, directory: str = "", mode: str = "patch") -> tuple[str, str]:
-    """Sube la version del manifiesto del subproyecto. Sirve para los tres tipos.
+    """Bump the version in the subproject's manifest.
 
-    Tiene boton propio porque incrementar la version sin compilar todavia es una
-    operacion real: se hace al cerrar un cambio, antes de decidir si se publica.
+    Of any of the three types.
+
+    It has its own button because bumping the version without compiling
+    yet is a real operation: it happens on closing a change, before
+    deciding whether to publish.
     """
     folder = ctx.path(directory) if directory else ctx.root
     manifest = versioning.find_manifest(folder)
@@ -68,15 +63,17 @@ def bump_version(ctx: TaskContext, directory: str = "", mode: str = "patch") -> 
 def upload_artifact(
     ctx: TaskContext, local: Path, remote_rel: str = "", *, chmod: str = ""
 ) -> str:
-    """Sube un artefacto al VPS respetando su ruta relativa dentro del repo.
+    """Upload an artifact to the VPS.
 
-    Boton propio: re-subir un APK ya compilado despues de un corte de red no
-    deberia obligar a recompilarlo.
+    Keeping its relative path in the repo.
 
-    `chmod` es para lo que del otro lado se ejecuta: `scp` no conserva el bit de
-    ejecucion, asi que un binario subido sin esto llega inservible. Los demas
-    artefactos (un APK, una carpeta de SPA) se sirven, no se ejecutan, y no lo
-    necesitan.
+    Its own button: re-uploading a compiled APK after a network cut
+    should not force recompiling it.
+
+    `chmod` is for what executes on the other side: `scp` does not keep
+    the execute bit, so a binary uploaded without this arrives useless.
+    Other artifacts (an APK, an SPA's folder) are served, not executed,
+    and do not need it.
     """
     if not local.exists():
         raise TaskError(f"No existe el artefacto: {local}")
@@ -87,24 +84,28 @@ def upload_artifact(
     return destination
 
 
-# --- pasos de Flutter / Flet -----------------------------------------------
+# --- Flutter and Flet steps ---
 
 
 def compile_flutter(ctx: TaskContext, directory: str = "", platform_id: str = "apk") -> Path:
-    """Compila la app para una plataforma. Es el unico paso que cambia entre
-    Flutter y Flet, y entre una plataforma y otra.
+    """Compile the app for one platform.
 
-    La URL de la API se inyecta por `--dart-define` desde la configuracion: es
-    la misma fuente que usa el launcher de debug, para que release y debug no
-    apunten a servidores distintos por descuido. Flet no tiene `--dart-define`
-    propio: se lo pasa a su `flutter build` de abajo con `--flutter-build-args`.
+    It is the only step that changes between Flutter and Flet, and
+    between platforms.
 
-    En web la app va en la raiz de su host, que es el default de Flutter: cada
-    pieza tiene el suyo (ADR-0065).
+    The API's URL enters through `--dart-define` from the configuration:
+    the same source the debug launcher uses, so release and debug do not
+    point to different servers by accident. Flet has no `--dart-define`
+    of its own: it passes it to its underlying `flutter build` with
+    `--flutter-build-args`.
 
-    Offline no hay: el service worker que genera Flutter se des-registra solo
-    (su `--pwa-strategy` esta deprecado y ya no cachea nada), asi que la app es
-    instalable por su `manifest.json` pero solo funciona en linea.
+    On web the app goes at its host's root, Flutter's default: each
+    piece has its own (ADR-0065).
+
+    There is no offline: the service worker Flutter generates
+    unregisters itself (its `--pwa-strategy` is deprecated and caches
+    nothing), so the app installs through its `manifest.json` but only
+    works online.
     """
     app = _mobile(ctx, directory)
     kind = toolchain.detect_app_kind(app.path)
@@ -118,7 +119,8 @@ def compile_flutter(ctx: TaskContext, directory: str = "", platform_id: str = "a
             cwd=app.path,
         )
     else:
-        # La variable de entorno queda para el codigo Python que la lea al empaquetar.
+        # The environment variable stays for the Python code that reads
+        # it when packaging.
         ctx.run(
             [*toolchain.flet_cmd(), "build", destination.flet, f"--flutter-build-args={define}"],
             cwd=app.path,
@@ -142,22 +144,24 @@ def _newest(base: Path, pattern: str) -> Path | None:
 
 
 def _out_dir(ctx: TaskContext, app_dir: Path, platform_id: str) -> Path | None:
-    """La carpeta de `config.env` donde tiene que quedar el build, si hay una.
+    """Return the `config.env` folder where the build has to land.
 
-    Vacia, el build se queda donde lo deja el framework. Es relativa a la
-    carpeta de la app, igual que las rutas por defecto que muestra el campo.
+    If any.
+
+    Empty, the build stays where the framework leaves it. It is relative
+    to the app's folder, like the default paths the field shows.
     """
     value = ctx.config.get(toolchain.out_key(platform_id))
     return app_dir / value if value else None
 
 
 def _deliver(ctx: TaskContext, app_dir: Path, platform_id: str, output: Path) -> Path:
-    """Copia el build a la carpeta configurada, si hay una.
+    """Copy the build to the configured folder, if any.
 
-    Se copia y no se le pide al framework que compile ahi: Flutter solo acepta
-    `--output` en web, y asi las siete plataformas funcionan igual en los dos
-    frameworks. Un APK o un IPA quedan *dentro* de la carpeta; un build web o de
-    escritorio, que ya es una carpeta, pasa a *ser* ella.
+    It copies and does not ask the framework to compile there: Flutter
+    only accepts `--output` on web, and this way all seven platforms
+    work the same on both frameworks. An APK or IPA lands *inside* the
+    folder; a web or desktop build, already a folder, *becomes* it.
     """
     folder = _out_dir(ctx, app_dir, platform_id)
     if folder is None:
@@ -167,22 +171,18 @@ def _deliver(ctx: TaskContext, app_dir: Path, platform_id: str, output: Path) ->
     return destination
 
 
-# --- manifiesto de release -------------------------------------------------
+# --- release manifest ---
 #
-# Que version esta publicada es un hecho del artefacto, no configuracion del
-# servidor. Tenerlo como variable de entorno del backend obligaba a editar un
-# `.env`, subirlo y reiniciar el servicio para anunciar un build — tres pasos
-# que no tienen nada que ver con compilar, y que se saltean solos en cuanto
-# alguien publica sin acordarse. Aca lo escribe quien construye, que es el unico
-# que sabe la version en el momento exacto en que deja de ser una intencion.
+# Which version is published is a fact of the artifact, not server
+# configuration. The builder writes it, the only one who knows the
+# version at the exact moment it stops being an intention.
 #
-# Es la convencion de siempre para actualizaciones: el appcast de Sparkle, el
-# `latest.yml` de electron-updater, el `latest.json` de Tauri. Flutter mismo ya
-# emite `build/web/version.json`, que es esto para una sola plataforma.
+# It is the usual convention for updates: Sparkle's appcast,
+# electron-updater's `latest.yml`, Tauri's `latest.json`. Flutter itself
+# emits `build/web/version.json`, which is this for one platform.
 #
-# No es una fuente de verdad nueva: se deriva del manifiesto del subproyecto
-# (`pubspec.yaml`, `package.json`, `pyproject.toml`) en el momento de publicar,
-# asi que no hay nada que mantener sincronizado a mano.
+# It is no new source of truth: it derives from the subproject's
+# manifest when publishing, so nothing has to stay in sync by hand.
 
 RELEASES_DIR = "releases"
 
@@ -190,11 +190,13 @@ RELEASES_DIR = "releases"
 def _release_manifest(
     ctx: TaskContext, app: str, platform_id: str, artifact: Path, manifest: Path
 ) -> Path:
-    """Escribe `releases/<app>/<plataforma>.json` describiendo lo que se publica.
+    """Write `releases/<app>/<platform>.json`.
 
-    El `sha256` va solo cuando el artefacto es un archivo: un build web es un
-    arbol, y un hash por archivo no es lo que nadie va a verificar. Sin el, el
-    resto del manifiesto sigue sirviendo.
+    Describing what is published.
+
+    `sha256` goes only when the artifact is a file: a web build is a
+    tree, and a hash per file is not what anyone will verify. Without
+    it, the rest of the manifest still serves.
     """
     version = versioning.read_version(manifest)
     data: dict[str, str | int] = {
@@ -218,22 +220,27 @@ def _release_manifest(
 def _publish_release(
     ctx: TaskContext, app: str, platform_id: str, artifact: Path, manifest: Path
 ) -> None:
-    """Escribe el manifiesto de release y lo sube junto al artefacto."""
+    """Write the release manifest and upload it with the artifact."""
     upload_artifact(ctx, _release_manifest(ctx, app, platform_id, artifact, manifest))
 
 
-# --- pasos de Vite ---------------------------------------------------------
+# --- Vite steps ---
 
 
 def install_node_modules(ctx: TaskContext, directory: str = "") -> None:
-    """`pnpm install`, which pnpm manages as sveltekit.md of canone asks (ADR-0072)."""
+    """`pnpm install`, which pnpm manages as sveltekit.md.
+
+    Of canone asks (ADR-0072).
+    """
     spa = _target(ctx, targets.SPA_VITE, directory)
     ctx.run([*toolchain.pnpm_cmd(), "install"], cwd=spa.path)
 
 
 def compile_spa(ctx: TaskContext, directory: str = "") -> Path:
-    """`pnpm run build`. La SPA va en la raiz de su host, asi que Consola no le
-    deja nada adentro: el build es el del repo tal cual (ADR-0065).
+    """Run `pnpm run build`.
+
+    The SPA goes at its host's root, so Consola leaves nothing inside:
+    the build is the repo's as is (ADR-0065).
     """
     spa = _target(ctx, targets.SPA_VITE, directory)
     ctx.run([*toolchain.pnpm_cmd(), "run", "build"], cwd=spa.path)
@@ -243,10 +250,11 @@ def compile_spa(ctx: TaskContext, directory: str = "") -> Path:
 
 
 def _spa_output(spa: targets.Target) -> Path:
-    """La carpeta que dejo el build: `dist/` en Vite pelado, `build/` en los
-    adaptadores de SvelteKit. Se mira el disco y no `vite.config.*` porque la
-    salida puede venir declarada desde un plugin.
+    """Return the folder the build left.
 
+    That is `dist/` in bare Vite and `build/` in SvelteKit's adapters.
+    It looks at the disk and not `vite.config.*` because the output may
+    be declared by a plugin.
     """
     for candidate in ("dist", "build"):
         output = spa.path / candidate
@@ -255,8 +263,9 @@ def _spa_output(spa: targets.Target) -> Path:
     raise TaskError(f"{spa.name} no tiene carpeta dist/ ni build/.")
 
 
-# `sv create` lays out the skeleton, with TypeScript, Prettier, ESLint and adapter-static. Then
-# the template of canone goes on top, plus the `ssr = false` of a static SPA (ADR-0072).
+# `sv create` lays out the skeleton, with TypeScript, Prettier, ESLint
+# and adapter-static. Then the template of canone goes on top, plus the
+# `ssr = false` of a static SPA (ADR-0072).
 _SV = "sv@1.2.0"
 _SPA_TEMPLATE = (".gitignore", ".prettierrc", "uno.config.ts", "vite.config.ts")
 _SPA_NAME = re.compile(r"[a-z0-9][a-z0-9._-]*")
@@ -288,9 +297,12 @@ export const ssr = false;
 
 
 def _generate_colors(ctx: TaskContext, template: Path) -> None:
-    """`src/lib/colors.ts`, which `uno.config.ts` imports, from the tokens of the repo.
+    """`src/lib/colors.ts`, which `uno.config.ts` imports.
 
-    A repo without them takes the canone starting point (transversal.md of canone, «Tema»).
+    From the tokens of the repo.
+
+    A repo without them takes the canone starting point (transversal.md
+    of canone, «Tema»).
     """
     generator = ctx.root / "scripts" / "tokens.py"
     if not generator.is_file():
@@ -303,14 +315,16 @@ def _generate_colors(ctx: TaskContext, template: Path) -> None:
 
 
 def create_spa(ctx: TaskContext) -> Path:
-    """Crea en el repo una SPA en blanco: SvelteKit + TypeScript + runes + UnoCSS.
+    """Create a blank SPA in the repo.
 
-    Queda lista para los otros botones de Vite: `serve_vite` y `build_vite` la
-    descubren por su `vite.config.ts`.
+    SvelteKit, TypeScript, runes, UnoCSS.
 
-    El nombre de la carpeta se pregunta aca y no llega como parametro: es el
-    unico dato de la corrida y es distinto en cada una, asi que no tiene donde
-    guardarse (`core/catalog.py`, al registrar `create_spa`).
+    It stays ready for the other Vite buttons: `serve_vite` and
+    `build_vite` discover it by its `vite.config.ts`.
+
+    The folder's name is asked here and does not come as a parameter: it
+    is the run's only datum and differs each time, so it has nowhere to
+    be saved (`core/catalog.py`, on registering `create_spa`).
     """
     name = ctx.ask("¿Cómo se va a llamar la carpeta de la SPA?").strip()
     if not name:
@@ -365,34 +379,33 @@ def create_spa(ctx: TaskContext) -> Path:
     return destination
 
 
-# --- pasos de binario ------------------------------------------------------
+# --- binary steps ---
 
-# Entrypoints que se prueban cuando el campo queda vacio, en orden. `src/main.py`
-# va primero porque es el que ya prefiere el launcher App Python
-# (`core/targets.py::python_entrypoint`): el ejecutable que se descarga es la
-# misma app que se lanza en desarrollo, y preguntar la ruta seria pedir que
-# confirmen lo que la carpeta ya contesta.
+# Entrypoints tried when the field stays empty, in order. `src/main.py`
+# goes first because the App Python launcher already prefers it
+# (`core/targets.py::python_entrypoint`): the executable to download is
+# the same app launched in development, and asking for the path would be
+# asking to confirm what the folder already answers.
 _ENTRYPOINTS = ("src/main.py", "main.py", "app/main.py")
 
-# Un entrypoint llamado asi no nombra al programa, nombra al archivo de arranque:
-# `src/main.py` daria un ejecutable "main". En ese caso el nombre sale de la
-# carpeta de la app, que es como se llama el proyecto.
+# An entrypoint called this does not name the program but the startup
+# file: `src/main.py` would give an executable called «main». Then the
+# name comes from the app's folder, the project's name.
 _GENERIC_NAMES = ("main", "__main__", "app", "cli", "run")
 
 
 def resolve_entrypoint(ctx: TaskContext, entrypoint: str = "") -> Path:
-    """El archivo Python que PyInstaller va a empaquetar.
+    """Return the Python file PyInstaller will package.
 
-    Escrito a mano gana siempre — el script original aceptaba cualquier ruta del
-    repo (`server/main.py`, `tools/cli.py`) y eso se conserva. Vacio se deduce:
-    el unico `python-app` del repo y su `src/main.py`, y si el repo no tiene
-    ninguno, un `main.py` en la raiz (el caso de una app de un solo arranque,
-    como la propia Consola).
+    Written by hand it always wins: any path of the repo is accepted
+    (`server/main.py`, `tools/cli.py`). Empty, it deduces: the repo's
+    only `python-app` and its `src/main.py`, and if the repo has none, a
+    `main.py` at the root.
 
-    No hay eje `app` con la lista de apps descubiertas, a diferencia de los otros
-    dos builders: un eje descubierto vacio bloquea el boton en ambar, y un repo
-    que se empaqueta desde su raiz no tiene ningun `python-app` que descubrir —
-    quedaria sin poder compilarse su propio ejecutable.
+    There is no `app` axis with discovered apps, unlike the other two
+    builders: an empty discovered axis blocks the button in amber, and a
+    repo that packages from its root has no `python-app` to discover, so
+    it could not compile its own executable.
     """
     if entrypoint:
         source = ctx.path(entrypoint)
@@ -420,13 +433,13 @@ def resolve_entrypoint(ctx: TaskContext, entrypoint: str = "") -> Path:
 
 
 def _binary_app(root: Path, source: Path) -> Path:
-    """La carpeta de la app a la que pertenece el entrypoint.
+    """Return the folder of the app the entrypoint belongs to.
 
-    Es donde vive el manifiesto que se versiona y donde PyInstaller deja
-    `dist/` y `build/`. Se busca subiendo desde el entrypoint hasta encontrar un
-    manifiesto: el script original se quedaba con `entrypoint.parent`, que para
-    `src/main.py` es `src/` y terminaba creando ahi un `pyproject.toml` paralelo
-    al de la app, con su propia version que nadie mas leia.
+    It is where the versioned manifest lives and where PyInstaller
+    leaves `dist/` and `build/`. It looks upward from the entrypoint
+    until finding a manifest: `entrypoint.parent`, which for
+    `src/main.py` is `src/`, would create a `pyproject.toml` parallel to
+    the app's, with its own version nobody else read.
     """
     folder = source.parent
     while folder != folder.parent:
@@ -439,12 +452,11 @@ def _binary_app(root: Path, source: Path) -> Path:
 
 
 def _ensure_manifest(ctx: TaskContext, app_dir: Path) -> Path:
-    """El manifiesto de version de la app; se crea en 0.0.0 si no hay ninguno.
+    """Return the app's version manifest, created at 0.0.0 if absent.
 
-    Es el `_ensure_pyproject` del script original, y esta por la misma razon:
-    un script suelto que se empieza a distribuir no tiene por que traer un
-    `pyproject.toml` escrito de antemano, y sin manifiesto no hay version que
-    subir ni que publicar al lado del binario.
+    A loose script that starts being distributed need not bring a
+    `pyproject.toml` written beforehand, and without a manifest there is
+    no version to bump or publish next to the binary.
     """
     try:
         return versioning.find_manifest(app_dir)
@@ -458,13 +470,13 @@ def _ensure_manifest(ctx: TaskContext, app_dir: Path) -> Path:
 
 
 def _binary_label(app_dir: Path, source: Path, name: str) -> str:
-    """Nombre del ejecutable, con la etiqueta de la plataforma que lo produjo.
+    """Return the executable's name, tagged with its platform.
 
-    PyInstaller no compila cruzado: el binario sirve para el sistema donde corre
-    Consola, y sin la etiqueta el de Windows y el de Linux se pisan en la misma
-    ruta del VPS. El nombre no lleva la version a proposito — la URL de descarga
-    se mantiene estable y quien quiere saber que version es lee el manifiesto
-    que se publica al lado.
+    PyInstaller does not cross-compile: the binary serves the system
+    Consola runs on, and without the tag Windows's and Linux's overwrite
+    each other at the same VPS path. The name carries no version on
+    purpose: the download URL stays stable, and whoever wants the
+    version reads the manifest published next to it.
     """
     base = name.strip()
     if not base:
@@ -473,9 +485,10 @@ def _binary_label(app_dir: Path, source: Path, name: str) -> str:
 
 
 def _binary_output(app_dir: Path, label: str, onefile: bool) -> Path:
-    """Donde queda lo que deja PyInstaller: un archivo con `--onefile`, una
-    carpeta sin el. Sirve para leer lo recien compilado y para encontrar lo que
-    ya estaba.
+    """Return where PyInstaller's output lands.
+
+    A file with `--onefile`, a folder without it. It serves to read what
+    was just compiled and to find what was already there.
     """
     suffix = HOST.executable_suffix if onefile else ""
     return app_dir / "dist" / f"{label}{suffix}"
@@ -489,21 +502,22 @@ def compile_binary(
     onefile: bool = True,
     windowed: bool = False,
 ) -> Path:
-    """Empaqueta un ejecutable con PyInstaller.
+    """Package an executable with PyInstaller.
 
-    Corre con la carpeta de la app como directorio de trabajo, no con la raiz
-    del repo: asi `dist/` y `build/` quedan al lado del manifiesto que se acaba
-    de versionar, que es lo que hacia el script original.
+    It runs with the app's folder as working directory, not the repo's
+    root: so `dist/` and `build/` stay next to the manifest just
+    versioned.
 
-    `--specpath build` manda el `.spec` generado adentro de `build/`. Es un
-    archivo derivado, y en la raiz de la app aparecia como cambio sin commitear
-    despues de cada compilacion; en `build/` ya lo cubre 'Limpiar artefactos'.
+    `--specpath build` sends the generated `.spec` inside `build/`. It
+    is a derived file, and at the app's root it showed as an uncommitted
+    change after each compile; in `build/` «Limpiar artefactos» already
+    covers it.
 
-    No se pasa `--clean`: borra la cache de PyInstaller y vuelve a analizar
-    todas las dependencias en cada corrida. Es la misma economia por la que
-    `install_node_modules` no borra `node_modules` — la cache existe
-    justo para el build repetido, y para el limpio de verdad esta el boton de
-    limpiar artefactos.
+    No `--clean`: it deletes PyInstaller's cache and reanalyzes all
+    dependencies each run. It is the same economy by which
+    `install_node_modules` does not delete `node_modules`: the cache
+    exists for repeated builds, and the artifact cleaning button is
+    there for a truly clean one.
     """
     source = resolve_entrypoint(ctx, entrypoint)
     app_dir = _binary_app(ctx.root, source)
@@ -520,14 +534,14 @@ def compile_binary(
         *(["--onefile"] if onefile else []),
     ]
     if windowed:
-        # Sin consola: en Windows una app de ventana abre ademas una cmd negra
-        # detras si se empaqueta sin esto.
+        # No console: on Windows a window app also opens a black cmd
+        # behind it if packaged without this.
         argv.append("--windowed")
     (app_dir / "build").mkdir(parents=True, exist_ok=True)
     if ctx.config.get("BRAND_ICON"):
-        # El icono del ejecutable es el logo del repo, como el de sus otras
-        # apps (ADR-0056). Va a `build/`, que es derivado: lo cubre 'Limpiar
-        # artefactos' y no aparece como cambio del repo.
+        # The executable's icon is the repo's logo, like its other apps'
+        # (ADR-0056). It goes to `build/`, which is derived: «Limpiar
+        # artefactos» covers it and it shows as no change of the repo.
         logo = icons.brand_file(ctx.root, ctx.config.get("BRAND_ICON"), "BRAND_ICON")
         ico = app_dir / "build" / "icon.ico"
         ico.write_bytes(raster.svg_to_ico(logo))
@@ -542,15 +556,15 @@ def compile_binary(
 
 
 def checksum_artifact(ctx: TaskContext, artifact: Path) -> Path:
-    """Escribe el SHA-256 del artefacto al lado, en formato `sha256sum`.
+    """Write the artifact's SHA-256 next to it, in `sha256sum` format.
 
-    Un ejecutable que se descarga no se puede mirar por dentro: el hash es lo
-    unico que deja comprobar que lo bajado es lo que se publico. Se guarda como
-    `<binario>.sha256` para que `sha256sum -c` lo verifique sin editarlo.
+    A downloaded executable cannot be looked into: the hash is all that
+    lets one check that what was downloaded is what was published. It
+    saves as `<binary>.sha256` so `sha256sum -c` verifies it unedited.
     """
     if artifact.is_dir():
-        # Con `--onefile` desactivado no hay un archivo que firmar sino un arbol
-        # entero; un hash por archivo no es lo que nadie va a verificar a mano.
+        # With `--onefile` off there is no file to sign but a whole
+        # tree; a hash per file is not what anyone will verify by hand.
         raise TaskError("El checksum solo aplica al empaquetado en un archivo.")
     fingerprint = files.digest(artifact)
     destination = artifact.with_name(f"{artifact.name}.sha256")
@@ -560,11 +574,14 @@ def checksum_artifact(ctx: TaskContext, artifact: Path) -> Path:
 
 
 def _maybe_checksum(ctx: TaskContext, artifact: Path) -> Path | None:
-    """El checksum del paso marcado, salteado con un aviso si no aplica.
+    """Run the checked step's checksum.
 
-    El empaquetado en carpeta no tiene un archivo que firmar, y ahi el paso no
-    es un error: es una combinacion que no significa nada. Fallar despues de
-    empaquetar —lo unico caro del flujo— seria tirar el build por una casilla.
+    Skipped with a notice if not applicable.
+
+    Folder packaging has no file to sign, and there the step is no error
+    but a combination that means nothing. Failing after packaging, the
+    only expensive part of the flow, would throw away the build for a
+    checkbox.
     """
     if artifact.is_dir():
         ctx.warn("Checksum omitido: el empaquetado en carpeta no es un archivo que firmar.")
@@ -575,17 +592,19 @@ def _maybe_checksum(ctx: TaskContext, artifact: Path) -> Path | None:
 def _publish_binary(
     ctx: TaskContext, app: str, artifact: Path, manifest: Path, checksum: Path | None
 ) -> None:
-    """Sube el binario con su manifiesto (y su checksum, si se genero).
+    """Upload the binary with its manifest.
 
-    Van juntos o no va ninguno. El ejecutable no dice de que version es, y del lado del VPS el manifiesto es lo
-    unico que lo identifica. El script original subia los dos solo en su rama
-    `BUILD_BINARY=false`; en la normal dejaba el manifiesto remoto viejo.
+    And its checksum if generated.
 
-    El binario se sube con permiso de ejecucion: `scp` no lo conserva, y del
-    otro lado quedaba un ejecutable que no se podia ejecutar.
+    They go together or not at all. The executable does not say which
+    version it is, and on the VPS the manifest is all that identifies
+    it.
+
+    The binary uploads with execute permission: `scp` does not keep it,
+    and the other side would get an executable that cannot execute.
     """
-    # `chmod -R` para el empaquetado en carpeta: ahi el ejecutable es un archivo
-    # de adentro, y el bit del directorio no le sirve de nada.
+    # `chmod -R` for folder packaging: there the executable is a file
+    # inside, and the folder's bit is no use to it.
     upload_artifact(ctx, artifact, chmod="-R 755" if artifact.is_dir() else "755")
     upload_artifact(ctx, manifest)
     if checksum is not None:
@@ -593,7 +612,7 @@ def _publish_binary(
     _publish_release(ctx, app, HOST.system.lower(), artifact, manifest)
 
 
-# --- compuestas ------------------------------------------------------------
+# --- composites ---
 
 
 def build_flutter(
@@ -601,14 +620,15 @@ def build_flutter(
     directory: str = "",
     platforms: Sequence[str] = ("apk",),
 ) -> list[Path]:
-    """Compila la app para cada plataforma marcada.
+    """Compile the app for each checked platform.
 
-    Es el `build_flutter.py` de posta, sin el bump ni la subida al VPS: la
-    version sale del tag y el APK no se publica en el VPS (ADR-0059). Un solo
-    boton para Flutter y para Flet: `directory` nombra *cual* app del repo, no
-    con que esta escrita, y el framework sale de la carpeta.
+    Without the bump or the VPS upload: the version comes from the tag
+    and the APK is not published on the VPS (ADR-0059). One button for
+    Flutter and Flet: `directory` names *which* app of the repo, not
+    what it is written in, and the framework comes from the folder.
 
-    No hay paso de `pub get`: `flutter build` resuelve dependencias solo.
+    There is no `pub get` step: `flutter build` resolves dependencies by
+    itself.
     """
     app = _mobile(ctx, directory)
     names = ", ".join(toolchain.BUILD_PLATFORMS[p].label for p in platforms)
@@ -621,16 +641,16 @@ def build_flutter(
 
 
 def build_vite(ctx: TaskContext, directories: Sequence[str] = ()) -> list[Path]:
-    """Por cada SPA elegida: pnpm install y build.
+    """Run pnpm install and build for each chosen SPA.
 
-    Su eje es `many`: un repo tiene una app movil pero suele tener tres SPA
-    (`panel`, `backoffice`, `landing`), y compilarlas es una tarea que termina
-    — asi que las marcadas se recorren en un bucle aca dentro, N builds en fila
-    en un solo log, y no una pestana por cada una como hace el launcher de dev
-    servers (ADR-0010).
+    Its axis is `many`: a repo has one mobile app but tends to have
+    three SPAs (`panel`, `backoffice`, `landing`), and compiling them is
+    a task that ends, so the checked ones loop here, N builds in a row
+    in one log, and not one tab each like the dev server launcher
+    (ADR-0010).
 
-    La lista vacia significa "la unica SPA que haya", igual que el `directory`
-    vacio de `build_flutter`: en un repo con una sola, el eje ni se dibuja.
+    An empty list means «the only SPA there is», like `build_flutter`'s
+    empty `directory`: in a repo with one, the axis does not even draw.
     """
     chosen = [_target(ctx, targets.SPA_VITE, name) for name in (directories or [""])]
     outputs: list[Path] = []
@@ -657,16 +677,15 @@ def build_binary(
     checksum: bool = True,
     upload: bool = False,
 ) -> Path | None:
-    """Compuesta: bump del manifiesto -> PyInstaller -> checksum -> subida.
+    """Composite: manifest bump, PyInstaller, checksum, upload.
 
-    Mismo esqueleto que `build_flutter` y `build_vite`, y por fin con el mismo modo
-    re-subida: sin `build` no se compila nada y se sube el ejecutable que ya
-    esta en `dist/`. Es el `BUILD_BINARY=false` del script original — que era
-    justamente el modo que existia para retomar un `scp` cortado sin pagar otro
-    empaquetado entero — y por eso 'Compilar binario' dejo de ser un paso fijo.
+    The same skeleton as `build_flutter` and `build_vite`, with the same
+    re-upload mode: without `build` nothing compiles and the executable
+    already in `dist/` uploads, to resume a cut `scp` without paying for
+    another whole packaging.
 
-    Si el build falla, la version vuelve a lo que era: el repo no queda marcado
-    con un numero que nunca se publico.
+    If the build fails, the version returns to what it was: the repo
+    does not stay marked with a number never published.
     """
     source = resolve_entrypoint(ctx, entrypoint)
     app_dir = _binary_app(ctx.root, source)
@@ -712,6 +731,7 @@ def build_binary(
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("build_flutter", build_flutter)
     registry.bind("build_vite", build_vite)
     registry.bind("create_spa", create_spa)

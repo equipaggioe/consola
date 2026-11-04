@@ -1,3 +1,14 @@
+"""Read-only introspection of a Postgres database (ADR-0015).
+
+No Qt: functions over a psycopg connection, which the view calls from
+its thread (`ui/db_worker.py`) and the `explore_db` task from its own.
+
+It all comes from `pg_catalog`, not `information_schema`: the latter
+only shows what the role can touch, and the explorer connects as the
+app's role, so a table without GRANT would silently vanish from the
+tree.
+"""
+
 from __future__ import annotations
 
 from dataclasses import dataclass, field
@@ -9,34 +20,25 @@ from psycopg.sql import SQL, Composed
 
 from app.core.errors import TaskError
 
-"""
-Introspeccion de solo lectura de una base Postgres (ADR-0015).
-
-Sin Qt: funciones sobre una conexion psycopg, que la vista llama desde su hilo
-(`ui/db_worker.py`) y la tarea `explore_db` desde el suyo.
-
-Todo sale de `pg_catalog`, no de `information_schema`: esta ultima solo muestra
-lo que el rol puede tocar, y el explorador conecta como el rol de la app — una
-tabla sin GRANT desapareceria del arbol en silencio (§5).
-"""
-
 STATEMENT_TIMEOUT_MS = 15000
 PAGE_SIZE = 200
-# Una celda trae como mucho esto: un `text` de megas no viaja entero para
-# mostrarse cortado. Un caracter de mas avisa que hubo recorte.
+# A cell brings at most this: a `text` of megabytes does not travel
+# whole to be shown cut. One extra character warns of a cut.
 CELL_CHARS = 2000
 
-# Tipos que no se leen como texto: la geometria llega como EWKB hexadecimal y
-# un bytea como su volcado entero. Se traen convertidos desde el servidor.
+# Types that do not read as text: geometry comes as hex EWKB and a bytea
+# as its whole dump. They arrive converted from the server.
 GEOMETRY_TYPES = ("geometry", "geography")
 BYTEA = "bytea"
 
-# La URL con contrasena no viaja por la barra de la pestana (esa muestra la
-# enmascarada): la tarea la deja en la sesion con esta clave y la vista la lee.
+# The URL with its password does not travel through the tab's bar, which
+# shows the masked one: the task leaves it in the session under this key
+# and the view reads it.
 _SESSION_PREFIX = "explore_db:url:"
 
 
 def session_key(safe_url: str) -> str:
+    """Return the session key of a masked URL."""
     return _SESSION_PREFIX + safe_url
 
 
@@ -51,6 +53,8 @@ KIND_LABELS = {
 
 @dataclass
 class ServerInfo:
+    """What the server says about itself."""
+
     version: str
     database: str
     user: str
@@ -60,30 +64,38 @@ class ServerInfo:
 
 @dataclass
 class Relation:
+    """A table, view or partition."""
+
     schema: str
     name: str
     kind: str  # relkind: r p v m f
-    estimate: int | None  # reltuples; sin ANALYZE todavia, las filas vivas que
-    # cuenta el colector. None en una vista.
+    # reltuples; without ANALYZE yet, the live rows the collector
+    # counts. None on a view.
+    estimate: int | None
     size_bytes: int
     comment: str | None
-    parent: str | None  # tabla madre, si es una particion
-    readable: bool  # el rol tiene SELECT
-    extension: bool = False  # la creo una extension (spatial_ref_sys de PostGIS)
+    parent: str | None  # parent table, if a partition
+    readable: bool  # the role has SELECT
+    # an extension created it (PostGIS's spatial_ref_sys)
+    extension: bool = False
 
     @property
     def qualified(self) -> str:
+        """Return `schema.table`."""
         return f"{self.schema}.{self.name}"
 
     @property
     def kind_label(self) -> str:
+        """Return the readable kind."""
         return KIND_LABELS.get(self.kind, self.kind)
 
 
 @dataclass
 class Column:
+    """A column of a table."""
+
     name: str
-    type: str  # con modificador: varchar(120), geometry(Point,4326)
+    type: str  # with modifier: varchar(120), geometry(Point,4326)
     base_type: str  # typname: int4, jsonb, geometry
     nullable: bool
     default: str | None
@@ -91,11 +103,14 @@ class Column:
     generated: str  # '' | 's' (STORED)
     comment: str | None
     pk: bool = False
-    fk: "ForeignKey | None" = None  # solo si la FK es de esta unica columna
+    # only if the FK is of this single column
+    fk: "ForeignKey | None" = None
 
 
 @dataclass
 class ForeignKey:
+    """A foreign key."""
+
     name: str
     columns: list[str]
     ref_schema: str
@@ -105,6 +120,8 @@ class ForeignKey:
 
 @dataclass
 class Constraint:
+    """A constraint."""
+
     name: str
     kind: str  # contype: p u f c x
     definition: str
@@ -112,6 +129,8 @@ class Constraint:
 
 @dataclass
 class Index:
+    """An index."""
+
     name: str
     definition: str
     unique: bool
@@ -120,20 +139,26 @@ class Index:
 
 @dataclass
 class TableDetail:
+    """The whole structure of a table."""
+
     relation: Relation
     columns: list[Column]
     constraints: list[Constraint]
     indexes: list[Index]
     outgoing: list[ForeignKey]
-    incoming: list[ForeignKey]  # quien apunta a esta tabla: columns = las de la otra
+    # who points to this table: columns = those of the other
+    incoming: list[ForeignKey]
 
     @property
     def primary_key(self) -> list[str]:
+        """Return the primary key's columns."""
         return [c.name for c in self.columns if c.pk]
 
 
 @dataclass
 class Page:
+    """A page of rows."""
+
     columns: list[str]
     rows: list[tuple[Any, ...]]
     offset: int
@@ -142,26 +167,27 @@ class Page:
 
 @dataclass
 class Filter:
-    """Igualdades por columna, en AND. Es lo que arma seguir una FK."""
+    """Per-column equalities, ANDed. Following an FK builds it."""
 
     equals: dict[str, str] = field(default_factory=dict)
 
     def __bool__(self) -> bool:
+        """Return whether it filters anything."""
         return bool(self.equals)
 
 
-# --- conexion ----------------------------------------------------------------
+# --- connection ---
 
 
 def open_readonly(url: str) -> Connection:
-    """Conexion de solo lectura, garantizada por el servidor y no por la vista.
+    """Return a read-only connection, guaranteed by the server.
 
-    `autocommit` y no una transaccion larga: una sesion que queda «idle in
-    transaction» retiene los AccessShareLock de cada tabla que miro, y un
-    `DROP TABLE` o una migracion en otra pestana se quedaria colgado esperando
-    a que cierres el explorador. Con autocommit cada SELECT suelta sus locks al
-    terminar, y `default_transaction_read_only` hace que el servidor rechace
-    cualquier escritura de todas formas.
+    `autocommit` and not a long transaction: a session left «idle in
+    transaction» retains the AccessShareLock of each table it looked at,
+    and a `DROP TABLE` or a migration in another tab would hang until
+    the explorer closes. With autocommit each SELECT releases its locks
+    when it ends, and `default_transaction_read_only` makes the server
+    reject any write anyway.
     """
     options = f"-c default_transaction_read_only=on -c statement_timeout={STATEMENT_TIMEOUT_MS}"
     try:
@@ -174,10 +200,11 @@ def _first_line(exc: Exception) -> str:
     return str(exc).strip().splitlines()[0] if str(exc).strip() else type(exc).__name__
 
 
-# --- consultas ---------------------------------------------------------------
+# --- queries ---
 
 
 def server_info(conn: Connection) -> ServerInfo:
+    """Return what the server says about itself."""
     row = conn.execute(
         "SELECT version(), current_database(), current_user, "
         "pg_database_size(current_database()), inet_server_port()"
@@ -212,7 +239,10 @@ ORDER BY n.nspname, c.relname
 
 
 def list_relations(conn: Connection) -> list[Relation]:
-    """El arbol entero en una consulta: el catalogo es chico y ya ordenado."""
+    """Return the whole tree in one query.
+
+    The catalog is small and sorted.
+    """
     return [
         Relation(
             schema=r[0],
@@ -244,10 +274,12 @@ ORDER BY n.nspname, c.relname, a.attnum
 
 
 def all_columns(conn: Connection) -> dict[str, list[tuple[str, str, bool]]]:
-    """Columnas de todas las tablas (nombre, tipo, nulo), por `esquema.tabla`.
+    """Return the columns of all tables.
 
-    Una sola consulta para comparar la base entera contra los modelos
-    (`core/db_models.py`) sin un `describe` por tabla.
+    Name, type, null) by `schema.table`.
+
+    One query to compare the whole database against the models
+    (`core/db_models.py`) without a `describe` per table.
     """
     found: dict[str, list[tuple[str, str, bool]]] = {}
     for schema, table, name, type_, nullable in conn.execute(_ALL_COLUMNS).fetchall():
@@ -272,8 +304,8 @@ WHERE a.attrelid = %s AND a.attnum > 0 AND NOT a.attisdropped
 ORDER BY a.attnum
 """
 
-# Las columnas de cada lado en el orden de la llave: `conkey`/`confkey` lo
-# conservan, `information_schema.constraint_column_usage` no (§5).
+# Each side's columns in key order: `conkey` and `confkey` keep it,
+# `information_schema.constraint_column_usage` does not.
 _KEYS = """
 ARRAY(SELECT a.attname FROM unnest(con.conkey) WITH ORDINALITY k(n, o)
       JOIN pg_attribute a ON a.attrelid = con.conrelid AND a.attnum = k.n ORDER BY k.o),
@@ -309,6 +341,7 @@ ORDER BY x.indisprimary DESC, i.relname
 
 
 def describe(conn: Connection, relation: Relation) -> TableDetail:
+    """Return the structure of a table."""
     found = conn.execute(_OID, (relation.schema, relation.name)).fetchone()
     if found is None:
         raise TaskError(f"{relation.qualified} ya no existe.")
@@ -349,9 +382,9 @@ def describe(conn: Connection, relation: Relation) -> TableDetail:
         ForeignKey(name, list(ref_cols), schema, table, list(cols))
         for name, schema, table, cols, ref_cols in conn.execute(_INCOMING, (oid,)).fetchall()
     ]
-    # En `incoming`, `columns` son las de ESTA tabla (a las que apuntan) y
-    # `ref_*` la tabla que apunta: asi se lee igual que una FK saliente, desde
-    # aca hacia afuera, y seguirla es el mismo gesto.
+    # In `incoming`, `columns` are those of THIS table (pointed at) and
+    # `ref_*` is the table pointing: it reads like an outgoing FK, from
+    # here outward, and following it is the same gesture.
 
     indexes = [
         Index(r[0], r[1], bool(r[2]), bool(r[3]))
@@ -361,12 +394,12 @@ def describe(conn: Connection, relation: Relation) -> TableDetail:
 
 
 def _select_list(columns: list[Column]) -> Composed:
-    """Cada columna como texto, convertida en el servidor segun su tipo.
+    """Return each column as text, converted on the server by its type.
 
-    Como texto y no con la conversion del driver: la vista solo muestra, y el
-    texto de Postgres es la forma canonica de cualquier tipo —rangos,
-    intervalos, enums, numeric de cuarenta digitos— sin que psycopg tenga que
-    saber cargarlo.
+    As text and not with the driver's conversion: the view only shows,
+    and Postgres's text is the canonical form of any type (ranges,
+    intervals, enums, forty-digit numerics) without psycopg having to
+    load it.
     """
     items = []
     for col in columns:
@@ -384,8 +417,9 @@ def _select_list(columns: list[Column]) -> Composed:
 def _where(where: Filter | None) -> Composed | SQL:
     if not where:
         return sql.SQL("")
-    # Literal sin tipo: Postgres lo infiere de la columna, asi `empresa_id = '7'`
-    # usa el indice. Comparar `col::text = %s` recorreria la tabla entera.
+    # An untyped literal: Postgres infers it from the column, so
+    # `company_id = '7'` uses the index. Comparing `col::text = %s`
+    # would walk the whole table.
     clauses = [
         sql.SQL("{} = {}").format(sql.Identifier(col), sql.Literal(value))
         for col, value in where.equals.items()
@@ -403,8 +437,10 @@ def fetch_rows(
     descending: bool = False,
     where: Filter | None = None,
 ) -> Page:
-    """Una pagina de filas. El orden es del servidor: ordenar solo lo cargado
-    mentiria. Sin columna elegida se ordena por la PK, que tambien desempata.
+    """Return a page of rows.
+
+    The server orders: ordering only what is loaded would lie. With no
+    chosen column it orders by the PK, which also breaks ties.
     """
     rel = detail.relation
     query = sql.SQL("SELECT {} FROM {}.{}").format(
@@ -434,6 +470,7 @@ def fetch_rows(
 
 
 def count_exact(conn: Connection, relation: Relation, where: Filter | None = None) -> int:
+    """Return the exact row count."""
     query = sql.SQL("SELECT count(*) FROM {}.{}").format(
         sql.Identifier(relation.schema), sql.Identifier(relation.name)
     ) + _where(where)
@@ -443,10 +480,11 @@ def count_exact(conn: Connection, relation: Relation, where: Filter | None = Non
     return row[0]
 
 
-# --- formato -------------------------------------------------------------------
+# --- format ---
 
 
 def human_count(n: int | None) -> str:
+    """Return a count as short text."""
     if n is None:
         return "?"
     for limit, suffix in ((1_000_000_000, "G"), (1_000_000, "M"), (1_000, "k")):

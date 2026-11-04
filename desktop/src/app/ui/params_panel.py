@@ -1,3 +1,5 @@
+"""The parameters panel of one action."""
+
 from __future__ import annotations
 
 from dataclasses import replace
@@ -36,7 +38,10 @@ from app.ui.palettes import Palette
 
 
 class SectionLabel(QLabel):
+    """A section's small label."""
+
     def __init__(self, text: str, parent: QWidget | None = None) -> None:
+        """Build the label."""
         super().__init__(text.upper(), parent)
         self.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; "
@@ -45,18 +50,18 @@ class SectionLabel(QLabel):
 
 
 class AxesLoader(QThread):
-    """Lee en segundo plano los catalogos que pide una capacidad.
+    """Read in the background the catalogs a capability asks for.
 
-    Preguntarle al SDK que dispositivos y que system images existen tarda de
-    segundos a un minuto la primera vez (despues queda cacheado en
-    `core/cache.py`). Hacerlo en el hilo de la interfaz congelaria la ventana
-    cada vez que se abre la pestana del emulador, asi que el panel se dibuja
-    con las listas vacias y se completa solo cuando esto termina.
+    Asking the SDK which devices and system images exist takes seconds
+    to a minute the first time; then it stays cached in `core/cache.py`.
+    Doing it in the interface thread would freeze the window each time
+    the emulator's tab opens, so the panel draws with empty lists and
+    fills when this ends.
 
-    Lo mismo vale, y mas todavia, para el VPS del repo: preguntarle que
-    servicios tiene es una vuelta de SSH contra una maquina que puede estar
-    apagada. Por eso el loader recibe la config del proyecto — es lo que dice a
-    que VPS preguntarle — y no solo la capacidad.
+    The same holds even more for the repo's VPS: asking which services
+    it has is an SSH round trip against a machine that may be off. So
+    the loader receives the project's config, which says which VPS to
+    ask, and not only the capability.
     """
 
     ready = Signal(dict)
@@ -69,11 +74,13 @@ class AxesLoader(QThread):
         refresh: bool = False,
         parent: QObject | None = None,
     ) -> None:
+        """Keep what the query needs."""
         super().__init__(parent)
         self._capability = capability
         self._config = config
-        # La raiz del repo: la pide el eje de respaldos, cuya carpeta puede
-        # declararse relativa a ella (`core/catalog.py::_backup_files`).
+        # The repo's root: the backups axis asks for it, since its
+        # folder can be declared relative to it
+        # (`core/catalog.py::_backup_files`).
         self._root = root
         self._refresh = refresh
 
@@ -89,7 +96,8 @@ class AxesLoader(QThread):
                     axis.source, refresh=self._refresh, config=self._config, root=self._root
                 )
             except TaskError as exc:
-                # The axis stays empty and the panel says why (ADR-0076).
+                # The axis stays empty and the panel says why
+                # (ADR-0076).
                 resolved[axis.name] = ([], {})
                 errors[axis.name] = str(exc)
         if self._capability.live_state:
@@ -105,39 +113,43 @@ class AxesLoader(QThread):
         self.ready.emit(resolved)
 
 
-# Clave con la que viaja el inventario de "lo que esta corriendo" dentro del
-# resultado del loader. No es un eje: no se elige, se mira y se apaga.
+# The key the inventory of «what is running» travels under in the
+# loader's result. It is not an axis: it is not chosen, it is looked at
+# and stopped.
 _LIVE = "@live"
-# Y la de los ejes cuya consulta fallo, con el porque de cada uno.
+# And that of the axes whose query failed, each with its reason.
 _ERRORS = "@errors"
 
-# Ancho de la etiqueta de cada caracteristica de un eje `pick` con `facets`.
-# Fijo y compartido para que las listas queden alineadas en columna: tres combos
-# empezando cada uno donde termina su palabra se leen como tres controles
-# sueltos y no como las tres partes de una misma eleccion.
+# Width of each feature's label on a `pick` axis with `facets`. Fixed
+# and shared so the lists align in a column: three combos each starting
+# where its word ends read as three loose controls and not three parts
+# of one choice.
 _FACET_LABEL_WIDTH = 86
 
-# Ancho minimo de una lista cerrada, en caracteres. No es el ancho real: es lo
-# unico que el combo exige, para que despues se estire con la fila en vez de
-# empujarla (`_pick_combo`).
+# Minimum width of a closed list, in characters. It is not the real
+# width but all the combo requires, so it then stretches with the row
+# instead of pushing it (`_pick_combo`).
 _COMBO_MIN_CHARS = 8
 
-# Tope de lo que puede ensancharse una lista desplegada. Sin el, el catalogo de
-# system images abriria un desplegable mas ancho que la ventana.
+# Limit on how wide an open list can grow. Without it, the system image
+# catalog would open a dropdown wider than the window.
 _POPUP_MAX_WIDTH = 460
 
 
 class ParamsPanel(QWidget):
-    """Parametros de UNA ejecucion: variantes, pasos y opciones.
+    """The parameters of ONE run: variants, steps and options.
 
-    Vive dentro de la pestana de la accion, asi que su estado sobrevive a
-    cambiar de pestana y volver — y desde ahi se puede volver a correr.
+    It lives inside the action's tab, so its state survives changing
+    tabs and coming back, and from there one can run again.
     """
 
     execute_requested = Signal(dict)
-    params_changed = Signal()  # lo guardado cambio: se revisa que puede correr de una
-    stop_requested = Signal(str)  # apagar algo que esta corriendo (un serial de emulador)
-    clear_requested = Signal()  # Limpiar del pie: vaciar el log de la pestana
+    # what is saved changed: check what can run at once
+    params_changed = Signal()
+    # stop something running (an emulator's serial)
+    stop_requested = Signal(str)
+    # the footer's Clear: empty the tab's log
+    clear_requested = Signal()
 
     def __init__(
         self,
@@ -146,45 +158,53 @@ class ParamsPanel(QWidget):
         env_panel: EnvPanel,
         parent: QWidget | None = None,
     ) -> None:
+        """Build the panel from the capability and what is saved."""
         super().__init__(parent)
-        # Los ejes descubiertos se resuelven contra ESTE repo, no contra el
-        # catalogo: la lista de apps sale de mirar las carpetas (ADR-0006).
-        # Copia propia de los ejes: los descubiertos y los de maquina se
-        # rellenan sobre esta capacidad, y el catalogo global no se toca.
+        # Discovered axes resolve against THIS repo, not the catalog:
+        # the list of apps comes from looking at the folders (ADR-0006).
+        # A copy of the axes of its own: discovered and machine axes
+        # fill on this capability, and the global catalog stays
+        # untouched.
         base = for_project(capability, project.path)
         self.capability = replace(base, axes=[replace(a) for a in base.axes])
         self.project = project
         self.pal = palettes.get(project.theme)
         self.env_panel = env_panel
-        # Sobre la copia resuelta para ESTE repo, no sobre la del catalogo: es
-        # la que ya se quedo sin los pasos que aca no existen (las migraciones
-        # en un repo que no las lleva).
+        # On the copy resolved for THIS repo, not the catalog's: it is
+        # the one already left without the steps that do not exist here
+        # (migrations in a repo without them).
         self.steps: list[Step] = registry.resolve_steps(self.capability)
         self._env: dict[str, str] = {}
 
-        self._checks: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check
-        self._options: dict[str, dict[str, QCheckBox]] = {}  # axis -> value -> check (exclusivo)
-        self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}  # axis -> valor escrito
-        self._picks: dict[str, QComboBox] = {}  # axis -> lista larga con busqueda
-        # axis -> caracteristica -> su lista corta. Es el mismo eje `pick` que
-        # arriba, dibujado en varias listas que se recortan entre si
-        # (`core/registry.py::Facet`); su valor sigue siendo el id entero, asi
-        # que viaja en el mismo balde `picks` del payload.
+        # axis -> value -> check
+        self._checks: dict[str, dict[str, QCheckBox]] = {}
+        # axis -> value -> check (exclusive)
+        self._options: dict[str, dict[str, QCheckBox]] = {}
+        # axis -> written value; axis -> long list with search; axis ->
+        # feature -> its short list. It is the same `pick` axis as
+        # above, drawn in several lists trimming each other
+        # (`core/registry.py::Facet`); its value is still the whole id,
+        # so it travels in the payload's same `picks` bucket.
+        self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}
+        self._picks: dict[str, QComboBox] = {}
         self._facets: dict[str, dict[str, QComboBox]] = {}
-        self._multi_layouts: dict[str, QVBoxLayout] = {}  # axis -> donde van sus casillas
-        self._option_layouts: dict[str, QVBoxLayout] = {}  # axis -> donde van sus excluyentes
-        self._empty_notes: dict[str, QLabel] = {}  # axis -> rotulo de "no hay ninguno aca"
+        # axis -> where its checkboxes go
+        self._multi_layouts: dict[str, QVBoxLayout] = {}
+        # axis -> where its exclusive options go
+        self._option_layouts: dict[str, QVBoxLayout] = {}
+        # axis -> «there is none here» label
+        self._empty_notes: dict[str, QLabel] = {}
         self._loader: AxesLoader | None = None
         self._loading = any(a.is_queried for a in self.capability.axes)
-        self._option_groups: dict[str, QButtonGroup] = {}  # axis -> su grupo excluyente
-        # vivo. Es dict y no lista porque un eje consultado se
-        # rellena de nuevo cada vez que se muestra la pestana, y
-        # hay que soltar el grupo que reemplaza.
+        # axis -> its live exclusive group. A dict and not a list
+        # because a queried axis refills each time the tab shows, and
+        # the group it replaces has to be let go.
+        self._option_groups: dict[str, QButtonGroup] = {}
         self._step_checks: dict[str, QCheckBox] = {}
-        self._restoring = True  # mientras se arma, ningun cambio se guarda
-        # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
-        # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
-        # seccion no se teñia del color del repo.
+        self._restoring = True  # while building, no change saves
+        # Without this, a QWidget subclass ignores its own sheet's
+        # background and shows the global sheet's gray (`theme.py`): the
+        # section's body did not take the repo's color.
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         root = QVBoxLayout(self)
@@ -192,27 +212,28 @@ class ParamsPanel(QWidget):
         root.setSpacing(0)
 
         self._body_widget = self._build_body()
-        # El pie con Ejecutar / Simulacro no vive dentro del panel: `TabPanel`
-        # lo saca a una barra fija al fondo de la columna, para que el boton no
-        # se pliegue con la seccion de parametros ni haya que scrollear hasta
-        # el. Se construye igual aca (toda la logica de bloqueos es de esta
-        # clase) y el contenedor lo reparenta.
+        # The footer with Run and Dry run does not live inside the
+        # panel: `TabPanel` takes it to a fixed bar at the column's
+        # bottom, so the button does not fold with the parameters
+        # section or need scrolling to. It builds here anyway, since all
+        # the blocking logic is this class's, and the container
+        # reparents it.
         self.footer = self._build_footer()
         self._restyle()
 
         root.addWidget(self._body_widget, 1)
 
-        # Lo elegido la ultima vez para este boton EN ESTE repo manda sobre
-        # los valores por defecto; sin nada guardado, quedan los de arriba.
+        # What was chosen last time for this button IN THIS repo wins
+        # over the defaults; with nothing saved, those above stay.
         self.apply_state(params_store.load(self.project.path, self.capability.id))
         self._restoring = False
         self._refresh_summary()
         if any(a.is_queried for a in self.capability.axes) or self.capability.live_state:
             self._load_machine()
 
-    # --- catalogos consultados ----------------------------------------
+    # --- queried catalogs ----------------------------------------
     def _load_machine(self, refresh: bool = False) -> None:
-        """Pide los catalogos del SDK y del VPS sin bloquear la ventana."""
+        """Ask for the SDK and VPS catalogs, not blocking the window."""
         if self._loader is not None and self._loader.isRunning():
             return
         self._loading = any(a.is_queried for a in self.capability.axes)
@@ -228,7 +249,10 @@ class ParamsPanel(QWidget):
         self._loader.start()
 
     def _on_machine_ready(self, resolved: dict[str, Any]) -> None:
-        """Llena las listas que dependian de la consulta y repone lo elegido."""
+        """Fill the lists that depended on the query.
+
+        Restoring what was chosen.
+        """
         saved = params_store.load(self.project.path, self.capability.id)
         self._restoring = True
         try:
@@ -253,33 +277,34 @@ class ParamsPanel(QWidget):
         self._refresh_summary()
 
     def refresh_machine(self) -> None:
-        """Vuelve a preguntar salteando la cache.
+        """Ask again, skipping the cache.
 
-        Es el camino forzado: lo usa el boton Recargar de Configuracion (que
-        ademas de releer `config.env` puede haber cambiado A QUE VPS se
-        pregunta) y el final de una tarea que acaba de tocar la maquina.
+        It is the forced path: the Settings Reload button uses it, since
+        besides rereading `config.env` it may have changed WHICH VPS is
+        asked, and so does the end of a task that just touched the
+        machine.
         """
         self._load_machine(refresh=True)
 
     def reload_catalogs(self) -> None:
-        """Releer lo consultado al mostrar la pestana.
+        """Reread what is queried on showing the tab.
 
-        Abrir la pestana es el momento en que se mira la lista, asi que es
-        cuando tiene que estar al dia — pedir ademas un clic en un boton de
-        recargar es pedir dos veces lo mismo. Respeta la cache a proposito:
-        lo que caduca en un minuto (los AVD, los servicios del VPS) se vuelve a
-        preguntar de verdad, y los dos catalogos grandes del SDK —que solo
-        cambian cuando se actualiza el SDK— no se releen en cada clic.
+        Opening the tab is when the list is looked at, so that is when
+        it has to be up to date; asking also for a click on a reload
+        button asks twice for the same. It respects the cache on
+        purpose: what expires in a minute (AVDs, the VPS's services) is
+        truly asked again, and the SDK's two large catalogs, which only
+        change when the SDK updates, are not reread on each click.
         """
         if any(a.is_queried for a in self.capability.axes) or self.capability.live_state:
             self._load_machine()
 
-    # --- construccion -------------------------------------------------
+    # --- building -------------------------------------------------
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll  # lo repinta `_restyle`
+        self._scroll = scroll  # `_restyle` repaints it
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
@@ -288,9 +313,9 @@ class ParamsPanel(QWidget):
         lay.setSpacing(16)
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Lo que ya esta corriendo va arriba de todo: es lo primero que hay
-        # que saber antes de elegir nada (¿hace falta lanzar otro?), y es desde
-        # donde se apaga un emulador huerfano.
+        # What is already running goes on top: it is the first thing to
+        # know before choosing anything, and where an orphan emulator
+        # stops from.
         self._live_box = self._build_live()
         lay.addWidget(self._live_box)
 
@@ -308,13 +333,14 @@ class ParamsPanel(QWidget):
         if len(self.steps) > 1:
             lay.addWidget(self._build_steps())
 
-        # Un eje de un solo valor tampoco se elige, pero se muestra igual:
-        # marcado y deshabilitado, para que se vea CUAL es (que app móvil, que
-        # target) sin dejar quitarlo. `_build_options` lo dibuja asi.
+        # A single-valued axis is not chosen either, but it shows:
+        # checked and disabled, so WHICH one is seen (which mobile app,
+        # which target) without letting it be removed. `_build_options`
+        # draws it so.
         #
-        # Un eje CONSULTADO entra aunque este vacio: cuando se arma el panel
-        # todavia no se le pregunto a nadie, y descartarlo aca lo dejaba sin
-        # lugar donde aparecer cuando la respuesta llegaba.
+        # A QUERIED axis enters even if empty: when the panel builds
+        # nobody has been asked yet, and discarding it here left it
+        # nowhere to appear when the answer came.
         singles = [a for a in self.capability.single_axes if a.values or a.is_queried]
         if singles:
             lay.addWidget(self._build_options(singles))
@@ -324,14 +350,14 @@ class ParamsPanel(QWidget):
         return scroll
 
     def _build_picks(self, axes: list[AxisDef]) -> QWidget:
-        """Listas largas y cerradas: se escribe para filtrar y se elige.
+        """Build the long, closed lists: type to filter and choose.
 
-        Es la cuarta forma del panel, y existe por los catalogos del SDK: cien
-        dispositivos y varios cientos de system images no entran en casillas ni
-        en un segmentado, pero tampoco son texto libre — los valores validos son
-        exactamente esos. El valor guardado es el id (`pixel_4`,
-        `system-images;android-36;google_apis;x86_64`) y lo que se lee es su
-        etiqueta.
+        It is the panel's fourth form, and exists for the SDK's
+        catalogs: a hundred devices and several hundred system images
+        fit no checkboxes or segment, but they are no free text either,
+        since the valid values are exactly those. The saved value is the
+        id (`pixel_4`, `system-images;android-36;google_apis;x86_64`)
+        and what reads is its label.
         """
         box = QWidget()
         box.setStyleSheet("background: transparent;")
@@ -356,9 +382,10 @@ class ParamsPanel(QWidget):
 
     def _pick_title(self, text: str) -> QLabel:
         label = QLabel(text)
-        # Con `wordWrap` el rotulo pide de minimo su palabra mas larga y no la
-        # frase entera: "Maquina virtual (instaladas)" exigia 364px y era el
-        # rotulo —no la lista— lo que no dejaba angostar la columna.
+        # With `wordWrap` the label asks at minimum for its longest word
+        # and not the whole phrase: «Máquina virtual (instaladas)»
+        # required 364px, and the label and not the list stopped the
+        # column from narrowing.
         label.setWordWrap(True)
         label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
@@ -366,25 +393,24 @@ class ParamsPanel(QWidget):
         return label
 
     def _pick_combo(self, *, searchable: bool) -> QComboBox:
-        """La lista cerrada del panel.
+        """Return the panel's closed list.
 
-        `buscable` la hace editable, y editable es solo para poder escribir y
-        filtrar: en un catalogo de cien dispositivos es la unica forma de
-        llegar, y en una lista de seis variantes seria un cursor que invita a
-        escribir algo que no se puede escribir.
+        `buscable` makes it editable, and editable is only to be able to
+        type and filter: in a catalog of a hundred devices it is the
+        only way to get there, and in a list of six variants it would be
+        a cursor inviting to type what cannot be typed.
         """
         combo = QComboBox()
         combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
         combo.setMinimumHeight(30)
         combo.setMaxVisibleItems(18)
-        # El ancho lo manda la columna, no el item mas largo. Por defecto un
-        # QComboBox pide de minimo lo que mide su entrada mas larga —y aca las
-        # hay de 50 caracteres ("Automotive (1408p landscape) with Google
-        # Play")—, asi que el panel entero no podia angostarse por debajo de
-        # eso y aparecian barras de desplazamiento en una columna que ya estaba
-        # apretada. Con esto el combo se conforma con `_COMBO_MIN_CHARS` y
-        # ocupa lo que la fila le de; lo largo se lee al desplegar, donde la
-        # lista se ensancha sola (`_fit_popup`).
+        # The column rules the width, not the longest item. By default a
+        # QComboBox asks at minimum for its longest entry, and here some
+        # have 50 characters, so the whole panel could not narrow below
+        # that and scrollbars appeared in a tight column. With this the
+        # combo settles for `_COMBO_MIN_CHARS` and takes what the row
+        # gives; long text reads on opening, where the list widens by
+        # itself (`_fit_popup`).
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(_COMBO_MIN_CHARS)
         combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -399,14 +425,15 @@ class ParamsPanel(QWidget):
         return combo
 
     def _scroll_style(self) -> str:
-        """El scroll no tiene fondo propio: deja ver el del panel.
+        """Leave the scroll with no background, showing the panel's.
 
-        El canal de la barra si lo necesita. Cae bajo el mismo
-        `QScrollArea > QWidget > QWidget` que deja transparente al viewport
-        —la barra es hija del viewport—, y transparente lo pintaba el gris de
-        la paleta de Qt, no el fondo del panel: un filete gris al borde de una
-        columna teñida. Se le da el color a mano y en esta misma hoja, que es
-        la mas cercana y la que manda.
+        The bar's groove does need one. It falls under the same
+        `QScrollArea > QWidget > QWidget` that makes the viewport
+        transparent, since the bar is a child of the viewport, and
+        transparent painted Qt's palette gray instead of the panel's
+        background: a gray stripe at the edge of a tinted column. It
+        gets its color by hand in this same sheet, which is the closest
+        and the one that wins.
         """
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
@@ -430,20 +457,21 @@ class ParamsPanel(QWidget):
         """
 
     def _build_facets(self, axis: AxisDef) -> QWidget:
-        """Un eje `pick` dibujado por caracteristica: una lista corta por cada
-        parte del valor, y todas se recortan entre si.
+        """Build a `pick` axis by feature.
 
-        El catalogo de system images son varios cientos de paquetes que en el
-        fondo son tres preguntas —que version de Android, que variante, que
-        arquitectura— ya permutadas. En una sola lista hay que leer trescientas
-        etiquetas casi iguales para encontrar la que cambia en un solo campo; y
-        peor, no se ve que existe: que no haya Wear OS para la 36 solo se
-        descubre no encontrandolo.
+        One short list per part of the value.
 
-        Aca cada lista ofrece *solo lo que existe dado lo demas elegido*
-        (`AxisDef.facet_values`), y cambiar una recompone las otras
-        (`AxisDef.resolve_facets`). Lo que se guarda no cambia: sigue siendo el
-        paquete entero que entiende sdkmanager.
+        They all trim each other. The system image catalog is several
+        hundred packages that are at bottom three questions, Android
+        version, variant and architecture, already permuted. In one list
+        one reads three hundred almost equal labels to find the one that
+        changes in a field; worse, one cannot see what exists: that
+        there is no Wear OS for 36 only shows by not finding it.
+
+        Here each list offers *only what exists given the rest chosen*
+        (`AxisDef.facet_values`), and changing one recomposes the others
+        (`AxisDef.resolve_facets`). What saves does not change: it is
+        still the whole package sdkmanager understands.
         """
         box = QWidget()
         box.setStyleSheet("background: transparent;")
@@ -480,11 +508,11 @@ class ParamsPanel(QWidget):
         self._refresh_summary()
 
     def _fill_facets(self, axis: AxisDef) -> None:
-        """(Re)carga las listas de un eje por caracteristica.
+        """Reload the lists of an axis by feature.
 
-        Se rehacen todas y no solo las de abajo: cuesta lo mismo y evita tener
-        que llevar la cuenta de cual cambio. Lo que decide que se mueve y que
-        no es la cascada (`AxisDef.resolve_facets`), no quien disparo.
+        All are redone and not only those below: it costs the same and
+        avoids tracking which changed. The cascade decides what moves
+        (`AxisDef.resolve_facets`), not what fired.
         """
         combos = self._facets.get(axis.name) or {}
         if not combos:
@@ -511,13 +539,13 @@ class ParamsPanel(QWidget):
             self._fit_popup(combo)
 
     def _fit_popup(self, combo: QComboBox) -> None:
-        """La lista desplegada se ensancha a lo que mide su entrada mas larga.
+        """Widen the open list to its longest entry.
 
-        Es la contraparte de `_pick_combo`: el control cerrado se angosta con
-        la columna, y lo que se recorta ahi se recupera al abrirlo, que es
-        cuando de verdad hay que comparar entradas. Sin esto, angostar el
-        combo angostaba tambien el desplegable y las etiquetas quedaban
-        cortadas justo donde se estaba eligiendo.
+        It is the counterpart of `_pick_combo`: the closed control
+        narrows with the column, and what is cut there comes back on
+        opening, when entries truly get compared. Without this,
+        narrowing the combo also narrowed the dropdown and labels got
+        cut right where one was choosing.
         """
         metrics = combo.fontMetrics()
         width = max(
@@ -526,7 +554,7 @@ class ParamsPanel(QWidget):
         combo.view().setMinimumWidth(min(width + 28, _POPUP_MAX_WIDTH))
 
     def _fill_pick(self, axis: AxisDef) -> None:
-        """(Re)carga las opciones de una lista larga, conservando lo elegido."""
+        """Reload a long list's options, keeping what was chosen."""
         combo = self._picks.get(axis.name)
         if combo is None:
             return
@@ -534,9 +562,10 @@ class ParamsPanel(QWidget):
         combo.blockSignals(True)
         combo.clear()
         if axis.allow_empty:
-            # Primera entrada y valor vacio: "no elijo, que decida la funcion".
-            # No es un valor mas del catalogo, asi que se pone aca y no en
-            # `values` — el catalogo de la maquina lo pisa en cada refresco.
+            # First entry and empty value: «I do not choose, let the
+            # function decide». It is no more a value of the catalog, so
+            # it goes here and not in `values`: the machine's catalog
+            # overwrites that on each refresh.
             combo.addItem(axis.text_of("") or "automático", "")
         for value in axis.values:
             combo.addItem(axis.text_of(value), value)
@@ -552,7 +581,7 @@ class ParamsPanel(QWidget):
         self._fit_popup(combo)
 
     def _fill_multi(self, axis: AxisDef) -> None:
-        """(Re)crea las casillas de un eje que se llenó desde la máquina."""
+        """Recreate the checkboxes of a machine-filled axis."""
         lay = self._multi_layouts.get(axis.name)
         if lay is None:
             return
@@ -572,12 +601,13 @@ class ParamsPanel(QWidget):
             self._checks[axis.name][value] = check
             lay.addWidget(check)
         text = axis.query_error or f"no hay ninguno {axis.query_place}"
-        # Los ejes de la camara fallan juntos y con el mismo mensaje: lo dice el
-        # primero y los demas quedan vacios.
+        # The camera's axes fail together with the same message: the
+        # first says it and the others stay empty.
         repeated = any(n.text() == text for n in self._empty_notes.values())
         if not axis.values and not repeated:
-            # Como en los ejes de botones: el hueco dice por que esta vacio. Si
-            # la fuente fallo, lo que dijo, que es lo que hay que arreglar.
+            # As on button axes: the gap says why it is empty. If the
+            # source failed, what it said, which is what has to be
+            # fixed.
             note = QLabel(text)
             note.setWordWrap(True)
             note.setStyleSheet(
@@ -588,7 +618,10 @@ class ParamsPanel(QWidget):
             lay.addWidget(note)
 
     def _build_live(self) -> QWidget:
-        """Cabecera con lo que esta corriendo ahora, y su ✕ para apagarlo."""
+        """Build the header with what is running now.
+
+        And its ✕ to stop it.
+        """
         box = QWidget()
         box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
@@ -600,7 +633,10 @@ class ParamsPanel(QWidget):
         return box
 
     def _fill_live(self, inventory: tuple[Any, ...], error: str = "") -> None:
-        """Rehace la lista de lo vivo. Vacia y sin error, la cabecera entera desaparece."""
+        """Rebuild the list of what is alive.
+
+        Empty, the whole header goes.
+        """
         values, labels = inventory
         while self._live_layout.count() > 1:
             item = self._live_layout.takeAt(1)
@@ -617,7 +653,8 @@ class ParamsPanel(QWidget):
 
             text = QLabel(f"● {labels.get(value, value)}")
             text.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
+                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: "
+                f"{Fonts.SIZE_SM}px;"
             )
             stop = QPushButton("✕")
             stop.setFixedSize(20, 20)
@@ -645,10 +682,10 @@ class ParamsPanel(QWidget):
         self._live_box.setVisible(bool(values) or bool(error))
 
     def _build_fields(self, axes: list[AxisDef]) -> QWidget:
-        """Ejes que se escriben: un directorio de instalacion, un API level.
+        """Build the written axes: an install folder, an API level.
 
-        Van arriba de todo porque son los que condicionan al resto: de nada
-        sirve elegir componentes si el SDK va a caer en otro lado.
+        They go on top because they condition the rest: choosing
+        components is no use if the SDK will land elsewhere.
         """
         box = QWidget()
         box.setStyleSheet("background: transparent;")
@@ -661,31 +698,34 @@ class ParamsPanel(QWidget):
             row.setSpacing(4)
             label = QLabel(axis.display)
             label.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
+                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: "
+                f"{Fonts.SIZE_SM}px;"
             )
             row.addWidget(label)
 
-            # `values[0]` es el valor por defecto, y se escribe en el campo en
-            # vez de dejarlo de marca de agua: asi se ve que se va a usar.
+            # `values[0]` is the default, written in the field and not
+            # left as a watermark: so one sees what will be used.
             default = axis.values[0] if axis.values else ""
             if axis.multiline:
                 field = QPlainTextEdit(default)
-                field.setFixedHeight(88)  # ~4 renglones: la lista tipica entra entera
+                # about 4 lines: the typical list fits whole
+                field.setFixedHeight(88)
                 field.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
                 field.textChanged.connect(self._refresh_summary)
             else:
                 field = QLineEdit(default)
                 field.setFixedHeight(30)
                 if axis.cast == "int":
-                    # Un eje que declara `cast='int'` no acepta que se escriba
-                    # otra cosa: es mas barato no dejar teclear la letra que
-                    # explicar despues por que el puerto volvio a 8000.
+                    # An axis declaring `cast='int'` accepts nothing
+                    # else: not letting a letter be typed is cheaper
+                    # than explaining later why the port returned to
+                    # 8000.
                     field.setValidator(QIntValidator(0, 2_147_483_647, field))
                 field.textChanged.connect(self._refresh_summary)
-            # La marca de agua repite el default y nada mas: si el campo se
-            # vacia, lo que se ve es lo que va a correr. Un texto que explique
-            # que va en el campo ocuparia este mismo lugar y se leeria como un
-            # valor — eso va en la etiqueta, no aca.
+            # The watermark repeats the default and nothing else: if the
+            # field empties, what shows is what will run. Text
+            # explaining what goes in the field would take this same
+            # place and read as a value; that goes in the label.
             field.setPlaceholderText(default)
             field.setStyleSheet(self._field_style(axis.multiline))
             self._fields[axis.name] = field
@@ -752,15 +792,16 @@ class ParamsPanel(QWidget):
             row.setSpacing(4)
             label = QLabel(axis.display)
             label.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
+                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: "
+                f"{Fonts.SIZE_SM}px;"
             )
             row.addWidget(label)
 
-            # Las casillas no se cuelgan de `row` sino de un contenedor propio,
-            # porque un eje consultado se dibuja DOS veces: vacio mientras se
-            # pregunta, y otra vez con los valores que llegaron. Sin este
-            # contenedor no habria donde volver a ponerlas — que es exactamente
-            # por lo que el eje de servicios del VPS no aparecia nunca.
+            # The checkboxes do not hang from `row` but from their own
+            # container, because a queried axis draws TWICE: empty while
+            # asking, and again with the values that came. Without this
+            # container there would be nowhere to put them back, which
+            # is why the VPS services axis never appeared.
             holder = QWidget()
             holder.setStyleSheet("background: transparent;")
             hlay = QVBoxLayout(holder)
@@ -773,9 +814,10 @@ class ParamsPanel(QWidget):
         return box
 
     def _fill_options(self, axis: AxisDef) -> None:
-        """(Re)crea las casillas excluyentes de un eje. Sirve para los dos
-        casos: dibujarlo la primera vez, y rehacerlo cuando el catalogo que lo
-        llena termino de contestar.
+        """Recreate an axis's exclusive options.
+
+        It serves both cases: drawing it the first time, and redoing it
+        when the catalog filling it finished answering.
         """
         lay = self._option_layouts.get(axis.name)
         if lay is None:
@@ -787,9 +829,9 @@ class ParamsPanel(QWidget):
         if note is not None:
             lay.removeWidget(note)
             note.deleteLater()
-        # El grupo anterior se va con sus botones: un eje consultado se rellena
-        # cada vez que se muestra la pestana, y dejarlos apilados es un grupo
-        # muerto por clic.
+        # The old group goes with its buttons: a queried axis refills
+        # each time the tab shows, and leaving them stacked is one dead
+        # group per click.
         previous = self._option_groups.pop(axis.name, None)
         if previous is not None:
             previous.deleteLater()
@@ -798,29 +840,32 @@ class ParamsPanel(QWidget):
         group.setExclusive(True)
         self._option_groups[axis.name] = group
         self._options[axis.name] = {}
-        # Un eje con un solo valor excluyente no se elige: se muestra fijo.
+        # An axis with one exclusive value is not chosen: it shows
+        # fixed.
         locked = len(axis.exclusive_values) <= 1 and not axis.combine
         for value in axis.values:
-            # `text_of` y no el valor pelado: un eje excluyente tambien
-            # puede tener un valor que no se lee (`0.0.0.0`, el `''` de
-            # "todas las prioridades"). La etiqueta es de la misma clase
-            # que la de una lista larga, y se declara en el mismo lugar.
+            # `text_of` and not the bare value: an exclusive axis can
+            # also have a value that does not read (`0.0.0.0`, the `''`
+            # of «all priorities»). The label is of the same class as a
+            # long list's, declared in the same place.
             check = QCheckBox(axis.text_of(value))
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             if value in axis.danger:
                 check.setStyleSheet(f"QCheckBox {{ color: {Colors.ERROR}; }}")
             if value in axis.combine:
-                # Toggle independiente: fuera del grupo, arranca apagado.
+                # An independent toggle: outside the group, it starts
+                # off.
                 check.setChecked(False)
             else:
                 group.addButton(check)
                 check.setChecked(value == axis.initial)
                 if locked:
-                    # Única opción: se muestra marcada y con el color de
-                    # seleccionada, pero no se puede desmarcar — el grupo
-                    # exclusivo ya impide soltar el único botón, y no hay
-                    # otro al que saltar. Queda habilitada (no en gris)
-                    # para que se lea como una elección viva, no muerta.
+                    # Only option: shown checked with the selected
+                    # color, but it cannot be unchecked: the exclusive
+                    # group already prevents releasing the only button,
+                    # and there is no other to jump to. It stays
+                    # enabled, not gray, so it reads as a live choice,
+                    # not a dead one.
                     check.setChecked(True)
                     check.setToolTip("Única opción disponible")
             check.toggled.connect(self._refresh_summary)
@@ -828,8 +873,8 @@ class ParamsPanel(QWidget):
             lay.addWidget(check)
 
         if not axis.values:
-            # El mismo texto que la marca de agua de una lista larga vacia: el
-            # hueco tiene que decir por que esta vacio, no quedarse mudo.
+            # The same text as an empty long list's watermark: the gap
+            # has to say why it is empty, not stay mute.
             note = QLabel(
                 "leyendo el catálogo…" if self._loading else f"no hay ninguno {axis.query_place}"
             )
@@ -852,9 +897,10 @@ class ParamsPanel(QWidget):
 
     @property
     def _dry_run_axis(self) -> AxisDef | None:
-        """El eje excluyente que ofrece un simulacro (`clean_artifacts`,
-        `sync_common_files`, borrar emuladores). Su presencia es lo que hace
-        aparecer el boton Simulacro.
+        """Return the exclusive axis that offers a dry run.
+
+        Such as `clean_artifacts`, `sync_common_files` and deleting
+        emulators. Its presence makes the Dry run button appear.
         """
         return next((a for a in self.capability.single_axes if "dry_run" in a.values), None)
 
@@ -864,7 +910,7 @@ class ParamsPanel(QWidget):
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
 
-        # A la izquierda, lejos de Ejecutar: vaciar el log no es correr nada.
+        # At left, away from Run: emptying the log runs nothing.
         clear_btn = QPushButton("Limpiar")
         clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_btn.setFixedHeight(34)
@@ -892,13 +938,15 @@ class ParamsPanel(QWidget):
         self._restyle_run()
         return foot
 
-    # --- estado --------------------------------------------------------
+    # --- state ---
     def selection(self, axis_name: str) -> list[str]:
+        """Return the values checked on an axis."""
         return [v for v, c in self._checks.get(axis_name, {}).items() if c.isChecked()]
 
     def active_steps(self) -> list[Step]:
-        # Con un solo paso obligatorio no se dibuja la seccion: sin casilla,
-        # el paso esta activo por definicion.
+        # With one required step the section does not draw: with no
+        # checkbox, the step is active by definition.
+        """Return the ids of the active steps."""
         return [
             s
             for s in self.steps
@@ -906,20 +954,25 @@ class ParamsPanel(QWidget):
         ]
 
     def option_value(self, axis_name: str) -> str:
+        """Return an axis's exclusive value."""
         for value, check in self._options.get(axis_name, {}).items():
             if check.isChecked():
                 return value
         return ""
 
     def option_values(self, axis_name: str) -> list[str]:
+        """Return an axis's exclusive value and its combined ones."""
         return [v for v, c in self._options.get(axis_name, {}).items() if c.isChecked()]
 
     def _axis(self, axis_name: str) -> AxisDef | None:
         return next((a for a in self.capability.axes if a.name == axis_name), None)
 
     def _option_payload(self, axis_name: str) -> list[str] | str:
-        """Un eje con `combine` puede tener dos marcas a la vez (p. ej.
-        `patch` + `build`): viaja como lista. El resto, como un solo valor.
+        """Return the value of a `combine` axis as a list.
+
+        The rest as one value.
+
+        It can have two marks at once (`patch` + `build`).
         """
         axis = self._axis(axis_name)
         if axis and axis.combine:
@@ -927,11 +980,11 @@ class ParamsPanel(QWidget):
         return self.option_value(axis_name)
 
     def pick_value(self, axis_name: str) -> str:
-        """El id elegido en una lista larga (no su etiqueta).
+        """Return the id chosen in a long list (not its label).
 
-        Un eje por caracteristica no guarda el id en ningun combo: lo arma el
-        catalogo con lo marcado en cada lista, porque el id sigue siendo lo
-        unico que la herramienta entiende (`AxisDef.value_for`).
+        An axis by feature saves the id in no combo: the catalog builds
+        it from what is checked in each list, because the id is all the
+        tool understands (`AxisDef.value_for`).
         """
         combos = self._facets.get(axis_name)
         if combos is not None:
@@ -946,16 +999,22 @@ class ParamsPanel(QWidget):
         return value if isinstance(value, str) else ""
 
     def _pick_names(self) -> list[str]:
-        """Los ejes que guardan un id suelto, se dibujen como una lista o como
-        varias: los dos casos viajan en el mismo balde `picks`.
+        """Return the axes that save a loose id.
+
+        Drawn as one list or several.
+
+        Both cases travel in the same `picks` bucket.
         """
         return [*self._picks, *self._facets]
 
     def field_value(self, axis_name: str) -> str:
-        """El texto escrito, sea el campo de una linea o la caja de varias.
+        """Return the written text.
 
-        Los dos widgets guardan lo mismo — texto — pero no lo piden con el mismo
-        metodo, y quien lee el payload no tiene por que saber cual se dibujo.
+        Of a one-line field or a multi-line box.
+
+        Both widgets save the same, text, but do not ask for it with the
+        same method, and whoever reads the payload need not know which
+        drew.
         """
         field = self._fields.get(axis_name)
         if field is None:
@@ -964,7 +1023,7 @@ class ParamsPanel(QWidget):
         return text.strip()
 
     def state(self) -> dict[str, Any]:
-        """Lo que hay marcado ahora mismo, en forma serializable."""
+        """Return what is checked right now, in serializable form."""
         return {
             "variants": {name: self.selection(name) for name in self._checks},
             "steps": [s.id for s in self.active_steps()],
@@ -974,9 +1033,12 @@ class ParamsPanel(QWidget):
         }
 
     def apply_state(self, state: dict[str, Any] | None) -> None:
-        """Vuelve a marcar lo guardado. Tolera un catalogo que cambio: los
-        valores que ya no existen se ignoran y los ejes nuevos se quedan con
-        su valor por defecto.
+        """Check again what was saved.
+
+        Tolerating a catalog that changed.
+
+        Values that no longer exist are ignored and new axes keep their
+        default.
         """
         if not state:
             return
@@ -1005,12 +1067,14 @@ class ParamsPanel(QWidget):
                 combine = axis.combine if axis else set()
                 for value, check in checks.items():
                     if not check.isEnabled():
-                        continue  # eje fijo: su marca no se toca
+                        continue  # fixed axis: its mark stays untouched
                     if value in combine:
-                        # Un guardado sin este valor = toggle desmarcado.
+                        # A save without this value = an unchecked
+                        # toggle.
                         check.setChecked(value in checked)
                     elif value in checked:
-                        check.setChecked(True)  # el grupo excluyente desmarca al resto
+                        # the exclusive group unchecks the rest
+                        check.setChecked(True)
 
             picks = state.get("picks") or {}
             for axis_name, combo in self._picks.items():
@@ -1018,14 +1082,16 @@ class ParamsPanel(QWidget):
                 if not chosen:
                     continue
                 index = combo.findData(chosen)
-                # Un valor que ya no existe (un AVD borrado, una imagen
-                # desinstalada) no se fuerza: se queda el primero de la lista.
+                # A value that no longer exists (a deleted AVD, an
+                # uninstalled image) is not forced: the first of the
+                # list stays.
                 if index >= 0:
                     combo.setCurrentIndex(index)
 
-            # Un eje por caracteristica guarda el id entero igual que los de
-            # arriba: para reponerlo hay que descomponerlo y dejar cada lista
-            # en su parte. `resolve_facets` descarta sola las que ya no existen.
+            # An axis by feature saves the whole id like those above:
+            # restoring it means breaking it down and leaving each list
+            # on its part. `resolve_facets` by itself discards those
+            # that no longer exist.
             for axis_name, combos in self._facets.items():
                 chosen = picks.get(axis_name)
                 axis = self._axis(axis_name)
@@ -1047,8 +1113,8 @@ class ParamsPanel(QWidget):
             fields = state.get("fields") or {}
             for axis_name, field in self._fields.items():
                 saved = fields.get(axis_name)
-                # Una cadena vacia guardada es una eleccion valida (vuelve al
-                # valor por defecto de la funcion); un eje nuevo no lo es.
+                # A saved empty string is a valid choice (it returns to
+                # the function's default); a new axis is not.
                 if saved is not None:
                     if isinstance(field, QPlainTextEdit):
                         field.setPlainText(saved)
@@ -1061,9 +1127,10 @@ class ParamsPanel(QWidget):
         if self._restoring:
             return
         state = self.state()
-        # Un eje consultado sin valores (todavia leyendo, o su fuente fallo) no
-        # dice nada de lo elegido: se conserva lo guardado. Guardar su vacio lo
-        # borraba, y al llegar los valores se reponia la nada.
+        # A queried axis without values (still reading, or its source
+        # failed) says nothing of what is chosen: what is saved stays.
+        # Saving its emptiness erased it, and when values came nothing
+        # was restored.
         saved = params_store.load(self.project.path, self.capability.id) or {}
         for axis in self.capability.axes:
             if not (axis.is_queried and not axis.values):
@@ -1073,12 +1140,14 @@ class ParamsPanel(QWidget):
                 if axis.name in previous:
                     state[bucket][axis.name] = previous[axis.name]
                 else:
-                    # Sin nada guardado, al llegar sus valores manda el default.
+                    # With nothing saved, the default wins when its
+                    # values arrive.
                     state[bucket].pop(axis.name, None)
         params_store.save(self.project.path, self.capability.id, state)
         self.params_changed.emit()
 
     def payload(self) -> dict[str, Any]:
+        """Return what the run needs, grouped by control type."""
         return {
             "capability_id": self.capability.id,
             "project": self.project.name,
@@ -1091,25 +1160,24 @@ class ParamsPanel(QWidget):
         }
 
     def set_env(self, values: dict[str, str]) -> None:
-        """El panel de configuracion de abajo alimenta la validacion previa."""
+        """Take the settings panel's values, for the check."""
         self._env = values
         self._refresh_summary()
 
     def set_palette(self, pal: Palette) -> None:
-        """Cambio de color del repo: se repinta el panel entero, no solo el
-        boton Ejecutar. Los campos y las listas se quedaron con la hoja de
-        estilo que se les dicto al construirlos, asi que hay que volver a
-        dictarsela una por una.
+        """Repaint the whole panel when the repo's color changes.
+
+        Not only the Run button. Fields and lists kept the style sheet
+        dictated when built, so it has to be dictated again one by one.
         """
         self.pal = pal
         self._restyle()
 
     def _restyle(self) -> None:
-        # El panel es el CUERPO de la seccion «Parametros»: `panel`, un
-        # escalon por debajo de la cabecera que lo rotula.
-        # La barra de scroll se pinta aparte: su canal no es un fondo de hoja
-        # de estilo sino el color de la paleta de Qt, y se quedaba gris dentro
-        # de un panel teñido.
+        # The panel is the BODY of the «Parámetros» section: `panel`,
+        # one step below the header labeling it. The scrollbar paints
+        # apart: its groove is not a sheet background but Qt's palette
+        # color, and it stayed gray inside a tinted panel.
         self.setStyleSheet(f"ParamsPanel {{ background: {self.pal.panel}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
         self.footer.setStyleSheet(
@@ -1127,8 +1195,9 @@ class ParamsPanel(QWidget):
         self._restyle_run()
 
     def _secondary_style(self) -> str:
-        """Limpiar y Simulacro: contorno, no relleno. El unico boton lleno del
-        pie es Ejecutar.
+        """Clear and Dry run: outline, not fill.
+
+        The only filled button of the footer is Run.
         """
         return f"""
             QPushButton {{
@@ -1141,35 +1210,36 @@ class ParamsPanel(QWidget):
         """
 
     def refresh_run_state(self) -> None:
-        """Repone el boton Ejecutar segun los blockers actuales.
+        """Restore the Run button according to the current blockers.
 
-        Publico para quien deshabilito el boton desde afuera mientras corria
-        de verdad (`ui/tab_panel.py::_run_real`) y necesita devolverselo al
-        estado que le corresponde, no simplemente a habilitado.
+        Public for whoever disabled the button from outside while truly
+        running (`ui/tab_panel.py::_run_real`) and needs to return it to
+        the state it should have, not simply enabled.
         """
         self._refresh_summary()
 
     def natural_height(self) -> int:
-        """Alto que necesita para mostrar todo su contenido sin scroll, para
-        que el panel de `.env` se quede con el resto del espacio vertical.
+        """Return the height it needs.
+
+        To show all its content without scrolling.
+
+        So the `.env` panel keeps the rest of the vertical space.
         """
         return self._content.sizeHint().height() + 4
 
     def relevant_keys(self) -> set[str]:
-        """Claves de `.env` que esta accion puede llegar a necesitar CON LO QUE
-        ESTA MARCADO AHORA — para filtrar el panel de configuracion.
+        """Return the `.env` keys it may need WITH WHAT IS CHECKED NOW.
 
-        Sigue a la seleccion, no al catalogo entero, y la sigue igual en las
-        tres fuentes: el eje, sus `uses_env` y los pasos. Antes mezclaba las dos
-        cosas —`all_keys` (todos los valores del eje) y `self.steps` (todos los
-        pasos) contra unos `uses_env` que si miraban lo marcado—, y el resultado
-        era un formulario que pedia datos que la corrida jamas iba a leer: la IP
-        y la llave del VPS con `Configurar base de datos` en `local`, el directorio de
-        despliegue con 'Subir al VPS' desmarcado.
+        It filters the settings panel. It follows the selection, not the
+        whole catalog, in all three sources: the axis, its `uses_env`
+        and the steps. Otherwise the form asked for data the run would
+        never read: the VPS's IP and key with `Configurar base de datos`
+        on `local`.
 
-        Es exactamente el conjunto de `_missing_keys`, con `relevant` en lugar
-        de `required` — esa es la unica diferencia que debe haber entre los dos:
-        lo que se muestra y lo que bloquea salen de la misma seleccion.
+        It is exactly the set of `_missing_keys`, with `relevant`
+        instead of `required`: that is the only difference there should
+        be, since what shows and what blocks come from the same
+        selection.
         """
         needed = set(relevant_keys_for(self.capability.id))
         for axis in self.capability.axes:
@@ -1182,17 +1252,16 @@ class ParamsPanel(QWidget):
             needed |= set(relevant_keys_for(step.id))
         return needed
 
-    # --- interno --------------------------------------------------------
+    # --- internal ---
 
     def _missing_keys(self) -> list[str]:
-        """Claves sin las que la accion no puede correr — de verdad, no solo
-        sin texto en el campo.
+        """Return the keys without which the action truly cannot run.
 
-        Antes miraba el texto crudo del campo: una clave con default fijo
-        (`ROOT_USER='root'`) o dinamico (`DB_USER` -> nombre del repo, ya
-        resuelto por `Config.get`) quedaba en ambar aunque la funcion real
-        jamas la fuera a extranar. Envolver `self._env` en un `Config` hace
-        la misma pregunta que se hace en tiempo de ejecucion.
+        Not only those with no text in the field. A key with a fixed
+        default (`ROOT_USER='root'`) or a dynamic one (`DB_USER` from
+        the repo's name, resolved by `Config.get`) must not stay amber.
+        Wrapping `self._env` in a `Config` asks the same question as at
+        run time.
         """
         needed = set(required_keys_for(self.capability.id))
         for axis in self.capability.axes:
@@ -1204,17 +1273,19 @@ class ParamsPanel(QWidget):
         return sorted(k for k in needed if not cfg.get(k))
 
     def blockers(self) -> list[str]:
-        """Publico para `quick_run`: por que no se puede correr sin abrir la
-        pestana (`ui/tab_panel.py::quick_run` lo reporta en la consola).
+        """Return why it cannot run without opening the tab.
+
+        Public for `quick_run`, which reports it in the console
+        (`ui/tab_panel.py::quick_run`).
         """
         return self._blockers()
 
     def _blockers(self) -> list[str]:
-        """Razones por las que 'Ejecutar' no puede correr."""
+        """Return the reasons «Ejecutar» cannot run."""
         reasons = []
-        # Un eje descubierto sin valores no es "olvidaste elegir": es que el
-        # repo no tiene eso. Se dice asi, y no se pide ademas que elija de una
-        # lista vacia.
+        # A discovered axis without values is not «you forgot to
+        # choose»: the repo does not have that. It says so, and does not
+        # also ask to choose from an empty list.
         if self._loading:
             return ["leyendo el catálogo…"]
         vacios = {a.name for a in self.capability.axes if a.is_discovered and not a.values}
@@ -1222,14 +1293,15 @@ class ParamsPanel(QWidget):
             if axis.name not in vacios:
                 continue
             if axis.query_error:
-                # Los tres ejes de la camara fallan con el mismo mensaje: una vez basta.
+                # The camera's three axes fail with the same message:
+                # once is enough.
                 if axis.query_error not in reasons:
                     reasons.append(axis.query_error)
                 continue
             donde = axis.query_place if axis.is_queried else "en este repo"
-            # Un eje opcional que ademas admite estar vacio (las dos listas de
-            # "Liberar disco") no bloquea: que no haya AVD creados no impide
-            # borrar una imagen.
+            # An optional axis that also admits being empty (the two
+            # lists of «Liberar disco») does not block: having no
+            # created AVDs does not prevent deleting an image.
             if axis.allow_empty:
                 continue
             reasons.append(f"no hay {axis.display.lower()} {donde}")
@@ -1275,7 +1347,9 @@ class ParamsPanel(QWidget):
                 padding: 0 22px;
                 font-size: {Fonts.SIZE_SM}px; font-weight: 600;
             }}
-            QPushButton:hover {{ background: {self.pal.accent if enabled else self.pal.surface_alt}; }}
+            QPushButton:hover {{
+                background: {self.pal.accent if enabled else self.pal.surface_alt};
+            }}
         """)
 
     def _emit_execute(self, _checked: bool = False, *, dry_run: bool = False) -> bool:
@@ -1285,16 +1359,18 @@ class ParamsPanel(QWidget):
         if dry_run:
             axis = self._dry_run_axis
             if axis is not None:
-                # No toca lo guardado: solo fuerza el modo seguro en el payload
-                # de ESTA corrida.
+                # It does not touch what is saved: it only forces the
+                # safe mode in THIS run's payload.
                 payload["options"] = {**payload["options"], axis.name: "dry_run"}
         self.execute_requested.emit(payload)
         return True
 
     def try_run(self) -> bool:
-        """Ejecuta con los parametros actuales de la pestana — que al
-        abrirse son los guardados para este boton en este repo, o los por
-        defecto si nunca se tocaron. Lo usa el boton ▶ del buscador.
-        Devuelve si corrio.
+        """Run with the tab's current parameters.
+
+        And return whether it ran.
+
+        On opening they are those saved for this button in this repo, or
+        the defaults if never touched. The search's ▶ button uses it.
         """
         return self._emit_execute()

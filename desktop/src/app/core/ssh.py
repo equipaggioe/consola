@@ -1,3 +1,5 @@
+"""Remote, remote commands, scp, tunnels and keys."""
+
 from __future__ import annotations
 
 import hashlib
@@ -14,18 +16,20 @@ from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.host import HOST
 
-# `accept-new`: la primera conexion a un VPS anota su huella, y una huella que
-# cambio sigue cortando. Sin esto, `BatchMode` rechaza a un VPS nuevo y Consola
-# dice que no se entra.
+# `accept-new`: the first connection to a VPS records its fingerprint,
+# and a changed one still stops. Without this, `BatchMode` rejects a new
+# VPS and Consola says it cannot get in.
 CONNECT_TIMEOUT = ["-o", "ConnectTimeout=15", "-o", "StrictHostKeyChecking=accept-new"]
 BATCH = ["-o", "BatchMode=yes"]
 
 
 def identity_path(key_name: str) -> Path:
+    """Return the path of a private key in `~/.ssh`."""
     return Path.home() / ".ssh" / key_name
 
 
 def resolve_identity(key_name: str) -> Path:
+    """Return the private key's path, or stop if it does not exist."""
     path = identity_path(key_name)
     if not path.is_file():
         raise TaskError(f"No existe la llave privada local: {path}")
@@ -33,14 +37,17 @@ def resolve_identity(key_name: str) -> Path:
 
 
 def _control_args(identity: Path, target: str) -> list[str]:
-    """Multiplexado: una sola conexion TCP para una rafaga de ssh/scp seguidos.
+    """Return the multiplexing options, where the system supports them.
 
-    Sin esto, subir cinco archivos abre cinco conexiones y el VPS puede cortarlas
-    por rate-limiting. No todos los sistemas lo soportan (`HOST.ssh_multiplex`).
+    One TCP connection for a burst of ssh and scp. Without it, uploading
+    five files opens five connections and the VPS can cut them by rate
+    limiting (`HOST.ssh_multiplex`).
     """
     if not HOST.ssh_multiplex:
         return []
-    digest = hashlib.sha1(f"{target}:{identity}".encode("utf-8")).hexdigest()[:16]
+    digest = hashlib.sha1(
+        f"{target}:{identity}".encode("utf-8"), usedforsecurity=False
+    ).hexdigest()[:16]
     control_dir = Path(tempfile.gettempdir()) / "consola_ssh"
     control_dir.mkdir(parents=True, exist_ok=True)
     socket_path = control_dir / f"{digest}.sock"
@@ -56,11 +63,10 @@ def _control_args(identity: Path, target: str) -> list[str]:
 
 @dataclass(frozen=True)
 class Remote:
-    """A donde y con que llave se llega al VPS.
+    """Where and with which key the VPS is reached.
 
-    En los scripts, cada funcion remota recibia `host`, `user` e `identity_file`
-    por separado y los volvia a resolver desde el .env. Aca se resuelven una vez
-    y viajan juntos: quien opera el VPS pide un `Remote`, no tres strings.
+    They resolve once and travel together: whoever operates the VPS asks
+    for a `Remote`, not three strings.
     """
 
     host: str
@@ -69,20 +75,25 @@ class Remote:
 
     @property
     def target(self) -> str:
+        """Return `user@host`."""
         return f"{self.user}@{self.host}"
 
     def as_user(self, user: str) -> "Remote":
-        """El mismo servidor con otra cuenta (root durante el aprovisionamiento)."""
+        """Return the same server with another account.
+
+        Root at provisioning.
+        """
         return Remote(self.host, user, self.identity)
 
     def argv(
         self, command: str, *, tty: bool = False, stdin: bool = False, extra: Sequence[str] = ()
     ) -> list[str]:
-        # `-n` salvo que se pida TTY o entrada: estos comandos no leen teclado,
-        # y sin cerrarle el stdin `ssh` lo reenvia al comando remoto y puede
-        # quedar esperando un EOF que nunca llega cuando corre dentro de la GUI.
-        # `stdin=True` es para lo que si lee: la contraseña de `sudo -S` o las
-        # lineas de `credentials.py`.
+        # `-n` unless a TTY or input is asked for: these commands read
+        # no keyboard, and with stdin unclosed `ssh` forwards it to the
+        # remote command and can wait for an EOF that never comes inside
+        # the GUI. `stdin=True` is for what does read: the password of
+        # `sudo -S` or the lines of `credentials.py`.
+        """Return the argv of `ssh` for a remote command."""
         mode = ["-t"] if tty else [] if stdin else ["-n"]
         return [
             "ssh",
@@ -99,6 +110,7 @@ class Remote:
     def scp_argv(
         self, local: Path, remote_path: str, *, download: bool = False, recursive: bool = False
     ) -> list[str]:
+        """Return the argv of `scp` for a copy."""
         spec = f"{self.target}:{remote_path}"
         argv = [
             "scp",
@@ -113,10 +125,11 @@ class Remote:
 
 
 def resolve_remote(config: Config, *, user: str = "") -> Remote:
-    """Arma el `Remote` del proyecto desde `.consola/config.env`.
+    """Build the project's `Remote` from `.consola/config.env`.
 
-    `user` vacio significa VPS_USER. Antes de `install.py` esa cuenta no existe, y
-    `core/tasks/vps_setup.py::access` entra como `ROOT_USER`.
+    An empty `user` means VPS_USER. Before `install.py` that account
+    does not exist, and `core/tasks/vps_setup.py::access` enters as
+    `ROOT_USER`.
     """
     return Remote(
         host=config.require("VPS_IP"),
@@ -126,7 +139,10 @@ def resolve_remote(config: Config, *, user: str = "") -> Remote:
 
 
 def quote(value: str) -> str:
-    """Cita un valor para el shell remoto. Los paths remotos son siempre POSIX."""
+    """Quote a value for the remote shell.
+
+    Remote paths are always POSIX.
+    """
     return shlex.quote(value)
 
 
@@ -138,9 +154,9 @@ def capture(
     check: bool = True,
     stdin_text: str | None = None,
 ) -> str:
-    """Consulta corta por SSH. Devuelve stdout; no toca el log.
+    """Run a short query over SSH and return stdout, without the log.
 
-    `stdin_text` llega a la entrada del comando remoto.
+    `stdin_text` reaches the remote command's input.
     """
     argv = remote.argv(command, stdin=stdin_text is not None, extra=BATCH)
     return process.capture(argv, timeout=timeout, check=check, stdin_text=stdin_text)
@@ -155,9 +171,9 @@ def run(
     echo: bool = True,
     stdin_text: str | None = None,
 ) -> int:
-    """Comando remoto con streaming en vivo hacia la consola de la pestana.
+    """Run a remote command, streaming live to the tab's console.
 
-    `stdin_text` llega a la entrada del comando remoto y no al log.
+    `stdin_text` reaches the remote command's input and not the log.
     """
     return ctx.run(
         remote.argv(command, stdin=stdin_text is not None),
@@ -169,7 +185,10 @@ def run(
 
 
 def succeeds(remote: Remote, command: str) -> bool:
-    """True si el comando remoto termina en 0. Para detectar antes de actuar."""
+    """Return whether the remote command ends in 0.
+
+    To detect before acting.
+    """
     try:
         process.capture(remote.argv(command, extra=BATCH), timeout=30.0, check=True)
         return True
@@ -178,27 +197,29 @@ def succeeds(remote: Remote, command: str) -> bool:
 
 
 def reachable(remote: Remote) -> bool:
-    """True si se llega al VPS con la llave y sin contrasena.
+    """Return whether the VPS is reachable with the key.
 
-    Es la precondicion que comparten las once puertas de `resolve_remote`:
-    todas fallan igual de feo cuando el acceso esta roto y ninguna sabe
-    distinguir "no llego a la maquina" de "el comando fallo". Vivio un tiempo
-    como la atomica `test_ssh_login` de `vps_setup`, y se bajo aca al notar que
-    algo que necesitan casi todos los botones de SSH es plomeria, no una tarea
-    con boton propio (ADR-0004).
+    Without a password.
+
+    It is the precondition of all the doors of `resolve_remote`: they
+    fail equally badly when access is broken, and none can tell «did not
+    reach the machine» from «the command failed». It is plumbing and not
+    a task with its own button (ADR-0004).
     """
     return succeeds(remote, "echo ok")
 
 
 def path_exists(remote: Remote, remote_path: str) -> bool:
+    """Return whether the remote path exists."""
     return succeeds(remote, f"test -e {quote(remote_path)}")
 
 
 def ensure_dir(remote: Remote, remote_path: str) -> None:
+    """Create the remote folder if it is missing."""
     capture(remote, f"mkdir -p {quote(remote_path)}")
 
 
-# --- transferencia ---------------------------------------------------------
+# --- transfer ---
 
 
 def upload(
@@ -210,16 +231,13 @@ def upload(
     chmod: str = "",
     make_parent: bool = True,
 ) -> str:
-    """Sube un archivo o directorio y devuelve la ruta remota resultante.
+    """Upload a file or folder and return the resulting remote path.
 
-    Un directorio se manda al PADRE de `remote_path`, no a `remote_path`.
-    `scp -r origen destino` copia la carpeta *dentro* del destino cuando el
-    destino ya existe, asi que apuntar a la ruta final funciona la primera vez
-    y a partir de la segunda deja `.../dist/dist`: el servidor sigue sirviendo
-    el build viejo y el nuevo queda enterrado un nivel mas abajo.
-
-    Es exactamente lo que hacia `scripts/common.py::copy_to_vps`, que pasaba
-    `remote_parent` para directorios y la ruta completa para archivos.
+    A folder goes to the PARENT of `remote_path`. `scp -r source target`
+    copies the folder *inside* the target when the target exists, so
+    pointing at the final path works once and from the second time
+    leaves `.../dist/dist`: the server keeps serving the old build and
+    the new one stays buried a level below.
     """
     if not local.exists():
         raise TaskError(f"No existe la ruta local: {local}")
@@ -243,17 +261,18 @@ def upload(
 def download(
     ctx: TaskContext, remote: Remote, remote_path: str, local: Path, *, recursive: bool = False
 ) -> Path:
+    """Download a remote file or folder."""
     local.parent.mkdir(parents=True, exist_ok=True)
     ctx.run(remote.scp_argv(local, remote_path, download=True, recursive=recursive))
     return local
 
 
-# --- tunel -----------------------------------------------------------------
+# --- tunnel ---
 
 
 @dataclass
 class Tunnel:
-    """Un `ssh -N -L` vivo. Es un servicio de fondo, no una tarea (ADR-0016)."""
+    """A live `ssh -N -L`: a service, not a task (ADR-0016)."""
 
     remote: Remote
     local_port: int
@@ -262,26 +281,33 @@ class Tunnel:
 
     @property
     def alive(self) -> bool:
+        """Return whether the tunnel's process lives."""
         return self.proc.poll() is None
 
     @property
     def endpoint(self) -> str:
+        """Return the local `host:port`."""
         return f"127.0.0.1:{self.local_port}"
 
     def close(self) -> None:
+        """Close the tunnel."""
         process.kill_tree(self.proc)
 
     def __enter__(self) -> "Tunnel":
+        """Return the tunnel, for a `with` block."""
         return self
 
     def __exit__(self, *exc: object) -> None:
+        """Close the tunnel when leaving the `with` block."""
         self.close()
 
 
 def open_tunnel(remote: Remote, *, local_port: int, remote_port: int) -> Tunnel:
+    """Open a tunnel and return it once it forwards."""
     forward = f"127.0.0.1:{local_port}:127.0.0.1:{remote_port}"
-    # Sin ExitOnForwardFailure, un puerto local ocupado deja a ssh vivo sin
-    # reenviar nada y la conexion cae en lo que ya escuchaba ahi.
+    # Without ExitOnForwardFailure, a taken local port leaves ssh alive
+    # forwarding nothing, and the connection lands on what already
+    # listened there.
     argv = [
         "ssh",
         *CONNECT_TIMEOUT,
@@ -299,11 +325,11 @@ def open_tunnel(remote: Remote, *, local_port: int, remote_port: int) -> Tunnel:
     return Tunnel(remote, local_port, remote_port, proc)
 
 
-# --- llaves y known_hosts --------------------------------------------------
+# --- keys and known_hosts ---
 
 
 def ensure_local_keypair(ctx: TaskContext, key_name: str, *, comment: str = "") -> Path:
-    """Crea `~/.ssh/<key_name>` si falta. Idempotente: si ya existe, no la toca."""
+    """Create `~/.ssh/<key_name>` if missing. Idempotent."""
     private = identity_path(key_name)
     if private.is_file():
         ctx.info(f"La llave local ya existe: {private}")
@@ -317,10 +343,12 @@ def ensure_local_keypair(ctx: TaskContext, key_name: str, *, comment: str = "") 
 
 
 def public_key_path(private: Path) -> Path:
+    """Return the path of the private key's public half."""
     return private.with_name(private.name + ".pub")
 
 
 def public_key(private: Path) -> str:
+    """Return the text of the public key."""
     pub = public_key_path(private)
     if not pub.is_file():
         raise TaskError(f"No existe la llave publica: {pub}")
@@ -328,14 +356,14 @@ def public_key(private: Path) -> str:
 
 
 def forget_host(ctx: TaskContext, host: str) -> None:
-    """Saca la entrada vieja de known_hosts.
+    """Remove the old entry from known_hosts.
 
-    Tras reinstalar el VPS cambia la huella y el cliente rechaza la conexion
-    hasta que se limpia la entrada anterior.
+    After reinstalling the VPS its fingerprint changes, and the client
+    rejects the connection until the old entry is cleared.
     """
     ctx.run(["ssh-keygen", "-R", host], check=False)
 
 
 def terminal_argv(remote: Remote) -> list[str]:
-    """Sesion interactiva en terminal externa: necesita TTY real (ADR-0005)."""
+    """Return a session for an external terminal (ADR-0005)."""
     return HOST.terminal_argv(["ssh", "-i", str(remote.identity), remote.target])

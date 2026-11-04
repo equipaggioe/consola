@@ -1,3 +1,5 @@
+"""The top menu bar of actions."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
@@ -9,45 +11,46 @@ from app.theme import Colors, Fonts
 from app.ui import favorites
 from app.ui.palettes import NEUTRAL, Palette
 
-# Marcador de texto en vez de pintado propio: un `QMenu` no deja tenir un
-# item suelto, y se lee igual de bien sin costar un `QWidgetAction` (que
-# seria reimplementar `ActionRow` dentro del popup).
-MARK_DANGER = "⚠"  # destructiva: revisar antes de apretar
+# A text marker and not custom paint: a `QMenu` does not allow tinting
+# one item, and this reads just as well without a `QWidgetAction`, which
+# would reimplement `ActionRow` inside the popup.
+MARK_DANGER = "⚠"  # destructive: check before pressing
 
 
 class ActionMenuBar(QMenuBar):
-    """Barra de menu superior: el catalogo entero de acciones a un recorrido
-    de hover, sin acordeon y sin ocupar ancho.
+    """The top menu bar: the whole action catalog one hover away.
 
-    Un clic abre la pestana de la accion, por la misma senal que el buscador
-    de la misma fila (`ui/action_search.py`), asi que `MainWindow` no
-    distingue de donde vino el clic. Correr de una queda para el ▶ del
-    buscador.
+    No accordion, and it takes no width. A click opens the action's tab
+    through the same signal as the search on the same row
+    (`ui/action_search.py`), so `MainWindow` cannot tell where the click
+    came from. Running at once is left to the search's ▶.
     """
 
-    action_requested = Signal(str)  # capability_id: abrir su pestana
+    action_requested = Signal(str)  # capability_id: open its tab
     focus_search_requested = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the menus from the registry."""
         super().__init__(parent)
         self.pal = NEUTRAL
         self.setStyleSheet(self._bar_style())
 
-        self._actions: dict[str, QAction] = {}  # capability_id -> item del menu
+        # capability_id -> menu item
+        self._actions: dict[str, QAction] = {}
         self._group_menus: list[QMenu] = []
-        # Todos los menus de la barra, de grupo o no: lo que hay que repintar
-        # cuando cambia el repo activo.
+        # All the bar's menus, of a group or not: what has to be
+        # repainted when the active repo changes.
         self._menus: list[QMenu] = []
-        # Por menu de grupo, sus tramos: cada uno con la raya que lo abre (la
-        # del primero es None) y sus acciones. Es lo que necesita
-        # `_apply_filters` para podar un menu sin dejar rayas colgando de un
-        # tramo que quedo vacio.
+        # Per group menu, its stretches: each with the line that opens
+        # it (None for the first) and its actions. `_apply_filters`
+        # needs it to prune a menu without leaving lines hanging from an
+        # emptied stretch.
         self._blocks: dict[QMenu, list[tuple[QAction | None, list[str]]]] = {}
         self._favorites: set[str] = favorites.favorite_ids()
         self._only_favorites = favorites.only_favorites()
-        # Lo que tiene sentido en el repo abierto (`core/catalog.py::applicable_ids`).
-        # None = todavia no hay repo: no se filtra nada, que es lo mismo que
-        # hacia antes de que existiera este filtro.
+        # What makes sense in the open repo
+        # (`core/catalog.py::applicable_ids`). None = no repo yet:
+        # nothing is filtered.
         self._applicable: set[str] | None = None
 
         self._build_action_menus()
@@ -57,13 +60,14 @@ class ActionMenuBar(QMenuBar):
         self.set_project_active(False)
         self._apply_filters()
 
-    # --- paleta ------------------------------------------------------------
+    # --- palette ---
     def set_palette(self, pal: Palette) -> None:
-        """Los menus desplegados son del repo abierto, como todo lo demas.
+        """Repaint the open menus: they belong to the open repo too.
 
-        Sin esto se quedaban en los neutros de `ui/theme.py` y el nombre del
-        item bajo el cursor salia en el azul fijo de `Colors.ACCENT` — el
-        acento de OTRO tema — en los siete repos que no son azules.
+        Without this they stayed in the neutrals of `theme.py`, and the
+        name of the item under the cursor came out in the fixed blue of
+        `Colors.ACCENT`, the accent of ANOTHER theme, in the seven repos
+        that are not blue.
         """
         self.pal = pal
         self.setStyleSheet(self._bar_style())
@@ -71,11 +75,13 @@ class ActionMenuBar(QMenuBar):
             menu.setStyleSheet(self._menu_style())
 
     def _bar_style(self) -> str:
-        """La franja en si no se pinta: el fondo (`chrome`) y la linea de
-        abajo los pone la fila que la contiene, que llega mas a la derecha que
-        el menu (ahi va el interruptor de favoritos). Lo que si se pinta es el
-        titulo del menu abierto, que se pone del fondo del popup que cuelga de
-        el para que se lean como una sola pieza.
+        """Return the bar's style.
+
+        The strip itself is not painted: the row that holds it sets the
+        background (`chrome`) and the bottom line, and it reaches
+        further right than the menu, where the favorites switch goes.
+        What is painted is the open menu's title, in the background of
+        the popup hanging from it, so they read as one piece.
         """
         return f"""
             QMenuBar {{
@@ -90,17 +96,18 @@ class ActionMenuBar(QMenuBar):
         """
 
     def _menu_style(self) -> str:
-        """El popup en `panel`, dos escalones por debajo de la fila de la que
-        cuelga: sobre `chrome` no se recortaria (1.06:1 contra la barra), y el
-        item bajo el cursor necesita un escalon propio por encima del popup.
-        La regla de `:disabled` es por la leyenda del menu Ayuda, que es un
-        item que no se puede apretar.
+        """Return the popup's style.
 
-        `QMenu::separator` es obligatoria: con una hoja de estilo puesta sobre
-        el `QMenu`, Qt deja de dibujar la linea nativa del separador y solo
-        queda su alto en blanco — la misma trampa que ya documentaba
-        `_build_action_menus` para `addSection`. Sin esta regla, los cortes de
-        ADR-0043 se ven como un espacio vacio, no como una raya.
+        The popup is `panel`, two steps below the row it hangs from: on
+        `chrome` it would not stand out (1.06:1 against the bar), and
+        the item under the cursor needs its own step above the popup.
+        The `:disabled` rule is for the Help menu's legend, an item that
+        cannot be pressed.
+
+        `QMenu::separator` is required: with a style sheet on the
+        `QMenu`, Qt stops drawing the separator's native line and only
+        its blank height remains. Without this rule, the cuts of
+        ADR-0043 show as empty space, not a line.
         """
         return f"""
             QMenu {{
@@ -125,26 +132,26 @@ class ActionMenuBar(QMenuBar):
         self._menus.append(menu)
         return menu
 
-    # --- construccion ----------------------------------------------------
+    # --- building ---
     def _build_action_menus(self) -> None:
-        """Un menu por grupo del registro, en el orden en que el catalogo los
-        declara, y dentro las acciones en ese mismo orden.
+        """Build one menu per registry group, in catalog order.
 
-        Los menus largos se cortan con rayas, no con encabezados: el rotulo de
-        una seccion obligaba a nombrar el tramo —y a inventar un nombre para
-        los tramos de un solo boton—, cuando lo unico que hace falta es que el
-        ojo vea donde el menu deja de hablar de una cosa y empieza a hablar de
-        otra. Los nombres, que empiezan por el verbo, dicen el resto.
+        Inside, actions go in that same order. Long menus cut with
+        lines, not headings: a section label forced naming each stretch,
+        and inventing a name for one-button stretches, when all that is
+        needed is for the eye to see where the menu stops speaking of
+        one thing. The names, which start with the verb, say the rest.
 
-        De donde sale cada raya:
+        Where each line comes from:
 
-        - `Capability.cut`: el catalogo declara que este boton abre un tramo.
-        - `kind == 'destructive'`: lo que borra va al fondo, siempre detras de
-          una raya, sin que nadie lo declare (ADR-0043).
+        - `Capability.cut`: the catalog declares that this button opens
+          a stretch.
+        - `kind == 'destructive'`: what deletes goes to the bottom,
+          always behind a line, without anyone declaring it (ADR-0043).
 
-        El titulo de la barra va sin el emoji del grupo: son ocho menus en una
-        fila, y a 1000px —el minimo de la ventana— el emoji es lo primero que
-        empuja los ultimos al desbordamiento.
+        The bar's title goes without the group's emoji: there are eight
+        menus in a row, and at 1000px, the window's minimum, the emoji
+        is the first thing that pushes the last ones into overflow.
         """
         for group, capabilities in registry.get_groups().items():
             menu = self._add_menu(group)
@@ -183,38 +190,42 @@ class ActionMenuBar(QMenuBar):
         menu.addAction(search)
 
     def _build_help_menu(self) -> None:
-        """Solo la leyenda del marcador."""
+        """Only the marker's legend."""
         menu = self._add_menu("Ayuda")
         item = QAction(f"{MARK_DANGER}  = destructiva", self)
         item.setEnabled(False)
         menu.addAction(item)
 
-    # --- estado -----------------------------------------------------------
+    # --- state ---
     def set_project_active(self, active: bool) -> None:
-        """Sin repo en pestanas no hay nada sobre lo que correr: los menus de
-        acciones se deshabilitan enteros, igual que el buscador.
+        """Enable or disable the action menus.
+
+        With no repo in tabs there is nothing to run on: the action
+        menus are disabled whole, like the search.
         """
         for menu in self._group_menus:
             menu.setEnabled(active)
 
     def set_applicable(self, ids: set[str]) -> None:
-        """Que acciones tienen sentido en el repo abierto.
+        """Set which actions make sense in the open repo.
 
-        Las que no —"Migrar" en un repo que no lleva migraciones— se van del
-        menu enteras, no quedan en ambar: no les falta un dato, les falta sobre
-        que actuar (ADR-0007). Un grupo que se queda sin
-        ninguna desaparece de la barra, igual que con «solo favoritos».
+        Those that do not, such as «Migrar» in a repo without
+        migrations, leave the menu whole and do not stay amber: they
+        lack no datum but something to act on (ADR-0007). A group left
+        with none disappears from the bar, as with «solo favoritos».
         """
         if self._applicable is not None and ids == self._applicable:
             return
         self._applicable = set(ids)
         self._apply_filters()
 
-    # --- solo favoritos ---------------------------------------------------
+    # --- only favorites ---
     def set_only_favorites(self, value: bool) -> None:
-        """El interruptor de la barra de titulo: con el puesto, los menus de
-        grupo muestran solo las acciones marcadas — y el grupo que no tenga
-        ninguna desaparece de la barra, no queda como un menu vacio.
+        """Apply the title bar's switch.
+
+        With it on, group menus show only marked actions, and a group
+        with none disappears from the bar instead of staying as an empty
+        menu.
         """
         if value == self._only_favorites:
             return
@@ -222,8 +233,10 @@ class ActionMenuBar(QMenuBar):
         self._apply_filters()
 
     def set_favorites(self, ids: set[str]) -> None:
-        """Se marco o desmarco una favorita en otra superficie (el filete del
-        buscador, la estrella de la cabecera de parametros).
+        """React to a favorite marked on another surface.
+
+        That is the search's stripe or the star of the parameters
+        header.
         """
         if ids == self._favorites:
             return
@@ -231,8 +244,10 @@ class ActionMenuBar(QMenuBar):
         self._apply_filters()
 
     def _apply_filters(self) -> None:
-        """Los dos filtros de la barra, en una sola pasada: lo que no aplica a
-        este repo y —si el interruptor esta puesto— lo que no esta marcado.
+        """Apply the bar's two filters in one pass.
+
+        What does not apply to this repo and, with the switch on, what
+        is not marked.
         """
         for menu in self._group_menus:
             alive = 0
@@ -244,7 +259,8 @@ class ActionMenuBar(QMenuBar):
                     )
                     self._actions[cap_id].setVisible(see)
                     visible += int(see)
-                # Una raya solo separa si quedo algo de los dos lados.
+                # A line only separates if something remains on both
+                # sides.
                 if separator is not None:
                     separator.setVisible(visible > 0 and alive > 0)
                 alive += visible
@@ -252,8 +268,10 @@ class ActionMenuBar(QMenuBar):
 
 
 def _tooltip(cap: Capability) -> str:
-    """El mismo contenido que el tooltip de las filas del buscador (`ActionRow._tooltip`):
-    que hace, de que nivel es, y como se usa la entrada.
+    """Return the same content as a search row's tooltip.
+
+    That is `ActionRow._tooltip`: what it does, its level and how the
+    entry is used.
     """
     composite = bool(cap.composed_of or len(cap.steps) > 1)
     level = "Compuesta · encadena varias atómicas" if composite else "Atómica · un solo paso"

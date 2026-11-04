@@ -1,3 +1,5 @@
+"""The menu bar's action search."""
+
 from __future__ import annotations
 
 from typing import cast, override
@@ -23,17 +25,19 @@ from app.ui.widgets import ActionRow
 
 
 class ActionSearch(QWidget):
-    """Buscador de la barra de menu: al escribir despliega debajo las acciones
-    que coinciden, en filas `ActionRow` — filete de favorita, marcas de nivel
-    y ▶ para correr de una.
+    """The menu bar search: typing lists the matching actions below.
 
-    Busca sobre TODAS las acciones aunque «solo favoritos» este puesto: buscar
-    es ir por algo puntual, y esconder justo lo que se busca por no estar
-    marcado seria un chiste cruel. Abrir emite la misma senal que el menu,
-    asi que `MainWindow` no distingue de donde vino el clic.
+    They show in `ActionRow` rows, with the favorite stripe, level marks
+    and ▶ to run at once.
 
-    Teclado: flechas para moverse, Enter abre la pestana, Ctrl+Enter la corre
-    si esta lista, Esc cierra.
+    It searches ALL actions even with «only favorites» on: searching
+    goes after something specific, and hiding what is being searched for
+    because it is not marked would be a cruel joke. Opening emits the
+    same signal as the menu, so `MainWindow` cannot tell where the click
+    came from.
+
+    Keyboard: arrows to move, Enter opens the tab, Ctrl+Enter runs it if
+    ready, Esc closes.
     """
 
     action_requested = Signal(str)
@@ -41,18 +45,20 @@ class ActionSearch(QWidget):
     favorites_changed = Signal(set)
 
     WIDTH = 240
-    FIELD_HEIGHT = 28  # el de un campo de «Configuracion del repo» (`ui/env_panel.py`)
+    # that of a «Configuración del repo» field (`ui/env_panel.py`)
+    FIELD_HEIGHT = 28
     POPUP_WIDTH = 440
     POPUP_MAX_HEIGHT = 460
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the field; the list builds on first use."""
         super().__init__(parent)
         self.pal = NEUTRAL
         self._ready: set[str] = set()
-        # Lo que tiene sentido en el repo abierto. Buscar si muestra lo que no
-        # esta marcado como favorito (ver la docstring), pero no lo que este
-        # repo no puede hacer: eso no es esconder algo que existe, es no
-        # ofrecer un boton que solo podria fallar.
+        # What makes sense in the open repo. Search does show what is
+        # not marked favorite (see the docstring), but not what this
+        # repo cannot do: that is not hiding something that exists but
+        # not offering a button that could only fail.
         self._applicable: set[str] | None = None
         self._current = -1
 
@@ -64,9 +70,9 @@ class ActionSearch(QWidget):
         self.box.setPlaceholderText("Buscar acciones…")
         self.box.setClearButtonEnabled(True)
         self.box.setFixedWidth(self.WIDTH)
-        # El mismo alto que un campo de «Configuracion del repo»
-        # (`ui/env_panel.py`): es un campo de texto como los otros y en la
-        # misma ventana.
+        # The same height as a «Configuración del repo» field
+        # (`ui/env_panel.py`): it is a text field like the others, in
+        # the same window.
         self.box.setFixedHeight(self.FIELD_HEIGHT)
         self.box.textChanged.connect(self._on_text)
         self.box.installEventFilter(self)
@@ -77,13 +83,14 @@ class ActionSearch(QWidget):
         self._rows: list[ActionRow] = []
         self._headers: list[tuple[QLabel, list[ActionRow]]] = []
 
-    # --- estado que llega de la ventana ----------------------------------
+    # --- state that comes from the window ---
     def set_palette(self, pal: Palette) -> None:
-        """El campo del buscador es un campo de «Configuracion del repo»
-        (`ui/env_panel.py`) y nada mas: mismo fondo (`surface_alt`), borde,
-        alto, radio, cuerpo de letra y foco. Que sobre `chrome` se recorte
-        menos que alla sobre `panel` no lo convierte en otra cosa: un campo de
-        texto de esta ventana se ve asi.
+        """Repaint the field like any «Configuración del repo» field.
+
+        Same background (`surface_alt`), border, height, radius, type
+        size and focus (`ui/env_panel.py`). Standing out less on
+        `chrome` than on `panel` over there does not make it something
+        else: a text field in this window looks like this.
         """
         self.pal = pal
         self._restyle_box()
@@ -92,26 +99,30 @@ class ActionSearch(QWidget):
             row.set_accent(pal.accent)
 
     def set_ready(self, ready: set[str]) -> None:
+        """Set which actions can run at once."""
         self._ready = set(ready)
         for row in self._rows:
             row.set_ready(row.capability_id in self._ready)
 
     def set_favorites(self, ids: set[str]) -> None:
+        """Set which actions are favorites."""
         for row in self._rows:
             row.set_favorite(row.capability_id in ids)
 
     def set_applicable(self, ids: set[str]) -> None:
-        """Que acciones tienen sentido en el repo abierto
-        (`core/catalog.py::applicable_ids`). Se aplica al filtrar, junto con el
-        texto escrito.
+        """Set which actions make sense in the open repo.
+
+        They come from `core/catalog.py::applicable_ids`, and apply when
+        filtering, along with the typed text.
         """
         self._applicable = set(ids)
         if self.box.text().strip():
             self._on_text(self.box.text())
 
     def set_project_active(self, active: bool) -> None:
-        """Sin repo en pestanas no hay sobre que correr: igual que los menus
-        de grupo, el buscador se apaga.
+        """With no repo in tabs there is nothing to run on.
+
+        Like the group menus, the search turns off.
         """
         self.box.setEnabled(active)
         if not active:
@@ -132,9 +143,11 @@ class ActionSearch(QWidget):
         """)
 
     def _popup_style(self) -> str:
-        """La lista cuelga de la fila del menu igual que un menu de grupo, y
-        va pintada como ellos (`ui/menu_bar.py::_menu_style`): `panel`, dos
-        escalones por debajo de la barra.
+        """Return the list's style, like a group menu's.
+
+        The list hangs from the menu row like a group menu, painted the
+        same (`ui/menu_bar.py::_menu_style`): `panel`, two steps below
+        the bar.
         """
         return f"""
             QFrame#actionSearchPopup {{
@@ -148,23 +161,27 @@ class ActionSearch(QWidget):
         return f"""
             QScrollArea {{ border: none; background: transparent; }}
             QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}
-            QScrollBar::handle:vertical {{ background: {self.pal.border_light}; border-radius: 4px; }}
+            QScrollBar::handle:vertical {{ background: {self.pal.border_light}; border-radius: 4px;
+                }}
         """
 
     def _restyle_popup(self) -> None:
-        """Se construye una sola vez y sobrevive a los cambios de repo: hay
-        que repintarlo, no basta con pintarlo al nacer.
+        """Repaint the list when the repo changes.
+
+        It builds only once and survives repo changes: painting it at
+        birth is not enough.
         """
         if self._popup is not None:
             self._popup.setStyleSheet(self._popup_style())
             self._scroll.setStyleSheet(self._scroll_style())
 
-    # --- popup -------------------------------------------------------------
+    # --- popup ---
     def _build_popup(self) -> QFrame:
-        """Hijo de la ventana y no una ventana `Qt.Popup`: un popup de verdad
-        se lleva el foco del teclado, y hay que poder seguir escribiendo con
-        la lista abierta. Se construye una vez, con todas las acciones, y la
-        busqueda solo cambia que filas se ven.
+        """Build the list once, with every action.
+
+        A child of the window and not a `Qt.Popup` window: a real popup
+        takes keyboard focus, and typing has to go on with the list
+        open. The search only changes which rows show.
         """
         popup = QFrame(self.window())
         popup.setObjectName("actionSearchPopup")
@@ -258,8 +275,8 @@ class ActionSearch(QWidget):
         popup = self._popup
         assert popup is not None
         window = self.window()
-        # Alineado por la derecha con el campo: el buscador vive cerca del
-        # borde derecho de la fila, y la lista es mas ancha que el campo.
+        # Right-aligned with the field: the search lives near the row's
+        # right edge, and the list is wider than the field.
         anchor = self.box.mapTo(window, QPoint(self.box.width(), self.box.height() + 4))
         width = max(self.POPUP_WIDTH, self.box.width())
         x = max(4, anchor.x() - width)
@@ -285,7 +302,7 @@ class ActionSearch(QWidget):
             app.removeEventFilter(self)
         self._set_current(-1)
 
-    # --- seleccion con teclado ------------------------------------------
+    # --- keyboard selection ---
     def _set_current(self, index: int) -> None:
         visible = self._visible_rows()
         for row in self._rows:
@@ -300,7 +317,7 @@ class ActionSearch(QWidget):
         visible = self._visible_rows()
         return visible[self._current] if 0 <= self._current < len(visible) else None
 
-    # --- disparo -----------------------------------------------------------
+    # --- firing ---
     def _open(self, cap_id: str) -> None:
         self.box.clear()
         self.action_requested.emit(cap_id)
@@ -310,18 +327,19 @@ class ActionSearch(QWidget):
         self.run_requested.emit(cap_id)
 
     def _on_favorite_toggled(self, cap_id: str, value: bool) -> None:
-        """Marcar desde la lista no la cierra: se guarda y se avisa al resto
-        de las superficies.
+        """Save the mark from the list and tell the other surfaces.
+
+        Marking from the list does not close it.
         """
         self.favorites_changed.emit(favorites.set_favorite(cap_id, value))
 
-    # --- eventos -------------------------------------------------------------
+    # --- events ---
     @override
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         kind = event.type()
         if obj is self.box and kind == QEvent.Type.FocusIn and self.box.text().strip():
-            # Se cerro con un clic afuera pero quedo el texto: volver al campo
-            # reabre la lista tal como estaba.
+            # It closed with a click outside but the text stayed:
+            # returning to the field reopens the list as it was.
             self._on_text(self.box.text())
         elif obj is self.box and kind == QEvent.Type.KeyPress:
             popup_open = self._popup is not None and self._popup.isVisible()
@@ -345,7 +363,8 @@ class ActionSearch(QWidget):
                         self._open(row.capability_id)
                 return True
         elif kind == QEvent.Type.MouseButtonPress and self._popup is not None:
-            # Clic fuera del campo y de la lista: se cierra, sin comerse el clic.
+            # A click outside the field and the list closes it, without
+            # eating the click.
             pos = cast(QMouseEvent, event).globalPosition().toPoint()
             popup_rect = QRect(self._popup.mapToGlobal(QPoint(0, 0)), self._popup.size())
             box_rect = QRect(self.box.mapToGlobal(QPoint(0, 0)), self.box.size())

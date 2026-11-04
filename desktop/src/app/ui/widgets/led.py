@@ -1,3 +1,5 @@
+"""A status LED."""
+
 from __future__ import annotations
 
 from typing import override
@@ -12,23 +14,24 @@ from app.theme import Colors
 class LedIndicator(QWidget):
     """Circular LED with states: 'off', 'on', 'green', 'amber', 'red'.
 
-    Only 'green' pulses, and that pulse means *algo esta vivo ahora mismo*
-    (un servicio corriendo). Para un hecho estatico — una herramienta que
-    esta instalada — se usa 'on': el mismo verde, sin animacion. Sin esa
-    distincion cada indicador de la barra de estado dejaria una animacion en
-    bucle corriendo para siempre, y ademas mentiria sobre lo que informa.
+    Only 'green' pulses, and that pulse means *something is alive right
+    now*, such as a running service. A static fact, such as an installed
+    tool, uses 'on': the same green without animation. Without that
+    difference each status bar indicator would leave an animation
+    looping forever, and it would lie about what it reports.
     """
 
     STEADY = ("off", "on", "amber", "red")
 
     def __init__(self, parent: QWidget | None = None, size: int = 10) -> None:
+        """Build the LED."""
         super().__init__(parent)
         self.setFixedSize(size, size)
         self._state = "off"
         self._opacity = 1.0
         self._size = size
 
-        self.animation = QPropertyAnimation(self, b"glowOpacity", self)
+        self.animation = QPropertyAnimation(self, b"glow_opacity", self)
         self.animation.setDuration(2000)
         self.animation.setStartValue(0.4)
         self.animation.setEndValue(1.0)
@@ -36,6 +39,7 @@ class LedIndicator(QWidget):
         self.animation.setLoopCount(-1)
 
     def set_state(self, state: str) -> None:
+        """Set the state, and start or stop the pulse."""
         self._state = state
         if state == "green":
             if self.animation.state() != QPropertyAnimation.State.Running:
@@ -45,14 +49,16 @@ class LedIndicator(QWidget):
             self._opacity = 1.0
         self.update()
 
-    def get_glowOpacity(self) -> float:
+    def get_glow_opacity(self) -> float:
+        """Return the glow opacity, for the animation."""
         return self._opacity
 
-    def set_glowOpacity(self, value: float) -> None:
+    def set_glow_opacity(self, value: float) -> None:
+        """Set the glow opacity, for the animation."""
         self._opacity = value
         self.update()
 
-    glowOpacity = Property(float, get_glowOpacity, set_glowOpacity)
+    glow_opacity = Property(float, get_glow_opacity, set_glow_opacity)
 
     @override
     def paintEvent(self, event: QPaintEvent) -> None:

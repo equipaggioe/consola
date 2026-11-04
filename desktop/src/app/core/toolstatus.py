@@ -1,3 +1,16 @@
+"""Which development tools this machine has, by looking at the disk.
+
+It feeds the status bar indicators. It is the cheap version of the
+question on purpose: it only checks that the binary exists and where,
+without running `java -version` or `flutter doctor`. Asking each tool
+takes seconds and would block the interface on each refresh, and the
+file is enough for what the indicator says: present or not.
+
+That is why there is no «environment status» button either: this checks
+itself when the workspace opens and after each install, not when someone
+remembers to press it.
+"""
+
 from __future__ import annotations
 
 import os
@@ -9,50 +22,38 @@ from app.core.errors import TaskError
 from app.core.host import HOST
 from app.core.process import which_any
 
-"""
-Que herramientas de desarrollo tiene esta maquina, mirando el disco.
-
-Alimenta los indicadores de la barra de estado. Es a proposito la version
-barata de la pregunta: solo comprueba que el binario exista y donde, sin
-lanzar `java -version` ni `flutter doctor`. Preguntarselo a cada herramienta
-cuesta segundos y bloquearia la interfaz cada vez que se refresca; y para lo
-que el indicador tiene que decir —esta o no esta— alcanza con el archivo.
-
-Por eso tampoco hay un boton de "estado del entorno": esto se chequea solo al
-abrir el espacio de trabajo y despues de cada instalacion, no cuando alguien
-se acuerda de apretarlo.
-"""
-
 
 @dataclass(frozen=True)
 class Tool:
-    """Una herramienta buscada, con el resultado de la busqueda."""
+    """A tool that was searched for, with the result of the search."""
 
     key: str
     label: str
-    path: str = ""  # vacio = no se encontro
-    hint: str = ""  # que hacer al respecto, para el tooltip
+    path: str = ""  # empty = not found
+    hint: str = ""  # what to do about it, for the tooltip
 
     @property
     def found(self) -> bool:
+        """Return whether the tool was found."""
         return bool(self.path)
 
     @property
     def detail(self) -> str:
+        """Return the path or the hint, for the tooltip."""
         return self.path if self.found else (self.hint or "No encontrado.")
 
 
 def _binary(name: str) -> list[str]:
-    """Los nombres que puede tener un ejecutable segun el sistema."""
+    """Return the names an executable can have on this system."""
     return HOST.executable_names(name)
 
 
 def _under(home: str, *parts: str) -> str:
-    """Busca el ejecutable dentro de un directorio declarado por variable.
+    """Find the executable inside a folder declared by a variable.
 
-    Se mira antes que el PATH porque una instalacion recien hecha escribe la
-    variable en el mismo momento que la ruta, y asi el indicador se pone en
-    verde sin que haga falta reiniciar Consola.
+    It looks here before PATH because a fresh install writes the
+    variable at the same time as the path, so the indicator turns green
+    without restarting Consola.
     """
     root = (os.environ.get(home) or "").strip()
     if not root:
@@ -96,5 +97,5 @@ def _flutter() -> Tool:
 
 
 def detect() -> list[Tool]:
-    """El estado de las cuatro herramientas, en el orden en que dependen entre si."""
+    """Return the state of the four tools, in dependency order."""
     return [_java(), _git(), _android(), _flutter()]

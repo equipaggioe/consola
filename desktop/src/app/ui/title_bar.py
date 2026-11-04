@@ -1,3 +1,5 @@
+"""The window's title row."""
+
 from __future__ import annotations
 
 from typing import override
@@ -12,22 +14,25 @@ from app.ui.project_tabs import ProjectTab
 
 
 class Diamond(QWidget):
-    """El rombo de la marca, pintado.
+    """The brand's diamond, painted.
 
-    Como caracter (`◇`) es un trazo de un pixel que a esta escala se pierde
-    contra el acento, y la negrita no lo engorda: es un simbolo geometrico,
-    no una letra. Pintado se le puede pedir el grosor que la marca necesita.
+    As a character (`◇`) it is a one-pixel stroke lost against the
+    accent at this scale, and bold does not thicken it: it is a
+    geometric symbol, not a letter. Painted, it can have the weight the
+    brand needs.
     """
 
     SIZE = 17
     STROKE = 2.2
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the diamond."""
         super().__init__(parent)
         self.setFixedSize(self.SIZE + 4, self.SIZE + 4)
         self._color = Colors.INK
 
     def set_color(self, color: str) -> None:
+        """Change its color."""
         self._color = color
         self.update()
 
@@ -55,17 +60,18 @@ class Diamond(QWidget):
 
 
 class BrandMark(QWidget):
-    """Marca de la aplicacion: el rombo y `CONSOLA`, sobre la barra de titulo
-    pintada del color del repo activo.
+    """The app's brand: the diamond and `CONSOLA` on the title bar.
 
-    Abre la barra de titulo, a la izquierda de las pestanas de repos — el
-    lugar donde un navegador pone su boton de menu o su logo.
+    The bar is painted in the active repo's color. It opens the bar, to
+    the left of the repo tabs: where a browser puts its menu button or
+    logo.
 
-    Sin placa que la separe, lo que la sostiene es el peso: el rombo se pinta
-    con trazo propio y el nombre va en negro de imprenta.
+    With no plate to separate it, weight holds it up: the diamond has
+    its own stroke and the name goes in print black.
     """
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the brand."""
         super().__init__(parent)
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 14, 0)
@@ -80,6 +86,7 @@ class BrandMark(QWidget):
         self.set_palette(NEUTRAL)
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         fg = pal.on_accent
         self.diamond.set_color(fg)
         self.title.setStyleSheet(f"""
@@ -92,23 +99,24 @@ class BrandMark(QWidget):
 
 
 class WindowButton(QPushButton):
-    """Minimizar / maximizar / cerrar, dibujados por nosotros.
+    """Minimize, maximize and close, drawn by us.
 
-    La ventana es sin marco (`Qt.FramelessWindowHint`) para que las pestanas
-    de repos y la marca compartan fila con estos tres botones; a cambio, hay
-    que ponerlos.
+    The window is frameless (`Qt.FramelessWindowHint`) so the repo tabs
+    and the brand share a row with these three buttons; in exchange,
+    they have to be supplied.
 
-    El glifo se **pinta**, no se escribe. Como texto («─», «□», «✕») eran
-    trazos de un pixel que se perdian contra el acento, y la negrita no los
-    engorda: son caracteres de dibujo de caja, no letras. Pintados, los tres
-    tienen el mismo grosor y el mismo tamano, que es justo lo que se les pide.
+    The glyph is **painted**, not written. As text («─», «□», «✕») they
+    were one-pixel strokes lost against the accent, and bold does not
+    thicken box-drawing characters. Painted, all three have the same
+    weight and size.
     """
 
     WIDTH = 46
     STROKE = 1.6
-    GLYPH = 11  # lado del cuadrado / de la equis, en pixeles
+    GLYPH = 11  # side of the square or the cross, in pixels
 
     def __init__(self, kind: str, parent: QWidget | None = None) -> None:
+        """Build the button of that kind."""
         super().__init__(parent)
         self.kind = kind  # 'min' | 'max' | 'close'
         self.maximized = False
@@ -119,12 +127,14 @@ class WindowButton(QPushButton):
         self.set_foreground(Colors.TEXT_DIM)
 
     def set_foreground(self, color: str) -> None:
-        """El trazo toma el color legible sobre la barra (`on_color`).
+        """Set the stroke to the legible color over the bar.
 
-        El fondo del hover sale de ese mismo color y no de un gris fijo: un
-        gris oscuro sobre una barra clara era una mancha que no se parecia a
-        nada del resto de la ventana. El de cerrar si es rojo — ahi el color
-        ES el aviso.
+        See `on_color`.
+
+        The hover background comes from that same color and not a fixed
+        gray: a dark gray over a light bar was a stain unlike anything
+        else in the window. Close's is red: there the color IS the
+        warning.
         """
         self._fg = color
         hover = Colors.ERROR if self.kind == "close" else tint(color, 0.16)
@@ -138,12 +148,13 @@ class WindowButton(QPushButton):
         self.update()
 
     def set_maximized(self, value: bool) -> None:
+        """Set whether the window is maximized."""
         self.maximized = value
         self.update()
 
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
-        super().paintEvent(event)  # el fondo del hover lo pone la hoja
+        super().paintEvent(event)  # the sheet sets the hover background
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         color = QColor(Colors.TEXT if (self.kind == "close" and self.underMouse()) else self._fg)
@@ -159,7 +170,8 @@ class WindowButton(QPushButton):
             p.drawLine(QPointF(c.x() - h, c.y()), QPointF(c.x() + h, c.y()))
         elif self.kind == "max":
             if self.maximized:
-                # Restaurar: la hoja de atras asomando por arriba y a la derecha.
+                # Restore: the back sheet peeking from above and to the
+                # right.
                 p.drawRect(QRectF(c.x() - h, c.y() - h + 2.5, self.GLYPH - 2.5, self.GLYPH - 2.5))
                 p.drawLine(
                     QPointF(c.x() - h + 2.5, c.y() - h + 2.5), QPointF(c.x() - h + 2.5, c.y() - h)
@@ -185,15 +197,17 @@ class WindowButton(QPushButton):
 
 
 class TitleBar(QWidget):
-    """Fila de titulo de la ventana, al modo de un navegador: la marca, las
-    pestanas de repos y los botones de ventana, todo en el borde superior.
+    """The window's title row, like a browser's.
 
-    Un repositorio abierto es lo que una pestana del navegador: el contexto
-    entero de lo que se ve debajo. Ponerlas aca —y no en una franja propia—
-    dice justamente eso, y ademas devuelve una fila de alto a la ventana.
+    The brand, the repo tabs and the window buttons, all on the top
+    edge.
 
-    El hueco que dejan las pestanas es zona de arrastre: `ProjectTabBar` no
-    atiende el raton fuera de sus pestanas, asi que el evento sube hasta aca.
+    An open repository is what a browser tab is: the whole context of
+    what shows below. Placing them here and not on a strip of their own
+    says exactly that, and gives one row of height back to the window.
+
+    The gap the tabs leave is a drag zone: `ProjectTabBar` does not take
+    the mouse outside its tabs, so the event comes up here.
     """
 
     HEIGHT = ProjectTab.HEIGHT
@@ -203,10 +217,11 @@ class TitleBar(QWidget):
     close_requested = Signal()
 
     def __init__(self, tabs: QWidget, parent: QWidget | None = None) -> None:
+        """Build the row."""
         super().__init__(parent)
         self.setFixedHeight(self.HEIGHT)
-        # La fila entera se pinta del color del repo activo: es la senal de que
-        # repo esta abierto, en vez de una linea bajo su pestana.
+        # The whole row paints in the active repo's color: it signals
+        # which repo is open, instead of a line under its tab.
         self.accent = Colors.ACCENT
         self._press_pos: QPoint | None = None
 
@@ -233,8 +248,9 @@ class TitleBar(QWidget):
         layout.addWidget(self.close_btn)
         self.set_palette(NEUTRAL)
 
-    # --- estado -----------------------------------------------------------
+    # --- state ---
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.accent = pal.accent
         self.brand.set_palette(pal)
         fg = on_color(pal.accent)
@@ -243,10 +259,11 @@ class TitleBar(QWidget):
         self.update()
 
     def set_maximized(self, value: bool) -> None:
+        """Set whether the window is maximized."""
         self.max_btn.set_maximized(value)
         self.max_btn.setToolTip("Restaurar" if value else "Maximizar")
 
-    # --- arrastrar la ventana ---------------------------------------------
+    # --- dragging the window ---
     @override
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -255,11 +272,11 @@ class TitleBar(QWidget):
 
     @override
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        """El movimiento del sistema arranca recien al arrastrar de verdad.
+        """Start the system move only on a real drag.
 
-        Llamar a `startSystemMove()` en el press se comeria el doble clic —
-        que es como se maximiza — porque el bucle de arrastre de Windows se
-        queda con los eventos siguientes.
+        Calling `startSystemMove()` on press would eat the double click,
+        which is how one maximizes, because Windows's drag loop keeps
+        the next events.
         """
         if self._press_pos is None:
             return super().mouseMoveEvent(event)
@@ -282,7 +299,7 @@ class TitleBar(QWidget):
             self.maximize_requested.emit()
         super().mouseDoubleClickEvent(event)
 
-    # --- pintura ----------------------------------------------------------
+    # --- paint ---
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)

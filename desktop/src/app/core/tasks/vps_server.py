@@ -1,3 +1,11 @@
+"""VPS group: server.
+
+The two buttons that operate the services already on the VPS: send them
+a systemd action and read their journal. They write nothing on the
+machine. Both need root: `sudo` asks for the account's password
+(`vps_setup.Access`).
+"""
+
 from __future__ import annotations
 
 from app.core import canone, vps
@@ -6,24 +14,16 @@ from app.core.errors import TaskError
 from app.core.registry import registry
 from app.core.tasks.vps_setup import access
 
-"""
-Grupo VPS - server.
-
-Los dos botones que operan los servicios que ya estan en el VPS: mandarles una
-accion de systemd y leerles el journal. No escriben nada en la maquina. Los dos
-piden root: `sudo` pide la contraseña de la cuenta (`vps_setup.Access`).
-"""
-
 
 def systemd_action(
     ctx: TaskContext, action: str = "status", service: str = vps.MAIN_SERVICE
 ) -> int:
-    """Una accion de systemd sobre uno de los servicios del VPS.
+    """Run a systemd action on one of the VPS services.
 
-    `service` no parte el boton: start/stop/restart/status son los mismos nueve
-    valores para cada unidad, y lo unico que cambia es su nombre. Un boton
-    "Reiniciar coturn" al lado de este seria la misma funcion con una constante
-    distinta (ADR-0023).
+    `service` does not split the button: start, stop, restart and status
+    are the same values for each unit, and only its name changes. A
+    «Restart coturn» button next to this one would be the same function
+    with another constant (ADR-0023).
     """
     if service == vps.RECEIVER_SERVICE and action in vps.STARTING_ACTIONS:
         raise TaskError("El respaldo lo pide la receptora: no se arranca desde aquí.")
@@ -47,11 +47,12 @@ def view_logs(
     grep: str = "",
     service: str = vps.MAIN_SERVICE,
 ) -> int:
-    """Sigue el journal del servicio con los filtros pedidos.
+    """Follow the service's journal with the requested filters.
 
-    Es capacidad hermana de `systemd_action`, no un valor suyo: los filtros no
-    tienen sentido para start/stop (ADR-0023). El eje `service` es el mismo de
-    alla: cuando coturn o Caddy no arrancan, lo que hay que leer es su journal.
+    It is a sibling capability of `systemd_action`, not a value of it:
+    filters make no sense for start or stop (ADR-0023). The `service`
+    axis is the same: when coturn or Caddy do not start, their journal
+    is what has to be read.
     """
     unit = vps.resolve_service(canone.origin(ctx.root)[1], service)
     command = vps.journal_command(
@@ -61,5 +62,6 @@ def view_logs(
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("systemd_action", systemd_action)
     registry.bind("view_logs", view_logs)

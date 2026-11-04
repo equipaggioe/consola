@@ -1,3 +1,14 @@
+"""The content of an action tab.
+
+A launcher delivers a URL and not a log: the console is the first of two
+views, and the second, the browser, is what is needed when a dev server
+came up (ADR-0008).
+
+The same box serves «Explorar base» (ADR-0015): a tree and a grid
+instead of text, sharing the parameters panel and the tab's footer. That
+is why the switcher is called "view" and not "browser".
+"""
+
 from __future__ import annotations
 
 from collections.abc import Callable
@@ -25,19 +36,6 @@ from app.ui.console_view import ConsoleView
 from app.ui.palettes import NEUTRAL, Palette
 from app.ui.widgets.led import LedIndicator
 
-"""
-El contenido de una pestana de accion.
-
-Hasta ahora una pestana era una consola y nada mas. Un launcher no entrega un
-log, entrega una URL: la consola pasa a ser la primera de dos vistas, y la
-segunda —el navegador— es la que hace falta cuando lo que se levanto es un dev
-server (ADR-0008).
-
-La misma caja sirve para «Explorar base» (ADR-0015): arbol y
-grilla en lugar de texto, compartiendo el panel de parametros y el pie de la
-pestana. Por eso el conmutador se llama "vista" y no "navegador".
-"""
-
 
 def _chip_style(pal: Palette) -> str:
     return f"""
@@ -52,7 +50,8 @@ def _chip_style(pal: Palette) -> str:
 
 
 CONSOLA = "Consola"
-# El rotulo del chip que lleva a la segunda vista, segun `Capability.view`.
+# The label of the chip leading to the second view, by
+# `Capability.view`.
 VIEW_NAMES = {"web": "Navegador", "db": "Explorador"}
 
 if TYPE_CHECKING:
@@ -60,20 +59,23 @@ if TYPE_CHECKING:
 
 
 class TabView(QWidget):
-    """Barra de herramientas + conmutador de vistas + (consola | segunda vista)."""
+    """Toolbar, view switcher, and the console or the second view."""
 
-    cleared = Signal()  # Limpiar: la pestana decide si ademas detiene su tarea
+    # Clear: the tab decides whether it also stops its task
+    cleared = Signal()
 
     def __init__(
         self, capability: Capability, project: Project | None = None, parent: QWidget | None = None
     ) -> None:
+        """Build the bar and the console."""
         super().__init__(parent)
         self.capability = capability
         self.project = project
         self._url = ""
         self._web = False
         self._browser: BrowserView | None = None
-        self._explorer: DbExplorerView | None = None  # importada al primer uso
+        # imported on first use
+        self._explorer: DbExplorerView | None = None
         self.pal = NEUTRAL
         self._chips: list[QPushButton] = []
 
@@ -90,15 +92,16 @@ class TabView(QWidget):
 
         root.addWidget(self.tool_bar)
         root.addWidget(self.stack, 1)
-        # Solo los launchers publican un endpoint que mostrar; «Explorar base»
-        # tambien, porque su boton es el unico camino de vuelta a la consola.
-        # Limpiar no vive aca: esta en el pie, junto a Ejecutar.
+        # Only launchers publish an endpoint to show; «Explorar base»
+        # too, because its button is the only way back to the console.
+        # Clear does not live here: it is in the footer, next to Run.
         self.tool_bar.setVisible(capability.group == "Ejecutar" or bool(capability.view))
 
-    # --- construccion --------------------------------------------------
+    # --- building ---
     def _build_tool_bar(self) -> QWidget:
-        """La franja de arriba de la pestana: el endpoint que publico la
-        tarea, que aparece y desaparece con la URL.
+        """Build the tab's top strip: the endpoint the task published.
+
+        It appears and disappears with the URL.
         """
         bar = QWidget()
         bar.setFixedHeight(36)
@@ -129,7 +132,7 @@ class TabView(QWidget):
         )
         self.view_btn.setVisible(False)
 
-        # Todo lo del endpoint se muestra y se esconde junto.
+        # Everything of the endpoint shows and hides together.
         self._endpoint_widgets = [
             self.led,
             self.state_label,
@@ -153,21 +156,22 @@ class TabView(QWidget):
         db = self.capability.has_db_view
         for w in self._endpoint_widgets:
             if w is self.view_btn:
-                # Tiene su propia regla: solo con una segunda vista que mostrar.
-                # La decide `set_endpoint`.
+                # It has its own rule: only with a second view to show.
+                # `set_endpoint` decides it.
                 w.setVisible(visible and (self._web or (db and self._explorer is not None)))
             elif w in (self.copy_btn, self.external_btn):
-                # La URL de una base va enmascarada: copiarla o «abrirla» en el
-                # navegador no sirve para nada.
+                # A database's URL is masked: copying it or «opening» it
+                # in the browser is useless.
                 w.setVisible(visible and not db)
             else:
                 w.setVisible(visible)
 
     def clear_console(self) -> None:
-        """Vacia el log y vuelve a poner la cabecera de la accion.
+        """Empty the log and put the action's header back.
 
-        Vaciar del todo dejaria una pestana sin nombre, indistinguible de otra
-        recien abierta; estas tres lineas son las mismas con las que nacio.
+        Emptying completely would leave a nameless tab,
+        indistinguishable from a just-opened one; these three lines are
+        the same it was born with.
         """
         self.console.clear_console()
         self.console.append_log(f"─── {self.capability.name} ───", "info")
@@ -185,8 +189,9 @@ class TabView(QWidget):
         btn.clicked.connect(slot)
         return btn
 
-    # --- color del repo -------------------------------------------------
+    # --- repo color ---
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
         self.console.set_palette(pal)
@@ -202,12 +207,14 @@ class TabView(QWidget):
         for chip in self._chips:
             chip.setStyleSheet(_chip_style(self.pal))
 
-    # --- endpoint ------------------------------------------------------
+    # --- endpoint ---
     def set_endpoint(self, url: str, label: str, web: bool, state: str) -> None:
-        """Lo que la tarea publico con `ctx.serve()`, con su estado.
+        """Show what the task published with `ctx.serve()`.
 
-        Llega dos veces por endpoint: al anunciarlo (`starting`) y cuando el
-        puerto contesta de verdad (`ready`) o se da por perdido (`down`).
+        With its state.
+
+        It comes twice per endpoint: when announced (`starting`) and
+        when the port truly answers (`ready`) or is given up (`down`).
         """
         self._url = url
         self._web = web and self.capability.has_web_view
@@ -215,10 +222,10 @@ class TabView(QWidget):
         self._set_state(state, label)
 
         if state == session.READY:
-            # Lo que se pidio fue levantar una pagina o conectar una base:
-            # mostrarla es terminar el trabajo, no una sorpresa. La consola
-            # queda a un clic, y si el proceso se cae se vuelve sola
-            # (`endpoint_down`).
+            # What was asked was to bring up a page or connect a
+            # database: showing it finishes the work and is no surprise.
+            # The console stays one click away, and if the process falls
+            # it comes back by itself (`endpoint_down`).
             if self.capability.has_db_view:
                 self._start_explorer(url)
             elif self._web:
@@ -228,7 +235,7 @@ class TabView(QWidget):
         self._show_endpoint(True)
 
     def endpoint_down(self) -> None:
-        """La tarea termino o se cayo: la URL deja de ofrecerse como viva."""
+        """Stop offering the URL as alive: the task ended or fell."""
         if not self._url:
             return
         self._set_state(session.DOWN, self.state_label.property("label") or "")
@@ -254,7 +261,7 @@ class TabView(QWidget):
         QGuiApplication.clipboard().setText(self._url)
         self.console.append_log(f"URL copiada: {self._url}", "ok")
 
-    # --- vistas --------------------------------------------------------
+    # --- views ---
     def _toggle_view(self) -> None:
         if self.stack.currentWidget() is self.console:
             if self.capability.has_db_view:
@@ -265,14 +272,16 @@ class TabView(QWidget):
             self.show_console()
 
     def show_console(self) -> None:
+        """Show the console."""
         self.stack.setCurrentWidget(self.console)
         self.view_btn.setText(VIEW_NAMES.get(self.capability.view, ""))
 
     def show_browser(self) -> None:
-        """Crea el navegador la primera vez que hace falta.
+        """Create the browser the first time it is needed.
 
-        Perezoso a proposito: un QWebEngineView es un proceso aparte, y abrir
-        tres SPA no debe arrancar tres motores hasta que alguien mire alguna.
+        Lazy on purpose: a QWebEngineView is a separate process, and
+        opening three SPAs should not start three engines until someone
+        looks at one.
         """
         if self._browser is None:
             self._browser = BrowserView(self._url, self)
@@ -284,15 +293,18 @@ class TabView(QWidget):
         self.view_btn.setText(CONSOLA)
 
     def show_explorer(self) -> None:
+        """Show the explorer."""
         if self._explorer is None:
             return
         self.stack.setCurrentWidget(self._explorer)
         self.view_btn.setText(CONSOLA)
 
-    # --- explorador de base ----------------------------------------------
+    # --- database explorer ---
     def _start_explorer(self, safe_url: str) -> None:
-        """La conexion que publico `explore_db`, con su contrasena, sale de la
-        sesion y no de la barra: ahi solo viaja la URL enmascarada.
+        """Open the explorer on the connection `explore_db` published.
+
+        The connection, with its password, comes from the session and
+        not the bar: only the masked URL travels there.
         """
         if self._explorer is not None or self.project is None:
             self.show_explorer()
@@ -319,16 +331,20 @@ class TabView(QWidget):
         self._explorer = None
 
     def on_shown(self) -> None:
-        """La pestana volvio a primer plano: lo consultado se relee al mostrarse,
-        no con un boton de recargar.
+        """Reread what was queried when the tab returns.
+
+        To the foreground.
+
+        It happens on showing, not with a reload button.
         """
         if self._explorer is not None:
             self._explorer.refresh()
 
     def shutdown(self) -> None:
-        """La pestana se cierra: suelta lo que tenga hilos propios."""
+        """Release whatever has its own threads, as the tab closes."""
         self._stop_explorer()
 
-    # --- consola (delegacion) ------------------------------------------
+    # --- console (delegation) ---
     def append_log(self, text: str, level: str = "info") -> None:
+        """Append one line to the console."""
         self.console.append_log(text, level)

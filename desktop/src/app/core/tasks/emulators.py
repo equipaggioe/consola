@@ -1,3 +1,21 @@
+"""Emulators group.
+
+Three separate activities, each with its own catalog:
+
+  Install machine  ->  from the SDK's system image catalog
+  Create AVD       ->  from the device catalog + an installed machine
+  Emulator         ->  among the AVDs that exist
+
+No composite chains them. When a step stops being «the usual» and has
+options of its own, it no longer fits in a checkbox: installing a
+virtual machine happens every few months, creating an AVD once per
+model, and starting twenty times a day. Chaining them would force
+answering three catalogs to do what is almost always the third.
+
+Stopping has no button in the rail: closing the tab stops the emulator
+it launched, and orphans stop from the panel's status header.
+"""
+
 from __future__ import annotations
 
 import shlex
@@ -7,45 +25,21 @@ from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.registry import registry
 
-"""
-Grupo Emuladores.
-
-`android_emulator.py` era un solo `run()` que hacia cuatro cosas en fila:
-descargar la system image, crear el AVD, parchear su `config.ini` y arrancar el
-emulador — las tres primeras escondidas detras de una constante (`pixel_4`,
-`pixel_8`, `resizable`) que decidia todo de una vez.
-
-Aca son tres actividades separadas, cada una con su propio catalogo:
-
-  Instalar maquina  ->  elige del catalogo de system images del SDK
-  Crear AVD         ->  elige del catalogo de dispositivos + una maquina instalada
-  Emulador          ->  elige entre los AVD que ya existen
-
-Ya no hay compuesta que las encadene. Cuando un paso deja de ser "el mismo de
-siempre" y pasa a tener opciones propias, deja de caber en una casilla: instalar
-una maquina virtual se hace una vez cada varios meses, crear un AVD una vez por
-modelo, y arrancar, veinte veces por dia. Encadenarlos obligaria a contestar
-tres catalogos para hacer lo que casi siempre es lo tercero.
-
-Apagar no tiene boton en el rail: cerrar la pestana apaga el emulador que esa
-pestana lanzo, y los huerfanos se apagan desde la cabecera de estado del panel.
-"""
-
-# El serial del ultimo emulador arrancado, para que la app movil no tenga que
-# adivinar contra cual correr. Es estado de sesion como `SERVER_PORT`
-# (ADR-0009), pero de la maquina y no de un repo: el emulador no es de
-# nadie en particular.
+# The serial of the last emulator started, so the mobile app need not
+# guess which one to run against. It is session state like `SERVER_PORT`
+# (ADR-0009), but of the machine and not a repo: the emulator belongs to
+# nobody in particular.
 EMULATOR_SERIAL = "EMULATOR_SERIAL"
 
 
-# --- instalacion -----------------------------------------------------------
+# --- install ---
 
 
 def install_system_image(ctx: TaskContext, image: str = "") -> str:
-    """Descarga una maquina virtual del catalogo del SDK si falta.
+    """Download a virtual machine from the SDK's catalog if missing.
 
-    Es la parte lenta de todo el grupo — varios GB — y por eso tiene boton
-    propio: se hace una vez y despues sirve para todos los AVD que la usen.
+    It is the group's slow part, several GB, so it has its own button:
+    it happens once and then serves every AVD using it.
     """
     if not image:
         raise TaskError("Elige que maquina virtual instalar.")
@@ -58,15 +52,15 @@ def install_system_image(ctx: TaskContext, image: str = "") -> str:
 
 
 def create_avd(ctx: TaskContext, device: str = "", image: str = "") -> str:
-    """Crea el dispositivo virtual con el modelo y la maquina elegidos.
+    """Create the virtual device with the chosen model and machine.
 
-    El nombre se pregunta al correr y no llega como parametro: dos AVD no se
-    pueden llamar igual, asi que un nombre guardado solo sirve para la primera
-    vez (`ADR-0064` 6). Dejarlo vacio es la respuesta
-    normal: entonces se deriva del dispositivo y la API (`pixel_4_api36`), que
-    es lo que se quiere casi siempre. Se pregunta igual —y no solo cuando hay
-    colision— porque el derivado se muestra ahi mismo: se ve con que nombre va
-    a quedar antes de que exista, que es cuando importa.
+    The name is asked when running and does not come as a parameter: two
+    AVDs cannot share a name, so a saved one only serves the first time
+    (`ADR-0064` 6). Leaving it empty is the normal answer: it then
+    derives from the device and API (`pixel_4_api36`), almost always
+    what is wanted. It asks anyway, and not only on a collision, because
+    the derived name shows right there: one sees the name before it
+    exists, when it matters.
     """
     if not device:
         raise TaskError("Elige un dispositivo del catalogo.")
@@ -87,7 +81,7 @@ def create_avd(ctx: TaskContext, device: str = "", image: str = "") -> str:
     return created
 
 
-# --- uso -------------------------------------------------------------------
+# --- usage ---
 
 
 def launch_emulator(
@@ -98,27 +92,26 @@ def launch_emulator(
     gpu: str = "host",
     flags: str = "",
 ) -> str:
-    """Arranca un AVD ya creado y sigue su salida hasta que se cierra.
+    """Start a created AVD and follow its output until it closes.
 
-    Tres cosas que el script original no hacia:
+    Three details:
 
-    - El puerto se elige antes de arrancar, asi el serial se conoce desde el
-      principio: sin eso no hay forma de saber cual de los emuladores vivos es
-      el de esta pestana.
-    - Si ese AVD ya esta corriendo, la segunda copia va en `-read-only`, que es
-      lo unico que permite tener dos abiertos a la vez.
-    - Detener la pestana le pide al emulador que se cierre por adb en vez de
-      matarle el proceso (ADR-0028).
+    - The port is chosen before starting, so the serial is known from
+      the beginning: otherwise there is no way to know which live
+      emulator is this tab's.
+    - If that AVD is already running, the second copy goes in
+      `-read-only`, the only way to have two open at once.
+    - Stopping the tab asks the emulator to close through adb instead of
+      killing its process (ADR-0028).
 
-    Los flags llegan por tres caminos que se suman, nunca se reemplazan:
-    `android.DEFAULT_FLAGS` (los de siempre), `boot_flags` y `gpu` (las casillas
-    del panel, cuyo valor ES el flag), y `flags` (lo que quedo por escribir).
-    Quien marca una casilla pide *ese ademas*, no quedarse sin la animacion de
-    arranque desactivada.
+    Flags come by three paths that add up and never replace each other:
+    `android.DEFAULT_FLAGS` (the usual), `boot_flags` and `gpu` (the
+    panel's checkboxes, whose value IS the flag), and `flags` (what is
+    left to type). Checking a box asks for *that as well*.
 
-    `flags` es una linea de comandos y no una lista, porque es lo que se
-    escribe en un campo: ahi `-memory 4096` son dos tokens escritos juntos, y
-    se parten como los partiria una shell.
+    `flags` is a command line and not a list, because that is what goes
+    in a field: there `-memory 4096` is two tokens typed together, and
+    it splits as a shell would.
     """
     if not avd:
         raise TaskError('Elige un AVD. Si no hay ninguno, crealo con "Crear AVD".')
@@ -135,8 +128,9 @@ def launch_emulator(
             "(no guarda cambios en el disco del AVD)."
         )
 
-    # `-gpu` siempre va, porque el eje no ofrece "que decida el emulador": las
-    # dos opciones del panel son las dos que se eligen a mano.
+    # `-gpu` always goes, because the axis does not offer «let the
+    # emulator decide»: the panel's two options are the two chosen by
+    # hand.
     chosen = [
         *(boot_flags or []),
         "-gpu",
@@ -167,11 +161,12 @@ def launch_emulator(
 
 
 def await_emulator(ctx: TaskContext, timeout: float = 180.0, serial: str = "") -> str:
-    """Espera a que un emulador termine de bootear y devuelve su serial.
+    """Wait for an emulator to finish booting and return its serial.
 
-    No es un boton: nadie pide "espera el boot" suelto. La usan los launchers de
-    app movil antes de instalar el APK, porque `flutter run` contra un
-    dispositivo que todavia no acepta comandos falla sin explicar por que.
+    Not a button: nobody asks to wait for a boot alone. Mobile app
+    launchers use it before installing the APK, because `flutter run`
+    against a device that does not accept commands yet fails without
+    explaining why.
     """
     found = android.wait_for_boot(ctx, android.resolve_sdk(), timeout=timeout, serial=serial)
     ctx.ok(f"Emulador listo: {found}")
@@ -179,11 +174,11 @@ def await_emulator(ctx: TaskContext, timeout: float = 180.0, serial: str = "") -
 
 
 def stop_emulator(ctx: TaskContext, serial: str = "") -> None:
-    """Apaga uno o todos los emuladores vivos.
+    """Stop one or all live emulators.
 
-    Se corre desde el ✕ de la cabecera de estado del panel (los huerfanos: un
-    emulador de una sesion anterior, o arrancado desde Android Studio). El
-    emulador de una pestana abierta se apaga solo al cerrarla.
+    It runs from the ✕ of the panel's status header, for orphans: an
+    emulator from an earlier session, or started from Android Studio. An
+    open tab's emulator stops by itself on closing.
     """
     sdk = android.resolve_sdk()
     targets = [serial] if serial else android.list_devices(sdk)
@@ -194,7 +189,7 @@ def stop_emulator(ctx: TaskContext, serial: str = "") -> None:
         android.stop(ctx, sdk, one)
 
 
-# --- limpieza --------------------------------------------------------------
+# --- cleaning ---
 
 
 def purge_emulators(
@@ -203,12 +198,12 @@ def purge_emulators(
     images: list[str] | None = None,
     apply: bool = False,
 ) -> dict[str, list[str]]:
-    """Borra los AVD y las maquinas virtuales marcados, con simulacro primero.
+    """Delete the checked AVDs and virtual machines.
 
-    `purge_avds.py` y `purge_system_images.py` borraban *todo* y sin preguntar,
-    a un clic de distancia de perder los emuladores configurados (ADR-0018).
-    Aca se elige que se borra, se ve la lista con su tamano, y recien
-    despues se pide escribir BORRAR.
+    With a dry run first.
+
+    It chooses what goes, shows the list with its size, and only then
+    asks to type BORRAR (ADR-0018).
     """
     sdk = android.resolve_sdk()
     avds = list(avds or [])
@@ -253,7 +248,7 @@ def purge_emulators(
 
 
 def inventory(ctx: TaskContext | None = None) -> dict[str, list[str]]:
-    """Lo que hay en la maquina ahora mismo. No corre nada, solo mira."""
+    """Return what is on the machine right now. It only looks."""
     sdk = android.resolve_sdk()
     return {
         "avds": android.list_avds(sdk),
@@ -263,6 +258,7 @@ def inventory(ctx: TaskContext | None = None) -> dict[str, list[str]]:
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("install_system_image", install_system_image)
     registry.bind("create_avd", create_avd)
     registry.bind("launch_emulator", launch_emulator)

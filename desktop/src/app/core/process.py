@@ -1,3 +1,5 @@
+"""Run external binaries: stream, capture, kill."""
+
 from __future__ import annotations
 
 import os
@@ -16,12 +18,12 @@ LineSink = Callable[[str], None]
 
 
 def format_argv(argv: Argv) -> str:
-    """Linea legible para el log. No es para volver a ejecutar: es para leer."""
+    """Return a line for the log: to read it, not to rerun it."""
     return " ".join(f'"{a}"' if " " in str(a) else str(a) for a in argv)
 
 
 def which_any(names: Iterable[str]) -> str | None:
-    """Primer ejecutable de `names` que exista en el PATH."""
+    """Return the first executable of `names` on the PATH."""
     for name in names:
         found = shutil.which(name)
         if found:
@@ -30,7 +32,10 @@ def which_any(names: Iterable[str]) -> str | None:
 
 
 def as_argv(executable: str) -> list[str]:
-    """Envuelve los shims `.bat`/`.cmd` de Windows, que no son ejecutables reales."""
+    """Wrap Windows `.bat` and `.cmd` shims.
+
+    Which are not real executables.
+    """
     return HOST.wrap_script(executable)
 
 
@@ -41,11 +46,9 @@ def resolve_executable(
     label: str = "ejecutable",
     hint: str = "",
 ) -> list[str]:
-    """Ubica una herramienta externa: primero el override explicito, luego el PATH.
+    """Locate an external tool.
 
-    Unifica lo que en los scripts eran tres funciones casi iguales
-    (`resolve_flutter_cmd`, `resolve_flet_cmd`, `resolve_android_tool`): cada una
-    repetia el mismo "mira la variable, si no mira el PATH, si no error".
+    The explicit override first, then the PATH.
     """
     if override and override.strip():
         path = Path(override.strip()).expanduser()
@@ -68,9 +71,10 @@ def spawn(
     detached: bool = False,
     stdin: bool = False,
 ) -> subprocess.Popen[str]:
-    """Arranca un proceso con la salida unificada y lista para leer linea a linea.
+    """Start a process with unified output, ready to read line by line.
 
-    `stdin=True` le deja la entrada abierta para escribirle; si no, lee EOF.
+    `stdin=True` leaves its input open to write to it; otherwise it
+    reads EOF.
     """
     return subprocess.Popen(
         [str(a) for a in argv],
@@ -88,13 +92,14 @@ def spawn(
 
 
 def bind_to_app(proc: subprocess.Popen[str]) -> None:
-    """El proceso muere con Consola, aunque Consola se cierre de golpe o se caiga.
+    """Make the process die with Consola, even if Consola crashes.
 
-    Un tunel `ssh -L` que sobrevive a su Consola sigue ocupando el puerto local
-    y la proxima conexion entra por el.
+    An `ssh -L` tunnel that outlives its Consola keeps holding the local
+    port, and the next connection goes through it.
 
-    No es para todo hijo: un emulador muerto de golpe deja el AVD a medio
-    escribir, y ese se apaga por adb (`core/tasks/emulators.py`).
+    Not for every child: an emulator killed at once leaves the AVD half
+    written, and that one shuts down through adb
+    (`core/tasks/emulators.py`).
     """
     HOST.bind_to_app(proc)
 
@@ -109,14 +114,11 @@ def stream(
     register: Callable[[subprocess.Popen[str]], None] | None = None,
     stdin_text: str | None = None,
 ) -> int:
-    """Corre un proceso volcando su salida linea a linea, cancelable.
+    """Run a process and stream its output line by line, cancellably.
 
-    Reemplaza el `subprocess.run(...)` a secas de los scripts: alli la salida
-    aparecia recien al terminar y no habia forma de frenar a mitad de camino.
-
-    `stdin_text` se escribe entero al arrancar y la entrada se cierra: es para
-    lo que el programa lee de stdin (la contraseña de `sudo -S`, las lineas de
-    `credentials.py`), nunca se vuelca al log.
+    `stdin_text` is written whole at the start and the input closes: it
+    is for what the program reads from stdin (the password of `sudo -S`,
+    the lines of `credentials.py`), and it is never dumped to the log.
     """
     proc = spawn(argv, cwd=cwd, env=env, stdin=stdin_text is not None)
     if register:
@@ -154,14 +156,14 @@ def converse(
     cancel: threading.Event | None = None,
     register: Callable[[subprocess.Popen[str]], None] | None = None,
 ) -> int:
-    """Corre un proceso que pregunta, y contesta cada pregunta cuando aparece.
+    """Run a process that asks, answering each question as it appears.
 
-    `answers` son pares (texto de la pregunta, respuesta), en el orden en que
-    el programa pregunta. La respuesta se escribe recien cuando la pregunta
-    aparece en la salida: escrita antes, una terminal remota (`ssh -tt`) la
-    repite y queda en el log, y `getpass` la descarta. La pregunta no termina
-    en salto de linea, asi que la salida se lee por bloques y no por lineas.
-    Las respuestas nunca pasan por `on_line`.
+    `answers` are pairs of question text and answer, in the program's
+    order. The answer is written only when the question appears in the
+    output: written earlier, a remote terminal (`ssh -tt`) echoes it
+    into the log and `getpass` discards it. The question ends without a
+    line break, so output reads by blocks and not lines. Answers never
+    pass through `on_line`.
     """
     proc = subprocess.Popen(
         [str(a) for a in argv],
@@ -175,7 +177,8 @@ def converse(
     pending = list(answers)
     rest = ""
     try:
-        assert proc.stdout is not None and proc.stdin is not None
+        assert proc.stdout is not None
+        assert proc.stdin is not None
         fd = proc.stdout.fileno()
         while True:
             if cancel is not None and cancel.is_set():
@@ -217,14 +220,17 @@ def capture(
     check: bool = True,
     stdin_text: str | None = None,
 ) -> str:
-    """Corre un proceso y devuelve su salida. Para consultas cortas, no para builds.
+    """Run a process and return its output.
 
-    `stdin` va a DEVNULL igual que en `spawn`: una consulta corta no lee teclado,
-    y sin cerrarlo hereda el stdin del proceso padre. Desde la terminal eso no se
-    nota, pero corriendo dentro de la GUI ese handle heredado deja a `ssh` (que
-    reenvia stdin al comando remoto) esperando un EOF que no llega, y la consulta
-    se cuelga hasta el timeout aunque el comando remoto ya haya terminado.
-    `stdin_text` es lo que la consulta lee, y la entrada se cierra despues.
+    For short queries, not builds.
+
+    `stdin` goes to DEVNULL as in `spawn`: a short query reads no
+    keyboard, and unclosed it inherits the parent's stdin. From a
+    terminal that goes unnoticed, but inside the GUI that inherited
+    handle leaves `ssh`, which forwards stdin to the remote command,
+    waiting for an EOF that never comes, and the query hangs until the
+    timeout even though the remote command ended. `stdin_text` is what
+    the query reads, and the input closes after it.
     """
     entry: dict[str, Any] = (
         {"stdin": subprocess.DEVNULL} if stdin_text is None else {"input": stdin_text}
@@ -254,12 +260,12 @@ def capture(
 
 
 def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
-    """Corre un proceso escribiendole a stdin y devuelve todo lo que imprimio.
+    """Run a process writing to its stdin, and return all it printed.
 
-    `stream` y `capture` cierran stdin a proposito: una tarea de fondo esperando
-    teclado es un cuelgue silencioso. La excepcion es `sdkmanager --licenses`,
-    que pregunta una por una y no tiene bandera para aceptar; sin respuesta lee
-    EOF y no acepta ninguna.
+    `stream` and `capture` close stdin on purpose: a background task
+    waiting for a keyboard is a silent hang. The exception is
+    `sdkmanager --licenses`, which asks one by one and has no flag to
+    accept; without an answer it reads EOF and accepts none.
     """
     try:
         result = subprocess.run(
@@ -280,11 +286,11 @@ def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
 
 
 def kill_tree(proc: subprocess.Popen[str], *, grace: float = 5.0) -> None:
-    """Termina el proceso y sus hijos, de abajo hacia arriba (ADR-0005).
+    """End the process and its children, bottom up (ADR-0005).
 
-    Un launcher que vigila archivos y relanza a su hijo deja el puerto ocupado si
-    solo se mata al padre; `taskkill /T` y el grupo de procesos POSIX se encargan
-    del arbol completo.
+    A launcher that watches files and relaunches its child leaves the
+    port taken if only the parent is killed; `taskkill /T` and the POSIX
+    process group handle the whole tree.
     """
     if proc.poll() is not None:
         return

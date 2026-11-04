@@ -33,6 +33,7 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `envfile.py` | `.consola/config.env`: leer, regenerar, y `Config` con acceso tipado y defaults |
 | `settings.py` | El esquema de claves: quién las exige y quién solo las usa |
 | `fields.py` | Los campos de `Settings` del repo administrado, leídos con `ast` |
+| `http.py` | HTTP con `QNetworkAccessManager`, bloqueando el hilo que llama |
 | `canone.py` | Lo que se le pasa a los programas de canone: paquetes, argumentos de `install.py`, líneas de `credentials.py` |
 | `registry.py` | `Registry`, `Capability`, `AxisDef`, `Facet`, `Step`, y el puente a los kwargs |
 | `catalog.py` | La declaración de las 54 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
@@ -93,7 +94,7 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 | Apoyo | `theme.py`, `readiness.py`, `widgets/*` | Colores y tipografía, qué puede correr ya, controles propios |
 
 
-## 6. `camara/`
+## 6. `camera/`
 
 El kit de las cámaras de capturas: JS sin dependencias que no corre dentro de Consola, sino dentro del script de cámara de cada repo, que lo recibe en `--kit` ([19](19_imagenes.md) §6, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 

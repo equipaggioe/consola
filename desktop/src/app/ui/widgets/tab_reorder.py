@@ -1,3 +1,5 @@
+"""Tabs that can be dragged to reorder them."""
+
 from __future__ import annotations
 
 from typing import Any
@@ -8,16 +10,16 @@ from PySide6.QtWidgets import QBoxLayout, QWidget
 
 
 class ReorderableTab(QWidget):
-    """Mezcla para una pestana que se puede arrastrar para reordenarla.
+    """A tab that can be dragged to reorder it.
 
-    La seleccion sigue ocurriendo al apretar (respuesta inmediata, como en
-    un navegador); si el cursor se mueve mas alla del umbral sin soltar, la
-    pestana entra en modo arrastre y la barra la va recolocando cada vez que
-    el cursor cruza el centro de una vecina.
+    Selection still happens on press, for an immediate response as in a
+    browser; if the cursor moves beyond the threshold without releasing,
+    the tab enters drag mode and the bar repositions it each time the
+    cursor crosses the center of a neighbor.
 
-    Quien la usa debe: llamar `_init_reorder()` en su __init__, delegar los
-    tres eventos de raton a `_reorder_press/_reorder_move/_reorder_release`,
-    y tener como padre una barra con `reorder_to(tab, index)` y `tabs`.
+    Whoever uses it has to call `_init_reorder()` in its __init__,
+    delegate the three mouse events to `_reorder_press`, `_reorder_move`
+    and `_reorder_release`, and have as a parent a `ReorderableBar`.
     """
 
     DRAG_THRESHOLD = 6
@@ -28,12 +30,14 @@ class ReorderableTab(QWidget):
 
     @property
     def is_dragging(self) -> bool:
+        """Return whether the tab is being dragged."""
         return getattr(self, "_is_dragging", False)
 
     def _reorder_bar(self) -> ReorderableBar | None:
-        """Sube por los padres hasta quien sabe reordenar: el contenedor
-        directo de las pestanas no siempre es el que lleva la lista (las
-        sub-pestanas viven en un layout anidado dentro del panel).
+        """Walk up the parents to the one that knows how to reorder.
+
+        The tabs' direct container is not always the one that holds the
+        list: the sub-tabs live in a layout nested inside the panel.
         """
         node = self.parent()
         while node is not None:
@@ -61,8 +65,8 @@ class ReorderableTab(QWidget):
             self.raise_()
             self.update()
 
-        # Centro del cursor en coordenadas de la barra: la posicion del punto
-        # agarrado, no la del borde, para que la pestana no salte al tomarla.
+        # Cursor center in bar coordinates: the grabbed point's
+        # position, not the edge's, so the tab does not jump when taken.
         pos_in_bar = self.mapToParent(event.position().toPoint())
         bar.reorder_to(self, bar.index_for_x(pos_in_bar.x(), self))
 
@@ -75,11 +79,11 @@ class ReorderableTab(QWidget):
 
 
 class ReorderableBar(QWidget):
-    """Mezcla para la barra que contiene pestanas arrastrables.
+    """The bar that holds draggable tabs.
 
-    Espera `self.tabs` (lista ordenada) y `self._tab_layout()` (el layout que
-    las contiene). `reorder_to` reconstruye el orden del layout, asi que no
-    hay aritmetica de indices que se pueda desincronizar del modelo.
+    It expects `self.tabs`, the ordered list, and `self._tab_layout()`,
+    the layout that holds them. `reorder_to` rebuilds the layout's
+    order, so no index arithmetic can drift from the model.
     """
 
     tabs: list[Any]
@@ -88,7 +92,7 @@ class ReorderableBar(QWidget):
         raise NotImplementedError
 
     def index_for_x(self, x: int, dragged: ReorderableTab) -> int:
-        """Indice donde deberia quedar `dragged` si se suelta en `x`."""
+        """Return where `dragged` should land if released at `x`."""
         target = len(self.tabs) - 1
         for i, tab in enumerate(self.tabs):
             if x < tab.x() + tab.width() / 2:
@@ -97,6 +101,7 @@ class ReorderableBar(QWidget):
         return max(0, min(target, len(self.tabs) - 1))
 
     def reorder_to(self, tab: ReorderableTab, index: int) -> None:
+        """Move a tab to that index."""
         if tab not in self.tabs:
             return
         current = self.tabs.index(tab)
@@ -115,5 +120,5 @@ class ReorderableBar(QWidget):
         layout.activate()
 
     def tabs_reordered(self) -> None:
-        """Gancho para quien quiera reaccionar al nuevo orden."""
+        """React to the new order: a hook, empty here."""
         pass

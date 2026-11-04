@@ -1,3 +1,5 @@
+"""A labeled toggle switch."""
+
 from __future__ import annotations
 
 from typing import override
@@ -10,10 +12,10 @@ from app.theme import Colors, Fonts
 
 
 class ToggleSwitch(QWidget):
-    """Interruptor de pastilla con rotulo a la derecha.
+    """Pill switch with a label to its right.
 
-    Un QCheckBox diria 'casilla de un formulario': esto no es un parametro
-    de ejecucion sino un modo de la vista, y el interruptor lo dice.
+    A QCheckBox would say «form field»: this is a mode of the view and
+    not a run parameter, and a switch says so.
     """
 
     toggled = Signal(bool)
@@ -28,6 +30,7 @@ class ToggleSwitch(QWidget):
         accent: str = Colors.ACCENT,
         parent: QWidget | None = None,
     ) -> None:
+        """Build the switch."""
         super().__init__(parent)
         self.accent = accent
         self._checked = checked
@@ -49,11 +52,16 @@ class ToggleSwitch(QWidget):
 
         self._restyle()
 
-    # --- estado -------------------------------------------------------
+    # --- state -------------------------------------------------------
     def is_checked(self) -> bool:
+        """Return whether it is on."""
         return self._checked
 
     def set_checked(self, value: bool, announce: bool = True) -> None:
+        """Turn it on or off, and tell the listeners.
+
+        If `announce` is set.
+        """
         if value == self._checked:
             return
         self._checked = value
@@ -63,17 +71,18 @@ class ToggleSwitch(QWidget):
             self.toggled.emit(value)
 
     def set_accent(self, accent: str) -> None:
+        """Change the color of the switch when on."""
         self.accent = accent
         self._restyle()
         self.update()
 
     def _restyle(self) -> None:
-        # Apagado va en el gris de rotulo, no en el mas apagado: «solo
-        # favoritos» es una etiqueta que hay que poder leer, no una pista.
+        # Off uses the label gray, not the dimmest one: «only favorites»
+        # is a label to be read, not a hint.
         color = self.accent if self._checked else Colors.TEXT_LABEL
         self.label.setStyleSheet(f"background: transparent; color: {color};")
 
-    # --- interaccion ---------------------------------------------------
+    # --- interaction ---
     @override
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
@@ -82,7 +91,7 @@ class ToggleSwitch(QWidget):
             self.set_checked(not self._checked)
         super().mouseReleaseEvent(event)
 
-    # --- pintura -------------------------------------------------------
+    # --- paint ---
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)

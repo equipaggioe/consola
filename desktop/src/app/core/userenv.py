@@ -1,3 +1,15 @@
+"""Persistent environment variables, per user and without admin rights.
+
+Consola is meant for Linux and has to work the same on Windows, so the
+environment is written in the same conceptual way on both: a delimited
+block inside the shell profile on POSIX, and `HKCU/Environment` on
+Windows. Never at system level, which demands an elevated console and
+dirties the whole machine for what is in practice a single-user install.
+
+The delimited block is rewritten whole each time, so reinstalling leaves
+no duplicated exports or dangling old paths.
+"""
+
 from __future__ import annotations
 
 import importlib
@@ -10,22 +22,6 @@ from typing import Any
 from app.core.context import TaskContext
 from app.core.host import HOST
 
-"""
-Variables de entorno persistentes, a nivel usuario y sin permisos de administrador.
-
-Consola esta pensada para Linux y tiene que funcionar igual en Windows, asi que
-el entorno se escribe del mismo modo conceptual en los dos: un bloque delimitado
-dentro del perfil del shell en POSIX, y `HKCU\\Environment` en Windows. Nunca a
-nivel sistema. Los scripts originales usaban `setx /M` y HKLM, que exigen una
-consola elevada y ensucian la maquina entera para una instalacion que en la
-practica es de un solo usuario; ademas obligaban a correr toda la herramienta
-como administrador solo para escribir dos variables.
-
-El bloque delimitado reemplaza el borrado linea por linea de los scripts: se
-reescribe entero cada vez, asi que reinstalar no deja exports duplicados ni
-rutas viejas colgando, que era el problema que aquellos parcheaban a mano.
-"""
-
 BEGIN = "# >>> consola >>>"
 END = "# <<< consola <<<"
 _HEADER = "# Bloque gestionado por Consola: se reescribe completo, no lo edites a mano."
@@ -35,7 +31,7 @@ PathFilter = Callable[[str], bool]
 
 
 def profile_path() -> Path:
-    """El archivo de arranque del shell del usuario."""
+    """Return the startup file of the user's shell."""
     shell = (os.environ.get("SHELL") or "").strip()
     return Path.home() / (".zshrc" if shell.endswith("zsh") else ".bashrc")
 
@@ -47,12 +43,12 @@ def configure(
     path_add: Iterable[Path | str] = (),
     path_drop: PathFilter | None = None,
 ) -> None:
-    """Deja variables y rutas en el entorno del usuario, de forma persistente.
+    """Persist variables and paths in the user's environment.
 
-    `path_drop` decide que entradas viejas del PATH se descartan: es lo que
-    permite reinstalar en otro directorio sin que quede apuntando al anterior.
-    Ademas de escribirlas, las aplica al proceso actual, para que la propia
-    Consola encuentre lo recien instalado sin reiniciarse.
+    `path_drop` decides which old PATH entries are discarded: that
+    allows reinstalling elsewhere without pointing to the old folder.
+    Besides writing them, it applies them to the current process, so
+    Consola finds what was just installed without restarting.
     """
     values = dict(variables or {})
     added = [str(Path(p)) for p in path_add]
@@ -63,10 +59,12 @@ def configure(
 
 
 def _apply_to_process(variables: Mapping[str, str], path_add: list[str]) -> None:
-    """El entorno del proceso vivo: sin esto habria que reiniciar Consola.
+    """Apply to the live process.
 
-    Es lo que hace que los indicadores de la barra de estado se pongan en verde
-    al terminar la instalacion, en vez de al siguiente arranque.
+    Otherwise Consola would need a restart.
+
+    It is what turns the status bar indicators green when the install
+    ends instead of on the next start.
     """
     for name, value in variables.items():
         os.environ[name] = value
@@ -78,7 +76,7 @@ def _apply_to_process(variables: Mapping[str, str], path_add: list[str]) -> None
     os.environ["PATH"] = separator.join(current)
 
 
-# --- POSIX -----------------------------------------------------------------
+# --- POSIX ---
 
 
 def _configure_posix(
@@ -105,10 +103,12 @@ def _configure_posix(
 
 
 def read_block(profile: Path) -> tuple[dict[str, str], list[str]]:
-    """Lo que Consola dejo escrito en el perfil: variables y rutas del PATH.
+    """Return what Consola wrote in the profile.
 
-    Se lee antes de escribir porque el bloque es compartido: si Android lo
-    reescribiera sin mirar, borraria lo que dejo Flutter.
+    Variables and PATH entries.
+
+    It reads before writing because the block is shared: rewriting it
+    blindly for one SDK would erase what another left.
     """
     variables: dict[str, str] = {}
     dirs: list[str] = []
@@ -152,7 +152,7 @@ def _write_block(profile: Path, variables: Mapping[str, str], dirs: list[str]) -
     profile.write_text(text, encoding="utf-8", newline="\n")
 
 
-# --- Windows ---------------------------------------------------------------
+# --- Windows ---
 
 _SYSTEM_ENV_KEY = r"SYSTEM\CurrentControlSet\Control\Session Manager\Environment"
 
@@ -178,8 +178,9 @@ def _configure_windows(
                 kept.append(entry)
 
         if kept != entries:
-            # Siempre por registro y nunca por `setx`: setx trunca cualquier
-            # valor de mas de 1024 caracteres y un PATH real los pasa.
+            # Always through the registry and never `setx`: setx
+            # truncates any value over 1024 characters, and a real PATH
+            # exceeds that.
             winreg.SetValueEx(key, "Path", 0, kind or winreg.REG_EXPAND_SZ, ";".join(kept))
             if removed:
                 ctx.info(f"Se quitaron {removed} ruta(s) anteriores del PATH de usuario.")
@@ -192,7 +193,7 @@ def _configure_windows(
 
 
 def _winreg() -> Any:
-    """`winreg` y sus stubs existen solo en Windows."""
+    """Return `winreg`: it and its stubs exist only on Windows."""
     return importlib.import_module("winreg")
 
 
@@ -207,12 +208,12 @@ def _query(key: Any, name: str) -> tuple[str, int | None]:
 
 
 def _warn_system_path(ctx: TaskContext, path_drop: PathFilter | None) -> None:
-    """Avisa si el PATH del sistema tiene rutas viejas que le ganan a las nuevas.
+    """Warn if the system PATH has old entries that beat the new ones.
 
-    Windows arma el PATH del proceso poniendo primero el del sistema, asi que
-    una entrada que dejo una instalacion anterior con `setx /M` se impone sobre
-    la que acabamos de escribir en el del usuario. Leerlo no necesita permisos;
-    limpiarlo si, y por eso solo se informa.
+    Windows builds the process's PATH with the system's first, so an
+    entry left by an earlier `setx /M` install beats what was just
+    written in the user's. Reading it needs no rights; cleaning it does,
+    so it only reports.
     """
     if path_drop is None:
         return
@@ -234,10 +235,10 @@ def _warn_system_path(ctx: TaskContext, path_drop: PathFilter | None) -> None:
 
 
 def _broadcast_change() -> None:
-    """Avisa a Windows que el entorno cambio, para que lo vean las ventanas nuevas.
+    """Tell Windows the environment changed, for new windows to see it.
 
-    Sin esto, las terminales abiertas despues del cambio siguen con el PATH
-    viejo hasta cerrar sesion.
+    Without this, terminals opened after the change keep the old PATH
+    until signing out.
     """
     try:
         import ctypes
@@ -255,5 +256,5 @@ def _broadcast_change() -> None:
         pass
 
 
-# Uno por valor de `HOST.env_store`.
+# One per value of `HOST.env_store`.
 _STORES = {"profile": _configure_posix, "registry": _configure_windows}

@@ -78,7 +78,7 @@ Un solo archivo por repo, con tres clases de entrada:
 
 ```json
 {
-  "@theme":     { "key": "azul" },
+  "@theme":     { "key": "blue" },
   "@tabs":      { "open": ["build_vite", "backend"] },
   "@protection":{ "vps": true, "db": true, "local": false },
   "build_vite": { "variants": {...}, "options": {...},

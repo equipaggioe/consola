@@ -1,3 +1,5 @@
+"""The form of `.consola/config.env`."""
+
 from __future__ import annotations
 
 import os
@@ -29,21 +31,24 @@ from app.ui.palettes import Palette
 
 
 def _to_lines(value: str) -> str:
-    """Lo guardado (comas) tal como se edita (un renglon por entrada)."""
+    """Return what is saved (commas) as it edits (a line per entry)."""
     return "\n".join(envfile.split_list(value or ""))
 
 
-# Alto del campo multilinea, en renglones. Arranca en tres vacios —una lista de
-# rutas suele tener dos o tres— y crece con lo escrito hasta cinco; de ahi en
-# adelante scrollea.
+# Height of the multi-line field, in lines. It starts at three empty,
+# since a list of paths tends to have two or three, and grows with what
+# is written up to five; from there it scrolls.
 LIST_MIN_ROWS = 3
 LIST_MAX_ROWS = 5
 
 
 class _ClickToSelectLabel(QLabel):
-    """Etiqueta que, al hacer click, enfoca su campo y selecciona todo lo
-    escrito — lista para que la primera tecla lo reemplace entero, como en
-    la mayoria de los formularios.
+    """A label that focuses its field.
+
+    On a click and selects what is written.
+
+    It is then ready for the first key to replace it whole, as in most
+    forms.
     """
 
     def __init__(
@@ -62,7 +67,7 @@ class _ClickToSelectLabel(QLabel):
 
 
 class EnvRow(QWidget):
-    """Una clave del esquema: etiqueta y campo."""
+    """A schema key: label and field."""
 
     changed = Signal()
 
@@ -75,6 +80,7 @@ class EnvRow(QWidget):
         label_width: int = 118,
         parent: QWidget | None = None,
     ) -> None:
+        """Build the label and the field."""
         super().__init__(parent)
         self.setting = setting
         self.pal = pal
@@ -84,9 +90,9 @@ class EnvRow(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
 
-        # Una lista se escribe en varios renglones: tres rutas de certificados
-        # en un QLineEdit no dejan ver donde termina una y empieza la otra.
-        # Guarda separado por comas — ver `Setting.kind`.
+        # A list is written over several lines: three certificate paths
+        # in a QLineEdit do not show where one ends and the next begins.
+        # It saves separated by commas; see `Setting.kind`.
         if setting.kind == "list":
             self.field = QPlainTextEdit(_to_lines(value))
             self.field.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
@@ -103,15 +109,17 @@ class EnvRow(QWidget):
         if setting.kind == "list":
             self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
-        # `default_display` es el default ya resuelto para ESTE repo (fijo o
-        # dinamico, ej. DB_USER -> nombre de carpeta): dejar el campo vacio
-        # no es un error, corre con lo que se ve de marca de agua aca.
+        # `default_display` is the default already resolved for THIS
+        # repo, fixed or dynamic (DB_USER from the folder's name):
+        # leaving the field empty is no error, it runs with the
+        # watermark shown here.
         #
-        # Y solo eso —o el `default_hint` de las que no tienen default que
-        # resolver—: sin ninguno de los dos la marca de agua queda vacia. Antes
-        # caia en el nombre de la clave, que no es un valor sino un recordatorio
-        # de que va en el campo — en el mismo gris y el mismo lugar que el
-        # default de la fila de al lado, se lee como si ya hubiera algo cargado.
+        # And only that, or the `default_hint` of those with no default
+        # to resolve: with neither, the watermark stays empty. It used
+        # to fall back to the key's name, which is no value but a
+        # reminder of what goes in the field; in the same gray and place
+        # as the next row's default, it read as if something were
+        # loaded.
         self.field.setPlaceholderText(default_display or setting.default_hint)
         self.field.textChanged.connect(self._on_text)
 
@@ -123,9 +131,10 @@ class EnvRow(QWidget):
             self._fit_list_height()
 
     def set_default_display(self, default_display: str) -> None:
-        """Actualiza la marca de agua con el default recalculado — el de
-        `DOMAIN` cambia con lo que se escriba en otras claves, asi que no
-        queda fijo desde que se construyo la fila.
+        """Update the watermark with the recomputed default.
+
+        `DOMAIN`'s changes with what is written in other keys, so it
+        does not stay fixed since the row was built.
         """
         self.field.setPlaceholderText(default_display or self.setting.default_hint)
 
@@ -134,11 +143,13 @@ class EnvRow(QWidget):
         return self.setting.kind == "list"
 
     def value(self) -> str:
+        """Return what the field holds."""
         if isinstance(self.field, QPlainTextEdit):
             return ", ".join(envfile.split_list(self.field.toPlainText()))
         return self.field.text().strip()
 
     def set_value(self, value: str) -> None:
+        """Set what the field holds."""
         if isinstance(self.field, QPlainTextEdit):
             self.field.setPlainText(_to_lines(value))
             self._fit_list_height()
@@ -146,12 +157,13 @@ class EnvRow(QWidget):
         self.field.setText(value)
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 
-    # `textChanged` de QLineEdit manda el texto y el de QPlainTextEdit no manda
-    # nada: sin el default, el campo multilinea nunca emitia `changed` y lo
-    # escrito no llegaba a guardarse.
+    # QLineEdit's `textChanged` sends the text and QPlainTextEdit's
+    # sends nothing: without the default, the multi-line field never
+    # emitted `changed` and what was written did not get saved.
     def _on_text(self, _text: str = "") -> None:
         self._restyle()
         if self._is_list:
@@ -160,31 +172,33 @@ class EnvRow(QWidget):
 
     @override
     def resizeEvent(self, event: QResizeEvent) -> None:
-        # Al angostarse la fila cambia donde parte cada ruta larga, y con eso
-        # cuantos renglones ocupa lo mismo escrito.
+        # Narrowing the row changes where each long path breaks, and so
+        # how many lines the same text takes.
         super().resizeEvent(event)
         if self._is_list:
             self._fit_list_height()
 
     def _fit_list_height(self) -> None:
-        """Alto del campo segun lo escrito, con un renglon vacio de sobra.
+        """Fit the field's height to what is written.
 
-        Ese renglon de mas es el que dice "esto es todo": un campo que termina
-        justo en la ultima ruta no se distingue de uno que esta cortando el
-        resto, y la lista de archivos a copiar es justamente donde una entrada
-        que no se ve se convierte en un deploy sin su secreto.
+        With one spare empty line.
 
-        `documentSize()` de un QPlainTextEdit cuenta RENGLONES, no pixeles, y
-        cuenta los que se ven: una ruta larga que se parte en dos ocupa dos.
+        That extra line says «this is all»: a field ending exactly on
+        the last path cannot be told from one cutting off the rest, and
+        the list of files to copy is where an entry out of view becomes
+        a deploy without its secret.
+
+        A QPlainTextEdit's `documentSize()` counts LINES, not pixels,
+        and counts those visible: a long path broken in two takes two.
         """
         assert isinstance(self.field, QPlainTextEdit)
         doc = self.field.document()
         doc.setTextWidth(max(1, self.field.viewport().width()))
         written = max(1, int(doc.size().height()))
         rows = min(max(written + 1, LIST_MIN_ROWS), LIST_MAX_ROWS)
-        # `frameWidth` de un QPlainTextEdit con hoja de estilos ya incluye el
-        # `padding` ademas del borde: sumarlo aparte daba un campo mas alto de
-        # los renglones que decia mostrar.
+        # A QPlainTextEdit's `frameWidth` with a style sheet already
+        # includes `padding` besides the border: adding it apart gave a
+        # field taller than the lines it claimed to show.
         height = (
             rows * self.field.fontMetrics().lineSpacing()
             + 2 * int(doc.documentMargin())
@@ -194,8 +208,8 @@ class EnvRow(QWidget):
             self.field.setFixedHeight(height)
 
     def _restyle(self) -> None:
-        # Borde mas claro = clave sin valor. Es la misma señal de antes, ahora
-        # en los bordes teñidos del repo.
+        # Lighter border = key without a value. The same signal, now in
+        # the repo's tinted borders.
         border = self.pal.border if self.value() else self.pal.border_light
         widget = "QPlainTextEdit" if self._is_list else "QLineEdit"
         self.field.setStyleSheet(f"""
@@ -212,35 +226,39 @@ class EnvRow(QWidget):
 
 
 class EnvPanel(QWidget):
-    """Vista y edicion de `.consola/config.env` del repo activo.
+    """View and editing of the active repo's `.consola/config.env`.
 
-    Es por repo, no por pestana: se queda igual mientras cambias de accion
-    arriba. Escribe el archivo regenerado desde el esquema (core/envfile).
+    It is per repo, not per tab: it stays the same while changing
+    actions above. It writes the file regenerated from the schema
+    (core/envfile).
 
-    Aca hay DATOS —lo que las tareas necesitan para trabajar—, y nada mas. Los
-    seguros del repo estuvieron un tiempo en este formulario y se fueron a
-    `ui/security_panel.py`: no los lee ninguna tarea, asi que no son un dato de
-    este archivo (`core/settings.py`, al final).
+    It holds DATA, what tasks need to work, and nothing else. The repo's
+    guards went to `ui/security_panel.py`: no task reads them, so they
+    are no datum of this file (`core/settings.py`, at the end).
 
-    Un grupo no va al archivo: «Máquina» (`Setting.scope='machine'`). Es dato
-    igual —`build_binary` lo lee— pero de ESTA maquina y no del proyecto, asi
-    que se guarda en QSettings (`ui/params_store.py::machine_env`). Se edita
-    aca porque es donde uno busca un valor con nombre de clave; que no sea del
-    repo lo dice el nombre del grupo.
+    One group does not go to the file: «Máquina»
+    (`Setting.scope='machine'`). It is data too, since `build_binary`
+    reads it, but of THIS machine and not the project, so it saves in
+    QSettings (`ui/params_store.py::machine_env`). It edits here because
+    that is where one looks for a value with a key's name; the group's
+    name says it is not the repo's.
 
-    El grupo «Credenciales» suma los campos de `Settings` del repo
-    (`core/fields.py`), que se leen al abrir el panel: un campo nuevo en
-    `config.py` aparece al volver a abrir el repo.
+    The «Credenciales» group adds the repo's `Settings` fields
+    (`core/fields.py`), read on opening the panel: a new field in
+    `config.py` appears on reopening the repo.
     """
 
     saved = Signal(dict)
     values_changed = Signal(dict)
-    file_status_changed = Signal(str)  # estado de config.env: va al rotulo de la seccion
-    reloaded = Signal()  # se releyo el archivo entero (boton Recargar), no una tecla
-    # suelta. Lo escucha `ui/tab_panel.py` para releer tambien los
-    # ejes consultados: a que VPS se le pregunta sale de este archivo.
+    # config.env's state: it goes to the section's label the whole file
+    # was reread (Reload button), not one keystroke.
+    file_status_changed = Signal(str)
+    # `ui/tab_panel.py` listens to also reread the queried axes: which
+    # VPS to ask comes from this file.
+    reloaded = Signal()
 
     def __init__(self, project: Project, parent: QWidget | None = None) -> None:
+        """Build the form from the schema and the saved values."""
         super().__init__(parent)
         self.project = project
         self.pal = palettes.get(project.theme)
@@ -249,18 +267,18 @@ class EnvPanel(QWidget):
         self._filter: set[str] | None = None
         self.file_status = ""
         self.fields, self.fields_error = self._read_fields()
-        # Sin esto, un QWidget derivado ignora el fondo de su propia hoja y
-        # deja ver el gris de la hoja global (`ui/theme.py`): el cuerpo de la
-        # seccion no se teñia del color del repo.
+        # Without this, a QWidget subclass ignores its own sheet's
+        # background and shows the global sheet's gray (`theme.py`): the
+        # section's body did not take the repo's color.
         self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
 
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # El formulario arriba y las acciones abajo: los botones caen justo
-        # sobre el borde de la seccion, a la mano y sin competir con la primera
-        # clave por la mirada.
+        # The form above and the actions below: the buttons fall right
+        # on the section's edge, at hand and not competing with the
+        # first key for attention.
         root.addWidget(self._build_body(), 1)
         self.banner = self._build_banner()
         root.addWidget(self.banner)
@@ -270,12 +288,14 @@ class EnvPanel(QWidget):
 
         self.reload()
 
-    # --- construccion ---------------------------------------------------
+    # --- building ---
     def _read_fields(self) -> tuple[tuple[Setting, ...], str]:
-        """Los campos de `Settings` del repo, o el error que impide leerlos.
+        """Return the repo's `Settings` fields.
 
-        El error no tumba el panel: se muestra arriba del formulario, y las
-        claves que hubiera en el archivo siguen bajo «Otras claves».
+        Or the error preventing it.
+
+        The error does not bring the panel down: it shows above the
+        form, and any keys in the file stay under «Otras claves».
         """
         server = Path(self.project.path) / envfile.Config.for_project(self.project.path).get(
             "SERVER_DIR"
@@ -301,13 +321,15 @@ class EnvPanel(QWidget):
         return box
 
     def _build_file_bar(self) -> QWidget:
-        """Pie de la seccion con las acciones sobre `.consola/config.env`.
+        """Build the section's footer.
 
-        El estado del archivo (existe o no) no va aca: viaja por
-        `file_status_changed` al rotulo de la cabecera de la seccion. Orden:
-        importar/crear a la izquierda, y a la derecha Recargar y Guardar —
-        Guardar es el unico camino para persistir lo editado, porque los
-        cambios de fila solo emiten en memoria.
+        With the actions on `.consola/config.env`.
+
+        The file's state, existing or not, does not go here: it travels
+        through `file_status_changed` to the section header's label.
+        Order: import and create at left, Reload and Save at right. Save
+        is the only way to persist edits, because row changes only emit
+        in memory.
         """
         bar = QWidget()
         lay = QHBoxLayout(bar)
@@ -344,10 +366,12 @@ class EnvPanel(QWidget):
         return bar
 
     def _restyle(self) -> None:
-        """Los fondos de la seccion «Configuracion del repo».
+        """Paint the backgrounds.
 
-        El cuerpo es `panel` —un escalon por debajo de su cabecera— y el pie
-        con Guardar/Recargar sube a `surface`, como el resto de las barras.
+        Of the «Configuración del repo» section.
+
+        The body is `panel`, one step below its header, and the footer
+        with Save and Reload rises to `surface`, like the other bars.
         """
         self.setStyleSheet(f"EnvPanel {{ background: {self.pal.panel}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
@@ -360,14 +384,15 @@ class EnvPanel(QWidget):
         self._restyle_create()
 
     def _scroll_style(self) -> str:
-        """El scroll no tiene fondo propio: deja ver el del panel.
+        """Leave the scroll with no background, showing the panel's.
 
-        El canal de la barra si lo necesita. Cae bajo el mismo
-        `QScrollArea > QWidget > QWidget` que deja transparente al viewport
-        —la barra es hija del viewport—, y transparente lo pintaba el gris de
-        la paleta de Qt, no el fondo del panel: un filete gris al borde de una
-        columna teñida. Se le da el color a mano y en esta misma hoja, que es
-        la mas cercana y la que manda.
+        The bar's groove does need one. It falls under the same
+        `QScrollArea > QWidget > QWidget` that makes the viewport
+        transparent, since the bar is a child of the viewport, and
+        transparent painted Qt's palette gray instead of the panel's
+        background: a gray stripe at the edge of a tinted column. It
+        gets its color by hand in this same sheet, which is the closest
+        and the one that wins.
         """
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
@@ -390,11 +415,13 @@ class EnvPanel(QWidget):
         self.save_btn.setStyleSheet(button_css)
 
     def _label_width(self) -> int:
-        """Ancho que necesita la etiqueta mas larga del esquema, con margen.
+        """Return the width the schema's longest label needs.
 
-        Con el tamano en pixeles del stylesheet de la etiqueta
-        (`Fonts.SIZE_XS`) y no con `self.font()`: ese es el que trae la
-        fuente por defecto de la ventana, no el que se ve de verdad.
+        With a margin.
+
+        With the pixel size of the label's stylesheet (`Fonts.SIZE_XS`)
+        and not `self.font()`: that one is the window's default font,
+        not what actually shows.
         """
         font = QFont()
         font.setPixelSize(Fonts.SIZE_XS)
@@ -410,7 +437,7 @@ class EnvPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll  # lo repinta `_restyle`
+        self._scroll = scroll  # `_restyle` repaints it
 
         content = QWidget()
         content.setStyleSheet("background: transparent;")
@@ -419,9 +446,8 @@ class EnvPanel(QWidget):
         lay.setSpacing(14)
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        # Ancho de la columna de etiquetas: el que pida la mas larga de TODO el
-        # esquema, no un numero fijo — una etiqueta como "Password del
-        # superusuario" no entraba en los 118px de antes y se cortaba.
+        # Width of the labels column: what the longest of the WHOLE
+        # schema asks for, not a fixed number.
         label_width = self._label_width()
 
         if self.fields_error:
@@ -455,11 +481,13 @@ class EnvPanel(QWidget):
         scroll.setWidget(content)
         return scroll
 
-    # --- API --------------------------------------------------------------
+    # --- API ---
     def values(self) -> dict[str, str]:
+        """Return the form's values."""
         return {key: row.value() for key, row in self.rows.items()}
 
     def reload(self) -> None:
+        """Reread the file into the form."""
         values = {**envfile.load_config(self.project.path), **params_store.machine_env()}
         for key, row in self.rows.items():
             row.blockSignals(True)
@@ -482,17 +510,18 @@ class EnvPanel(QWidget):
         self.reloaded.emit()
 
     def _refresh_defaults(self) -> None:
-        """Recalcula la marca de agua de cada campo con el default que le
-        tocaria si quedara vacio.
+        """Recompute each field's watermark.
 
-        No alcanza con resolverlo una vez al abrir: `DOMAIN` sale de
-        `CF_DOMAIN_NAME`, asi que su default cambia con lo que se escriba en esa
-        otra clave. Resuelto contra un `Config` en blanco se veia vacio, en vez de
-        mostrar, como el resto, lo que de verdad se va a usar.
+        With its default if left empty.
 
-        Se calcula sin el valor propio de la clave: `Config.get` devuelve lo
-        ya escrito antes que el default, y lo que se quiere aca es "que
-        pasaria si esto quedara vacio", no lo que ya tiene.
+        Resolving once on opening is not enough: `DOMAIN` comes from
+        `CF_DOMAIN_NAME`, so its default changes with what is written
+        there. Resolved against a blank `Config` it showed empty,
+        instead of what will actually be used.
+
+        It computes without the key's own value: `Config.get` returns
+        what is written before the default, and what is wanted here is
+        what would happen if it stayed empty.
         """
         current = self.values()
         for key, row in self.rows.items():
@@ -512,10 +541,10 @@ class EnvPanel(QWidget):
         self.import_btn.setToolTip("Importa claves conocidas desde otro archivo .env")
 
     def browse_import(self) -> None:
-        """Importa claves conocidas desde cualquier archivo .env que el usuario elija.
+        """Import known keys from any .env file the user chooses.
 
-        No asume convenciones de otros proyectos (nada de rutas fijas):
-        el usuario elige el archivo, y recien Guardar escribe algo.
+        It assumes no conventions of other projects: the user chooses
+        the file, and only Save writes anything.
         """
         path, _ = QFileDialog.getOpenFileName(
             self,
@@ -539,13 +568,12 @@ class EnvPanel(QWidget):
         )
 
     def create_file(self) -> None:
-        """Crea `.consola/config.env` con TODAS las claves del esquema —
-        las que cualquier control puede llegar a pedir — agrupadas por
-        categoria, comentadas y vacias.
+        """Create `.consola/config.env` with ALL the schema's keys.
 
-        No pisa nada: si el archivo ya existe o el formulario tiene valores
-        (escritos o importados), se conservan y solo se agregan en blanco
-        las claves que falten.
+        Those any control may come to ask for, grouped by category,
+        commented and empty. It overwrites nothing: if the file exists
+        or the form has values, written or imported, they stay and only
+        missing keys add blank.
         """
         path = envfile.save_config(self.project.path, self.values(), self.fields)
         self.reload()
@@ -557,10 +585,10 @@ class EnvPanel(QWidget):
         self.banner.setVisible(True)
 
     def save(self) -> None:
-        """Cada valor a su sitio: el archivo del repo o QSettings.
+        """Send each value to its place: the repo's file or QSettings.
 
-        `save_config` ya descarta las claves de maquina, asi que las dos
-        escrituras no se pisan (`core/envfile.render_config`).
+        `save_config` already discards machine keys, so the two writes
+        do not clash (`core/envfile.render_config`).
         """
         params_store.save_machine_env(self.values())
         envfile.save_config(self.project.path, self.values(), self.fields)
@@ -569,6 +597,7 @@ class EnvPanel(QWidget):
         self.values_changed.emit(self.values())
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
         for row in self.rows.values():
@@ -576,13 +605,12 @@ class EnvPanel(QWidget):
         self._restyle_create()
 
     def filter_for(self, keys: set[str] | None) -> None:
-        """Muestra solo las claves que la accion activa reclama.
+        """Show only the keys the active action claims.
 
-        `None` = sin filtro (vista completa, cuando no hay pestana abierta).
+        `None` = no filter: the full view, when no tab is open.
 
-        Los seguros del repo no necesitan la excepcion al filtro que tenian
-        aca: viven en otra seccion y en otro archivo
-        (`ADR-0018` §4).
+        The repo's guards need no exception to the filter: they live in
+        another section and another file (`ADR-0018` §4).
         """
         self._filter = keys
         visible_groups: set[QWidget] = set()
@@ -594,7 +622,7 @@ class EnvPanel(QWidget):
         for group_widget in set(self._row_group.values()):
             group_widget.setVisible(group_widget in visible_groups)
 
-    # --- interno ------------------------------------------------------------
+    # --- internal ---
     def _on_row_changed(self) -> None:
         self._refresh_defaults()
         self.values_changed.emit(self.values())

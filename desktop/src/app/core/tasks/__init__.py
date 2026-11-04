@@ -1,15 +1,15 @@
-from __future__ import annotations
+"""Levels 1 and 2: the capabilities with a real body.
 
-"""Niveles 1 y 2: las capacidades con cuerpo real.
+Each module groups the atomic capabilities of one rail group and the
+composites that chain them. The rule for when an inner step becomes an
+atomic capability with its own button is in ADR-0004: it splits off if
+rerunning it alone makes sense.
 
-Cada modulo agrupa las atomicas de un grupo del rail y las compuestas que las
-encadenan. La regla para saber si un paso interno de un script viejo se volvio
-atomica con boton propio esta en ADR-0004: se separa si tiene sentido
-re-ejecutarlo solo, sin repetir el resto.
-
-Nada de aca reimplementa plomeria: todo se apoya en `core/` (nivel 0). Por eso
-la mayoria de las atomicas son de tres a diez lineas.
+Nothing here reimplements plumbing: it all rests on `core/` (level 0).
+That is why most atomic capabilities are three to ten lines.
 """
+
+from __future__ import annotations
 
 from app.core.tasks import (
     builders,
@@ -57,11 +57,11 @@ __all__ = [
 
 
 def bind_all() -> None:
-    """Le da cuerpo a todas las capacidades del catalogo que ya estan implementadas.
+    """Give a body to every implemented capability of the catalog.
 
-    Se llama despues de `load_catalog()`: el catalogo declara la forma, esto
-    reemplaza el stub por la funcion. Lo que no aparezca aca sigue siendo stub y
-    la UI lo dibuja como tal.
+    Call it after `load_catalog()`: the catalog declares the shape, and
+    this replaces the stub with the function. What does not appear here
+    stays a stub, and the UI draws it as one.
     """
     for module in MODULES:
         module.bind_all()

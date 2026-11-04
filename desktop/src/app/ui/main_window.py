@@ -1,3 +1,5 @@
+"""The main window."""
+
 from __future__ import annotations
 
 from typing import Any, override
@@ -39,17 +41,16 @@ from app.ui.tab_panel import TabPanel, WorkspaceStatusBar
 from app.ui.title_bar import TitleBar
 from app.ui.widgets import ToggleSwitch
 
-# Cuanto se espera antes de recontar que acciones estan listas. Corto: es lo
-# que tarda en pararse una rafaga de tecleo, y lo que se recalcula no es nada
-# que se este mirando mientras se escribe (el ▶ de las filas del buscador).
+# How long to wait before recounting which actions are ready. Short: the
+# time a burst of typing takes to stop, and what is recomputed is
+# nothing looked at while typing (the ▶ of the search's rows).
 _READINESS_MS = 200
 
 
 def _brand_icon() -> QIcon:
-    """El mismo rombo de la marca (`ui/title_bar.py`), como icono de ventana —
-    para que la barra de tareas y el conmutador de ventanas de Windows lo
-    muestren tambien, no solo
-    la esquina superior izquierda del contenido.
+    """Return the brand's diamond (`ui/title_bar.py`) as a window icon.
+
+    So Windows's taskbar and window switcher show it too.
     """
     size = 64
     pixmap = QPixmap(size, size)
@@ -67,9 +68,13 @@ def _brand_icon() -> QIcon:
 
 
 class _EdgeGrip(QWidget):
-    """Franja invisible sobre una orilla o esquina de la ventana sin marco:
-    redimensiona con `startSystemResize`. Va por encima del contenido en vez
-    de dejarle un margen propio, asi la barra de titulo toca la orilla.
+    """An invisible strip over an edge or corner.
+
+    Of the frameless window.
+
+    It resizes with `startSystemResize`. It goes over the content
+    instead of leaving a margin of its own, so the title bar touches the
+    edge.
     """
 
     THICKNESS = 5
@@ -102,58 +107,64 @@ class _EdgeGrip(QWidget):
 
 
 class MainWindow(QMainWindow):
-    """Ventana principal: repos (nivel 1) › ejecuciones (nivel 2) › vistas."""
+    """Ventana principal: repos (nivel 1) › ejecuciones.
+
+    Nivel 2) › vistas.
+    """
 
     def __init__(self) -> None:
+        """Build the window and open the saved repos."""
         super().__init__()
         self.setWindowTitle("Consola")
         self.setWindowIcon(_brand_icon())
         self.resize(1500, 950)
         self.setMinimumSize(1000, 650)
-        # Sin marco del sistema: la marca y las pestanas de repos comparten
-        # fila con minimizar/maximizar/cerrar (`ui/title_bar.py`). El precio es poner nosotros el arrastre y el
-        # redimensionado por los bordes — `_EdgeGrip`, apoyado en
-        # `startSystemMove/Resize` para que Windows siga dando su encaje a los lados.
+        # No system frame: the brand and repo tabs share a row with
+        # minimize, maximize and close (`ui/title_bar.py`). The price is
+        # supplying the drag and the edge resizing ourselves:
+        # `_EdgeGrip`, resting on `startSystemMove/Resize` so Windows
+        # keeps giving its side snapping.
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
 
-        # Junta en una sola pasada las peticiones de recuento del ▶ del
-        # buscador (`_refresh_readiness`).
+        # It gathers in one pass the requests for recounting the
+        # search's ▶ (`_refresh_readiness`).
         self._readiness_timer = QTimer(self)
         self._readiness_timer.setSingleShot(True)
         self._readiness_timer.setInterval(_READINESS_MS)
         self._readiness_timer.timeout.connect(self._do_refresh_readiness)
 
-        # Barra de menu: el catalogo entero de acciones, sin ocupar ancho.
-        # Junto con el buscador de la misma fila, emite las mismas senales y
-        # cae en los mismos manejadores. No es el
-        # `menuBar()` de la ventana (eso la pondria por encima de la barra de
-        # titulo, que tiene que quedar arriba de todo por los botones de
-        # ventana): es una franja mas dentro del layout central.
+        # Menu bar: the whole action catalog, taking no width. With the
+        # search on the same row, it emits the same signals and falls on
+        # the same handlers. It is not the window's `menuBar()`, which
+        # would sit above the title bar, which has to stay on top for
+        # the window buttons: it is one more strip in the central
+        # layout.
         self.action_menu = ActionMenuBar(self)
 
         self.central_widget = QWidget()
-        # Selector por nombre y no `QWidget` a secas: una hoja sin selector
-        # cascadea a todo hijo sin la suya propia, y el borde de contorno
-        # (`_apply_window_border`) terminaba dibujado alrededor de cada campo
-        # de texto y cada boton, no solo del borde de la ventana.
+        # A selector by name and not a bare `QWidget`: a sheet without a
+        # selector cascades to every child without its own, and the
+        # outline border (`_apply_window_border`) ended up drawn around
+        # each text field and button, not just the window's edge.
         self.central_widget.setObjectName("centralWidget")
-        # Sin repo elegido todavia: los grises pelados. Los repinta
-        # `_apply_palette` en cuanto hay uno activo.
+        # With no repo chosen yet: the bare grays. `_apply_palette`
+        # repaints them as soon as one is active.
         self.pal = NEUTRAL
         self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.BG}; }}")
         self.setCentralWidget(self.central_widget)
 
         self.main_layout = QVBoxLayout(self.central_widget)
-        # Solo el pixel del borde de contorno: el contenido toca la orilla de la
-        # ventana. Maximizada vale 0 (`changeEvent`).
+        # Only the outline border's pixel: the content touches the
+        # window's edge. Maximized it is 0 (`changeEvent`).
         self.main_layout.setContentsMargins(1, 1, 1, 1)
         self.main_layout.setSpacing(0)
 
-        # --- Nivel 1: barra de titulo con las pestanas de repos ---------
-        # Como un navegador: marca, pestanas y botones de ventana en el borde
-        # de arriba. Un repo abierto es el contexto de todo lo que se ve
-        # debajo, igual que la pestana de un navegador — y asi la ventana se
-        # ahorra una fila entera de alto.
+        # --- Level 1: title bar with the repo tabs ---
+        #
+        # Like a browser: brand, tabs and window buttons on the top
+        # edge. An open repo is the context of all that shows below,
+        # like a browser's tab, and the window saves a whole row of
+        # height.
         self.project_tabs = ProjectTabBar()
 
         self.title_bar = TitleBar(self.project_tabs)
@@ -162,51 +173,52 @@ class MainWindow(QMainWindow):
         self.title_bar.close_requested.connect(self.close)
         self.main_layout.addWidget(self.title_bar)
 
-        # --- Nivel 2: barra de menu + el modo «solo favoritos» ----------
+        # --- Level 2: menu bar and the «solo favoritos» mode ---
         self.main_layout.addWidget(self._build_menu_row())
 
-        # --- Cuerpo: espacio de trabajo del repo activo ------------------
+        # --- Body: the active repo's workspace ---
         self.workspace_stack = QStackedWidget()
-        # Indexados por la ruta normalizada del repo, no por la identidad del
-        # objeto: CPython reusa la direccion de uno liberado, asi que quitar
-        # un repo y anadir otro podia darle al nuevo el espacio de trabajo del
-        # viejo. La ruta es la identidad real de un repo — es la misma con la
-        # que se guardan sus parametros y su `.consola/config.env`.
+        # Indexed by the repo's normalized path, not the object's
+        # identity: CPython reuses a freed one's address, so removing a
+        # repo and adding another could give the new one the old
+        # workspace. The path is a repo's real identity, the same its
+        # parameters and `.consola/config.env` save under.
         self.workspaces: dict[str, TabPanel] = {}
-        # No hay una lista de repos de fabrica (`core/projects.py`): la primera
-        # vez que se abre Consola, y cada vez que se cierra el ultimo repo, la
-        # pila muestra esto en vez de un TabPanel.
+        # There is no factory list of repos (`core/projects.py`): the
+        # first time Consola opens, and each time the last repo closes,
+        # the stack shows this instead of a TabPanel.
         self.empty_state = self._build_empty_state()
         self.workspace_stack.addWidget(self.empty_state)
 
         self.main_layout.addWidget(self.workspace_stack, 1)
 
-        # --- barra de estado: una sola, a lo ancho de toda la ventana ---
-        # Vive aca y no dentro de cada TabPanel para que llegue de borde a
-        # borde. Refleja el repo activo y se refresca cuando una tarea de
-        # maquina toca el entorno (`TabPanel.machine_changed`).
+        # --- status bar: only one, across the whole window ---
+        #
+        # It lives here and not in each TabPanel so it reaches edge to
+        # edge. It reflects the active repo and refreshes when a machine
+        # task touches the environment (`TabPanel.machine_changed`).
         self.status_bar = WorkspaceStatusBar(NEUTRAL)
         self.status_bar.security_clicked.connect(self._on_security_clicked)
         self.main_layout.addWidget(self.status_bar)
 
-        # Encima de todo el contenido, asi que se crean al final.
-        E = Qt.Edge
-        C = Qt.CursorShape
+        # Over all the content, so they are created last.
+        edge = Qt.Edge
+        cursor_shape = Qt.CursorShape
         self._grips = [
             _EdgeGrip(self, edges, cursor)
             for edges, cursor in (
-                (E.LeftEdge, C.SizeHorCursor),
-                (E.RightEdge, C.SizeHorCursor),
-                (E.TopEdge, C.SizeVerCursor),
-                (E.BottomEdge, C.SizeVerCursor),
-                (E.LeftEdge | E.TopEdge, C.SizeFDiagCursor),
-                (E.RightEdge | E.BottomEdge, C.SizeFDiagCursor),
-                (E.RightEdge | E.TopEdge, C.SizeBDiagCursor),
-                (E.LeftEdge | E.BottomEdge, C.SizeBDiagCursor),
+                (edge.LeftEdge, cursor_shape.SizeHorCursor),
+                (edge.RightEdge, cursor_shape.SizeHorCursor),
+                (edge.TopEdge, cursor_shape.SizeVerCursor),
+                (edge.BottomEdge, cursor_shape.SizeVerCursor),
+                (edge.LeftEdge | edge.TopEdge, cursor_shape.SizeFDiagCursor),
+                (edge.RightEdge | edge.BottomEdge, cursor_shape.SizeFDiagCursor),
+                (edge.RightEdge | edge.TopEdge, cursor_shape.SizeBDiagCursor),
+                (edge.LeftEdge | edge.BottomEdge, cursor_shape.SizeBDiagCursor),
             )
         ]
 
-        # --- Conexiones ---------------------------------------------------
+        # --- Connections ---
         self.project_tabs.project_selected.connect(self._on_project_selected)
         self.project_tabs.project_added.connect(self._on_project_added)
         self.project_tabs.project_removed.connect(self._on_project_removed)
@@ -218,10 +230,9 @@ class MainWindow(QMainWindow):
         self.action_search.action_requested.connect(self._on_action_requested)
         self.action_search.run_requested.connect(self._on_run_requested)
 
-        # Favoritas: tres superficies para el mismo conjunto —el filete de la
-        # fila del buscador, la estrella de la cabecera de parametros y el
-        # podado de los menus—. Quien marca lo guarda, y desde aca se avisa al
-        # resto.
+        # Favorites: three surfaces for one set, the search row's
+        # stripe, the parameters header's star and the menus' pruning.
+        # Whoever marks saves it, and from here the rest are told.
         self.action_search.favorites_changed.connect(self._on_favorites_changed)
         self._on_only_favorites(favorites.only_favorites(), save=False)
 
@@ -234,18 +245,21 @@ class MainWindow(QMainWindow):
 
         self._install_shortcuts()
 
-    # --- fila del menu ----------------------------------------------------
+    # --- menu row ---
     def _build_menu_row(self) -> QWidget:
-        """El catalogo de acciones y, a la derecha, el modo «solo favoritos».
+        """Build the action catalog and, at right.
 
-        El interruptor no es una accion sino un modo de ver: poda los menus
-        de esta barra, asi que va en la misma fila que lo que recorta, no en
-        la barra de titulo (donde solo hay chrome de ventana).
+        The «solo favoritos» mode.
+
+        The switch is no action but a viewing mode: it prunes this bar's
+        menus, so it goes in the same row as what it trims and not in
+        the title bar, which only has window chrome.
         """
         row = QWidget()
-        # Selector por nombre y no `QWidget` a secas: una hoja sin selector se
-        # hereda a los hijos, y el rotulo del interruptor salia subrayado con
-        # el mismo `border-bottom` que cierra la fila.
+        # A selector by name and not a bare `QWidget`: a sheet without a
+        # selector inherits to the children, and the switch's label came
+        # out underlined by the same `border-bottom` that closes the
+        # row.
         row.setObjectName("menuRow")
         self.menu_row = row
         lay = QHBoxLayout(row)
@@ -254,7 +268,7 @@ class MainWindow(QMainWindow):
 
         lay.addWidget(self.action_menu, 1)
 
-        # Buscador: la lista de coincidencias cae desde esta fila
+        # Search: the list of matches falls from this row
         # (`ui/action_search.py`).
         self.action_search = ActionSearch()
         lay.addWidget(self.action_search, 0, Qt.AlignmentFlag.AlignVCenter)
@@ -264,7 +278,7 @@ class MainWindow(QMainWindow):
         lay.addWidget(self.fav_switch, 0, Qt.AlignmentFlag.AlignVCenter)
         return row
 
-    # --- estado vacio: sin ningun repositorio en pestanas -----------------
+    # --- empty state: no repository in tabs ---
     def _build_empty_state(self) -> QWidget:
         w = QWidget()
         w.setStyleSheet(f"background: {Colors.BG};")
@@ -315,16 +329,18 @@ class MainWindow(QMainWindow):
         self.status_bar.clear()
         self.setWindowTitle("Consola")
 
-    # --- atajos ----------------------------------------------------------
+    # --- shortcuts ---
     def _install_shortcuts(self) -> None:
-        """Los que no cuelgan de ningun item de menu. Ctrl+L vive en
-        `ui/menu_bar.py`, sobre su `QAction`: declararlo tambien aqui daria un
-        atajo ambiguo y no responderia ninguno de los dos.
+        """Set the shortcuts that hang from no menu item.
+
+        Ctrl+L lives in `ui/menu_bar.py`, on its `QAction`: declaring it
+        here too would give an ambiguous shortcut and neither would
+        respond.
         """
         QShortcut(QKeySequence("Ctrl+Tab"), self).activated.connect(lambda: self._cycle(1))
         QShortcut(QKeySequence("Ctrl+Shift+Tab"), self).activated.connect(lambda: self._cycle(-1))
         QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(self.project_tabs._pick_repo)
-        # Por posicion al momento de apretar: reordenar pestanas renumera solo.
+        # By position on pressing: reordering tabs renumbers by itself.
         for i in range(9):
             QShortcut(QKeySequence(f"Ctrl+{i + 1}"), self).activated.connect(
                 lambda i=i: self._select_nth(i)
@@ -343,7 +359,7 @@ class MainWindow(QMainWindow):
         i = tabs.index(current) if current in tabs else 0
         self.project_tabs.select_tab(tabs[(i + delta) % len(tabs)])
 
-    # --- espacios de trabajo ---------------------------------------------
+    # --- workspaces ---
     def _ensure_workspace(self, project: Project) -> TabPanel:
         key = project_store.identity(project.path)
         workspace = self.workspaces.get(key)
@@ -370,10 +386,11 @@ class MainWindow(QMainWindow):
 
     @property
     def current_workspace(self) -> TabPanel | None:
+        """Return the active repo's workspace, if any."""
         w = self.workspace_stack.currentWidget()
         return w if isinstance(w, TabPanel) else None
 
-    # --- ventana sin marco: mover, maximizar, redimensionar --------------
+    # --- frameless window: move, maximize, resize ---
     def _toggle_maximized(self) -> None:
         self.showNormal() if self.isMaximized() else self.showMaximized()
 
@@ -385,8 +402,9 @@ class MainWindow(QMainWindow):
 
     @override
     def changeEvent(self, event: QEvent) -> None:
-        """Maximizada, la ventana pega contra los bordes de la pantalla: ni
-        agarre, ni glifo de maximizar, ni borde de contorno.
+        """Maximized, the window hits the screen's edges.
+
+        So no grip, no maximize glyph and no outline border.
         """
         if event.type() == QEvent.Type.WindowStateChange:
             maximized = self.isMaximized()
@@ -401,16 +419,17 @@ class MainWindow(QMainWindow):
         super().changeEvent(event)
 
     def _apply_window_border(self) -> None:
-        """Sin marco del sistema, Windows no le dibuja ninguna silueta a la
-        ventana: sin esto, restaurada se confunde contra un fondo oscuro de
-        escritorio. El borde toma el color del repo activo —lo pone
-        `_apply_accent`, la misma fuente que el fondo de la barra de titulo—
-        y solo mientras la ventana tiene el foco, como hace Windows con su
-        propio marco. Sin foco se pinta de `border` —el mismo separador
-        teñido que usa el resto de la ventana— y no desaparece: asi el
-        contenido no se corre un pixel al activar/desactivar.
-        Maximizada no hace falta: la ventana pega contra los bordes de la
-        pantalla, como el marco de agarre.
+        """Paint the window's outline, since the system draws none.
+
+        Without a system frame, Windows draws no silhouette for the
+        window: without this, restored, it blends with a dark desktop.
+        The border takes the active repo's color, set by
+        `_apply_accent`, the same source as the title bar's background,
+        and only while the window has focus, as Windows does with its
+        own frame. Without focus it paints in `border`, the tinted
+        separator the rest of the window uses, and does not disappear:
+        so the content does not shift a pixel on activating. Maximized
+        it is not needed.
         """
         if self.isMaximized():
             self.central_widget.setStyleSheet(
@@ -423,12 +442,15 @@ class MainWindow(QMainWindow):
                 f"border: 1px solid {color}; }}"
             )
 
-    # --- paleta del repo activo --------------------------------------------
+    # --- the active repo's palette ---
     def _apply_palette(self, pal: Palette) -> None:
-        """La paleta del repo activo, en todo lo que vive fuera de su espacio
-        de trabajo: la barra de titulo, la fila del menu y sus menus
-        desplegados, el interruptor de favoritos, el buscador, la barra de
-        estado y el borde de contorno de la ventana (`_apply_window_border`).
+        """Apply the active repo's palette.
+
+        To what lives outside its workspace.
+
+        The title bar, the menu row and its open menus, the favorites
+        switch, the search, the status bar and the window's outline
+        (`_apply_window_border`).
         """
         self.pal = pal
         self.title_bar.set_palette(pal)
@@ -442,10 +464,11 @@ class MainWindow(QMainWindow):
         )
         self._apply_window_border()
 
-    # --- favoritas ---------------------------------------------------------
+    # --- favorites ---
     def _on_only_favorites(self, value: bool, save: bool = True) -> None:
-        """El interruptor de la fila del menu: poda los menus de grupo. El
-        buscador no lo obedece — busca siempre sobre todas las acciones.
+        """React to the menu row's switch: it prunes the group menus.
+
+        The search does not obey it: it always searches all actions.
         """
         if save:
             favorites.set_only_favorites(value)
@@ -453,8 +476,11 @@ class MainWindow(QMainWindow):
         self.action_menu.set_favorites(favorites.favorite_ids())
 
     def _on_favorites_changed(self, *_args) -> None:
-        """Se marco o desmarco una favorita en cualquiera de las superficies:
-        las otras se ponen al dia. Guardar ya lo hizo quien la marco.
+        """React to a favorite marked on any surface.
+
+        The others catch up.
+
+        Whoever marked it already saved.
         """
         ids = favorites.favorite_ids()
         self.action_menu.set_favorites(ids)
@@ -463,15 +489,16 @@ class MainWindow(QMainWindow):
         if workspace is not None:
             workspace.refresh_favorite_star()
 
-    # --- reacciones -------------------------------------------------------
+    # --- reactions ---
     def _on_project_added(self, project: Project) -> None:
         self._ensure_workspace(project)
         self._on_project_selected(project)
 
     def _on_project_retinted(self, project: Project) -> None:
-        """El repo eligio otro color desde el menu de su pestana. Se repinta su
-        espacio de trabajo aunque no sea el activo: el de al lado no puede
-        quedarse con los fondos del color viejo esperando a que lo miren.
+        """React to a repo choosing another color from its tab's menu.
+
+        Its workspace repaints even if not active: the neighbor cannot
+        keep the old color's backgrounds waiting to be looked at.
         """
         workspace = self.workspaces.get(project_store.identity(project.path))
         pal = palettes.get(project.theme)
@@ -486,20 +513,23 @@ class MainWindow(QMainWindow):
         if workspace is not None:
             self.workspace_stack.removeWidget(workspace)
             workspace.deleteLater()
-        # Lo elegido en sus paneles ya no se va a volver a mirar en esta sesion:
-        # se baja al repo lo que quedara pendiente y se suelta el cache.
+        # What was chosen in its panels will not be looked at again this
+        # session: what is pending goes down to the repo and the cache
+        # is released.
         params_store.forget(project.path)
         if not self.project_tabs.tabs:
             self._show_empty_state()
 
     @override
     def closeEvent(self, event: QCloseEvent) -> None:
-        """Los parametros se escriben en rafagas de medio segundo
-        (`ui/params_store.py`): al cerrar hay que bajar lo pendiente, o el
-        ultimo cambio se pierde por marcar una casilla y cerrar enseguida.
+        """Save what is pending and stop live tasks.
 
-        Tambien detiene las tareas vivas de todos los repos: sin esto un tunel
-        SSH o un backend quedaban corriendo sin Consola.
+        Parameters write in half-second bursts (`ui/params_store.py`):
+        on closing, pending writes go down, or the last change is lost
+        by checking a box and closing right away.
+
+        It also stops live tasks of all repos: without this an SSH
+        tunnel or a backend stayed running without Consola.
         """
         params_store.flush()
         for workspace in self.workspaces.values():
@@ -519,11 +549,12 @@ class MainWindow(QMainWindow):
         self.setWindowTitle(f"Consola — {project.name}")
 
     def _refresh_protection(self, workspace: TabPanel) -> None:
-        """Lo que el repo de ESE espacio de trabajo tiene protegido ahora
-        mismo, para el indicador de la barra de estado. Lee el panel
-        (`security_panel.state()`), que es la misma fuente que consulta el
-        seguro al correr (`TabPanel._guard_ok`): el indicador no puede decir
-        una cosa y el guard aplicar otra.
+        """Show what THAT workspace's repo protects right now.
+
+        It is for the status bar's indicator. It reads the panel
+        (`security_panel.state()`), the same source the guard consults
+        when running (`TabPanel._guard_ok`): the indicator cannot say
+        one thing and the guard apply another.
         """
         self.status_bar.set_protection(workspace.security_panel.state())
 
@@ -532,16 +563,18 @@ class MainWindow(QMainWindow):
             self._refresh_protection(workspace)
 
     def _on_security_clicked(self) -> None:
-        """Clic en el indicador de la barra de estado: salta a la seccion
-        Seguridad del repo activo (`ADR-0018` §4).
+        """Jump to the active repo's Security section.
+
+        It is a click on the status bar's indicator (`ADR-0018` §4).
         """
         workspace = self.current_workspace
         if workspace is not None:
             workspace.reveal_security()
 
     def _on_action_requested(self, capability_id: str) -> None:
-        """El clic abre (o enfoca) la pestana de la accion; no ejecuta.
-        Ejecutar es apretar Ejecutar en el panel de parametros.
+        """Open or focus the action's tab; the click does not run it.
+
+        Running is pressing Run in the parameters panel.
         """
         capability = registry.get_capability(capability_id)
         workspace = self.current_workspace
@@ -549,35 +582,35 @@ class MainWindow(QMainWindow):
             workspace.open_tab(capability)
 
     def _on_run_requested(self, capability_id: str) -> None:
-        """Boton ▶ del buscador: abre la pestana y ejecuta de una."""
+        """Open the tab and run at once: the search's ▶ button."""
         capability = registry.get_capability(capability_id)
         workspace = self.current_workspace
         if capability and workspace is not None:
             workspace.quick_run(capability)
 
     def _refresh_applicable(self, project: Project) -> None:
-        """Que acciones tienen sentido en el repo que se acaba de elegir.
+        """Set which actions make sense in the repo just chosen.
 
-        Se recalcula al cambiar de pestana y no al arrancar: lo que la decide
-        es lo que hay dentro de ESE repo (`core/catalog.py::applicable_ids`), y
-        dos repos de la barra no tienen por que coincidir.
+        It recomputes on changing tab and not at startup: what decides
+        is what is inside THAT repo (`core/catalog.py::applicable_ids`),
+        and two repos on the bar need not match.
         """
         ids = applicable_ids(project.path)
         self.action_menu.set_applicable(ids)
         self.action_search.set_applicable(ids)
 
     def _refresh_readiness(self) -> None:
-        """Que acciones pueden correr ya sobre el repo activo.
+        """Recount which actions can run now on the active repo.
 
-        La cuenta vive en `ui/readiness.py`; la muestra el ▶ de cada fila del
-        buscador.
+        The count lives in `ui/readiness.py`; the ▶ of each search row
+        shows it.
 
-        Se pide, no se hace: la cuenta recorre el repo para las 62 acciones y
-        quien la dispara es, entre otros, cada tecla de un campo de texto
-        (`ui/params_panel.py::_persist`, `ui/env_panel.py`). Calculada en el
-        acto, una rafaga de tecleo encolaba una pasada por tecla y las letras
-        aparecian segundos despues. El temporizador junta la rafaga en una sola
-        pasada, como hace `ui/params_store.py` con la bajada a disco.
+        It is requested, not done: the count walks the repo for all the
+        actions and, among others, each keystroke of a text field fires
+        it (`ui/params_panel.py::_persist`, `ui/env_panel.py`). Computed
+        at once, a burst of typing queued a pass per key and letters
+        appeared seconds later. The timer gathers the burst into one
+        pass, as `ui/params_store.py` does with writing to disk.
         """
         self._readiness_timer.start()
 
@@ -586,15 +619,19 @@ class MainWindow(QMainWindow):
         self.action_search.set_ready(ready)
 
     def _on_sections_changed(self) -> None:
-        """La visibilidad de las secciones es global: se elige desde un repo y
-        vale para todos.
+        """Section visibility is global.
+
+        Chosen from one repo, it holds for all.
         """
         for workspace in self.workspaces.values():
             workspace.apply_section_visibility()
 
     def _on_params_changed(self) -> None:
-        """Apagar un paso puede dejar de reclamar claves (y encenderlo,
-        volver a pedirlas): el ▶ del buscador se recalcula.
+        """Recount: turning a step off can stop it claiming keys.
+
+        And on can ask again.
+
+        So the search's ▶ recomputes.
         """
         self._refresh_readiness()
 
@@ -604,7 +641,9 @@ class MainWindow(QMainWindow):
             tab.set_logo(logo)
 
     def _on_env_saved(self, *_args) -> None:
-        """La configuracion guardada cambio: puede haber acciones nuevas
-        listas para correr sin abrir la pestana, o que dejaron de estarlo.
+        """React to saved configuration changing.
+
+        There may be new actions ready to run without opening the tab,
+        or some no longer ready.
         """
         self._refresh_readiness()

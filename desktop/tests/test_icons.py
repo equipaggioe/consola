@@ -1,9 +1,10 @@
-"""Los iconos que salen del logo del repo.
+"""The icons that come from the repo's logo.
 
-Se arma un repo falso con las formas que hay en los repos reales: SPA con el
-favicon de la plantilla, con `static/favicon.svg` en su `app.html`, con el
-logo importado de otro lado y con el manifest estatico de una PWA; una app Flutter con su
-seccion `flutter_launcher_icons:`, y una app Flet con su `icon.png`.
+It builds a fake repo with the shapes real repos have: SPAs with the
+template's favicon, with `static/favicon.svg` in their `app.html`, with
+the logo imported from elsewhere and with a PWA's static manifest; a
+Flutter app with its `flutter_launcher_icons:` section; and a Flet app
+with its `icon.png`.
 """
 
 import io
@@ -60,6 +61,7 @@ MANIFEST_LINK = '<link rel="manifest" href="%sveltekit.assets%/manifest.webmanif
 
 
 def manifest(*icons: dict[str, str]) -> str:
+    """Return a web manifest with those icons."""
     return json.dumps(
         {
             "name": "Web",
@@ -79,17 +81,19 @@ MANIFEST = manifest(
 
 
 def write(path: Path, text: str) -> Path:
+    """Write a file, creating its folder."""
     path.parent.mkdir(parents=True, exist_ok=True)
     path.write_text(text, encoding="utf-8")
     return path
 
 
 def spa(root: Path, name: str, sveltekit: bool = True, **files: str) -> Path:
+    """Create an SPA with those files."""
     folder = root / name
     kit = '"@sveltejs/kit": "^2.0.0", ' if sveltekit else ""
     write(folder / "package.json", f'{{"devDependencies": {{{kit}"svelte": "^5.0.0"}}}}')
     write(folder / "vite.config.ts", files.pop("vite", ""))
-    # Una app de Svelte sin Kit tambien tiene su svelte.config.js.
+    # A Svelte app without Kit also has its svelte.config.js.
     write(folder / "svelte.config.js", "")
     for relative, text in files.items():
         write(folder / relative.replace("__", "/"), text)
@@ -97,11 +101,13 @@ def spa(root: Path, name: str, sveltekit: bool = True, **files: str) -> Path:
 
 
 def flutter(root: Path, name: str, pubspec: str) -> Path:
+    """Create a Flutter app with that pubspec."""
     return write(root / name / "pubspec.yaml", pubspec).parent
 
 
 @pytest.fixture
 def repo(tmp_path: Path) -> Path:
+    """Return a repo with one app of each shape."""
     spa(
         tmp_path,
         "panel",
@@ -136,7 +142,7 @@ def repo(tmp_path: Path) -> Path:
         sveltekit=False,
         **{"index.html": '<link rel="icon" type="image/svg+xml" href="/vite.svg" />'},
     )
-    spa(tmp_path, "sin_icono")
+    spa(tmp_path, "no_icon")
     flutter(tmp_path, "mobile", PUBSPEC)
     flutter(tmp_path, "suelta", "name: suelta\n")
     flet = tmp_path / "cliente"
@@ -150,11 +156,13 @@ def repo(tmp_path: Path) -> Path:
 
 
 def layers(repo: Path, *layer_names: str) -> dict[str, Path]:
+    """Create the logo's layers."""
     files = {icons.LOGO: "logomark", icons.FOREGROUND: "foreground", icons.MASKABLE: "maskable"}
     return {c: repo / "brand" / f"{files[c]}.svg" for c in layer_names}
 
 
-def test_la_seccion_se_lee_con_las_claves_anidadas_y_sin_comentarios() -> None:
+def test_the_section_reads_with_nested_keys_and_without_comments() -> None:
+    """The section reads with nested keys and without comments."""
     assert icons.yaml_section(PUBSPEC, "flutter_launcher_icons") == {
         "android": "true",
         "image_path": "assets/launcher_icon/icon.png",
@@ -168,7 +176,8 @@ def test_la_seccion_se_lee_con_las_claves_anidadas_y_sin_comentarios() -> None:
     assert icons.yaml_section("name: x\n", "flutter_launcher_icons") is None
 
 
-def test_se_ofrecen_solo_las_apps_que_dicen_donde_va_su_icono(repo: Path) -> None:
+def test_only_apps_that_say_where_their_icon_goes_are_offered(repo: Path) -> None:
+    """Only apps that say where their icon goes are offered."""
     assert [t.name for t in icons.icon_apps(repo)] == [
         "cliente",
         "landing",
@@ -179,7 +188,9 @@ def test_se_ofrecen_solo_las_apps_que_dicen_donde_va_su_icono(repo: Path) -> Non
     ]
 
 
-def test_cada_spa_toma_el_icono_donde_lo_declara(repo: Path) -> None:
+def test_each_spa_takes_the_icon_where_it_declares_it(repo: Path) -> None:
+    """Each SPA takes the icon where it declares it."""
+
     def places(name: str) -> list[tuple[str, str, int]]:
         target = icons.targets.pick(repo, icons.ICON_KINDS, name)
         return [
@@ -189,7 +200,8 @@ def test_cada_spa_toma_el_icono_donde_lo_declara(repo: Path) -> None:
     assert places("panel") == [("panel/src/lib/assets/favicon.svg", "logo", 0)]
     assert places("landing") == [("landing/static/favicon.svg", "logo", 0)]
     assert places("vite") == [("vite/public/vite.svg", "logo", 0)]
-    # Un `src` relativo cuelga de la carpeta del manifest; uno absoluto, de `static/`.
+    # A relative `src` hangs from the manifest's folder; an absolute one
+    # from `static/`.
     assert places("pwa") == [
         ("pwa/static/icons/icon-192.png", "logo", 192),
         ("pwa/static/icons/icon-512.png", "logo", 512),
@@ -198,7 +210,8 @@ def test_cada_spa_toma_el_icono_donde_lo_declara(repo: Path) -> None:
     ]
 
 
-def test_la_capa_que_pide_la_app_se_exige_solo_si_la_pide(repo: Path) -> None:
+def test_the_layer_an_app_asks_for_is_required_only_if_it_asks(repo: Path) -> None:
+    """The layer an app asks for is required only if it asks."""
     with pytest.raises(MissingConfig) as error:
         icons.plan(repo, "pwa", layers(repo, icons.LOGO))
     assert error.value.keys == ["BRAND_ICON_MASKABLE"]
@@ -208,7 +221,8 @@ def test_la_capa_que_pide_la_app_se_exige_solo_si_la_pide(repo: Path) -> None:
     assert len(icons.plan(repo, "panel", layers(repo, icons.LOGO)).writes) == 1
 
 
-def test_flutter_toma_las_rutas_del_pubspec_una_vez_cada_una(repo: Path) -> None:
+def test_flutter_takes_the_pubspec_paths_once_each(repo: Path) -> None:
+    """Flutter takes the pubspec's paths once each."""
     layer_names = layers(repo, icons.LOGO, icons.FOREGROUND)
     work = icons.plan(repo, "mobile", layer_names)
     assert work.is_flutter
@@ -228,7 +242,8 @@ def test_flutter_toma_las_rutas_del_pubspec_una_vez_cada_una(repo: Path) -> None
     )
 
 
-def test_flet_recibe_el_logo_en_su_icon_png(repo: Path) -> None:
+def test_flet_receives_the_logo_in_its_icon_png(repo: Path) -> None:
+    """Flet receives the logo in its `icon.png`."""
     work = icons.plan(repo, "cliente", layers(repo, icons.LOGO))
     assert [(p.path, p.size) for _, p in work.writes] == [
         (repo / "cliente" / icons.FLET_ICON, 1024)
@@ -239,7 +254,7 @@ def test_flet_recibe_el_logo_en_su_icon_png(repo: Path) -> None:
     ("name", "pubspec", "error"),
     [
         (
-            "sin_dep",
+            "no_dep",
             PUBSPEC.replace("  flutter_launcher_icons: ^0.14.3", "  flutter_lints: ^5.0.0"),
             "falta flutter_launcher_icons en dev_dependencies",
         ),
@@ -251,15 +266,16 @@ def test_flet_recibe_el_logo_en_su_icon_png(repo: Path) -> None:
             "adaptive_icon_monochrome",
         ),
         (
-            "sin_logo",
-            "".join(l for l in PUBSPEC.splitlines(keepends=True) if "image_path" not in l),
+            "no_logo",
+            "".join(row for row in PUBSPEC.splitlines(keepends=True) if "image_path" not in row),
             "no declara image_path",
         ),
     ],
 )
-def test_lo_que_consola_no_sabe_llenar_en_flutter_corta(
+def test_what_consola_cannot_fill_in_flutter_stops(
     repo: Path, name: str, pubspec: str, error: str
 ) -> None:
+    """What Consola cannot fill in Flutter stops."""
     flutter(repo, name, pubspec)
     assert name in [t.name for t in icons.icon_apps(repo)]
     with pytest.raises(TaskError, match=error):
@@ -275,7 +291,8 @@ def test_lo_que_consola_no_sabe_llenar_en_flutter_corta(
         ('<link rel="icon" href="/favicon.gif" />', "solo genera .svg, .png e .ico"),
     ],
 )
-def test_lo_que_consola_no_sabe_llenar_en_una_spa_corta(repo: Path, link: str, error: str) -> None:
+def test_what_consola_cannot_fill_in_an_spa_stops(repo: Path, link: str, error: str) -> None:
+    """What Consola cannot fill in an SPA stops."""
     spa(repo, "rota", **{"src__app.html": link})
     with pytest.raises(TaskError, match=error):
         icons.plan(repo, "rota", layers(repo, icons.LOGO))
@@ -304,30 +321,34 @@ def test_lo_que_consola_no_sabe_llenar_en_una_spa_corta(repo: Path, link: str, e
         ),
     ],
 )
-def test_lo_que_consola_no_sabe_llenar_en_una_pwa_corta(
+def test_what_consola_cannot_fill_in_a_pwa_stops(
     repo: Path, vite: str, statics: dict[str, Any], error: str
 ) -> None:
+    """What Consola cannot fill in a PWA stops."""
     spa(repo, "rota", vite=vite, **{"src__app.html": MANIFEST_LINK}, **statics)
     assert "rota" in [t.name for t in icons.icon_apps(repo)]
     with pytest.raises(TaskError, match=error):
         icons.plan(repo, "rota", layers(repo, icons.LOGO, icons.MASKABLE))
 
 
-def test_una_app_sin_declaracion_corta(repo: Path) -> None:
+def test_an_app_without_a_declaration_stops(repo: Path) -> None:
+    """An app without a declaration stops."""
     with pytest.raises(TaskError, match="no declara dónde va su ícono"):
         icons.plan(repo, "externa", layers(repo, icons.LOGO))
     with pytest.raises(TaskError, match="no declara dónde va su ícono"):
         icons.plan(repo, "suelta", layers(repo, icons.LOGO))
 
 
-def test_el_logo_tiene_que_ser_un_svg_que_exista(repo: Path) -> None:
+def test_the_logo_has_to_be_an_existing_svg(repo: Path) -> None:
+    """The logo has to be an existing SVG."""
     with pytest.raises(TaskError, match="tiene que ser un SVG"):
         icons.brand_file(repo, "brand/logo.png", "BRAND_ICON")
     with pytest.raises(TaskError, match="No existe BRAND_ICON"):
         icons.brand_file(repo, "brand/otro.svg", "BRAND_ICON")
 
 
-def test_rasteriza_cuadrado_con_el_color_del_logo(repo: Path) -> None:
+def test_it_rasterizes_a_square_with_the_logo_color(repo: Path) -> None:
+    """It rasterizes a square with the logo's color."""
     image = Image.open(io.BytesIO(raster.svg_to_png(repo / "brand" / "logomark.svg", 256)))
     image = image.convert("RGBA")
     assert image.size == (256, 256)
@@ -335,8 +356,10 @@ def test_rasteriza_cuadrado_con_el_color_del_logo(repo: Path) -> None:
     assert image.getchannel("A").getpixel((0, 0)) == 0
 
 
-def test_el_png_no_depende_del_monitor(repo: Path) -> None:
-    # Con la ventana abierta, Qt anotaba en el PNG la resolucion del monitor.
+def test_the_png_does_not_depend_on_the_monitor(repo: Path) -> None:
+    # With the window open, Qt wrote the monitor's resolution in the
+    # PNG.
+    """The PNG does not depend on the monitor."""
     from PySide6.QtWidgets import QApplication
 
     QApplication.instance() or QApplication([])
@@ -344,12 +367,14 @@ def test_el_png_no_depende_del_monitor(repo: Path) -> None:
     assert Image.open(io.BytesIO(png)).info["dpi"] == pytest.approx((100, 100), abs=0.01)
 
 
-def test_el_ico_lleva_todos_los_lados(repo: Path) -> None:
+def test_the_ico_carries_every_side(repo: Path) -> None:
+    """The ICO carries every side."""
     ico = Image.open(io.BytesIO(raster.svg_to_ico(repo / "brand" / "logomark.svg")))
     assert sorted(ico.info["sizes"]) == [(n, n) for n in raster.ICO_SIZES]
 
 
-def test_un_svg_que_no_es_cuadrado_corta(tmp_path: Path) -> None:
+def test_a_non_square_svg_stops(tmp_path: Path) -> None:
+    """A non-square SVG stops."""
     width = write(
         tmp_path / "ancho.svg", LOGO.replace('viewBox="0 0 64 64"', 'viewBox="0 0 128 64"')
     )
@@ -357,7 +382,8 @@ def test_un_svg_que_no_es_cuadrado_corta(tmp_path: Path) -> None:
         raster.svg_to_png(width, 256)
 
 
-def test_la_corrida_escribe_solo_lo_que_cambia(repo: Path) -> None:
+def test_the_run_writes_only_what_changes(repo: Path) -> None:
+    """The run writes only what changes."""
     messages = []
     ctx = TaskContext(
         "generate_icons",

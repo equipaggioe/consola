@@ -1,3 +1,12 @@
+"""Publishable screenshots: the repo camera's contract and development.
+
+The camera is a script of the repo (ADR-0049): Consola runs it with the
+selection as arguments and then reads what it left. Everything that is
+not running processes lives here: where raw shots go, what they are
+called, what the script receives and how each raw shot converts for each
+destination.
+"""
+
 from __future__ import annotations
 
 import hashlib
@@ -12,34 +21,25 @@ from typing import Any
 from app.core import targets
 from app.core.errors import TaskError
 
-"""
-Capturas publicables: el contrato con la camara del repo y el revelado.
-
-La camara es un script del repo (ADR-0049): Consola lo corre con la seleccion
-como argumentos y despues lee lo que dejo. Aca vive todo lo que no es correr
-procesos: donde van los crudos, como se llaman, que se le pasa al script y como
-se convierte cada crudo para cada destino.
-"""
-
 THEMES = ("claro", "oscuro")
 
-# Los tipos de app que se pueden fotografiar: lo que tiene pantalla. El servidor
-# y las apps de escritorio quedan fuera hasta que alguien las necesite.
+# The app types that can be photographed: what has a screen. The server
+# and desktop apps stay out until someone needs them.
 SHOT_KINDS = (targets.SPA_VITE, *targets.MOBILE_APP)
 
-# <app>/<pantalla>.<tema>.<idioma>.png. Los cuatro segmentos son obligatorios:
-# un nombre que no calza no se adivina, corta el revelado.
+# <app>/<screen>.<theme>.<language>.png. All four segments are required:
+# a name that does not fit is not guessed, it stops the development.
 _RAW_NAME = re.compile(r"^(?P<screen>[^.]+)\.(?P<theme>[^.]+)\.(?P<language>[^.]+)\.png$")
 
 PRESETS_FILE = Path(__file__).with_name("shots_presets.json")
-# La plomeria que comparten las camaras (ADR-0051). Viaja en `--kit`.
-KIT = Path(__file__).resolve().parents[1] / "camara" / "index.mjs"
+# The plumbing cameras share (ADR-0051). It travels in `--kit`.
+KIT = Path(__file__).resolve().parents[1] / "camera" / "index.mjs"
 MANIFEST = "capturas.json"
 
 
 @dataclass(frozen=True)
 class Shot:
-    """Una captura cruda, ya leida de su nombre."""
+    """A raw screenshot, already read from its name."""
 
     app: str
     kind: str
@@ -50,11 +50,15 @@ class Shot:
 
     @property
     def stem(self) -> str:
+        """Return the name without its extension."""
         return f"{self.screen}.{self.theme}.{self.language}"
 
 
 def resolve_dir(root: Path, value: str) -> Path:
-    """Una carpeta de la configuracion: relativa cuelga del repo, absoluta va tal cual."""
+    """Return a config folder.
+
+    Relative hangs from the repo, absolute stays.
+    """
     declared = Path(value)
     return declared if declared.is_absolute() else root / declared
 
@@ -66,7 +70,10 @@ def camera_args(
     output: Path,
     device: str = "",
 ) -> list[str]:
-    """Los argumentos que Consola le agrega a `SHOTS_CMD` (ADR-0049, ADR-0051)."""
+    """Return the arguments Consola adds to `SHOTS_CMD`.
+
+    ADR-0049 and ADR-0051.
+    """
     args = [
         "--apps",
         ",".join(apps),
@@ -85,10 +92,11 @@ def camera_args(
 
 
 def parse_supported(text: str) -> dict[str, dict[str, Any]]:
-    """Lo que la camara dice que sabe capturar, leido de su `--supported` (ADR-0054).
+    """Return what the camera says it can capture, from `--supported`.
 
-    El kit ya lo revisa antes de imprimirlo; esto revisa lo que Consola usa de
-    ahi, porque una camara escrita sin el kit tambien puede contestar.
+    The kit checks it before printing it (ADR-0054); this checks what
+    Consola uses from it, because a camera written without the kit can
+    also answer.
     """
     try:
         declared = json.loads(text)
@@ -115,9 +123,10 @@ def parse_supported(text: str) -> dict[str, dict[str, Any]]:
 
 
 def supported_values(declared: dict[str, dict[str, Any]], axis: str) -> list[str]:
-    """Los valores de un eje de la camara: sus apps, o todos los temas o idiomas
-    que tiene alguna. Los temas en el orden del contrato; lo demas, como lo
-    escribio la camara.
+    """Return the values of a camera axis.
+
+    Its apps, or all the themes or languages any has. Themes in the
+    contract's order; the rest as the camera wrote it.
     """
     if axis == "apps":
         return list(declared)
@@ -130,11 +139,12 @@ def supported_values(declared: dict[str, dict[str, Any]], axis: str) -> list[str
 def clear_raw(
     raw: Path, apps: Iterable[str], themes: Iterable[str], languages: Iterable[str]
 ) -> int:
-    """Borra los crudos de las combinaciones que se van a volver a sacar.
+    """Delete the raw shots of the combinations about to be taken again.
 
-    Sin esto, una pantalla que el script dejo de capturar seguiria en la
-    carpeta y el revelado la publicaria como si fuera nueva. Solo se tocan las
-    combinaciones pedidas: sacar el ingles no borra el espanol.
+    Without this, a screen the script stopped capturing would stay in
+    the folder and the development would publish it as new. Only the
+    requested combinations are touched: taking English does not delete
+    Spanish.
     """
     deleted = 0
     for app in apps:
@@ -147,11 +157,11 @@ def clear_raw(
 
 
 def collect(root: Path, raw: Path, apps: Iterable[str] | None = None) -> list[Shot]:
-    """Las capturas crudas, validadas. `apps` limita a esas carpetas.
+    """Return the validated raw shots. `apps` limits to those folders.
 
-    Corta con error ante una carpeta que no es una app del repo o un archivo
-    que no sigue el nombre acordado: revelar a medias dejaria la landing con
-    una mezcla de corridas.
+    It stops with an error on a folder that is not an app of the repo or
+    a file outside the agreed name: half a development would leave the
+    landing with a mix of runs.
     """
     if not raw.is_dir():
         raise TaskError(f"No existe la carpeta de capturas crudas: {raw}")
@@ -193,26 +203,27 @@ def collect(root: Path, raw: Path, apps: Iterable[str] | None = None) -> list[Sh
 def missing_combinations(
     shots: list[Shot], apps: Iterable[str], themes: Iterable[str], languages: Iterable[str]
 ) -> list[str]:
-    """Las combinaciones pedidas para las que la camara no dejo ninguna captura."""
+    """Return the requested combinations the camera left no shot for."""
     done = {(s.app, s.theme, s.language) for s in shots}
     return [
-        f"{a} · {t} · {l}"
+        f"{a} · {t} · {lang}"
         for a in apps
         for t in themes
-        for l in languages
-        if (a, t, l) not in done
+        for lang in languages
+        if (a, t, lang) not in done
     ]
 
 
 def load_presets() -> dict[str, Any]:
+    """Return the destinations' presets."""
     return json.loads(PRESETS_FILE.read_text(encoding="utf-8"))
 
 
 def render_landing(shot: Shot, preset: dict[str, Any], out_dir: Path) -> "Derived":
-    """Un crudo -> el .webp de la landing, sin agrandarlo nunca.
+    """Turn a raw shot into the landing's .webp, never enlarging it.
 
-    El ancho del preset es un tope: una captura mas angosta que el se deja
-    como esta, porque agrandarla solo la desenfoca.
+    The preset's width is a cap: a narrower shot stays as is, because
+    enlarging it only blurs it.
     """
     from PIL import Image
 
@@ -234,18 +245,19 @@ def render_landing(shot: Shot, preset: dict[str, Any], out_dir: Path) -> "Derive
 
 @dataclass(frozen=True)
 class Derived:
-    """Un archivo que dejo el revelado, con lo que el manifiesto necesita."""
+    """A file the development left, with what the manifest needs."""
 
     shot: Shot
     destination: str
     path: Path
     width: int
     height: int
-    archive: str = ""  # el ZIP que lo contiene, si el destino es un archivo
+    # the ZIP that holds it, if the destination is an archive
+    archive: str = ""
 
 
 def aspect_crop(width: int, height: int, target_w: int, target_h: int) -> float:
-    """La fraccion de la imagen que se pierde al llevarla a la proporcion destino."""
+    """Return the image fraction lost going to the target proportion."""
     current, target = width / height, target_w / target_h
     return 1 - min(current, target) / max(current, target)
 
@@ -253,17 +265,21 @@ def aspect_crop(width: int, height: int, target_w: int, target_h: int) -> float:
 def plan(
     destination: str, preset: dict[str, Any], raws: list[Shot]
 ) -> list[tuple[Shot, dict[str, Any] | None]]:
-    """Los pares (crudo, medida) que produce un destino; `None` es la medida nativa.
+    """Return the (raw shot, size) pairs of a destination.
 
-    - `kinds` dice de que crudos sale el destino: una captura de escritorio no
-      se convierte en una de telefono.
-    - `limits` (Play) no cambia la medida: el crudo tiene que cumplirlos.
-    - `sizes` son medidas exactas. Cada crudo va a las medidas cuya proporcion
-      se alcanza recortando como mucho `max_crop`; asi un telefono va a la de
-      iPhone y una tablet a la de iPad sin que el contrato diga que es cada uno.
+    `None` is the native size.
 
-    Corta si al destino no le sirve ningun crudo, o si un crudo no cabe en
-    ninguna medida: recortar de mas se come la barra o la navegacion de la app.
+    - `kinds` says which raw shots the destination takes: a desktop shot
+      does not become a phone one.
+    - `limits` (Play) does not change the size: the raw shot has to meet
+      them.
+    - `sizes` are exact sizes. Each raw shot goes to those whose
+      proportion it reaches cropping at most `max_crop`; so a phone goes
+      to iPhone's and a tablet to iPad's without the contract saying
+      which is which.
+
+    It stops if no raw shot suits the destination, or if one fits no
+    size: cropping too much eats the app's bar or navigation.
     """
     from PIL import Image
 
@@ -325,11 +341,11 @@ def _outside_limits(width: int, height: int, limits: dict[str, Any]) -> str:
 def render_sized(
     shot: Shot, size: dict[str, Any] | None, out_dir: Path, destination: str
 ) -> Derived:
-    """Un crudo -> un PNG sin canal alfa, nativo o de la medida exacta del destino.
+    """Turn a raw shot into a PNG without alpha, native or exact-sized.
 
-    Las tiendas rechazan PNG con alfa. Con medida, se escala hasta cubrirla
-    (aqui si se agranda: la medida es exacta) y se recorta del centro lo que
-    sobra, que `plan` ya limito a `max_crop`.
+    Stores reject PNGs with alpha. With a size, it scales until covering
+    it (here it does enlarge: the size is exact) and crops the excess
+    from the center, which `plan` already limited to `max_crop`.
     """
     from PIL import Image
 
@@ -348,7 +364,7 @@ def render_sized(
         above = (image.height - height) // 2
         image = image.crop((left, above, left + width, above + height))
         name = f"{shot.screen}.{shot.theme}.{size['name']}.png"
-    # Las tiendas agrupan por idioma: una tanda por carpeta de idioma.
+    # Stores group by language: one batch per language folder.
     target = out_dir / shot.language / shot.app / name
     target.parent.mkdir(parents=True, exist_ok=True)
     image.save(target, "PNG", optimize=True)
@@ -356,7 +372,10 @@ def render_sized(
 
 
 def render_archive(raws: list[Shot], out_dir: Path, destination: str) -> list[Derived]:
-    """Los crudos, tal cual y sin comprimir, en un ZIP (press kit)."""
+    """Pack the raw shots as they are, uncompressed, in a ZIP.
+
+    Press kit.
+    """
     from PIL import Image
 
     file = out_dir / "capturas.zip"
@@ -375,7 +394,10 @@ def render_archive(raws: list[Shot], out_dir: Path, destination: str) -> list[De
 
 @dataclass(frozen=True)
 class Changes:
-    """Lo que cambio entre el manifiesto anterior de un destino y el nuevo."""
+    """What changed between a destination's old manifest.
+
+    And the new one.
+    """
 
     changed: list[str]
     added: list[str]
@@ -383,11 +405,12 @@ class Changes:
 
 
 def write_manifest(out_dir: Path, destination: str, derived: list[Derived]) -> Changes:
-    """Escribe `capturas.json` del destino y dice que cambio respecto del anterior.
+    """Write the destination's `capturas.json` and say what changed.
 
-    Es lo que la landing y el manual indexan en vez de escribir rutas a mano.
-    Sin fecha y ordenado: dos corridas iguales dan el mismo archivo, y comparar
-    el hash de cada entrada con el de la corrida anterior es la regresion visual.
+    The landing and the manual index it instead of writing paths by
+    hand. Undated and sorted: two equal runs give the same file, and
+    comparing each entry's hash with the last run's is the visual
+    regression.
     """
     items = []
     for d in derived:

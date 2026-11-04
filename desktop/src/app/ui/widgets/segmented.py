@@ -1,3 +1,5 @@
+"""A segmented control."""
+
 from __future__ import annotations
 
 from PySide6.QtCore import Qt, Signal
@@ -7,10 +9,10 @@ from app.theme import Colors, Fonts
 
 
 class Segmented(QWidget):
-    """Control segmentado para ejes de seleccion unica (`select='one'`).
+    """Segmented control for single-choice axes (`select='one'`).
 
-    Pedir dos valores a la vez seria un absurdo (start + stop), asi que el
-    control impide expresarlo — a diferencia de las casillas.
+    Asking for two values at once would be absurd (start + stop), so the
+    control makes it impossible to express, unlike checkboxes.
     """
 
     value_changed = Signal(str)
@@ -23,6 +25,7 @@ class Segmented(QWidget):
         danger: set[str] | None = None,
         parent: QWidget | None = None,
     ) -> None:
+        """Build one button per value."""
         super().__init__(parent)
         self.accent = accent
         self.danger = danger or set()
@@ -48,9 +51,11 @@ class Segmented(QWidget):
         self._restyle()
 
     def value(self) -> str:
+        """Return the selected value."""
         return self._value
 
     def set_value(self, value: str) -> None:
+        """Select a value."""
         if value not in self._buttons or value == self._value:
             self._restyle()
             return
@@ -59,6 +64,7 @@ class Segmented(QWidget):
         self.value_changed.emit(value)
 
     def set_accent(self, accent: str) -> None:
+        """Change the color of the selected button."""
         self.accent = accent
         self._restyle()
 

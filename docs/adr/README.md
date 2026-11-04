@@ -86,3 +86,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0076](0076-un-fallo-al-consultar-o-al-guardar-en-cache-se-dice.md) | Un fallo al consultar o al guardar en caché se dice, y no se esconde |
 | [0077](0077-el-eje-de-servicios-pregunta-al-vps-que-unidades-existen.md) | El eje de servicios le pregunta al VPS qué unidades existen |
 | [0078](0078-contra-un-vps-de-canone-la-base-no-se-migra-por-tunel.md) | Contra un VPS de canone la base no se migra por túnel, y el ámbito remoto espera a canone |
+| [0079](0079-http-bloquea-el-hilo-de-la-tarea.md) | HTTP va por QNetworkAccessManager y bloquea el hilo de la tarea |

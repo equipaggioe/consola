@@ -1,3 +1,5 @@
+"""A row of the action search, with its marks."""
+
 from __future__ import annotations
 
 from typing import override
@@ -10,8 +12,10 @@ from app.theme import Colors, Fonts, tint
 
 
 def _alpha(hex_color: str, alpha: float) -> QColor:
-    """El mismo color con transparencia: QColor no entiende 'rgba(...)',
-    que es lo que sirve `theme.tint` para las hojas de estilo.
+    """Return the same color with transparency.
+
+    QColor does not understand 'rgba(...)', which is what `theme.tint`
+    serves for style sheets.
     """
     c = QColor(hex_color)
     c.setAlphaF(alpha)
@@ -19,19 +23,20 @@ def _alpha(hex_color: str, alpha: float) -> QColor:
 
 
 class LevelMark(QLabel):
-    """Marca de nivel de una accion: un solo paso o varios encadenados.
+    """An action's level mark: one step or several chained.
 
-    Deliberadamente pequena y sin color propio: el color de la fila ya esta
-    hablando de otra cosa (destructiva, favorita, lista para correr), asi que
-    el nivel se dice con la forma. `◈` (rombo relleno, varias caras) es
-    compuesta; `◦` (punto hueco) es atomica. Quien no lo adivine lo lee en el
-    tooltip, que es el mismo lugar donde ya vive la descripcion.
+    Small on purpose and with no color of its own: the row's color
+    already speaks of something else (destructive, favorite, ready), so
+    the level is told by shape. `◈` is composite and `◦` is atomic.
+    Whoever cannot guess reads it in the tooltip, where the description
+    already lives.
     """
 
     COMPOSITE = "◈"
     ATOMIC = "◦"
 
     def __init__(self, composite: bool, parent: QWidget | None = None) -> None:
+        """Draw the shape for the level."""
         super().__init__(parent)
         self.setText(self.COMPOSITE if composite else self.ATOMIC)
         self.setFixedWidth(12)
@@ -48,17 +53,20 @@ class LevelMark(QLabel):
 
 
 class ScopeMark(QLabel):
-    """Marca de alcance: esta accion le pasa a la maquina, no al repo abierto.
+    """A reach mark: this action happens to the machine.
 
-    Solo aparece en las de `scope='machine'` (instalar un SDK), porque la
-    ausencia de marca ya significa "es de este repo", que es el caso normal.
-    `⌂` se lee como la maquina misma, y no se confunde con las formas del
-    nivel (`◈`/`◦`) que van al lado.
+    Not the open repo.
+
+    It only appears on `scope='machine'` actions, such as installing an
+    SDK, because no mark already means «of this repo», the normal case.
+    `⌂` reads as the machine itself, and does not get confused with the
+    level's shapes next to it.
     """
 
     GLYPH = "⌂"
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Draw the mark."""
         super().__init__(parent)
         self.setText(self.GLYPH)
         self.setFixedWidth(12)
@@ -70,12 +78,12 @@ class ScopeMark(QLabel):
 
 
 class ActionRow(QWidget):
-    """Una accion en la lista del buscador: renglon de ancho completo.
+    """An action in the search list: a full-width line.
 
-    Cada accion ocupa toda la fila, como una entrada de menu, con un filete de acento a
-    la izquierda que solo aparece con el hover o si es destructiva. Ese
-    mismo filete es el boton de favorito: un clic ahi marca la accion sin
-    abrirla, en vez de vivir en un lugar aparte.
+    Each action fills the row, like a menu entry, with an accent stripe
+    at the left that only appears on hover or if destructive. That
+    stripe is the favorite button: a click there marks the action
+    without opening it.
     """
 
     triggered = Signal(str)
@@ -83,7 +91,8 @@ class ActionRow(QWidget):
     run_requested = Signal(str)
 
     HEIGHT = 32
-    PIN_ZONE = 12  # ancho clicable del filete, mas holgado que su trazo visual
+    # clickable width of the stripe, roomier than its visual stroke
+    PIN_ZONE = 12
 
     def __init__(
         self,
@@ -98,6 +107,7 @@ class ActionRow(QWidget):
         machine: bool = False,
         parent: QWidget | None = None,
     ) -> None:
+        """Build the row."""
         super().__init__(parent)
         self.capability_id = capability_id
         self.danger = danger
@@ -147,7 +157,7 @@ class ActionRow(QWidget):
         self._restyle_run()
 
     def _tooltip(self, label: str) -> str:
-        """Nombre, que hace, de que nivel es y como se usa la fila."""
+        """Name, what it does, its level and how the row is used."""
         level = (
             "Compuesta · encadena varias atómicas" if self.composite else "Atómica · un solo paso"
         )
@@ -164,20 +174,26 @@ class ActionRow(QWidget):
         return "<br>".join(lines)
 
     def matches(self, needle: str) -> bool:
-        """El filtro tambien mira la descripcion: buscar 'disco' o 'caché'
-        deberia encontrar Limpiar artefactos aunque no lo diga su nombre.
+        """Return the text the filter looks at.
+
+        The filter also looks at the description: searching 'disco' or
+        'caché' should find Limpiar artefactos even if its name does not
+        say so.
         """
         return needle in self.text_label.text().lower() or needle in self.description.lower()
 
     def set_ready(self, value: bool) -> None:
+        """Show or hide ▶, for an action that can run at once."""
         if value == self._ready:
             return
         self._ready = value
         self._restyle_run()
 
     def set_highlighted(self, value: bool) -> None:
-        """El mismo resalte del hover, puesto desde afuera: lo usa el buscador
-        de la barra de menu para marcar la fila elegida con las flechas.
+        """Set the hover highlight from outside.
+
+        The menu bar search uses it to mark the row chosen with the
+        arrows.
         """
         if value == self._hovered:
             return
@@ -203,11 +219,13 @@ class ActionRow(QWidget):
         """)
 
     def set_accent(self, accent: str) -> None:
+        """Change the stripe's color."""
         self.accent = accent
         self._restyle_run()
         self.update()
 
     def set_favorite(self, value: bool) -> None:
+        """Mark or unmark the favorite."""
         if value == self.favorite:
             return
         self.favorite = value
@@ -274,10 +292,10 @@ class ActionRow(QWidget):
                 r, _alpha(self.accent, 0.09) if not self.danger else _alpha(Colors.ERROR, 0.08)
             )
 
-        # Filete de acento: siempre visible y tenue si es destructiva (aviso
-        # permanente) o si es favorita, mas ancho al pasar el mouse porque
-        # ahi mismo se hace clic para marcarla. Asi el favorito se distingue
-        # aun viendo todo, y su boton no necesita un lugar aparte.
+        # Accent stripe: always visible and faint if destructive (a
+        # permanent warning) or favorite, wider on hover because that is
+        # where the click marks it. So a favorite stands out even when
+        # seeing everything, and its button needs no separate place.
         if self.danger or self.favorite or self._hovered:
             bar_alpha = (
                 0.9

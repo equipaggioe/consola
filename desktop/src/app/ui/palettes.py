@@ -1,3 +1,32 @@
+"""One palette per repository.
+
+A chosen hue and the whole ladder of backgrounds **truly** tinted by it.
+
+A repo's color is not a loose accent on a gray canvas: it is the hue the
+whole ladder of surfaces paints with, from the darkest (console) to the
+lightest (input fields). The workspace reads at a glance, «the blue
+repo», «the green repo», because the background is blue or green and not
+a gray with a hint: saturation goes from 38 % to 55 % in HSL. It is
+still a dark theme; what changes is that the hue shows.
+
+Two signals, two tools, and they do not clash:
+
+- **hue** says WHICH repo you are in. Only one, present in everything.
+- **lightness** says WHICH PANEL you look at. The console is the darkest
+  step, the sections' body one lighter, headers one more. A hue per
+  section would cancel the first signal: if «Parámetros» were always
+  green, green would stop meaning «green repo».
+
+**No background is black.** The darkest is `bg`, the canvas where one
+reads; the menu bar row (`chrome`) is the lightest band of the ladder
+and the most saturated. The title bar is painted in the accent, and what
+rests on it, the brand and the repo tabs, carries no plate.
+
+What does NOT come in here: `SUCCESS`, `WARNING`, `ERROR` and the LEDs.
+A state has to mean the same in every repo; tinting them would make a
+success and an error look alike in a green repo.
+"""
+
 from __future__ import annotations
 
 from collections.abc import Iterable
@@ -7,38 +36,9 @@ from PySide6.QtGui import QColor
 
 from app.theme import Colors, on_color, tint
 
-"""
-Una paleta por repositorio: un tono elegido y toda la escalera de fondos
-teñida de el **de verdad**.
-
-El color de un repo no es un acento suelto sobre un lienzo gris: es el tono
-con el que se pinta la escalera entera de superficies, de la mas oscura
-(consola) a la mas clara (campos de entrada). El espacio de trabajo se
-reconoce de un vistazo —«el repo azul», «el repo verde»— porque el fondo es
-azul o verde, no un gris con una insinuacion: la saturacion va del 38 % al
-55 % en HSL. Sigue siendo un tema oscuro; lo que cambia es que el tono se ve.
-
-Dos señales, dos herramientas, y no se pisan:
-
-- **el tono** dice en QUE repo estas. Uno solo, presente en todo.
-- **la luminosidad** dice QUE PANEL miras. La consola es el escalon mas
-  oscuro, el cuerpo de las secciones uno mas claro, las cabeceras otro mas.
-  Un tono por seccion anularia la primera señal: si «Parametros» fuera siempre
-  verde, el verde dejaria de querer decir «repo verde».
-
-**Ningun fondo es negro.** El mas oscuro es `bg`, el lienzo donde se lee; la
-fila de la barra de menu (`chrome`) es la banda mas clara de la escalera, y la
-mas saturada. La barra de titulo va pintada del acento y lo que se apoya en
-ella —la marca, las pestanas de repo— no lleva placa.
-
-Lo que NO entra aca: `SUCCESS`, `WARNING`, `ERROR` y los LED. Un estado tiene
-que significar lo mismo en todos los repos; teñirlos haria que en un repo
-verde un exito y un error se parecieran.
-"""
-
 
 def _luminance(c: QColor) -> float:
-    """Luminancia relativa (WCAG 2.1). La misma cuenta que hace `on_color`."""
+    """Return relative luminance (WCAG 2.1), like `on_color`."""
 
     def lin(v: float) -> float:
         return v / 12.92 if v <= 0.03928 else ((v + 0.055) / 1.055) ** 2.4
@@ -47,26 +47,30 @@ def _luminance(c: QColor) -> float:
 
 
 def _tinted(base: str, accent: str, sat: float) -> str:
-    """El fondo del repo: el tono del acento a esa saturacion, con la
-    luminosidad del neutro de partida sin tocar.
+    """Return the repo's background.
 
-    Dos piezas, cada una con su trabajo. La **saturacion** es absoluta, no una
-    fraccion de la del acento: asi el verde (acento poco saturado) y el azul
-    (acento saturadisimo) tiñen igual de fuerte, y ningun repo queda gris
-    porque le toco un acento apagado. La **luminancia** es la del neutro, y
-    por eso teñir no mueve ningun escalon de sitio: el contraste de todo lo
-    que va encima es el mismo en los ocho temas.
+    The accent's hue at that saturation.
 
-    Mezclar hacia el acento a secas (interpolar RGB) no sirve: los acentos son
-    claros, asi que la mezcla aclara el fondo y el contraste del texto cae —
-    `TEXT_MUTED` sobre una cabecera pasaba de 3.4:1 a 2.5:1.
+    The base neutral's lightness stays untouched.
 
-    Lo que se conserva es la **luminancia** de WCAG, no la «L» de HSL: al ojo
-    y a la formula de contraste, un verde y un violeta con la misma L no
-    pesan lo mismo (el verde pesa casi el doble). Fijando la L, el verde se
-    iba de contraste por arriba y el violeta aplanaba los escalones por
-    abajo. Se busca la L que devuelve la luminancia del gris de partida:
-    monotona en L, asi que una biseccion la encuentra.
+    Two pieces, each with its job. **Saturation** is absolute, not a
+    fraction of the accent's: so green (a barely saturated accent) and
+    blue (a very saturated one) tint equally strongly, and no repo stays
+    gray for having a dull accent. **Luminance** is the neutral's, so
+    tinting moves no step: the contrast of everything on top is the same
+    in all eight themes.
+
+    Plainly mixing toward the accent (interpolating RGB) does not work:
+    accents are light, so the mix lightens the background and text
+    contrast falls, with `TEXT_MUTED` over a header going from 3.4:1 to
+    2.5:1.
+
+    What is kept is WCAG **luminance**, not HSL's «L»: to the eye and to
+    the contrast formula, a green and a violet with the same L do not
+    weigh the same (green weighs almost double). Fixing L, green went
+    over on contrast and violet flattened the steps. It looks for the L
+    that gives back the base gray's luminance: monotonic in L, so a
+    bisection finds it.
     """
     target = _luminance(QColor(base))
     hue = QColor(accent).hueF()
@@ -80,11 +84,11 @@ def _tinted(base: str, accent: str, sat: float) -> str:
     return QColor.fromHslF(hue, sat, (lo + hi) / 2).name()
 
 
-# De que neutro sale cada rol y con cuanta saturacion se pinta. Son fondos de
-# color, no grises insinuados: por debajo del 35 % el tono deja de leerse a
-# tamaño de pantalla y todo vuelve a parecer gris. La fila del menu es la mas
-# saturada: es la banda que dice de un vistazo en que repo estas, y la que
-# lleva ademas la pestana del repo seleccionado.
+# Which neutral each role comes from and how saturated it paints. They
+# are colored backgrounds, not hinted grays: below 35 % the hue stops
+# reading at screen size and everything looks gray again. The menu row
+# is the most saturated: it is the band that says at a glance which repo
+# this is, and it also carries the selected repo's tab.
 _RECIPE: tuple[tuple[str, str, float], ...] = (
     ("chrome", Colors.CHROME, 0.50),
     ("bg", Colors.BG, 0.38),
@@ -96,37 +100,46 @@ _RECIPE: tuple[tuple[str, str, float], ...] = (
     ("border_light", Colors.BORDER_LIGHT, 0.38),
 )
 
-# El texto NO se tiñe: se queda en los grises de `ui/theme.py` en los ocho
-# temas. Tiene que seguir leyendose igual sobre cualquiera de ellos, y un gris
-# corrido hacia el mismo tono que su fondo se le acerca en vez de despegarse.
+# Text is NOT tinted: it stays in the grays of `theme.py` in all eight
+# themes. It has to read the same over any of them, and a gray shifted
+# toward its background's hue moves closer to it instead of standing
+# out.
 
 
 @dataclass(frozen=True)
 class Palette:
-    """Los fondos de UN repo. Inmutable: cambiar de tema es otra paleta."""
+    """The backgrounds of ONE repo.
+
+    Immutable: changing theme is another palette.
+    """
 
     key: str
     label: str
     accent: str
-    chrome: str  # fila de la barra de menu y pestana del repo seleccionado
-    bg: str  # consola y lienzo izquierdo: el escalon mas oscuro
-    panel: str  # cuerpo de las secciones de la columna derecha
-    surface: str  # sub-barra, cabeceras de seccion, pie, barra de estado
+    chrome: str  # menu bar row and the selected repo's tab
+    bg: str  # console and left canvas: the darkest step
+    panel: str  # body of the right column's sections
+    surface: str  # sub-bar, section headers, footer, status bar
     surface_hover: str
-    surface_alt: str  # campos, combos, chips
+    surface_alt: str  # fields, combos, chips
     border: str
     border_light: str
 
     @property
     def on_accent(self) -> str:
-        """Texto legible sobre el acento: lo decide la luminancia, no el tema."""
+        """Return legible text over the accent.
+
+        By luminance and not theme.
+        """
         return on_color(self.accent)
 
     def glow(self, alpha: float = 0.18) -> str:
+        """Return the accent as a translucent glow."""
         return tint(self.accent, alpha)
 
 
 def build(key: str, label: str, accent: str) -> Palette:
+    """Return the palette derived from an accent."""
     return Palette(
         key=key,
         label=label,
@@ -135,27 +148,28 @@ def build(key: str, label: str, accent: str) -> Palette:
     )
 
 
-# Ocho tonos claros, en orden por el circulo cromatico y empezando por el azul.
-# Claros a proposito: el acento es lo que va ENCIMA de los fondos —la barra de
-# titulo, el rombo del logo, los filetes, el texto de enlace— y tiene que
-# despegarse de ellos. De el sale el tono; la fuerza con la que se tiñe cada
-# fondo la pone `_RECIPE`, no la saturacion del acento. El contraste de cada
-# uno lo comprueba `tests/test_palettes.py`.
+# Eight light hues, in order around the color wheel starting with blue.
+# Light on purpose: the accent goes ON TOP of the backgrounds (title
+# bar, logo's diamond, stripes, link text) and has to stand out. The hue
+# comes from it; `_RECIPE` sets how strongly each background tints, not
+# the accent's saturation. `tests/test_palettes.py` checks each one's
+# contrast.
 THEMES: dict[str, Palette] = {
     p.key: p
     for p in (
-        build("azul", "Azul", "#58a6ff"),
+        build("blue", "Azul", "#58a6ff"),
         build("indigo", "Índigo", "#8fa0f0"),
-        build("violeta", "Violeta", "#bc8cff"),
-        build("rosa", "Rosa", "#dd8fb4"),
+        build("violet", "Violeta", "#bc8cff"),
+        build("pink", "Rosa", "#dd8fb4"),
         build("coral", "Coral", "#e0907f"),
-        build("ambar", "Ámbar", "#d4ae6a"),
-        build("verde", "Verde", "#7cc48a"),
-        build("cian", "Cian", "#6dbecb"),
+        build("amber", "Ámbar", "#d4ae6a"),
+        build("green", "Verde", "#7cc48a"),
+        build("cyan", "Cian", "#6dbecb"),
     )
 }
 
-# Sin ningun repo abierto no hay de quien tomar el tono: los neutros pelados.
+# With no repo open there is nobody to take the hue from: the bare
+# neutrals.
 NEUTRAL = Palette(
     key="",
     label="",
@@ -172,20 +186,21 @@ NEUTRAL = Palette(
 
 
 def get(key: str) -> Palette:
-    """La paleta de ese tema. Revienta si no existe, a proposito: un repo
-    guardado con un tema que ya no esta se descarta al cargar
-    (`ui/project_store.py`), no se le inventa otro color aca.
+    """Return that theme's palette, raising if it does not exist.
+
+    On purpose: a repo saved with a theme that is gone is discarded on
+    load (`ui/project_store.py`), and no other color is invented here.
     """
     return THEMES[key]
 
 
 def first_free(used: Iterable[str]) -> str:
-    """El primer tema que ningun repo abierto este usando.
+    """Return the first theme no open repo uses.
 
-    Deterministico y sin repetir mientras queden temas: dos repos del mismo
-    color son dos repos que se confunden, que es justo lo que el color viene a
-    evitar. Con mas repos que temas vuelve a empezar por el primero — ahi ya
-    no hay color que alcance y se elige a mano.
+    Deterministic and without repeats while themes remain: two repos of
+    the same color get confused, which is what color exists to avoid.
+    With more repos than themes it starts over from the first; by then
+    no color is enough and one chooses by hand.
     """
     in_use = set(used)
     return next((k for k in THEMES if k not in in_use), next(iter(THEMES)))

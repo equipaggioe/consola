@@ -1,3 +1,5 @@
+"""The log view of a task tab."""
+
 from __future__ import annotations
 
 import datetime
@@ -20,9 +22,13 @@ from app.ui.palettes import NEUTRAL, Palette
 
 
 class ConsoleView(QPlainTextEdit):
-    """Terminal-like console with colored log levels and blinking cursor."""
+    """Terminal-like console.
+
+    With colored log levels and blinking cursor.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the read-only view."""
         super().__init__(parent)
         self.setReadOnly(True)
         self.pal = NEUTRAL
@@ -41,6 +47,7 @@ class ConsoleView(QPlainTextEdit):
         self._restyle()
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 
@@ -73,6 +80,7 @@ class ConsoleView(QPlainTextEdit):
         self.search_bar.setGeometry(self.width() - w - 20, 10, w, h)
 
     def append_log(self, text: str, level: str = "info") -> None:
+        """Append one line, colored by its level."""
         fmt = QTextCharFormat()
         color_map = {
             "info": Colors.ACCENT,
@@ -83,7 +91,7 @@ class ConsoleView(QPlainTextEdit):
         level = level.lower()
         level_color = color_map.get(level, Colors.TEXT_DIM)
 
-        now = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+        now = datetime.datetime.now(datetime.UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S")
 
         cursor = self.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
@@ -111,9 +119,11 @@ class ConsoleView(QPlainTextEdit):
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
     def clear_console(self) -> None:
+        """Empty the view."""
         self.clear()
 
     def write_stub_message(self, capability_name: str) -> None:
+        """Say that the capability has no body yet."""
         self.append_log(f"─── {capability_name} ───", "info")
         self.append_log("Esta capacidad aún no está implementada.", "info")
         self.append_log("El esqueleto de UI está funcionando correctamente.", "info")

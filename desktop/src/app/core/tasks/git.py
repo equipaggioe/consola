@@ -1,3 +1,15 @@
+"""Git group.
+
+The two forced operations below exist for when someone already decided
+that this machine wins against origin, or origin against this machine,
+even if the other side has commits the winner does not know. They run
+only on this machine: the VPS has no clone of the repo (ADR-0059).
+
+`clone_repo` belongs here for the same reason: it is git against GitHub
+and nothing else. It is the only one in the module that does not work on
+the open repo.
+"""
+
 from __future__ import annotations
 
 import os
@@ -7,18 +19,6 @@ from app.core.context import TaskContext
 from app.core.errors import TaskError
 from app.core.process import which_any
 from app.core.registry import registry
-
-"""
-Grupo Git.
-
-Los dos forzados de aca abajo existen para el caso en que alguien ya decidio
-que esta maquina gana contra origin, o que origin gana contra esta maquina,
-aunque el otro lado tenga commits que el ganador no conoce. Corren solo en esta
-maquina: el VPS no tiene clon del repo (ADR-0059).
-
-`clone_repo` es del mismo grupo por la misma razon: es git contra GitHub y
-nada mas. Es la unica del modulo que no trabaja sobre el repo abierto.
-"""
 
 
 def _git_or_fail() -> None:
@@ -40,11 +40,11 @@ def _current_branch(ctx: TaskContext) -> str:
 
 
 def force_push(ctx: TaskContext) -> str:
-    """Fuerza a que origin quede igual a la rama de esta maquina.
+    """Force origin to match this machine's branch.
 
-    `--force` y no `--force-with-lease`: la lease rechaza el push justo cuando
-    origin tiene commits que esta maquina no vio, que es exactamente el caso para
-    el que existe este boton.
+    `--force` and not `--force-with-lease`: the lease rejects the push
+    when origin has commits this machine did not see, which is the case
+    this button exists for.
     """
     _ensure_git(ctx)
     branch = _current_branch(ctx)
@@ -56,12 +56,12 @@ def force_push(ctx: TaskContext) -> str:
 
 
 def force_reset(ctx: TaskContext, discard_changes: bool = False) -> str:
-    """Fuerza a que esta maquina quede igual a origin, descartando lo propio.
+    """Force this machine to match origin, discarding its own work.
 
-    Tira los commits que origin no tiene y lo que haya sin trackear
-    (`git clean -fd`). `discard_changes` elige que hacer si hay cambios sin
-    commitear: False pregunta con la lista de archivos a la vista, True los
-    descarta sin preguntar.
+    It drops the commits origin lacks and whatever is untracked (`git
+    clean -fd`). `discard_changes` chooses what to do with uncommitted
+    changes: False asks with the file list in view, True discards them
+    without asking.
     """
     _ensure_git(ctx)
     branch = _current_branch(ctx)
@@ -79,13 +79,14 @@ def force_reset(ctx: TaskContext, discard_changes: bool = False) -> str:
 
 
 def repo_folder_name(url: str) -> str:
-    """El nombre de carpeta que git le pondria al clon.
+    """Return the folder name git would give the clone.
 
-    Mismo criterio que `git clone` sin destino: el ultimo tramo de la URL sin
-    `.git`. Vale igual para SSH (`git@github.com:usuario/repo.git`) que para
-    HTTPS, porque los dos terminan en `/repo.git` o en `:usuario/repo.git`.
-    El separador de esta maquina tambien corta: git clona igual desde una
-    carpeta local, y ahi el ultimo tramo viene detras de una barra invertida.
+    It follows `git clone` without a target: the URL's last segment
+    without `.git`. It works alike for SSH
+    (`git@github.com:user/repo.git`) and HTTPS, since both end in
+    `/repo.git` or `:user/repo.git`. This machine's separator cuts too:
+    git also clones from a local folder, where the last segment comes
+    after a backslash.
     """
     clean = url.strip().rstrip("/")
     if clean.endswith(".git"):
@@ -97,15 +98,17 @@ def repo_folder_name(url: str) -> str:
 
 
 def clone_repo(ctx: TaskContext, url: str = "", dest: str = "", branch: str = "") -> Path:
-    """Clona un repositorio de GitHub y devuelve la carpeta donde quedo.
+    """Clone a GitHub repository and return the folder it landed in.
 
-    Devolver la ruta no es cosmetico: es lo que la ventana abre como pestana
-    cuando la capacidad declara `opens_repo` (`core/registry.py`). La tarea no
-    sabe nada de pestanas — dice donde dejo el repo, y eso alcanza.
+    Returning the path is not cosmetic: the window opens it as a tab
+    when the capability declares `opens_repo` (`core/registry.py`). The
+    task knows nothing of tabs: it says where it left the repo, and that
+    is enough.
 
-    Sin carpeta destino se clona al lado del repo abierto: es donde viven los
-    demas, y es el unico default que no hay que inventar. Nunca escribe sobre
-    una carpeta que ya existe: eso no seria clonar sino mezclar dos repos.
+    Without a target folder it clones next to the open repo: that is
+    where the others live, and it is the only default that need not be
+    invented. It never writes over an existing folder: that would not be
+    cloning but mixing two repos.
     """
     if not url.strip():
         raise TaskError("Falta la URL del repositorio a clonar.")
@@ -134,6 +137,7 @@ def clone_repo(ctx: TaskContext, url: str = "", dest: str = "", branch: str = ""
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("git_force_push", force_push)
     registry.bind("git_force_reset", force_reset)
     registry.bind("clone_repo", clone_repo)

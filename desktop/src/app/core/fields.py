@@ -1,3 +1,13 @@
+"""The `Settings` fields of the managed repo (ADR-0063).
+
+They are what the server reads from its credentials, and their
+production values go in `config.env` under the field name in upper case.
+canone fixes where the class lives (`<SERVER_DIR>/src/app/config.py`)
+and that every field is required. It is read with `ast` and not by
+importing the module: importing asks for the repo's venv, and the module
+reads `CREDENTIALS_DIRECTORY` on load.
+"""
+
 from __future__ import annotations
 
 import ast
@@ -6,28 +16,19 @@ from pathlib import Path
 from app.core.errors import TaskError
 from app.core.settings import Setting, get_setting
 
-"""
-Los campos de `Settings` del repo administrado (ADR-0063).
-
-Son lo que el servidor lee de sus credenciales, y sus valores de produccion van
-en `config.env` con el nombre del campo en mayusculas. canone fija donde vive la
-clase (`<SERVER_DIR>/src/app/config.py`) y que todo campo es obligatorio. Se lee
-con `ast` y no importando el modulo: importarlo pediria el venv del repo, y el
-modulo lee `CREDENTIALS_DIRECTORY` al cargarse.
-"""
-
 CONFIG = Path("src") / "app" / "config.py"
 GROUP = "Credenciales"
 
-# Los escribe `install.py`, no `credentials.py` (ADR-0105 de canone).
+# `install.py` writes these, not `credentials.py` (ADR-0105 of canone).
 WRITTEN_BY_INSTALL = ("database_url", "turn_secret")
 
 
 def settings_fields(server: Path) -> list[str]:
-    """Los campos de la clase `Settings`, en el orden en que se declaran.
+    """Return the fields of the `Settings` class in declaration order.
 
-    Sin `config.py` no hay ninguno: el repo no sigue la plantilla de canone.
-    Con el archivo y sin la clase, corta: es un repo de canone roto.
+    Without `config.py` there are none: the repo does not follow the
+    canone template. With the file and without the class it stops,
+    because that is a broken canone repo.
     """
     path = server / CONFIG
     if not path.is_file():
@@ -44,10 +45,12 @@ def settings_fields(server: Path) -> list[str]:
 
 
 def field_settings(server: Path) -> tuple[Setting, ...]:
-    """Una clave de `config.env` por campo, salvo los que escribe `install.py`.
+    """Return one `config.env` key per field.
 
-    Una clave que fuera a la vez campo y clave de Consola tendria dos fuentes,
-    y no se sabria a quien mandarla: corta.
+    Except those of `install.py`.
+
+    A key that is both a field and a Consola key would have two sources,
+    and nobody would know which one wins: it stops.
     """
     keys = []
     for field in settings_fields(server):

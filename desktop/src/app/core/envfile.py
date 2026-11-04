@@ -1,3 +1,5 @@
+"""`.consola/config.env`: read, write and typed access."""
+
 from __future__ import annotations
 
 import os
@@ -20,29 +22,31 @@ HEADER = "# .consola/config.env - generado/editado por Consola, no a mano\n"
 
 
 def config_path(repo_path: str) -> str:
+    """Return the path of the repo's `config.env`."""
     return os.path.join(repo_path, CONSOLA_DIR, CONFIG_NAME)
 
 
 def split_list(value: str) -> list[str]:
-    """Parte un valor que enumera varias cosas en una sola linea.
+    """Split a value that lists several things on one line.
 
-    Acepta comas y saltos de linea como separador, descarta lo vacio y conserva
-    el orden escrito: la lista de archivos a copiar se lee de izquierda a
-    derecha igual que el `FILES_TO_UPLOAD` del script original.
+    It takes commas and line breaks as separators, discards empties and
+    keeps the written order: a list of files to copy reads from left to
+    right.
     """
     parts = (p.strip() for chunk in value.splitlines() for p in chunk.split(","))
     return [p for p in parts if p]
 
 
 def repo_name_of(repo_path: str) -> str:
-    """El nombre que `DB_USER`/`DB_NAME` usan como default cuando el repo no
-    especifica otra cosa: la carpeta del proyecto, igual que hacian los
-    scripts (`repo_root.name`).
+    """Return the name `DB_USER` and `DB_NAME` default to.
+
+    The repo's folder.
     """
     return os.path.basename(os.path.normpath(repo_path))
 
 
 def parse_env(text: str) -> dict[str, str]:
+    """Return the keys and values of an env file's text."""
     values: dict[str, str] = {}
     for raw in text.splitlines():
         line = raw.strip()
@@ -51,9 +55,9 @@ def parse_env(text: str) -> dict[str, str]:
         key, _, value = line.partition("=")
         key = key.strip()
         value = value.strip()
-        # Un par de comillas que envuelve al valor, no cualquier comilla del
-        # borde: `strip("'")` se comia la ultima de `... frame-ancestors 'none'`
-        # y dejaba una CSP invalida en el Caddyfile.
+        # A pair of quotes that wraps the value, not any quote at the
+        # edge: `strip("'")` ate the last one of `... frame-ancestors
+        # 'none'` and left an invalid CSP in the Caddyfile.
         if len(value) > 1 and value[0] == value[-1] and value[0] in ('"', "'"):
             value = value[1:-1]
         if key:
@@ -62,6 +66,7 @@ def parse_env(text: str) -> dict[str, str]:
 
 
 def load_env(path: str) -> dict[str, str]:
+    """Return the keys and values of an env file."""
     try:
         with open(path, "r", encoding="utf-8") as fh:
             return parse_env(fh.read())
@@ -70,15 +75,17 @@ def load_env(path: str) -> dict[str, str]:
 
 
 def load_config(repo_path: str) -> dict[str, str]:
+    """Return the repo's `config.env` as keys and values."""
     return load_env(config_path(repo_path))
 
 
 def has_config(repo_path: str) -> bool:
+    """Return whether the repo has a `config.env`."""
     return os.path.isfile(config_path(repo_path))
 
 
-# Descripcion generica del default dinamico, para el archivo plantilla (que no
-# es de ningun repo en particular y no puede resolverlo a un valor concreto).
+# Generic description of the dynamic default, for the template file,
+# which belongs to no repo and cannot resolve it to a value.
 _DYNAMIC_DEFAULT_HINTS = {
     "DB_USER": "nombre del repo",
     "DB_NAME": "<nombre del repo>_db",
@@ -87,10 +94,10 @@ _DYNAMIC_DEFAULT_HINTS = {
 
 
 def describe(setting: Setting) -> str:
-    """Renglon de comentario de una clave: para que sirve y que se espera.
+    """Return a key's comment line: what it is for and what is expected.
 
-    Es lo que hace legible un archivo recien creado con todas las claves del
-    esquema y ningun valor: sin esto seria una lista de nombres a secas.
+    It makes a freshly created file with all the schema's keys and no
+    values readable: without it, it would be a bare list of names.
     """
     bits = []
     if setting.label and setting.label != setting.key:
@@ -107,14 +114,18 @@ def describe(setting: Setting) -> str:
 
 
 def render_config(values: dict[str, str], fields: tuple[Setting, ...] = ()) -> str:
-    """Regenera el archivo agrupado por categoria; las claves ajenas se conservan al final.
+    """Regenerate the file grouped by category.
 
-    Solo las `scope='repo'`: lo que es de la maquina y no del proyecto no se
-    escribe aca aunque venga en `values` (`core/settings.py`). `fields` son los
-    campos de `Settings` del repo (`core/fields.py`), que van en su grupo.
+    Foreign keys stay at the end.
+
+    Only `scope='repo'` keys: what belongs to the machine and not the
+    project is not written here even if it comes in `values`
+    (`core/settings.py`). `fields` are the repo's `Settings` fields
+    (`core/fields.py`), which go in their group.
     """
-    # Las de maquina cuentan como conocidas para NO caer en «Otras claves»:
-    # el archivo no las escribe, ni en su grupo ni al final.
+    # Machine keys count as known so they do NOT fall into «Otras
+    # claves»: the file does not write them, in their group or at the
+    # end.
     known = {s.key for s in (*SETTINGS, *fields)}
     groups = settings_by_group(fields)
     out = [HEADER]
@@ -137,7 +148,10 @@ def render_config(values: dict[str, str], fields: tuple[Setting, ...] = ()) -> s
 
 
 def save_config(repo_path: str, values: dict[str, str], fields: tuple[Setting, ...] = ()) -> str:
-    """Escribe `.consola/config.env` y devuelve la ruta. Crea la carpeta si falta."""
+    """Write `.consola/config.env` and return its path.
+
+    Creating the folder.
+    """
     path = config_path(repo_path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
@@ -147,15 +161,17 @@ def save_config(repo_path: str, values: dict[str, str], fields: tuple[Setting, .
 
 
 def ensure_ignored(repo_path: str) -> None:
-    """`.consola/` nunca se commitea: su propio `.gitignore` la ignora entera (ADR-0064).
+    """Keep `.consola/` out of commits with its own `.gitignore`.
 
-    Va dentro de la carpeta y no en el `.gitignore` del repo, que es de la
-    plantilla de canone y no de Consola. Si no se puede escribir, la excepcion
-    sube: guardar sin ese archivo deja `config.env`, con sus secretos, listo
-    para commitearse.
+    ADR-0064.
 
-    Publica porque ya no la usa solo `save_config`: `ui/params_store.py`
-    escribe ahi `params.json` y necesita la misma garantia.
+    It goes inside the folder and not in the repo's `.gitignore`, which
+    belongs to canone's template and not Consola. If it cannot be
+    written the exception rises: saving without that file leaves
+    `config.env`, with its secrets, ready to be committed.
+
+    Public because `ui/params_store.py` also writes `params.json` there
+    and needs the same guarantee.
     """
     path = os.path.join(repo_path, CONSOLA_DIR, ".gitignore")
     if os.path.isfile(path):
@@ -168,28 +184,27 @@ def ensure_ignored(repo_path: str) -> None:
 
 
 def import_from(path: str) -> dict[str, str]:
-    """Lee un archivo .env arbitrario (elegido por el usuario) y devuelve
-    solo las claves que sobreviven al esquema.
-    """
+    """Return only the schema's keys of a .env file the user chose."""
     legacy = load_env(path)
     known = {s.key for s in repo_settings()}
     return {k: v for k, v in legacy.items() if k in known and v}
 
 
 def missing_keys(values: dict[str, str], keys: Iterable[str]) -> list[str]:
+    """Return which keys have no value."""
     return [k for k in keys if not values.get(k, "").strip()]
 
 
-# ---------------------------------------------------------------------------
-# Lectura tipada de un .env
-# ---------------------------------------------------------------------------
+# --- typed reading of a .env ---
 
 
 def read_value(path: str, key: str) -> str:
-    """Lee una sola clave de un .env sin cargar nada al entorno del proceso.
+    """Read one key of a .env.
 
-    Sustituye a `peek_env_value`: aca nunca se toca `os.environ`, porque una
-    tarea no puede pisarle el entorno a las otras pestanas que corren a la vez.
+    Loading nothing into the process environment.
+
+    It never touches `os.environ`, because a task must not overwrite the
+    environment of the other tabs running at the same time.
     """
     return load_env(path).get(key, "")
 
@@ -199,35 +214,36 @@ _FALSE = {"0", "false", "no", "n", "off"}
 
 
 class Config:
-    """Los valores de `.consola/config.env` de un proyecto, ya leidos.
+    """The values of a project's `.consola/config.env`, already read.
 
-    Es lo que en los scripts eran ocho funciones sueltas sobre `os.environ`
-    (`require_env`, `require_port_env`, `require_bool_env`, `optional_env`...).
-    Aca son metodos de un solo objeto que la tarea recibe por el contexto, y
-    que no dependen del entorno del proceso.
+    They are methods of one object the task receives through its
+    context, and they do not depend on the process environment.
     """
 
     def __init__(self, values: dict[str, str] | None = None, *, repo_name: str = "") -> None:
+        """Keep the values and the repo's name."""
         self.values = dict(values or {})
         self.repo_name = repo_name
 
     @classmethod
     def for_project(cls, repo_path: str) -> "Config":
+        """Return the config of that repo."""
         return cls(load_config(repo_path), repo_name=repo_name_of(repo_path))
 
     def __contains__(self, key: str) -> bool:
+        """Return whether the key has a value."""
         return bool(self.values.get(key, "").strip())
 
     def get(self, key: str, default: str = "") -> str:
-        """Valor, con el default del esquema como red antes que el default suelto.
+        """Return a value, or the schema's default, or the loose one.
 
-        Dos clases de default, en orden: el fijo de `Setting.default` (mismo
-        para cualquier repo, ej. `ROOT_USER='root'`) y el dinamico de abajo,
-        que depende de ESTE repo (ej. `DB_USER` -> su nombre de carpeta). Los
-        dos son "lo que la accion va a usar si el campo queda vacio", asi que
-        una clave con cualquiera de los dos nunca cuenta como faltante
-        (`missing()`, y con ella `ui/params_panel.py::_missing_keys`) — bloquear
-        un boton por un campo que igual se va a resolver solo era el bug.
+        There are two kinds of default, in order: the fixed one of
+        `Setting.default`, the same for any repo (`ROOT_USER='root'`),
+        and the dynamic one below, which depends on THIS repo (`DB_USER`
+        from its folder's name). Both are what the action will use if
+        the field stays empty, so a key with either never counts as
+        missing (`missing()`, and with it
+        `ui/params_panel.py::_missing_keys`).
         """
         raw = self.values.get(key, "").strip()
         if raw:
@@ -241,12 +257,12 @@ class Config:
         return default
 
     def _dynamic_default(self, key: str) -> str:
-        """Los valores que se derivan del repo o de otra clave en vez de pedirlos.
+        """Return the values derived from the repo or another key.
 
-        El rol y la base local salen del nombre del repo, como en los scripts
-        originales (`repo_root.name`). `VPS_USER` no tiene default: es la cuenta
-        que administra el VPS, y canone no deja que se llame como la app
-        (ADR-0087 de canone). `DOMAIN` sale del dominio de Cloudflare.
+        The role and the local database come from the repo's name.
+        `VPS_USER` has no default: it is the account that administers
+        the VPS, and canone does not let it be named like the app
+        (ADR-0087 of canone). `DOMAIN` comes from Cloudflare's domain.
         """
         if key == "DB_USER":
             return self.repo_name
@@ -257,12 +273,14 @@ class Config:
         return ""
 
     def require(self, key: str) -> str:
+        """Return the key's value, or stop if it has none."""
         value = self.get(key)
         if not value:
             raise MissingConfig([key])
         return value
 
     def port(self, key: str, default: int = 0) -> int:
+        """Return the key's value as a port."""
         raw = self.get(key)
         if not raw:
             if default:
@@ -273,6 +291,7 @@ class Config:
         return int(raw)
 
     def flag(self, key: str, default: bool = False) -> bool:
+        """Return the key's value as a boolean."""
         raw = self.get(key).lower()
         if not raw:
             return default
@@ -283,14 +302,18 @@ class Config:
         raise TaskError(f"{key} no es un booleano: {raw}")
 
     def rel_path(self, key: str, root: str) -> str:
-        """Una clave que guarda una ruta relativa al repo, resuelta contra `root`."""
+        """Return a key holding a path relative to the repo.
+
+        Resolved on `root`.
+        """
         return os.path.normpath(os.path.join(root, self.require(key)))
 
     def missing(self, *keys: str) -> list[str]:
+        """Return which of those keys have no value."""
         return [k for k in keys if not self.get(k)]
 
     def secrets(self) -> list[str]:
-        """Valores a enmascarar en la consola (ADR-0064)."""
+        """Return the values to mask in the console (ADR-0064)."""
         return [
             self.values[s.key] for s in SETTINGS if s.secret and self.values.get(s.key, "").strip()
         ]

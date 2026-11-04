@@ -1,3 +1,8 @@
+"""Resolve the local database or the tunneled one.
+
+And the superuser channel.
+"""
+
 from __future__ import annotations
 
 import re
@@ -14,83 +19,93 @@ LOCAL = "local"
 REMOTE = "remote"
 SCOPES = (LOCAL, REMOTE)
 
-# El primer numero suelto de una version de Postgres es el mayor, tanto en lo que
-# devuelve `version()` como en lo que imprime `pg_dump --version`.
+# The first loose number of a Postgres version is the major, both in
+# what `version()` returns and what `pg_dump --version` prints.
 _VERSION_MAJOR = re.compile(r"(\d+)")
 _URL_PASSWORD = re.compile(r"://([^:/@]+):([^@]+)@")
 
 
 def build_url(*, user: str, password: str, host: str, port: int, name: str) -> str:
+    """Return a Postgres URL."""
     return f"postgresql://{user}:{password}@{host}:{port}/{name}"
 
 
 def mask_url(url: str) -> str:
-    """La URL sin la contrasena, para poder mostrarla en la consola."""
+    """Return the URL without the password, for the console."""
     return _URL_PASSWORD.sub(r"://\1:******@", url)
 
 
 def local_port() -> int:
-    """Puerto de Postgres local, leido de su propia configuracion.
+    """Return the local Postgres's port.
 
-    Una maquina con varias versiones no siempre deja la buena en 5432; leer
-    `postgresql.conf` evita el 'no conecta' silencioso contra el puerto
-    equivocado. Donde esta ese archivo lo sabe `HOST.pg_port`.
+    Read from its own configuration.
+
+    A machine with several versions does not always leave the right one
+    on 5432; reading `postgresql.conf` avoids a silent «cannot connect»
+    against the wrong port. `HOST.pg_port` knows where that file is.
     """
     return HOST.pg_port()
 
 
 def server_url(root: Path) -> str:
-    """La DATABASE_URL que el propio server declara en `server/.env`.
+    """Return the DATABASE_URL the server itself declares.
 
-    Es la unica lectura permitida de ese archivo: Consola nunca lo escribe
-    (ADR-0064). Sirve para precargar el formulario del explorador.
+    In `server/.env`.
+
+    It is the only allowed read of that file: Consola never writes it
+    (ADR-0064). It preloads the explorer's form.
     """
     return read_value(str(root / "server" / ".env"), "DATABASE_URL")
 
 
 @dataclass
 class Connection:
-    """Una conexion resuelta, con su tunel si hizo falta abrirlo.
+    """A resolved connection, with its tunnel if one had to open.
 
-    Esto es el eje `scope` de verdad: en los scripts, `RUN_REMOTE` reenviaba el
-    script entero al VPS por SSH. Aca la funcion corre siempre en la app y lo
-    unico que cambia es contra que base apunta.
+    This is the real `scope` axis: the function always runs in the app,
+    and all that changes is which database it points at.
     """
 
     url: str
     scope: str
     tunnel: ssh.Tunnel | None = None
-    # Los mismos datos que ya van dentro de `url`, sueltos. Las herramientas de
-    # linea de comandos (`pg_dump`, `pg_restore`) no reciben la URL: la
-    # contrasena viajaria en el argv y quedaria en el log de la corrida. Toman
-    # `-h/-p/-U` y la contrasena por `PGPASSWORD`, igual que el canal de
-    # superusuario. En remoto el puerto es el del tunel, que lo elige `connect`.
+    # The same data as in `url`, loose. Command line tools (`pg_dump`,
+    # `pg_restore`) do not get the URL: the password would travel in
+    # argv and stay in the run's log. They take `-h/-p/-U` and the
+    # password through `PGPASSWORD`, like the superuser channel. On
+    # remote the port is the tunnel's, which `connect` chooses.
     host: str = "127.0.0.1"
     port: int = 0
 
     @property
     def is_remote(self) -> bool:
+        """Return whether it goes through a tunnel."""
         return self.scope == REMOTE
 
     @property
     def safe_url(self) -> str:
+        """Return the URL with its password masked."""
         return mask_url(self.url)
 
     def close(self) -> None:
+        """Close the tunnel, if any."""
         if self.tunnel is not None:
             self.tunnel.close()
             self.tunnel = None
 
     def __enter__(self) -> "Connection":
+        """Return the connection, for a `with` block."""
         return self
 
     def __exit__(self, *exc: object) -> None:
+        """Close the tunnel when leaving the `with` block."""
         self.close()
 
 
 def credentials(config: Config) -> tuple[str, str, str]:
-    # Los defaults de DB_USER (el nombre del repo) y DB_NAME (`<repo>_db`)
-    # los resuelve `Config.get` solo; no hay que repetirlos aca.
+    # `Config.get` resolves the defaults of DB_USER (the repo's name)
+    # and DB_NAME (`<repo>_db`) by itself; they need no repeating here.
+    """Return the database's user, password and name."""
     user = config.get("DB_USER")
     password = config.require("DB_PASSWORD")
     name = config.get("DB_NAME")
@@ -98,10 +113,10 @@ def credentials(config: Config) -> tuple[str, str, str]:
 
 
 def connect(ctx: TaskContext, scope: str = LOCAL) -> Connection:
-    """Devuelve la conexion del ambito pedido, abriendo el tunel si es remota.
+    """Return the connection of that scope, opening a tunnel if remote.
 
-    Nunca se conecta a la IP publica del VPS: el trafico va siempre por
-    `127.0.0.1` a traves del tunel SSH (ADR-0016).
+    It never connects to the VPS's public IP: traffic always goes by
+    `127.0.0.1` through the SSH tunnel (ADR-0016).
     """
     if scope not in SCOPES:
         raise TaskError(f"Ambito invalido: {scope!r}. Usa {' | '.join(SCOPES)}.")
@@ -131,12 +146,14 @@ def connect(ctx: TaskContext, scope: str = LOCAL) -> Connection:
 
 
 def vps_url(ctx: TaskContext, remote: ssh.Remote) -> str:
-    """La base del VPS vista DESDE el VPS: `127.0.0.1` y su puerto real, sin tunel.
+    """Return the VPS's database as seen FROM the VPS.
 
-    `connect(REMOTE)` devuelve la misma base vista desde aca, y para eso abre un
-    tunel. El tunel existe para que un proceso de esta maquina alcance esa base;
-    cuando el proceso corre del otro lado (`core/runner.py`) sobra, y su puerto
-    local no significaria nada alli.
+    That is `127.0.0.1` and its real port, without a tunnel.
+    `connect(REMOTE)` returns the same database as seen from here, and
+    opens a tunnel for that. The tunnel lets a process on this machine
+    reach that database; when the process runs on the other side
+    (`core/runner.py`) it is unneeded, and its local port would mean
+    nothing there.
     """
     user, password, name = credentials(ctx.config)
     ctx.guard(password)
@@ -145,14 +162,14 @@ def vps_url(ctx: TaskContext, remote: ssh.Remote) -> str:
     )
 
 
-# ---------------------------------------------------------------------------
-# Canal de superusuario
-# ---------------------------------------------------------------------------
+# --- superuser channel ---
 
 
 def quote_ident(value: str) -> str:
-    """Cita un identificador SQL. Sin esto, un nombre con mayusculas o guion
-    rompe el DDL y un nombre malicioso lo reescribe.
+    """Quote an SQL identifier.
+
+    Without this, a name with capitals or a hyphen breaks the DDL, and a
+    malicious name rewrites it.
     """
     if not value or not all(c.isalnum() or c in "_-" for c in value):
         raise TaskError(f"Identificador SQL invalido: {value!r}")
@@ -161,18 +178,19 @@ def quote_ident(value: str) -> str:
 
 
 def quote_literal(value: str) -> str:
+    """Quote an SQL literal."""
     escaped = value.replace("'", "''")
     return f"'{escaped}'"
 
 
 @dataclass
 class Admin:
-    """Ejecuta SQL como superusuario de Postgres, local o en el VPS.
+    """Run SQL as Postgres superuser, locally or on the VPS.
 
-    Es el mecanismo del eje `scope` para las operaciones de ciclo de vida
-    (crear rol, crear base, borrarlas): a diferencia de `Connection`, que
-    conecta como la aplicacion, este canal necesita permisos de administrador
-    y por eso pasa por `psql`, no por el driver.
+    It is the `scope` axis's mechanism for life cycle operations such as
+    creating or deleting a role or database: unlike `Connection`, which
+    connects as the application, this channel needs admin rights, so it
+    goes through `psql` and not the driver.
     """
 
     scope: str
@@ -182,6 +200,7 @@ class Admin:
 
     @property
     def is_remote(self) -> bool:
+        """Return whether it runs on the VPS."""
         return self.scope == REMOTE
 
     def _command(self, database: str, sql: str, *, tuples: bool = False) -> list[str]:
@@ -202,9 +221,11 @@ class Admin:
         return [*self.argv, "-v", "ON_ERROR_STOP=1", "-X", "-q", *flags, "-d", database, "-c", sql]
 
     def execute(self, ctx: TaskContext, sql: str, *, database: str = "postgres") -> None:
+        """Run SQL, showing it in the log."""
         ctx.run(self._command(database, sql), env=self.env or None, cwd=None)
 
     def query(self, ctx: TaskContext, sql: str, *, database: str = "postgres") -> list[str]:
+        """Run SQL and return its output, without the log."""
         output = ctx.capture(
             self._command(database, sql, tuples=True), env=self.env or None, cwd=None
         )
@@ -212,26 +233,27 @@ class Admin:
 
 
 def pg_tool(name: str) -> Path:
-    """El ejecutable `name` de la instalacion local de PostgreSQL.
+    """Return the executable `name` of the local PostgreSQL install.
 
-    Lo usan tres canales: `psql` para el canal de superusuario local, y
-    `pg_dump`/`pg_restore` para el respaldo y la restauracion, que corren de este
-    lado en los dos ambitos y alcanzan la base remota por el tunel.
+    Three channels use it: `psql` for the local superuser channel, and
+    `pg_dump` and `pg_restore` for backup and restore, which run on this
+    side in both scopes and reach the remote database through the
+    tunnel.
 
-    La version mas nueva primero: una maquina con 15 y 17 instaladas tiene que
-    usar la de 17, porque la de 15 se niega a leer un servidor 17. Donde se
-    instala cada version lo sabe `HOST.pg_tool`.
+    The newest version first: a machine with 15 and 17 has to use 17,
+    because 15 refuses to read a 17 server. `HOST.pg_tool` knows where
+    each version installs.
     """
     return HOST.pg_tool(name)
 
 
 def major_of(version: str) -> int:
-    """El numero mayor de una version de Postgres, venga de donde venga.
+    """Return a Postgres version's major number, wherever it came from.
 
-    Sirve para las dos formas en que llega: la del servidor —`version()`, que
-    devuelve 'PostgreSQL 16.2 (Debian...) on x86_64...'— y la del binario local
-    —`pg_dump --version`, que devuelve 'pg_dump (PostgreSQL) 16.2'—. En las dos
-    el primer numero suelto es el mayor.
+    It serves the two forms it arrives in: the server's, from
+    `version()`, 'PostgreSQL 16.2 (Debian...) on x86_64...', and the
+    local binary's, from `pg_dump --version`, 'pg_dump (PostgreSQL)
+    16.2'. In both the first loose number is the major.
     """
     match = _VERSION_MAJOR.search(version)
     if not match:
@@ -240,12 +262,12 @@ def major_of(version: str) -> int:
 
 
 def check_tool_version(ctx: TaskContext, tool: Path, client: str, server: str) -> None:
-    """Corta si el binario local es mas viejo que el servidor.
+    """Stop if the local binary is older than the server.
 
-    `pg_dump` y `pg_restore` se niegan a trabajar contra un servidor mas nuevo
-    que ellos, y lo dicen con un «server version mismatch» crudo a mitad de la
-    corrida. Comprobarlo antes deja un mensaje que nombra las dos versiones y el
-    binario exacto que se eligio, que es lo que hace falta para arreglarlo.
+    `pg_dump` and `pg_restore` refuse to work against a newer server,
+    and say so with a raw «server version mismatch» mid-run. Checking
+    first leaves a message naming both versions and the exact binary
+    chosen, which is what fixing it takes.
     """
     if major_of(client) >= major_of(server):
         return
@@ -257,11 +279,12 @@ def check_tool_version(ctx: TaskContext, tool: Path, client: str, server: str) -
 
 
 def resolve_admin(ctx: TaskContext, scope: str = LOCAL) -> Admin:
-    """El canal de superusuario del ambito pedido."""
+    """Return the superuser channel of that scope."""
     if scope == REMOTE:
         return Admin(REMOTE, remote=ssh.resolve_remote(ctx.config))
 
-    superuser = ctx.config.get("PG_SUPERUSER")  # Setting.default='postgres' ya cubre el vacio
+    # Setting.default='postgres' already covers empty
+    superuser = ctx.config.get("PG_SUPERUSER")
     password = ctx.config.require("PG_PASSWORD")
     ctx.guard(password)
     argv = [str(pg_tool("psql")), "-U", superuser, "-h", "127.0.0.1", "-p", str(local_port())]

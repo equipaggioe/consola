@@ -1,3 +1,17 @@
+"""The embedded browser of a launcher tab.
+
+A Vite dev server delivers a URL, not a log: the console is the
+by-product (ADR-0008). This view is the other half of that tab, and not
+a rail button, because opening a URL runs nothing, records nothing and
+has no parameters.
+
+QtWebEngine ships in PySide6-Addons and the `PySide6` metapackage brings
+it, but a `PySide6-Essentials` install does not: the import is guarded
+and, without it, the view becomes a notice with a button that opens the
+system browser. The tab keeps working; all that is lost is seeing it in
+here.
+"""
+
 from __future__ import annotations
 
 import webbrowser
@@ -10,20 +24,6 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWi
 from app.theme import Colors, Fonts
 from app.ui.palettes import NEUTRAL, Palette
 
-"""
-El navegador embebido de una pestana de launcher.
-
-Un dev server de Vite entrega una URL, no un log: la consola es el subproducto
-(ADR-0008). Esta vista es la otra mitad de esa pestana — no un
-boton del rail, porque abrir una URL no ejecuta nada, no registra nada y no
-tiene parametros.
-
-QtWebEngine viaja en PySide6-Addons y el metapaquete `PySide6` lo trae, pero una
-instalacion `PySide6-Essentials` no: el import va protegido y, si falta, la
-vista se degrada a un cartel con un boton que abre el navegador del sistema. La
-pestana sigue funcionando; lo unico que se pierde es verlo aca adentro.
-"""
-
 try:
     from PySide6.QtWebEngineWidgets import QWebEngineView
 
@@ -34,17 +34,21 @@ except ImportError:  # pragma: no cover
 
 
 def open_external(url: str) -> None:
-    """Abre la URL en el navegador del sistema."""
+    """Open the URL in the system browser."""
     if url:
         webbrowser.open(url)
 
 
 class BrowserView(QWidget):
-    """Barra minima (atras / adelante / recargar / abrir afuera) + la pagina."""
+    """A minimal bar (back, forward, reload, outside) and the page."""
 
     closed = Signal()
 
     def __init__(self, url: str = "", parent: QWidget | None = None) -> None:
+        """Build the bar and the page.
+
+        Or the notice without QtWebEngine.
+        """
         super().__init__(parent)
         self._url = url
         self.pal = NEUTRAL
@@ -68,7 +72,7 @@ class BrowserView(QWidget):
         if url:
             self.load(url)
 
-    # --- construccion --------------------------------------------------
+    # --- building ---
     def _build_bar(self) -> QWidget:
         bar = QWidget()
         bar.setFixedHeight(34)
@@ -100,6 +104,7 @@ class BrowserView(QWidget):
         return bar
 
     def set_palette(self, pal: Palette) -> None:
+        """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 
@@ -126,7 +131,7 @@ class BrowserView(QWidget):
         return btn
 
     def _build_fallback(self) -> QWidget:
-        """Sin QtWebEngine: se dice por que y se ofrece la salida de siempre."""
+        """Without QtWebEngine: say why and offer the usual way out."""
         box = QWidget()
         self._fallback = box
         lay = QVBoxLayout(box)
@@ -157,23 +162,25 @@ class BrowserView(QWidget):
         lay.addWidget(opener, 0, Qt.AlignmentFlag.AlignHCenter)
         return box
 
-    # --- API -----------------------------------------------------------
+    # --- API ---
     @property
     def url(self) -> str:
+        """Return the URL the task published."""
         return self._url
 
     def load(self, url: str) -> None:
+        """Load a URL."""
         self._url = url
         self.url_label.setText(url)
         if self.page is not None and url:
             self.page.setUrl(QUrl(url))
 
     def reload(self) -> None:
-        """Recarga. Sin pagina cargada todavia, carga la URL del endpoint.
+        """Reload, or load the endpoint's URL if no page is loaded yet.
 
-        Es el caso normal cuando el dev server tardo mas que el timeout: la
-        pestana quedo con la URL anunciada y sin cargar, y ↻ es lo que uno
-        aprieta.
+        That is the normal case when the dev server took longer than the
+        timeout: the tab stayed with the announced URL unloaded, and ↻
+        is what one presses.
         """
         if self.page is None:
             return
@@ -191,9 +198,11 @@ class BrowserView(QWidget):
             self.page.forward()
 
     def _on_url_changed(self, url: QUrl) -> None:
-        """Navegar dentro de la app cambia la etiqueta, no el endpoint.
+        """Change the label when navigating inside the app.
 
-        `_url` sigue siendo la raiz que publico la tarea: es la que abre el ↗ y
-        la que se recarga cuando el dev server se reinicia.
+        Not the endpoint.
+
+        `_url` stays the root the task published: it is what ↗ opens and
+        what reloads when the dev server restarts.
         """
         self.url_label.setText(url.toString())

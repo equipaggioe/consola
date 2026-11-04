@@ -1,7 +1,15 @@
+"""Database group (operations).
+
+Each step is an atomic capability with its own button, and `rebuild_db`
+is the composite that chains them. Likewise `bootstrap_db` (create role,
+create database, permissions, extensions, migrate) and `teardown_db`
+(delete database, delete role).
+"""
+
 from __future__ import annotations
 
 import tempfile
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 
 from app.core import database as db
@@ -14,24 +22,14 @@ from app.core.registry import registry
 from app.core.ssh import Tunnel
 from app.core.tasks import payloads
 
-"""
-Grupo Base de datos (operaciones).
-
-`rebuild_db.py` era un solo archivo que borraba tablas, reseteaba Alembic,
-regeneraba la migracion inicial, aseguraba particiones y corria dos tandas de
-seeders. Si solo hacia falta volver a correr los seeders mock habia que rehacer
-todo, incluida la destruccion del esquema.
-
-Aca cada uno de esos pasos es una atomica con boton propio, y `rebuild_db` es
-la compuesta que los encadena. Lo mismo con `bootstrap_db` (crear rol, crear
-base, permisos, extensiones, migrar) y `teardown_db` (borrar base, borrar rol).
-"""
-
-# --- ciclo de vida del esquema ---------------------------------------------
+# --- schema life cycle ---
 
 
 def create_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
-    """Crea el rol de la aplicacion, o le actualiza la contrasena si ya existe."""
+    """Create the application's role.
+
+    Or update its password if it exists.
+    """
     admin = db.resolve_admin(ctx, scope)
     user, password, _ = db.credentials(ctx.config)
     ctx.guard(password)
@@ -52,7 +50,10 @@ def create_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
 
 
 def create_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
-    """Crea la base con el rol de la app como duenio. Si existe, solo le cambia el duenio."""
+    """Create the database owned by the app's role.
+
+    Or just change owner.
+    """
     admin = db.resolve_admin(ctx, scope)
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
@@ -70,7 +71,10 @@ def create_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
 
 
 def grant_privileges(ctx: TaskContext, scope: str = db.LOCAL) -> None:
-    """Permisos del rol sobre la base y sobre el esquema public."""
+    """Grant the role's permissions.
+
+    On the database and the public schema.
+    """
     admin = db.resolve_admin(ctx, scope)
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
@@ -80,35 +84,34 @@ def grant_privileges(ctx: TaskContext, scope: str = db.LOCAL) -> None:
 
 
 def enable_extensions(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
-    """Habilita las extensiones que declara `DB_EXTENSIONS`, como superusuario.
+    """Enable the extensions `DB_EXTENSIONS` declares, as superuser.
 
-    Existe separada de las migraciones porque `CREATE EXTENSION` de una
-    extension *untrusted* —PostGIS es la que importa aca— exige superusuario, y
-    Alembic corre como el rol de la app (`runner.resolve` arma la URL con
-    `db.credentials`). Una migracion que la pidiera moriria con "permission
-    denied to create extension". Este es el unico canal con superusuario:
-    `db.resolve_admin`, que con ambito remoto entra por SSH como `postgres`.
+    It is separate from migrations because `CREATE EXTENSION` of an
+    *untrusted* extension, with PostGIS the one that matters, requires
+    superuser, and Alembic runs as the app's role (`runner.resolve`
+    builds the URL with `db.credentials`). A migration asking for it
+    would die with «permission denied to create extension». This is the
+    only channel with superuser: `db.resolve_admin`, which with remote
+    scope enters over SSH as `postgres`.
 
-    La lista se declara en la configuracion del repo, no se deduce. Antes salia
-    de los `CREATE EXTENSION` de las migraciones, y eso no podia funcionar en
-    ninguna de las dos direcciones: `alembic revision --autogenerate` nunca
-    escribe uno (un modelo con columnas `Geometry` de geoalchemy2 no deja
-    rastro), asi que la lista salia vacia justo cuando hacia falta; y si una
-    migracion si lo declaraba, era la que necesitaba la extension *ya creada*
-    para poder aplicarse. Ni `pg_available_extensions` (lo que se puede crear:
-    cientos con contrib) ni `pg_extension` (lo que ya esta creado) dicen que
-    necesita el proyecto: ese dato no existe en ningun catalogo hasta que
-    alguien lo escribe.
+    The list is declared in the repo's configuration, not deduced.
+    `alembic revision --autogenerate` never writes a `CREATE EXTENSION`,
+    since a model with geoalchemy2 `Geometry` columns leaves no trace,
+    and a migration that does declare one needs the extension *already
+    created* to apply. Neither `pg_available_extensions` (what can be
+    created: hundreds with contrib) nor `pg_extension` (what is created)
+    says what the project needs: that datum exists in no catalog until
+    someone writes it.
 
-    Va en `DB_EXTENSIONS` y no en un eje del panel porque es un dato que la
-    tarea lee, no una decision de la corrida: no cambia entre dos veces que se
-    aprieta el boton. Se edita multilinea y se guarda separada por comas.
+    It goes in `DB_EXTENSIONS` and not an axis because it is a datum the
+    task reads, not a decision of the run. It edits multi-line and saves
+    separated by commas.
 
-    An extension the system does not have stops the task: going on would hide the
-    error until a migration needs it (ADR-0071).
+    An extension the system does not have stops the task: going on would
+    hide the error until a migration needs it (ADR-0071).
     """
-    # Se resuelve antes que el canal de superusuario para no pedir credenciales
-    # de administrador cuando no hay nada que crear.
+    # It resolves before the superuser channel so as not to ask for
+    # admin credentials when there is nothing to create.
     views: set[str] = set()
     requested = [
         e
@@ -142,10 +145,11 @@ def enable_extensions(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
 
 
 def drop_tables(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
-    """Borra todas las tablas del esquema public, menos las del propio PostGIS.
+    """Delete all tables of the public schema, except PostGIS's own.
 
-    Es el primer paso de `rebuild_db`, y tiene sentido suelto: dejar la base
-    vacia sin tocar el rol, la base ni las migraciones ya escritas.
+    It is `rebuild_db`'s first step, and it makes sense alone: leaving
+    the database empty without touching the role, the database or
+    written migrations.
     """
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
@@ -170,7 +174,10 @@ def drop_tables(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
 
 
 def drop_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
-    """Elimina la base entera. Corta las conexiones vivas antes, o el DROP falla."""
+    """Delete the whole database.
+
+    Cutting live connections or DROP fails.
+    """
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
     admin.execute(
@@ -186,6 +193,7 @@ def drop_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
 
 
 def drop_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
+    """Delete the application's role."""
     admin = db.resolve_admin(ctx, scope)
     user, _, _ = db.credentials(ctx.config)
     admin.execute(ctx, f"DROP ROLE IF EXISTS {db.quote_ident(user)};")
@@ -193,15 +201,17 @@ def drop_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     return user
 
 
-# --- migraciones -----------------------------------------------------------
+# --- migrations ---
 
 
 def reset_migrations(ctx: TaskContext) -> int:
-    """Borra los archivos de `alembic/versions/`, sin tocar la base.
+    """Delete the files in `alembic/versions/`.
 
-    Separada de `generate_migration` a proposito: reset deja el historial en
-    cero, generar agrega una revision encima del historial existente. Son dos
-    intenciones distintas que el script original mezclaba en una sola funcion.
+    Not touching the database.
+
+    Separate from `generate_migration` on purpose: reset leaves the
+    history at zero, generating adds a revision over the existing
+    history. They are two different intentions.
     """
     versions = runner.server_root(ctx) / "alembic" / "versions"
     versions.mkdir(parents=True, exist_ok=True)
@@ -216,13 +226,13 @@ def reset_migrations(ctx: TaskContext) -> int:
 def generate_migration(
     ctx: TaskContext, scope: str = db.LOCAL, message: str = "auto"
 ) -> Path | None:
-    """Autogenera una revision de Alembic. Devuelve None si no habia cambios.
+    """Autogenerate an Alembic revision. Return None if nothing changed.
 
-    Es la unica del grupo que corre siempre en esta maquina, aunque el ambito
-    sea remoto: deja un archivo en `alembic/versions/` que hay que revisar y
-    comitear, y generado en el VPS caeria en el repo desplegado, donde el
-    `git reset --hard` del proximo despliegue se lo lleva puesto. La base remota
-    la alcanza por el tunel, como cualquier otro proceso local (`runner.here`).
+    It is the group's only one always running on this machine, even with
+    remote scope: it leaves a file in `alembic/versions/` to review and
+    commit, and generated on the VPS it would land in the deployed repo.
+    It reaches the remote database through the tunnel, like any other
+    local process (`runner.here`).
     """
     versions = runner.server_root(ctx) / "alembic" / "versions"
     before = {p.name for p in versions.glob("*.py")}
@@ -244,68 +254,70 @@ def generate_migration(
 
 
 def apply_migrations(ctx: TaskContext, scope: str = db.LOCAL, revision: str = "head") -> None:
-    """Lleva la base al dia con las revisiones que ya estan escritas.
+    """Bring the database up to date with the written revisions.
 
-    No toca archivos, asi que corre del lado que diga el ambito: con `remoto`,
-    en el VPS, con las revisiones que el despliegue ya trajo y sin tunel.
+    It touches no files, so it runs on the side the scope says: with
+    `remote`, on the VPS, with the revisions the deployment brought and
+    no tunnel.
     """
     runner.resolve(ctx, scope).run(ctx, "-m", "alembic", "upgrade", revision)
     ctx.ok(f"Migraciones aplicadas hasta {revision}.")
 
 
 def ensure_partitions(ctx: TaskContext, scope: str = db.LOCAL) -> None:
-    """Crea las particiones de las tablas particionadas.
+    """Create the partitions of partitioned tables.
 
-    `alembic revision --autogenerate` no genera las particiones (ni la DEFAULT),
-    asi que sin este paso el primer INSERT revienta con "no partition of
-    relation found for row".
+    `alembic revision --autogenerate` does not generate partitions or
+    the DEFAULT one, so without this step the first INSERT dies with «no
+    partition of relation found for row».
     """
     payloads.run(ctx, runner.resolve(ctx, scope), "partitions")
 
 
-# --- datos -----------------------------------------------------------------
+# --- data ---
 
 
 def run_seeders(ctx: TaskContext, scope: str = db.LOCAL) -> None:
-    """Seeders base: el paquete `seeders/` del proyecto."""
+    """Run the base seeders: the project's `seeders/` package."""
     payloads.run(ctx, runner.resolve(ctx, scope), "seed", "seeders")
 
 
 def run_mock_seeders(ctx: TaskContext, scope: str = db.LOCAL) -> None:
-    """Seeders de prueba: el paquete `mock_data/` del proyecto."""
+    """Run the test seeders: the project's `mock_data/` package."""
     payloads.run(ctx, runner.resolve(ctx, scope), "seed", "mock_data")
 
 
-# --- respaldo y diagnostico ------------------------------------------------
+# --- backup and diagnostics ---
 
 
 def backup_dir(config: Config, root: Path) -> Path:
-    """La carpeta de respaldos de este repo, ya resuelta.
+    """Return this repo's backups folder, already resolved.
 
-    Relativa se resuelve contra la raiz del repo; absoluta se usa tal cual, que
-    es como se sacan los volcados de adentro del repo: `.backups/` no esta en
-    ningun `.gitignore` por defecto, y un dump con datos reales dentro del arbol
-    de trabajo queda listo para comitearse sin que nada avise (ADR-0045).
+    Relative resolves against the repo's root; absolute is used as is,
+    which is how dumps leave the repo: `.backups/` is in no `.gitignore`
+    by default, and a dump with real data in the working tree stays
+    ready to commit with no warning (ADR-0045).
 
-    Recibe `config` y `root` sueltos, no el contexto: el eje `dump` de
-    `restore_db` tiene que llenar su lista antes de que exista ninguna corrida
-    (`core/catalog.py::queried_values`).
+    It receives loose `config` and `root` and not the context:
+    `restore_db`'s `dump` axis has to fill its list before any run
+    exists (`core/catalog.py::queried_values`).
     """
     declared = Path(config.get("BACKUP_DIR"))
     return declared if declared.is_absolute() else root / declared
 
 
 def list_backups(config: Config, root: Path) -> list[Path]:
-    """Los respaldos de ESTA base, del mas nuevo al mas viejo.
+    """Return THIS database's backups, newest first.
 
-    El patron lleva el nombre de la base y no es cosmetico: desde que
-    `BACKUP_DIR` puede apuntar a una carpeta compartida entre repos, un `*.dump`
-    a secas mezclaria los respaldos de las otras bases — y la rotacion los
-    borraria.
+    The pattern carries the database's name and is not cosmetic: since
+    `BACKUP_DIR` can point to a folder shared between repos, a bare
+    `*.dump` would mix other databases' backups, and rotation would
+    delete them.
 
-    El nombre sale de `DB_NAME` y no de `db.credentials`, que exige ademas la
-    contrasena: listar archivos no conecta con nada, y pedirla dejaria el eje
-    vacio en un repo al que todavia no se le cargo.
+    The name comes from `DB_NAME` and not `db.credentials`, which also
+    requires the password: listing files connects to nothing, and asking
+    for it would leave the axis empty in a repo that has none loaded
+    yet.
     """
     folder = backup_dir(config, root)
     name = config.get("DB_NAME")
@@ -315,11 +327,11 @@ def list_backups(config: Config, root: Path) -> list[Path]:
 
 
 def backup_keep(ctx: TaskContext) -> int:
-    """Cuantos respaldos sobreviven a la rotacion.
+    """Return how many backups survive rotation.
 
-    Falla ruidosamente si lo escrito no es un entero positivo. Caer en el 7 por
-    defecto seria esconder el error justo donde se decide cuantos archivos se
-    borran para siempre.
+    It fails loudly if what is written is not a positive integer.
+    Falling back on 7 would hide the error right where it decides how
+    many files are deleted forever.
     """
     raw = ctx.config.get("BACKUP_KEEP")
     try:
@@ -332,11 +344,11 @@ def backup_keep(ctx: TaskContext) -> int:
 
 
 def _check_version(ctx: TaskContext, conn: Connection, tool: Path) -> None:
-    """Comprueba el binario local contra la version del servidor del ambito.
+    """Check the local binary against the scope server's version.
 
-    Se llama con la conexion ya abierta porque la version del servidor sale de
-    preguntarsela. Encontrar el binario, en cambio, va ANTES de conectar: que
-    falte no tiene por que costar un tunel SSH.
+    It is called with the connection open because the server's version
+    comes from asking it. Finding the binary, by contrast, goes BEFORE
+    connecting: its absence should not cost an SSH tunnel.
     """
     with db_explorer.open_readonly(conn.url) as probe:
         server = db_explorer.server_info(probe).version
@@ -344,24 +356,24 @@ def _check_version(ctx: TaskContext, conn: Connection, tool: Path) -> None:
 
 
 def _pg_argv(tool: Path, conn: Connection, user: str) -> list[str]:
-    """Los flags de conexion que comparten `pg_dump` y `pg_restore`.
+    """Return the connection flags `pg_dump` and `pg_restore` share.
 
-    La contrasena no va aca: viaja por `PGPASSWORD`, porque un argv queda
-    escrito en el log de la corrida.
+    The password does not go here: it travels through `PGPASSWORD`,
+    because an argv stays written in the run's log.
     """
     return [str(tool), "-h", conn.host, "-p", str(conn.port), "-U", user]
 
 
 def backup_database(ctx: TaskContext) -> Path:
-    """Vuelca la base local a un archivo, en formato custom de pg_dump.
+    """Dump the local database to a file, in pg_dump's custom format.
 
-    Solo la local: la base del VPS la respalda la receptora de canone
+    Only the local one: canone's receiver backs up the VPS's database
     (ADR-0060).
     """
     user, password, name = db.credentials(ctx.config)
     ctx.guard(password)
     tool = db.pg_tool("pg_dump")
-    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")
     destination = backup_dir(ctx.config, ctx.root) / f"{name}-{stamp}.dump"
     destination.parent.mkdir(parents=True, exist_ok=True)
 
@@ -380,9 +392,9 @@ def backup_database(ctx: TaskContext) -> Path:
 
 
 def rotate_backups(ctx: TaskContext) -> list[Path]:
-    """Deja solo los `BACKUP_KEEP` respaldos mas nuevos de esta base.
+    """Keep only the `BACKUP_KEEP` newest backups of this database.
 
-    Separada porque a veces se quiere limpiar sin volver a volcar.
+    Separate because sometimes one wants to clean without dumping again.
     """
     spare = list_backups(ctx.config, ctx.root)[backup_keep(ctx) :]
     for old in spare:
@@ -392,25 +404,28 @@ def rotate_backups(ctx: TaskContext) -> list[Path]:
 
 
 def _without_extensions(content: str) -> str:
-    """La lista de `pg_restore -l` sin las extensiones ni sus comentarios."""
+    """Return `pg_restore -l`'s list without extensions.
+
+    Or their comments.
+    """
     return "".join(f"{line}\n" for line in content.splitlines() if " EXTENSION " not in line)
 
 
 def restore_database(ctx: TaskContext, dump: str = "") -> Path:
-    """Carga un respaldo sobre la base local, reemplazando lo que haya.
+    """Load a backup over the local database, replacing what is there.
 
-    `--clean --if-exists` restaura sobre la base que ya existe, borrando cada
-    objeto antes de recrearlo: no toca el rol ni la base en si, asi que no hace
-    falta cortar conexiones ni abrir el canal de superusuario. `--no-owner`
-    porque el dueno que trae el dump es el del otro lado, y aca el correcto es el
-    rol de este repo. `--exit-on-error` porque un restore a medias que termina
-    diciendo «38 errores» es exactamente el degradado silencioso que este repo no
-    quiere: corta en el primero.
+    `--clean --if-exists` restores over the existing database, deleting
+    each object before recreating it: it does not touch the role or the
+    database itself, so it needs no cutting of connections or superuser
+    channel. `--no-owner` because the dump's owner is the other side's,
+    and here the right one is this repo's role. `--exit-on-error`
+    because a half restore ending in «38 errors» is the silent
+    degradation this repo does not want: it stops at the first.
 
-    Las extensiones tienen que existir antes — `CREATE EXTENSION` pide
-    superusuario y tiene su propio boton (ADR-0047). Por eso salen de lo que se
-    restaura: con `--clean`, el rol de la app intenta borrarlas y corta con «must
-    be owner of extension».
+    Extensions have to exist before: `CREATE EXTENSION` asks for
+    superuser and has its own button (ADR-0047). So they leave what is
+    restored: with `--clean`, the app's role tries to delete them and
+    stops with «must be owner of extension».
     """
     if not dump:
         raise TaskError("No se eligio ningun respaldo para restaurar.")
@@ -451,7 +466,12 @@ def restore_database(ctx: TaskContext, dump: str = "") -> Path:
 
 
 def open_db_tunnel(ctx: TaskContext) -> Tunnel:
-    """Tunel Postgres como servicio de fondo: sobrevive a su pestana (ADR-0016)."""
+    """Open a Postgres tunnel as a background service.
+
+    That outlives its tab.
+
+    ADR-0016.
+    """
     remote = ssh.resolve_remote(ctx.config)
     ssh_remote = vps.postgres_port(remote)
     from app.core import ports
@@ -464,13 +484,13 @@ def open_db_tunnel(ctx: TaskContext) -> Tunnel:
 
 
 def explore_db(ctx: TaskContext, scope: str = db.LOCAL) -> None:
-    """Conecta el explorador y lo mantiene conectado hasta cerrar la pestana.
+    """Connect the explorer and keep it connected until the tab closes.
 
-    Es una tarea viva, como un launcher (ADR-0015): lo que
-    sostiene es la conexion —y en remoto, el tunel SSH—, y lo que entrega no es
-    su log sino la vista de arbol y datos de la misma pestana. Antes de
-    publicarla prueba la conexion con el rol de la app y deja en la consola lo
-    que imprimia `inspect_db.py`: servidor, base, usuario, tamano y tablas.
+    A live task, like a launcher (ADR-0015): it holds the connection
+    and, on remote, the SSH tunnel, and what it delivers is not its log
+    but the tree and data view of the same tab. Before publishing it
+    tests the connection with the app's role and leaves in the console
+    the server, database, user, size and tables.
     """
     with db.connect(ctx, scope) as conn:
         with db_explorer.open_readonly(conn.url) as probe:
@@ -498,7 +518,7 @@ def explore_db(ctx: TaskContext, scope: str = db.LOCAL) -> None:
         ctx.raise_if_cancelled()
 
 
-# --- compuestas ------------------------------------------------------------
+# --- composites ---
 
 
 def populate_db(
@@ -510,21 +530,22 @@ def populate_db(
     seeders: bool = True,
     mock_seeders: bool = False,
 ) -> None:
-    """Compuesta: migrar -> particiones -> seeders. Deja USABLE una base que ya
-    existe, sin importar como llego a existir.
+    """Composite: migrate, partitions, seeders.
 
-    La llaman `bootstrap_db` (que antes la creo) y `rebuild_db` (que antes la
-    vacio): una compuesta puede encadenar a otra (ADR-0038). Antes estos cuatro
-    pasos estaban copiados tal cual en las dos, etiquetas incluidas.
+    It leaves USABLE a database that exists, however it came to exist.
 
-    No tiene boton propio y no es un olvido: lo que se elige en el rail es por
-    cual de los dos caminos se llega —crear de cero o reconstruir—, y "llenar una
-    base que ya esta ahi" sin decir cual de los dos no es una intencion que
-    alguien tenga suelta.
+    `bootstrap_db` (which created it first) and `rebuild_db` (which
+    emptied it first) call it: a composite can chain another (ADR-0038).
 
-    Las particiones van entre las migraciones y los seeders y no es cosmetico:
-    `alembic revision --autogenerate` no las escribe, y sin ellas el primer
-    INSERT de un seeder revienta con "no partition of relation found for row".
+    It has no button of its own, and that is no oversight: what the rail
+    chooses is which of the two paths to take, create from scratch or
+    rebuild, and filling a database already there without saying which
+    is not an intention anyone has alone.
+
+    Partitions go between migrations and seeders, and that is not
+    cosmetic: `alembic revision --autogenerate` does not write them, and
+    without them a seeder's first INSERT dies with «no partition of
+    relation found for row».
     """
     if migrate:
         ctx.step("migrate")
@@ -552,16 +573,16 @@ def bootstrap_db(
     seeders: bool = True,
     mock_seeders: bool = False,
 ) -> None:
-    """Compuesta: crea el continente —rol, base, permisos, extensiones— y lo
-    llena con `populate_db`.
+    """Composite: create role, database, permissions and extensions.
 
-    Termina en una base USABLE, no en una base vacia: un bootstrap que deja el
-    esquema creado pero sin los datos minimos obliga a apretar Reconstruir DB
-    —una destructiva, que la consola frena o avisa segun el seguro del repo—
-    para completar algo que no tiene nada de destructivo la primera vez.
+    Then it fills them with `populate_db`. It ends in a USABLE database,
+    not an empty one: a bootstrap leaving the schema created without the
+    minimum data forces pressing Reconstruir DB, a destructive action
+    the console stops or warns about by the repo's guard, to complete
+    something not destructive at all the first time.
 
-    Solo la base local: en el VPS la base y sus roles los crea el `install.py`
-    de canone (ADR-0060).
+    Only the local database: on the VPS canone's `install.py` creates
+    the database and its roles (ADR-0060).
     """
     if role:
         ctx.step("role")
@@ -596,17 +617,21 @@ def rebuild_db(
     seeders: bool = True,
     mock_seeders: bool = True,
 ) -> None:
-    """Compuesta destructiva: borra las tablas y vuelve a llenar con
-    `populate_db`. Mismo destino que `bootstrap_db`, otro punto de partida: una
-    base que ya existe.
+    """Destructive composite.
 
-    Reconstruye con el historial de migraciones que ya existe en el repo; no lo
-    toca. Borrar `alembic/versions/` y escribir una inicial nueva es otra
-    intencion —cambiar la historia del proyecto, no el estado de una base— y
-    tiene su propio boton (`reinit_migrations`).
+    Delete tables and refill with `populate_db`.
 
-    Cada paso es una casilla porque cada uno se pide suelto en la vida real:
-    volver a correr los seeders mock sin destruir el esquema es lo mas comun.
+    The same destination as `bootstrap_db`, another starting point: a
+    database that exists.
+
+    It rebuilds with the migration history in the repo, without touching
+    it. Deleting `alembic/versions/` and writing a new initial one is
+    another intention, changing the project's history and not a
+    database's state, and it has its own button (`reinit_migrations`).
+
+    Each step is a checkbox because each is asked for alone in real
+    life: rerunning the mock seeders without destroying the schema is
+    the most common.
     """
     _, _, name = db.credentials(ctx.config)
     if drop:
@@ -631,17 +656,21 @@ def reinit_migrations(
     reset: bool = True,
     generate: bool = True,
 ) -> None:
-    """Compuesta destructiva: vaciar la base, borrar `alembic/versions/` y
-    escribir la migracion inicial.
+    """Destructive composite.
 
-    Vacia el esquema ella misma, y no es un exceso de alcance: el autogenerate
-    compara los modelos contra la base viva, asi que sobre una base con tablas
-    Alembic no ve diferencias y la "inicial" sale vacia. Sin este paso adentro,
-    el boton solo funcionaba si te acordabas de vaciar antes por tu cuenta.
+    Empty the database, delete versions, rewrite.
 
-    No aplica la migracion: deja la base vacia y el historial en cero, que es
-    exactamente el estado del que parte `rebuild_db` — el que aplica, hace las
-    particiones y siembra.
+    It empties the database, deletes `alembic/versions/` and writes the
+    initial migration.
+
+    It empties the schema itself, and that is no excess of scope:
+    autogenerate compares models against the live database, so over a
+    database with tables Alembic sees no differences and the «initial»
+    comes out empty.
+
+    It does not apply the migration: it leaves the database empty and
+    the history at zero, exactly the state `rebuild_db` starts from,
+    which applies, makes partitions and seeds.
     """
     _, _, name = db.credentials(ctx.config)
     if drop:
@@ -659,7 +688,7 @@ def reinit_migrations(
 def teardown_db(
     ctx: TaskContext, scope: str = db.LOCAL, *, database: bool = True, role: bool = True
 ) -> None:
-    """Compuesta destructiva: borrar la base y el rol."""
+    """Destructive composite: delete the database and the role."""
     _, _, name = db.credentials(ctx.config)
     if database:
         ctx.step("database")
@@ -673,13 +702,14 @@ def teardown_db(
 def migrate_db(
     ctx: TaskContext, message: str = "auto", *, generate: bool = True, apply: bool = True
 ) -> None:
-    """Compuesta corta: generar la revision pendiente y/o aplicar lo que haya.
+    """Short composite: generate the pending revision and/or apply.
 
-    Los dos pasos son casillas sueltas porque se piden sueltos: 'Generar' para
-    revisar el diff antes de tocar nada, 'Aplicar' para poner al dia una base
-    que quedo atras con migraciones que ya estan en el repo.
+    Both steps are loose checkboxes because they are asked for loose:
+    «Generar» to review the diff before touching anything, «Aplicar» to
+    bring up to date a database left behind with migrations in the repo.
 
-    Solo la base local: en el VPS migra el `deploy.py` de canone (ADR-0060).
+    Only the local database: on the VPS canone's `deploy.py` migrates
+    (ADR-0060).
     """
     if generate:
         ctx.step("generate")
@@ -690,6 +720,7 @@ def migrate_db(
 
 
 def bind_all() -> None:
+    """Register the group's functions in the catalog."""
     registry.bind("bootstrap_db", bootstrap_db)
     registry.bind("teardown_db", teardown_db)
     registry.bind("migrate_db", migrate_db)
