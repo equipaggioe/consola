@@ -107,9 +107,7 @@ class ProjectTab(ReorderableTab):
         self.update()
 
     def set_active_palette(self, pal: Palette) -> None:
-        """Set the active repo's palette.
-
-        This tab's background when not it.
+        """Set the active repo's palette, the background of a back tab.
 
         The bar sets it when selecting or recoloring (`ProjectTabBar`).
         """
@@ -246,7 +244,7 @@ class ProjectTab(ReorderableTab):
     # --- paint -----------------------------------------------------
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
-        """Return the tab's style.
+        """Paint the tab.
 
         Selected: `chrome`, the band of the row below. The others: the
         active repo's accent, the color of the bar they rest on, and the
@@ -389,9 +387,7 @@ class ProjectTabBar(ReorderableBar):
 
     # --- persistent set ----------------------------------------
     def _persist(self) -> None:
-        """Save the whole list of repos, path and name.
-
-        In current order.
+        """Save the whole list of repos, in order: path and name.
 
         Adding, removing and reordering survive a restart
         (`ui/project_store.py`).
@@ -402,9 +398,7 @@ class ProjectTabBar(ReorderableBar):
 
     # --- API ---------------------------------------------------------
     def load_projects(self, projects: list[Project]) -> None:
-        """Populate the bar at startup.
-
-        Without rewriting the store each step.
+        """Populate the bar at startup, without rewriting the store.
 
         It keeps MainWindow from touching the saving internals: adding
         eight repos fired eight writes of the whole list, and only the

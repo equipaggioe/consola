@@ -111,10 +111,7 @@ def flutter_cmd(override: str = "") -> list[str]:
 
 
 def dart_cmd() -> list[str]:
-    """Return the `dart` of the Flutter SDK.
-
-    In the same folder as `flutter`.
-    """
+    """Return the SDK's `dart`, in the same folder as `flutter`."""
     return resolve_executable(
         ["dart", "dart.bat", "dart.exe"],
         label="Dart",

@@ -26,10 +26,7 @@ from app.core.tasks import payloads
 
 
 def create_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
-    """Create the application's role.
-
-    Or update its password if it exists.
-    """
+    """Create the application's role, or update its password."""
     admin = db.resolve_admin(ctx, scope)
     user, password, _ = db.credentials(ctx.config)
     ctx.guard(password)
@@ -50,10 +47,7 @@ def create_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
 
 
 def create_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
-    """Create the database owned by the app's role.
-
-    Or just change owner.
-    """
+    """Create the database owned by the app's role, or change owner."""
     admin = db.resolve_admin(ctx, scope)
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
@@ -71,10 +65,7 @@ def create_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
 
 
 def grant_privileges(ctx: TaskContext, scope: str = db.LOCAL) -> None:
-    """Grant the role's permissions.
-
-    On the database and the public schema.
-    """
+    """Grant the role on the database and the public schema."""
     admin = db.resolve_admin(ctx, scope)
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
@@ -205,9 +196,7 @@ def drop_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
 
 
 def reset_migrations(ctx: TaskContext) -> int:
-    """Delete the files in `alembic/versions/`.
-
-    Not touching the database.
+    """Delete the files in `alembic/versions/`, not the database.
 
     Separate from `generate_migration` on purpose: reset leaves the
     history at zero, generating adds a revision over the existing
@@ -406,7 +395,7 @@ def rotate_backups(ctx: TaskContext) -> list[Path]:
 def _without_extensions(content: str) -> str:
     """Return `pg_restore -l`'s list without extensions.
 
-    Or their comments.
+    Their comments go too.
     """
     return "".join(f"{line}\n" for line in content.splitlines() if " EXTENSION " not in line)
 
@@ -466,12 +455,7 @@ def restore_database(ctx: TaskContext, dump: str = "") -> Path:
 
 
 def open_db_tunnel(ctx: TaskContext) -> Tunnel:
-    """Open a Postgres tunnel as a background service.
-
-    That outlives its tab.
-
-    ADR-0016.
-    """
+    """Open a Postgres tunnel that outlives its tab (ADR-0016)."""
     remote = ssh.resolve_remote(ctx.config)
     ssh_remote = vps.postgres_port(remote)
     from app.core import ports
@@ -617,9 +601,7 @@ def rebuild_db(
     seeders: bool = True,
     mock_seeders: bool = True,
 ) -> None:
-    """Destructive composite.
-
-    Delete tables and refill with `populate_db`.
+    """Destructive composite: delete tables, refill with `populate_db`.
 
     The same destination as `bootstrap_db`, another starting point: a
     database that exists.
@@ -656,9 +638,7 @@ def reinit_migrations(
     reset: bool = True,
     generate: bool = True,
 ) -> None:
-    """Destructive composite.
-
-    Empty the database, delete versions, rewrite.
+    """Destructive composite: empty, delete versions and rewrite.
 
     It empties the database, deletes `alembic/versions/` and writes the
     initial migration.

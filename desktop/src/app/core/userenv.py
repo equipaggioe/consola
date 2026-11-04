@@ -103,9 +103,7 @@ def _configure_posix(
 
 
 def read_block(profile: Path) -> tuple[dict[str, str], list[str]]:
-    """Return what Consola wrote in the profile.
-
-    Variables and PATH entries.
+    """Return the variables and PATH entries in Consola's block.
 
     It reads before writing because the block is shared: rewriting it
     blindly for one SDK would erase what another left.

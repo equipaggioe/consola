@@ -82,9 +82,7 @@ def trimmed(source: Path) -> QImage:
 
 
 class RepoLogoView(QWidget):
-    """The logo in a square of `size` pixels.
-
-    Filling it by its long side.
+    """The logo in a square of `size` pixels, filled by its long side.
 
     It scales when painting, at the density of the monitor it is on: set
     on a `QLabel` as a pixmap, at 150 % it would blur.

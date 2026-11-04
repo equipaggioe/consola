@@ -68,9 +68,7 @@ def _brand_icon() -> QIcon:
 
 
 class _EdgeGrip(QWidget):
-    """An invisible strip over an edge or corner.
-
-    Of the frameless window.
+    """An invisible strip over an edge or corner of the window.
 
     It resizes with `startSystemResize`. It goes over the content
     instead of leaving a margin of its own, so the title bar touches the
@@ -107,10 +105,7 @@ class _EdgeGrip(QWidget):
 
 
 class MainWindow(QMainWindow):
-    """Ventana principal: repos (nivel 1) › ejecuciones.
-
-    Nivel 2) › vistas.
-    """
+    """The main window: repos (level 1) › runs (level 2) › views."""
 
     def __init__(self) -> None:
         """Build the window and open the saved repos."""
@@ -247,9 +242,7 @@ class MainWindow(QMainWindow):
 
     # --- menu row ---
     def _build_menu_row(self) -> QWidget:
-        """Build the action catalog and, at right.
-
-        The «solo favoritos» mode.
+        """Build the action menus and the «solo favoritos» switch.
 
         The switch is no action but a viewing mode: it prunes this bar's
         menus, so it goes in the same row as what it trims and not in
@@ -444,9 +437,7 @@ class MainWindow(QMainWindow):
 
     # --- the active repo's palette ---
     def _apply_palette(self, pal: Palette) -> None:
-        """Apply the active repo's palette.
-
-        To what lives outside its workspace.
+        """Apply the repo's palette to what lives outside its workspace.
 
         The title bar, the menu row and its open menus, the favorites
         switch, the search, the status bar and the window's outline
@@ -627,9 +618,7 @@ class MainWindow(QMainWindow):
             workspace.apply_section_visibility()
 
     def _on_params_changed(self) -> None:
-        """Recount: turning a step off can stop it claiming keys.
-
-        And on can ask again.
+        """Recount: a step turned off or on changes the keys it claims.
 
         So the search's ▶ recomputes.
         """

@@ -1,7 +1,4 @@
-"""Resolve the local database or the tunneled one.
-
-And the superuser channel.
-"""
+"""Resolve the local or tunneled database and the superuser channel."""
 
 from __future__ import annotations
 
@@ -36,9 +33,7 @@ def mask_url(url: str) -> str:
 
 
 def local_port() -> int:
-    """Return the local Postgres's port.
-
-    Read from its own configuration.
+    """Return the local Postgres's port, from its own configuration.
 
     A machine with several versions does not always leave the right one
     on 5432; reading `postgresql.conf` avoids a silent «cannot connect»
@@ -48,9 +43,7 @@ def local_port() -> int:
 
 
 def server_url(root: Path) -> str:
-    """Return the DATABASE_URL the server itself declares.
-
-    In `server/.env`.
+    """Return the DATABASE_URL in the server's own `server/.env`.
 
     It is the only allowed read of that file: Consola never writes it
     (ADR-0064). It preloads the explorer's form.

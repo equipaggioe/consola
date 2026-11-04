@@ -198,9 +198,7 @@ def purge_emulators(
     images: list[str] | None = None,
     apply: bool = False,
 ) -> dict[str, list[str]]:
-    """Delete the checked AVDs and virtual machines.
-
-    With a dry run first.
+    """Delete the checked AVDs and machines, with a dry run first.
 
     It chooses what goes, shows the list with its size, and only then
     asks to type BORRAR (ADR-0018).

@@ -50,7 +50,16 @@ def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -
     workflows = root / ".github" / "workflows"
     workflows.mkdir(parents=True)
     (workflows / "release.yml").write_text(
-        "jobs:\n  web:\n  desktop-linux:\n  desktop-windows:\n", encoding="utf-8"
+        "jobs:\n"
+        "  desktop:\n"
+        "    strategy:\n"
+        "      matrix:\n"
+        "        include:\n"
+        "          - os: ubuntu-latest\n"
+        "            archivo: desktop-linux.bin\n"
+        "          - os: windows-latest\n"
+        "            archivo: desktop-windows.exe\n",
+        encoding="utf-8",
     )
     args = canone.install_args(root, config, "demo", "equipaggio", KEYS)
     assert args[:7] == [

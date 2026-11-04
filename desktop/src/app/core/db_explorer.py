@@ -274,9 +274,7 @@ ORDER BY n.nspname, c.relname, a.attnum
 
 
 def all_columns(conn: Connection) -> dict[str, list[tuple[str, str, bool]]]:
-    """Return the columns of all tables.
-
-    Name, type, null) by `schema.table`.
+    """Return (name, type, null) of every column by `schema.table`.
 
     One query to compare the whole database against the models
     (`core/db_models.py`) without a `describe` per table.

@@ -1,6 +1,4 @@
-"""Deployment group, versions.
-
-Publish, sign and deploy a tag (ADR-0059).
+"""Deployment group: publish, sign and deploy a tag (ADR-0059).
 
 With each tag, the repo's `release.yml` builds the artifact and
 publishes it in a GitHub release with its `.sha256`. This machine signs
@@ -171,9 +169,7 @@ def create_tag(ctx: TaskContext, part: str = "patch") -> str:
 
 
 def sign_release(ctx: TaskContext, tag: str) -> None:
-    """Sign the release's `.sha256` with `VPS_KEY_NAME`.
-
-    Upload the signature.
+    """Sign the `.sha256` with `VPS_KEY_NAME` and upload the signature.
 
     `-n deploy` is the namespace `deploy.py` checks: it separates this
     signature from any other use of the key. A release that has its

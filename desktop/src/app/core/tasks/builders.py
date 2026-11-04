@@ -43,9 +43,7 @@ def _mobile(ctx: TaskContext, name: str = "") -> targets.Target:
 
 
 def bump_version(ctx: TaskContext, directory: str = "", mode: str = "patch") -> tuple[str, str]:
-    """Bump the version in the subproject's manifest.
-
-    Of any of the three types.
+    """Bump the version in the manifest, of any of the three types.
 
     It has its own button because bumping the version without compiling
     yet is a real operation: it happens on closing a change, before
@@ -63,9 +61,7 @@ def bump_version(ctx: TaskContext, directory: str = "", mode: str = "patch") -> 
 def upload_artifact(
     ctx: TaskContext, local: Path, remote_rel: str = "", *, chmod: str = ""
 ) -> str:
-    """Upload an artifact to the VPS.
-
-    Keeping its relative path in the repo.
+    """Upload an artifact to the VPS, keeping its repo-relative path.
 
     Its own button: re-uploading a compiled APK after a network cut
     should not force recompiling it.
@@ -144,9 +140,7 @@ def _newest(base: Path, pattern: str) -> Path | None:
 
 
 def _out_dir(ctx: TaskContext, app_dir: Path, platform_id: str) -> Path | None:
-    """Return the `config.env` folder where the build has to land.
-
-    If any.
+    """Return the `config.env` folder for the build, if any.
 
     Empty, the build stays where the framework leaves it. It is relative
     to the app's folder, like the default paths the field shows.
@@ -190,9 +184,7 @@ RELEASES_DIR = "releases"
 def _release_manifest(
     ctx: TaskContext, app: str, platform_id: str, artifact: Path, manifest: Path
 ) -> Path:
-    """Write `releases/<app>/<platform>.json`.
-
-    Describing what is published.
+    """Write `releases/<app>/<platform>.json`: what is published.
 
     `sha256` goes only when the artifact is a file: a web build is a
     tree, and a hash per file is not what anyone will verify. Without
@@ -228,10 +220,7 @@ def _publish_release(
 
 
 def install_node_modules(ctx: TaskContext, directory: str = "") -> None:
-    """`pnpm install`, which pnpm manages as sveltekit.md.
-
-    Of canone asks (ADR-0072).
-    """
+    """Run `pnpm install`, as canone's sveltekit.md asks (ADR-0072)."""
     spa = _target(ctx, targets.SPA_VITE, directory)
     ctx.run([*toolchain.pnpm_cmd(), "install"], cwd=spa.path)
 
@@ -297,9 +286,9 @@ export const ssr = false;
 
 
 def _generate_colors(ctx: TaskContext, template: Path) -> None:
-    """`src/lib/colors.ts`, which `uno.config.ts` imports.
+    """Generate the `src/lib/colors.ts` that `uno.config.ts` imports.
 
-    From the tokens of the repo.
+    It comes from the repo's tokens.
 
     A repo without them takes the canone starting point (transversal.md
     of canone, «Tema»).
@@ -592,9 +581,7 @@ def _maybe_checksum(ctx: TaskContext, artifact: Path) -> Path | None:
 def _publish_binary(
     ctx: TaskContext, app: str, artifact: Path, manifest: Path, checksum: Path | None
 ) -> None:
-    """Upload the binary with its manifest.
-
-    And its checksum if generated.
+    """Upload the binary, its manifest and its checksum if generated.
 
     They go together or not at all. The executable does not say which
     version it is, and on the VPS the manifest is all that identifies

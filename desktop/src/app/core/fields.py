@@ -45,9 +45,7 @@ def settings_fields(server: Path) -> list[str]:
 
 
 def field_settings(server: Path) -> tuple[Setting, ...]:
-    """Return one `config.env` key per field.
-
-    Except those of `install.py`.
+    """Return one `config.env` key per field, except `install.py`'s.
 
     A key that is both a field and a Consola key would have two sources,
     and nobody would know which one wins: it stops.

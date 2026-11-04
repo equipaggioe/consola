@@ -249,10 +249,7 @@ class ParamsPanel(QWidget):
         self._loader.start()
 
     def _on_machine_ready(self, resolved: dict[str, Any]) -> None:
-        """Fill the lists that depended on the query.
-
-        Restoring what was chosen.
-        """
+        """Fill the lists the query feeds, keeping what was chosen."""
         saved = params_store.load(self.project.path, self.capability.id)
         self._restoring = True
         try:
@@ -395,8 +392,8 @@ class ParamsPanel(QWidget):
     def _pick_combo(self, *, searchable: bool) -> QComboBox:
         """Return the panel's closed list.
 
-        `buscable` makes it editable, and editable is only to be able to
-        type and filter: in a catalog of a hundred devices it is the
+        `searchable` makes it editable, and editable is only to be able
+        to type and filter: in a catalog of a hundred devices it is the
         only way to get there, and in a list of six variants it would be
         a cursor inviting to type what cannot be typed.
         """
@@ -457,9 +454,7 @@ class ParamsPanel(QWidget):
         """
 
     def _build_facets(self, axis: AxisDef) -> QWidget:
-        """Build a `pick` axis by feature.
-
-        One short list per part of the value.
+        """Build a `pick` axis: one short list per part of the value.
 
         They all trim each other. The system image catalog is several
         hundred packages that are at bottom three questions, Android
@@ -618,10 +613,7 @@ class ParamsPanel(QWidget):
             lay.addWidget(note)
 
     def _build_live(self) -> QWidget:
-        """Build the header with what is running now.
-
-        And its ✕ to stop it.
-        """
+        """Build the header with what is running now and its ✕."""
         box = QWidget()
         box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
@@ -968,9 +960,7 @@ class ParamsPanel(QWidget):
         return next((a for a in self.capability.axes if a.name == axis_name), None)
 
     def _option_payload(self, axis_name: str) -> list[str] | str:
-        """Return the value of a `combine` axis as a list.
-
-        The rest as one value.
+        """Return a `combine` axis's value as a list, the rest as one.
 
         It can have two marks at once (`patch` + `build`).
         """
@@ -999,18 +989,14 @@ class ParamsPanel(QWidget):
         return value if isinstance(value, str) else ""
 
     def _pick_names(self) -> list[str]:
-        """Return the axes that save a loose id.
-
-        Drawn as one list or several.
+        """Return the axes that save a loose id, in one list or several.
 
         Both cases travel in the same `picks` bucket.
         """
         return [*self._picks, *self._facets]
 
     def field_value(self, axis_name: str) -> str:
-        """Return the written text.
-
-        Of a one-line field or a multi-line box.
+        """Return the text of a one-line field or a multi-line box.
 
         Both widgets save the same, text, but do not ask for it with the
         same method, and whoever reads the payload need not know which
@@ -1033,9 +1019,7 @@ class ParamsPanel(QWidget):
         }
 
     def apply_state(self, state: dict[str, Any] | None) -> None:
-        """Check again what was saved.
-
-        Tolerating a catalog that changed.
+        """Check again what was saved, tolerating a changed catalog.
 
         Values that no longer exist are ignored and new axes keep their
         default.
@@ -1219,9 +1203,7 @@ class ParamsPanel(QWidget):
         self._refresh_summary()
 
     def natural_height(self) -> int:
-        """Return the height it needs.
-
-        To show all its content without scrolling.
+        """Return the height that shows all its content, unscrolled.
 
         So the `.env` panel keeps the rest of the vertical space.
         """
@@ -1366,9 +1348,7 @@ class ParamsPanel(QWidget):
         return True
 
     def try_run(self) -> bool:
-        """Run with the tab's current parameters.
-
-        And return whether it ran.
+        """Run with the tab's parameters and return whether it ran.
 
         On opening they are those saved for this button in this repo, or
         the defaults if never touched. The search's ▶ button uses it.

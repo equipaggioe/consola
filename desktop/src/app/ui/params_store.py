@@ -1,6 +1,4 @@
-"""Parameters chosen in an action's panel.
-
-Per repository AND per button.
+"""Parameters chosen in an action's panel, per repository and button.
 
 **They live in the repo**, in `.consola/params.json`, next to
 `config.env`. Not in QSettings: a global machine table indexed by path
@@ -212,9 +210,7 @@ def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
 
 
 def load_theme(repo_path: str) -> str:
-    """Return the repo's color theme key.
-
-    Or empty if it never chose one.
+    """Return the repo's color theme key, or empty if it chose none.
 
     `ui/palettes.py` translates it to colors; here it is a string and
     nothing else. Empty is no error: a fresh clone brings no `.consola`,

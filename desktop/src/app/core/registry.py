@@ -191,9 +191,7 @@ class AxisDef:
         return output
 
     def resolve_facets(self, chosen: dict[str, str]) -> dict[str, str]:
-        """Return what is chosen in each feature.
-
-        Corrected so it exists.
+        """Return what is chosen in each feature, corrected to exist.
 
         Changing one above can leave those below on an impossible value
         (no Wear OS on Android 36): they fall to their best available
@@ -256,9 +254,7 @@ class AxisDef:
     def is_queried(self) -> bool:
         """Return whether its values come from asking.
 
-        The SDK or the VPS.
-
-        They do not come from the catalog or the repo.
+        They come from the SDK or the VPS, not the catalog or the repo.
         """
         return bool(self.source)
 
@@ -311,9 +307,7 @@ class AxisDef:
 
 @dataclass
 class Step:
-    """A step of a composite capability.
-
-    With its own checkbox in the panel.
+    """A step of a composite capability, with its own checkbox.
 
     `optional=False` draws checked and disabled: a «Compilar ejecutable»
     without a build is not a variant but an error. Builders that let one
@@ -405,9 +399,7 @@ class Capability:
 
     @property
     def pick_axes(self) -> list[AxisDef]:
-        """Return the long, closed list axes.
-
-        Chosen by searching, not checking.
+        """Return the long, closed list axes, chosen by searching.
 
         A catalog of a hundred devices or three hundred system images
         fits no checkboxes or segment, but it is no free text either,
@@ -442,9 +434,7 @@ class Capability:
 
     @property
     def is_composite(self) -> bool:
-        """Return whether it is composite.
-
-        It chains several atomic capabilities.
+        """Return whether it chains several atomic capabilities.
 
         ADR-0004. Normally it shows by itself: declaring `steps` or
         `composed_of` makes it composite. But several real composites
@@ -462,9 +452,7 @@ class Capability:
         return "Compuesta" if self.is_composite else "Atómica"
 
     def kwargs_from(self, payload: dict[str, Any]) -> dict[str, Any]:
-        """Return the function's keyword arguments.
-
-        From what the panel checked.
+        """Return the function's kwargs from what the panel checked.
 
         No table per capability is needed, since the capability declares
         itself. The contract that allows this (ADR-0003) is that an
@@ -481,9 +469,7 @@ class Capability:
         return kwargs
 
     def _axis_value(self, axis: AxisDef, payload: dict[str, Any]) -> Any:
-        """Return an axis's value.
-
-        From the bucket where the panel left it.
+        """Return an axis's value, from the panel's bucket for it.
 
         `ParamsPanel.payload()` groups by control type and not meaning
         (`variants` the checkboxes, `options` the exclusive, `fields`
@@ -533,10 +519,7 @@ class Capability:
         return value == axis.truthy if axis.truthy else value
 
     def applies_to(self, features: Collection[str]) -> bool:
-        """Return whether this button makes sense in a repo.
-
-        With those features.
-        """
+        """Return whether it fits a repo with those features."""
         return not self.requires_repo or self.requires_repo in features
 
     def steps_for(self, features: Collection[str]) -> list[Step]:
@@ -545,9 +528,7 @@ class Capability:
 
     @property
     def is_machine_wide(self) -> bool:
-        """Return whether the action happens.
-
-        To the machine and not the open repo.
+        """Return whether it happens to the machine, not the open repo.
 
         Installing an SDK is no repository's decision: the chosen folder
         holds for all. So its parameters save once
@@ -625,9 +606,7 @@ class Registry:
         return GROUP_ICONS.get(group, "")
 
     def resolve_steps(self, cap: Capability) -> list[Step]:
-        """Return a capability's effective steps.
-
-        Those declared, or itself.
+        """Return a capability's steps: those declared, or itself.
 
         `composed_of` does NOT derive steps. It documents which buttons
         this one is made of, and its entries are CAPABILITY ids, which

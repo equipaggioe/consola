@@ -16,6 +16,9 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from pydantic import ValidationError
+
+from app.api import cloudflare, flutter
 from app.core import android, files, http, userenv
 from app.core.catalog import (
     ANDROID_DIR_DEFAULT,
@@ -227,34 +230,33 @@ def detect_public_ip(ctx: TaskContext) -> str:
     raise TaskError("No se pudo detectar la IP publica.")
 
 
-def _cloudflare(
-    ctx: TaskContext, method: str, path: str, body: dict[str, Any] | None = None
-) -> dict[str, Any]:
+def _cloudflare[A: cloudflare.Answer](
+    ctx: TaskContext, method: str, path: str, shape: type[A], body: dict[str, Any] | None = None
+) -> A:
     token = ctx.config.require("CF_API_TOKEN")
     ctx.guard(token)
     try:
-        answer = http.request(
+        raw = http.request(
             f"{CF_API}{path}",
             method=method,
             headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
             body=json.dumps(body).encode("utf-8") if body is not None else None,
         )
-        payload = json.loads(answer)
+        # A rejected answer does not bring the `result` of `shape`.
+        answer = cloudflare.Answer.model_validate_json(raw)
+        if not answer.success:
+            raise TaskError(f"Cloudflare rechazo la peticion: {answer.errors}")
+        return shape.model_validate_json(raw)
     except OSError as exc:
         raise TaskError(f"No se pudo hablar con Cloudflare: {exc}") from exc
-
-    if not payload.get("success"):
-        raise TaskError(f"Cloudflare rechazo la peticion: {payload.get('errors')}")
-    return payload
+    except ValidationError as exc:
+        raise TaskError(f"Cloudflare respondio algo inesperado: {exc}") from exc
 
 
 def update_cloudflare(
     ctx: TaskContext, ip_mode: str = "vps", custom_ip: str = "", ttl: int = 1, proxied: bool = True
 ) -> str:
-    """Point the DNS record to the chosen IP.
-
-    Detected, the VPS's or fixed.
-    """
+    """Point the DNS record to the detected, VPS or fixed IP."""
     if ip_mode == "detect":
         ip = detect_public_ip(ctx)
     elif ip_mode == "static":
@@ -265,29 +267,30 @@ def update_cloudflare(
     domain = ctx.config.require("CF_DOMAIN_NAME")
     registry = ctx.config.require("CF_RECORD_NAME")
 
-    zones = _cloudflare(ctx, "GET", f"/zones?name={domain}")["result"]
+    zones = _cloudflare(ctx, "GET", f"/zones?name={domain}", cloudflare.Zones).result
     if not zones:
         raise TaskError(f"Cloudflare no conoce el dominio {domain}.")
-    zone = zones[0]["id"]
+    zone = zones[0].id
 
-    records = _cloudflare(ctx, "GET", f"/zones/{zone}/dns_records?type=A&name={registry}")[
-        "result"
-    ]
+    records = _cloudflare(
+        ctx, "GET", f"/zones/{zone}/dns_records?type=A&name={registry}", cloudflare.DnsRecords
+    ).result
     if not records:
         raise TaskError(f"No existe el registro A para {registry}.")
 
     current = records[0]
-    if current["content"] == ip:
+    if current.content == ip:
         ctx.ok(f"{registry} ya apunta a {ip}. No hay nada que cambiar.")
         return ip
 
     _cloudflare(
         ctx,
         "PUT",
-        f"/zones/{zone}/dns_records/{current['id']}",
+        f"/zones/{zone}/dns_records/{current.id}",
+        cloudflare.Answer,
         {"type": "A", "name": registry, "content": ip, "ttl": ttl, "proxied": proxied},
     )
-    ctx.ok(f"{registry}: {current['content']} -> {ip}")
+    ctx.ok(f"{registry}: {current.content} -> {ip}")
     ctx.note(f"DNS {registry} apuntado a {ip}.")
     return ip
 
@@ -338,18 +341,18 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
     return destination
 
 
-def _verify(ctx: TaskContext, archive: Path, expected: str, algorithm: str) -> None:
-    """Check the published digest.
+def _verify(ctx: TaskContext, archive: Path, expected: str) -> None:
+    """Check the published SHA-256.
 
     A half-downloaded SDK fails later and worse.
     """
-    current = files.digest(archive, algorithm)
+    current = files.digest(archive)
     if current.lower() != expected.lower():
         raise TaskError(
-            f"{algorithm.upper()} no coincide: el archivo llego incompleto o alterado.\n"
+            "SHA-256 no coincide: el archivo llego incompleto o alterado.\n"
             f"  esperado: {expected}\n  obtenido: {current}"
         )
-    ctx.ok(f"{algorithm.upper()} verificado.")
+    ctx.ok("SHA-256 verificado.")
 
 
 # --- Android SDK ---
@@ -377,9 +380,7 @@ def _ensure_java(ctx: TaskContext) -> None:
 
 
 def _resolve_cmdline_tools(ctx: TaskContext, os_key: str) -> tuple[str, str]:
-    """Return the URL and SHA-1 of cmdline-tools.
-
-    From the official page.
+    """Return cmdline-tools' URL and SHA-256, from the official page.
 
     The URL is not a constant on purpose: Google changes the build
     number with each version, and an old constant fails with a 404 that
@@ -398,10 +399,10 @@ def _resolve_cmdline_tools(ctx: TaskContext, os_key: str) -> tuple[str, str]:
 
     filename = names[0]
     fingerprint = re.search(
-        re.escape(filename) + r"[\s\S]{0,300}?([0-9a-f]{40})", html, re.IGNORECASE
+        re.escape(filename) + r"[\s\S]{0,300}?([0-9a-f]{64})", html, re.IGNORECASE
     )
     if not fingerprint:
-        raise TaskError(f"La pagina de Android Studio no publica el SHA-1 de {filename}.")
+        raise TaskError(f"La pagina de Android Studio no publica el SHA-256 de {filename}.")
 
     ctx.info(f"Version publicada: {filename}")
     return ANDROID_REPO_URL + filename, fingerprint.group(1).lower()
@@ -442,10 +443,10 @@ def install_android_tools(ctx: TaskContext, install_dir: str = "") -> Path:
     if sdkmanager.is_file():
         ctx.ok(f"Las cmdline-tools ya estaban en {latest}.")
     else:
-        url, sha1 = _resolve_cmdline_tools(ctx, os_key)
+        url, sha256 = _resolve_cmdline_tools(ctx, os_key)
         with tempfile.TemporaryDirectory(prefix="consola_cmdline_tools_") as temporary:
             archive = _download(ctx, url, Path(temporary) / "cmdline-tools.zip")
-            _verify(ctx, archive, sha1, "sha1")
+            _verify(ctx, archive, sha256)
             _extract_cmdline_tools(ctx, archive, latest)
         if not sdkmanager.is_file():
             raise TaskError(f"No aparecio sdkmanager despues de descomprimir: {sdkmanager}")
@@ -686,45 +687,27 @@ def _ensure_git(ctx: TaskContext) -> None:
 
 
 def _resolve_flutter_stable(ctx: TaskContext, os_key: str) -> tuple[str, str]:
-    """Return the stable channel's URL and SHA-256.
-
-    From the releases index.
-    """
+    """Return the stable channel's URL and SHA-256, from its index."""
     filename = FLUTTER_RELEASES_JSON.get(os_key)
     if not filename:
         raise TaskError(f"Flutter no publica releases para este sistema: {os_key}.")
 
     try:
-        response_data = json.loads(_fetch_text(FLUTTER_RELEASES_URL + filename))
-    except ValueError as exc:
-        raise TaskError("El indice de releases de Flutter no vino en JSON valido.") from exc
+        index = flutter.Index.model_validate_json(_fetch_text(FLUTTER_RELEASES_URL + filename))
+    except ValidationError as exc:
+        raise TaskError(f"El indice de releases de Flutter vino distinto: {exc}") from exc
 
-    mark = ((response_data.get("current_release") or {}).get("stable") or "").strip()
-    release = next(
-        (
-            r
-            for r in (response_data.get("releases") or [])
-            if (r.get("hash") or "").strip() == mark
-        ),
-        None,
-    )
-    if not release:
+    mark = index.current_release.stable
+    release = next((r for r in index.releases if r.hash == mark), None)
+    if release is None:
         raise TaskError("El indice de Flutter no identifica el release del canal stable.")
 
-    file = (release.get("archive") or "").strip()
-    fingerprint = (release.get("sha256") or "").strip().lower()
-    if not file or not fingerprint:
-        raise TaskError("El release stable de Flutter no publica archivo o SHA-256.")
-
-    ctx.info(f"Version publicada: {release.get('version') or mark}")
-    return FLUTTER_RELEASES_URL + file, fingerprint
+    ctx.info(f"Version publicada: {release.version}")
+    return FLUTTER_RELEASES_URL + release.archive, release.sha256.lower()
 
 
 def _extract_flutter(ctx: TaskContext, archive: Path, home: Path) -> None:
-    """Extract the SDK, which brings its own `flutter/` folder.
-
-    At the root.
-    """
+    """Extract the SDK, with its own `flutter/` folder at the root."""
     destination = home.parent
     ctx.info(f"Descomprimiendo en {home}")
     destination.mkdir(parents=True, exist_ok=True)
@@ -755,7 +738,7 @@ def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
         url, sha256 = _resolve_flutter_stable(ctx, os_key)
         with tempfile.TemporaryDirectory(prefix="consola_flutter_") as temporary:
             archive = _download(ctx, url, Path(temporary) / Path(url).name)
-            _verify(ctx, archive, sha256, "sha256")
+            _verify(ctx, archive, sha256)
             _extract_flutter(ctx, archive, home)
         if not flutter.is_file():
             raise TaskError(f"No aparecio flutter despues de descomprimir: {flutter}")

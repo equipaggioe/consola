@@ -38,10 +38,7 @@ def split_list(value: str) -> list[str]:
 
 
 def repo_name_of(repo_path: str) -> str:
-    """Return the name `DB_USER` and `DB_NAME` default to.
-
-    The repo's folder.
-    """
+    """Return the repo's folder, the default `DB_USER` and `DB_NAME`."""
     return os.path.basename(os.path.normpath(repo_path))
 
 
@@ -150,7 +147,7 @@ def render_config(values: dict[str, str], fields: tuple[Setting, ...] = ()) -> s
 def save_config(repo_path: str, values: dict[str, str], fields: tuple[Setting, ...] = ()) -> str:
     """Write `.consola/config.env` and return its path.
 
-    Creating the folder.
+    It creates the folder if needed.
     """
     path = config_path(repo_path)
     os.makedirs(os.path.dirname(path), exist_ok=True)
@@ -199,9 +196,7 @@ def missing_keys(values: dict[str, str], keys: Iterable[str]) -> list[str]:
 
 
 def read_value(path: str, key: str) -> str:
-    """Read one key of a .env.
-
-    Loading nothing into the process environment.
+    """Read one key of a .env, loading nothing into the environment.
 
     It never touches `os.environ`, because a task must not overwrite the
     environment of the other tabs running at the same time.
@@ -302,10 +297,7 @@ class Config:
         raise TaskError(f"{key} no es un booleano: {raw}")
 
     def rel_path(self, key: str, root: str) -> str:
-        """Return a key holding a path relative to the repo.
-
-        Resolved on `root`.
-        """
+        """Return a key's path, resolved on `root`."""
         return os.path.normpath(os.path.join(root, self.require(key)))
 
     def missing(self, *keys: str) -> list[str]:

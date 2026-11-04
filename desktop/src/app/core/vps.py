@@ -1,7 +1,4 @@
-"""Deployment paths, systemd.
-
-Journal and the server's health on the VPS.
-"""
+"""Deployment paths, systemd, journal and server health on the VPS."""
 
 from __future__ import annotations
 

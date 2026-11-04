@@ -32,10 +32,7 @@ def which_any(names: Iterable[str]) -> str | None:
 
 
 def as_argv(executable: str) -> list[str]:
-    """Wrap Windows `.bat` and `.cmd` shims.
-
-    Which are not real executables.
-    """
+    """Wrap Windows `.bat` and `.cmd` shims, not real executables."""
     return HOST.wrap_script(executable)
 
 

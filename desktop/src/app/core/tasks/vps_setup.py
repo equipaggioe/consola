@@ -30,10 +30,7 @@ SUDO_KEY = "SUDO_PASSWORD"
 
 @dataclass(frozen=True)
 class Access:
-    """How to enter the VPS: root at first.
-
-    Or the admin account with sudo.
-    """
+    """How to enter the VPS: root, or the admin account with sudo."""
 
     remote: ssh.Remote
     password: str = ""
@@ -83,9 +80,7 @@ def _sudo_password(ctx: TaskContext) -> str:
 
 
 def access(ctx: TaskContext) -> Access:
-    """Enter through the admin account if it exists.
-
-    If not, through root.
+    """Enter through the admin account if it exists, or through root.
 
     Root enters only before `install.py`, which then leaves it out.
     Without either there is no way forward.
@@ -104,10 +99,7 @@ def access(ctx: TaskContext) -> Access:
 
 
 def _upload(ctx: TaskContext, entry: Access) -> str:
-    """Upload canone's `plantilla/infra/` to a temp folder.
-
-    Return its path.
-    """
+    """Upload canone's `plantilla/infra/` and return the temp folder."""
     infra = canone.infra_dir(ctx.config)
     entry.run(ctx, f"rm -rf {REMOTE_DIR}")
     return ssh.upload(ctx, entry.remote, infra, f"{REMOTE_DIR}/{infra.name}")
@@ -185,8 +177,6 @@ def create_swap(ctx: TaskContext) -> None:
 
 def install_infra(ctx: TaskContext) -> None:
     """Upload canone's `plantilla/infra/` and run `install.py`.
-
-    With the repo.
 
     The first time it runs as root, and `install.py` asks twice for the
     new account's password: it is written into an `ssh -tt` only as each

@@ -200,9 +200,7 @@ class TaskContext:
     def converse(
         self, argv: Sequence[str], answers: Sequence[tuple[str, str]], *, check: bool = True
     ) -> int:
-        """Run a program that asks.
-
-        Answering each question on seeing it.
+        """Run a program, answering each question as it appears.
 
         See `process.converse`. Answers do not pass through the log.
         """
@@ -230,10 +228,7 @@ class TaskContext:
         timeout: float | None = None,
         check: bool = True,
     ) -> str:
-        """Run a short command and return its output.
-
-        Without logging it.
-        """
+        """Run a short command and return its output, unlogged."""
         self.raise_if_cancelled()
         return process.capture(
             argv,
@@ -312,10 +307,7 @@ class TaskContext:
             self.serve_sink(endpoint.url, endpoint.label, endpoint.web, endpoint.state)
 
     def endpoint(self, key: str, *, wait: float = 0.0) -> Endpoint | None:
-        """Return the endpoint another task of this project published.
-
-        If any.
-        """
+        """Return another task's endpoint in this project, if any."""
         if self.project is None:
             return None
         return session.wait_for_endpoint(self.project.name, key, wait)
@@ -460,9 +452,7 @@ class TaskContext:
         return any(t.alive for t in self._tunnels)
 
     def wait_cancelled(self, timeout: float | None = None) -> bool:
-        """Sleep until the task is stopped or `timeout` passes.
-
-        Say if stopped.
+        """Sleep until stopped or `timeout`, and say if stopped.
 
         What lives without a process holding it, such as an open
         connection, uses it to wait for the tab to close.

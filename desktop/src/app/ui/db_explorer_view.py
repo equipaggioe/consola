@@ -461,9 +461,7 @@ class DbExplorerView(QWidget):
 
     # --- life cycle ---
     def refresh(self) -> None:
-        """Reread the catalog, the open table's structure.
-
-        And the comparison.
+        """Reread the catalog, the open table and the comparison.
 
         The tab calls it on showing (ADR-0015): after migrating in
         another tab or touching a model, returning shows it. Rows do not

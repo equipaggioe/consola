@@ -114,10 +114,7 @@ class SecurityPanel(QWidget):
         self._scroll.setStyleSheet(self._scroll_style())
 
     def state(self) -> dict[str, Any]:
-        """Return what is shown.
-
-        Which is what `TabPanel._guard_ok` applies.
-        """
+        """Return what is shown: what `TabPanel._guard_ok` applies."""
         return dict(self._state)
 
     def content_height(self) -> int:

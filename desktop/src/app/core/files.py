@@ -101,13 +101,9 @@ def remove(path: Path) -> None:
             pass
 
 
-def digest(path: Path, algorithm: str = "sha256") -> str:
-    """Return the file's digest, reading it by blocks.
-
-    One function with the algorithm as a parameter because the two SDKs
-    publish different digests: Android gives SHA-1 and Flutter SHA-256.
-    """
-    accumulator = hashlib.new(algorithm)
+def digest(path: Path) -> str:
+    """Return the file's SHA-256, reading it by blocks."""
+    accumulator = hashlib.sha256()
     with path.open("rb") as handle:
         for chunk in iter(lambda: handle.read(1024 * 1024), b""):
             accumulator.update(chunk)

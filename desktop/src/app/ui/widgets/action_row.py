@@ -53,9 +53,7 @@ class LevelMark(QLabel):
 
 
 class ScopeMark(QLabel):
-    """A reach mark: this action happens to the machine.
-
-    Not the open repo.
+    """A reach mark: this action happens to the machine, not the repo.
 
     It only appears on `scope='machine'` actions, such as installing an
     SDK, because no mark already means «of this repo», the normal case.

@@ -43,9 +43,7 @@ LIST_MAX_ROWS = 5
 
 
 class _ClickToSelectLabel(QLabel):
-    """A label that focuses its field.
-
-    On a click and selects what is written.
+    """A label that on a click focuses its field and selects its text.
 
     It is then ready for the first key to replace it whole, as in most
     forms.
@@ -179,9 +177,7 @@ class EnvRow(QWidget):
             self._fit_list_height()
 
     def _fit_list_height(self) -> None:
-        """Fit the field's height to what is written.
-
-        With one spare empty line.
+        """Fit the field's height to its text, plus one empty line.
 
         That extra line says «this is all»: a field ending exactly on
         the last path cannot be told from one cutting off the rest, and
@@ -290,9 +286,7 @@ class EnvPanel(QWidget):
 
     # --- building ---
     def _read_fields(self) -> tuple[tuple[Setting, ...], str]:
-        """Return the repo's `Settings` fields.
-
-        Or the error preventing it.
+        """Return the `Settings` fields, or the error preventing it.
 
         The error does not bring the panel down: it shows above the
         form, and any keys in the file stay under «Otras claves».
@@ -321,9 +315,7 @@ class EnvPanel(QWidget):
         return box
 
     def _build_file_bar(self) -> QWidget:
-        """Build the section's footer.
-
-        With the actions on `.consola/config.env`.
+        """Build the footer with the actions on `config.env`.
 
         The file's state, existing or not, does not go here: it travels
         through `file_status_changed` to the section header's label.
@@ -366,9 +358,7 @@ class EnvPanel(QWidget):
         return bar
 
     def _restyle(self) -> None:
-        """Paint the backgrounds.
-
-        Of the «Configuración del repo» section.
+        """Paint the «Configuración del repo» section's backgrounds.
 
         The body is `panel`, one step below its header, and the footer
         with Save and Reload rises to `surface`, like the other bars.
@@ -415,9 +405,7 @@ class EnvPanel(QWidget):
         self.save_btn.setStyleSheet(button_css)
 
     def _label_width(self) -> int:
-        """Return the width the schema's longest label needs.
-
-        With a margin.
+        """Return the longest label's width, plus a margin.
 
         With the pixel size of the label's stylesheet (`Fonts.SIZE_XS`)
         and not `self.font()`: that one is the window's default font,
@@ -510,9 +498,7 @@ class EnvPanel(QWidget):
         self.reloaded.emit()
 
     def _refresh_defaults(self) -> None:
-        """Recompute each field's watermark.
-
-        With its default if left empty.
+        """Recompute each field's watermark: its default if left empty.
 
         Resolving once on opening is not enough: `DOMAIN` comes from
         `CF_DOMAIN_NAME`, so its default changes with what is written

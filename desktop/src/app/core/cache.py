@@ -36,9 +36,7 @@ def _file(name: str) -> Path:
 
 
 def read(name: str, *, max_age: float) -> Any | None:
-    """Return what is saved under that name.
-
-    Or `None` if it is missing or older than `max_age`.
+    """Return that entry, or `None` if missing or older than `max_age`.
 
     A file that cannot be read stops the task and is named: it does not
     count as empty (ADR-0076).

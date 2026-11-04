@@ -100,7 +100,7 @@ class Host(ABC):
     def wrap_script(self, executable: str) -> list[str]:
         """Return the argv that runs `executable`.
 
-        Maybe a shim on Windows.
+        On Windows it may be a shim.
         """
 
     @abstractmethod
@@ -136,15 +136,12 @@ class Host(ABC):
     def pg_tool(self, name: str) -> Path:
         """Return `psql`, `pg_dump` or `pg_restore`.
 
-        Of the newest install.
+        It comes from the newest install.
         """
 
     @abstractmethod
     def pg_port(self) -> int:
-        """Return the local Postgres's port.
-
-        Read from its own configuration.
-        """
+        """Return the local Postgres's port, from its configuration."""
 
     # --- machine ---
 
@@ -190,10 +187,7 @@ class Host(ABC):
 
     @abstractmethod
     def memory(self) -> tuple[int, int] | None:
-        """Return available and total RAM in bytes.
-
-        Or `None` if unreadable.
-        """
+        """Return available and total RAM in bytes, or `None`."""
 
 
 class WindowsHost(Host):
@@ -239,10 +233,7 @@ class WindowsHost(Host):
     def wrap_script(self, executable: str) -> list[str]:
         # `flutter.bat` or `pnpm.cmd` are not real executables: they
         # only run through `cmd.exe /c`.
-        """Return the argv that runs it.
-
-        Through `cmd.exe` if it is a shim.
-        """
+        """Return the argv that runs it, through `cmd.exe` if a shim."""
         if executable.lower().endswith((".bat", ".cmd")):
             return ["cmd.exe", "/c", executable]
         return [executable]

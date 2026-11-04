@@ -43,9 +43,7 @@ def server_root(ctx: TaskContext) -> Path:
 
 @dataclass(frozen=True)
 class Runner:
-    """A Python interpreter of the project.
-
-    With its folder and database.
+    """A Python interpreter of the project, its folder and database.
 
     A sibling of `database.Admin`: same split, another channel. `Admin`
     runs SQL as superuser, local with `psql` and remote over SSH;
@@ -68,8 +66,6 @@ class Runner:
 
     def run(self, ctx: TaskContext, *args: str, echo: bool = True) -> int:
         """Run `python <args>` in the server folder.
-
-        With DATABASE_URL set.
 
         `DATABASE_URL` travels in the process's environment, never
         written to a file: it is what the runner's caller already
@@ -104,9 +100,7 @@ class Runner:
 
 
 def resolve(ctx: TaskContext, scope: str = db.LOCAL) -> Runner:
-    """Return the runner of that scope.
-
-    Local base here, or the VPS's there.
+    """Return the runner of that scope: here or on the VPS.
 
     It is the path of what only touches the database: applying
     migrations, seeding, ensuring partitions. None of that writes in the

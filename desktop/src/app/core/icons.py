@@ -166,9 +166,7 @@ def places(target: targets.Target) -> list[Place]:
 
 
 def _flutter_places(target: targets.Target) -> list[Place]:
-    """Return the PNGs `flutter_launcher_icons` reads.
-
-    At the pubspec's paths.
+    """Return the PNGs `flutter_launcher_icons` reads, at their paths.
 
     Paths are read from the pubspec and no other key: that file already
     says which PNGs the package consumes, and writing them twice would
@@ -198,9 +196,7 @@ def _flutter_places(target: targets.Target) -> list[Place]:
 
 
 def _link_places(target: targets.Target) -> list[Place]:
-    """Return the app's `<link rel="icon">`.
-
-    And `rel="apple-touch-icon"`.
+    """Return the app's `rel="icon"` and `rel="apple-touch-icon"` links.
 
     In `+layout.svelte` the `href` is an imported variable: it counts if
     the import is from `$lib/`, the app's. One importing the logo from
@@ -230,19 +226,13 @@ def _link_places(target: targets.Target) -> list[Place]:
 
 
 def _html(target: targets.Target) -> list[str]:
-    """Return SvelteKit's `app.html` and Vite's `index.html`.
-
-    As present.
-    """
+    """Return whichever of `app.html` and `index.html` the app has."""
     files = (target.path / "src" / "app.html", target.path / "index.html")
     return [read_text(a) for a in files if a.is_file()]
 
 
 def _icon_links(text: str, rels: tuple[str, ...] = _ICON_RELS) -> list[tuple[str, str, bool]]:
-    """Return (href, sizes, whether literal) of each `<link>`.
-
-    With one of `rels`.
-    """
+    """Return (href, sizes, literal) of each `<link>` among `rels`."""
     output = []
     for label in _LINK.findall(text):
         attrs = {
@@ -390,9 +380,7 @@ def _merge(app: str, found_places: list[Place]) -> list[Place]:
 
 
 def takes_icon(target: targets.Target) -> bool:
-    """Return whether the app says where its icon goes.
-
-    That makes it eligible.
+    """Return whether the app is eligible: it says where its icon goes.
 
     A broken declaration counts too: the app is offered and the run says
     what is wrong. Hiding it would leave the error unshown.
@@ -404,10 +392,7 @@ def takes_icon(target: targets.Target) -> bool:
 
 
 def icon_apps(root: Path) -> list[targets.Target]:
-    """Return the repo's apps that take their icon from Consola.
-
-    By name.
-    """
+    """Return the apps that take their icon from Consola, by name."""
     return sorted(
         (t for t in targets.by_kinds(root, ICON_KINDS) if takes_icon(t)), key=lambda t: t.name
     )
@@ -424,9 +409,7 @@ def brand_file(root: Path, value: str, key: str) -> Path:
 
 
 def plan(root: Path, name: str, layers: dict[str, Path]) -> IconJob:
-    """Return which layer goes to which file in app `name`.
-
-    Before any write.
+    """Return which layer goes to which file in `name`, writing nothing.
 
     `layers` brings the configured layers' SVGs. A layer the app asks
     for that is not configured opens the settings on that key.

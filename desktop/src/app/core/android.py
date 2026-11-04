@@ -127,9 +127,7 @@ class Device:
 
     @property
     def order(self) -> tuple[Any, ...]:
-        """Return the sort key: phones and tablets first.
-
-        The rest after.
+        """Return the sort key: phones and tablets, then the rest.
 
         Then, inside each family, the new model before the old.
 
@@ -342,10 +340,7 @@ def _read_image_catalog(sdk: Sdk) -> list[str]:
 
 
 def parse_image(package: str) -> Image:
-    """Split `system-images;android-36;google_apis;x86_64`.
-
-    In three parts.
-    """
+    """Split `system-images;android-36;google_apis;x86_64` in three."""
     parts = package.split(";")
     if len(parts) < 4:
         return Image(package)
@@ -511,9 +506,7 @@ def start(
     read_only: bool = False,
     wipe: bool = False,
 ) -> int:
-    """Start the emulator on a fixed port.
-
-    Following its output while it lives.
+    """Start the emulator on a fixed port and follow its output.
 
     `read_only` allows bringing up an AVD that is already running: the
     emulator takes a lock on the AVD's folder, and without this flag the

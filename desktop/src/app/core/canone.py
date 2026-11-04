@@ -42,7 +42,7 @@ LOGS_PACKAGES = ("systemd-journal-remote", "wireguard-tools")
 # repo has no signal for it, and the template always brings the task.
 SURFACES = ("web", "panel", "landing")
 RELEASE = Path(".github") / "workflows" / "release.yml"
-_DESKTOP = re.compile(r"^  desktop-(linux|windows|macos):", re.M)
+_DESKTOP = re.compile(r"^\s+archivo: desktop-(linux|windows|macos)\.", re.M)
 _GITHUB = re.compile(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$")
 # A tag `deploy.py` deploys (despliegue.md of canone, «Versiones»).
 _TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
@@ -101,10 +101,7 @@ def packages(config: Config) -> list[str]:
 
 
 def desktops(root: Path) -> list[str]:
-    """Return each `desktop-<system>` of the repo's `release.yml`.
-
-    If any.
-    """
+    """Return each `desktop-<system>` of the repo's `release.yml`."""
     release = root / RELEASE
     if not release.is_file():
         return []

@@ -209,9 +209,7 @@ class TabView(QWidget):
 
     # --- endpoint ---
     def set_endpoint(self, url: str, label: str, web: bool, state: str) -> None:
-        """Show what the task published with `ctx.serve()`.
-
-        With its state.
+        """Show the endpoint from `ctx.serve()` and its state.
 
         It comes twice per endpoint: when announced (`starting`) and
         when the port truly answers (`ready`) or is given up (`down`).
@@ -331,9 +329,7 @@ class TabView(QWidget):
         self._explorer = None
 
     def on_shown(self) -> None:
-        """Reread what was queried when the tab returns.
-
-        To the foreground.
+        """Reread what was queried when the tab returns to the front.
 
         It happens on showing, not with a reload button.
         """

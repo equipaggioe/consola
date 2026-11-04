@@ -1,0 +1,76 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+# Only the jobs that publish write: ci.yml inherits these.
+permissions:
+  contents: read
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  # A draft until checksums: a failed job leaves no half release.
+  draft:
+    needs: ci
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --generate-notes
+
+  # ADR-0081: Windows and Linux.
+  desktop:
+    needs: draft
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            ext: bin
+            archivo: desktop-linux.bin
+          - os: windows-latest
+            ext: exe
+            archivo: desktop-windows.exe
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    env:
+      GH_TOKEN: ${{ github.token }}
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.13"
+      - uses: astral-sh/setup-uv@v6
+        with:
+          version-file: desktop/pyproject.toml
+      - run: uv sync --locked --group deploy
+      # pyside6-deploy does not create exec_directory on Linux or Windows.
+      - run: mkdir -p dist
+      - run: uv run pyside6-deploy -c pysidedeploy.spec --force
+      - run: mv dist/*.${{ matrix.ext }} "${{ matrix.archivo }}"
+      - run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.archivo }}"
+
+  # One .sha256 for every file of the release: the signature covers them all.
+  checksums:
+    needs: [draft, desktop]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    env:
+      GH_TOKEN: ${{ github.token }}
+      SUMS: ${{ github.event.repository.name }}-${{ github.ref_name }}.sha256
+    steps:
+      - run: gh release download "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --dir assets
+      - run: (cd assets && sha256sum -- *) > "$SUMS"
+      - run: gh release upload "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" "$SUMS"
+      - run: gh release edit "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft=false

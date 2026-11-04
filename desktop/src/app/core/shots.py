@@ -372,10 +372,7 @@ def render_sized(
 
 
 def render_archive(raws: list[Shot], out_dir: Path, destination: str) -> list[Derived]:
-    """Pack the raw shots as they are, uncompressed, in a ZIP.
-
-    Press kit.
-    """
+    """Pack the raw shots, uncompressed, in a ZIP: the press kit."""
     from PIL import Image
 
     file = out_dir / "capturas.zip"
@@ -394,10 +391,7 @@ def render_archive(raws: list[Shot], out_dir: Path, destination: str) -> list[De
 
 @dataclass(frozen=True)
 class Changes:
-    """What changed between a destination's old manifest.
-
-    And the new one.
-    """
+    """What changed between a destination's old and new manifest."""
 
     changed: list[str]
     added: list[str]

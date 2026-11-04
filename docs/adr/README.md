@@ -87,3 +87,5 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0077](0077-el-eje-de-servicios-pregunta-al-vps-que-unidades-existen.md) | El eje de servicios le pregunta al VPS qué unidades existen |
 | [0078](0078-contra-un-vps-de-canone-la-base-no-se-migra-por-tunel.md) | Contra un VPS de canone la base no se migra por túnel, y el ámbito remoto espera a canone |
 | [0079](0079-http-bloquea-el-hilo-de-la-tarea.md) | HTTP va por QNetworkAccessManager y bloquea el hilo de la tarea |
+| [0080](0080-las-respuestas-http-se-leen-con-modelos-en-api.md) | Las respuestas HTTP de terceros se leen con modelos de Pydantic en `api/` |
+| [0081](0081-consola-se-publica-para-windows-y-linux.md) | Consola se publica para Windows y Linux |

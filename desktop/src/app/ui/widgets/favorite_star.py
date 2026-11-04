@@ -37,10 +37,7 @@ class FavoriteStar(QPushButton):
         return self._favorite
 
     def set_favorite(self, value: bool, announce: bool = False) -> None:
-        """Mark or unmark it, and tell the listeners.
-
-        If `announce` is set.
-        """
+        """Mark or unmark it, telling the listeners if `announce`."""
         self._favorite = bool(value)
         self._restyle()
         if announce:

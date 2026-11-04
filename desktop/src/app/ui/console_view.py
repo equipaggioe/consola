@@ -22,10 +22,7 @@ from app.ui.palettes import NEUTRAL, Palette
 
 
 class ConsoleView(QPlainTextEdit):
-    """Terminal-like console.
-
-    With colored log levels and blinking cursor.
-    """
+    """Console like a terminal: colored levels and a blinking cursor."""
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the read-only view."""

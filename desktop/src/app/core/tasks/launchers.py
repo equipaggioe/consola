@@ -186,9 +186,7 @@ def serve_spa(
 
 
 def run_mobile(ctx: TaskContext, target: str = "", device: str = "") -> None:
-    """Run the mobile app on the active emulator.
-
-    With the detected framework.
+    """Run the mobile app on the active emulator, by its framework.
 
     If no emulator is alive it says so and does not try to start against
     the desktop: that was the easiest way to lose ten minutes with
@@ -230,9 +228,7 @@ def run_python_app(
     watch: bool = True,
     wait_backend: float = BACKEND_WAIT,
 ) -> None:
-    """Start a Python app of the repo.
-
-    Reloading when its sources change.
+    """Start a Python app of the repo, reloading when sources change.
 
     It runs ONE app: checking several opens one tab each, like SPAs
     (ADR-0010). With `watch` there are two process levels, the watcher

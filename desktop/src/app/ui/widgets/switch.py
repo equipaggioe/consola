@@ -58,10 +58,7 @@ class ToggleSwitch(QWidget):
         return self._checked
 
     def set_checked(self, value: bool, announce: bool = True) -> None:
-        """Turn it on or off, and tell the listeners.
-
-        If `announce` is set.
-        """
+        """Turn it on or off, telling the listeners if `announce`."""
         if value == self._checked:
             return
         self._checked = value

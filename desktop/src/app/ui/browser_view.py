@@ -45,10 +45,7 @@ class BrowserView(QWidget):
     closed = Signal()
 
     def __init__(self, url: str = "", parent: QWidget | None = None) -> None:
-        """Build the bar and the page.
-
-        Or the notice without QtWebEngine.
-        """
+        """Build the bar and page, or the no-QtWebEngine notice."""
         super().__init__(parent)
         self._url = url
         self.pal = NEUTRAL
@@ -199,8 +196,6 @@ class BrowserView(QWidget):
 
     def _on_url_changed(self, url: QUrl) -> None:
         """Change the label when navigating inside the app.
-
-        Not the endpoint.
 
         `_url` stays the root the task published: it is what ↗ opens and
         what reloads when the dev server restarts.

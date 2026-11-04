@@ -119,10 +119,7 @@ def get(target_id: str) -> Target | None:
 
 @dataclass(frozen=True)
 class Rule:
-    """An action's fixed targets.
-
-    Plus those depending on its parameters.
-    """
+    """An action's fixed targets, and those its parameters add."""
 
     always: tuple[str, ...] = ()
     # axis name -> {value: targets that value adds}
@@ -224,9 +221,7 @@ class Decision:
 def decide(
     state: dict[str, Any], capability_id: str, payload: dict[str, Any] | None = None
 ) -> tuple[str, list[Target]]:
-    """Classify a run: return the decision.
-
-    And the targets that explain it.
+    """Return a run's decision and the targets that explain it.
 
     - `BLOCK`: a target in the blast radius is protected in this repo.
       The action does not run and the notice offers no way past it: the

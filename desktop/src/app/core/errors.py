@@ -4,9 +4,7 @@ from __future__ import annotations
 
 
 class TaskError(RuntimeError):
-    """An expected failure: it turns the tab red.
-
-    And leaves the app running.
+    """An expected failure: the tab turns red and the app keeps running.
 
     Level 0 never prints or exits the process: it reports and returns.
     """

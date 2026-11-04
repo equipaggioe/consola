@@ -729,9 +729,9 @@ DOCS: dict[str, CommandDoc] = {
         steps=[
             "Comprueba que el sistema sea Windows o Linux y que haya Java en el PATH.",
             "Salta la descarga si ya hay un sdkmanager en el directorio elegido.",
-            "Lee la página de Android Studio y saca el nombre del zip publicado y su SHA-1.",
+            "Lee la página de Android Studio y saca el nombre del zip publicado y su SHA-256.",
             "Descarga el zip informando el avance y atendiendo al botón de detener.",
-            "Verifica el SHA-1 del archivo bajado.",
+            "Verifica el SHA-256 del archivo bajado.",
             "Descomprime y reacomoda el contenido para que quede en cmdline-tools/latest.",
             "Crea la carpeta avd/ dentro del SDK.",
             "Escribe ANDROID_SDK_ROOT, ANDROID_HOME y ANDROID_AVD_HOME en el entorno del usuario.",

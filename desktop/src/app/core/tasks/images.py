@@ -1,6 +1,4 @@
-"""Images group: the icons and publishable screenshots.
-
-Of the repo's apps.
+"""Images group: the icons and screenshots of the repo's apps.
 
 Icons come from the repo's SVGs: Consola rasterizes them (`raster.py`,
 ADR-0055) and leaves them where each app declares it takes its own
@@ -220,10 +218,7 @@ def _run_quietly(func: Callable[..., object], *args: object, **kwargs: Any) -> N
 
 
 def render_shots(ctx: TaskContext, destinations: Sequence[str] = (LANDING,)) -> None:
-    """Convert the raw shots for each destination.
-
-    With a manifest for each.
-    """
+    """Convert the raw shots for each destination, with its manifest."""
     if not destinations:
         raise TaskError("Marca al menos un destino.")
     presets = shots.load_presets()

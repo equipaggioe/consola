@@ -47,9 +47,7 @@ def _luminance(c: QColor) -> float:
 
 
 def _tinted(base: str, accent: str, sat: float) -> str:
-    """Return the repo's background.
-
-    The accent's hue at that saturation.
+    """Return the background: the accent's hue at that saturation.
 
     The base neutral's lightness stays untouched.
 

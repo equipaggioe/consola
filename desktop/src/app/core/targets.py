@@ -231,9 +231,7 @@ def by_kind(root: Path, kind: str) -> list[Target]:
 
 
 def names_of(root: Path, kinds: Sequence[str]) -> list[str]:
-    """Return a discovered axis's values.
-
-    Ready for the parameters panel.
+    """Return a discovered axis's values, for the parameters panel.
 
     Sorted by name and not type: to whoever chooses, the list is of
     apps, and Flet ones coming before Flutter ones says nothing.
@@ -247,9 +245,7 @@ def names(root: Path, kind: str) -> list[str]:
 
 
 def pick(root: Path, kinds: Sequence[str], name: str = "") -> Target:
-    """Return the subproject chosen by name.
-
-    Or the only one of those types.
+    """Return the subproject chosen by name, or the only one.
 
     It is the counterpart of `names_of`: the panel offers those names
     and this resolves the choice. With no name it takes the only one,

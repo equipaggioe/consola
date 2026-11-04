@@ -197,9 +197,7 @@ def succeeds(remote: Remote, command: str) -> bool:
 
 
 def reachable(remote: Remote) -> bool:
-    """Return whether the VPS is reachable with the key.
-
-    Without a password.
+    """Return whether the key alone reaches the VPS, with no password.
 
     It is the precondition of all the doors of `resolve_remote`: they
     fail equally badly when access is broken, and none can tell «did not

@@ -137,9 +137,7 @@ class AccordionSection(QWidget):
         return self._expanded
 
     def set_allotted(self, height: int) -> None:
-        """Return the height the allotment granted.
-
-        See `TabPanel._relayout_right`.
+        """Keep the height `TabPanel._relayout_right` granted.
 
         It is needed besides `maximumHeight` because `QBoxLayout` shares
         out by `sizeHint` and only crops with the limit: a body asking
@@ -165,10 +163,7 @@ class AccordionSection(QWidget):
         return AccordionHeader.HEIGHT
 
     def set_expanded(self, value: bool, announce: bool = True) -> None:
-        """Open or close it, and tell the listeners.
-
-        If `announce` is set.
-        """
+        """Open or close it, and tell the listeners if `announce`."""
         if value == self._expanded:
             return
         self._expanded = value

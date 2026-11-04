@@ -329,9 +329,7 @@ class WorkspaceStatusBar(QWidget):
         return line
 
     def refresh_tools(self) -> None:
-        """Look at the disk again.
-
-        And repaint the environment's indicators.
+        """Look at the disk again and repaint the environment's LEDs.
 
         It is called on building the bar and after each machine action,
         such as installing an SDK: since the install leaves its
@@ -413,9 +411,7 @@ class WorkspaceStatusBar(QWidget):
         self.status_label.setText(text)
 
     def clear(self) -> None:
-        """Show nothing about guards or active tasks.
-
-        No repository is open.
+        """Show nothing about guards or tasks: no repository is open.
 
         See `ui/main_window.py::_show_empty_state`.
         """
@@ -426,9 +422,7 @@ class WorkspaceStatusBar(QWidget):
         self.set_status("")
 
     def set_protection(self, state: dict[str, Any]) -> None:
-        """Refresh the padlocks with the state.
-
-        Of EACH protection target.
+        """Refresh the padlocks with the state of EACH target.
 
         From `core/protection.TARGETS`, not only the protected ones: a
         target with no guard is also a datum, and its open padlock shows
@@ -878,9 +872,7 @@ class TabPanel(ReorderableBar):
         return w
 
     def _build_footer_placeholder(self) -> QWidget:
-        """Show the footer with no action open.
-
-        Run visible but disabled.
+        """Show Run visible but disabled, with no action open.
 
         So the bar does not change height on opening the first action.
         """
@@ -1008,10 +1000,7 @@ class TabPanel(ReorderableBar):
         tab._sync_text()
 
     def _next_title(self, title: str) -> str:
-        """`Emulador`, `Emulador 2`, `Emulador 3`....
-
-        The first free one.
-        """
+        """Return the first free title: `Emulador`, `Emulador 2`..."""
         used = {t.title for t in self.tabs}
         n = 2
         while f"{title} {n}" in used:
@@ -1043,9 +1032,7 @@ class TabPanel(ReorderableBar):
             runner.cancel()
 
     def shutdown(self, timeout_ms: int = 5000) -> None:
-        """Stop each task as closing its tab would.
-
-        Since Consola is closing.
+        """Stop each task as closing its tab would: Consola is closing.
 
         It waits for their clean shutdowns to end (the tunnel, `adb emu
         kill`). What does not get to close in that time the Job Object
@@ -1352,9 +1339,7 @@ class TabPanel(ReorderableBar):
             self._manual[section] = max(0, section.height() - section.header_height())
 
     def _resize_section(self, section: AccordionSection, delta: int | None) -> None:
-        """Fix, or release with `delta=None`.
-
-        The height of a section's body.
+        """Fix a section's body height, or release it with `delta=None`.
 
         The rest share what is left in `_relayout_right`.
         """
@@ -1480,10 +1465,7 @@ class TabPanel(ReorderableBar):
         self._refresh_logo()
 
     def _refresh_logo(self, *_args) -> None:
-        """`BRAND_ICON` may have changed.
-
-        The logo rereads from the saved file.
-        """
+        """Reread the logo: `BRAND_ICON` may have changed."""
         self.logo = repo_logo.resolve(self.project.path)
         self.right_header_logo.set_logo(self.logo)
         self.welcome_logo.set_logo(self.logo)
@@ -1532,9 +1514,7 @@ class TabPanel(ReorderableBar):
     def _guard_ok(
         self, capability: Capability, payload: dict[str, Any], console: ConsoleView
     ) -> bool:
-        """Let pass, warn or block.
-
-        According to `core/protection.decide`.
+        """Let pass, warn or block, by `core/protection.decide`.
 
         What decides is not «it is destructive» but «what it breaks,
         with THESE parameters, and whether that is protected in THIS

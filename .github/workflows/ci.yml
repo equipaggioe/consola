@@ -4,6 +4,8 @@ on:
   push:
     branches: [main]
   pull_request:
+  # release.yml runs these jobs before building a tag.
+  workflow_call:
   # ADR-0019: a vulnerability published after the last commit shows up too.
   schedule:
     - cron: "0 13 * * 1"
