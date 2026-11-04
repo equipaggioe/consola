@@ -18,5 +18,5 @@ def available_ram() -> tuple[float, float] | None:
     par = HOST.memory()
     if not par or not par[0] or not par[1]:
         return None
-    disponible, total = par
-    return disponible / (1024**3), total / (1024**3)
+    available, total = par
+    return available / (1024**3), total / (1024**3)

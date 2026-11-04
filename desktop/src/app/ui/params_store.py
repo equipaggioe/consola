@@ -171,10 +171,10 @@ def save_protection(repo_path: str, state: dict[str, Any]) -> None:
     """
     key = _norm(repo_path)
     data = _read(repo_path)
-    limpio = {k: bool(v) for k, v in state.items()}
-    if data.get(_PROTECTION_KEY) == limpio:
+    clean = {k: bool(v) for k, v in state.items()}
+    if data.get(_PROTECTION_KEY) == clean:
         return
-    data[_PROTECTION_KEY] = limpio
+    data[_PROTECTION_KEY] = clean
     _dirty.add(key)
     _schedule()
 
@@ -186,8 +186,8 @@ def load_tabs(repo_path: str) -> list[str]:
     raw = _read(repo_path).get(_TABS_KEY)
     if not isinstance(raw, dict):
         return []
-    abiertas = raw.get("open")
-    return [str(x) for x in abiertas] if isinstance(abiertas, list) else []
+    opened = raw.get("open")
+    return [str(x) for x in opened] if isinstance(opened, list) else []
 
 
 def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
@@ -196,10 +196,10 @@ def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
     """
     key = _norm(repo_path)
     data = _read(repo_path)
-    limpio = {"open": [str(x) for x in capability_ids]}
-    if data.get(_TABS_KEY) == limpio:
+    clean = {"open": [str(x) for x in capability_ids]}
+    if data.get(_TABS_KEY) == clean:
         return
-    data[_TABS_KEY] = limpio
+    data[_TABS_KEY] = clean
     _dirty.add(key)
     _schedule()
 
@@ -214,8 +214,8 @@ def load_theme(repo_path: str) -> str:
     raw = _read(repo_path).get(_THEME_KEY)
     if not isinstance(raw, dict):
         return ""
-    clave = raw.get("key")
-    return clave if isinstance(clave, str) else ""
+    key = raw.get("key")
+    return key if isinstance(key, str) else ""
 
 
 def save_theme(repo_path: str, theme: str) -> None:
@@ -223,10 +223,10 @@ def save_theme(repo_path: str, theme: str) -> None:
     data = _read(repo_path)
     # Envuelto en un objeto como las otras claves con '@': `_read` descarta lo
     # que no sea un objeto, asi que una cadena suelta se perdia al releer.
-    limpio = {"key": str(theme)}
-    if data.get(_THEME_KEY) == limpio:
+    clean = {"key": str(theme)}
+    if data.get(_THEME_KEY) == clean:
         return
-    data[_THEME_KEY] = limpio
+    data[_THEME_KEY] = clean
     _dirty.add(key)
     _schedule()
 
@@ -298,10 +298,10 @@ def _write(repo_norm: str, data: dict[str, Any]) -> None:
     es atomico en el mismo volumen y en Windows tambien.
     """
     path = _file(repo_norm)
-    carpeta = os.path.dirname(path)
+    folder = os.path.dirname(path)
     try:
-        os.makedirs(carpeta, exist_ok=True)
-        fd, tmp = tempfile.mkstemp(dir=carpeta, prefix=".params-", suffix=".tmp")
+        os.makedirs(folder, exist_ok=True)
+        fd, tmp = tempfile.mkstemp(dir=folder, prefix=".params-", suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
                 json.dump(data, fh, ensure_ascii=False, indent=2, sort_keys=True)

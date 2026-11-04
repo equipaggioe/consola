@@ -54,20 +54,20 @@ def _under(home: str, *parts: str) -> str:
     variable en el mismo momento que la ruta, y asi el indicador se pone en
     verde sin que haga falta reiniciar Consola.
     """
-    raiz = (os.environ.get(home) or "").strip()
-    if not raiz:
+    root = (os.environ.get(home) or "").strip()
+    if not root:
         return ""
-    for nombre in _binary(parts[-1]):
-        candidato = Path(raiz).joinpath(*parts[:-1], nombre)
-        if candidato.is_file():
-            return str(candidato)
+    for name in _binary(parts[-1]):
+        candidate = Path(root).joinpath(*parts[:-1], name)
+        if candidate.is_file():
+            return str(candidate)
     return ""
 
 
 def _java() -> Tool:
-    ruta = _under("JAVA_HOME", "bin", "java") or (which_any(_binary("java")) or "")
+    path = _under("JAVA_HOME", "bin", "java") or (which_any(_binary("java")) or "")
     return Tool(
-        "java", "Java", ruta, hint="Instala un JDK 17 o superior: sdkmanager no corre sin el."
+        "java", "Java", path, hint="Instala un JDK 17 o superior: sdkmanager no corre sin el."
     )
 
 
@@ -82,17 +82,17 @@ def _git() -> Tool:
 
 def _android() -> Tool:
     try:
-        ruta = android.resolve_sdk().tool("sdkmanager")
+        path = android.resolve_sdk().tool("sdkmanager")
     except TaskError:
-        ruta = ""
+        path = ""
     return Tool(
-        "android", "SDK Android", ruta, hint='Corre "Herramientas Android" para instalarlo.'
+        "android", "SDK Android", path, hint='Corre "Herramientas Android" para instalarlo.'
     )
 
 
 def _flutter() -> Tool:
-    ruta = _under("FLUTTER_HOME", "bin", "flutter") or (which_any(_binary("flutter")) or "")
-    return Tool("flutter", "Flutter", ruta, hint='Corre "SDK Flutter" para instalarlo.')
+    path = _under("FLUTTER_HOME", "bin", "flutter") or (which_any(_binary("flutter")) or "")
+    return Tool("flutter", "Flutter", path, hint='Corre "SDK Flutter" para instalarlo.')
 
 
 def detect() -> list[Tool]:

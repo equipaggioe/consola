@@ -38,7 +38,7 @@ def test_sin_logo_lleva_la_marca_de_equipaggio(repo: Path, config: bool) -> None
 
 
 @pytest.mark.parametrize(
-    "value, error",
+    ("value", "error"),
     [
         ("brand/otro.svg", "No existe BRAND_ICON"),
         ("brand/logomark.png", "BRAND_ICON tiene que ser un SVG"),
@@ -58,10 +58,10 @@ def test_el_logo_se_recorta_a_lo_que_se_dibuja(repo: Path) -> None:
     from PySide6.QtWidgets import QApplication
 
     QApplication.instance() or QApplication([])
-    imagen = repo_logo.trimmed(repo / "brand" / "logomark.svg")
-    lado = repo_logo._RASTER * 56 / 64
-    assert imagen.width() == pytest.approx(lado, abs=2)
-    assert imagen.height() == pytest.approx(lado, abs=2)
+    image = repo_logo.trimmed(repo / "brand" / "logomark.svg")
+    side = repo_logo._RASTER * 56 / 64
+    assert image.width() == pytest.approx(side, abs=2)
+    assert image.height() == pytest.approx(side, abs=2)
 
 
 def test_la_marca_de_equipaggio_se_recorta() -> None:
@@ -69,6 +69,6 @@ def test_la_marca_de_equipaggio_se_recorta() -> None:
 
     QApplication.instance() or QApplication([])
     # En el PNG de 400 el dibujo ocupa 292 de ancho y 378 de alto.
-    imagen = repo_logo.trimmed(repo_logo.EQUIPAGGIO)
-    assert imagen.width() == pytest.approx(repo_logo._RASTER * 292 / 400, abs=3)
-    assert imagen.height() == pytest.approx(repo_logo._RASTER * 378 / 400, abs=3)
+    image = repo_logo.trimmed(repo_logo.EQUIPAGGIO)
+    assert image.width() == pytest.approx(repo_logo._RASTER * 292 / 400, abs=3)
+    assert image.height() == pytest.approx(repo_logo._RASTER * 378 / 400, abs=3)

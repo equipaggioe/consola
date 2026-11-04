@@ -42,7 +42,7 @@ class Diamond(QWidget):
         p.setBrush(Qt.BrushStyle.NoBrush)
         c = QRectF(self.rect()).center()
         h = self.SIZE / 2 - self.STROKE / 2
-        rombo = QPolygonF(
+        diamond = QPolygonF(
             [
                 QPointF(c.x(), c.y() - h),
                 QPointF(c.x() + h, c.y()),
@@ -50,7 +50,7 @@ class Diamond(QWidget):
                 QPointF(c.x() - h, c.y()),
             ]
         )
-        p.drawPolygon(rombo)
+        p.drawPolygon(diamond)
         p.end()
 
 

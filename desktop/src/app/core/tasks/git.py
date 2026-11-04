@@ -33,10 +33,10 @@ def _ensure_git(ctx: TaskContext) -> None:
 
 
 def _current_branch(ctx: TaskContext) -> str:
-    rama = ctx.capture(["git", "rev-parse", "--abbrev-ref", "HEAD"])
-    if rama == "HEAD":
+    branch = ctx.capture(["git", "rev-parse", "--abbrev-ref", "HEAD"])
+    if branch == "HEAD":
         raise TaskError("El repo local esta en HEAD desacoplado: no hay rama que forzar.")
-    return rama
+    return branch
 
 
 def force_push(ctx: TaskContext) -> str:
@@ -47,11 +47,11 @@ def force_push(ctx: TaskContext) -> str:
     el que existe este boton.
     """
     _ensure_git(ctx)
-    rama = _current_branch(ctx)
+    branch = _current_branch(ctx)
     ctx.run(["git", "fetch", "--quiet"], check=False, echo=False)
-    ctx.run(["git", "push", "--force", "origin", rama])
+    ctx.run(["git", "push", "--force", "origin", branch])
     revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"])
-    ctx.ok(f"origin/{rama} ahora es {revision}, igual que esta maquina.")
+    ctx.ok(f"origin/{branch} ahora es {revision}, igual que esta maquina.")
     return revision
 
 
@@ -64,17 +64,17 @@ def force_reset(ctx: TaskContext, discard_changes: bool = False) -> str:
     descarta sin preguntar.
     """
     _ensure_git(ctx)
-    rama = _current_branch(ctx)
-    sucio = ctx.capture(["git", "status", "--porcelain"])
-    if sucio and not discard_changes:
-        ctx.warn("Esta maquina tiene cambios sin commitear:\n" + sucio)
+    branch = _current_branch(ctx)
+    dirty = ctx.capture(["git", "status", "--porcelain"])
+    if dirty and not discard_changes:
+        ctx.warn("Esta maquina tiene cambios sin commitear:\n" + dirty)
         if not ctx.confirm("Descartar esos cambios y resetear igual?", danger=True):
             raise TaskError("Reset cancelado: hay cambios sin commitear.")
-    ctx.run(["git", "fetch", "origin", rama])
-    ctx.run(["git", "reset", "--hard", f"origin/{rama}"])
+    ctx.run(["git", "fetch", "origin", branch])
+    ctx.run(["git", "reset", "--hard", f"origin/{branch}"])
     ctx.run(["git", "clean", "-fd"])
     revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"])
-    ctx.ok(f"{rama} ahora es {revision}, igual que origin.")
+    ctx.ok(f"{branch} ahora es {revision}, igual que origin.")
     return revision
 
 
@@ -87,13 +87,13 @@ def repo_folder_name(url: str) -> str:
     El separador de esta maquina tambien corta: git clona igual desde una
     carpeta local, y ahi el ultimo tramo viene detras de una barra invertida.
     """
-    limpio = url.strip().rstrip("/")
-    if limpio.endswith(".git"):
-        limpio = limpio[:-4]
-    nombre = limpio.rsplit("/", 1)[-1].rsplit(os.sep, 1)[-1].rsplit(":", 1)[-1]
-    if not nombre:
+    clean = url.strip().rstrip("/")
+    if clean.endswith(".git"):
+        clean = clean[:-4]
+    name = clean.rsplit("/", 1)[-1].rsplit(os.sep, 1)[-1].rsplit(":", 1)[-1]
+    if not name:
         raise TaskError(f"No se entiende que repositorio clonar de: {url}")
-    return nombre
+    return name
 
 
 def clone_repo(ctx: TaskContext, url: str = "", dest: str = "", branch: str = "") -> Path:
@@ -112,25 +112,25 @@ def clone_repo(ctx: TaskContext, url: str = "", dest: str = "", branch: str = ""
     _git_or_fail()
 
     if dest.strip():
-        carpeta = Path(dest.strip()).expanduser()
+        folder = Path(dest.strip()).expanduser()
     elif ctx.project is not None:
-        carpeta = ctx.root.parent
+        folder = ctx.root.parent
     else:
         raise TaskError("Indica la carpeta destino: no hay ningun repo abierto del que deducirla.")
 
-    destino = carpeta / repo_folder_name(url)
-    if destino.exists():
-        raise TaskError(f"Ya existe {destino}. Elige otra carpeta destino o borra esa.")
-    carpeta.mkdir(parents=True, exist_ok=True)
+    destination = folder / repo_folder_name(url)
+    if destination.exists():
+        raise TaskError(f"Ya existe {destination}. Elige otra carpeta destino o borra esa.")
+    folder.mkdir(parents=True, exist_ok=True)
 
     argv = ["git", "clone"]
     if branch.strip():
         argv += ["--branch", branch.strip()]
-    argv += [url.strip(), str(destino)]
-    ctx.run(argv, cwd=str(carpeta))
-    revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"], cwd=str(destino))
-    ctx.ok(f"{destino.name} clonado en {destino} ({revision}).")
-    return destino
+    argv += [url.strip(), str(destination)]
+    ctx.run(argv, cwd=str(folder))
+    revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"], cwd=str(destination))
+    ctx.ok(f"{destination.name} clonado en {destination} ({revision}).")
+    return destination
 
 
 def bind_all() -> None:

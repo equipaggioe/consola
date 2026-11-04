@@ -11,7 +11,7 @@ from app.core.errors import TaskError
 
 
 @pytest.mark.parametrize(
-    "valor, unidad",
+    ("value", "unit"),
     [
         ("server", "banditore"),
         ("valkey", "valkey-server@banditore"),
@@ -23,8 +23,8 @@ from app.core.errors import TaskError
         ("coturn", "coturn"),
     ],
 )
-def test_cada_valor_nombra_su_unidad(valor: str, unidad: str) -> None:
-    assert vps.resolve_service("banditore", valor) == unidad
+def test_cada_valor_nombra_su_unidad(value: str, unit: str) -> None:
+    assert vps.resolve_service("banditore", value) == unit
 
 
 def test_sin_valor_es_el_servidor() -> None:
@@ -32,8 +32,8 @@ def test_sin_valor_es_el_servidor() -> None:
 
 
 def test_cada_valor_tiene_su_etiqueta() -> None:
-    valores = [*vps._APP_UNITS, *vps.PACKAGE_SERVICES]
-    assert set(valores) == set(vps.SERVICE_LABELS)
+    values = [*vps._APP_UNITS, *vps.PACKAGE_SERVICES]
+    assert set(values) == set(vps.SERVICE_LABELS)
 
 
 def test_servicio_desconocido_en_el_eje() -> None:

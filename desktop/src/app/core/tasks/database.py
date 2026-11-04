@@ -57,10 +57,10 @@ def create_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
 
-    existe = admin.query(
+    exists = admin.query(
         ctx, f"SELECT 1 FROM pg_database WHERE datname = {db.quote_literal(name)};"
     )
-    if existe:
+    if exists:
         ctx.info(f"La base {name} ya existe.")
         admin.execute(ctx, f"ALTER DATABASE {ident} OWNER TO {owner};")
     else:
@@ -109,26 +109,26 @@ def enable_extensions(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
     """
     # Se resuelve antes que el canal de superusuario para no pedir credenciales
     # de administrador cuando no hay nada que crear.
-    vistas: set[str] = set()
-    pedidas = [
+    views: set[str] = set()
+    requested = [
         e
         for e in envfile.split_list(ctx.config.get("DB_EXTENSIONS"))
-        if not (e.lower() in vistas or vistas.add(e.lower()))
+        if not (e.lower() in views or views.add(e.lower()))
     ]
-    if not pedidas:
+    if not requested:
         ctx.info("DB_EXTENSIONS esta vacia: no hay nada que habilitar.")
         return []
 
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
-    habilitadas = []
-    for extension in pedidas:
-        disponible = admin.query(
+    enabled = []
+    for extension in requested:
+        available = admin.query(
             ctx,
             f"SELECT 1 FROM pg_available_extensions WHERE name = {db.quote_literal(extension)};",
             database=name,
         )
-        if not disponible:
+        if not available:
             raise TaskError(
                 f"La extensión {extension} no está instalada en el sistema: "
                 "instala su paquete o quítala de DB_EXTENSIONS."
@@ -137,8 +137,8 @@ def enable_extensions(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
             ctx, f"CREATE EXTENSION IF NOT EXISTS {db.quote_ident(extension)};", database=name
         )
         ctx.ok(f"Extension habilitada: {extension}")
-        habilitadas.append(extension)
-    return habilitadas
+        enabled.append(extension)
+    return enabled
 
 
 def drop_tables(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
@@ -149,7 +149,7 @@ def drop_tables(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
     """
     admin = db.resolve_admin(ctx, scope)
     _, _, name = db.credentials(ctx.config)
-    tablas = admin.query(
+    tables = admin.query(
         ctx,
         (
             "SELECT tablename FROM pg_tables WHERE schemaname = 'public' "
@@ -158,15 +158,15 @@ def drop_tables(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
         database=name,
     )
 
-    if not tablas:
+    if not tables:
         ctx.info("No hay tablas para borrar.")
         return []
 
-    ctx.warn(f"Se van a borrar {len(tablas)} tabla(s) de {name}.")
-    sql = " ".join(f"DROP TABLE IF EXISTS {db.quote_ident(t)} CASCADE;" for t in tablas)
+    ctx.warn(f"Se van a borrar {len(tables)} tabla(s) de {name}.")
+    sql = " ".join(f"DROP TABLE IF EXISTS {db.quote_ident(t)} CASCADE;" for t in tables)
     admin.execute(ctx, sql, database=name)
-    ctx.ok(f"{len(tablas)} tabla(s) eliminadas.")
-    return tablas
+    ctx.ok(f"{len(tables)} tabla(s) eliminadas.")
+    return tables
 
 
 def drop_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
@@ -203,14 +203,14 @@ def reset_migrations(ctx: TaskContext) -> int:
     cero, generar agrega una revision encima del historial existente. Son dos
     intenciones distintas que el script original mezclaba en una sola funcion.
     """
-    versiones = runner.server_root(ctx) / "alembic" / "versions"
-    versiones.mkdir(parents=True, exist_ok=True)
-    archivos = sorted(versiones.glob("*.py"))
-    for archivo in archivos:
-        archivo.unlink()
-        ctx.info(f"Migracion eliminada: {archivo.name}")
-    ctx.ok(f"{len(archivos)} migracion(es) eliminadas.")
-    return len(archivos)
+    versions = runner.server_root(ctx) / "alembic" / "versions"
+    versions.mkdir(parents=True, exist_ok=True)
+    files = sorted(versions.glob("*.py"))
+    for file in files:
+        file.unlink()
+        ctx.info(f"Migracion eliminada: {file.name}")
+    ctx.ok(f"{len(files)} migracion(es) eliminadas.")
+    return len(files)
 
 
 def generate_migration(
@@ -224,8 +224,8 @@ def generate_migration(
     `git reset --hard` del proximo despliegue se lo lleva puesto. La base remota
     la alcanza por el tunel, como cualquier otro proceso local (`runner.here`).
     """
-    versiones = runner.server_root(ctx) / "alembic" / "versions"
-    antes = {p.name for p in versiones.glob("*.py")}
+    versions = runner.server_root(ctx) / "alembic" / "versions"
+    before = {p.name for p in versions.glob("*.py")}
 
     revision = ("-m", "alembic", "revision", "--autogenerate", "-m", message)
     if scope == db.LOCAL:
@@ -234,13 +234,13 @@ def generate_migration(
         with db.connect(ctx, scope) as conn:
             runner.here(ctx, conn).run(ctx, *revision)
 
-    nuevas = {p.name for p in versiones.glob("*.py")} - antes
-    if not nuevas:
+    new = {p.name for p in versions.glob("*.py")} - before
+    if not new:
         ctx.warn("El modelo no cambio: no se genero ninguna migracion.")
         return None
-    generada = versiones / nuevas.pop()
-    ctx.ok(f"Migracion generada: {generada.name}")
-    return generada
+    generated = versions / new.pop()
+    ctx.ok(f"Migracion generada: {generated.name}")
+    return generated
 
 
 def apply_migrations(ctx: TaskContext, scope: str = db.LOCAL, revision: str = "head") -> None:
@@ -291,8 +291,8 @@ def backup_dir(config: Config, root: Path) -> Path:
     `restore_db` tiene que llenar su lista antes de que exista ninguna corrida
     (`core/catalog.py::queried_values`).
     """
-    declarada = Path(config.get("BACKUP_DIR"))
-    return declarada if declarada.is_absolute() else root / declarada
+    declared = Path(config.get("BACKUP_DIR"))
+    return declared if declared.is_absolute() else root / declared
 
 
 def list_backups(config: Config, root: Path) -> list[Path]:
@@ -307,11 +307,11 @@ def list_backups(config: Config, root: Path) -> list[Path]:
     contrasena: listar archivos no conecta con nada, y pedirla dejaria el eje
     vacio en un repo al que todavia no se le cargo.
     """
-    carpeta = backup_dir(config, root)
+    folder = backup_dir(config, root)
     name = config.get("DB_NAME")
-    if not name or not carpeta.is_dir():
+    if not name or not folder.is_dir():
         return []
-    return sorted(carpeta.glob(f"{name}-*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
+    return sorted(folder.glob(f"{name}-*.dump"), key=lambda p: p.stat().st_mtime, reverse=True)
 
 
 def backup_keep(ctx: TaskContext) -> int:
@@ -321,11 +321,11 @@ def backup_keep(ctx: TaskContext) -> int:
     defecto seria esconder el error justo donde se decide cuantos archivos se
     borran para siempre.
     """
-    crudo = ctx.config.get("BACKUP_KEEP")
+    raw = ctx.config.get("BACKUP_KEEP")
     try:
-        keep = int(crudo)
+        keep = int(raw)
     except ValueError:
-        raise TaskError(f"BACKUP_KEEP tiene que ser un numero entero, y dice {crudo!r}.") from None
+        raise TaskError(f"BACKUP_KEEP tiene que ser un numero entero, y dice {raw!r}.") from None
     if keep < 1:
         raise TaskError(f"BACKUP_KEEP tiene que ser 1 o mas, y dice {keep}.")
     return keep
@@ -339,8 +339,8 @@ def _check_version(ctx: TaskContext, conn: Connection, tool: Path) -> None:
     falte no tiene por que costar un tunel SSH.
     """
     with db_explorer.open_readonly(conn.url) as probe:
-        servidor = db_explorer.server_info(probe).version
-    db.check_tool_version(ctx, tool, ctx.capture([str(tool), "--version"]), servidor)
+        server = db_explorer.server_info(probe).version
+    db.check_tool_version(ctx, tool, ctx.capture([str(tool), "--version"]), server)
 
 
 def _pg_argv(tool: Path, conn: Connection, user: str) -> list[str]:
@@ -360,23 +360,23 @@ def backup_database(ctx: TaskContext) -> Path:
     """
     user, password, name = db.credentials(ctx.config)
     ctx.guard(password)
-    herramienta = db.pg_tool("pg_dump")
-    sello = datetime.now().strftime("%Y%m%d-%H%M%S")
-    destino = backup_dir(ctx.config, ctx.root) / f"{name}-{sello}.dump"
-    destino.parent.mkdir(parents=True, exist_ok=True)
+    tool = db.pg_tool("pg_dump")
+    stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+    destination = backup_dir(ctx.config, ctx.root) / f"{name}-{stamp}.dump"
+    destination.parent.mkdir(parents=True, exist_ok=True)
 
     with db.connect(ctx, db.LOCAL) as conn:
-        _check_version(ctx, conn, herramienta)
-        ctx.info(f"Volcando {name} en {destino.name}...")
+        _check_version(ctx, conn, tool)
+        ctx.info(f"Volcando {name} en {destination.name}...")
         ctx.run(
-            [*_pg_argv(herramienta, conn, user), "-Fc", "-f", str(destino), name],
+            [*_pg_argv(tool, conn, user), "-Fc", "-f", str(destination), name],
             env={"PGPASSWORD": password},
         )
 
-    ctx.ok(f"Backup guardado: {destino} ({files.human_size(files.size_of(destino))})")
+    ctx.ok(f"Backup guardado: {destination} ({files.human_size(files.size_of(destination))})")
     rotate_backups(ctx)
-    ctx.note(f"Backup de {name}: {destino.name}")
-    return destino
+    ctx.note(f"Backup de {name}: {destination.name}")
+    return destination
 
 
 def rotate_backups(ctx: TaskContext) -> list[Path]:
@@ -384,16 +384,16 @@ def rotate_backups(ctx: TaskContext) -> list[Path]:
 
     Separada porque a veces se quiere limpiar sin volver a volcar.
     """
-    sobran = list_backups(ctx.config, ctx.root)[backup_keep(ctx) :]
-    for viejo in sobran:
-        files.remove(viejo)
-        ctx.info(f"Backup rotado: {viejo.name}")
-    return sobran
+    spare = list_backups(ctx.config, ctx.root)[backup_keep(ctx) :]
+    for old in spare:
+        files.remove(old)
+        ctx.info(f"Backup rotado: {old.name}")
+    return spare
 
 
-def _without_extensions(contenido: str) -> str:
+def _without_extensions(content: str) -> str:
     """La lista de `pg_restore -l` sin las extensiones ni sus comentarios."""
-    return "".join(f"{linea}\n" for linea in contenido.splitlines() if " EXTENSION " not in linea)
+    return "".join(f"{line}\n" for line in content.splitlines() if " EXTENSION " not in line)
 
 
 def restore_database(ctx: TaskContext, dump: str = "") -> Path:
@@ -414,52 +414,52 @@ def restore_database(ctx: TaskContext, dump: str = "") -> Path:
     """
     if not dump:
         raise TaskError("No se eligio ningun respaldo para restaurar.")
-    archivo = backup_dir(ctx.config, ctx.root) / dump
-    if not archivo.is_file():
-        raise TaskError(f"No existe el respaldo: {archivo}")
+    file = backup_dir(ctx.config, ctx.root) / dump
+    if not file.is_file():
+        raise TaskError(f"No existe el respaldo: {file}")
 
     user, password, name = db.credentials(ctx.config)
     ctx.guard(password)
-    herramienta = db.pg_tool("pg_restore")
+    tool = db.pg_tool("pg_restore")
 
     with db.connect(ctx, db.LOCAL) as conn:
-        _check_version(ctx, conn, herramienta)
-        ctx.warn(f"Restaurando {archivo.name} sobre {name}: se reemplaza lo que haya.")
-        contenido = ctx.capture([str(herramienta), "-l", str(archivo)])
-        with tempfile.TemporaryDirectory() as carpeta:
-            lista = Path(carpeta) / "lista"
-            lista.write_text(_without_extensions(contenido), encoding="utf-8")
+        _check_version(ctx, conn, tool)
+        ctx.warn(f"Restaurando {file.name} sobre {name}: se reemplaza lo que haya.")
+        content = ctx.capture([str(tool), "-l", str(file)])
+        with tempfile.TemporaryDirectory() as folder:
+            items = Path(folder) / "lista"
+            items.write_text(_without_extensions(content), encoding="utf-8")
             ctx.run(
                 [
-                    *_pg_argv(herramienta, conn, user),
+                    *_pg_argv(tool, conn, user),
                     "-d",
                     name,
                     "-L",
-                    str(lista),
+                    str(items),
                     "--clean",
                     "--if-exists",
                     "--no-owner",
                     "--exit-on-error",
-                    str(archivo),
+                    str(file),
                 ],
                 env={"PGPASSWORD": password},
             )
 
-    ctx.ok(f"Base {name} restaurada desde {archivo.name}.")
-    ctx.note(f"Restauracion de {name}: {archivo.name}")
-    return archivo
+    ctx.ok(f"Base {name} restaurada desde {file.name}.")
+    ctx.note(f"Restauracion de {name}: {file.name}")
+    return file
 
 
 def open_db_tunnel(ctx: TaskContext) -> Tunnel:
     """Tunel Postgres como servicio de fondo: sobrevive a su pestana (ADR-0016)."""
     remote = ssh.resolve_remote(ctx.config)
-    remoto = vps.postgres_port(remote)
+    ssh_remote = vps.postgres_port(remote)
     from app.core import ports
 
-    local = ports.resolve_port(remoto, label="puerto del tunel")
-    tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=remoto)
+    local = ports.resolve_port(ssh_remote, label="puerto del tunel")
+    tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=ssh_remote)
     ctx.hold_tunnel(tunnel)
-    ctx.ok(f"Tunel abierto en {tunnel.endpoint} -> {remote.host}:{remoto}")
+    ctx.ok(f"Tunel abierto en {tunnel.endpoint} -> {remote.host}:{ssh_remote}")
     return tunnel
 
 
@@ -475,16 +475,16 @@ def explore_db(ctx: TaskContext, scope: str = db.LOCAL) -> None:
     with db.connect(ctx, scope) as conn:
         with db_explorer.open_readonly(conn.url) as probe:
             info = db_explorer.server_info(probe)
-            relaciones = db_explorer.list_relations(probe)
+            relations = db_explorer.list_relations(probe)
 
         ctx.ok(f"Conectado a {info.database} como {info.user} (solo lectura).")
         ctx.info(f"Servidor: {info.version.split(' on ')[0]}")
         ctx.info(f"Tamaño de la base: {files.human_size(info.size_bytes)}")
-        tablas = [r for r in relaciones if r.kind in "rpf" and not r.parent]
+        tables = [r for r in relations if r.kind in "rpf" and not r.parent]
         ctx.info(
-            f"{len(tablas)} tabla(s), {len(relaciones) - len(tablas)} vista(s) o partición(es):"
+            f"{len(tables)} tabla(s), {len(relations) - len(tables)} vista(s) o partición(es):"
         )
-        for rel in tablas:
+        for rel in tables:
             ctx.info(
                 f"  {rel.qualified}  ~{db_explorer.human_count(rel.estimate)} filas"
                 f"  {files.human_size(rel.size_bytes)}"

@@ -33,8 +33,8 @@ def png(path: Path, width: int, height: int) -> Path:
 
 
 def test_los_argumentos_llevan_la_seleccion_y_el_dispositivo_solo_si_hay() -> None:
-    salida = Path("/repo/demo/capturas")
-    assert shots.camera_args(["panel", "app"], ["oscuro"], ["es", "en"], salida) == [
+    output = Path("/repo/demo/capturas")
+    assert shots.camera_args(["panel", "app"], ["oscuro"], ["es", "en"], output) == [
         "--apps",
         "panel,app",
         "--themes",
@@ -42,29 +42,29 @@ def test_los_argumentos_llevan_la_seleccion_y_el_dispositivo_solo_si_hay() -> No
         "--languages",
         "es,en",
         "--output",
-        str(salida),
+        str(output),
         "--kit",
         str(shots.KIT),
     ]
     assert shots.KIT.is_file()
-    assert shots.camera_args(["app"], ["claro"], ["es"], salida, "emulator-5554")[-2:] == [
+    assert shots.camera_args(["app"], ["claro"], ["es"], output, "emulator-5554")[-2:] == [
         "--device",
         "emulator-5554",
     ]
 
 
 def test_los_ejes_salen_de_lo_que_la_camara_dice_que_captura() -> None:
-    declarado = shots.parse_supported(
+    declared = shots.parse_supported(
         '{"panel": {"themes": ["oscuro"], "languages": ["es"]},'
         ' "app": {"themes": ["oscuro", "claro"], "languages": ["es", "en"], "mobile": true}}'
     )
-    assert shots.supported_values(declarado, "apps") == ["panel", "app"]
-    assert shots.supported_values(declarado, "themes") == ["claro", "oscuro"]
-    assert shots.supported_values(declarado, "languages") == ["es", "en"]
+    assert shots.supported_values(declared, "apps") == ["panel", "app"]
+    assert shots.supported_values(declared, "themes") == ["claro", "oscuro"]
+    assert shots.supported_values(declared, "languages") == ["es", "en"]
 
 
 @pytest.mark.parametrize(
-    "texto, error",
+    ("text", "error"),
     [
         ("listo", "no contestó JSON"),
         ("{}", "ninguna app"),
@@ -72,9 +72,9 @@ def test_los_ejes_salen_de_lo_que_la_camara_dice_que_captura() -> None:
         ('{"panel": {"themes": ["sepia"], "languages": ["es"]}}', "fuera del contrato: sepia"),
     ],
 )
-def test_lo_que_declara_la_camara_se_revisa(texto: str, error: str) -> None:
+def test_lo_que_declara_la_camara_se_revisa(text: str, error: str) -> None:
     with pytest.raises(TaskError, match=error):
-        shots.parse_supported(texto)
+        shots.parse_supported(text)
 
 
 def test_una_carpeta_relativa_cuelga_del_repo_y_una_absoluta_va_tal_cual(tmp_path: Path) -> None:
@@ -86,20 +86,20 @@ def test_lee_los_crudos_con_su_tipo_de_app(repo: Path) -> None:
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     png(raw / "app" / "chats.claro.en.png", 10, 10)
-    leidos = {(s.app, s.kind, s.screen, s.theme, s.language) for s in shots.collect(repo, raw)}
-    assert leidos == {
+    read = {(s.app, s.kind, s.screen, s.theme, s.language) for s in shots.collect(repo, raw)}
+    assert read == {
         ("panel", "spa-vite", "chat", "oscuro", "es"),
         ("app", "flutter-app", "chats", "claro", "en"),
     }
 
 
 @pytest.mark.parametrize(
-    "nombre", ["chat.png", "chat.oscuro.png", "chat.oscuro.es.webp", "chat.sepia.es.png"]
+    "name", ["chat.png", "chat.oscuro.png", "chat.oscuro.es.webp", "chat.sepia.es.png"]
 )
-def test_un_nombre_que_no_sigue_el_contrato_corta(repo: Path, nombre: str) -> None:
+def test_un_nombre_que_no_sigue_el_contrato_corta(repo: Path, name: str) -> None:
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
-    (raw / "panel" / nombre).write_bytes(b"")
+    (raw / "panel" / name).write_bytes(b"")
     with pytest.raises(TaskError):
         shots.collect(repo, raw)
 
@@ -114,8 +114,8 @@ def test_una_carpeta_que_no_es_una_app_del_repo_corta(repo: Path) -> None:
 def test_dice_que_combinaciones_quedaron_sin_captura(repo: Path) -> None:
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
-    sacadas = shots.collect(repo, raw, ["panel"])
-    assert shots.missing_combinations(sacadas, ["panel"], ["oscuro", "claro"], ["es"]) == [
+    taken = shots.collect(repo, raw, ["panel"])
+    assert shots.missing_combinations(taken, ["panel"], ["oscuro", "claro"], ["es"]) == [
         "panel · claro · es"
     ]
 
@@ -123,9 +123,9 @@ def test_dice_que_combinaciones_quedaron_sin_captura(repo: Path) -> None:
 def test_borrar_la_corrida_anterior_solo_toca_lo_que_se_va_a_volver_a_sacar(repo: Path) -> None:
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
-    queda = png(raw / "panel" / "chat.oscuro.en.png", 10, 10)
+    remains = png(raw / "panel" / "chat.oscuro.en.png", 10, 10)
     assert shots.clear_raw(raw, ["panel"], ["oscuro"], ["es"]) == 1
-    assert [p.name for p in (raw / "panel").iterdir()] == [queda.name]
+    assert [p.name for p in (raw / "panel").iterdir()] == [remains.name]
 
 
 def test_la_landing_achica_al_tope_de_su_tipo_y_nunca_agranda(repo: Path, tmp_path: Path) -> None:
@@ -133,66 +133,64 @@ def test_la_landing_achica_al_tope_de_su_tipo_y_nunca_agranda(repo: Path, tmp_pa
     png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
     png(raw / "app" / "chats.oscuro.es.png", 400, 800)
     preset = shots.load_presets()["landing"]
-    salida = tmp_path / "publicado"
-    hechos = {
-        s.app: shots.render_landing(s, preset, salida).path for s in shots.collect(repo, raw)
-    }
+    output = tmp_path / "publicado"
+    done = {s.app: shots.render_landing(s, preset, output).path for s in shots.collect(repo, raw)}
 
-    assert hechos["panel"] == salida / "panel" / "chat.oscuro.es.webp"
-    with Image.open(hechos["panel"]) as imagen:
-        assert (imagen.format, imagen.size) == ("WEBP", (1920, 1200))
-    with Image.open(hechos["app"]) as imagen:
-        assert imagen.size == (400, 800)
+    assert done["panel"] == output / "panel" / "chat.oscuro.es.webp"
+    with Image.open(done["panel"]) as image:
+        assert (image.format, image.size) == ("WEBP", (1920, 1200))
+    with Image.open(done["app"]) as image:
+        assert image.size == (400, 800)
 
 
-def sacadas(repo: Path, telefono: tuple[int, int] = (1080, 2400)) -> list[Shot]:
+def taken(repo: Path, phone: tuple[int, int] = (1080, 2400)) -> list[Shot]:
     raw = repo / "demo" / "capturas"
     png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
-    png(raw / "app" / "chats.claro.es.png", *telefono)
+    png(raw / "app" / "chats.claro.es.png", *phone)
     return shots.collect(repo, raw)
 
 
 def test_play_no_acepta_un_telefono_mas_largo_que_dos_a_uno(repo: Path) -> None:
     with pytest.raises(TaskError, match="2.22:1 pasa de 2:1"):
-        shots.plan("Google Play", shots.load_presets()["play"], sacadas(repo))
+        shots.plan("Google Play", shots.load_presets()["play"], taken(repo))
 
 
 def test_play_deja_el_crudo_en_su_medida_y_sin_alfa(repo: Path, tmp_path: Path) -> None:
-    crudos = sacadas(repo, telefono=(1080, 1920))
-    telefono = next(s for s in crudos if s.app == "app")
-    Image.new("RGBA", (1080, 1920), (1, 2, 3, 255)).save(telefono.path)
-    pares = shots.plan("Google Play", shots.load_presets()["play"], crudos)
-    assert [(s.app, m) for s, m in pares] == [("app", None)]
-    hecho = shots.render_sized(*pares[0], tmp_path, "play")
-    assert hecho.path == tmp_path / "es" / "app" / "chats.claro.png"
-    with Image.open(hecho.path) as imagen:
-        assert (imagen.mode, imagen.size) == ("RGB", (1080, 1920))
+    raws = taken(repo, phone=(1080, 1920))
+    phone = next(s for s in raws if s.app == "app")
+    Image.new("RGBA", (1080, 1920), (1, 2, 3, 255)).save(phone.path)
+    pairs = shots.plan("Google Play", shots.load_presets()["play"], raws)
+    assert [(s.app, m) for s, m in pairs] == [("app", None)]
+    done = shots.render_sized(*pairs[0], tmp_path, "play")
+    assert done.path == tmp_path / "es" / "app" / "chats.claro.png"
+    with Image.open(done.path) as image:
+        assert (image.mode, image.size) == ("RGB", (1080, 1920))
 
 
 def test_app_store_manda_el_telefono_a_iphone_y_la_tablet_a_ipad(
     repo: Path, tmp_path: Path
 ) -> None:
     preset = shots.load_presets()["appstore"]
-    telefono = shots.plan("App Store", preset, sacadas(repo))
-    assert [m and m["name"] for _, m in telefono] == ["iphone"]
-    hecho = shots.render_sized(*telefono[0], tmp_path, "appstore")
-    with Image.open(hecho.path) as imagen:
-        assert imagen.size == (1290, 2796)
-    tablet = shots.plan("App Store", preset, sacadas(repo, telefono=(1600, 2134)))
+    phone = shots.plan("App Store", preset, taken(repo))
+    assert [m and m["name"] for _, m in phone] == ["iphone"]
+    done = shots.render_sized(*phone[0], tmp_path, "appstore")
+    with Image.open(done.path) as image:
+        assert image.size == (1290, 2796)
+    tablet = shots.plan("App Store", preset, taken(repo, phone=(1600, 2134)))
     assert [m and m["name"] for _, m in tablet] == ["ipad"]
 
 
 def test_app_store_corta_si_hay_que_recortar_de_mas(repo: Path) -> None:
     with pytest.raises(TaskError, match="no llega a"):
-        shots.plan("App Store", shots.load_presets()["appstore"], sacadas(repo, (1080, 1920)))
+        shots.plan("App Store", shots.load_presets()["appstore"], taken(repo, (1080, 1920)))
 
 
 def test_open_graph_solo_de_escritorio_y_redes_recortan_lo_que_haga_falta(repo: Path) -> None:
-    crudos = sacadas(repo)
+    raws = taken(repo)
     presets = shots.load_presets()
-    assert {s.app for s, _ in shots.plan("og", presets["og"], crudos)} == {"panel"}
+    assert {s.app for s, _ in shots.plan("og", presets["og"], raws)} == {"panel"}
     assert sorted(
-        (s.app, m and m["name"]) for s, m in shots.plan("social", presets["social"], crudos)
+        (s.app, m and m["name"]) for s, m in shots.plan("social", presets["social"], raws)
     ) == [("app", "square"), ("app", "story"), ("panel", "square")]
 
 
@@ -204,21 +202,21 @@ def test_un_destino_sin_crudos_de_su_tipo_corta(repo: Path) -> None:
 
 
 def test_el_manual_deja_el_png_a_resolucion_nativa(repo: Path, tmp_path: Path) -> None:
-    pares = shots.plan("Manual", shots.load_presets()["manual"], sacadas(repo))
-    assert all(m is None for _, m in pares)
-    hecho = shots.render_sized(pares[0][0], None, tmp_path, "manual")
-    assert hecho.path == tmp_path / "es" / "app" / "chats.claro.png"
-    assert (hecho.width, hecho.height) == (1080, 2400)
+    pairs = shots.plan("Manual", shots.load_presets()["manual"], taken(repo))
+    assert all(m is None for _, m in pairs)
+    done = shots.render_sized(pairs[0][0], None, tmp_path, "manual")
+    assert done.path == tmp_path / "es" / "app" / "chats.claro.png"
+    assert (done.width, done.height) == (1080, 2400)
 
 
 def test_el_press_kit_guarda_los_crudos_sin_comprimir(repo: Path, tmp_path: Path) -> None:
     import zipfile
 
-    derivados = shots.render_archive(sacadas(repo), tmp_path, "presskit")
+    derived = shots.render_archive(taken(repo), tmp_path, "presskit")
     with zipfile.ZipFile(tmp_path / "capturas.zip") as zip_:
         assert sorted(zip_.namelist()) == ["app/chats.claro.es.png", "panel/chat.oscuro.es.png"]
         assert {i.compress_type for i in zip_.infolist()} == {zipfile.ZIP_STORED}
-    assert {d.archive for d in derivados} == {"app/chats.claro.es.png", "panel/chat.oscuro.es.png"}
+    assert {d.archive for d in derived} == {"app/chats.claro.es.png", "panel/chat.oscuro.es.png"}
 
 
 def test_el_manifiesto_es_estable_y_dice_que_cambio_desde_la_corrida_anterior(
@@ -227,21 +225,21 @@ def test_el_manifiesto_es_estable_y_dice_que_cambio_desde_la_corrida_anterior(
     import json
 
     preset = shots.load_presets()["landing"]
-    crudos = sacadas(repo)
-    derivados = [shots.render_landing(s, preset, tmp_path) for s in crudos]
-    primera = shots.write_manifest(tmp_path, "landing", derivados)
-    assert primera.added == ["app/chats.claro.es.webp", "panel/chat.oscuro.es.webp"]
-    texto = (tmp_path / shots.MANIFEST).read_text(encoding="utf-8")
+    raws = taken(repo)
+    derived = [shots.render_landing(s, preset, tmp_path) for s in raws]
+    first = shots.write_manifest(tmp_path, "landing", derived)
+    assert first.added == ["app/chats.claro.es.webp", "panel/chat.oscuro.es.webp"]
+    text = (tmp_path / shots.MANIFEST).read_text(encoding="utf-8")
 
-    igual = shots.write_manifest(tmp_path, "landing", list(reversed(derivados)))
-    assert (igual.changed, igual.added, igual.removed) == ([], [], [])
-    assert (tmp_path / shots.MANIFEST).read_text(encoding="utf-8") == texto
+    same = shots.write_manifest(tmp_path, "landing", list(reversed(derived)))
+    assert (same.changed, same.added, same.removed) == ([], [], [])
+    assert (tmp_path / shots.MANIFEST).read_text(encoding="utf-8") == text
 
-    panel = next(s for s in crudos if s.app == "panel")
+    panel = next(s for s in raws if s.app == "panel")
     Image.new("RGB", (2880, 1800), (200, 0, 0)).save(panel.path)  # misma medida, otra pantalla
-    otra = [shots.render_landing(panel, preset, tmp_path)]
-    cambios = shots.write_manifest(tmp_path, "landing", otra)
-    assert (cambios.changed, cambios.removed) == (
+    other = [shots.render_landing(panel, preset, tmp_path)]
+    changes = shots.write_manifest(tmp_path, "landing", other)
+    assert (changes.changed, changes.removed) == (
         ["panel/chat.oscuro.es.webp"],
         ["app/chats.claro.es.webp"],
     )

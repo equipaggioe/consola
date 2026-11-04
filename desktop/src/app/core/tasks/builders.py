@@ -56,13 +56,13 @@ def bump_version(ctx: TaskContext, directory: str = "", mode: str = "patch") -> 
     Tiene boton propio porque incrementar la version sin compilar todavia es una
     operacion real: se hace al cerrar un cambio, antes de decidir si se publica.
     """
-    carpeta = ctx.path(directory) if directory else ctx.root
-    manifiesto = versioning.find_manifest(carpeta)
-    anterior = versioning.read_version(manifiesto)
-    nueva = versioning.bump(anterior, mode)
-    versioning.write_version(manifiesto, nueva)
-    ctx.ok(f"{manifiesto.name}: {anterior} -> {nueva}")
-    return anterior, nueva
+    folder = ctx.path(directory) if directory else ctx.root
+    manifest = versioning.find_manifest(folder)
+    previous = versioning.read_version(manifest)
+    new = versioning.bump(previous, mode)
+    versioning.write_version(manifest, new)
+    ctx.ok(f"{manifest.name}: {previous} -> {new}")
+    return previous, new
 
 
 def upload_artifact(
@@ -82,9 +82,9 @@ def upload_artifact(
         raise TaskError(f"No existe el artefacto: {local}")
     rel = remote_rel or local.relative_to(ctx.root).as_posix()
     remote = ssh.resolve_remote(ctx.config)
-    destino = ssh.upload(ctx, remote, local, vps.remote_path(ctx.config, rel), chmod=chmod)
-    ctx.ok(f"Subido: {destino}")
-    return destino
+    destination = ssh.upload(ctx, remote, local, vps.remote_path(ctx.config, rel), chmod=chmod)
+    ctx.ok(f"Subido: {destination}")
+    return destination
 
 
 # --- pasos de Flutter / Flet -----------------------------------------------
@@ -108,34 +108,37 @@ def compile_flutter(ctx: TaskContext, directory: str = "", platform_id: str = "a
     """
     app = _mobile(ctx, directory)
     kind = toolchain.detect_app_kind(app.path)
-    destino = toolchain.BUILD_PLATFORMS[platform_id]
+    destination = toolchain.BUILD_PLATFORMS[platform_id]
     api = ctx.config.require("API_URL")
     define = f"--dart-define=API_BASE_URL={api}"
 
     if kind == toolchain.FLUTTER:
         ctx.run(
-            [*toolchain.flutter_cmd(), "build", destino.flutter, "--release", define], cwd=app.path
+            [*toolchain.flutter_cmd(), "build", destination.flutter, "--release", define],
+            cwd=app.path,
         )
     else:
         # La variable de entorno queda para el codigo Python que la lea al empaquetar.
         ctx.run(
-            [*toolchain.flet_cmd(), "build", destino.flet, f"--flutter-build-args={define}"],
+            [*toolchain.flet_cmd(), "build", destination.flet, f"--flutter-build-args={define}"],
             cwd=app.path,
             env={"API_BASE_URL": api},
         )
 
-    patron = destino.output(kind)
-    salida = _newest(app.path, patron)
-    if salida is None:
-        raise TaskError(f"El build {destino.label} termino pero no aparecio nada en {patron}.")
-    salida = _deliver(ctx, app.path, platform_id, salida)
-    ctx.ok(f"{destino.label}: {salida} ({files.human_size(files.size_of(salida))})")
-    return salida
+    pattern = destination.output(kind)
+    output = _newest(app.path, pattern)
+    if output is None:
+        raise TaskError(
+            f"El build {destination.label} termino pero no aparecio nada en {pattern}."
+        )
+    output = _deliver(ctx, app.path, platform_id, output)
+    ctx.ok(f"{destination.label}: {output} ({files.human_size(files.size_of(output))})")
+    return output
 
 
-def _newest(base: Path, patron: str) -> Path | None:
-    encontrados = list(base.glob(patron))
-    return max(encontrados, key=lambda p: p.stat().st_mtime, default=None)
+def _newest(base: Path, pattern: str) -> Path | None:
+    found = list(base.glob(pattern))
+    return max(found, key=lambda p: p.stat().st_mtime, default=None)
 
 
 def _out_dir(ctx: TaskContext, app_dir: Path, platform_id: str) -> Path | None:
@@ -144,11 +147,11 @@ def _out_dir(ctx: TaskContext, app_dir: Path, platform_id: str) -> Path | None:
     Vacia, el build se queda donde lo deja el framework. Es relativa a la
     carpeta de la app, igual que las rutas por defecto que muestra el campo.
     """
-    valor = ctx.config.get(toolchain.out_key(platform_id))
-    return app_dir / valor if valor else None
+    value = ctx.config.get(toolchain.out_key(platform_id))
+    return app_dir / value if value else None
 
 
-def _deliver(ctx: TaskContext, app_dir: Path, platform_id: str, salida: Path) -> Path:
+def _deliver(ctx: TaskContext, app_dir: Path, platform_id: str, output: Path) -> Path:
     """Copia el build a la carpeta configurada, si hay una.
 
     Se copia y no se le pide al framework que compile ahi: Flutter solo acepta
@@ -156,12 +159,12 @@ def _deliver(ctx: TaskContext, app_dir: Path, platform_id: str, salida: Path) ->
     frameworks. Un APK o un IPA quedan *dentro* de la carpeta; un build web o de
     escritorio, que ya es una carpeta, pasa a *ser* ella.
     """
-    carpeta = _out_dir(ctx, app_dir, platform_id)
-    if carpeta is None:
-        return salida
-    destino = carpeta / salida.name if toolchain.BUILD_PLATFORMS[platform_id].suffix else carpeta
-    files.copy(salida, destino)
-    return destino
+    folder = _out_dir(ctx, app_dir, platform_id)
+    if folder is None:
+        return output
+    destination = folder / output.name if toolchain.BUILD_PLATFORMS[platform_id].suffix else folder
+    files.copy(output, destination)
+    return destination
 
 
 # --- manifiesto de release -------------------------------------------------
@@ -194,22 +197,22 @@ def _release_manifest(
     resto del manifiesto sigue sirviendo.
     """
     version = versioning.read_version(manifest)
-    datos: dict[str, str | int] = {
+    data: dict[str, str | int] = {
         "app": app,
         "platform": platform_id,
         "version": version.split("+", 1)[0],
     }
     if "+" in version:
-        datos["build"] = int(version.split("+", 1)[1])
-    datos["artifact"] = artifact.name
+        data["build"] = int(version.split("+", 1)[1])
+    data["artifact"] = artifact.name
     if artifact.is_file():
-        datos["sha256"] = files.digest(artifact)
-    datos["published_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+        data["sha256"] = files.digest(artifact)
+    data["published_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
-    destino = ctx.root / RELEASES_DIR / app / f"{platform_id}.json"
-    files.write_text(destino, json.dumps(datos, indent=2, ensure_ascii=False) + "\n")
-    ctx.ok(f"Release {app}/{platform_id}: {datos['version']}")
-    return destino
+    destination = ctx.root / RELEASES_DIR / app / f"{platform_id}.json"
+    files.write_text(destination, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
+    ctx.ok(f"Release {app}/{platform_id}: {data['version']}")
+    return destination
 
 
 def _publish_release(
@@ -234,9 +237,9 @@ def compile_spa(ctx: TaskContext, directory: str = "") -> Path:
     """
     spa = _target(ctx, targets.SPA_VITE, directory)
     ctx.run([*toolchain.pnpm_cmd(), "run", "build"], cwd=spa.path)
-    salida = _spa_output(spa)
-    ctx.ok(f"Build de {spa.name}: {salida} ({files.human_size(files.size_of(salida))})")
-    return salida
+    output = _spa_output(spa)
+    ctx.ok(f"Build de {spa.name}: {output} ({files.human_size(files.size_of(output))})")
+    return output
 
 
 def _spa_output(spa: targets.Target) -> Path:
@@ -245,10 +248,10 @@ def _spa_output(spa: targets.Target) -> Path:
     salida puede venir declarada desde un plugin.
 
     """
-    for candidata in ("dist", "build"):
-        salida = spa.path / candidata
-        if salida.is_dir():
-            return salida
+    for candidate in ("dist", "build"):
+        output = spa.path / candidate
+        if output.is_dir():
+            return output
     raise TaskError(f"{spa.name} no tiene carpeta dist/ ni build/.")
 
 
@@ -309,17 +312,17 @@ def create_spa(ctx: TaskContext) -> Path:
     unico dato de la corrida y es distinto en cada una, asi que no tiene donde
     guardarse (`core/catalog.py`, al registrar `create_spa`).
     """
-    nombre = ctx.ask("¿Cómo se va a llamar la carpeta de la SPA?").strip()
-    if not nombre:
+    name = ctx.ask("¿Cómo se va a llamar la carpeta de la SPA?").strip()
+    if not name:
         raise TaskError("Cancelado: no se eligio un nombre de carpeta.")
-    if not _SPA_NAME.fullmatch(nombre):
+    if not _SPA_NAME.fullmatch(name):
         raise TaskError(
             "El nombre de la carpeta va en minusculas, sin espacios "
             '(letras, numeros, ".", "_" o "-").'
         )
-    destino = ctx.path(nombre)
-    if destino.exists():
-        raise TaskError(f"Ya existe {destino}.")
+    destination = ctx.path(name)
+    if destination.exists():
+        raise TaskError(f"Ya existe {destination}.")
     template = canone.spa_template(ctx.config)
     pnpm = toolchain.pnpm_cmd()
 
@@ -329,7 +332,7 @@ def create_spa(ctx: TaskContext) -> Path:
             "dlx",
             _SV,
             "create",
-            nombre,
+            name,
             "--template",
             "minimal",
             "--types",
@@ -343,23 +346,23 @@ def create_spa(ctx: TaskContext) -> Path:
         ],
         cwd=ctx.root,
     )
-    ctx.run([*pnpm, "add", "--save-dev", "unocss"], cwd=destino)
+    ctx.run([*pnpm, "add", "--save-dev", "unocss"], cwd=destination)
     version = ctx.capture([*pnpm, "--version"])
-    ctx.run([*pnpm, "pkg", "set", f"packageManager=pnpm@{version}"], cwd=destino)
+    ctx.run([*pnpm, "pkg", "set", f"packageManager=pnpm@{version}"], cwd=destination)
 
-    (destino / "prettier.config.js").unlink()
+    (destination / "prettier.config.js").unlink()
     for file in _SPA_TEMPLATE:
-        shutil.copyfile(template / file, destino / file)
-    for rel, contenido in _SPA_FILES.items():
-        (destino / rel).write_text(
-            contenido.replace("{NAME}", nombre), encoding="utf-8", newline="\n"
+        shutil.copyfile(template / file, destination / file)
+    for rel, content in _SPA_FILES.items():
+        (destination / rel).write_text(
+            content.replace("{NAME}", name), encoding="utf-8", newline="\n"
         )
-    ctx.run([*pnpm, "exec", "prettier", "--write", "."], cwd=destino)
+    ctx.run([*pnpm, "exec", "prettier", "--write", "."], cwd=destination)
     _generate_colors(ctx, template.parent)
 
-    ctx.ok(f"SPA creada en {destino}")
-    ctx.note(f"Nueva SPA {nombre}")
-    return destino
+    ctx.ok(f"SPA creada en {destination}")
+    ctx.note(f"Nueva SPA {name}")
+    return destination
 
 
 # --- pasos de binario ------------------------------------------------------
@@ -374,7 +377,7 @@ _ENTRYPOINTS = ("src/main.py", "main.py", "app/main.py")
 # Un entrypoint llamado asi no nombra al programa, nombra al archivo de arranque:
 # `src/main.py` daria un ejecutable "main". En ese caso el nombre sale de la
 # carpeta de la app, que es como se llama el proyecto.
-_NOMBRES_GENERICOS = ("main", "__main__", "app", "cli", "run")
+_GENERIC_NAMES = ("main", "__main__", "app", "cli", "run")
 
 
 def resolve_entrypoint(ctx: TaskContext, entrypoint: str = "") -> Path:
@@ -392,31 +395,31 @@ def resolve_entrypoint(ctx: TaskContext, entrypoint: str = "") -> Path:
     quedaria sin poder compilarse su propio ejecutable.
     """
     if entrypoint:
-        fuente = ctx.path(entrypoint)
-        if not fuente.is_file():
-            raise TaskError(f"No existe el punto de entrada: {fuente}")
-        return fuente
+        source = ctx.path(entrypoint)
+        if not source.is_file():
+            raise TaskError(f"No existe el punto de entrada: {source}")
+        return source
 
     apps = targets.by_kind(ctx.root, targets.PYTHON_APP)
     if len(apps) > 1:
-        elegir = ", ".join(a.name for a in apps)
+        choose = ", ".join(a.name for a in apps)
         raise TaskError(
-            f"Hay mas de una app Python en {ctx.root.name}: {elegir}. "
+            f"Hay mas de una app Python en {ctx.root.name}: {choose}. "
             "Escribe el punto de entrada de la que quieras empaquetar."
         )
 
     base = apps[0].path if apps else ctx.root
-    for candidato in _ENTRYPOINTS:
-        fuente = base / candidato
-        if fuente.is_file():
-            return fuente
+    for candidate in _ENTRYPOINTS:
+        source = base / candidate
+        if source.is_file():
+            return source
     raise TaskError(
         f"No se encontro un punto de entrada en {base.name} "
         f"({', '.join(_ENTRYPOINTS)}). Escribe cual es."
     )
 
 
-def _binary_app(root: Path, fuente: Path) -> Path:
+def _binary_app(root: Path, source: Path) -> Path:
     """La carpeta de la app a la que pertenece el entrypoint.
 
     Es donde vive el manifiesto que se versiona y donde PyInstaller deja
@@ -425,13 +428,13 @@ def _binary_app(root: Path, fuente: Path) -> Path:
     `src/main.py` es `src/` y terminaba creando ahi un `pyproject.toml` paralelo
     al de la app, con su propia version que nadie mas leia.
     """
-    carpeta = fuente.parent
-    while carpeta != carpeta.parent:
-        if any((carpeta / nombre).is_file() for nombre in versioning.MANIFEST_NAMES):
-            return carpeta
-        if carpeta == root:
+    folder = source.parent
+    while folder != folder.parent:
+        if any((folder / name).is_file() for name in versioning.MANIFEST_NAMES):
+            return folder
+        if folder == root:
             break
-        carpeta = carpeta.parent
+        folder = folder.parent
     return root
 
 
@@ -447,14 +450,14 @@ def _ensure_manifest(ctx: TaskContext, app_dir: Path) -> Path:
         return versioning.find_manifest(app_dir)
     except TaskError:
         pass
-    nombre = re.sub(r"[^0-9A-Za-z._-]+", "-", app_dir.name).strip("-").lower() or "python-app"
-    manifiesto = app_dir / "pyproject.toml"
-    files.write_text(manifiesto, f'[project]\nname = "{nombre}"\nversion = "0.0.0"\n')
-    ctx.warn(f"{app_dir.name} no tenia manifiesto: se creo {manifiesto.name} en 0.0.0.")
-    return manifiesto
+    name = re.sub(r"[^0-9A-Za-z._-]+", "-", app_dir.name).strip("-").lower() or "python-app"
+    manifest = app_dir / "pyproject.toml"
+    files.write_text(manifest, f'[project]\nname = "{name}"\nversion = "0.0.0"\n')
+    ctx.warn(f"{app_dir.name} no tenia manifiesto: se creo {manifest.name} en 0.0.0.")
+    return manifest
 
 
-def _binary_label(app_dir: Path, fuente: Path, name: str) -> str:
+def _binary_label(app_dir: Path, source: Path, name: str) -> str:
     """Nombre del ejecutable, con la etiqueta de la plataforma que lo produjo.
 
     PyInstaller no compila cruzado: el binario sirve para el sistema donde corre
@@ -465,17 +468,17 @@ def _binary_label(app_dir: Path, fuente: Path, name: str) -> str:
     """
     base = name.strip()
     if not base:
-        base = app_dir.name if fuente.stem in _NOMBRES_GENERICOS else fuente.stem
+        base = app_dir.name if source.stem in _GENERIC_NAMES else source.stem
     return f"{base}-{HOST.system.lower()}-{platform.machine().lower()}"
 
 
-def _binary_output(app_dir: Path, etiqueta: str, onefile: bool) -> Path:
+def _binary_output(app_dir: Path, label: str, onefile: bool) -> Path:
     """Donde queda lo que deja PyInstaller: un archivo con `--onefile`, una
     carpeta sin el. Sirve para leer lo recien compilado y para encontrar lo que
     ya estaba.
     """
-    sufijo = HOST.executable_suffix if onefile else ""
-    return app_dir / "dist" / f"{etiqueta}{sufijo}"
+    suffix = HOST.executable_suffix if onefile else ""
+    return app_dir / "dist" / f"{label}{suffix}"
 
 
 def compile_binary(
@@ -502,16 +505,16 @@ def compile_binary(
     justo para el build repetido, y para el limpio de verdad esta el boton de
     limpiar artefactos.
     """
-    fuente = resolve_entrypoint(ctx, entrypoint)
-    app_dir = _binary_app(ctx.root, fuente)
-    etiqueta = _binary_label(app_dir, fuente, name)
+    source = resolve_entrypoint(ctx, entrypoint)
+    app_dir = _binary_app(ctx.root, source)
+    label = _binary_label(app_dir, source, name)
     pyinstaller = toolchain.pyinstaller_cmd(app_dir, ctx.config.get("PYINSTALLER_BIN"))
 
     argv = [
         *pyinstaller,
         "--noconfirm",
         "--name",
-        etiqueta,
+        label,
         "--specpath",
         "build",
         *(["--onefile"] if onefile else []),
@@ -529,13 +532,13 @@ def compile_binary(
         ico = app_dir / "build" / "icon.ico"
         ico.write_bytes(raster.svg_to_ico(logo))
         argv += ["--icon", str(ico)]
-    ctx.run([*argv, str(fuente)], cwd=app_dir)
+    ctx.run([*argv, str(source)], cwd=app_dir)
 
-    artefacto = _binary_output(app_dir, etiqueta, onefile)
-    if not artefacto.exists():
-        raise TaskError(f"PyInstaller no dejo el binario esperado en {artefacto}.")
-    ctx.ok(f"Binario: {artefacto} ({files.human_size(files.size_of(artefacto))})")
-    return artefacto
+    artifact = _binary_output(app_dir, label, onefile)
+    if not artifact.exists():
+        raise TaskError(f"PyInstaller no dejo el binario esperado en {artifact}.")
+    ctx.ok(f"Binario: {artifact} ({files.human_size(files.size_of(artifact))})")
+    return artifact
 
 
 def checksum_artifact(ctx: TaskContext, artifact: Path) -> Path:
@@ -549,11 +552,11 @@ def checksum_artifact(ctx: TaskContext, artifact: Path) -> Path:
         # Con `--onefile` desactivado no hay un archivo que firmar sino un arbol
         # entero; un hash por archivo no es lo que nadie va a verificar a mano.
         raise TaskError("El checksum solo aplica al empaquetado en un archivo.")
-    huella = files.digest(artifact)
-    destino = artifact.with_name(f"{artifact.name}.sha256")
-    files.write_text(destino, f"{huella}  {artifact.name}\n")
-    ctx.ok(f"SHA-256: {huella}")
-    return destino
+    fingerprint = files.digest(artifact)
+    destination = artifact.with_name(f"{artifact.name}.sha256")
+    files.write_text(destination, f"{fingerprint}  {artifact.name}\n")
+    ctx.ok(f"SHA-256: {fingerprint}")
+    return destination
 
 
 def _maybe_checksum(ctx: TaskContext, artifact: Path) -> Path | None:
@@ -608,13 +611,13 @@ def build_flutter(
     No hay paso de `pub get`: `flutter build` resuelve dependencias solo.
     """
     app = _mobile(ctx, directory)
-    nombres = ", ".join(toolchain.BUILD_PLATFORMS[p].label for p in platforms)
-    salidas: list[Path] = []
-    for plataforma in platforms:
+    names = ", ".join(toolchain.BUILD_PLATFORMS[p].label for p in platforms)
+    outputs: list[Path] = []
+    for target_platform in platforms:
         ctx.raise_if_cancelled()
-        salidas.append(compile_flutter(ctx, app.name, plataforma))
-    ctx.note(f"Build {app.name} ({nombres})")
-    return salidas
+        outputs.append(compile_flutter(ctx, app.name, target_platform))
+    ctx.note(f"Build {app.name} ({names})")
+    return outputs
 
 
 def build_vite(ctx: TaskContext, directories: Sequence[str] = ()) -> list[Path]:
@@ -629,16 +632,16 @@ def build_vite(ctx: TaskContext, directories: Sequence[str] = ()) -> list[Path]:
     La lista vacia significa "la unica SPA que haya", igual que el `directory`
     vacio de `build_flutter`: en un repo con una sola, el eje ni se dibuja.
     """
-    elegidas = [_target(ctx, targets.SPA_VITE, nombre) for nombre in (directories or [""])]
-    salidas: list[Path] = []
-    for indice, spa in enumerate(elegidas, start=1):
+    chosen = [_target(ctx, targets.SPA_VITE, name) for name in (directories or [""])]
+    outputs: list[Path] = []
+    for index, spa in enumerate(chosen, start=1):
         ctx.raise_if_cancelled()
-        if len(elegidas) > 1:
-            ctx.step(f"{spa.name} ({indice} de {len(elegidas)})")
+        if len(chosen) > 1:
+            ctx.step(f"{spa.name} ({index} de {len(chosen)})")
         install_node_modules(ctx, spa.name)
-        salidas.append(compile_spa(ctx, spa.name))
+        outputs.append(compile_spa(ctx, spa.name))
         ctx.note(f"Build Vite {spa.name}")
-    return salidas
+    return outputs
 
 
 def build_binary(
@@ -665,9 +668,9 @@ def build_binary(
     Si el build falla, la version vuelve a lo que era: el repo no queda marcado
     con un numero que nunca se publico.
     """
-    fuente = resolve_entrypoint(ctx, entrypoint)
-    app_dir = _binary_app(ctx.root, fuente)
-    manifiesto = _ensure_manifest(ctx, app_dir)
+    source = resolve_entrypoint(ctx, entrypoint)
+    app_dir = _binary_app(ctx.root, source)
+    manifest = _ensure_manifest(ctx, app_dir)
     rel = "" if app_dir == ctx.root else app_dir.relative_to(ctx.root).as_posix()
 
     if not build:
@@ -679,33 +682,33 @@ def build_binary(
                 "version que ya tiene el manifiesto, y subirla cambiada lo "
                 "anunciaria como otra cosa."
             )
-        artefacto = _binary_output(app_dir, _binary_label(app_dir, fuente, name), onefile)
-        if not artefacto.exists():
-            raise TaskError(f"No hay ningun binario compilado en {artefacto}.")
-        firma = _maybe_checksum(ctx, artefacto) if checksum else None
+        artifact = _binary_output(app_dir, _binary_label(app_dir, source, name), onefile)
+        if not artifact.exists():
+            raise TaskError(f"No hay ningun binario compilado en {artifact}.")
+        signature = _maybe_checksum(ctx, artifact) if checksum else None
         ctx.step("upload")
-        _publish_binary(ctx, app_dir.name, artefacto, manifiesto, firma)
-        ctx.note(f"Re-subida binario {artefacto.name} {versioning.read_version(manifiesto)}")
-        return artefacto
+        _publish_binary(ctx, app_dir.name, artifact, manifest, signature)
+        ctx.note(f"Re-subida binario {artifact.name} {versioning.read_version(manifest)}")
+        return artifact
 
-    with files.reversible(manifiesto):
+    with files.reversible(manifest):
         if bump:
             ctx.step("bump")
             bump_version(ctx, rel, bump_mode)
         ctx.step("build")
-        artefacto = compile_binary(ctx, str(fuente), name, onefile=onefile, windowed=windowed)
+        artifact = compile_binary(ctx, str(source), name, onefile=onefile, windowed=windowed)
 
-    firma = None
+    signature = None
     if checksum:
         ctx.step("checksum")
-        firma = _maybe_checksum(ctx, artefacto)
+        signature = _maybe_checksum(ctx, artifact)
 
     if upload:
         ctx.step("upload")
-        _publish_binary(ctx, app_dir.name, artefacto, manifiesto, firma)
+        _publish_binary(ctx, app_dir.name, artifact, manifest, signature)
 
-    ctx.note(f"Build binario {artefacto.name} {versioning.read_version(manifiesto)}")
-    return artefacto
+    ctx.note(f"Build binario {artifact.name} {versioning.read_version(manifest)}")
+    return artifact
 
 
 def bind_all() -> None:

@@ -11,7 +11,7 @@ from app.core.errors import TaskError
 from app.core.host import HOST
 
 LOCAL = "local"
-REMOTE = "remoto"
+REMOTE = "remote"
 SCOPES = (LOCAL, REMOTE)
 
 # El primer numero suelto de una version de Postgres es el mayor, tanto en lo que
@@ -110,19 +110,21 @@ def connect(ctx: TaskContext, scope: str = LOCAL) -> Connection:
     ctx.guard(password)
 
     if scope == LOCAL:
-        puerto = local_port()
-        url = build_url(user=user, password=password, host="127.0.0.1", port=puerto, name=name)
+        resolved_port = local_port()
+        url = build_url(
+            user=user, password=password, host="127.0.0.1", port=resolved_port, name=name
+        )
         ctx.info(f"Base de datos LOCAL: {mask_url(url)}")
-        return Connection(url, LOCAL, port=puerto)
+        return Connection(url, LOCAL, port=resolved_port)
 
     remote = ssh.resolve_remote(ctx.config)
-    remoto = vps.postgres_port(remote)
-    local = ports.resolve_port(remoto, label="puerto del tunel")
+    ssh_remote = vps.postgres_port(remote)
+    local = ports.resolve_port(ssh_remote, label="puerto del tunel")
 
     ctx.warn(f"Base de datos REMOTA del VPS: los cambios afectan a {remote.host}.")
-    tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=remoto)
+    tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=ssh_remote)
     ctx.hold_tunnel(tunnel)
-    ctx.info(f"Tunel SSH abierto: {tunnel.endpoint} -> {remote.host}:{remoto}")
+    ctx.info(f"Tunel SSH abierto: {tunnel.endpoint} -> {remote.host}:{ssh_remote}")
 
     url = build_url(user=user, password=password, host="127.0.0.1", port=local, name=name)
     return Connection(url, REMOTE, tunnel, port=local)
@@ -186,7 +188,7 @@ class Admin:
         flags = ["-tA"] if tuples else []
         if self.is_remote:
             assert self.remote is not None
-            remoto = " ".join(
+            ssh_remote = " ".join(
                 [
                     "sudo -n -u postgres psql -v ON_ERROR_STOP=1 -X -q",
                     *flags,
@@ -196,17 +198,17 @@ class Admin:
                     ssh.quote(sql),
                 ]
             )
-            return self.remote.argv(remoto)
+            return self.remote.argv(ssh_remote)
         return [*self.argv, "-v", "ON_ERROR_STOP=1", "-X", "-q", *flags, "-d", database, "-c", sql]
 
     def execute(self, ctx: TaskContext, sql: str, *, database: str = "postgres") -> None:
         ctx.run(self._command(database, sql), env=self.env or None, cwd=None)
 
     def query(self, ctx: TaskContext, sql: str, *, database: str = "postgres") -> list[str]:
-        salida = ctx.capture(
+        output = ctx.capture(
             self._command(database, sql, tuples=True), env=self.env or None, cwd=None
         )
-        return [line.strip() for line in salida.splitlines() if line.strip()]
+        return [line.strip() for line in output.splitlines() if line.strip()]
 
 
 def pg_tool(name: str) -> Path:

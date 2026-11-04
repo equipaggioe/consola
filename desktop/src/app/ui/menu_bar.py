@@ -150,13 +150,13 @@ class ActionMenuBar(QMenuBar):
             menu = self._add_menu(group)
             menu.setToolTipsVisible(True)
             blocks: list[tuple[QAction | None, list[str]]] = []
-            destructivas = False
+            destructive = False
             for cap in capabilities:
-                primera_destructiva = cap.kind == "destructive" and not destructivas
-                destructivas = destructivas or primera_destructiva
+                first_destructive = cap.kind == "destructive" and not destructive
+                destructive = destructive or first_destructive
                 if not blocks:
                     blocks.append((None, []))
-                elif cap.cut or primera_destructiva:
+                elif cap.cut or first_destructive:
                     blocks.append((menu.addSeparator(), []))
                 menu.addAction(self._make_action(menu, cap))
                 blocks[-1][1].append(cap.id)
@@ -177,10 +177,10 @@ class ActionMenuBar(QMenuBar):
 
     def _build_view_menu(self) -> None:
         menu = self._add_menu("Ver")
-        buscar = QAction("Buscar acciones", self)
-        buscar.setShortcut(QKeySequence("Ctrl+L"))
-        buscar.triggered.connect(self.focus_search_requested.emit)
-        menu.addAction(buscar)
+        search = QAction("Buscar acciones", self)
+        search.setShortcut(QKeySequence("Ctrl+L"))
+        search.triggered.connect(self.focus_search_requested.emit)
+        menu.addAction(search)
 
     def _build_help_menu(self) -> None:
         """Solo la leyenda del marcador."""
@@ -235,20 +235,20 @@ class ActionMenuBar(QMenuBar):
         este repo y —si el interruptor esta puesto— lo que no esta marcado.
         """
         for menu in self._group_menus:
-            vivos = 0
+            alive = 0
             for separator, cap_ids in self._blocks[menu]:
-                visibles = 0
+                visible = 0
                 for cap_id in cap_ids:
-                    ver = (self._applicable is None or cap_id in self._applicable) and (
+                    see = (self._applicable is None or cap_id in self._applicable) and (
                         not self._only_favorites or cap_id in self._favorites
                     )
-                    self._actions[cap_id].setVisible(ver)
-                    visibles += int(ver)
+                    self._actions[cap_id].setVisible(see)
+                    visible += int(see)
                 # Una raya solo separa si quedo algo de los dos lados.
                 if separator is not None:
-                    separator.setVisible(visibles > 0 and vivos > 0)
-                vivos += visibles
-            menu.menuAction().setVisible(vivos > 0)
+                    separator.setVisible(visible > 0 and alive > 0)
+                alive += visible
+            menu.menuAction().setVisible(alive > 0)
 
 
 def _tooltip(cap: Capability) -> str:

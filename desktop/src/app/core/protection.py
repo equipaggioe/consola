@@ -75,7 +75,7 @@ TARGETS: tuple[Target, ...] = (
         "los datos borrados no vuelven sin un backup",
     ),
     Target(
-        "otros_repos",
+        "other_repos",
         "otros repositorios",
         "otros repos",
         "Proteger otros repos",
@@ -130,16 +130,16 @@ RULES: dict[str, Rule] = {
     "revoke_ssh": Rule(always=("vps",)),
     # `local` no sale de esta maquina; `remoto` alcanza al servidor. El mismo
     # boton, dos radios de dano distintos.
-    "teardown_db": Rule(always=("db",), when={"scope": {"remoto": ("vps",)}}),
-    "rebuild_db": Rule(always=("db",), when={"scope": {"remoto": ("vps",)}}),
+    "teardown_db": Rule(always=("db",), when={"scope": {"remote": ("vps",)}}),
+    "rebuild_db": Rule(always=("db",), when={"scope": {"remote": ("vps",)}}),
     # Pisa la base local entera con lo que traiga el dump. No lleva confirmacion
     # escrita propia: el seguro por repo ya la cubre (ADR-0047).
     "restore_db": Rule(always=("db",)),
     # Toca dos objetivos: vacia el esquema de la base que diga `scope` y borra
     # los archivos de `alembic/versions/` del repo abierto.
-    "reinit_migrations": Rule(always=("db", "local"), when={"scope": {"remoto": ("vps",)}}),
-    "clean_artifacts": Rule(always=("local",), dry_run={"apply": ("simulacro",)}),
-    "sync_common_files": Rule(always=("otros_repos",), dry_run={"apply": ("simulacro",)}),
+    "reinit_migrations": Rule(always=("db", "local"), when={"scope": {"remote": ("vps",)}}),
+    "clean_artifacts": Rule(always=("local",), dry_run={"apply": ("dry_run",)}),
+    "sync_common_files": Rule(always=("other_repos",), dry_run={"apply": ("dry_run",)}),
     # `push` reescribe origin y no deja distinta esta maquina; `reset` descarta
     # commits y archivos de esta maquina.
     "git_force_push": Rule(always=("origin",)),
@@ -162,23 +162,23 @@ def targets_of(capability_id: str, payload: dict[str, Any] | None = None) -> lis
         return []
     payload = payload or {}
 
-    for axis, inocuos in rule.dry_run.items():
-        if _chosen(payload, axis) & set(inocuos):
+    for axis, harmless in rule.dry_run.items():
+        if _chosen(payload, axis) & set(harmless):
             return []  # un simulacro no destruye: no se pregunta nada
 
     ids = list(rule.always)
-    for axis, mapa in rule.when.items():
+    for axis, mapping in rule.when.items():
         for value in _chosen(payload, axis):
-            ids.extend(mapa.get(value, ()))
+            ids.extend(mapping.get(value, ()))
 
-    vistos: set[str] = set()
-    salida: list[Target] = []
+    seen: set[str] = set()
+    output: list[Target] = []
     for tid in ids:
         target = _BY_ID.get(tid)
-        if target is not None and tid not in vistos:
-            vistos.add(tid)
-            salida.append(target)
-    return salida
+        if target is not None and tid not in seen:
+            seen.add(tid)
+            output.append(target)
+    return output
 
 
 def defaults() -> dict[str, Any]:
@@ -193,11 +193,11 @@ def state_from(stored: dict[str, Any] | None) -> dict[str, Any]:
     `local`—: agregar un objetivo nuevo no puede dejar desprotegidos a los
     repos que ya existen.
     """
-    estado = defaults()
-    for tid, valor in (stored or {}).items():
+    state = defaults()
+    for tid, value in (stored or {}).items():
         if tid in _BY_ID:
-            estado[tid] = bool(valor)
-    return estado
+            state[tid] = bool(value)
+    return state
 
 
 class Decision:
@@ -223,13 +223,13 @@ def decide(
 
     `state` es lo que devuelve `state_from`: `{target_id: bool}`.
     """
-    objetivos = targets_of(capability_id, payload)
-    if not objetivos:
+    targets = targets_of(capability_id, payload)
+    if not targets:
         return Decision.ALLOW, []
-    bloqueados = [t for t in objetivos if is_protected(state, t)]
-    if bloqueados:
-        return Decision.BLOCK, bloqueados
-    return Decision.REMIND, objetivos
+    blocked = [t for t in targets if is_protected(state, t)]
+    if blocked:
+        return Decision.BLOCK, blocked
+    return Decision.REMIND, targets
 
 
 def is_protected(state: dict[str, Any], target: Target) -> bool:

@@ -137,13 +137,13 @@ class AxisDef:
 
     def facet_of(self, value: str, facet: Facet) -> str:
         """Que dice esta caracteristica en este valor."""
-        partes = value.split(self.facet_sep)
-        return partes[facet.part] if facet.part < len(partes) else ""
+        parts = value.split(self.facet_sep)
+        return parts[facet.part] if facet.part < len(parts) else ""
 
     def _upstream(self, name: str) -> list[Facet]:
         """Las caracteristicas declaradas ANTES que esta."""
-        nombres = [f.name for f in self.facets]
-        return list(self.facets[: nombres.index(name)]) if name in nombres else []
+        names = [f.name for f in self.facets]
+        return list(self.facets[: names.index(name)]) if name in names else []
 
     def facet_values(self, facet: Facet, chosen: dict[str, str]) -> list[str]:
         """Lo que esta caracteristica puede tomar dado lo elegido mas arriba.
@@ -162,17 +162,17 @@ class AxisDef:
         El orden de las opciones es el de `values`, que ya viene ordenado por
         lo que se elige casi siempre: la primera es la buena por defecto.
         """
-        salida: list[str] = []
-        arriba = self._upstream(facet.name)
+        output: list[str] = []
+        above = self._upstream(facet.name)
         for value in self.values:
             if any(
-                chosen.get(f.name) and self.facet_of(value, f) != chosen[f.name] for f in arriba
+                chosen.get(f.name) and self.facet_of(value, f) != chosen[f.name] for f in above
             ):
                 continue
-            parte = self.facet_of(value, facet)
-            if parte and parte not in salida:
-                salida.append(parte)
-        return salida
+            part = self.facet_of(value, facet)
+            if part and part not in output:
+                output.append(part)
+        return output
 
     def resolve_facets(self, chosen: dict[str, str]) -> dict[str, str]:
         """Lo elegido en cada caracteristica, corregido para que exista.
@@ -183,14 +183,14 @@ class AxisDef:
         de arriba no se tocan nunca, que es lo que hace predecible la cascada:
         lo que uno acaba de elegir no se mueve solo.
         """
-        resuelto: dict[str, str] = {}
+        resolved: dict[str, str] = {}
         for facet in self.facets:
-            opciones = self.facet_values(facet, resuelto)
-            actual = chosen.get(facet.name, "")
-            resuelto[facet.name] = (
-                actual if actual in opciones else (opciones[0] if opciones else "")
+            options = self.facet_values(facet, resolved)
+            current = chosen.get(facet.name, "")
+            resolved[facet.name] = (
+                current if current in options else (options[0] if options else "")
             )
-        return resuelto
+        return resolved
 
     def value_for(self, chosen: dict[str, str]) -> str:
         """El valor del catalogo que cumple con todas las caracteristicas."""
@@ -214,10 +214,10 @@ class AxisDef:
     @property
     def initial(self) -> str:
         """El valor excluyente que arranca marcado."""
-        opciones = self.exclusive_values
-        if self.default in opciones:
+        options = self.exclusive_values
+        if self.default in options:
             return self.default
-        return opciones[0] if opciones else ""
+        return options[0] if options else ""
 
     @property
     def is_multi(self) -> bool:
@@ -426,9 +426,9 @@ class Capability:
         botones encadena este boton, no casillas con un booleano detras. Quien
         quiere una casilla por paso declara `steps=`.
         """
-        marcados = set(payload.get("steps") or ())
+        checked = set(payload.get("steps") or ())
         kwargs = {axis.name: self._axis_value(axis, payload) for axis in self.axes}
-        kwargs.update({step.id: step.id in marcados for step in self.steps})
+        kwargs.update({step.id: step.id in checked for step in self.steps})
         return kwargs
 
     def _axis_value(self, axis: AxisDef, payload: dict[str, Any]) -> Any:
@@ -442,41 +442,41 @@ class Capability:
         if axis.expand == "field":
             # Vacio es una eleccion valida: quien borro el campo pide el valor
             # por defecto de la funcion, no el del catalogo.
-            escrito = (payload.get("fields") or {}).get(axis.name, "")
+            written = (payload.get("fields") or {}).get(axis.name, "")
             # Una caja de varios renglones ES una lista: un valor por linea. Lo
             # que la separa es el salto de linea, no una coma que despues haya
             # que explicar al costado del campo.
             if axis.multiline:
-                return [ln.strip() for ln in escrito.splitlines() if ln.strip()]
+                return [ln.strip() for ln in written.splitlines() if ln.strip()]
             if axis.cast == "int":
                 # Un campo vacio pide el default declarado, igual que arriba:
                 # borrar el puerto es "el de siempre", no "el puerto cero".
-                texto = escrito.strip()
-                return int(texto) if texto.lstrip("-").isdigit() else int(axis.values[0] or 0)
-            return escrito
+                text = written.strip()
+                return int(text) if text.lstrip("-").isdigit() else int(axis.values[0] or 0)
+            return written
         if axis.expand == "pick":
             return (payload.get("picks") or {}).get(axis.name, "")
         if axis.is_multi:
-            marcados = list((payload.get("variants") or {}).get(axis.name) or ())
+            checked = list((payload.get("variants") or {}).get(axis.name) or ())
             # El eje de `fanout` ya viene repartido: `TabPanel._run_fanout` abre
             # una pestana por valor, asi que aca llega uno solo, no la lista.
             if axis.name and axis.name == self.fanout:
-                return marcados[0] if marcados else ""
-            return marcados
-        crudo = (payload.get("options") or {}).get(axis.name)
+                return checked[0] if checked else ""
+            return checked
+        raw = (payload.get("options") or {}).get(axis.name)
         if axis.combine:
             # Un eje con `combine` puede traer dos marcas (`['patch', 'build']`).
             # El orden de la cadena lo fija el catalogo, no el orden en que el
             # panel las devolvio: primero el excluyente, despues los combinados.
-            marcados = [crudo] if isinstance(crudo, str) else list(crudo or ())
-            base = next((v for v in marcados if v not in axis.combine), axis.initial)
-            extra = [v for v in axis.values if v in axis.combine and v in marcados]
+            checked = [raw] if isinstance(raw, str) else list(raw or ())
+            base = next((v for v in checked if v not in axis.combine), axis.initial)
+            extra = [v for v in axis.values if v in axis.combine and v in checked]
             return axis.join.join([base, *extra]) if axis.join else base
         # Ausente o vacio = el eje no se dibujo (un preset guardado antes de que
         # existiera, o un repo con un solo valor que descubrir): vale el default
         # declarado, que es lo que el panel habria mostrado.
-        valor = crudo or axis.initial
-        return valor == axis.truthy if axis.truthy else valor
+        value = raw or axis.initial
+        return value == axis.truthy if axis.truthy else value
 
     def applies_to(self, features: Collection[str]) -> bool:
         """Si este boton tiene sentido en un repo con esas caracteristicas."""

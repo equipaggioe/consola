@@ -55,8 +55,8 @@ class Shot:
 
 def resolve_dir(root: Path, value: str) -> Path:
     """Una carpeta de la configuracion: relativa cuelga del repo, absoluta va tal cual."""
-    declarada = Path(value)
-    return declarada if declarada.is_absolute() else root / declarada
+    declared = Path(value)
+    return declared if declared.is_absolute() else root / declared
 
 
 def camera_args(
@@ -91,40 +91,40 @@ def parse_supported(text: str) -> dict[str, dict[str, Any]]:
     ahi, porque una camara escrita sin el kit tambien puede contestar.
     """
     try:
-        declarado = json.loads(text)
+        declared = json.loads(text)
     except json.JSONDecodeError as exc:
         raise TaskError(f"La cámara no contestó JSON a --supported: {text[:200]!r}") from exc
-    if not isinstance(declarado, dict) or not declarado:
+    if not isinstance(declared, dict) or not declared:
         raise TaskError("La cámara no declara ninguna app.")
-    for app, spec in declarado.items():
-        temas = spec.get("themes") if isinstance(spec, dict) else None
-        idiomas = spec.get("languages") if isinstance(spec, dict) else None
+    for app, spec in declared.items():
+        themes = spec.get("themes") if isinstance(spec, dict) else None
+        languages = spec.get("languages") if isinstance(spec, dict) else None
         if (
-            not temas
-            or not isinstance(temas, list)
-            or not idiomas
-            or not isinstance(idiomas, list)
+            not themes
+            or not isinstance(themes, list)
+            or not languages
+            or not isinstance(languages, list)
         ):
             raise TaskError(f"La cámara declara {app} sin temas o sin idiomas.")
-        ajenos = [t for t in temas if t not in THEMES]
-        if ajenos:
+        foreign = [t for t in themes if t not in THEMES]
+        if foreign:
             raise TaskError(
-                f"La cámara declara para {app} temas fuera del contrato: {', '.join(ajenos)}."
+                f"La cámara declara para {app} temas fuera del contrato: {', '.join(foreign)}."
             )
-    return declarado
+    return declared
 
 
-def supported_values(declarado: dict[str, dict[str, Any]], axis: str) -> list[str]:
+def supported_values(declared: dict[str, dict[str, Any]], axis: str) -> list[str]:
     """Los valores de un eje de la camara: sus apps, o todos los temas o idiomas
     que tiene alguna. Los temas en el orden del contrato; lo demas, como lo
     escribio la camara.
     """
     if axis == "apps":
-        return list(declarado)
-    vistos = [v for spec in declarado.values() for v in spec[axis]]
+        return list(declared)
+    seen = [v for spec in declared.values() for v in spec[axis]]
     if axis == "themes":
-        return [t for t in THEMES if t in vistos]
-    return list(dict.fromkeys(vistos))
+        return [t for t in THEMES if t in seen]
+    return list(dict.fromkeys(seen))
 
 
 def clear_raw(
@@ -136,14 +136,14 @@ def clear_raw(
     carpeta y el revelado la publicaria como si fuera nueva. Solo se tocan las
     combinaciones pedidas: sacar el ingles no borra el espanol.
     """
-    borrados = 0
+    deleted = 0
     for app in apps:
         for theme in themes:
             for language in languages:
-                for viejo in (raw / app).glob(f"*.{theme}.{language}.png"):
-                    viejo.unlink()
-                    borrados += 1
-    return borrados
+                for old in (raw / app).glob(f"*.{theme}.{language}.png"):
+                    old.unlink()
+                    deleted += 1
+    return deleted
 
 
 def collect(root: Path, raw: Path, apps: Iterable[str] | None = None) -> list[Shot]:
@@ -155,38 +155,36 @@ def collect(root: Path, raw: Path, apps: Iterable[str] | None = None) -> list[Sh
     """
     if not raw.is_dir():
         raise TaskError(f"No existe la carpeta de capturas crudas: {raw}")
-    tipos = {t.name: t.kind for t in targets.by_kinds(root, SHOT_KINDS)}
-    carpetas = (
+    kinds = {t.name: t.kind for t in targets.by_kinds(root, SHOT_KINDS)}
+    folders = (
         [raw / a for a in apps]
         if apps is not None
         else sorted(p for p in raw.iterdir() if p.is_dir())
     )
 
     shots: list[Shot] = []
-    for carpeta in carpetas:
-        if carpeta.name not in tipos:
+    for folder in folders:
+        if folder.name not in kinds:
             raise TaskError(
-                f"{carpeta} no corresponde a ninguna app del repo "
-                f"({', '.join(sorted(tipos)) or 'no hay ninguna'})."
+                f"{folder} no corresponde a ninguna app del repo "
+                f"({', '.join(sorted(kinds)) or 'no hay ninguna'})."
             )
-        if not carpeta.is_dir():
+        if not folder.is_dir():
             continue
-        for archivo in sorted(carpeta.iterdir()):
-            nombre = _RAW_NAME.match(archivo.name)
-            if not archivo.is_file() or nombre is None:
-                raise TaskError(f"{archivo} no sigue el nombre <pantalla>.<tema>.<idioma>.png.")
-            if nombre["theme"] not in THEMES:
-                raise TaskError(
-                    f'{archivo}: el tema "{nombre["theme"]}" no es {" ni ".join(THEMES)}.'
-                )
+        for file in sorted(folder.iterdir()):
+            name = _RAW_NAME.match(file.name)
+            if not file.is_file() or name is None:
+                raise TaskError(f"{file} no sigue el nombre <pantalla>.<tema>.<idioma>.png.")
+            if name["theme"] not in THEMES:
+                raise TaskError(f'{file}: el tema "{name["theme"]}" no es {" ni ".join(THEMES)}.')
             shots.append(
                 Shot(
-                    app=carpeta.name,
-                    kind=tipos[carpeta.name],
-                    screen=nombre["screen"],
-                    theme=nombre["theme"],
-                    language=nombre["language"],
-                    path=archivo,
+                    app=folder.name,
+                    kind=kinds[folder.name],
+                    screen=name["screen"],
+                    theme=name["theme"],
+                    language=name["language"],
+                    path=file,
                 )
             )
     return shots
@@ -196,13 +194,13 @@ def missing_combinations(
     shots: list[Shot], apps: Iterable[str], themes: Iterable[str], languages: Iterable[str]
 ) -> list[str]:
     """Las combinaciones pedidas para las que la camara no dejo ninguna captura."""
-    hechas = {(s.app, s.theme, s.language) for s in shots}
+    done = {(s.app, s.theme, s.language) for s in shots}
     return [
         f"{a} · {t} · {l}"
         for a in apps
         for t in themes
         for l in languages
-        if (a, t, l) not in hechas
+        if (a, t, l) not in done
     ]
 
 
@@ -218,20 +216,20 @@ def render_landing(shot: Shot, preset: dict[str, Any], out_dir: Path) -> "Derive
     """
     from PIL import Image
 
-    anchos = preset["max_width"]
-    if shot.kind not in anchos:
+    widths = preset["max_width"]
+    if shot.kind not in widths:
         raise TaskError(
             f"El preset de la landing no tiene ancho para {shot.kind} ({PRESETS_FILE.name})."
         )
-    destino = out_dir / shot.app / f"{shot.stem}.webp"
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    with Image.open(shot.path) as imagen:
-        tope = anchos[shot.kind]
-        if imagen.width > tope:
-            alto = round(imagen.height * tope / imagen.width)
-            imagen = imagen.resize((tope, alto), Image.Resampling.LANCZOS)
-        imagen.save(destino, "WEBP", quality=preset["quality"])
-        return Derived(shot, "landing", destino, imagen.width, imagen.height)
+    target = out_dir / shot.app / f"{shot.stem}.webp"
+    target.parent.mkdir(parents=True, exist_ok=True)
+    with Image.open(shot.path) as image:
+        cap = widths[shot.kind]
+        if image.width > cap:
+            height = round(image.height * cap / image.width)
+            image = image.resize((cap, height), Image.Resampling.LANCZOS)
+        image.save(target, "WEBP", quality=preset["quality"])
+        return Derived(shot, "landing", target, image.width, image.height)
 
 
 @dataclass(frozen=True)
@@ -248,12 +246,12 @@ class Derived:
 
 def aspect_crop(width: int, height: int, target_w: int, target_h: int) -> float:
     """La fraccion de la imagen que se pierde al llevarla a la proporcion destino."""
-    actual, destino = width / height, target_w / target_h
-    return 1 - min(actual, destino) / max(actual, destino)
+    current, target = width / height, target_w / target_h
+    return 1 - min(current, target) / max(current, target)
 
 
 def plan(
-    destination: str, preset: dict[str, Any], crudos: list[Shot]
+    destination: str, preset: dict[str, Any], raws: list[Shot]
 ) -> list[tuple[Shot, dict[str, Any] | None]]:
     """Los pares (crudo, medida) que produce un destino; `None` es la medida nativa.
 
@@ -269,58 +267,58 @@ def plan(
     """
     from PIL import Image
 
-    tipos = preset.get("kinds")
-    propios = [s for s in crudos if not tipos or s.kind in tipos]
-    if not propios:
+    kinds = preset.get("kinds")
+    own = [s for s in raws if not kinds or s.kind in kinds]
+    if not own:
         raise TaskError(
             f"{destination}: ninguna captura es de un tipo que le sirva "
-            f"({', '.join(tipos or ())})."
+            f"({', '.join(kinds or ())})."
         )
     if "sizes" not in preset and "limits" not in preset:
-        return [(s, None) for s in propios]
+        return [(s, None) for s in own]
 
-    pares: list[tuple[Shot, dict[str, Any] | None]] = []
-    fuera: list[str] = []
-    for shot in propios:
-        with Image.open(shot.path) as imagen:
-            ancho, alto = imagen.size
+    pairs: list[tuple[Shot, dict[str, Any] | None]] = []
+    outside: list[str] = []
+    for shot in own:
+        with Image.open(shot.path) as image:
+            width, height = image.size
         if "limits" in preset:
-            falla = _outside_limits(ancho, alto, preset["limits"])
-            if falla:
-                fuera.append(f"{shot.app}/{shot.stem} ({ancho}×{alto}): {falla}")
+            fails = _outside_limits(width, height, preset["limits"])
+            if fails:
+                outside.append(f"{shot.app}/{shot.stem} ({width}×{height}): {fails}")
             else:
-                pares.append((shot, None))
+                pairs.append((shot, None))
             continue
-        caben = [
+        fit = [
             m
             for m in preset["sizes"]
             if (not m.get("kinds") or shot.kind in m["kinds"])
-            and aspect_crop(ancho, alto, m["width"], m["height"]) <= preset["max_crop"]
+            and aspect_crop(width, height, m["width"], m["height"]) <= preset["max_crop"]
         ]
-        if not caben:
-            medidas = ", ".join(f"{m['width']}×{m['height']}" for m in preset["sizes"])
-            fuera.append(
-                f"{shot.app}/{shot.stem} ({ancho}×{alto}) no llega a {medidas} "
+        if not fit:
+            sizes = ", ".join(f"{m['width']}×{m['height']}" for m in preset["sizes"])
+            outside.append(
+                f"{shot.app}/{shot.stem} ({width}×{height}) no llega a {sizes} "
                 f"recortando como mucho {preset['max_crop']:.0%}"
             )
-        pares.extend((shot, m) for m in caben)
-    if fuera:
+        pairs.extend((shot, m) for m in fit)
+    if outside:
         raise TaskError(
             f"{destination}: capturas que no sirven tal como se sacaron. "
             "Sácalas con un dispositivo de otra proporción o desmarca el "
-            "destino.\n  " + "\n  ".join(fuera)
+            "destino.\n  " + "\n  ".join(outside)
         )
-    return pares
+    return pairs
 
 
-def _outside_limits(ancho: int, alto: int, limits: dict[str, Any]) -> str:
-    corto, largo = sorted((ancho, alto))
-    if corto < limits["min_side"]:
+def _outside_limits(width: int, height: int, limits: dict[str, Any]) -> str:
+    short, length = sorted((width, height))
+    if short < limits["min_side"]:
         return f"el lado corto es menor que {limits['min_side']} px"
-    if largo > limits["max_side"]:
+    if length > limits["max_side"]:
         return f"el lado largo pasa de {limits['max_side']} px"
-    if largo > corto * limits["max_ratio"]:
-        return f"la proporción {largo / corto:.2f}:1 pasa de {limits['max_ratio']}:1"
+    if length > short * limits["max_ratio"]:
+        return f"la proporción {length / short:.2f}:1 pasa de {limits['max_ratio']}:1"
     return ""
 
 
@@ -336,45 +334,43 @@ def render_sized(
     from PIL import Image
 
     with Image.open(shot.path) as original:
-        imagen = original.convert("RGB")
+        image = original.convert("RGB")
     if size is None:
-        nombre = f"{shot.screen}.{shot.theme}.png"
+        name = f"{shot.screen}.{shot.theme}.png"
     else:
-        ancho, alto = size["width"], size["height"]
-        escala = max(ancho / imagen.width, alto / imagen.height)
-        imagen = imagen.resize(
-            (max(ancho, round(imagen.width * escala)), max(alto, round(imagen.height * escala))),
+        width, height = size["width"], size["height"]
+        scale = max(width / image.width, height / image.height)
+        image = image.resize(
+            (max(width, round(image.width * scale)), max(height, round(image.height * scale))),
             Image.Resampling.LANCZOS,
         )
-        izquierda = (imagen.width - ancho) // 2
-        arriba = (imagen.height - alto) // 2
-        imagen = imagen.crop((izquierda, arriba, izquierda + ancho, arriba + alto))
-        nombre = f"{shot.screen}.{shot.theme}.{size['name']}.png"
+        left = (image.width - width) // 2
+        above = (image.height - height) // 2
+        image = image.crop((left, above, left + width, above + height))
+        name = f"{shot.screen}.{shot.theme}.{size['name']}.png"
     # Las tiendas agrupan por idioma: una tanda por carpeta de idioma.
-    destino = out_dir / shot.language / shot.app / nombre
-    destino.parent.mkdir(parents=True, exist_ok=True)
-    imagen.save(destino, "PNG", optimize=True)
-    return Derived(shot, destination, destino, imagen.width, imagen.height)
+    target = out_dir / shot.language / shot.app / name
+    target.parent.mkdir(parents=True, exist_ok=True)
+    image.save(target, "PNG", optimize=True)
+    return Derived(shot, destination, target, image.width, image.height)
 
 
-def render_archive(crudos: list[Shot], out_dir: Path, destination: str) -> list[Derived]:
+def render_archive(raws: list[Shot], out_dir: Path, destination: str) -> list[Derived]:
     """Los crudos, tal cual y sin comprimir, en un ZIP (press kit)."""
     from PIL import Image
 
-    archivo = out_dir / "capturas.zip"
-    archivo.parent.mkdir(parents=True, exist_ok=True)
-    derivados = []
-    with zipfile.ZipFile(archivo, "w", zipfile.ZIP_STORED) as zip_:
-        for shot in crudos:
-            miembro = f"{shot.app}/{shot.stem}.png"
-            zip_.write(shot.path, miembro)
-            with Image.open(shot.path) as imagen:
-                derivados.append(
-                    Derived(
-                        shot, destination, archivo, imagen.width, imagen.height, archive=miembro
-                    )
+    file = out_dir / "capturas.zip"
+    file.parent.mkdir(parents=True, exist_ok=True)
+    derived = []
+    with zipfile.ZipFile(file, "w", zipfile.ZIP_STORED) as zip_:
+        for shot in raws:
+            member = f"{shot.app}/{shot.stem}.png"
+            zip_.write(shot.path, member)
+            with Image.open(shot.path) as image:
+                derived.append(
+                    Derived(shot, destination, file, image.width, image.height, archive=member)
                 )
-    return derivados
+    return derived
 
 
 @dataclass(frozen=True)
@@ -386,7 +382,7 @@ class Changes:
     removed: list[str]
 
 
-def write_manifest(out_dir: Path, destination: str, derivados: list[Derived]) -> Changes:
+def write_manifest(out_dir: Path, destination: str, derived: list[Derived]) -> Changes:
     """Escribe `capturas.json` del destino y dice que cambio respecto del anterior.
 
     Es lo que la landing y el manual indexan en vez de escribir rutas a mano.
@@ -394,7 +390,7 @@ def write_manifest(out_dir: Path, destination: str, derivados: list[Derived]) ->
     el hash de cada entrada con el de la corrida anterior es la regresion visual.
     """
     items = []
-    for d in derivados:
+    for d in derived:
         item = {
             "app": d.shot.app,
             "screen": d.shot.screen,
@@ -412,22 +408,22 @@ def write_manifest(out_dir: Path, destination: str, derivados: list[Derived]) ->
         items.append(item)
     items.sort(key=lambda i: (i["app"], i["screen"], i["theme"], i["language"], i["file"]))
 
-    salida = out_dir / MANIFEST
-    antes = (
-        {_entry(i): i["sha256"] for i in json.loads(salida.read_text(encoding="utf-8"))["items"]}
-        if salida.is_file()
+    output = out_dir / MANIFEST
+    before = (
+        {_entry(i): i["sha256"] for i in json.loads(output.read_text(encoding="utf-8"))["items"]}
+        if output.is_file()
         else {}
     )
-    ahora = {_entry(i): i["sha256"] for i in items}
-    salida.write_text(
+    now = {_entry(i): i["sha256"] for i in items}
+    output.write_text(
         json.dumps({"destination": destination, "items": items}, indent=2, ensure_ascii=False)
         + "\n",
         encoding="utf-8",
     )
     return Changes(
-        changed=sorted(k for k in ahora.keys() & antes.keys() if ahora[k] != antes[k]),
-        added=sorted(ahora.keys() - antes.keys()),
-        removed=sorted(antes.keys() - ahora.keys()),
+        changed=sorted(k for k in now.keys() & before.keys() if now[k] != before[k]),
+        added=sorted(now.keys() - before.keys()),
+        removed=sorted(before.keys() - now.keys()),
     )
 
 

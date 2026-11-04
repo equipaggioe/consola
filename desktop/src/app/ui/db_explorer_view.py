@@ -135,21 +135,21 @@ class RowsModel(QAbstractTableModel):
             return None
         col = self.detail.columns[section]
         if role == Qt.ItemDataRole.DisplayRole:
-            marca = "🔑 " if col.pk else ("↗ " if col.fk else "")
-            orden = ""
+            mark = "🔑 " if col.pk else ("↗ " if col.fk else "")
+            order = ""
             if col.name == self.order_by:
-                orden = "  ▼" if self.descending else "  ▲"
-            return f"{marca}{col.name}{orden}"
+                order = "  ▼" if self.descending else "  ▲"
+            return f"{mark}{col.name}{order}"
         if role == Qt.ItemDataRole.ToolTipRole:
-            partes = [f"<b>{col.name}</b> · {col.type}"]
+            parts = [f"<b>{col.name}</b> · {col.type}"]
             if col.fk:
-                partes.append(f"→ {col.fk.ref_schema}.{col.fk.ref_table}.{col.fk.ref_columns[0]}")
+                parts.append(f"→ {col.fk.ref_schema}.{col.fk.ref_table}.{col.fk.ref_columns[0]}")
             if col.comment:
-                partes.append(col.comment)
-            partes.append(
+                parts.append(col.comment)
+            parts.append(
                 f"<span style='color:{Colors.TEXT_MUTED};'>Clic para ordenar en el servidor</span>"
             )
-            return "<br>".join(partes)
+            return "<br>".join(parts)
         return None
 
     @override
@@ -483,8 +483,8 @@ class DbExplorerView(QWidget):
                 self._fit_columns()
                 # Una grilla vacia con sus cabeceras parecia una tabla que no
                 # cargo: se dice que no tiene filas.
-                filtro = " con este filtro" if self._trail and self._trail[-1][1] else ""
-                self._show_status("" if payload.rows else f"La tabla no tiene filas{filtro}.")
+                criteria = " con este filtro" if self._trail and self._trail[-1][1] else ""
+                self._show_status("" if payload.rows else f"La tabla no tiene filas{criteria}.")
             else:
                 self._show_status("")
         elif kind == "count":
@@ -534,13 +534,13 @@ class DbExplorerView(QWidget):
     def _update_models_label(self) -> None:
         c = self._comparison
         if c is None:
-            texto = self._models_error or "Comparando con los modelos…"
+            text = self._models_error or "Comparando con los modelos…"
             color = Colors.WARNING if self._models_error else Colors.TEXT_MUTED
-            self.models_label.setText(f"<span style='color:{color};'>{_html(texto)}</span>")
+            self.models_label.setText(f"<span style='color:{color};'>{_html(text)}</span>")
             self.models_label.setToolTip(self._models_error)
             return
-        partes = []
-        for status, texto in (
+        parts = []
+        for status, text in (
             (dbm.MISSING, "faltan en la base"),
             (dbm.CHANGED, "difieren"),
             (dbm.UNMODELED, "sin modelo"),
@@ -548,9 +548,9 @@ class DbExplorerView(QWidget):
             n = c.count(status)
             if n:
                 mark, color = _STATUS_MARK[status]
-                partes.append(f"<span style='color:{color};'>{mark}{n} {texto}</span>")
-        if partes:
-            self.models_label.setText(f"{len(c.models)} modelos: " + " · ".join(partes))
+                parts.append(f"<span style='color:{color};'>{mark}{n} {text}</span>")
+        if parts:
+            self.models_label.setText(f"{len(c.models)} modelos: " + " · ".join(parts))
         else:
             self.models_label.setText(
                 f"<span style='color:{Colors.SUCCESS};'>"
@@ -731,12 +731,12 @@ class DbExplorerView(QWidget):
         elif rel.kind in ("v", "m", "f") or rel.extension:
             item.setForeground(0, QColor(Colors.TEXT_DIM))
         if status is not None and status.status == dbm.CHANGED:
-            lineas = [_html(d.text) for d in status.diffs[:12]]
+            lines = [_html(d.text) for d in status.diffs[:12]]
             if len(status.diffs) > 12:
-                lineas.append(f"… y {len(status.diffs) - 12} más")
+                lines.append(f"… y {len(status.diffs) - 12} más")
             tip.append(
                 f"<span style='color:{Colors.WARNING};'>Difiere de su modelo:</span><br>"
-                + "<br>".join(lineas)
+                + "<br>".join(lines)
             )
         elif status is not None and status.status == dbm.UNMODELED:
             tip.append(
@@ -913,17 +913,17 @@ class DbExplorerView(QWidget):
             return
         rel, where = self._trail[-1]
         self.title.setText(rel.qualified)
-        partes = [rel.kind_label]
+        parts = [rel.kind_label]
         if self._exact is not None:
-            filas = "fila" if self._exact == 1 else "filas"
-            partes.append(
-                f"{self._exact:,} {filas}".replace(",", ".") + (" con el filtro" if where else "")
+            rows = "fila" if self._exact == 1 else "filas"
+            parts.append(
+                f"{self._exact:,} {rows}".replace(",", ".") + (" con el filtro" if where else "")
             )
         elif rel.kind != "v":
-            partes.append(f"~{dbx.human_count(rel.estimate)} filas")
+            parts.append(f"~{dbx.human_count(rel.estimate)} filas")
         if rel.kind != "v":
-            partes.append(human_size(rel.size_bytes))
-        self.subtitle.setText("  ·  ".join(partes))
+            parts.append(human_size(rel.size_bytes))
+        self.subtitle.setText("  ·  ".join(parts))
         self.count_btn.setEnabled(self._detail is not None and self._exact is None)
 
     # --- seguir una FK ---------------------------------------------------------------
@@ -959,10 +959,10 @@ class DbExplorerView(QWidget):
                 sep = QLabel("›")
                 sep.setStyleSheet(f"background: transparent; color: {Colors.TEXT_MUTED};")
                 self.trail_row.addWidget(sep)
-            texto = rel.name + "".join(f" {k}={v}" for k, v in where.equals.items())
-            ultimo = i == len(self._trail) - 1
-            crumb = QPushButton(texto if len(texto) <= 60 else texto[:57] + "…")
-            crumb.setEnabled(not ultimo)
+            text = rel.name + "".join(f" {k}={v}" for k, v in where.equals.items())
+            last = i == len(self._trail) - 1
+            crumb = QPushButton(text if len(text) <= 60 else text[:57] + "…")
+            crumb.setEnabled(not last)
             crumb.setCursor(Qt.CursorShape.PointingHandCursor)
             crumb.setStyleSheet(f"""
                 QPushButton {{ background: transparent; border: none; padding: 0 2px;
@@ -1015,11 +1015,9 @@ class DbExplorerView(QWidget):
             )
         col_rows = []
         for col in detail.columns:
-            llave = "🔑 PK" if col.pk else ""
+            key = "🔑 PK" if col.pk else ""
             if col.fk:
-                llave = (
-                    llave + "  " if llave else ""
-                ) + f"↗ {col.fk.ref_table}.{col.fk.ref_columns[0]}"
+                key = (key + "  " if key else "") + f"↗ {col.fk.ref_table}.{col.fk.ref_columns[0]}"
             extra = {"a": "identity always", "d": "identity"}.get(col.identity, "")
             if col.generated:
                 extra = "generada"
@@ -1029,7 +1027,7 @@ class DbExplorerView(QWidget):
                     col.type,
                     "" if col.nullable else "NOT NULL",
                     col.default or extra,
-                    llave,
+                    key,
                     col.comment or "",
                 ]
             )

@@ -180,18 +180,18 @@ class EnvRow(QWidget):
         assert isinstance(self.field, QPlainTextEdit)
         doc = self.field.document()
         doc.setTextWidth(max(1, self.field.viewport().width()))
-        escritos = max(1, int(doc.size().height()))
-        filas = min(max(escritos + 1, LIST_MIN_ROWS), LIST_MAX_ROWS)
+        written = max(1, int(doc.size().height()))
+        rows = min(max(written + 1, LIST_MIN_ROWS), LIST_MAX_ROWS)
         # `frameWidth` de un QPlainTextEdit con hoja de estilos ya incluye el
         # `padding` ademas del borde: sumarlo aparte daba un campo mas alto de
         # los renglones que decia mostrar.
-        alto = (
-            filas * self.field.fontMetrics().lineSpacing()
+        height = (
+            rows * self.field.fontMetrics().lineSpacing()
             + 2 * int(doc.documentMargin())
             + 2 * self.field.frameWidth()
         )
-        if self.field.height() != alto:
-            self.field.setFixedHeight(alto)
+        if self.field.height() != height:
+            self.field.setFixedHeight(height)
 
     def _restyle(self) -> None:
         # Borde mas claro = clave sin valor. Es la misma señal de antes, ahora
@@ -277,11 +277,11 @@ class EnvPanel(QWidget):
         El error no tumba el panel: se muestra arriba del formulario, y las
         claves que hubiera en el archivo siguen bajo «Otras claves».
         """
-        servidor = Path(self.project.path) / envfile.Config.for_project(self.project.path).get(
+        server = Path(self.project.path) / envfile.Config.for_project(self.project.path).get(
             "SERVER_DIR"
         )
         try:
-            return fields.field_settings(servidor), ""
+            return fields.field_settings(server), ""
         except TaskError as error:
             return (), str(error)
 
@@ -399,12 +399,12 @@ class EnvPanel(QWidget):
         font = QFont()
         font.setPixelSize(Fonts.SIZE_XS)
         metrics = QFontMetrics(font)
-        mas_larga = max(
+        longest = max(
             (s.display for group in settings_by_group(self.fields).values() for s in group),
             key=len,
             default="",
         )
-        return metrics.horizontalAdvance(mas_larga) + 12
+        return metrics.horizontalAdvance(longest) + 12
 
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
@@ -425,12 +425,12 @@ class EnvPanel(QWidget):
         label_width = self._label_width()
 
         if self.fields_error:
-            aviso = QLabel(self.fields_error)
-            aviso.setWordWrap(True)
-            aviso.setStyleSheet(
+            notice = QLabel(self.fields_error)
+            notice.setWordWrap(True)
+            notice.setStyleSheet(
                 f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_XS}px;"
             )
-            lay.addWidget(aviso)
+            lay.addWidget(notice)
 
         for group, settings in settings_by_group(self.fields).items():
             block_widget = QWidget()
@@ -494,10 +494,10 @@ class EnvPanel(QWidget):
         ya escrito antes que el default, y lo que se quiere aca es "que
         pasaria si esto quedara vacio", no lo que ya tiene.
         """
-        actuales = self.values()
+        current = self.values()
         for key, row in self.rows.items():
-            sin_esta = {k: v for k, v in actuales.items() if k != key}
-            cfg = envfile.Config(sin_esta, repo_name=envfile.repo_name_of(self.project.path))
+            without_this = {k: v for k, v in current.items() if k != key}
+            cfg = envfile.Config(without_this, repo_name=envfile.repo_name_of(self.project.path))
             row.set_default_display(cfg.get(key))
 
     def _sync_file_bar(self, exists: bool) -> None:

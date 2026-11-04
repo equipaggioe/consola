@@ -133,28 +133,28 @@ class BrowserView(QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setSpacing(10)
 
-        texto = QLabel(
+        text = QLabel(
             "Esta instalación de PySide6 no trae QtWebEngine.\n"
             "Instala «PySide6-Addons» para ver la página aquí dentro."
         )
-        texto.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        texto.setStyleSheet(
+        text.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        text.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;"
         )
 
-        abrir = QPushButton("Abrir en el navegador del sistema")
-        abrir.setCursor(Qt.CursorShape.PointingHandCursor)
-        abrir.setStyleSheet(f"""
+        opener = QPushButton("Abrir en el navegador del sistema")
+        opener.setCursor(Qt.CursorShape.PointingHandCursor)
+        opener.setStyleSheet(f"""
             QPushButton {{
                 background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
                 border: none; border-radius: 6px; padding: 8px 16px;
                 font-size: {Fonts.SIZE_SM}px;
             }}
         """)
-        abrir.clicked.connect(lambda: open_external(self._url))
+        opener.clicked.connect(lambda: open_external(self._url))
 
-        lay.addWidget(texto)
-        lay.addWidget(abrir, 0, Qt.AlignmentFlag.AlignHCenter)
+        lay.addWidget(text)
+        lay.addWidget(opener, 0, Qt.AlignmentFlag.AlignHCenter)
         return box
 
     # --- API -----------------------------------------------------------

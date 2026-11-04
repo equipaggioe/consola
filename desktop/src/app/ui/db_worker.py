@@ -125,9 +125,9 @@ class DbWorker(QThread):
     def _compare(self, conn: Connection) -> db_models.Comparison:
         if self._server_root is None:
             raise TaskError("La pestaña no tiene repo: no hay modelos con qué comparar.")
-        firma = db_models.signature(self._server_root)
-        if self._models is None or self._models[0] != firma:
-            self._models = (firma, db_models.read_models(self._server_root))
+        signature = db_models.signature(self._server_root)
+        if self._models is None or self._models[0] != signature:
+            self._models = (signature, db_models.read_models(self._server_root))
         return db_models.compare(
             db_explorer.list_relations(conn), db_explorer.all_columns(conn), self._models[1]
         )
@@ -145,8 +145,8 @@ def _message(exc: Exception) -> str:
     if "permission denied" in lowered:
         return f"Sin permiso para el rol de la app: {first}"
     if "canceling statement due to statement timeout" in lowered:
-        segundos = db_explorer.STATEMENT_TIMEOUT_MS // 1000
-        return f"La consulta tardó más de {segundos} s y se canceló."
+        seconds = db_explorer.STATEMENT_TIMEOUT_MS // 1000
+        return f"La consulta tardó más de {seconds} s y se canceló."
     return first
 
 

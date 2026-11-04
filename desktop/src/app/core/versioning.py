@@ -26,14 +26,14 @@ MANIFEST_NAMES = ("pubspec.yaml", "package.json", "pyproject.toml")
 
 def _parse_mode(mode: str) -> tuple[str, bool]:
     """`'patch+build'` -> `('patch', True)`. `'build'` -> `('none', True)`."""
-    piezas = [p for p in (mode or "patch").strip().lower().split("+") if p]
-    if not piezas:
-        piezas = ["patch"]
-    base = piezas[0]
-    con_build = base == "build" or "build" in piezas[1:]
+    pieces = [p for p in (mode or "patch").strip().lower().split("+") if p]
+    if not pieces:
+        pieces = ["patch"]
+    base = pieces[0]
+    con_build = base == "build" or "build" in pieces[1:]
     if base == "build":
         base = "none"
-    if base not in SEMVER_PARTS or any(p not in ("build",) for p in piezas[1:]):
+    if base not in SEMVER_PARTS or any(p not in ("build",) for p in pieces[1:]):
         raise TaskError(
             f"Modo de bump invalido: {mode!r}. Usa {' | '.join(MODES)}, "
             f'combinando "build" con los demas (p. ej. patch+build).'
@@ -80,10 +80,10 @@ def bump(version: str, mode: str) -> str:
             f'{version!r} no tiene build number (+N): "+build" solo aplica a pubspec.yaml.'
         )
 
-    nueva = f"{major}.{minor}" if patch is None else f"{major}.{minor}.{patch}"
+    new = f"{major}.{minor}" if patch is None else f"{major}.{minor}.{patch}"
     if build is not None:
-        nueva = f"{nueva}+{int(build) + (1 if con_build else 0)}"
-    return nueva
+        new = f"{new}+{int(build) + (1 if con_build else 0)}"
+    return new
 
 
 def find_manifest(project_dir: Path) -> Path:
@@ -123,12 +123,10 @@ def write_version(manifest: Path, version: str) -> None:
 
     text = read_text(manifest)
     if manifest.name == "pubspec.yaml":
-        nuevo, hechos = _PUBSPEC.subn(lambda m: f"{m.group(1)}{version}", text, count=1)
+        new, done = _PUBSPEC.subn(lambda m: f"{m.group(1)}{version}", text, count=1)
     else:
-        nuevo, hechos = _PYPROJECT.subn(
-            lambda m: f"{m.group(1)}{version}{m.group(3)}", text, count=1
-        )
+        new, done = _PYPROJECT.subn(lambda m: f"{m.group(1)}{version}{m.group(3)}", text, count=1)
 
-    if not hechos:
+    if not done:
         raise TaskError(f"No se pudo reescribir la version en {manifest.name}.")
-    write_text(manifest, nuevo)
+    write_text(manifest, new)

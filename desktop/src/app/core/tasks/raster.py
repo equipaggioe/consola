@@ -29,7 +29,7 @@ ICO_SIZES = (16, 24, 32, 48, 64, 128, 256)
 _DOTS_PER_METER = 3937
 
 
-def svg_to_png(svg: Path, lado: int) -> bytes:
+def svg_to_png(svg: Path, side: int) -> bytes:
     """El SVG como PNG cuadrado de `lado` pixeles, con antialiasing.
 
     QtSvg implementa SVG Tiny 1.2: un logo con filtros, mascaras o CSS sale
@@ -38,25 +38,25 @@ def svg_to_png(svg: Path, lado: int) -> bytes:
     renderer = QSvgRenderer(str(svg))
     if not renderer.isValid():
         raise TaskError(f"Qt no pudo leer {svg.name} como SVG.")
-    caja = renderer.viewBoxF()
+    box = renderer.viewBoxF()
     # Qt estira el viewBox hasta llenar la imagen: uno que no es cuadrado sale
     # deformado.
-    if abs(caja.width() - caja.height()) > 1e-6:
+    if abs(box.width() - box.height()) > 1e-6:
         raise TaskError(
-            f"{svg.name} no es cuadrado: su viewBox mide {caja.width():g}×{caja.height():g}."
+            f"{svg.name} no es cuadrado: su viewBox mide {box.width():g}×{box.height():g}."
         )
-    imagen = QImage(lado, lado, QImage.Format.Format_ARGB32)
-    imagen.fill(Qt.GlobalColor.transparent)
-    imagen.setDotsPerMeterX(_DOTS_PER_METER)
-    imagen.setDotsPerMeterY(_DOTS_PER_METER)
-    pintor = QPainter(imagen)
-    pintor.setRenderHint(QPainter.RenderHint.Antialiasing)
-    pintor.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
-    renderer.render(pintor)
-    pintor.end()
+    image = QImage(side, side, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.transparent)
+    image.setDotsPerMeterX(_DOTS_PER_METER)
+    image.setDotsPerMeterY(_DOTS_PER_METER)
+    painter = QPainter(image)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setRenderHint(QPainter.RenderHint.SmoothPixmapTransform)
+    renderer.render(painter)
+    painter.end()
     buffer = QBuffer()
     buffer.open(QIODevice.OpenModeFlag.WriteOnly)
-    imagen.save(buffer, "PNG")  # pyrefly: ignore[no-matching-overload]
+    image.save(buffer, "PNG")  # pyrefly: ignore[no-matching-overload]
     return bytes(buffer.data().data())
 
 
@@ -66,7 +66,7 @@ def svg_to_ico(svg: Path) -> bytes:
     Qt escribe un ICO de una sola imagen; Pillow arma el de varias a partir
     del lado mas grande.
     """
-    grande = Image.open(io.BytesIO(svg_to_png(svg, max(ICO_SIZES))))
-    salida = io.BytesIO()
-    grande.save(salida, format="ICO", sizes=[(n, n) for n in ICO_SIZES])
-    return salida.getvalue()
+    large = Image.open(io.BytesIO(svg_to_png(svg, max(ICO_SIZES))))
+    output = io.BytesIO()
+    large.save(output, format="ICO", sizes=[(n, n) for n in ICO_SIZES])
+    return output.getvalue()

@@ -163,10 +163,10 @@ def pyinstaller_cmd(app_dir: Path | None = None, override: str = "") -> list[str
 
 def _venv_tool(venv_dir: Path, name: str) -> Path | None:
     """Un ejecutable dentro de un venv, o None si ese venv no lo tiene."""
-    for nombre in HOST.executable_names(name):
-        ruta = HOST.venv_bin(venv_dir) / nombre
-        if ruta.is_file():
-            return ruta
+    for tool_name in HOST.executable_names(name):
+        path = HOST.venv_bin(venv_dir) / tool_name
+        if path.is_file():
+            return path
     return None
 
 
@@ -236,9 +236,9 @@ def devices(ctx: TaskContext, project_dir: Path) -> list[dict[str, Any]]:
     Flet no tiene deteccion propia (su `flet devices` parsea la tabla de texto
     del Flutter subyacente), asi que ambos frameworks preguntan por el mismo lado.
     """
-    salida = ctx.capture([*flutter_cmd(), "devices", "--machine"], cwd=project_dir, timeout=120)
+    output = ctx.capture([*flutter_cmd(), "devices", "--machine"], cwd=project_dir, timeout=120)
     try:
-        decoded = json.loads(salida)
+        decoded = json.loads(output)
     except json.JSONDecodeError as exc:
         raise TaskError("Respuesta invalida de `flutter devices --machine`.") from exc
     return [d for d in decoded if isinstance(d, dict)] if isinstance(decoded, list) else []
@@ -248,8 +248,8 @@ def pick_emulator(found: list[dict[str, Any]]) -> str:
     """Id del emulador Android activo, o cadena vacia si no hay ninguno."""
     for device in found:
         device_id = str(device.get("id") or "").strip()
-        plataforma = str(device.get("targetPlatform") or "").lower()
-        if not device_id or not plataforma.startswith("android"):
+        platform = str(device.get("targetPlatform") or "").lower()
+        if not device_id or not platform.startswith("android"):
             continue
         if device.get("emulator") or device_id.startswith("emulator-"):
             return device_id

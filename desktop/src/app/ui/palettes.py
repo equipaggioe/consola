@@ -68,16 +68,16 @@ def _tinted(base: str, accent: str, sat: float) -> str:
     abajo. Se busca la L que devuelve la luminancia del gris de partida:
     monotona en L, asi que una biseccion la encuentra.
     """
-    objetivo = _luminance(QColor(base))
-    tono = QColor(accent).hueF()
+    target = _luminance(QColor(base))
+    hue = QColor(accent).hueF()
     lo, hi = 0.0, 1.0
     for _ in range(24):
-        medio = (lo + hi) / 2
-        if _luminance(QColor.fromHslF(tono, sat, medio)) < objetivo:
-            lo = medio
+        middle = (lo + hi) / 2
+        if _luminance(QColor.fromHslF(hue, sat, middle)) < target:
+            lo = middle
         else:
-            hi = medio
-    return QColor.fromHslF(tono, sat, (lo + hi) / 2).name()
+            hi = middle
+    return QColor.fromHslF(hue, sat, (lo + hi) / 2).name()
 
 
 # De que neutro sale cada rol y con cuanta saturacion se pinta. Son fondos de
@@ -131,7 +131,7 @@ def build(key: str, label: str, accent: str) -> Palette:
         key=key,
         label=label,
         accent=accent,
-        **{rol: _tinted(base, accent, saturacion) for rol, base, saturacion in _RECIPE},
+        **{role: _tinted(base, accent, saturation) for role, base, saturation in _RECIPE},
     )
 
 
@@ -187,5 +187,5 @@ def first_free(used: Iterable[str]) -> str:
     evitar. Con mas repos que temas vuelve a empezar por el primero — ahi ya
     no hay color que alcance y se elige a mano.
     """
-    en_uso = set(used)
-    return next((k for k in THEMES if k not in en_uso), next(iter(THEMES)))
+    in_use = set(used)
+    return next((k for k in THEMES if k not in in_use), next(iter(THEMES)))

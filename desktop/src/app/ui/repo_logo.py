@@ -63,21 +63,21 @@ def trimmed(source: Path) -> QImage:
     PNG de Equipaggio es mas angosto que su lienzo. Sin recortarlo, esos dos
     salian mas chicos que los que llenan su cuadrado.
     """
-    imagen = QImage(_RASTER, _RASTER, QImage.Format.Format_ARGB32)
-    imagen.fill(Qt.GlobalColor.transparent)
-    pintor = QPainter(imagen)
-    QIcon(str(source)).paint(pintor, imagen.rect())
-    pintor.end()
+    image = QImage(_RASTER, _RASTER, QImage.Format.Format_ARGB32)
+    image.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(image)
+    QIcon(str(source)).paint(painter, image.rect())
+    painter.end()
     # ARGB32 va en memoria como BGRA: el alfa es el cuarto byte de cada pixel.
-    alfa = bytes(imagen.constBits())[3::4]
-    filas = [
-        y for y in range(_RASTER) if max(alfa[y * _RASTER : (y + 1) * _RASTER]) > _VISIBLE_ALPHA
+    alpha = bytes(image.constBits())[3::4]
+    rows = [
+        y for y in range(_RASTER) if max(alpha[y * _RASTER : (y + 1) * _RASTER]) > _VISIBLE_ALPHA
     ]
-    columnas = [x for x in range(_RASTER) if max(alfa[x::_RASTER]) > _VISIBLE_ALPHA]
-    if not filas:
-        return imagen
-    return imagen.copy(
-        QRect(columnas[0], filas[0], columnas[-1] - columnas[0] + 1, filas[-1] - filas[0] + 1)
+    columns = [x for x in range(_RASTER) if max(alpha[x::_RASTER]) > _VISIBLE_ALPHA]
+    if not rows:
+        return image
+    return image.copy(
+        QRect(columns[0], rows[0], columns[-1] - columns[0] + 1, rows[-1] - rows[0] + 1)
     )
 
 
@@ -106,19 +106,19 @@ class RepoLogoView(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         if self._image is not None:
             dpr = self.devicePixelRatioF()
-            lado = round(self.width() * dpr)
+            side = round(self.width() * dpr)
             if self._scaled is None or self._scaled.devicePixelRatio() != dpr:
                 # `scaled` promedia los pixeles de origen; dibujar la imagen
                 # grande en un rectangulo chico solo muestrea, y dentaba.
                 self._scaled = self._image.scaled(
-                    QSize(lado, lado),
+                    QSize(side, side),
                     Qt.AspectRatioMode.KeepAspectRatio,
                     Qt.TransformationMode.SmoothTransformation,
                 )
                 self._scaled.setDevicePixelRatio(dpr)
-            caja = QRectF(0, 0, self._scaled.width() / dpr, self._scaled.height() / dpr)
-            caja.moveCenter(QRectF(self.rect()).center())
-            p.drawImage(caja, self._scaled)
+            box = QRectF(0, 0, self._scaled.width() / dpr, self._scaled.height() / dpr)
+            box.moveCenter(QRectF(self.rect()).center())
+            p.drawImage(box, self._scaled)
             return
         f = QFont(self.font())
         f.setPixelSize(round(self.height() * 0.8))

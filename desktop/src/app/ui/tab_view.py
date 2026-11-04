@@ -237,18 +237,18 @@ class TabView(QWidget):
         self._show_endpoint(True)
 
     def _set_state(self, state: str, label: str = "") -> None:
-        textos = {
+        texts = {
             session.STARTING: ("amber", "arrancando"),
             session.READY: ("green", "listo"),
             session.DOWN: ("red", "caído"),
         }
-        led, texto = textos.get(state, ("off", state))
+        led, text = texts.get(state, ("off", state))
         self.led.set_state(led)
         self.state_label.setProperty("label", label)
-        self.state_label.setText(f"{label} · {texto}" if label else texto)
-        vivo = state != session.DOWN
-        self.copy_btn.setEnabled(vivo)
-        self.external_btn.setEnabled(vivo)
+        self.state_label.setText(f"{label} · {text}" if label else text)
+        alive = state != session.DOWN
+        self.copy_btn.setEnabled(alive)
+        self.external_btn.setEnabled(alive)
 
     def _copy_url(self) -> None:
         QGuiApplication.clipboard().setText(self._url)

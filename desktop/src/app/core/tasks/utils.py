@@ -94,35 +94,35 @@ def find_artifacts(
         name for names in HEAVY_DIRS.values() for name in names
     } - active_heavy_dirnames
 
-    encontrados: list[Path] = []
-    for actual, subdirs, archivos in os.walk(ctx.root):
-        base = Path(actual)
+    found: list[Path] = []
+    for current, subdirs, file_names in os.walk(ctx.root):
+        base = Path(current)
         keep_subdirs = []
-        for nombre in subdirs:
-            if nombre in ALWAYS_SKIP_DIRS or nombre in skip_unrequested:
+        for filename in subdirs:
+            if filename in ALWAYS_SKIP_DIRS or filename in skip_unrequested:
                 continue
-            if nombre in active_heavy_dirnames:
-                encontrados.append(base / nombre)
+            if filename in active_heavy_dirnames:
+                found.append(base / filename)
                 continue  # se borra entera: no hace falta bajar a mirarla
-            if ("gradle" in active_families and nombre in FAMILIES["gradle"]["dirs"]) or (
-                "python" in active_families and nombre in FAMILIES["python"]["dirs"]
+            if ("gradle" in active_families and filename in FAMILIES["gradle"]["dirs"]) or (
+                "python" in active_families and filename in FAMILIES["python"]["dirs"]
             ):
-                encontrados.append(base / nombre)
+                found.append(base / filename)
                 continue
-            keep_subdirs.append(nombre)
+            keep_subdirs.append(filename)
         subdirs[:] = keep_subdirs
 
-        for nombre in archivos:
-            if "flutter" in active_families and nombre in FAMILIES["flutter"]["files"]:
-                encontrados.append(base / nombre)
+        for filename in file_names:
+            if "flutter" in active_families and filename in FAMILIES["flutter"]["files"]:
+                found.append(base / filename)
             elif "crash" in active_families and (
-                nombre in FAMILIES["crash"]["files"]
-                or nombre.startswith(FAMILIES["crash"]["prefixes"])
+                filename in FAMILIES["crash"]["files"]
+                or filename.startswith(FAMILIES["crash"]["prefixes"])
             ):
-                encontrados.append(base / nombre)
-            elif "python" in active_families and nombre.endswith(FAMILIES["python"]["suffixes"]):
-                encontrados.append(base / nombre)
-    return encontrados
+                found.append(base / filename)
+            elif "python" in active_families and filename.endswith(FAMILIES["python"]["suffixes"]):
+                found.append(base / filename)
+    return found
 
 
 def clean_artifacts(
@@ -132,26 +132,26 @@ def clean_artifacts(
     heavy: list[str] | None = None,
 ) -> list[Path]:
     """Borra los artefactos listados. En simulacro solo los muestra."""
-    encontrados = find_artifacts(ctx, families, heavy)
-    if not encontrados:
+    found = find_artifacts(ctx, families, heavy)
+    if not found:
         ctx.ok("No hay artefactos para limpiar.")
         return []
 
-    total = sum(files.size_of(p) for p in encontrados)
-    for ruta in encontrados[:40]:
-        ctx.info(f"  {ruta.relative_to(ctx.root)}")
-    if len(encontrados) > 40:
-        ctx.info(f"  ... y {len(encontrados) - 40} mas")
-    ctx.warn(f"{len(encontrados)} elemento(s), {files.human_size(total)}.")
+    total = sum(files.size_of(p) for p in found)
+    for path in found[:40]:
+        ctx.info(f"  {path.relative_to(ctx.root)}")
+    if len(found) > 40:
+        ctx.info(f"  ... y {len(found) - 40} mas")
+    ctx.warn(f"{len(found)} elemento(s), {files.human_size(total)}.")
 
     if not apply:
         ctx.info("Simulacro: no se borro nada.")
-        return encontrados
+        return found
 
-    for ruta in encontrados:
-        files.remove(ruta)
+    for path in found:
+        files.remove(path)
     ctx.ok(f"Liberados {files.human_size(total)}.")
-    return encontrados
+    return found
 
 
 # --- sincronizacion entre repos --------------------------------------------
@@ -166,19 +166,19 @@ def compare_common_files(
     se muestra antes de habilitar Aplicar; `verify_projects.py` no era mas que
     esto, y por eso deja de ser una capacidad aparte (ADR-0004).
     """
-    rutas = list(paths or COMMON_PATHS)
-    resultado: list[tuple[Path, str, str]] = []
-    for destino in targets:
-        raiz = Path(destino)
-        if not raiz.is_dir():
-            ctx.warn(f"No existe el repo destino: {destino}")
+    rel_paths = list(paths or COMMON_PATHS)
+    result: list[tuple[Path, str, str]] = []
+    for destination in targets:
+        root = Path(destination)
+        if not root.is_dir():
+            ctx.warn(f"No existe el repo destino: {destination}")
             continue
-        for rel in rutas:
-            origen = ctx.path(rel)
-            if not origen.exists():
+        for rel in rel_paths:
+            source = ctx.path(rel)
+            if not source.exists():
                 continue
-            resultado.append((raiz, rel, files.compare(origen, raiz / rel)))
-    return resultado
+            result.append((root, rel, files.compare(source, root / rel)))
+    return result
 
 
 def sync_common_files(
@@ -195,22 +195,22 @@ def sync_common_files(
     if not targets:
         raise TaskError("No hay repos destino seleccionados.")
 
-    diferencias = [fila for fila in compare_common_files(ctx, targets, paths) if fila[2] != "SAME"]
-    if not diferencias:
+    differences = [row for row in compare_common_files(ctx, targets, paths) if row[2] != "SAME"]
+    if not differences:
         ctx.ok("Todos los repos destino ya estan al dia.")
         return []
 
-    for raiz, rel, estado in diferencias:
-        ctx.info(f"  [{estado}] {raiz.name}/{rel}")
+    for root, rel, state in differences:
+        ctx.info(f"  [{state}] {root.name}/{rel}")
 
     if not apply:
         ctx.info("Simulacro: no se copio nada.")
-        return diferencias
+        return differences
 
-    for raiz, rel, _ in diferencias:
-        files.copy(ctx.path(rel), raiz / rel)
-        ctx.ok(f"{raiz.name}/{rel}")
-    return diferencias
+    for root, rel, _ in differences:
+        files.copy(ctx.path(rel), root / rel)
+        ctx.ok(f"{root.name}/{rel}")
+    return differences
 
 
 # --- DNS -------------------------------------------------------------------
@@ -218,10 +218,10 @@ def sync_common_files(
 
 def detect_public_ip(ctx: TaskContext) -> str:
     """La IP publica de esta maquina, preguntandole a un servicio externo."""
-    for servicio in IP_SERVICES:
+    for service in IP_SERVICES:
         try:
-            with urllib.request.urlopen(servicio, timeout=10) as respuesta:
-                ip = respuesta.read().decode("utf-8").strip()
+            with urllib.request.urlopen(service, timeout=10) as answer:
+                ip = answer.read().decode("utf-8").strip()
             if ip:
                 ctx.info(f"IP publica detectada: {ip}")
                 return ip
@@ -235,16 +235,16 @@ def _cloudflare(
 ) -> dict[str, Any]:
     token = ctx.config.require("CF_API_TOKEN")
     ctx.guard(token)
-    datos = json.dumps(body).encode("utf-8") if body is not None else None
-    peticion = urllib.request.Request(
+    response_data = json.dumps(body).encode("utf-8") if body is not None else None
+    request = urllib.request.Request(
         f"{CF_API}{path}",
-        data=datos,
+        data=response_data,
         method=method,
         headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
     )
     try:
-        with urllib.request.urlopen(peticion, timeout=30) as respuesta:
-            payload = json.loads(respuesta.read())
+        with urllib.request.urlopen(request, timeout=30) as answer:
+            payload = json.loads(answer.read())
     except OSError as exc:
         raise TaskError(f"No se pudo hablar con Cloudflare: {exc}") from exc
 
@@ -264,33 +264,33 @@ def update_cloudflare(
     else:
         ip = ctx.config.require("VPS_IP")
 
-    dominio = ctx.config.require("CF_DOMAIN_NAME")
-    registro = ctx.config.require("CF_RECORD_NAME")
+    domain = ctx.config.require("CF_DOMAIN_NAME")
+    registry = ctx.config.require("CF_RECORD_NAME")
 
-    zonas = _cloudflare(ctx, "GET", f"/zones?name={dominio}")["result"]
-    if not zonas:
-        raise TaskError(f"Cloudflare no conoce el dominio {dominio}.")
-    zona = zonas[0]["id"]
+    zones = _cloudflare(ctx, "GET", f"/zones?name={domain}")["result"]
+    if not zones:
+        raise TaskError(f"Cloudflare no conoce el dominio {domain}.")
+    zone = zones[0]["id"]
 
-    registros = _cloudflare(ctx, "GET", f"/zones/{zona}/dns_records?type=A&name={registro}")[
+    records = _cloudflare(ctx, "GET", f"/zones/{zone}/dns_records?type=A&name={registry}")[
         "result"
     ]
-    if not registros:
-        raise TaskError(f"No existe el registro A para {registro}.")
+    if not records:
+        raise TaskError(f"No existe el registro A para {registry}.")
 
-    actual = registros[0]
-    if actual["content"] == ip:
-        ctx.ok(f"{registro} ya apunta a {ip}. No hay nada que cambiar.")
+    current = records[0]
+    if current["content"] == ip:
+        ctx.ok(f"{registry} ya apunta a {ip}. No hay nada que cambiar.")
         return ip
 
     _cloudflare(
         ctx,
         "PUT",
-        f"/zones/{zona}/dns_records/{actual['id']}",
-        {"type": "A", "name": registro, "content": ip, "ttl": ttl, "proxied": proxied},
+        f"/zones/{zone}/dns_records/{current['id']}",
+        {"type": "A", "name": registry, "content": ip, "ttl": ttl, "proxied": proxied},
     )
-    ctx.ok(f"{registro}: {actual['content']} -> {ip}")
-    ctx.note(f"DNS {registro} apuntado a {ip}.")
+    ctx.ok(f"{registry}: {current['content']} -> {ip}")
+    ctx.note(f"DNS {registry} apuntado a {ip}.")
     return ip
 
 
@@ -324,14 +324,14 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
     ctx.info(f"Descargando {url}")
     destination.parent.mkdir(parents=True, exist_ok=True)
 
-    def avance(bloques: int, tamano: int, total: int) -> None:
+    def progress(blocks: int, size: int, total: int) -> None:
         ctx.raise_if_cancelled()
         if total > 0:
-            hecho = min(bloques * tamano, total)
-            ctx.progress(hecho, total, f"{files.human_size(hecho)} de {files.human_size(total)}")
+            done = min(blocks * size, total)
+            ctx.progress(done, total, f"{files.human_size(done)} de {files.human_size(total)}")
 
     try:
-        urllib.request.urlretrieve(url, destination, avance)
+        urllib.request.urlretrieve(url, destination, progress)
     except OSError as exc:
         raise TaskError(f"Fallo la descarga: {exc}") from exc
 
@@ -341,11 +341,11 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
 
 def _verify(ctx: TaskContext, archive: Path, expected: str, algorithm: str) -> None:
     """Comprueba la huella publicada. Un SDK a medio bajar falla mas tarde y peor."""
-    actual = files.digest(archive, algorithm)
-    if actual.lower() != expected.lower():
+    current = files.digest(archive, algorithm)
+    if current.lower() != expected.lower():
         raise TaskError(
             f"{algorithm.upper()} no coincide: el archivo llego incompleto o alterado.\n"
-            f"  esperado: {expected}\n  obtenido: {actual}"
+            f"  esperado: {expected}\n  obtenido: {current}"
         )
     ctx.ok(f"{algorithm.upper()} verificado.")
 
@@ -361,8 +361,8 @@ def _android_root(install_dir: str = "") -> Path:
 
 def _is_android_path(entry: str) -> bool:
     """Si una entrada del PATH pertenece a una instalacion anterior del SDK."""
-    ruta = entry.strip().strip('"').replace("\\", "/").rstrip("/").lower()
-    return ruta.endswith(("/platform-tools", "/emulator", "/cmdline-tools/latest/bin"))
+    path = entry.strip().strip('"').replace("\\", "/").rstrip("/").lower()
+    return path.endswith(("/platform-tools", "/emulator", "/cmdline-tools/latest/bin"))
 
 
 def _ensure_java(ctx: TaskContext) -> None:
@@ -382,22 +382,24 @@ def _resolve_cmdline_tools(ctx: TaskContext, os_key: str) -> tuple[str, str]:
     explica nada.
     """
     html = _fetch_text(ANDROID_STUDIO_URL)
-    patron = rf"commandlinetools-{'win' if os_key == 'windows' else os_key}-\d+_latest\.zip"
+    pattern = rf"commandlinetools-{'win' if os_key == 'windows' else os_key}-\d+_latest\.zip"
 
-    nombres = list(dict.fromkeys(re.findall(patron, html)))
-    if len(nombres) != 1:
+    names = list(dict.fromkeys(re.findall(pattern, html)))
+    if len(names) != 1:
         raise TaskError(
             "No se pudo identificar el zip de cmdline-tools en la pagina de Android Studio "
-            f"({len(nombres)} coincidencias para {os_key}). Puede que Google haya cambiado la pagina."
+            f"({len(names)} coincidencias para {os_key}). Puede que Google haya cambiado la pagina."
         )
 
-    nombre = nombres[0]
-    huella = re.search(re.escape(nombre) + r"[\s\S]{0,300}?([0-9a-f]{40})", html, re.IGNORECASE)
-    if not huella:
-        raise TaskError(f"La pagina de Android Studio no publica el SHA-1 de {nombre}.")
+    filename = names[0]
+    fingerprint = re.search(
+        re.escape(filename) + r"[\s\S]{0,300}?([0-9a-f]{40})", html, re.IGNORECASE
+    )
+    if not fingerprint:
+        raise TaskError(f"La pagina de Android Studio no publica el SHA-1 de {filename}.")
 
-    ctx.info(f"Version publicada: {nombre}")
-    return ANDROID_REPO_URL + nombre, huella.group(1).lower()
+    ctx.info(f"Version publicada: {filename}")
+    return ANDROID_REPO_URL + filename, fingerprint.group(1).lower()
 
 
 def _extract_cmdline_tools(ctx: TaskContext, archive: Path, latest: Path) -> None:
@@ -434,8 +436,8 @@ def install_android_tools(ctx: TaskContext, install_dir: str = "") -> Path:
         ctx.ok(f"Las cmdline-tools ya estaban en {latest}.")
     else:
         url, sha1 = _resolve_cmdline_tools(ctx, os_key)
-        with tempfile.TemporaryDirectory(prefix="consola_cmdline_tools_") as temporal:
-            archive = _download(ctx, url, Path(temporal) / "cmdline-tools.zip")
+        with tempfile.TemporaryDirectory(prefix="consola_cmdline_tools_") as temporary:
+            archive = _download(ctx, url, Path(temporary) / "cmdline-tools.zip")
             _verify(ctx, archive, sha1, "sha1")
             _extract_cmdline_tools(ctx, archive, latest)
         if not sdkmanager.is_file():
@@ -465,27 +467,27 @@ def _sdkmanager(ctx: TaskContext) -> tuple[list[str], Path]:
     instalaron las herramientas, el error lo dice con esas palabras.
     """
     sdk = android.resolve_sdk()
-    ruta = sdk.tool("sdkmanager")
-    root = sdk.root or Path(ruta).resolve().parents[3]
-    return as_argv(ruta), root
+    path = sdk.tool("sdkmanager")
+    root = sdk.root or Path(path).resolve().parents[3]
+    return as_argv(path), root
 
 
 def _accept_licenses(ctx: TaskContext, sdkmanager: list[str], root: Path) -> None:
     ctx.info("Aceptando las licencias del SDK...")
     argv = [*sdkmanager, f"--sdk_root={root}", "--licenses"]
     ctx.log(format_argv(argv), Level.CMD)
-    salida = feed(argv, stdin_text="y\n" * 200, timeout=300)
-    for linea in salida.splitlines():
-        if linea.strip():
-            ctx.info(linea.strip())
+    output = feed(argv, stdin_text="y\n" * 200, timeout=300)
+    for line in output.splitlines():
+        if line.strip():
+            ctx.info(line.strip())
     ctx.ok("Licencias aceptadas.")
 
 
 def _installed_packages(ctx: TaskContext, sdkmanager: list[str], root: Path) -> set[str]:
-    salida = ctx.capture(
+    output = ctx.capture(
         [*sdkmanager, f"--sdk_root={root}", "--list_installed"], timeout=300, check=False
     )
-    return {linea.split("|", 1)[0].strip() for linea in salida.splitlines() if "|" in linea}
+    return {line.split("|", 1)[0].strip() for line in output.splitlines() if "|" in line}
 
 
 def install_android_packages(
@@ -501,35 +503,35 @@ def install_android_packages(
     ese paquete sin volver a bajar el SDK entero ni tocar el PATH. En los
     scripts esto obligaba a editar dos constantes y correr todo de nuevo.
     """
-    elegidos = list(ANDROID_COMPONENTS if components is None else components)
-    if not elegidos:
+    chosen = list(ANDROID_COMPONENTS if components is None else components)
+    if not chosen:
         raise TaskError("No se eligio ningun componente para instalar.")
 
     api = (api_level or API_LEVEL_DEFAULT).strip()
     tools = (build_tools or BUILD_TOOLS_DEFAULT).strip()
-    paquetes = []
-    for nombre in elegidos:
-        if nombre == "build-tools":
-            paquetes.append(f"build-tools;{tools}")
-        elif nombre == "platform":
-            paquetes.append(f"platforms;android-{api}")
+    packages = []
+    for filename in chosen:
+        if filename == "build-tools":
+            packages.append(f"build-tools;{tools}")
+        elif filename == "platform":
+            packages.append(f"platforms;android-{api}")
         else:
-            paquetes.append(nombre)
+            packages.append(filename)
 
     sdkmanager, root = _sdkmanager(ctx)
     _accept_licenses(ctx, sdkmanager, root)
 
-    instalados = _installed_packages(ctx, sdkmanager, root)
-    faltan = [p for p in paquetes if p not in instalados]
-    if not faltan:
-        ctx.ok(f"Los {len(paquetes)} paquete(s) pedidos ya estaban instalados.")
+    installed = _installed_packages(ctx, sdkmanager, root)
+    missing = [p for p in packages if p not in installed]
+    if not missing:
+        ctx.ok(f"Los {len(packages)} paquete(s) pedidos ya estaban instalados.")
         return []
 
-    for paquete in faltan:
-        ctx.info(f"  falta: {paquete}")
-    ctx.run([*sdkmanager, f"--sdk_root={root}", *faltan])
-    ctx.ok(f"{len(faltan)} paquete(s) instalados.")
-    return faltan
+    for package in missing:
+        ctx.info(f"  falta: {package}")
+    ctx.run([*sdkmanager, f"--sdk_root={root}", *missing])
+    ctx.ok(f"{len(missing)} paquete(s) instalados.")
+    return missing
 
 
 def install_android_hypervisor(ctx: TaskContext) -> bool:
@@ -559,14 +561,14 @@ def _install_hypervisor_driver(ctx: TaskContext) -> bool:
         [*sdkmanager, f"--sdk_root={root}", "extras;google;Android_Emulator_Hypervisor_Driver"]
     )
 
-    instalador = (
+    installer = (
         root / "extras" / "google" / "Android_Emulator_Hypervisor_Driver" / "silent_install.bat"
     )
-    if not instalador.is_file():
-        raise TaskError(f"No aparecio el instalador del driver: {instalador}")
+    if not installer.is_file():
+        raise TaskError(f"No aparecio el instalador del driver: {installer}")
 
     ctx.warn("El driver necesita permisos de administrador: acepta el aviso de Windows.")
-    _run_elevated(ctx, instalador)
+    _run_elevated(ctx, installer)
     return True
 
 
@@ -576,20 +578,20 @@ def _check_kvm(ctx: TaskContext) -> bool:
     Meter la mano con sudo desde una interfaz grafica seria peor que decir el
     comando exacto: el cambio de grupo ademas no surte efecto hasta reingresar.
     """
-    dispositivo = Path("/dev/kvm")
-    if not dispositivo.exists():
+    device = Path("/dev/kvm")
+    if not device.exists():
         raise TaskError(
             "No existe /dev/kvm: sin el, el emulador corre por software y es inusable.\n"
             "Revisa que la virtualizacion (VT-x o AMD-V) este activa en la BIOS y que el "
             "modulo kvm_intel o kvm_amd este cargado."
         )
-    if os.access(dispositivo, os.R_OK | os.W_OK):
+    if os.access(device, os.R_OK | os.W_OK):
         ctx.ok("/dev/kvm accesible: la aceleracion por hardware esta disponible.")
         return True
 
-    usuario = os.environ.get("USER") or getpass.getuser()
+    user = os.environ.get("USER") or getpass.getuser()
     ctx.warn("/dev/kvm existe pero este usuario no tiene permiso para usarlo.")
-    ctx.warn(f"Corre:  sudo usermod -aG kvm {usuario}")
+    ctx.warn(f"Corre:  sudo usermod -aG kvm {user}")
     ctx.warn("Y vuelve a iniciar sesion para que el grupo tome efecto.")
     return False
 
@@ -608,12 +610,12 @@ def _run_elevated(ctx: TaskContext, program: Path) -> None:
     import ctypes
 
     ctx.log(str(program), Level.CMD)
-    codigo = getattr(ctypes, "windll").shell32.ShellExecuteW(
+    code = getattr(ctypes, "windll").shell32.ShellExecuteW(
         None, "runas", str(program), None, str(program.parent), 1
     )
-    if codigo <= 32:
+    if code <= 32:
         raise TaskError(
-            f"No se pudo lanzar el instalador con permisos de administrador (codigo {codigo}). "
+            f"No se pudo lanzar el instalador con permisos de administrador (codigo {code}). "
             "Si rechazaste el aviso de Windows, vuelve a intentarlo."
         )
     ctx.info("El instalador quedo corriendo en una ventana aparte; espera a que termine.")
@@ -670,8 +672,8 @@ def _is_flutter_path(entry: str) -> bool:
     Mira el directorio padre y no solo el nombre exacto, para reconocer tambien
     las instalaciones en un directorio propio (`~/sdk/flutter-stable/bin`).
     """
-    partes = entry.strip().strip('"').replace("\\", "/").rstrip("/").lower().split("/")
-    return len(partes) >= 2 and partes[-1] == "bin" and "flutter" in partes[-2]
+    parts = entry.strip().strip('"').replace("\\", "/").rstrip("/").lower().split("/")
+    return len(parts) >= 2 and parts[-1] == "bin" and "flutter" in parts[-2]
 
 
 def _ensure_git(ctx: TaskContext) -> None:
@@ -682,43 +684,48 @@ def _ensure_git(ctx: TaskContext) -> None:
 
 def _resolve_flutter_stable(ctx: TaskContext, os_key: str) -> tuple[str, str]:
     """URL y SHA-256 del canal stable, desde el indice oficial de releases."""
-    nombre = FLUTTER_RELEASES_JSON.get(os_key)
-    if not nombre:
+    filename = FLUTTER_RELEASES_JSON.get(os_key)
+    if not filename:
         raise TaskError(f"Flutter no publica releases para este sistema: {os_key}.")
 
     try:
-        datos = json.loads(_fetch_text(FLUTTER_RELEASES_URL + nombre))
+        response_data = json.loads(_fetch_text(FLUTTER_RELEASES_URL + filename))
     except ValueError as exc:
         raise TaskError("El indice de releases de Flutter no vino en JSON valido.") from exc
 
-    marca = ((datos.get("current_release") or {}).get("stable") or "").strip()
+    mark = ((response_data.get("current_release") or {}).get("stable") or "").strip()
     release = next(
-        (r for r in (datos.get("releases") or []) if (r.get("hash") or "").strip() == marca), None
+        (
+            r
+            for r in (response_data.get("releases") or [])
+            if (r.get("hash") or "").strip() == mark
+        ),
+        None,
     )
     if not release:
         raise TaskError("El indice de Flutter no identifica el release del canal stable.")
 
-    archivo = (release.get("archive") or "").strip()
-    huella = (release.get("sha256") or "").strip().lower()
-    if not archivo or not huella:
+    file = (release.get("archive") or "").strip()
+    fingerprint = (release.get("sha256") or "").strip().lower()
+    if not file or not fingerprint:
         raise TaskError("El release stable de Flutter no publica archivo o SHA-256.")
 
-    ctx.info(f"Version publicada: {release.get('version') or marca}")
-    return FLUTTER_RELEASES_URL + archivo, huella
+    ctx.info(f"Version publicada: {release.get('version') or mark}")
+    return FLUTTER_RELEASES_URL + file, fingerprint
 
 
 def _extract_flutter(ctx: TaskContext, archive: Path, home: Path) -> None:
     """Descomprime el SDK, que trae su propia carpeta `flutter/` en la raiz."""
-    destino = home.parent
+    destination = home.parent
     ctx.info(f"Descomprimiendo en {home}")
-    destino.mkdir(parents=True, exist_ok=True)
-    files.extract(archive, destino)
+    destination.mkdir(parents=True, exist_ok=True)
+    files.extract(archive, destination)
 
-    extraido = destino / "flutter"
-    if extraido != home:
+    extracted = destination / "flutter"
+    if extracted != home:
         if home.exists():
             raise TaskError(f"Ya existe {home}: muevelo o elige otro directorio.")
-        extraido.rename(home)
+        extracted.rename(home)
 
 
 def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
@@ -738,8 +745,8 @@ def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
         ctx.ok(f"Flutter ya estaba instalado en {home}.")
     else:
         url, sha256 = _resolve_flutter_stable(ctx, os_key)
-        with tempfile.TemporaryDirectory(prefix="consola_flutter_") as temporal:
-            archive = _download(ctx, url, Path(temporal) / Path(url).name)
+        with tempfile.TemporaryDirectory(prefix="consola_flutter_") as temporary:
+            archive = _download(ctx, url, Path(temporary) / Path(url).name)
             _verify(ctx, archive, sha256, "sha256")
             _extract_flutter(ctx, archive, home)
         if not flutter.is_file():

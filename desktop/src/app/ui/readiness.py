@@ -71,9 +71,9 @@ def ready_ids(project: Project | None) -> set[str]:
     # volvia a recorrer entera: `one_scan` reparte un solo recorrido entre
     # todas (`core/targets.py`).
     with targets.one_scan():
-        aplicables = applicable_ids(path)
+        applicable = applicable_ids(path)
         return {
             cap.id
             for cap in registry.get_all()
-            if cap.id in aplicables and not missing_keys(cap, env, path)
+            if cap.id in applicable and not missing_keys(cap, env, path)
         }

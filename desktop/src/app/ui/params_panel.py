@@ -79,30 +79,30 @@ class AxesLoader(QThread):
 
     @override
     def run(self) -> None:
-        resuelto: dict[str, Any] = {}
-        errores: dict[str, str] = {}
+        resolved: dict[str, Any] = {}
+        errors: dict[str, str] = {}
         for axis in self._capability.axes:
             if not axis.is_queried:
                 continue
             try:
-                resuelto[axis.name] = queried_values(
+                resolved[axis.name] = queried_values(
                     axis.source, refresh=self._refresh, config=self._config, root=self._root
                 )
             except TaskError as exc:
                 # The axis stays empty and the panel says why (ADR-0076).
-                resuelto[axis.name] = ([], {})
-                errores[axis.name] = str(exc)
+                resolved[axis.name] = ([], {})
+                errors[axis.name] = str(exc)
         if self._capability.live_state:
             try:
-                resuelto[_LIVE] = queried_values(
+                resolved[_LIVE] = queried_values(
                     self._capability.live_state, config=self._config, root=self._root
                 )
             except TaskError as exc:
-                sin_valores: tuple[list[str], dict[str, str]] = ([], {})
-                resuelto[_LIVE] = sin_valores
-                errores[_LIVE] = str(exc)
-        resuelto[_ERRORS] = errores
-        self.ready.emit(resuelto)
+                no_values: tuple[list[str], dict[str, str]] = ([], {})
+                resolved[_LIVE] = no_values
+                errors[_LIVE] = str(exc)
+        resolved[_ERRORS] = errors
+        self.ready.emit(resolved)
 
 
 # Clave con la que viaja el inventario de "lo que esta corriendo" dentro del
@@ -227,16 +227,16 @@ class ParamsPanel(QWidget):
         self._loader.ready.connect(self._on_machine_ready)
         self._loader.start()
 
-    def _on_machine_ready(self, resuelto: dict[str, Any]) -> None:
+    def _on_machine_ready(self, resolved: dict[str, Any]) -> None:
         """Llena las listas que dependian de la consulta y repone lo elegido."""
-        guardado = params_store.load(self.project.path, self.capability.id)
+        saved = params_store.load(self.project.path, self.capability.id)
         self._restoring = True
         try:
             for axis in self.capability.axes:
-                if axis.name not in resuelto:
+                if axis.name not in resolved:
                     continue
-                axis.values, axis.labels = resuelto[axis.name]
-                axis.query_error = resuelto[_ERRORS].get(axis.name, "")
+                axis.values, axis.labels = resolved[axis.name]
+                axis.query_error = resolved[_ERRORS].get(axis.name, "")
                 if axis.name in self._facets:
                     self._fill_facets(axis)
                 elif axis.name in self._picks:
@@ -245,11 +245,11 @@ class ParamsPanel(QWidget):
                     self._fill_multi(axis)
                 elif axis.name in self._option_layouts:
                     self._fill_options(axis)
-            self._fill_live(resuelto.get(_LIVE, ([], {})), resuelto[_ERRORS].get(_LIVE, ""))
+            self._fill_live(resolved.get(_LIVE, ([], {})), resolved[_ERRORS].get(_LIVE, ""))
         finally:
             self._restoring = False
         self._loading = False
-        self.apply_state(guardado)
+        self.apply_state(saved)
         self._refresh_summary()
 
     def refresh_machine(self) -> None:
@@ -346,7 +346,7 @@ class ParamsPanel(QWidget):
             row = QVBoxLayout()
             row.setSpacing(4)
             row.addWidget(self._pick_title(axis.display))
-            combo = self._pick_combo(buscable=True)
+            combo = self._pick_combo(searchable=True)
             combo.currentIndexChanged.connect(self._refresh_summary)
             self._picks[axis.name] = combo
             self._fill_pick(axis)
@@ -354,8 +354,8 @@ class ParamsPanel(QWidget):
             lay.addLayout(row)
         return box
 
-    def _pick_title(self, texto: str) -> QLabel:
-        label = QLabel(texto)
+    def _pick_title(self, text: str) -> QLabel:
+        label = QLabel(text)
         # Con `wordWrap` el rotulo pide de minimo su palabra mas larga y no la
         # frase entera: "Maquina virtual (instaladas)" exigia 364px y era el
         # rotulo —no la lista— lo que no dejaba angostar la columna.
@@ -365,7 +365,7 @@ class ParamsPanel(QWidget):
         )
         return label
 
-    def _pick_combo(self, *, buscable: bool) -> QComboBox:
+    def _pick_combo(self, *, searchable: bool) -> QComboBox:
         """La lista cerrada del panel.
 
         `buscable` la hace editable, y editable es solo para poder escribir y
@@ -388,7 +388,7 @@ class ParamsPanel(QWidget):
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(_COMBO_MIN_CHARS)
         combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
-        if buscable:
+        if searchable:
             combo.setEditable(True)
             completer = QCompleter(combo.model(), combo)
             completer.setCaseSensitivity(Qt.CaseSensitivity.CaseInsensitive)
@@ -454,24 +454,24 @@ class ParamsPanel(QWidget):
 
         self._facets[axis.name] = {}
         for facet in axis.facets:
-            fila = QHBoxLayout()
-            fila.setSpacing(8)
-            etiqueta = QLabel(facet.label)
-            etiqueta.setFixedWidth(_FACET_LABEL_WIDTH)
-            etiqueta.setStyleSheet(
+            row = QHBoxLayout()
+            row.setSpacing(8)
+            label = QLabel(facet.label)
+            label.setFixedWidth(_FACET_LABEL_WIDTH)
+            label.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_MUTED}; "
                 f"font-size: {Fonts.SIZE_XS}px;"
             )
-            combo = self._pick_combo(buscable=False)
+            combo = self._pick_combo(searchable=False)
 
             def on_facet(_index: int, a: AxisDef = axis) -> None:
                 self._on_facet_changed(a)
 
             combo.currentIndexChanged.connect(on_facet)
             self._facets[axis.name][facet.name] = combo
-            fila.addWidget(etiqueta)
-            fila.addWidget(combo, 1)
-            lay.addLayout(fila)
+            row.addWidget(label)
+            row.addWidget(combo, 1)
+            lay.addLayout(row)
         self._fill_facets(axis)
         return box
 
@@ -489,24 +489,24 @@ class ParamsPanel(QWidget):
         combos = self._facets.get(axis.name) or {}
         if not combos:
             return
-        actual = {nombre: (c.currentData() or "") for nombre, c in combos.items()}
-        resuelto = axis.resolve_facets(actual)
+        current = {name: (c.currentData() or "") for name, c in combos.items()}
+        resolved = axis.resolve_facets(current)
         for facet in axis.facets:
             combo = combos[facet.name]
             combo.blockSignals(True)
             combo.clear()
-            opciones = axis.facet_values(facet, resuelto)
-            for value in opciones:
+            options = axis.facet_values(facet, resolved)
+            for value in options:
                 combo.addItem(axis.text_of(value), value)
-            if not opciones:
+            if not options:
                 combo.addItem(
                     "leyendo el catálogo…"
                     if self._loading
                     else f"no hay ninguna {axis.query_place}",
                     "",
                 )
-            indice = combo.findData(resuelto.get(facet.name, ""))
-            combo.setCurrentIndex(max(indice, 0))
+            index = combo.findData(resolved.get(facet.name, ""))
+            combo.setCurrentIndex(max(index, 0))
             combo.blockSignals(False)
             self._fit_popup(combo)
 
@@ -520,17 +520,17 @@ class ParamsPanel(QWidget):
         cortadas justo donde se estaba eligiendo.
         """
         metrics = combo.fontMetrics()
-        ancho = max(
+        width = max(
             (metrics.horizontalAdvance(combo.itemText(i)) for i in range(combo.count())), default=0
         )
-        combo.view().setMinimumWidth(min(ancho + 28, _POPUP_MAX_WIDTH))
+        combo.view().setMinimumWidth(min(width + 28, _POPUP_MAX_WIDTH))
 
     def _fill_pick(self, axis: AxisDef) -> None:
         """(Re)carga las opciones de una lista larga, conservando lo elegido."""
         combo = self._picks.get(axis.name)
         if combo is None:
             return
-        anterior = self.pick_value(axis.name)
+        previous = self.pick_value(axis.name)
         combo.blockSignals(True)
         combo.clear()
         if axis.allow_empty:
@@ -546,8 +546,8 @@ class ParamsPanel(QWidget):
             line.setPlaceholderText(
                 "leyendo el catálogo…" if self._loading else f"no hay ninguno {axis.query_place}"
             )
-        indice = combo.findData(anterior)
-        combo.setCurrentIndex(indice if indice >= 0 else 0)
+        index = combo.findData(previous)
+        combo.setCurrentIndex(index if index >= 0 else 0)
         combo.blockSignals(False)
         self._fit_popup(combo)
 
@@ -559,10 +559,10 @@ class ParamsPanel(QWidget):
         for check in self._checks.get(axis.name, {}).values():
             lay.removeWidget(check)
             check.deleteLater()
-        nota = self._empty_notes.pop(axis.name, None)
-        if nota is not None:
-            lay.removeWidget(nota)
-            nota.deleteLater()
+        note = self._empty_notes.pop(axis.name, None)
+        if note is not None:
+            lay.removeWidget(note)
+            note.deleteLater()
         self._checks[axis.name] = {}
         for value in axis.values:
             check = QCheckBox(axis.text_of(value))
@@ -571,21 +571,21 @@ class ParamsPanel(QWidget):
             check.stateChanged.connect(self._refresh_summary)
             self._checks[axis.name][value] = check
             lay.addWidget(check)
-        texto = axis.query_error or f"no hay ninguno {axis.query_place}"
+        text = axis.query_error or f"no hay ninguno {axis.query_place}"
         # Los ejes de la camara fallan juntos y con el mismo mensaje: lo dice el
         # primero y los demas quedan vacios.
-        repetido = any(n.text() == texto for n in self._empty_notes.values())
-        if not axis.values and not repetido:
+        repeated = any(n.text() == text for n in self._empty_notes.values())
+        if not axis.values and not repeated:
             # Como en los ejes de botones: el hueco dice por que esta vacio. Si
             # la fuente fallo, lo que dijo, que es lo que hay que arreglar.
-            nota = QLabel(texto)
-            nota.setWordWrap(True)
-            nota.setStyleSheet(
+            note = QLabel(text)
+            note.setWordWrap(True)
+            note.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_MUTED}; "
                 f"font-size: {Fonts.SIZE_XS}px;"
             )
-            self._empty_notes[axis.name] = nota
-            lay.addWidget(nota)
+            self._empty_notes[axis.name] = note
+            lay.addWidget(note)
 
     def _build_live(self) -> QWidget:
         """Cabecera con lo que esta corriendo ahora, y su ✕ para apagarlo."""
@@ -599,50 +599,50 @@ class ParamsPanel(QWidget):
         box.setVisible(False)
         return box
 
-    def _fill_live(self, inventario: tuple[Any, ...], error: str = "") -> None:
+    def _fill_live(self, inventory: tuple[Any, ...], error: str = "") -> None:
         """Rehace la lista de lo vivo. Vacia y sin error, la cabecera entera desaparece."""
-        valores, etiquetas = inventario
+        values, labels = inventory
         while self._live_layout.count() > 1:
             item = self._live_layout.takeAt(1)
             widget = item.widget() if item else None
             if widget:
                 widget.deleteLater()
 
-        for value in valores:
-            fila = QWidget()
-            fila.setStyleSheet("background: transparent;")
-            flay = QHBoxLayout(fila)
+        for value in values:
+            row = QWidget()
+            row.setStyleSheet("background: transparent;")
+            flay = QHBoxLayout(row)
             flay.setContentsMargins(0, 0, 0, 0)
             flay.setSpacing(6)
 
-            texto = QLabel(f"● {etiquetas.get(value, value)}")
-            texto.setStyleSheet(
+            text = QLabel(f"● {labels.get(value, value)}")
+            text.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
             )
-            apagar = QPushButton("✕")
-            apagar.setFixedSize(20, 20)
-            apagar.setCursor(Qt.CursorShape.PointingHandCursor)
-            apagar.setToolTip("Apagar")
-            apagar.setStyleSheet(f"""
+            stop = QPushButton("✕")
+            stop.setFixedSize(20, 20)
+            stop.setCursor(Qt.CursorShape.PointingHandCursor)
+            stop.setToolTip("Apagar")
+            stop.setStyleSheet(f"""
                 QPushButton {{ background: transparent; border: none;
                                color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px; }}
                 QPushButton:hover {{ color: {Colors.ERROR}; }}
             """)
-            apagar.clicked.connect(lambda _=False, v=value: self.stop_requested.emit(v))
+            stop.clicked.connect(lambda _=False, v=value: self.stop_requested.emit(v))
 
-            flay.addWidget(texto)
+            flay.addWidget(text)
             flay.addStretch()
-            flay.addWidget(apagar)
-            self._live_layout.addWidget(fila)
+            flay.addWidget(stop)
+            self._live_layout.addWidget(row)
 
         if error:
-            motivo = QLabel(error)
-            motivo.setWordWrap(True)
-            motivo.setStyleSheet(
+            reason = QLabel(error)
+            reason.setWordWrap(True)
+            reason.setStyleSheet(
                 f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_SM}px;"
             )
-            self._live_layout.addWidget(motivo)
-        self._live_box.setVisible(bool(valores) or bool(error))
+            self._live_layout.addWidget(reason)
+        self._live_box.setVisible(bool(values) or bool(error))
 
     def _build_fields(self, axes: list[AxisDef]) -> QWidget:
         """Ejes que se escriben: un directorio de instalacion, un API level.
@@ -783,16 +783,16 @@ class ParamsPanel(QWidget):
         for check in self._options.get(axis.name, {}).values():
             lay.removeWidget(check)
             check.deleteLater()
-        nota = self._empty_notes.pop(axis.name, None)
-        if nota is not None:
-            lay.removeWidget(nota)
-            nota.deleteLater()
+        note = self._empty_notes.pop(axis.name, None)
+        if note is not None:
+            lay.removeWidget(note)
+            note.deleteLater()
         # El grupo anterior se va con sus botones: un eje consultado se rellena
         # cada vez que se muestra la pestana, y dejarlos apilados es un grupo
         # muerto por clic.
-        previo = self._option_groups.pop(axis.name, None)
-        if previo is not None:
-            previo.deleteLater()
+        previous = self._option_groups.pop(axis.name, None)
+        if previous is not None:
+            previous.deleteLater()
 
         group = QButtonGroup(self)
         group.setExclusive(True)
@@ -830,15 +830,15 @@ class ParamsPanel(QWidget):
         if not axis.values:
             # El mismo texto que la marca de agua de una lista larga vacia: el
             # hueco tiene que decir por que esta vacio, no quedarse mudo.
-            nota = QLabel(
+            note = QLabel(
                 "leyendo el catálogo…" if self._loading else f"no hay ninguno {axis.query_place}"
             )
-            nota.setStyleSheet(
+            note.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_MUTED}; "
                 f"font-size: {Fonts.SIZE_XS}px;"
             )
-            self._empty_notes[axis.name] = nota
-            lay.addWidget(nota)
+            self._empty_notes[axis.name] = note
+            lay.addWidget(note)
 
     def _field_style(self, multiline: bool) -> str:
         return f"""
@@ -856,7 +856,7 @@ class ParamsPanel(QWidget):
         `sync_common_files`, borrar emuladores). Su presencia es lo que hace
         aparecer el boton Simulacro.
         """
-        return next((a for a in self.capability.single_axes if "simulacro" in a.values), None)
+        return next((a for a in self.capability.single_axes if "dry_run" in a.values), None)
 
     def _build_footer(self) -> QWidget:
         foot = QWidget()
@@ -960,8 +960,8 @@ class ParamsPanel(QWidget):
         field = self._fields.get(axis_name)
         if field is None:
             return ""
-        texto = field.toPlainText() if isinstance(field, QPlainTextEdit) else field.text()
-        return texto.strip()
+        text = field.toPlainText() if isinstance(field, QPlainTextEdit) else field.text()
+        return text.strip()
 
     def state(self) -> dict[str, Any]:
         """Lo que hay marcado ahora mismo, en forma serializable."""
@@ -1000,7 +1000,7 @@ class ParamsPanel(QWidget):
                 saved = options.get(axis_name)
                 if saved is None:
                     continue
-                marcados = set(saved) if isinstance(saved, list) else {saved}
+                checked = set(saved) if isinstance(saved, list) else {saved}
                 axis = self._axis(axis_name)
                 combine = axis.combine if axis else set()
                 for value, check in checks.items():
@@ -1008,40 +1008,40 @@ class ParamsPanel(QWidget):
                         continue  # eje fijo: su marca no se toca
                     if value in combine:
                         # Un guardado sin este valor = toggle desmarcado.
-                        check.setChecked(value in marcados)
-                    elif value in marcados:
+                        check.setChecked(value in checked)
+                    elif value in checked:
                         check.setChecked(True)  # el grupo excluyente desmarca al resto
 
             picks = state.get("picks") or {}
             for axis_name, combo in self._picks.items():
-                elegido = picks.get(axis_name)
-                if not elegido:
+                chosen = picks.get(axis_name)
+                if not chosen:
                     continue
-                indice = combo.findData(elegido)
+                index = combo.findData(chosen)
                 # Un valor que ya no existe (un AVD borrado, una imagen
                 # desinstalada) no se fuerza: se queda el primero de la lista.
-                if indice >= 0:
-                    combo.setCurrentIndex(indice)
+                if index >= 0:
+                    combo.setCurrentIndex(index)
 
             # Un eje por caracteristica guarda el id entero igual que los de
             # arriba: para reponerlo hay que descomponerlo y dejar cada lista
             # en su parte. `resolve_facets` descarta sola las que ya no existen.
             for axis_name, combos in self._facets.items():
-                elegido = picks.get(axis_name)
+                chosen = picks.get(axis_name)
                 axis = self._axis(axis_name)
-                if not elegido or axis is None:
+                if not chosen or axis is None:
                     continue
-                for nombre, parte in axis.facets_of(elegido).items():
-                    combo = combos.get(nombre)
+                for name, part in axis.facets_of(chosen).items():
+                    combo = combos.get(name)
                     if combo is None:
                         continue
-                    indice = combo.findData(parte)
-                    if indice < 0:
+                    index = combo.findData(part)
+                    if index < 0:
                         combo.blockSignals(True)
-                        combo.addItem(axis.text_of(parte), parte)
-                        indice = combo.count() - 1
+                        combo.addItem(axis.text_of(part), part)
+                        index = combo.count() - 1
                         combo.blockSignals(False)
-                    combo.setCurrentIndex(indice)
+                    combo.setCurrentIndex(index)
                 self._fill_facets(axis)
 
             fields = state.get("fields") or {}
@@ -1060,22 +1060,22 @@ class ParamsPanel(QWidget):
     def _persist(self) -> None:
         if self._restoring:
             return
-        estado = self.state()
+        state = self.state()
         # Un eje consultado sin valores (todavia leyendo, o su fuente fallo) no
         # dice nada de lo elegido: se conserva lo guardado. Guardar su vacio lo
         # borraba, y al llegar los valores se reponia la nada.
-        guardado = params_store.load(self.project.path, self.capability.id) or {}
+        saved = params_store.load(self.project.path, self.capability.id) or {}
         for axis in self.capability.axes:
             if not (axis.is_queried and not axis.values):
                 continue
-            for balde in ("variants", "picks"):
-                previo = guardado.get(balde) or {}
-                if axis.name in previo:
-                    estado[balde][axis.name] = previo[axis.name]
+            for bucket in ("variants", "picks"):
+                previous = saved.get(bucket) or {}
+                if axis.name in previous:
+                    state[bucket][axis.name] = previous[axis.name]
                 else:
                     # Sin nada guardado, al llegar sus valores manda el default.
-                    estado[balde].pop(axis.name, None)
-        params_store.save(self.project.path, self.capability.id, estado)
+                    state[bucket].pop(axis.name, None)
+        params_store.save(self.project.path, self.capability.id, state)
         self.params_changed.emit()
 
     def payload(self) -> dict[str, Any]:
@@ -1115,13 +1115,13 @@ class ParamsPanel(QWidget):
         self.footer.setStyleSheet(
             f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
         )
-        for boton in (self.clear_btn, self.dry_btn):
-            if boton is not None:
-                boton.setStyleSheet(self._secondary_style())
-        for campo in self._fields.values():
-            campo.setStyleSheet(self._field_style(isinstance(campo, QPlainTextEdit)))
+        for button in (self.clear_btn, self.dry_btn):
+            if button is not None:
+                button.setStyleSheet(self._secondary_style())
+        for field in self._fields.values():
+            field.setStyleSheet(self._field_style(isinstance(field, QPlainTextEdit)))
         combos = list(self._picks.values())
-        combos += [c for facetas in self._facets.values() for c in facetas.values()]
+        combos += [c for facets in self._facets.values() for c in facets.values()]
         for combo in combos:
             combo.setStyleSheet(self._combo_style())
         self._restyle_run()
@@ -1173,10 +1173,10 @@ class ParamsPanel(QWidget):
         """
         needed = set(relevant_keys_for(self.capability.id))
         for axis in self.capability.axes:
-            elegidos = self.selection(axis.name) + self.option_values(axis.name)
-            needed |= axis.keys_for(elegidos)
-            for valor in elegidos:
-                needed |= axis.uses_env.get(valor, set())
+            chosen = self.selection(axis.name) + self.option_values(axis.name)
+            needed |= axis.keys_for(chosen)
+            for value in chosen:
+                needed |= axis.uses_env.get(value, set())
         for step in self.active_steps():
             needed |= step.requires_env
             needed |= set(relevant_keys_for(step.id))
@@ -1287,7 +1287,7 @@ class ParamsPanel(QWidget):
             if axis is not None:
                 # No toca lo guardado: solo fuerza el modo seguro en el payload
                 # de ESTA corrida.
-                payload["options"] = {**payload["options"], axis.name: "simulacro"}
+                payload["options"] = {**payload["options"], axis.name: "dry_run"}
         self.execute_requested.emit(payload)
         return True
 

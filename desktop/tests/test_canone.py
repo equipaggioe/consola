@@ -14,7 +14,7 @@ from app.core.context import TaskContext
 from app.core.envfile import Config
 from app.core.errors import TaskError
 
-LLAVES = ("ssh-ed25519 AAAA uno", "sk-ssh-ed25519@openssh.com BBBB dos")
+KEYS = ("ssh-ed25519 AAAA uno", "sk-ssh-ed25519@openssh.com BBBB dos")
 CONFIG_PY = '''
 class Settings(BaseSettings):
     """Every field is required and has no default."""
@@ -27,7 +27,7 @@ class Settings(BaseSettings):
 '''
 
 
-def repo(tmp_path: Path, **valores: str) -> tuple[Path, Config]:
+def repo(tmp_path: Path, **values: str) -> tuple[Path, Config]:
     (tmp_path / "server" / "src" / "app").mkdir(parents=True)
     (tmp_path / "server" / "src" / "app" / "config.py").write_text(CONFIG_PY, encoding="utf-8")
     (tmp_path / "panel").mkdir()
@@ -36,20 +36,20 @@ def repo(tmp_path: Path, **valores: str) -> tuple[Path, Config]:
         "VALKEY_MEMORY": "256mb",
         "VPS_USER": "pablo",
         "DB_EXTENSIONS": "",
-        **valores,
+        **values,
     }
     envfile.save_config(str(tmp_path), base)
     return tmp_path, Config.for_project(str(tmp_path))
 
 
 def test_install_args_salen_del_repo_y_de_la_configuracion(tmp_path: Path) -> None:
-    raiz, config = repo(tmp_path, PRIVATE="si", PERMISSIONS_ALLOW="camera")
-    workflows = raiz / ".github" / "workflows"
+    root, config = repo(tmp_path, PRIVATE="si", PERMISSIONS_ALLOW="camera")
+    workflows = root / ".github" / "workflows"
     workflows.mkdir(parents=True)
     (workflows / "release.yml").write_text(
         "jobs:\n  web:\n  desktop-linux:\n  desktop-windows:\n", encoding="utf-8"
     )
-    args = canone.install_args(raiz, config, "demo", "equipaggio", LLAVES)
+    args = canone.install_args(root, config, "demo", "equipaggio", KEYS)
     assert args[:7] == [
         "demo",
         "ejemplo.net",
@@ -69,46 +69,46 @@ def test_install_args_salen_del_repo_y_de_la_configuracion(tmp_path: Path) -> No
 
 
 def test_logs_van_los_tres_o_ninguno(tmp_path: Path) -> None:
-    raiz, config = repo(tmp_path)
+    root, config = repo(tmp_path)
     # LOGS es de la maquina: llega a la corrida desde QSettings, no desde config.env.
     config = Config({**config.values, "LOGS": "equipaggio.net:51820"}, repo_name="demo")
     with pytest.raises(TaskError):
-        canone.install_args(raiz, config, "demo", "equipaggio", LLAVES)
+        canone.install_args(root, config, "demo", "equipaggio", KEYS)
 
 
 def test_turn_ip_sin_turn_corta(tmp_path: Path) -> None:
-    raiz, config = repo(tmp_path, TURN_IP="203.0.113.5")
+    root, config = repo(tmp_path, TURN_IP="203.0.113.5")
     with pytest.raises(TaskError):
-        canone.install_args(raiz, config, "demo", "equipaggio", LLAVES)
+        canone.install_args(root, config, "demo", "equipaggio", KEYS)
 
 
 def test_paquetes_segun_el_repo(tmp_path: Path) -> None:
     _, config = repo(tmp_path, DB_EXTENSIONS="postgis", TURN="si")
-    paquetes = canone.packages(config)
-    assert canone.POSTGIS_PACKAGE in paquetes and "coturn" in paquetes
-    assert "wireguard-tools" not in paquetes
+    packages = canone.packages(config)
+    assert canone.POSTGIS_PACKAGE in packages and "coturn" in packages
+    assert "wireguard-tools" not in packages
 
 
 def test_credenciales_por_fuente(tmp_path: Path) -> None:
-    raiz, config = repo(tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r")
-    assert canone.credential_lines(raiz, config) == (
+    root, config = repo(tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r")
+    assert canone.credential_lines(root, config) == (
         "health_token=h\npage_token_key=p\nrestic_password=r\n"
     )
 
 
 def test_una_clave_ajena_corta_antes_de_enviar(tmp_path: Path) -> None:
-    raiz, config = repo(
+    root, config = repo(
         tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r", TURN_SECRET="viejo"
     )
     with pytest.raises(TaskError) as error:
-        canone.credential_lines(raiz, config)
+        canone.credential_lines(root, config)
     assert "TURN_SECRET" in str(error.value)
 
 
 def test_un_campo_vacio_corta(tmp_path: Path) -> None:
-    raiz, config = repo(tmp_path, HEALTH_TOKEN="h", RESTIC_PASSWORD="r", PRIVATE="si")
+    root, config = repo(tmp_path, HEALTH_TOKEN="h", RESTIC_PASSWORD="r", PRIVATE="si")
     with pytest.raises(TaskError) as error:
-        canone.credential_lines(raiz, config)
+        canone.credential_lines(root, config)
     assert "PAGE_TOKEN_KEY" in str(error.value) and "GITHUB_TOKEN" in str(error.value)
 
 
@@ -125,16 +125,16 @@ def test_sin_tags_sube_desde_cero() -> None:
 
 
 def test_solo_cuentan_los_releases_publicados_y_firmados() -> None:
-    def release(tag: str, *nombres: str, draft: bool = False) -> dict[str, Any]:
-        return {"tag_name": tag, "draft": draft, "assets": [{"name": n} for n in nombres]}
+    def release(tag: str, *names: str, draft: bool = False) -> dict[str, Any]:
+        return {"tag_name": tag, "draft": draft, "assets": [{"name": n} for n in names]}
 
-    lista = [
+    items = [
         release("v1.2.0", "demo-v1.2.0.tar.gz", "demo-v1.2.0.sha256"),
         release("v1.1.0", "demo-v1.1.0.sha256", "demo-v1.1.0.sha256.sig"),
         release("v1.0.1", "demo-v1.0.1.sha256.sig", draft=True),
         release("v1.0.0", "otro-v1.0.0.sha256.sig"),
     ]
-    assert [r["tag_name"] for r in canone.signed("demo", lista)] == ["v1.1.0"]
+    assert [r["tag_name"] for r in canone.signed("demo", items)] == ["v1.1.0"]
 
 
 def test_deploy_py_solo_recibe_un_tag() -> None:
@@ -146,7 +146,7 @@ def test_deploy_py_solo_recibe_un_tag() -> None:
 
 
 def test_el_resumen_de_eventos_dice_ninguno_si_no_hay() -> None:
-    resumen = canone.events_summary(
+    summary = canone.events_summary(
         {
             "lastEventAt": "2026-11-02T08:00:00Z",
             "lastCriticalAt": None,
@@ -155,7 +155,7 @@ def test_el_resumen_de_eventos_dice_ninguno_si_no_hay() -> None:
             "diskTotalBytes": 10_000_000_000,
         }
     )
-    assert resumen == {
+    assert summary == {
         "último evento": "2026-11-02T08:00:00Z",
         "último crítico": "ninguno",
         "último respaldo": "ninguno",
@@ -179,7 +179,7 @@ def test_una_url_sin_rol_no_tiene_dueno() -> None:
         canone.owner_url("postgresql+asyncpg://127.0.0.1:5440/app")
 
 
-def _servidor(tmp_path: Path) -> Path:
+def _server(tmp_path: Path) -> Path:
     config = tmp_path / "server" / "src" / "app" / "config.py"
     config.parent.mkdir(parents=True)
     config.write_text(CONFIG_PY, encoding="utf-8")
@@ -190,7 +190,7 @@ def test_los_archivos_de_desarrollo_salen_de_config_env(tmp_path: Path) -> None:
     config = Config(
         {"DATABASE_URL": "postgresql://app@h/app", "HEALTH_TOKEN": "t", "PAGE_TOKEN_KEY": "k"}
     )
-    assert canone.credential_files(_servidor(tmp_path), config) == {
+    assert canone.credential_files(_server(tmp_path), config) == {
         "app_database_url": "postgresql://app@h/app",
         "app_health_token": "t",
         "app_page_token_key": "k",
@@ -201,14 +201,14 @@ def test_alembic_entra_como_el_dueno(tmp_path: Path) -> None:
     config = Config(
         {"DATABASE_URL": "postgresql://app@h/app", "HEALTH_TOKEN": "t", "PAGE_TOKEN_KEY": "k"}
     )
-    archivos = canone.credential_files(_servidor(tmp_path), config, owner=True)
-    assert archivos["app_database_url"] == "postgresql://app_owner@h/app"
-    assert archivos["app_health_token"] == "t"
+    files = canone.credential_files(_server(tmp_path), config, owner=True)
+    assert files["app_database_url"] == "postgresql://app_owner@h/app"
+    assert files["app_health_token"] == "t"
 
 
 def test_los_archivos_de_desarrollo_cortan_si_falta_un_campo(tmp_path: Path) -> None:
     with pytest.raises(TaskError, match="DATABASE_URL, PAGE_TOKEN_KEY"):
-        canone.credential_files(_servidor(tmp_path), Config({"HEALTH_TOKEN": "t"}))
+        canone.credential_files(_server(tmp_path), Config({"HEALTH_TOKEN": "t"}))
 
 
 class _GitContext:

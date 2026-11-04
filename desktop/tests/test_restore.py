@@ -7,14 +7,14 @@ from app.core.tasks.database import _without_extensions
 
 
 def test_la_restauracion_no_toca_las_extensiones() -> None:
-    contenido = (
+    content = (
         "; Archive created\n"
         "215; 1259 16400 TABLE public dato prueba\n"
         "3; 3079 16385 EXTENSION - pg_trgm\n"
         "4000; 0 0 COMMENT - EXTENSION pg_trgm\n"
         "3900; 0 16400 TABLE DATA public dato prueba\n"
     )
-    assert _without_extensions(contenido) == (
+    assert _without_extensions(content) == (
         "; Archive created\n"
         "215; 1259 16400 TABLE public dato prueba\n"
         "3900; 0 16400 TABLE DATA public dato prueba\n"

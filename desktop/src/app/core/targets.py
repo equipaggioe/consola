@@ -114,10 +114,10 @@ def asgi_app(directory: Path) -> str:
     hace servidor sin importar como se llame la carpeta (`server/`, `backend/`).
     `alembic.ini` + `app/main.py` cubre el que arma su app en otro modulo.
     """
-    for relativo, modulo in _ASGI_MODULES:
-        fuente = directory / relativo
-        if fuente.is_file() and "FastAPI(" in read_text(fuente):
-            return modulo
+    for relative, module in _ASGI_MODULES:
+        source = directory / relative
+        if source.is_file() and "FastAPI(" in read_text(source):
+            return module
     if (directory / "alembic.ini").is_file() and (directory / "app" / "main.py").is_file():
         return "app.main:app"
     return ""
@@ -125,10 +125,10 @@ def asgi_app(directory: Path) -> str:
 
 def python_entrypoint(directory: Path) -> Path | None:
     """El `main.py` con el que arranca una app Python, o None si no tiene."""
-    for relativo in PYTHON_ENTRYPOINTS:
-        fuente = directory / relativo
-        if fuente.is_file():
-            return fuente
+    for relative in PYTHON_ENTRYPOINTS:
+        source = directory / relative
+        if source.is_file():
+            return source
     return None
 
 
@@ -237,17 +237,17 @@ def pick(root: Path, kinds: Sequence[str], name: str = "") -> Target:
     todos los repos y evita pedir una eleccion que no existe.
     """
     found = by_kinds(root, kinds)
-    etiqueta = " o ".join(kinds)
+    label = " o ".join(kinds)
     if name:
         for target in found:
             if target.name == name:
                 return target
-        raise TaskError(f'No hay ningun {etiqueta} llamado "{name}" en {root.name}.')
+        raise TaskError(f'No hay ningun {label} llamado "{name}" en {root.name}.')
     if not found:
-        raise TaskError(f"{root.name} no tiene ningun subproyecto de tipo {etiqueta}.")
+        raise TaskError(f"{root.name} no tiene ningun subproyecto de tipo {label}.")
     if len(found) > 1:
-        elegir = ", ".join(t.name for t in found)
-        raise TaskError(f"Hay mas de un {etiqueta} en {root.name}: {elegir}. Elige uno.")
+        choose = ", ".join(t.name for t in found)
+        raise TaskError(f"Hay mas de un {label} en {root.name}: {choose}. Elige uno.")
     return found[0]
 
 

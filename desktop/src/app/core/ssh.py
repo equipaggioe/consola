@@ -83,12 +83,12 @@ class Remote:
         # quedar esperando un EOF que nunca llega cuando corre dentro de la GUI.
         # `stdin=True` es para lo que si lee: la contraseña de `sudo -S` o las
         # lineas de `credentials.py`.
-        modo = ["-t"] if tty else [] if stdin else ["-n"]
+        mode = ["-t"] if tty else [] if stdin else ["-n"]
         return [
             "ssh",
             *CONNECT_TIMEOUT,
             *_control_args(self.identity, self.target),
-            *modo,
+            *mode,
             *extra,
             "-i",
             str(self.identity),
@@ -233,8 +233,8 @@ def upload(
     if make_parent and parent:
         ensure_dir(remote, parent)
 
-    destino = parent if local.is_dir() else remote_path
-    ctx.run(remote.scp_argv(local, destino, recursive=local.is_dir()))
+    destination = parent if local.is_dir() else remote_path
+    ctx.run(remote.scp_argv(local, destination, recursive=local.is_dir()))
     if chmod:
         capture(remote, f"chmod {chmod} {quote(remote_path)}")
     return remote_path

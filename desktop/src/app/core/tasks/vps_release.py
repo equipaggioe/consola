@@ -74,24 +74,24 @@ def _pushed(ctx: TaskContext) -> None:
     El CI construye el commit del tag en GitHub, no esta carpeta.
     """
     _ensure_git(ctx)
-    rama = _current_branch(ctx)
-    sucio = ctx.capture(["git", "status", "--porcelain"])
-    if sucio:
-        raise TaskError(f"Hay cambios sin commitear, y el tag no los lleva:\n{sucio}")
+    branch = _current_branch(ctx)
+    dirty = ctx.capture(["git", "status", "--porcelain"])
+    if dirty:
+        raise TaskError(f"Hay cambios sin commitear, y el tag no los lleva:\n{dirty}")
     ctx.run(["git", "fetch", "origin"], echo=False)
     upstream = ctx.capture(
         ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], check=False
     )
     if not upstream:
-        raise TaskError(f"{rama} no tiene rama en origin: empújala primero.")
+        raise TaskError(f"{branch} no tiene rama en origin: empújala primero.")
     if ctx.capture(["git", "rev-list", "--count", f"{upstream}..HEAD"]) != "0":
-        raise TaskError(f"{rama} tiene commits que {upstream} no tiene: empújalos primero.")
+        raise TaskError(f"{branch} tiene commits que {upstream} no tiene: empújalos primero.")
 
 
 def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
     """La corrida de `release.yml` que disparo el tag. GitHub la crea unos segundos despues."""
     for _ in range(_APPEARS):
-        corrida = ctx.capture(
+        run = ctx.capture(
             [
                 *gh,
                 "run",
@@ -109,8 +109,8 @@ def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
             ],
             timeout=30.0,
         )
-        if corrida:
-            return corrida
+        if run:
+            return run
         ctx.wait_cancelled(5)
         ctx.raise_if_cancelled()
     raise TaskError(
@@ -122,26 +122,26 @@ def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
 def _watch(ctx: TaskContext, repo: str, tag: str) -> None:
     """Espera a que `release.yml` termine, y corta si no termina bien."""
     gh = _gh()
-    corrida = _run_id(ctx, gh, repo, tag)
-    ctx.info(f"{WORKFLOW} corre en https://github.com/{repo}/actions/runs/{corrida}")
-    visto = ""
+    run = _run_id(ctx, gh, repo, tag)
+    ctx.info(f"{WORKFLOW} corre en https://github.com/{repo}/actions/runs/{run}")
+    seen = ""
     while True:
-        estado = json.loads(
+        state = json.loads(
             ctx.capture(
-                [*gh, "run", "view", corrida, "--repo", repo, "--json", "status,conclusion"],
+                [*gh, "run", "view", run, "--repo", repo, "--json", "status,conclusion"],
                 timeout=30.0,
             )
         )
-        if estado["status"] != visto:
-            visto = estado["status"]
-            ctx.info(f"{WORKFLOW}: {visto}")
-        if visto == "completed":
+        if state["status"] != seen:
+            seen = state["status"]
+            ctx.info(f"{WORKFLOW}: {seen}")
+        if seen == "completed":
             break
         ctx.wait_cancelled(_POLL)
         ctx.raise_if_cancelled()
-    if estado["conclusion"] != "success":
-        ctx.run([*gh, "run", "view", corrida, "--repo", repo, "--log-failed"], check=False)
-        raise TaskError(f"{WORKFLOW} terminó en {estado['conclusion']}: {tag} no se publicó.")
+    if state["conclusion"] != "success":
+        ctx.run([*gh, "run", "view", run, "--repo", repo, "--log-failed"], check=False)
+        raise TaskError(f"{WORKFLOW} terminó en {state['conclusion']}: {tag} no se publicó.")
 
 
 def create_tag(ctx: TaskContext, part: str = "patch") -> str:
@@ -152,8 +152,8 @@ def create_tag(ctx: TaskContext, part: str = "patch") -> str:
     """
     _pushed(ctx)
     repo, _ = _repo(ctx.root)
-    remotos = ctx.capture(["git", "ls-remote", "--tags", "--refs", "origin", "v*"])
-    tags = [linea.rpartition("refs/tags/")[2] for linea in remotos.splitlines()]
+    remote = ctx.capture(["git", "ls-remote", "--tags", "--refs", "origin", "v*"])
+    tags = [line.rpartition("refs/tags/")[2] for line in remote.splitlines()]
     tag = canone.next_tag(tags, part)
     ctx.run(["git", "tag", "-a", tag, "-m", tag])
     ctx.run(["git", "push", "origin", f"refs/tags/{tag}"])
@@ -171,22 +171,22 @@ def sign_release(ctx: TaskContext, tag: str) -> None:
     """
     repo, app = _repo(ctx.root)
     gh = _gh()
-    llave = ssh.resolve_identity(ctx.config.require("VPS_KEY_NAME"))
+    key = ssh.resolve_identity(ctx.config.require("VPS_KEY_NAME"))
     release = json.loads(
         ctx.capture(
             [*gh, "release", "view", tag, "--repo", repo, "--json", "isDraft,assets"], timeout=30.0
         )
     )
-    nombres = {a["name"] for a in release["assets"]}
-    suma, firma = canone.checksum(app, tag), canone.signature(app, tag)
-    if firma in nombres:
-        ctx.ok(f"{tag} ya tiene {firma}.")
+    names = {a["name"] for a in release["assets"]}
+    total, signature = canone.checksum(app, tag), canone.signature(app, tag)
+    if signature in names:
+        ctx.ok(f"{tag} ya tiene {signature}.")
         return
-    if release["isDraft"] or suma not in nombres:
-        raise TaskError(f"El release {tag} no tiene {suma}: {WORKFLOW} no terminó.")
-    with tempfile.TemporaryDirectory() as carpeta:
+    if release["isDraft"] or total not in names:
+        raise TaskError(f"El release {tag} no tiene {total}: {WORKFLOW} no terminó.")
+    with tempfile.TemporaryDirectory() as folder:
         ctx.run(
-            [*gh, "release", "download", tag, "--repo", repo, "--pattern", suma, "--dir", carpeta]
+            [*gh, "release", "download", tag, "--repo", repo, "--pattern", total, "--dir", folder]
         )
         ctx.run(
             [
@@ -196,11 +196,11 @@ def sign_release(ctx: TaskContext, tag: str) -> None:
                 "-n",
                 "deploy",
                 "-f",
-                str(llave),
-                str(Path(carpeta) / suma),
+                str(key),
+                str(Path(folder) / total),
             ]
         )
-        ctx.run([*gh, "release", "upload", tag, str(Path(carpeta) / firma), "--repo", repo])
+        ctx.run([*gh, "release", "upload", tag, str(Path(folder) / signature), "--repo", repo])
     ctx.ok(f"{tag} firmado.")
 
 
@@ -216,18 +216,18 @@ def deploy_release(ctx: TaskContext, tag: str) -> None:
 
 
 def _admin(ctx: TaskContext) -> Access:
-    entrada = access(ctx)
-    if entrada.is_root:
+    entry = access(ctx)
+    if entry.is_root:
         raise TaskError(
             "La cuenta que administra todavía no existe: corre «Configurar VPS» "
             "con «Instalar infraestructura» primero."
         )
-    return entrada
+    return entry
 
 
-def _deploy(ctx: TaskContext, entrada: Access, app: str, tag: str) -> None:
-    entrada.run(ctx, canone.deploy_command(app, tag))
-    ctx.ok(f"{tag} desplegado en {entrada.remote.host}.")
+def _deploy(ctx: TaskContext, entry: Access, app: str, tag: str) -> None:
+    entry.run(ctx, canone.deploy_command(app, tag))
+    ctx.ok(f"{tag} desplegado en {entry.remote.host}.")
 
 
 def deploy_latest(ctx: TaskContext) -> str:
@@ -238,21 +238,21 @@ def deploy_latest(ctx: TaskContext) -> str:
     volver a correr: `deploy.py` no instala dos veces la misma version.
     """
     _, app = _repo(ctx.root)
-    ultimo = _latest(ctx)
-    tag = ultimo["tag_name"]
-    if not canone.signed(app, [ultimo]):
+    last = _latest(ctx)
+    tag = last["tag_name"]
+    if not canone.signed(app, [last]):
         raise TaskError(
             f"El último release, {tag}, no tiene {canone.signature(app, tag)}: "
             "fírmalo con «Publicar versión» sin «Crear tag»."
         )
-    entrada = _admin(ctx)
-    actual = ssh.capture(
-        entrada.remote, f"readlink {ssh.quote(f'/srv/{app}/current')}", check=False
+    entry = _admin(ctx)
+    current = ssh.capture(
+        entry.remote, f"readlink {ssh.quote(f'/srv/{app}/current')}", check=False
     )
-    if actual.rpartition("/")[2] == tag:
+    if current.rpartition("/")[2] == tag:
         ctx.ok(f"{tag} ya está desplegado.")
         return tag
-    _deploy(ctx, entrada, app, tag)
+    _deploy(ctx, entry, app, tag)
     return tag
 
 

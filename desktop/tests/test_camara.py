@@ -12,11 +12,11 @@ KIT_TESTS = Path(__file__).resolve().parents[1] / "src" / "app" / "camara" / "in
 def test_el_kit_de_la_camara_pasa_sus_pruebas() -> None:
     node = shutil.which("node")
     assert node, "Hace falta Node en el PATH para probar camara/."
-    resultado = subprocess.run(
+    result = subprocess.run(
         [node, "--test", str(KIT_TESTS)],
         capture_output=True,
         text=True,
         encoding="utf-8",
         timeout=60,
     )
-    assert resultado.returncode == 0, resultado.stdout + resultado.stderr
+    assert result.returncode == 0, result.stdout + result.stderr

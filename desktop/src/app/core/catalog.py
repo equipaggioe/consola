@@ -28,17 +28,17 @@ _IMAGE_FACETS = (
 # El eje 'local'/'remoto' se repite igual en una docena de botones (DB,
 # scripts de setup): una sola tabla de etiquetas para que el panel no muestre
 # los valores crudos en minúscula.
-_SCOPE_LABELS = {"local": "Local", "remoto": "Remoto"}
+_SCOPE_LABELS = {"local": "Local", "remote": "Remoto"}
 
 # Todo boton con este eje conecta a la base (`db.credentials`): usuario, base y
 # contrasena en los dos ambitos, y en remoto ademas lo que abre el SSH.
 _DB_KEYS = {"DB_USER", "DB_NAME", "DB_PASSWORD"}
 _SCOPE_AXIS = lambda: AxisDef(
     "scope",
-    ["local", "remoto"],
+    ["local", "remote"],
     "scope",
     labels=_SCOPE_LABELS,
-    requires_env={"local": _DB_KEYS, "remoto": _DB_KEYS | {"VPS_IP", "VPS_USER", "VPS_KEY_NAME"}},
+    requires_env={"local": _DB_KEYS, "remote": _DB_KEYS | {"VPS_IP", "VPS_USER", "VPS_KEY_NAME"}},
 )
 
 # Que unidad systemd toca la accion. En el mismo VPS corren tres servicios —el
@@ -91,27 +91,27 @@ def for_project(cap: Capability, root: Path | str | None) -> Capability:
     """
     if not root:
         return cap
-    hay_pasos = any(s.requires_repo for s in cap.steps)
-    if not hay_pasos and not any(a.is_discovered for a in cap.axes):
+    has_steps = any(s.requires_repo for s in cap.steps)
+    if not has_steps and not any(a.is_discovered for a in cap.axes):
         return cap
     # `Project.path` es un str; el descubrimiento trabaja con rutas.
-    carpeta = Path(root)
-    if not carpeta.is_dir():
+    folder = Path(root)
+    if not folder.is_dir():
         return cap
-    resueltos = [
-        replace(a, values=targets.names_of(carpeta, a.discover)) if a.is_discovered else a
+    resolved = [
+        replace(a, values=targets.names_of(folder, a.discover)) if a.is_discovered else a
         for a in cap.axes
     ]
-    pasos = cap.steps_for(repo_features(carpeta)) if hay_pasos else cap.steps
-    return replace(cap, axes=resueltos, steps=pasos)
+    chosen_steps = cap.steps_for(repo_features(folder)) if has_steps else cap.steps
+    return replace(cap, axes=resolved, steps=chosen_steps)
 
 
 def repo_features(root: Path | str | None) -> frozenset[str]:
     """Que caracteristicas tiene este repo (`core/targets.py::features`)."""
     if not root:
         return frozenset()
-    carpeta = Path(root)
-    return targets.features(carpeta) if carpeta.is_dir() else frozenset()
+    folder = Path(root)
+    return targets.features(folder) if folder.is_dir() else frozenset()
 
 
 def applicable_ids(root: Path | str | None) -> set[str]:
@@ -124,8 +124,8 @@ def applicable_ids(root: Path | str | None) -> set[str]:
     """
     if not root:
         return {cap.id for cap in registry.get_all()}
-    caracteristicas = repo_features(root)
-    return {cap.id for cap in registry.get_all() if cap.applies_to(caracteristicas)}
+    features = repo_features(root)
+    return {cap.id for cap in registry.get_all() if cap.applies_to(features)}
 
 
 # --- catalogos que se consultan -------------------------------------------
@@ -159,7 +159,7 @@ ICON_APPS = "icon_apps"  # apps del repo que toman su icono del logo
 # cachean por un minuto y nada mas: alcanza para no repetir la consulta al abrir
 # tres pestanas seguidas, y no alcanza para mentir despues de una instalacion.
 # Los dos catalogos grandes usan el mes por defecto de `core/cache.py`.
-_FRESCO = 60.0
+_FRESH = 60.0
 
 
 def queried_values(
@@ -186,31 +186,31 @@ def queried_values(
         return _icon_apps(root)
     sdk = android.resolve_sdk()
     if source == ANDROID_DEVICES:
-        catalogo = android.device_catalog(sdk, refresh=refresh)
-        return [d.id for d in catalogo], {d.id: d.label for d in catalogo}
+        catalog = android.device_catalog(sdk, refresh=refresh)
+        return [d.id for d in catalog], {d.id: d.label for d in catalog}
     if source == ANDROID_IMAGES:
-        catalogo = android.image_catalog(sdk, refresh=refresh)
-        return [i.package for i in catalogo], _image_labels(catalogo)
+        catalog = android.image_catalog(sdk, refresh=refresh)
+        return [i.package for i in catalog], _image_labels(catalog)
     if source == ANDROID_IMAGES_INSTALLED:
-        paquetes = cache.cached(
-            "android-installed", lambda: android.list_images(sdk), max_age=_FRESCO, refresh=refresh
+        packages = cache.cached(
+            "android-installed", lambda: android.list_images(sdk), max_age=_FRESH, refresh=refresh
         )
-        imagenes = sorted((android.parse_image(p) for p in paquetes), key=lambda i: i.order)
-        return [i.package for i in imagenes], _image_labels(imagenes)
+        images = sorted((android.parse_image(p) for p in packages), key=lambda i: i.order)
+        return [i.package for i in images], _image_labels(images)
     if source == ANDROID_AVDS:
-        nombres = cache.cached(
-            "android-avds", lambda: android.list_avds(sdk), max_age=_FRESCO, refresh=refresh
+        names = cache.cached(
+            "android-avds", lambda: android.list_avds(sdk), max_age=_FRESH, refresh=refresh
         )
-        return list(nombres), {}
+        return list(names), {}
     if source == ANDROID_RUNNING:
         # Nunca cacheado: es estado, no catalogo. Una respuesta vieja aca
         # ofreceria apagar un emulador que ya no existe.
-        vivos = android.running(sdk)
-        return list(vivos), {s: f"{n or '?'}  ({s})" for s, n in vivos.items()}
+        alive = android.running(sdk)
+        return list(alive), {s: f"{n or '?'}  ({s})" for s, n in alive.items()}
     raise TaskError(f"Fuente desconocida: {source}")
 
 
-def _image_labels(imagenes: list[android.Image]) -> dict[str, str]:
+def _image_labels(images: list[android.Image]) -> dict[str, str]:
     """Las etiquetas de un eje de system images: el paquete entero y sus partes.
 
     Las dos en la misma tabla porque `AxisDef.text_of` es una sola, y los ids no
@@ -218,7 +218,7 @@ def _image_labels(imagenes: list[android.Image]) -> dict[str, str]:
     por caracteristica (`_IMAGE_FACETS`), pero el paquete entero se sigue
     leyendo en el resumen de la corrida y en la lista de 'Liberar disco'.
     """
-    return {**{i.package: i.label for i in imagenes}, **android.facet_labels(imagenes)}
+    return {**{i.package: i.label for i in images}, **android.facet_labels(images)}
 
 
 def _vps_services(
@@ -237,14 +237,14 @@ def _vps_services(
         return [], {}
     remote = ssh.resolve_remote(config)
     _, app = canone.origin(Path(root))
-    clave = "".join(c if c.isalnum() else "-" for c in remote.target)
-    valores = cache.cached(
-        f"vps-units-{clave}",
+    key = "".join(c if c.isalnum() else "-" for c in remote.target)
+    values = cache.cached(
+        f"vps-units-{key}",
         lambda: vps.installed_services(remote, app),
-        max_age=_FRESCO,
+        max_age=_FRESH,
         refresh=refresh,
     )
-    return list(valores), vps.SERVICE_LABELS
+    return list(values), vps.SERVICE_LABELS
 
 
 def _backup_files(
@@ -266,8 +266,8 @@ def _backup_files(
         return [], {}
     from app.core.tasks.database import list_backups  # circular: tasks importa el registro
 
-    valores = list_backups(config, Path(root))
-    return [p.name for p in valores], {p.name: _backup_label(p) for p in valores}
+    values = list_backups(config, Path(root))
+    return [p.name for p in values], {p.name: _backup_label(p) for p in values}
 
 
 def _releases(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
@@ -282,10 +282,10 @@ def _releases(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
     from app.core.tasks.vps_release import releases  # circular: tasks importa el registro
 
     _, app = canone.origin(Path(root))
-    firmados = canone.signed(app, releases(Path(root)))
+    signed = canone.signed(app, releases(Path(root)))
     return (
-        [r["tag_name"] for r in firmados],
-        {r["tag_name"]: f"{r['tag_name']}  ({r['published_at'][:10]})" for r in firmados},
+        [r["tag_name"] for r in signed],
+        {r["tag_name"]: f"{r['tag_name']}  ({r['published_at'][:10]})" for r in signed},
     )
 
 
@@ -315,28 +315,28 @@ def _shots_axis(
         return [], {}
     from app.core.tasks.images import camera_supported  # circular: tasks importa el registro
 
-    clave = "".join(c if c.isalnum() else "-" for c in str(Path(root).resolve()))
-    declarado = cache.cached(
-        f"shots-supported-{clave}",
+    key = "".join(c if c.isalnum() else "-" for c in str(Path(root).resolve()))
+    declared = cache.cached(
+        f"shots-supported-{key}",
         lambda: camera_supported(Path(root), config),
-        max_age=_FRESCO,
+        max_age=_FRESH,
         refresh=refresh,
     )
-    eje = _SHOTS_AXES[source]
-    etiquetas = SHOT_THEME_LABELS if eje == "themes" else {}
-    return shots.supported_values(declarado, eje), etiquetas
+    axis = _SHOTS_AXES[source]
+    labels = SHOT_THEME_LABELS if axis == "themes" else {}
+    return shots.supported_values(declared, axis), labels
 
 
 def _backup_label(path: Path) -> str:
     """`2026-09-23 14:30  ·  12,4 MB`. El valor real es el nombre del archivo,
     que lleva el sello pegado y sin separar: ilegible en una lista.
     """
-    partes = path.stem.rsplit("-", 2)
+    parts = path.stem.rsplit("-", 2)
     try:
-        cuando = datetime.strptime("-".join(partes[-2:]), "%Y%m%d-%H%M%S")
+        when = datetime.strptime("-".join(parts[-2:]), "%Y%m%d-%H%M%S")
     except ValueError:
         return path.name
-    return f"{cuando:%Y-%m-%d %H:%M}  ·  {files.human_size(files.size_of(path))}"
+    return f"{when:%Y-%m-%d %H:%M}  ·  {files.human_size(files.size_of(path))}"
 
 
 def forget_machine_cache() -> None:
@@ -647,11 +647,11 @@ def load_catalog() -> None:
                 # que solo pasan una vez.
                 AxisDef(
                     "reload",
-                    ["con recarga", "sin recarga"],
+                    ["reload", "no_reload"],
                     "scope",
                     label="Al cambiar el código",
-                    truthy="con recarga",
-                    labels={"con recarga": "Con recarga", "sin recarga": "Sin recarga"},
+                    truthy="reload",
+                    labels={"reload": "Con recarga", "no_reload": "Sin recarga"},
                 ),
             ],
             stub=True,
@@ -852,19 +852,19 @@ def load_catalog() -> None:
                 # un archivo suelto o una carpeta, y con o sin consola detras.
                 AxisDef(
                     "onefile",
-                    ["un archivo", "carpeta"],
+                    ["single_file", "folder"],
                     "scope",
                     label="Empaquetado",
-                    truthy="un archivo",
-                    labels={"un archivo": "Un archivo", "carpeta": "Carpeta"},
+                    truthy="single_file",
+                    labels={"single_file": "Un archivo", "folder": "Carpeta"},
                 ),
                 AxisDef(
                     "windowed",
-                    ["consola", "ventana"],
+                    ["console", "window"],
                     "scope",
                     label="Al ejecutarse",
-                    truthy="ventana",
-                    labels={"consola": "Consola", "ventana": "Ventana"},
+                    truthy="window",
+                    labels={"console": "Consola", "window": "Ventana"},
                 ),
                 _SEMVER_AXIS(),
             ],
@@ -913,11 +913,11 @@ def load_catalog() -> None:
                 ),
                 AxisDef(
                     "apply",
-                    ["simulacro", "borrar"],
+                    ["dry_run", "delete"],
                     "scope",
                     label="Modo",
-                    truthy="borrar",
-                    labels={"simulacro": "Simulacro", "borrar": "Borrar"},
+                    truthy="delete",
+                    labels={"dry_run": "Simulacro", "delete": "Borrar"},
                 ),
             ],
             stub=True,
@@ -1039,11 +1039,11 @@ def load_catalog() -> None:
                 AxisDef("paths", [""], "field", label="Archivos a copiar", multiline=True),
                 AxisDef(
                     "apply",
-                    ["simulacro", "aplicar"],
+                    ["dry_run", "apply"],
                     "scope",
                     label="Modo",
-                    truthy="aplicar",
-                    labels={"simulacro": "Simulacro", "aplicar": "Aplicar"},
+                    truthy="apply",
+                    labels={"dry_run": "Simulacro", "apply": "Aplicar"},
                 ),
             ],
             stub=True,
@@ -1075,12 +1075,12 @@ def load_catalog() -> None:
             axes=[
                 AxisDef(
                     "discard_changes",
-                    ["preguntar", "descartar"],
+                    ["ask", "discard"],
                     "scope",
                     label="Si hay cambios sin commitear",
-                    truthy="descartar",
-                    danger={"descartar"},
-                    labels={"preguntar": "Preguntar", "descartar": "Descartar"},
+                    truthy="discard",
+                    danger={"discard"},
+                    labels={"ask": "Preguntar", "discard": "Descartar"},
                 )
             ],
             stub=True,
@@ -1308,11 +1308,11 @@ def load_catalog() -> None:
                 _SERVICE_AXIS(),
                 AxisDef(
                     "follow",
-                    ["seguir en vivo", "de una"],
+                    ["follow", "once"],
                     "scope",
                     label="Modo",
-                    truthy="seguir en vivo",
-                    labels={"seguir en vivo": "Seguir en vivo", "de una": "De una"},
+                    truthy="follow",
+                    labels={"follow": "Seguir en vivo", "once": "De una"},
                 ),
             ],
             stub=True,
@@ -1553,12 +1553,12 @@ def load_catalog() -> None:
                 AxisDef("avd", [], "pick", label="AVD", source=ANDROID_AVDS),
                 AxisDef(
                     "wipe",
-                    ["normal", "borrar datos"],
+                    ["normal", "wipe_data"],
                     "scope",
                     label="Arranque",
-                    truthy="borrar datos",
-                    danger={"borrar datos"},
-                    labels={"normal": "Normal", "borrar datos": "Borrar datos"},
+                    truthy="wipe_data",
+                    danger={"wipe_data"},
+                    labels={"normal": "Normal", "wipe_data": "Borrar datos"},
                 ),
                 # Los tres flags que de verdad se escriben. Eran texto libre
                 # —habia que acordarse de como se llaman y escribirlos bien— y
@@ -1658,11 +1658,11 @@ def load_catalog() -> None:
                 ),
                 AxisDef(
                     "apply",
-                    ["simulacro", "borrar"],
+                    ["dry_run", "delete"],
                     "scope",
                     label="Modo",
-                    truthy="borrar",
-                    labels={"simulacro": "Simulacro", "borrar": "Borrar"},
+                    truthy="delete",
+                    labels={"dry_run": "Simulacro", "delete": "Borrar"},
                 ),
             ],
             stub=True,

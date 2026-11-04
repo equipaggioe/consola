@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from app.ui.widgets.accordion import SIN_TOPE, AccordionHeader, AccordionSection, SectionResizeGrip
+from app.ui.widgets.accordion import NO_CAP, AccordionHeader, AccordionSection, SectionResizeGrip
 from app.ui.widgets.action_row import ActionRow, LevelMark, ScopeMark
 from app.ui.widgets.favorite_star import FavoriteStar
 from app.ui.widgets.led import LedIndicator
@@ -21,5 +21,5 @@ __all__ = [
     "AccordionSection",
     "AccordionHeader",
     "SectionResizeGrip",
-    "SIN_TOPE",
+    "NO_CAP",
 ]

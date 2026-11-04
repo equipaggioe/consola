@@ -266,10 +266,8 @@ SETTINGS: tuple[Setting, ...] = (
     # plataforma (`AxisDef.uses_env` del catalogo), y solo se muestran las de
     # las plataformas marcadas.
     *(
-        Setting(
-            f"BUILD_OUT_{clave}", "Builds", f"Carpeta del build {nombre}", default_hint=defecto
-        )
-        for clave, nombre, defecto in (
+        Setting(f"BUILD_OUT_{key}", "Builds", f"Carpeta del build {name}", default_hint=default)
+        for key, name, default in (
             ("APK", "APK", "build/app/outputs/flutter-apk · en Flet: build/apk"),
             ("AAB", "AAB", "build/app/outputs/bundle/release · en Flet: build/aab"),
             ("WEB", "web", "build/web"),

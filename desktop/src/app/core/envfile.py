@@ -30,8 +30,8 @@ def split_list(value: str) -> list[str]:
     el orden escrito: la lista de archivos a copiar se lee de izquierda a
     derecha igual que el `FILES_TO_UPLOAD` del script original.
     """
-    partes = (p.strip() for chunk in value.splitlines() for p in chunk.split(","))
-    return [p for p in partes if p]
+    parts = (p.strip() for chunk in value.splitlines() for p in chunk.split(","))
+    return [p for p in parts if p]
 
 
 def repo_name_of(repo_path: str) -> str:
@@ -116,10 +116,10 @@ def render_config(values: dict[str, str], fields: tuple[Setting, ...] = ()) -> s
     # Las de maquina cuentan como conocidas para NO caer en «Otras claves»:
     # el archivo no las escribe, ni en su grupo ni al final.
     known = {s.key for s in (*SETTINGS, *fields)}
-    grupos = settings_by_group(fields)
+    groups = settings_by_group(fields)
     out = [HEADER]
     for group in GROUP_ORDER:
-        items = [s for s in grupos.get(group, []) if s.scope == "repo"]
+        items = [s for s in groups.get(group, []) if s.scope == "repo"]
         if not items:
             continue
         out.append(f"\n# --- {group} ---\n")

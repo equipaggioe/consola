@@ -111,7 +111,7 @@ Construido y nunca probado en condiciones reales:
 | **Endpoint** | Una URL que una tarea publicó, con su estado (`starting`/`ready`/`down`) |
 | **Fanout** | Repartir los valores marcados de un eje en una pestaña cada uno |
 | **Compuesta concurrente** | Sus pasos se lanzan a la vez, uno por pestaña, y ninguno termina |
-| **Ámbito** (`scope`) | `local` o `remoto` para una base; `repo` o `machine` para una capacidad |
+| **Ámbito** (`scope`) | `local` o `remote` para una base; `repo` o `machine` para una capacidad |
 | **Objetivo de compilación** (`Target`) | Un subproyecto del repo: una SPA, una app móvil, el servidor |
 | **Característica** (del repo) | Algo que el repo tiene o no tiene, y decide si un paso existe. Hoy solo `migrations` |
 | **Runner** | El intérprete de Python del proyecto, con su directorio y su base |

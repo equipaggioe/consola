@@ -14,52 +14,52 @@ from pathlib import Path
 
 import pytest
 
-RAIZ = Path(__file__).resolve().parents[1] / "src" / "app"
+ROOT = Path(__file__).resolve().parents[1] / "src" / "app"
 
 from app.core import host, process
 from app.core.errors import TaskError
 
 
-@pytest.mark.parametrize("clase", [host.WindowsHost, host.PosixHost])
-def test_cada_sistema_implementa_todo(clase: type[host.Host]) -> None:
-    clase()  # a una clase con un abstracto sin implementar no se la puede instanciar
+@pytest.mark.parametrize("cls", [host.WindowsHost, host.PosixHost])
+def test_cada_sistema_implementa_todo(cls: type[host.Host]) -> None:
+    cls()  # a una clase con un abstracto sin implementar no se la puede instanciar
 
 
 def test_nadie_mas_pregunta_el_sistema() -> None:
-    patron = re.compile(r"\bos\.name\b|\bsys\.platform\b|\bplatform\.system\(")
-    culpables = []
-    for archivo in [*RAIZ.glob("core/**/*.py"), *RAIZ.glob("ui/**/*.py"), RAIZ / "main.py"]:
-        if archivo == RAIZ / "core" / "host.py":
+    pattern = re.compile(r"\bos\.name\b|\bsys\.platform\b|\bplatform\.system\(")
+    culprits = []
+    for file in [*ROOT.glob("core/**/*.py"), *ROOT.glob("ui/**/*.py"), ROOT / "main.py"]:
+        if file == ROOT / "core" / "host.py":
             continue
-        for n, linea in enumerate(archivo.read_text(encoding="utf-8").splitlines(), 1):
-            codigo = linea.split("#", 1)[0]
-            if patron.search(codigo) and "`" not in codigo:
-                culpables.append(f"{archivo.relative_to(RAIZ)}:{n}: {linea.strip()}")
-    assert culpables == []
+        for n, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
+            code = line.split("#", 1)[0]
+            if pattern.search(code) and "`" not in code:
+                culprits.append(f"{file.relative_to(ROOT)}:{n}: {line.strip()}")
+    assert culprits == []
 
 
 # --- postgres --------------------------------------------------------------
 
 
-def _instalar(root: Path, version: str, *herramientas: str) -> None:
-    carpeta = root / version / "bin"
-    carpeta.mkdir(parents=True)
-    for nombre in herramientas:
-        (carpeta / nombre).write_text("", encoding="utf-8")
+def _install(root: Path, version: str, *tools: str) -> None:
+    folder = root / version / "bin"
+    folder.mkdir(parents=True)
+    for name in tools:
+        (folder / name).write_text("", encoding="utf-8")
 
 
 def test_linux_usa_la_version_mas_nueva_por_numero(tmp_path: Path) -> None:
-    _instalar(tmp_path, "9.6", "psql")
-    _instalar(tmp_path, "16", "psql")
-    _instalar(tmp_path, "17")  # la 17 sin cliente no cuenta
+    _install(tmp_path, "9.6", "psql")
+    _install(tmp_path, "16", "psql")
+    _install(tmp_path, "17")  # la 17 sin cliente no cuenta
     linux = host.PosixHost()
     linux.PG_ROOT = tmp_path
     assert linux.pg_tool("psql") == tmp_path / "16" / "bin" / "psql"
 
 
 def test_windows_usa_la_version_mas_nueva_por_numero(tmp_path: Path) -> None:
-    _instalar(tmp_path, "9.6", "pg_dump.exe")
-    _instalar(tmp_path, "17", "pg_dump.exe")
+    _install(tmp_path, "9.6", "pg_dump.exe")
+    _install(tmp_path, "17", "pg_dump.exe")
     windows = host.WindowsHost()
     windows.PG_ROOT = tmp_path
     assert windows.pg_tool("pg_dump") == tmp_path / "17" / "bin" / "pg_dump.exe"
@@ -73,11 +73,11 @@ def test_linux_sin_postgres_lo_dice(tmp_path: Path) -> None:
 
 
 def test_linux_lee_el_puerto_del_cluster_mas_nuevo(tmp_path: Path) -> None:
-    for version, puerto in (("15", 5432), ("17", 5433)):
+    for version, port in (("15", 5432), ("17", 5433)):
         conf = tmp_path / version / "main" / "postgresql.conf"
         conf.parent.mkdir(parents=True)
         conf.write_text(
-            f"#port = 1\nport = {puerto}\t\t# (change requires restart)\n", encoding="utf-8"
+            f"#port = 1\nport = {port}\t\t# (change requires restart)\n", encoding="utf-8"
         )
     linux = host.PosixHost()
     linux.PG_CONF_ROOT = tmp_path
@@ -94,8 +94,8 @@ def test_linux_sin_configuracion_usa_5432(tmp_path: Path) -> None:
 
 
 def test_linux_abre_la_terminal_del_escritorio(monkeypatch: pytest.MonkeyPatch) -> None:
-    def which(nombre: str) -> str:
-        return f"/usr/bin/{nombre}"
+    def which(name: str) -> str:
+        return f"/usr/bin/{name}"
 
     monkeypatch.setattr(host.shutil, "which", which)
     argv = host.PosixHost().terminal_argv(["ssh", "deploy@1.2.3.4"])
@@ -103,7 +103,7 @@ def test_linux_abre_la_terminal_del_escritorio(monkeypatch: pytest.MonkeyPatch) 
 
 
 def test_linux_sin_terminal_lo_dice(monkeypatch: pytest.MonkeyPatch) -> None:
-    def which(nombre: str) -> None:
+    def which(name: str) -> None:
         return None
 
     monkeypatch.setattr(host.shutil, "which", which)
@@ -113,10 +113,10 @@ def test_linux_sin_terminal_lo_dice(monkeypatch: pytest.MonkeyPatch) -> None:
 
 # --- procesos (solo POSIX) --------------------------------------------------
 
-solo_posix = pytest.mark.skipif(os.name == "nt", reason="grupos de procesos POSIX")
+posix_only = pytest.mark.skipif(os.name == "nt", reason="grupos de procesos POSIX")
 
 
-@solo_posix
+@posix_only
 def test_detener_una_tarea_no_mata_a_consola() -> None:
     """Antes el hijo compartia el grupo de Consola y `killpg` la mataba a ella:
     con la falla, esta prueba no falla: mata a pytest entero.
@@ -126,28 +126,28 @@ def test_detener_una_tarea_no_mata_a_consola() -> None:
     assert proc.poll() is not None
 
 
-@solo_posix
+@posix_only
 def test_detener_mata_tambien_a_los_nietos() -> None:
     proc = process.spawn(["sh", "-c", "sleep 30 & echo $!; wait"])
     assert proc.stdout is not None
-    nieto = int(proc.stdout.readline())
+    grandchild = int(proc.stdout.readline())
     process.kill_tree(proc, grace=2)
 
-    limite = time.monotonic() + 5
-    while time.monotonic() < limite:
+    limit = time.monotonic() + 5
+    while time.monotonic() < limit:
         try:
-            os.kill(nieto, 0)
+            os.kill(grandchild, 0)
         except ProcessLookupError:
             return
         time.sleep(0.1)
-    pytest.fail(f"El nieto {nieto} sigue vivo.")
+    pytest.fail(f"El nieto {grandchild} sigue vivo.")
 
 
-@solo_posix
+@posix_only
 def test_la_consulta_corta_no_cambia_de_sesion() -> None:
-    salida = process.capture([sys.executable, "-c", "import os; print(os.getsid(0))"])
+    output = process.capture([sys.executable, "-c", "import os; print(os.getsid(0))"])
     if sys.platform != "win32":
-        assert int(salida) == os.getsid(0)
+        assert int(output) == os.getsid(0)
     else:
         raise OSError("Solo existe en POSIX.")
 

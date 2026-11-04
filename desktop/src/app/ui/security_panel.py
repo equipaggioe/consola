@@ -74,8 +74,8 @@ class SecurityPanel(QWidget):
             check.setToolTip(target.why)
             check.setStyleSheet(f"QCheckBox {{ font-size: {Fonts.SIZE_XS}px; }}")
 
-            def on_toggled(marcado: bool, tid: str = target.id) -> None:
-                self._toggle(tid, marcado)
+            def on_toggled(checked: bool, tid: str = target.id) -> None:
+                self._toggle(tid, checked)
 
             check.toggled.connect(on_toggled)
             self._checks[target.id] = check
@@ -120,7 +120,7 @@ class SecurityPanel(QWidget):
         """
         return self._body.sizeHint().height()
 
-    def _toggle(self, target_id: str, marcado: bool) -> None:
-        self._state[target_id] = bool(marcado)
+    def _toggle(self, target_id: str, checked: bool) -> None:
+        self._state[target_id] = bool(checked)
         params_store.save_protection(self.project.path, self._state)
         self.changed.emit(self.state())

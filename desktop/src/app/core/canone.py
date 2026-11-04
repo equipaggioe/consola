@@ -51,12 +51,12 @@ PARTS = ("major", "minor", "patch")
 
 def infra_dir(config: Config) -> Path:
     """`plantilla/infra/` de la copia local de canone (`CANONE_DIR`)."""
-    carpeta = Path(config.require("CANONE_DIR")) / "plantilla" / "infra"
-    if not (carpeta / "install.py").is_file():
+    folder = Path(config.require("CANONE_DIR")) / "plantilla" / "infra"
+    if not (folder / "install.py").is_file():
         raise TaskError(
-            f"No hay install.py en {carpeta}: CANONE_DIR tiene que ser la carpeta de canone."
+            f"No hay install.py en {folder}: CANONE_DIR tiene que ser la carpeta de canone."
         )
-    return carpeta
+    return folder
 
 
 def spa_template(config: Config) -> Path:
@@ -76,22 +76,22 @@ def origin(root: Path) -> tuple[str, str]:
     y las carpetas del VPS.
     """
     url = process.capture(["git", "remote", "get-url", "origin"], cwd=root)
-    encontrado = _GITHUB.search(url.strip())
-    if encontrado is None:
+    found = _GITHUB.search(url.strip())
+    if found is None:
         raise TaskError(f"origin no es un repo de GitHub: {url}")
-    return encontrado.group(1), encontrado.group(2)
+    return found.group(1), found.group(2)
 
 
 def packages(config: Config) -> list[str]:
     """Los paquetes que la maquina necesita para este repo."""
-    paquetes = list(BASE_PACKAGES)
+    names = list(BASE_PACKAGES)
     if "postgis" in envfile.split_list(config.get("DB_EXTENSIONS")):
-        paquetes.append(POSTGIS_PACKAGE)
+        names.append(POSTGIS_PACKAGE)
     if config.flag("TURN"):
-        paquetes += TURN_PACKAGES
+        names += TURN_PACKAGES
     if _logs(config):
-        paquetes += LOGS_PACKAGES
-    return paquetes
+        names += LOGS_PACKAGES
+    return names
 
 
 def desktops(root: Path) -> list[str]:
@@ -104,7 +104,7 @@ def desktops(root: Path) -> list[str]:
 
 def without(root: Path) -> list[str]:
     """Las piezas que el repo no tiene, por su carpeta en la raiz."""
-    return [pieza for pieza in SURFACES if not (root / pieza).is_dir()]
+    return [piece for piece in SURFACES if not (root / piece).is_dir()]
 
 
 def _logs(config: Config) -> tuple[str, str, str] | None:
@@ -135,18 +135,18 @@ def install_args(
         "--admin",
         config.require("VPS_USER"),
     ]
-    for llave in keys:
-        args += ["--key", llave]
-    for llave in keys:
-        args += ["--signer", llave]
+    for key in keys:
+        args += ["--key", key]
+    for key in keys:
+        args += ["--signer", key]
     if config.flag("PRIVATE"):
         args.append("--private")
-    for sistema in desktops(root):
-        args += ["--desktop", sistema]
-    for pieza in without(root):
-        args += ["--without", pieza]
-    for funcion in envfile.split_list(config.get("PERMISSIONS_ALLOW")):
-        args += ["--allow", funcion]
+    for system in desktops(root):
+        args += ["--desktop", system]
+    for piece in without(root):
+        args += ["--without", piece]
+    for function in envfile.split_list(config.get("PERMISSIONS_ALLOW")):
+        args += ["--allow", function]
     for extension in envfile.split_list(config.get("DB_EXTENSIONS")):
         args += ["--extension", extension]
     if config.flag("TURN"):
@@ -168,8 +168,8 @@ def next_tag(tags: list[str], part: str) -> str:
     """
     if part not in PARTS:
         raise TaskError(f"No se sube {part!r}: es una de {', '.join(PARTS)}.")
-    versiones = [tuple(map(int, m.groups())) for m in map(_TAG.fullmatch, tags) if m]
-    major, minor, patch = max(versiones, default=(0, 0, 0))
+    versions = [tuple(map(int, m.groups())) for m in map(_TAG.fullmatch, tags) if m]
+    major, minor, patch = max(versions, default=(0, 0, 0))
     if part == "major":
         return f"v{major + 1}.0.0"
     if part == "minor":
@@ -199,14 +199,14 @@ def signed(app: str, releases: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
-def events_summary(eventos: dict[str, Any]) -> dict[str, str]:
+def events_summary(events: dict[str, Any]) -> dict[str, str]:
     """Lo que responde `GET /api/health/events`, con los nombres que lleva el log."""
-    libre, total = eventos["diskFreeBytes"] / 10**9, eventos["diskTotalBytes"] / 10**9
+    free, total = events["diskFreeBytes"] / 10**9, events["diskTotalBytes"] / 10**9
     return {
-        "último evento": eventos["lastEventAt"] or "ninguno",
-        "último crítico": eventos["lastCriticalAt"] or "ninguno",
-        "último respaldo": eventos["lastBackupAt"] or "ninguno",
-        "disco libre": f"{libre:.1f} GB de {total:.1f} GB",
+        "último evento": events["lastEventAt"] or "ninguno",
+        "último crítico": events["lastCriticalAt"] or "ninguno",
+        "último respaldo": events["lastBackupAt"] or "ninguno",
+        "disco libre": f"{free:.1f} GB de {total:.1f} GB",
     }
 
 
@@ -219,11 +219,11 @@ def deploy_command(app: str, tag: str) -> str:
 
 def owner_url(url: str) -> str:
     """La misma base como el dueño del esquema: el rol `<rol>_owner` de `install.py`."""
-    partes = urlsplit(url)
-    if not partes.username:
+    parts = urlsplit(url)
+    if not parts.username:
         raise TaskError("DATABASE_URL no nombra su rol: hace falta para entrar como el dueño.")
-    dueno = partes.netloc.replace(partes.username, f"{partes.username}_owner", 1)
-    return urlunsplit(partes._replace(netloc=dueno))
+    owner = parts.netloc.replace(parts.username, f"{parts.username}_owner", 1)
+    return urlunsplit(parts._replace(netloc=owner))
 
 
 def credential_files(server: Path, config: Config, *, owner: bool = False) -> dict[str, str]:
@@ -233,14 +233,14 @@ def credential_files(server: Path, config: Config, *, owner: bool = False) -> di
     base local. Con `owner`, entra como el dueño del esquema, que es lo que usa
     Alembic. Corta antes de escribir nada si falta el valor de un campo.
     """
-    campos = fields.settings_fields(server)
-    faltan = [campo.upper() for campo in campos if not config.get(campo.upper())]
-    if faltan:
-        raise TaskError(f"Faltan en config.env: {', '.join(faltan)}.")
-    archivos = {f"app_{campo}": config.get(campo.upper()) for campo in campos}
+    declared_fields = fields.settings_fields(server)
+    missing = [field.upper() for field in declared_fields if not config.get(field.upper())]
+    if missing:
+        raise TaskError(f"Faltan en config.env: {', '.join(missing)}.")
+    files = {f"app_{field}": config.get(field.upper()) for field in declared_fields}
     if owner:
-        archivos["app_database_url"] = owner_url(config.require("DATABASE_URL"))
-    return archivos
+        files["app_database_url"] = owner_url(config.require("DATABASE_URL"))
+    return files
 
 
 def credential_lines(root: Path, config: Config) -> str:
@@ -249,27 +249,27 @@ def credential_lines(root: Path, config: Config) -> str:
     Corta antes de enviar nada si una clave de `config.env` no cae en ninguna
     fuente, o si falta el valor de un campo.
     """
-    servidor = root / config.get("SERVER_DIR")
-    campos = fields.field_settings(servidor)
-    if not campos:
-        raise TaskError(f"No hay campos de Settings en {servidor / fields.CONFIG}.")
-    conocidas = {s.key for s in campos}
-    ajenas = sorted(
-        k for k in envfile.load_config(str(root)) if k not in conocidas and get_setting(k) is None
+    server = root / config.get("SERVER_DIR")
+    declared_fields = fields.field_settings(server)
+    if not declared_fields:
+        raise TaskError(f"No hay campos de Settings en {server / fields.CONFIG}.")
+    known = {s.key for s in declared_fields}
+    foreign = sorted(
+        k for k in envfile.load_config(str(root)) if k not in known and get_setting(k) is None
     )
-    if ajenas:
+    if foreign:
         raise TaskError(
             "Estas claves de config.env no son de Consola ni campos de Settings: "
-            f"{', '.join(ajenas)}. Bórralas antes de cargar las credenciales."
+            f"{', '.join(foreign)}. Bórralas antes de cargar las credenciales."
         )
-    pares = [(s.label, s.key) for s in campos]
-    pares.append(("restic_password", "RESTIC_PASSWORD"))
+    pairs = [(s.label, s.key) for s in declared_fields]
+    pairs.append(("restic_password", "RESTIC_PASSWORD"))
     if config.flag("PRIVATE"):
-        pares.append(("github_token", "GITHUB_TOKEN"))
-    faltan = [clave for _, clave in pares if not config.get(clave)]
-    if faltan:
-        raise TaskError(f"Faltan en config.env: {', '.join(faltan)}.")
-    for campo, clave in pares:
-        if "\n" in config.get(clave):
-            raise TaskError(f"{clave} tiene un salto de linea: credentials.py lee una por linea.")
-    return "".join(f"{campo}={config.get(clave)}\n" for campo, clave in pares)
+        pairs.append(("github_token", "GITHUB_TOKEN"))
+    missing = [key for _, key in pairs if not config.get(key)]
+    if missing:
+        raise TaskError(f"Faltan en config.env: {', '.join(missing)}.")
+    for field, key in pairs:
+        if "\n" in config.get(key):
+            raise TaskError(f"{key} tiene un salto de linea: credentials.py lee una por linea.")
+    return "".join(f"{field}={config.get(key)}\n" for field, key in pairs)

@@ -222,12 +222,12 @@ class ProjectTab(ReorderableTab):
 
         # El color se elige, no toca en suerte: al anadir un repo se le da el
         # primer tema libre y desde aca se cambia por cualquier otro.
-        for clave, pal in palettes.THEMES.items():
-            accion = QAction(pal.label, self)
-            accion.setCheckable(True)
-            accion.setChecked(clave == self.project.theme)
-            accion.triggered.connect(lambda _=False, k=clave: self.set_theme(k))
-            menu.addAction(accion)
+        for key, pal in palettes.THEMES.items():
+            action = QAction(pal.label, self)
+            action.setCheckable(True)
+            action.setChecked(key == self.project.theme)
+            action.triggered.connect(lambda _=False, k=key: self.set_theme(k))
+            menu.addAction(action)
         return menu
 
     # --- pintura -----------------------------------------------------
@@ -249,9 +249,9 @@ class ProjectTab(ReorderableTab):
             return
 
         p.fillPath(path, QColor(self.active_pal.accent))
-        borde = QColor(self.active_pal.on_accent)
-        borde.setAlpha(150 if (self._hovered or self.is_dragging) else 90)
-        pen = QPen(borde)
+        edge = QColor(self.active_pal.on_accent)
+        edge.setAlpha(150 if (self._hovered or self.is_dragging) else 90)
+        pen = QPen(edge)
         pen.setWidthF(1.2)
         if self.is_dragging:
             pen.setStyle(Qt.PenStyle.DotLine)
@@ -308,9 +308,9 @@ class AddProjectTab(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(7.5, 6.5, -7.5, -6.5)
 
-        borde = QColor(self.pal.on_accent)
-        borde.setAlpha(150 if self._hovered else 90)
-        pen = QPen(borde)
+        edge = QColor(self.pal.on_accent)
+        edge.setAlpha(150 if self._hovered else 90)
+        pen = QPen(edge)
         pen.setWidthF(1.2)
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
@@ -318,9 +318,9 @@ class AddProjectTab(QWidget):
         path.addRoundedRect(r, 6, 6)
         p.drawPath(path)
 
-        glifo = QColor(self.pal.on_accent)
-        glifo.setAlpha(255 if self._hovered else 190)
-        pen = QPen(glifo)
+        glyph = QColor(self.pal.on_accent)
+        glyph.setAlpha(255 if self._hovered else 190)
+        pen = QPen(glyph)
         pen.setWidth(2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(pen)
@@ -401,11 +401,11 @@ class ProjectTabBar(ReorderableBar):
     def add_project(self, project: Project, select: bool = False) -> ProjectTab:
         # Una carpeta, una pestana: dos pestanas del mismo repo serian dos
         # paneles escribiendo el mismo `.consola/params.json`.
-        existente = self.find_tab(project.path)
-        if existente is not None:
+        existing = self.find_tab(project.path)
+        if existing is not None:
             if select:
-                self.select_tab(existente)
-            return existente
+                self.select_tab(existing)
+            return existing
 
         tab = ProjectTab(project)
         if self._active is not None:
@@ -497,16 +497,16 @@ class ProjectTabBar(ReorderableBar):
         """
         if not path:
             return
-        ya = self.find_tab(path)
-        if ya is not None:
-            self.select_tab(ya)
+        already = self.find_tab(path)
+        if already is not None:
+            self.select_tab(already)
             return
-        limpia = project_store.display_path(path)
-        name = os.path.basename(limpia) or limpia
+        clean = project_store.display_path(path)
+        name = os.path.basename(clean) or clean
         theme = palettes.first_free(t.project.theme for t in self.tabs)
         # El color se guarda en el repo desde el primer momento, no al
         # cambiarlo: abrirlo en otra maquina tiene que dar el mismo color.
-        params_store.save_theme(limpia, theme)
-        project = Project(name, limpia, theme)
+        params_store.save_theme(clean, theme)
+        project = Project(name, clean, theme)
         self.add_project(project, select=True)
         self.project_added.emit(project)

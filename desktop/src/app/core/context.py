@@ -135,9 +135,9 @@ class TaskContext:
 
         cap = registry.get_capability(self.capability_id)
         if cap is not None:
-            for paso in cap.steps:
-                if paso.id == step_id:
-                    return paso.label
+            for step in cap.steps:
+                if step.id == step_id:
+                    return step.label
         return step_id
 
     # --- secretos ----------------------------------------------------------
@@ -194,8 +194,8 @@ class TaskContext:
         """
         self.raise_if_cancelled()
         self.log(process.format_argv(argv), Level.CMD)
-        for _, respuesta in answers:
-            self.guard(respuesta)
+        for _, answer in answers:
+            self.guard(answer)
         code = process.converse(
             argv,
             on_line=lambda line: self.log(line, _guess_level(line)),
@@ -253,12 +253,14 @@ class TaskContext:
         el puerto ya se eligio (`ports.resolve_port`), asi que la URL se conoce
         sin tener que olfatear la salida de vite o de uvicorn.
         """
-        clave = key or self.capability_id
-        proyecto = self.project.name if self.project else ""
-        endpoint = session.Endpoint(key=clave, url=url, label=label or clave, web=web)
-        if proyecto:
-            session.publish_endpoint(proyecto, endpoint)
-        self._served.append((proyecto, clave))
+        endpoint_key = key or self.capability_id
+        project = self.project.name if self.project else ""
+        endpoint = session.Endpoint(
+            key=endpoint_key, url=url, label=label or endpoint_key, web=web
+        )
+        if project:
+            session.publish_endpoint(project, endpoint)
+        self._served.append((project, endpoint_key))
         self.log(f"Disponible en {url} (arrancando...)", Level.INFO)
         self._emit_serve(endpoint)
         if wait > 0:
@@ -273,16 +275,16 @@ class TaskContext:
         no vuelve hasta que el proceso muere: si la espera fuera aca, la URL
         nunca pasaria de "arrancando".
         """
-        host, puerto = ports.split_host_port(endpoint.url)
-        listo = ports.wait_until_serving(puerto, host=host, timeout=timeout, cancel=self._cancel)
+        host, port = ports.split_host_port(endpoint.url)
+        ready = ports.wait_until_serving(port, host=host, timeout=timeout, cancel=self._cancel)
         if self._cancel.is_set():
             return
-        proyecto = self.project.name if self.project else ""
-        estado = session.READY if listo else session.DOWN
-        if proyecto:
-            session.mark_endpoint(proyecto, endpoint.key, estado)
-        endpoint.state = estado
-        if listo:
+        project = self.project.name if self.project else ""
+        state = session.READY if ready else session.DOWN
+        if project:
+            session.mark_endpoint(project, endpoint.key, state)
+        endpoint.state = state
+        if ready:
             self.log(f"Listo: {endpoint.url}", Level.OK)
         else:
             self.warn(f"{endpoint.url} no contesto despues de {int(timeout)}s.")
@@ -303,12 +305,12 @@ class TaskContext:
         la corre cuando termina: una URL que ya no sirve nada no debe seguir
         ofrecida.
         """
-        for proyecto, clave in self._served:
-            if proyecto:
-                session.forget_endpoint(proyecto, clave)
+        for project, endpoint_key in self._served:
+            if project:
+                session.forget_endpoint(project, endpoint_key)
         self._served.clear()
-        for proyecto, clave in self._published:
-            session.forget(proyecto, clave)
+        for project, endpoint_key in self._published:
+            session.forget(project, endpoint_key)
         self._published.clear()
 
     def publish(self, key: str, value: object) -> None:

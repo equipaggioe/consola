@@ -36,9 +36,9 @@ class _GuardDialog(QDialog):
     def __init__(
         self,
         project: Project,
-        titulo_ventana: str,
-        encabezado: str,
-        nota: str,
+        window_title: str,
+        heading: str,
+        note: str,
         parent: QWidget | None = None,
     ) -> None:
         super().__init__(parent)
@@ -46,7 +46,7 @@ class _GuardDialog(QDialog):
         # El aviso es de ESTE repo: se pinta con su paleta, como el espacio de
         # trabajo del que sale.
         self.pal = palettes.get(project.theme)
-        self.setWindowTitle(titulo_ventana)
+        self.setWindowTitle(window_title)
         self.setMinimumWidth(460)
         self.setStyleSheet(f"QDialog {{ background: {self.pal.panel}; }}")
 
@@ -54,55 +54,55 @@ class _GuardDialog(QDialog):
         self._lay.setContentsMargins(22, 20, 22, 18)
         self._lay.setSpacing(14)
 
-        cabecera = QLabel(encabezado)
-        cabecera.setWordWrap(True)
-        cabecera.setStyleSheet(
+        header = QLabel(heading)
+        header.setWordWrap(True)
+        header.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
         )
-        self._lay.addWidget(cabecera)
+        self._lay.addWidget(header)
 
-        self._lay.addWidget(self._tarjeta_repo())
+        self._lay.addWidget(self._repo_card())
 
-        pie = QLabel(nota)
-        pie.setWordWrap(True)
-        pie.setStyleSheet(
+        footer = QLabel(note)
+        footer.setWordWrap(True)
+        footer.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
         )
-        self._lay.addWidget(pie)
+        self._lay.addWidget(footer)
 
-    def _tarjeta_repo(self) -> QWidget:
-        caja = QWidget()
-        caja.setStyleSheet(
+    def _repo_card(self) -> QWidget:
+        box = QWidget()
+        box.setStyleSheet(
             f"background: {self.pal.surface_alt}; border-left: 3px solid "
             f"{self.pal.accent}; border-radius: 4px;"
         )
-        lay = QVBoxLayout(caja)
+        lay = QVBoxLayout(box)
         lay.setContentsMargins(12, 9, 12, 9)
         lay.setSpacing(2)
 
-        nombre = QLabel(self.project.name)
-        nombre.setStyleSheet(
+        name = QLabel(self.project.name)
+        name.setStyleSheet(
             f"background: transparent; color: {self.pal.accent}; "
             f"font-size: {Fonts.SIZE_LG}px; font-weight: 700;"
         )
-        ruta = QLabel(self.project.path)
-        ruta.setStyleSheet(
+        path = QLabel(self.project.path)
+        path.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
         )
-        fila = QHBoxLayout()
-        fila.setSpacing(8)
-        fila.addWidget(repo_logo.RepoLogoView(18, repo_logo.resolve(self.project.path)))
-        fila.addWidget(nombre, 1)
-        lay.addLayout(fila)
-        lay.addWidget(ruta)
-        return caja
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        row.addWidget(repo_logo.RepoLogoView(18, repo_logo.resolve(self.project.path)))
+        row.addWidget(name, 1)
+        lay.addLayout(row)
+        lay.addWidget(path)
+        return box
 
-    def _button(self, texto: str) -> QPushButton:
-        boton = QPushButton(texto)
-        boton.setCursor(Qt.CursorShape.PointingHandCursor)
-        boton.setFixedHeight(32)
-        return boton
+    def _button(self, text: str) -> QPushButton:
+        button = QPushButton(text)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        button.setFixedHeight(32)
+        return button
 
 
 class BlockedDialog(_GuardDialog):
@@ -114,28 +114,28 @@ class BlockedDialog(_GuardDialog):
     def __init__(
         self, project: Project, action: str, targets: list[Target], parent: QWidget | None = None
     ) -> None:
-        cuales = _join_words([t.label for t in targets])
+        which = _join_words([t.label for t in targets])
         super().__init__(
             project,
             "Accion bloqueada",
-            f"{action} toca {cuales}, y este repositorio lo tiene protegido.",
+            f"{action} toca {which}, y este repositorio lo tiene protegido.",
             "El seguro se quita en Configuracion, seccion Seguridad: por tipo "
             "de objetivo y solo para este repositorio.",
             parent,
         )
 
-        razones = QLabel("\n".join(f"•  {t.setting_label} — {t.why}" for t in targets))
-        razones.setWordWrap(True)
-        razones.setStyleSheet(
+        reasons = QLabel("\n".join(f"•  {t.setting_label} — {t.why}" for t in targets))
+        reasons.setWordWrap(True)
+        reasons.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
         )
-        self._lay.insertWidget(2, razones)
+        self._lay.insertWidget(2, reasons)
 
-        botones = QHBoxLayout()
-        botones.addStretch()
-        entendido = self._button("Entendido")
-        entendido.setDefault(True)
-        entendido.setStyleSheet(f"""
+        buttons = QHBoxLayout()
+        buttons.addStretch()
+        understood = self._button("Entendido")
+        understood.setDefault(True)
+        understood.setStyleSheet(f"""
             QPushButton {{
                 background: {self.pal.surface_alt}; color: {Colors.TEXT};
                 border: 1px solid {Colors.BORDER}; border-radius: 5px;
@@ -143,9 +143,9 @@ class BlockedDialog(_GuardDialog):
             }}
             QPushButton:hover {{ background: {self.pal.surface_hover}; }}
         """)
-        entendido.clicked.connect(self.reject)
-        botones.addWidget(entendido)
-        self._lay.addLayout(botones)
+        understood.clicked.connect(self.reject)
+        buttons.addWidget(understood)
+        self._lay.addLayout(buttons)
 
 
 class ReminderDialog(_GuardDialog):
@@ -154,22 +154,22 @@ class ReminderDialog(_GuardDialog):
     def __init__(
         self, project: Project, action: str, targets: list[Target], parent: QWidget | None = None
     ) -> None:
-        cuales = _join_words([t.label for t in targets])
+        which = _join_words([t.label for t in targets])
         super().__init__(
             project,
             "Confirmar accion",
-            f"{action} va a destruir {cuales}.",
+            f"{action} va a destruir {which}.",
             "Este objetivo no esta protegido en este repositorio. Se protege "
             "en Configuracion, seccion Seguridad.",
             parent,
         )
 
-        botones = QHBoxLayout()
-        botones.addStretch()
+        buttons = QHBoxLayout()
+        buttons.addStretch()
 
-        cancelar = self._button("Cancelar")
-        cancelar.setDefault(True)
-        cancelar.setStyleSheet(f"""
+        cancel = self._button("Cancelar")
+        cancel.setDefault(True)
+        cancel.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: 1px solid {Colors.BORDER};
                 color: {Colors.TEXT_DIM}; border-radius: 5px; padding: 0 16px;
@@ -177,27 +177,27 @@ class ReminderDialog(_GuardDialog):
             }}
             QPushButton:hover {{ background: {self.pal.surface_hover}; color: {Colors.TEXT}; }}
         """)
-        cancelar.clicked.connect(self.reject)
+        cancel.clicked.connect(self.reject)
 
-        continuar = self._button("Continuar")
+        proceed = self._button("Continuar")
         # Nunca es el boton por defecto: un Enter de mas no destruye nada.
-        continuar.setAutoDefault(False)
-        continuar.setDefault(False)
-        continuar.setStyleSheet(f"""
+        proceed.setAutoDefault(False)
+        proceed.setDefault(False)
+        proceed.setStyleSheet(f"""
             QPushButton {{
                 background: {Colors.ERROR}; color: {Colors.BG};
                 border: none; border-radius: 5px; padding: 0 18px;
                 font-size: {Fonts.SIZE_XS}px; font-weight: 600;
             }}
         """)
-        continuar.clicked.connect(self.accept)
+        proceed.clicked.connect(self.accept)
 
-        botones.addWidget(cancelar)
-        botones.addWidget(continuar)
-        self._lay.addLayout(botones)
+        buttons.addWidget(cancel)
+        buttons.addWidget(proceed)
+        self._lay.addLayout(buttons)
 
 
-def _join_words(cosas: list[str]) -> str:
-    if len(cosas) <= 1:
-        return cosas[0] if cosas else "algo"
-    return ", ".join(cosas[:-1]) + " y " + cosas[-1]
+def _join_words(things: list[str]) -> str:
+    if len(things) <= 1:
+        return things[0] if things else "algo"
+    return ", ".join(things[:-1]) + " y " + things[-1]

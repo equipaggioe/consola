@@ -60,15 +60,15 @@ def _sudo_password(ctx: TaskContext) -> str:
     Va a `core/session.py` directo y no por `ctx.publish`, que la olvidaria al
     terminar la corrida.
     """
-    escrita = ctx.config.get(SUDO_KEY) or session.read(ctx.project_name, SUDO_KEY)
-    if not escrita:
-        usuario = ctx.config.require("VPS_USER")
-        escrita = ctx.ask(f"Contraseña de {usuario} (la de sudo)", secret=True)
-        if not escrita:
+    written = ctx.config.get(SUDO_KEY) or session.read(ctx.project_name, SUDO_KEY)
+    if not written:
+        user = ctx.config.require("VPS_USER")
+        written = ctx.ask(f"Contraseña de {user} (la de sudo)", secret=True)
+        if not written:
             raise TaskError("Sin la contraseña de sudo no se puede administrar el VPS.")
-        session.publish(ctx.project_name, SUDO_KEY, escrita)
-    ctx.guard(escrita)
-    return escrita
+        session.publish(ctx.project_name, SUDO_KEY, written)
+    ctx.guard(written)
+    return written
 
 
 def access(ctx: TaskContext) -> Access:
@@ -90,15 +90,15 @@ def access(ctx: TaskContext) -> Access:
     )
 
 
-def _upload(ctx: TaskContext, entrada: Access) -> str:
+def _upload(ctx: TaskContext, entry: Access) -> str:
     """Sube `plantilla/infra/` de canone a una carpeta temporal y devuelve su ruta."""
     infra = canone.infra_dir(ctx.config)
-    entrada.run(ctx, f"rm -rf {REMOTE_DIR}")
-    return ssh.upload(ctx, entrada.remote, infra, f"{REMOTE_DIR}/{infra.name}")
+    entry.run(ctx, f"rm -rf {REMOTE_DIR}")
+    return ssh.upload(ctx, entry.remote, infra, f"{REMOTE_DIR}/{infra.name}")
 
 
-def _cleanup(ctx: TaskContext, entrada: Access) -> None:
-    entrada.run(ctx, f"rm -rf {REMOTE_DIR}", check=False)
+def _cleanup(ctx: TaskContext, entry: Access) -> None:
+    entry.run(ctx, f"rm -rf {REMOTE_DIR}", check=False)
 
 
 # --- atomicas --------------------------------------------------------------
@@ -124,21 +124,21 @@ def install_software(ctx: TaskContext) -> list[str]:
     `uv.py` instala la version de uv que fija canone (ADR-0110 de canone): se
     vuelve a correr cuando canone la cambia.
     """
-    entrada = access(ctx)
-    paquetes = canone.packages(ctx.config)
-    lista = " ".join(ssh.quote(p) for p in paquetes)
-    entrada.run(
+    entry = access(ctx)
+    packages = canone.packages(ctx.config)
+    package_list = " ".join(ssh.quote(p) for p in packages)
+    entry.run(
         ctx,
         "export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && "
-        f"apt-get install -y {lista}",
+        f"apt-get install -y {package_list}",
     )
-    destino = _upload(ctx, entrada)
+    destination = _upload(ctx, entry)
     try:
-        entrada.run(ctx, f"python3 {destino}/uv.py")
+        entry.run(ctx, f"python3 {destination}/uv.py")
     finally:
-        _cleanup(ctx, entrada)
-    ctx.ok(f"Paquetes y uv listos: {', '.join(paquetes)}")
-    return paquetes
+        _cleanup(ctx, entry)
+    ctx.ok(f"Paquetes y uv listos: {', '.join(packages)}")
+    return packages
 
 
 # Crea `/swapfile` con lo que falte para tener tanto swap como memoria, que es
@@ -175,32 +175,32 @@ def install_infra(ctx: TaskContext) -> None:
     ya tiene no se vuelven a agregar.
     """
     owner, app = canone.origin(ctx.root)
-    llave = ssh.public_key(
+    key = ssh.public_key(
         ssh.ensure_local_keypair(ctx, ctx.config.require("VPS_KEY_NAME"), comment=app)
     )
-    fuera = ctx.config.require("OFFLINE_KEY").strip()
-    if fuera.split()[:2] == llave.split()[:2]:
+    outside = ctx.config.require("OFFLINE_KEY").strip()
+    if outside.split()[:2] == key.split()[:2]:
         raise TaskError(
             "OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, "
             "guardada fuera de esta máquina."
         )
-    argumentos = canone.install_args(ctx.root, ctx.config, app, owner, (llave, fuera))
-    entrada = access(ctx)
-    destino = _upload(ctx, entrada)
-    comando = " ".join(ssh.quote(a) for a in ("python3", f"{destino}/install.py", *argumentos))
+    arguments = canone.install_args(ctx.root, ctx.config, app, owner, (key, outside))
+    entry = access(ctx)
+    destination = _upload(ctx, entry)
+    command = " ".join(ssh.quote(a) for a in ("python3", f"{destination}/install.py", *arguments))
     try:
-        if entrada.is_root:
+        if entry.is_root:
             password = _sudo_password(ctx)
             ctx.converse(
-                entrada.remote.argv(comando, tty=True, extra=["-t"]),
+                entry.remote.argv(command, tty=True, extra=["-t"]),
                 [("Password of", password), ("Again", password)],
             )
         else:
-            entrada.run(ctx, comando)
+            entry.run(ctx, command)
     finally:
         # `install.py` deja a root sin entrada: limpia la cuenta que queda.
         _cleanup(ctx, access(ctx))
-    ctx.ok(f"{app} instalado en {entrada.remote.host}.")
+    ctx.ok(f"{app} instalado en {entry.remote.host}.")
 
 
 def load_credentials(ctx: TaskContext) -> None:
@@ -212,21 +212,21 @@ def load_credentials(ctx: TaskContext) -> None:
     `install.py` no instala `credentials.py`, asi que se sube cada vez.
     """
     _, app = canone.origin(ctx.root)
-    lineas = canone.credential_lines(ctx.root, ctx.config)
-    for linea in lineas.splitlines():
-        ctx.guard(linea.partition("=")[2])
-    entrada = access(ctx)
-    if entrada.is_root:
+    lines = canone.credential_lines(ctx.root, ctx.config)
+    for line in lines.splitlines():
+        ctx.guard(line.partition("=")[2])
+    entry = access(ctx)
+    if entry.is_root:
         raise TaskError(
             "La cuenta que administra todavía no existe: corre «Configurar VPS» "
             "con «Instalar infraestructura» primero."
         )
-    destino = _upload(ctx, entrada)
+    destination = _upload(ctx, entry)
     try:
-        entrada.run(ctx, f"python3 {destino}/credentials.py {ssh.quote(app)}", text=lineas)
+        entry.run(ctx, f"python3 {destination}/credentials.py {ssh.quote(app)}", text=lines)
     finally:
-        _cleanup(ctx, entrada)
-    ctx.ok(f"{len(lineas.splitlines())} credenciales cargadas.")
+        _cleanup(ctx, entry)
+    ctx.ok(f"{len(lines.splitlines())} credenciales cargadas.")
 
 
 # --- compuesta -------------------------------------------------------------

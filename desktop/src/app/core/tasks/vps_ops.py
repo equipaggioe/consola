@@ -32,15 +32,15 @@ def health_check(ctx: TaskContext) -> dict[str, str]:
     final, y no en cuanto la API no contesta, porque el resumen y los errores son
     justo lo que hace falta leer para saber por que.
     """
-    entrada = access(ctx)
-    servicio = vps.resolve_service(canone.origin(ctx.root)[1])
-    resumen = vps.health(entrada.remote, servicio)
-    for clave, valor in resumen.items():
-        ctx.info(f"{clave}: {valor or '(sin datos)'}")
-    entrada.run(ctx, vps.journal_command(servicio, lines=10, priority="err"))
-    if resumen["api"] != HEALTHY:
-        raise TaskError(f"GET /api/health respondió {resumen['api'] or 'nada'}, no {HEALTHY}.")
-    return resumen
+    entry = access(ctx)
+    service = vps.resolve_service(canone.origin(ctx.root)[1])
+    summary = vps.health(entry.remote, service)
+    for key, value in summary.items():
+        ctx.info(f"{key}: {value or '(sin datos)'}")
+    entry.run(ctx, vps.journal_command(service, lines=10, priority="err"))
+    if summary["api"] != HEALTHY:
+        raise TaskError(f"GET /api/health respondió {summary['api'] or 'nada'}, no {HEALTHY}.")
+    return summary
 
 
 def view_events(ctx: TaskContext) -> dict[str, str]:
@@ -50,13 +50,13 @@ def view_events(ctx: TaskContext) -> dict[str, str]:
     """
     token = ctx.config.require(HEALTH_TOKEN)
     ctx.guard(token)
-    estado, cuerpo = vps.server_get(_remote(ctx), "/api/health/events", token)
-    if estado != "200":
-        raise TaskError(f"GET /api/health/events respondió {estado or 'nada'}.")
-    resumen = canone.events_summary(json.loads(cuerpo))
-    for clave, valor in resumen.items():
-        ctx.info(f"{clave}: {valor}")
-    return resumen
+    state, body = vps.server_get(_remote(ctx), "/api/health/events", token)
+    if state != "200":
+        raise TaskError(f"GET /api/health/events respondió {state or 'nada'}.")
+    summary = canone.events_summary(json.loads(body))
+    for key, value in summary.items():
+        ctx.info(f"{key}: {value}")
+    return summary
 
 
 def run_command(ctx: TaskContext, command: str = "") -> int:
@@ -76,14 +76,14 @@ def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bo
     llave equivocada deja el servidor inalcanzable.
     """
     key_name = ctx.config.require("VPS_KEY_NAME")
-    privada = ssh.identity_path(key_name)
-    if not privada.is_file():
-        raise TaskError(f"No existe la llave local: {privada}")
-    publica = ssh.public_key(privada)
+    private = ssh.identity_path(key_name)
+    if not private.is_file():
+        raise TaskError(f"No existe la llave local: {private}")
+    publishes = ssh.public_key(private)
 
-    ctx.warn(f"Se va a revocar: {publica[:60]}...")
+    ctx.warn(f"Se va a revocar: {publishes[:60]}...")
     if remote_side:
-        clave = ssh.quote(publica)
+        key = ssh.quote(publishes)
         try:
             # The first grep fails if the key is not there; the second, if it is the last one.
             ssh.run(
@@ -91,8 +91,8 @@ def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bo
                 _remote(ctx),
                 (
                     "auth=~/.ssh/authorized_keys; "
-                    f'grep -qxF -- {clave} "$auth" && '
-                    f'grep -vxF -- {clave} "$auth" > "$auth.tmp" && mv "$auth.tmp" "$auth"'
+                    f'grep -qxF -- {key} "$auth" && '
+                    f'grep -vxF -- {key} "$auth" > "$auth.tmp" && mv "$auth.tmp" "$auth"'
                 ),
             )
         except TaskError as exc:
@@ -105,9 +105,9 @@ def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bo
     if local_side:
         from app.core import files
 
-        files.remove(privada)
-        files.remove(ssh.public_key_path(privada))
-        ctx.ok(f"Par de llaves local borrado: {privada}")
+        files.remove(private)
+        files.remove(ssh.public_key_path(private))
+        ctx.ok(f"Par de llaves local borrado: {private}")
 
 
 def bind_all() -> None:

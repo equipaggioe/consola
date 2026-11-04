@@ -83,8 +83,8 @@ def mono(font: QFont) -> QFont:
     maquina que no tiene ninguna —un Linux sin Cascadia ni Consolas— Qt elige
     otra de ancho fijo en vez de caer en la proporcional por defecto.
     """
-    familias = [f.strip().strip('"') for f in Fonts.MONO.split(",")]
-    font.setFamilies([f for f in familias if f != "monospace"])
+    families = [f.strip().strip('"') for f in Fonts.MONO.split(",")]
+    font.setFamilies([f for f in families if f != "monospace"])
     font.setStyleHint(QFont.StyleHint.Monospace)
     return font
 

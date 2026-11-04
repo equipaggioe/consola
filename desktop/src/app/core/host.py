@@ -42,12 +42,12 @@ def _newest_first(root: Path) -> list[Path]:
     """
     if not root.is_dir():
         return []
-    versiones = [
+    versions = [
         (int(m.group(1)), d)
         for d in root.iterdir()
         if d.is_dir() and (m := _PG_VERSION.match(d.name))
     ]
-    return [d for _, d in sorted(versiones, key=lambda par: par[0], reverse=True)]
+    return [d for _, d in sorted(versions, key=lambda par: par[0], reverse=True)]
 
 
 def _port_in(conf: Path) -> int | None:
@@ -447,12 +447,12 @@ class PosixHost(Host):
     def memory(self) -> tuple[int, int] | None:
         try:
             with open("/proc/meminfo") as f:
-                datos: dict[str, int] = {}
-                for linea in f:
-                    clave, _, resto = linea.partition(":")
-                    if clave in ("MemAvailable", "MemTotal"):
-                        datos[clave] = int(resto.strip().split()[0]) * 1024
-            return datos["MemAvailable"], datos["MemTotal"]
+                data: dict[str, int] = {}
+                for line in f:
+                    key, _, rest = line.partition(":")
+                    if key in ("MemAvailable", "MemTotal"):
+                        data[key] = int(rest.strip().split()[0]) * 1024
+            return data["MemAvailable"], data["MemTotal"]
         except OSError:
             return None
 

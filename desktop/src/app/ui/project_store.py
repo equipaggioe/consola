@@ -74,14 +74,14 @@ def _resolve_themes(projects: list[Project]) -> list[Project]:
     tema que ningun otro repo abierto este usando— y se guarda en el acto, asi
     que el proximo arranque ya lo encuentra.
     """
-    usados: list[str] = []
+    used: list[str] = []
     for p in projects:
-        guardado = params_store.load_theme(p.path)
-        if guardado not in palettes.THEMES:
-            guardado = palettes.first_free(usados)
-            params_store.save_theme(p.path, guardado)
-        p.theme = guardado
-        usados.append(guardado)
+        saved = params_store.load_theme(p.path)
+        if saved not in palettes.THEMES:
+            saved = palettes.first_free(used)
+            params_store.save_theme(p.path, saved)
+        p.theme = saved
+        used.append(saved)
     return projects
 
 
@@ -92,15 +92,15 @@ def dedupe(projects: list[Project]) -> list[Project]:
     el mismo `.consola/params.json`, y el ultimo en guardar le pisaria lo
     elegido al otro sin que se note.
     """
-    visto: set[str] = set()
-    unicos = []
+    seen: set[str] = set()
+    unique = []
     for p in projects:
         key = identity(p.path)
-        if key in visto:
+        if key in seen:
             continue
-        visto.add(key)
-        unicos.append(p)
-    return unicos
+        seen.add(key)
+        unique.append(p)
+    return unique
 
 
 def load() -> list[Project]:

@@ -75,21 +75,21 @@ class Runner:
         la contrasena esta enmascarada en el log por `ctx.guard`.
         """
         if self.remote is None:
-            entorno = (
+            environment = (
                 {"CREDENTIALS_DIRECTORY": self.credentials}
                 if self.credentials
                 else {"DATABASE_URL": self.database_url}
             )
-            return ctx.run([self.python, *args], cwd=self.cwd, env=entorno, echo=echo)
-        comando = " ".join(ssh.quote(a) for a in (self.python, *args))
+            return ctx.run([self.python, *args], cwd=self.cwd, env=environment, echo=echo)
+        command = " ".join(ssh.quote(a) for a in (self.python, *args))
         return ssh.run(
             ctx,
             self.remote,
-            f"cd {ssh.quote(self.cwd)} && DATABASE_URL={ssh.quote(self.database_url)} {comando}",
+            f"cd {ssh.quote(self.cwd)} && DATABASE_URL={ssh.quote(self.database_url)} {command}",
             echo=echo,
         )
 
-    def log_command(self, ctx: TaskContext, resumen: str) -> None:
+    def log_command(self, ctx: TaskContext, summary: str) -> None:
         """Anuncia en el log un comando cuyo argv real no se puede leer.
 
         Un payload entra como `-c <programa entero>`: volcarlo tal cual llena la
@@ -97,7 +97,7 @@ class Runner:
         pasa `echo=False` a `run`.
         """
         donde = f"{self.remote.target}:" if self.remote else ""
-        ctx.log(f"{donde}{self.python} {resumen}", Level.CMD)
+        ctx.log(f"{donde}{self.python} {summary}", Level.CMD)
 
 
 def resolve(ctx: TaskContext, scope: str = db.LOCAL) -> Runner:
@@ -114,41 +114,39 @@ def resolve(ctx: TaskContext, scope: str = db.LOCAL) -> Runner:
         return local(ctx)
 
     remote = ssh.resolve_remote(ctx.config)
-    interprete = vps.remote_python(ctx.config)
-    if not ssh.path_exists(remote, interprete):
+    interpreter = vps.remote_python(ctx.config)
+    if not ssh.path_exists(remote, interpreter):
         raise TaskError(
-            f"No existe el Python del venv en el VPS: {interprete}. Lo dejaba el "
+            f"No existe el Python del venv en el VPS: {interpreter}. Lo dejaba el "
             "despliegue propio de Consola, que ya no existe (ADR-0059)."
         )
 
-    destino = vps.remote_path(ctx.config, ctx.config.get("SERVER_DIR", "server"))
-    ctx.info(f"Se ejecuta en el VPS: {remote.target}:{destino}")
-    return Runner(interprete, destino, db.vps_url(ctx, remote), remote)
+    destination = vps.remote_path(ctx.config, ctx.config.get("SERVER_DIR", "server"))
+    ctx.info(f"Se ejecuta en el VPS: {remote.target}:{destination}")
+    return Runner(interpreter, destination, db.vps_url(ctx, remote), remote)
 
 
-def write_credentials(
-    ctx: TaskContext, server: Path, folder: str, archivos: dict[str, str]
-) -> Path:
+def write_credentials(ctx: TaskContext, server: Path, folder: str, files: dict[str, str]) -> Path:
     """Escribe una carpeta de credenciales de desarrollo y devuelve su ruta.
 
     Corta si git no la ignora: un secreto commiteado por escribirlo aca no se
     borra con otro commit. Un `app_*` que ya no es un campo de `Settings` sale,
     para que la carpeta diga lo mismo que `config.env`.
     """
-    carpeta = server / folder
+    credentials_folder = server / folder
     try:
-        ctx.capture(["git", "check-ignore", "-q", f"{carpeta}/"], cwd=server)
+        ctx.capture(["git", "check-ignore", "-q", f"{credentials_folder}/"], cwd=server)
     except TaskError as exc:
         raise TaskError(
-            f"git no ignora {carpeta}: agrégala a .gitignore antes de escribir credenciales ahí."
+            f"git no ignora {credentials_folder}: agrégala a .gitignore antes de escribir credenciales ahí."
         ) from exc
-    carpeta.mkdir(parents=True, exist_ok=True)
-    for viejo in carpeta.glob("app_*"):
-        if viejo.name not in archivos:
-            viejo.unlink()
-    for nombre, valor in archivos.items():
-        (carpeta / nombre).write_text(valor, encoding="utf-8")
-    return carpeta
+    credentials_folder.mkdir(parents=True, exist_ok=True)
+    for old in credentials_folder.glob("app_*"):
+        if old.name not in files:
+            old.unlink()
+    for name, value in files.items():
+        (credentials_folder / name).write_text(value, encoding="utf-8")
+    return credentials_folder
 
 
 def local(ctx: TaskContext) -> Runner:
@@ -157,14 +155,16 @@ def local(ctx: TaskContext) -> Runner:
     Un repo de canone corre Alembic como el dueño del esquema, con sus propias
     credenciales (ADR-0069). Los demas siguen recibiendo `DATABASE_URL`.
     """
-    raiz = server_root(ctx)
-    if not fields.settings_fields(raiz):
+    root = server_root(ctx)
+    if not fields.settings_fields(root):
         return here(ctx, db.connect(ctx, db.LOCAL))
-    carpeta = write_credentials(
-        ctx, raiz, MIGRATE_CREDENTIALS, canone.credential_files(raiz, ctx.config, owner=True)
+    credentials_folder = write_credentials(
+        ctx, root, MIGRATE_CREDENTIALS, canone.credential_files(root, ctx.config, owner=True)
     )
-    ctx.info(f"Base de datos LOCAL, como el dueño del esquema: {carpeta}")
-    return Runner(str(venv_python(raiz / ".venv")), str(raiz), "", credentials=str(carpeta))
+    ctx.info(f"Base de datos LOCAL, como el dueño del esquema: {credentials_folder}")
+    return Runner(
+        str(venv_python(root / ".venv")), str(root), "", credentials=str(credentials_folder)
+    )
 
 
 def here(ctx: TaskContext, conn: db.Connection) -> Runner:
@@ -176,5 +176,5 @@ def here(ctx: TaskContext, conn: db.Connection) -> Runner:
     revisar y comitear. Generado en el VPS caeria en el repo desplegado, que no
     es el que se commitea.
     """
-    raiz = server_root(ctx)
-    return Runner(str(venv_python(raiz / ".venv")), str(raiz), conn.url)
+    root = server_root(ctx)
+    return Runner(str(venv_python(root / ".venv")), str(root), conn.url)

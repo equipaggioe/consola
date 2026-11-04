@@ -2,7 +2,7 @@
 
 ## 1. El eje `scope`
 
-Ocho botones tienen el eje `local` / `remoto`: «Levantar backend», «Correr seeders», «Correr mock seeders», «Habilitar extensiones», «Explorar datos», «Reconstruir base», «Reiniciar historial de migraciones» y «Borrar base y rol». No significa «corré este script allá», como hacía el `RUN_REMOTE` de los scripts: la función corre siempre en Consola y lo que cambia es contra qué base apunta, y con qué intérprete ([ADR-0012](../adr/0012-el-eje-scope.md)).
+Ocho botones tienen el eje `local` / `remote`: «Levantar backend», «Correr seeders», «Correr mock seeders», «Habilitar extensiones», «Explorar datos», «Reconstruir base», «Reiniciar historial de migraciones» y «Borrar base y rol». No significa «corré este script allá», como hacía el `RUN_REMOTE` de los scripts: la función corre siempre en Consola y lo que cambia es contra qué base apunta, y con qué intérprete ([ADR-0012](../adr/0012-el-eje-scope.md)).
 
 Hay dos canales, hermanos y con el mismo reparto:
 

@@ -10,7 +10,7 @@ from app.theme import Colors, Fonts
 from app.ui.palettes import NEUTRAL, Palette
 
 # `QWIDGETSIZE_MAX`: el valor con el que Qt entiende "sin tope de alto".
-SIN_TOPE = 16777215
+NO_CAP = 16777215
 
 
 class AccordionHeader(QWidget):
@@ -159,7 +159,7 @@ class AccordionSection(QWidget):
         self.body.setVisible(value)
         self.header.chevron.setText("▾" if value else "▸")
         self.setMinimumHeight(AccordionHeader.HEIGHT)
-        self.setMaximumHeight(SIN_TOPE if value else AccordionHeader.HEIGHT)
+        self.setMaximumHeight(NO_CAP if value else AccordionHeader.HEIGHT)
         if announce:
             self.toggled.emit(value)
 

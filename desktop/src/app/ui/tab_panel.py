@@ -351,11 +351,11 @@ class WorkspaceStatusBar(QWidget):
         if ram is None:
             self.ram_label.setVisible(False)
             return
-        disponible, total = ram
+        available, total = ram
         self.ram_label.setVisible(True)
-        self.ram_label.setText(f"RAM {disponible:.1f}/{total:.1f} GB")
-        umbral = total * 0.15
-        color = Colors.TEXT_DIM if disponible > umbral else Colors.WARNING
+        self.ram_label.setText(f"RAM {available:.1f}/{total:.1f} GB")
+        threshold = total * 0.15
+        color = Colors.TEXT_DIM if available > threshold else Colors.WARNING
         self.ram_label.setStyleSheet(
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
         )
@@ -424,8 +424,8 @@ class WorkspaceStatusBar(QWidget):
         self.security_box.setVisible(True)
         self._sep_security.setVisible(True)
         for target in protection.TARGETS:
-            protegido = protection.is_protected(state, target)
-            chip = PadlockChip(target.chip, target.label, protegido, self.pal)
+            protected = protection.is_protected(state, target)
+            chip = PadlockChip(target.chip, target.label, protected, self.pal)
             chip.clicked.connect(self.security_clicked.emit)
             self._security_row.addWidget(chip)
         self._restyle()
@@ -445,8 +445,8 @@ class WorkspaceStatusBar(QWidget):
                 border-top: 1px solid {self.pal.border};
             }}
         """)
-        for linea in (self._sep_tools, self._sep_security, self._sep_status):
-            linea.setStyleSheet(f"background: {self.pal.border}; border: none;")
+        for line in (self._sep_tools, self._sep_security, self._sep_status):
+            line.setStyleSheet(f"background: {self.pal.border}; border: none;")
 
 
 class TabPanel(ReorderableBar):
@@ -948,8 +948,8 @@ class TabPanel(ReorderableBar):
         pasa a llamarse «SPA Vite panel» cuando se sabe cual arranco. Una
         pestana por proceso vivo, y el nombre dice cual (ADR-0010).
         """
-        usados = {t.title for t in self.tabs if t is not tab}
-        if title in usados:
+        used = {t.title for t in self.tabs if t is not tab}
+        if title in used:
             title = self._next_title(title)
         tab.title = title
         tab.title_label.setText(title)
@@ -957,9 +957,9 @@ class TabPanel(ReorderableBar):
 
     def _next_title(self, title: str) -> str:
         """`Emulador`, `Emulador 2`, `Emulador 3`... el primero que este libre."""
-        usados = {t.title for t in self.tabs}
+        used = {t.title for t in self.tabs}
         n = 2
-        while f"{title} {n}" in usados:
+        while f"{title} {n}" in used:
             n += 1
         return f"{title} {n}"
 
@@ -1198,64 +1198,64 @@ class TabPanel(ReorderableBar):
         total = self.right_column.height()
         if total <= 0:
             return
-        secciones = self._sections
+        sections = self._sections
         self._sync_grips()
         # Las barras de arrastre tambien ocupan alto. Sin descontarlas se
         # repartian mas pixeles de los que hay y el layout tenia que apretar
         # algun cuerpo por debajo de su minimo para que entrara todo.
-        gastado = sum(s.header_height() for s in secciones) + sum(
-            SectionResizeGrip.HEIGHT for s in secciones[:-1] if self._grip_visible(s)
+        spent = sum(s.header_height() for s in sections) + sum(
+            SectionResizeGrip.HEIGHT for s in sections[:-1] if self._grip_visible(s)
         )
-        alto = {s: s.header_height() for s in secciones}
-        libre = max(0, total - gastado)
+        height = {s: s.header_height() for s in sections}
+        free = max(0, total - spent)
 
         # El sobrante va a la ultima seccion abierta — normalmente Configuracion,
         # pero si esta plegada lo absorbe Parametros, y asi hacia arriba. Antes
         # iba siempre a Configuracion: con ella plegada el resto caia en el
         # resorte del final y la ultima cabecera se despegaba del borde de abajo
         # dejando un hueco muerto.
-        absorbente = next((s for s in reversed(secciones) if s.is_expanded()), None)
+        absorbing = next((s for s in reversed(sections) if s.is_expanded()), None)
         # La ultima abierta no tiene barra propia (no hay con quien negociar
         # debajo), asi que un alto a mano suyo es de un estado anterior: se cae.
         # Si no, ese valor viejo se quedaba corto y volvia el hueco.
-        if absorbente in self._manual:
-            self._manual[absorbente] = None
+        if absorbing in self._manual:
+            self._manual[absorbing] = None
 
-        for i, section in enumerate(secciones[:-1]):
+        for i, section in enumerate(sections[:-1]):
             if not section.is_expanded():
                 continue
             # Le guardamos el piso a cada seccion abierta que quede debajo: una
             # seccion desplegada que muestra cero cuerpo se lee como rota. Es lo
             # que hace que la barra tope al arrastrar en vez de borrar lo de
             # abajo. Configuracion, ademas, tiene un minimo mas generoso.
-            reserva = self.MIN_BODY * sum(1 for s in secciones[i + 1 :] if s.is_expanded())
+            reserve = self.MIN_BODY * sum(1 for s in sections[i + 1 :] if s.is_expanded())
             if (
                 self._manual[section] is None
                 and section is self.params_section
                 and self.config_section.is_expanded()
             ):
-                reserva = max(reserva, 120)
+                reserve = max(reserve, 120)
             # Pero la reserva no puede comerse el piso de esta misma seccion.
-            reserva = min(reserva, max(0, libre - self.MIN_BODY))
-            dar = max(0, min(self._section_wanted(section), libre - reserva))
-            alto[section] += dar
-            libre -= dar
+            reserve = min(reserve, max(0, free - self.MIN_BODY))
+            dar = max(0, min(self._section_wanted(section), free - reserve))
+            height[section] += dar
+            free -= dar
 
-        if absorbente is not None:
-            alto[absorbente] += libre
+        if absorbing is not None:
+            height[absorbing] += free
 
-        for section, valor in alto.items():
+        for section, value in height.items():
             # Tope y no alto fijo: con las tres clavadas, la columna imponia su
             # suma como alto minimo y la ventana ya no se podia achicar. El
             # piso queda en la cabecera, que es lo unico irrenunciable.
-            section.setMaximumHeight(valor)
+            section.setMaximumHeight(value)
             section.setMinimumHeight(section.header_height())
             # Y ademas el hint, que es por donde el layout reparte de verdad
             # (ver `AccordionSection.set_allotted`).
-            section.set_allotted(valor)
+            section.set_allotted(value)
             # Si igual sobrara un pixel por redondeo, que se lo quede la
             # absorbente y no el resorte del final.
-            self._column.setStretchFactor(section, 1 if section is absorbente else 0)
+            self._column.setStretchFactor(section, 1 if section is absorbing else 0)
 
     def _on_section_toggled(self, *_args) -> None:
         # Plegar una seccion descarta su alto manual: al reabrirla se espera el
@@ -1326,11 +1326,11 @@ class TabPanel(ReorderableBar):
         """Hay algo que negociar: la seccion esta abierta y hay alguna abierta
         debajo con la que intercambiar alto.
         """
-        secciones = self._sections
-        if section not in secciones:
+        sections = self._sections
+        if section not in sections:
             return False
-        i = secciones.index(section)
-        return section.is_expanded() and any(s.is_expanded() for s in secciones[i + 1 :])
+        i = sections.index(section)
+        return section.is_expanded() and any(s.is_expanded() for s in sections[i + 1 :])
 
     def _sync_grips(self) -> None:
         for section, grip in self._grips.items():
@@ -1370,10 +1370,10 @@ class TabPanel(ReorderableBar):
         Es lo que hace que cerrarla no cueste informacion: plegada sigue
         diciendo el unico dato por el que se abre.
         """
-        protegidos = len(protection.repo_protections(state))
+        protected = len(protection.repo_protections(state))
         total = len(protection.TARGETS)
         self.security_section.set_summary(
-            f"{protegidos} de {total} protegidos" if protegidos else "sin seguros"
+            f"{protected} de {total} protegidos" if protected else "sin seguros"
         )
 
     def _on_env_changed(self, values: dict[str, Any]) -> None:
@@ -1437,9 +1437,9 @@ class TabPanel(ReorderableBar):
             self._run_stub(console, payload)
             return
 
-        valores = self._fanout_values(capability, payload)
-        if valores:
-            self._run_fanout(tab, capability, payload, valores)
+        values = self._fanout_values(capability, payload)
+        if values:
+            self._run_fanout(tab, capability, payload, values)
         else:
             self._run_real(tab, console, capability, capability.kwargs_from(payload))
 
@@ -1461,9 +1461,9 @@ class TabPanel(ReorderableBar):
 
         if decision == protection.Decision.BLOCK:
             BlockedDialog(self.project, capability.name, targets, self).exec()
-            cuales = ", ".join(t.label for t in targets)
+            which = ", ".join(t.label for t in targets)
             console.append_log(
-                f"Bloqueado: {capability.name} toca {cuales} y este repo lo "
+                f"Bloqueado: {capability.name} toca {which} y este repo lo "
                 f"tiene protegido. El seguro se quita en Configuracion, "
                 f"seccion Seguridad.",
                 "error",
@@ -1496,7 +1496,7 @@ class TabPanel(ReorderableBar):
         tab: SubTabButton,
         capability: Capability,
         payload: dict[str, Any],
-        valores: list[str],
+        values: list[str],
     ) -> None:
         """Una pestana por valor marcado, cada una con su proceso vivo.
 
@@ -1505,26 +1505,26 @@ class TabPanel(ReorderableBar):
         exactamente igual que antes, sin una pestana de mas.
         """
 
-        def _payload_for(valor: str) -> dict[str, Any]:
-            variantes = dict(payload.get("variants") or {})
-            variantes[capability.fanout] = [valor]
-            return {**payload, "variants": variantes}
+        def _payload_for(value: str) -> dict[str, Any]:
+            variants = dict(payload.get("variants") or {})
+            variants[capability.fanout] = [value]
+            return {**payload, "variants": variants}
 
-        primero, resto = valores[0], valores[1:]
-        self._retitle(tab, f"{capability.name} {primero}")
-        if resto:
+        first, rest = values[0], values[1:]
+        self._retitle(tab, f"{capability.name} {first}")
+        if rest:
             self._consoles[tab].append_log(
-                f"{len(valores)} apps marcadas: una pestaña por cada una ({', '.join(valores)}).",
+                f"{len(values)} apps marcadas: una pestaña por cada una ({', '.join(values)}).",
                 "info",
             )
         self._run_real(
-            tab, self._consoles[tab], capability, capability.kwargs_from(_payload_for(primero))
+            tab, self._consoles[tab], capability, capability.kwargs_from(_payload_for(first))
         )
 
-        for valor in resto:
-            otro, vista = self._open(capability, valor)
+        for value in rest:
+            other, view = self._open(capability, value)
             self._run_real(
-                otro, vista.console, capability, capability.kwargs_from(_payload_for(valor))
+                other, view.console, capability, capability.kwargs_from(_payload_for(value))
             )
         self._activate(tab)
 
@@ -1544,7 +1544,7 @@ class TabPanel(ReorderableBar):
         """
         console = self._consoles[tab]
         console.append_log(f"{capability.name}: cada paso va a su propia pestaña.", "info")
-        lanzados = []
+        launched = []
         for step_id in payload.get("steps") or []:
             sub_cap = registry.get_capability(step_id)
             if sub_cap is None:
@@ -1552,10 +1552,10 @@ class TabPanel(ReorderableBar):
                 continue
             console.append_log(f"→ {sub_cap.name}", "info")
             self.quick_run(sub_cap)
-            lanzados.append(sub_cap.name)
+            launched.append(sub_cap.name)
         self._activate(tab)
-        if lanzados:
-            console.append_log(f"Lanzados: {', '.join(lanzados)}.", "ok")
+        if launched:
+            console.append_log(f"Lanzados: {', '.join(launched)}.", "ok")
         else:
             console.append_log("Ningún paso marcado.", "warn")
 
@@ -1624,9 +1624,9 @@ class TabPanel(ReorderableBar):
                 # cacheado y se releen: si no, el AVD recien creado no aparece
                 # hasta reabrir la pestana.
                 forget_machine_cache()
-                for otro in self._params.values():
-                    if otro.capability.group == capability.group:
-                        otro.refresh_machine()
+                for other in self._params.values():
+                    if other.capability.group == capability.group:
+                        other.refresh_machine()
                 # Instalar un SDK cambia el entorno de la maquina: los
                 # indicadores de la barra tienen que reflejarlo ya, no al
                 # proximo arranque.
@@ -1667,12 +1667,12 @@ class TabPanel(ReorderableBar):
             return
 
         if shape in (context.ASK_SECRET, context.ASK_TEXT):
-            modo = (
+            mode = (
                 QLineEdit.EchoMode.Password
                 if shape == context.ASK_SECRET
                 else QLineEdit.EchoMode.Normal
             )
-            answer, ok = QInputDialog.getText(self, "Dato requerido", question, modo)
+            answer, ok = QInputDialog.getText(self, "Dato requerido", question, mode)
             # Cancelar no es responder vacio: hay preguntas donde el vacio
             # significa "usa el valor derivado" (`core/context.py::ASK_CANCELLED`).
             runner.provide_answer(answer if ok else context.ASK_CANCELLED)

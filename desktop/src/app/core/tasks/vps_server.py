@@ -27,15 +27,13 @@ def systemd_action(
     """
     if service == vps.RECEIVER_SERVICE and action in vps.STARTING_ACTIONS:
         raise TaskError("El respaldo lo pide la receptora: no se arranca desde aquí.")
-    entrada = access(ctx)
-    servicio = vps.resolve_service(canone.origin(ctx.root)[1], service)
-    if vps.service_state(entrada.remote, servicio) == "missing" and action not in (
-        "daemon-reload",
-    ):
-        raise TaskError(f"El servicio {servicio} no existe todavia en el VPS.")
-    return entrada.run(
+    entry = access(ctx)
+    unit = vps.resolve_service(canone.origin(ctx.root)[1], service)
+    if vps.service_state(entry.remote, unit) == "missing" and action not in ("daemon-reload",):
+        raise TaskError(f"El servicio {unit} no existe todavia en el VPS.")
+    return entry.run(
         ctx,
-        vps.systemctl_command(action, servicio),
+        vps.systemctl_command(action, unit),
         check=action not in ("status", "is-active", "is-enabled"),
     )
 
@@ -55,11 +53,11 @@ def view_logs(
     tienen sentido para start/stop (ADR-0023). El eje `service` es el mismo de
     alla: cuando coturn o Caddy no arrancan, lo que hay que leer es su journal.
     """
-    servicio = vps.resolve_service(canone.origin(ctx.root)[1], service)
-    comando = vps.journal_command(
-        servicio, lines=lines, follow=follow, since=since, priority=priority, grep=grep
+    unit = vps.resolve_service(canone.origin(ctx.root)[1], service)
+    command = vps.journal_command(
+        unit, lines=lines, follow=follow, since=since, priority=priority, grep=grep
     )
-    return access(ctx).run(ctx, comando, check=False)
+    return access(ctx).run(ctx, command, check=False)
 
 
 def bind_all() -> None:

@@ -48,10 +48,10 @@ def resolve_server_port(ctx: TaskContext, preferred: int = 8000, search: bool = 
     No es un boton: nadie pide "elige un puerto y nada mas". Es plomeria de
     `serve_backend`, que si lo es (ADR-0008).
     """
-    puerto = ports.resolve_port(preferred, search=search, label="puerto del backend")
-    session.publish(ctx.project_name, SERVER_PORT, puerto)
-    ctx.info(f"Puerto del backend: {puerto}")
-    return puerto
+    port = ports.resolve_port(preferred, search=search, label="puerto del backend")
+    session.publish(ctx.project_name, SERVER_PORT, port)
+    ctx.info(f"Puerto del backend: {port}")
+    return port
 
 
 def backend_url(ctx: TaskContext, *, wait: float = 0.0, required: bool = True) -> str:
@@ -110,11 +110,11 @@ def serve_backend(
     credenciales de desarrollo y solo contra la base local (ADR-0069).
     """
     server = targets.pick(ctx.root, (targets.FASTAPI,), target).path
-    interprete = venv_python(server / ".venv")
-    puerto = resolve_server_port(ctx, preferred_port)
+    interpreter = venv_python(server / ".venv")
+    port = resolve_server_port(ctx, preferred_port)
     app = targets.asgi_app(server)
 
-    argv = [str(interprete), "-m", "uvicorn", app, "--host", host, "--port", str(puerto)]
+    argv = [str(interpreter), "-m", "uvicorn", app, "--host", host, "--port", str(port)]
     if reload:
         argv.append("--reload")
     tls = resolve_tls(ctx, server)
@@ -124,27 +124,27 @@ def serve_backend(
     # La URL que se anuncia no es la de escucha: `0.0.0.0` es donde escucha,
     # `localhost` es por donde se entra. Un navegador apuntado a `0.0.0.0` no
     # llega a ningun lado.
-    esquema = "https" if tls else "http"
+    schema = "https" if tls else "http"
 
-    def arrancar(entorno: dict[str, str]) -> None:
-        ctx.info(f"Backend {app} escuchando en {host}:{puerto}")
-        ctx.serve(f"{esquema}://localhost:{puerto}", key=BACKEND, label="Backend")
+    def start(environment: dict[str, str]) -> None:
+        ctx.info(f"Backend {app} escuchando en {host}:{port}")
+        ctx.serve(f"{schema}://localhost:{port}", key=BACKEND, label="Backend")
         try:
-            ctx.run(argv, cwd=server, env=entorno, check=False)
+            ctx.run(argv, cwd=server, env=environment, check=False)
         finally:
             session.forget(ctx.project_name, SERVER_PORT)
 
     if not fields.settings_fields(server):
         with db.connect(ctx, scope) as conn:
-            arrancar({"DATABASE_URL": conn.url})
+            start({"DATABASE_URL": conn.url})
         return
     if scope != db.LOCAL:
         raise TaskError("Un repo de canone levanta su backend solo contra la base local.")
-    carpeta = runner.write_credentials(
+    folder = runner.write_credentials(
         ctx, server, runner.CREDENTIALS, canone.credential_files(server, ctx.config)
     )
     # `.env` es el del repo: dice, por ejemplo, donde esta `STATE_DIRECTORY`.
-    arrancar({**envfile.load_env(str(server / ".env")), "CREDENTIALS_DIRECTORY": str(carpeta)})
+    start({**envfile.load_env(str(server / ".env")), "CREDENTIALS_DIRECTORY": str(folder)})
 
 
 def serve_spa(
@@ -160,7 +160,7 @@ def serve_spa(
     pestana por cada una y llama aca una vez por pestana (ADR-0010).
     """
     spa = targets.pick(ctx.root, (targets.SPA_VITE,), target)
-    puerto = ports.resolve_port(preferred_port, label=f"puerto de {spa.name}")
+    port = ports.resolve_port(preferred_port, label=f"puerto de {spa.name}")
 
     # Sin backend no es un error: la SPA arranca con lo que tenga en su .env.
     # Con backend arrancando en otra pestana, se lo espera — el orden en que se
@@ -171,10 +171,10 @@ def serve_spa(
     else:
         ctx.warn("El backend no esta corriendo: la SPA va a usar su propia configuracion.")
 
-    ctx.serve(f"http://localhost:{puerto}", key=f"spa:{spa.name}", label=spa.name)
+    ctx.serve(f"http://localhost:{port}", key=f"spa:{spa.name}", label=spa.name)
     # pnpm hands the options after the script to it: a `--` would reach Vite as is.
     ctx.run(
-        [*toolchain.pnpm_cmd(), "run", "dev", "--port", str(puerto)],
+        [*toolchain.pnpm_cmd(), "run", "dev", "--port", str(port)],
         cwd=spa.path,
         env={"VITE_SERVER_URL": api} if api else None,
         check=False,
@@ -232,27 +232,27 @@ def run_python_app(
     no tiene sentido relanzar sola (un bot, un script de un solo uso).
     """
     app = targets.pick(ctx.root, targets.DESKTOP_APP, target)
-    entrada = targets.python_entrypoint(app.path)
-    if entrada is None:
+    entry = targets.python_entrypoint(app.path)
+    if entry is None:
         raise TaskError(
             f"{app.name} no tiene punto de entrada ({', '.join(targets.PYTHON_ENTRYPOINTS)})."
         )
-    fuente = entrada.parent
-    interprete = toolchain.app_python(app.path, ctx.root)
+    source = entry.parent
+    interpreter = toolchain.app_python(app.path, ctx.root)
 
     # Con backend se le pasa su URL; sin el, la app arranca igual con su propia
     # configuracion, como la SPA. Que le haga falta o no es asunto de la app.
-    entorno = {}
+    environment = {}
     api = backend_url(ctx, wait=wait_backend, required=False)
     if api:
-        entorno["SERVER_URL"] = api
+        environment["SERVER_URL"] = api
         ctx.info(f"Backend detectado: {api}")
     if auto_login:
-        entorno["TERMINAL_DEV_AUTO_LOGIN"] = "true"
+        environment["TERMINAL_DEV_AUTO_LOGIN"] = "true"
 
     if not watch:
         ctx.info(f"Lanzando {app.name}...")
-        ctx.run([*interprete, entrada.name], cwd=fuente, env=entorno or None, check=False)
+        ctx.run([*interpreter, entry.name], cwd=source, env=environment or None, check=False)
         return
 
     while not ctx.cancelled:
@@ -260,24 +260,24 @@ def run_python_app(
         # El vigilante corre al lado del proceso y lo mata apenas cambia un
         # fuente: `ctx.run` vuelve y la vuelta siguiente lo relanza. Si el
         # proceso termina solo, sin cambios, la tarea termina con el.
-        cambio, fin = threading.Event(), threading.Event()
-        vigia = threading.Thread(target=_watch, args=(ctx, fuente, cambio, fin), daemon=True)
-        vigia.start()
+        change, end = threading.Event(), threading.Event()
+        watchdog = threading.Thread(target=_watch, args=(ctx, source, change, end), daemon=True)
+        watchdog.start()
         try:
-            codigo = ctx.run(
-                [*interprete, entrada.name],
-                cwd=fuente,
-                env=entorno or None,
+            code = ctx.run(
+                [*interpreter, entry.name],
+                cwd=source,
+                env=environment or None,
                 check=False,
                 echo=False,
             )
         finally:
-            fin.set()
-            vigia.join()
+            end.set()
+            watchdog.join()
         if ctx.cancelled:
             return
-        if not cambio.is_set():
-            ctx.info(f"{app.name} termino con codigo {codigo}.")
+        if not change.is_set():
+            ctx.info(f"{app.name} termino con codigo {code}.")
             return
         ctx.info("Cambios detectados: reiniciando.")
 
@@ -289,15 +289,15 @@ WATCH_INTERVAL = 0.5
 _WATCHED = {".py", ".qss"}
 
 
-def _watch(ctx: TaskContext, root: Path, cambio: threading.Event, fin: threading.Event) -> None:
-    firma = _snapshot(root)
-    while not fin.wait(WATCH_INTERVAL):
+def _watch(ctx: TaskContext, root: Path, change: threading.Event, end: threading.Event) -> None:
+    signature = _snapshot(root)
+    while not end.wait(WATCH_INTERVAL):
         try:
-            actual = _snapshot(root)
+            current = _snapshot(root)
         except OSError:
             continue  # un archivo borrado a mitad del recorrido: se mira en la vuelta siguiente
-        if actual != firma:
-            cambio.set()
+        if current != signature:
+            change.set()
             ctx.kill_children()
             return
 
@@ -311,8 +311,8 @@ def _snapshot(root: Path) -> dict[str, float]:
         if p.suffix in _WATCHED
         and p.is_file()
         and not any(
-            parte in targets.IGNORED or parte.startswith(".")
-            for parte in p.relative_to(root).parts[:-1]
+            part in targets.IGNORED or part.startswith(".")
+            for part in p.relative_to(root).parts[:-1]
         )
     }
 

@@ -49,12 +49,12 @@ def field_settings(server: Path) -> tuple[Setting, ...]:
     Una clave que fuera a la vez campo y clave de Consola tendria dos fuentes,
     y no se sabria a quien mandarla: corta.
     """
-    claves = []
+    keys = []
     for field in settings_fields(server):
         if field in WRITTEN_BY_INSTALL:
             continue
         key = field.upper()
         if get_setting(key) is not None:
             raise TaskError(f"El campo {field} de Settings choca con la clave {key} de Consola.")
-        claves.append(Setting(key, GROUP, field, secret=True))
-    return tuple(claves)
+        keys.append(Setting(key, GROUP, field, secret=True))
+    return tuple(keys)

@@ -172,8 +172,8 @@ def converse(
     )
     if register:
         register(proc)
-    pendientes = list(answers)
-    resto = ""
+    pending = list(answers)
+    rest = ""
     try:
         assert proc.stdout is not None and proc.stdin is not None
         fd = proc.stdout.fileno()
@@ -181,21 +181,21 @@ def converse(
             if cancel is not None and cancel.is_set():
                 kill_tree(proc)
                 raise Cancelled("Detenido por el usuario.")
-            bloque = os.read(fd, 4096)
-            if not bloque:
+            block = os.read(fd, 4096)
+            if not block:
                 break
-            resto += bloque.decode("utf-8", errors="replace").replace("\r", "")
-            *lineas, resto = resto.split("\n")
-            for linea in lineas:
-                if linea:
-                    on_line(linea)
-            if pendientes and pendientes[0][0] in resto:
-                on_line(resto)
-                resto = ""
-                proc.stdin.write((pendientes.pop(0)[1] + "\n").encode("utf-8"))
+            rest += block.decode("utf-8", errors="replace").replace("\r", "")
+            *lines, rest = rest.split("\n")
+            for line in lines:
+                if line:
+                    on_line(line)
+            if pending and pending[0][0] in rest:
+                on_line(rest)
+                rest = ""
+                proc.stdin.write((pending.pop(0)[1] + "\n").encode("utf-8"))
                 proc.stdin.flush()
-        if resto:
-            on_line(resto)
+        if rest:
+            on_line(rest)
         return proc.wait()
     except Cancelled:
         raise
@@ -203,9 +203,9 @@ def converse(
         kill_tree(proc)
         raise
     finally:
-        for canal in (proc.stdout, proc.stdin):
-            if canal and not canal.closed:
-                canal.close()
+        for channel in (proc.stdout, proc.stdin):
+            if channel and not channel.closed:
+                channel.close()
 
 
 def capture(
@@ -226,7 +226,7 @@ def capture(
     se cuelga hasta el timeout aunque el comando remoto ya haya terminado.
     `stdin_text` es lo que la consulta lee, y la entrada se cierra despues.
     """
-    entrada: dict[str, Any] = (
+    entry: dict[str, Any] = (
         {"stdin": subprocess.DEVNULL} if stdin_text is None else {"input": stdin_text}
     )
     try:
@@ -234,7 +234,7 @@ def capture(
             [str(a) for a in argv],
             cwd=str(cwd) if cwd else None,
             env={**os.environ, **env} if env else None,
-            **entrada,
+            **entry,
             capture_output=True,
             text=True,
             encoding="utf-8",
@@ -248,8 +248,8 @@ def capture(
         raise TaskError(f"El comando excedio {timeout}s: {format_argv(argv)}") from exc
 
     if check and result.returncode != 0:
-        detalle = (result.stderr or result.stdout or "").strip()
-        raise TaskError(f"Fallo ({result.returncode}): {format_argv(argv)}\n{detalle}")
+        detail = (result.stderr or result.stdout or "").strip()
+        raise TaskError(f"Fallo ({result.returncode}): {format_argv(argv)}\n{detail}")
     return (result.stdout or "").strip()
 
 

@@ -69,8 +69,8 @@ def wait_until_serving(
     `cancel` es el `threading.Event` de la tarea: detenerla no debe dejar este
     bucle vivo hasta que se cumpla el timeout.
     """
-    limite = time.monotonic() + timeout
-    while time.monotonic() < limite:
+    limit = time.monotonic() + timeout
+    while time.monotonic() < limit:
         if cancel is not None and cancel.is_set():
             return False
         if is_serving(port, host=host):
@@ -86,9 +86,9 @@ def split_host_port(url: str) -> tuple[str, int]:
     resolver `localhost` puede dar `::1` primero y un servidor que solo escucha
     en IPv4 se leeria como caido.
     """
-    partes = urlsplit(url)
-    host = partes.hostname or "127.0.0.1"
+    parts = urlsplit(url)
+    host = parts.hostname or "127.0.0.1"
     if host in ("localhost", "0.0.0.0", "::"):
         host = "127.0.0.1"
-    puerto = partes.port or (443 if partes.scheme == "https" else 80)
-    return host, puerto
+    port = parts.port or (443 if parts.scheme == "https" else 80)
+    return host, port

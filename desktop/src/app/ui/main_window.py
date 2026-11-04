@@ -225,11 +225,11 @@ class MainWindow(QMainWindow):
         self.action_search.favorites_changed.connect(self._on_favorites_changed)
         self._on_only_favorites(favorites.only_favorites(), save=False)
 
-        proyectos = project_store.load()
-        for project in proyectos:
+        projects = project_store.load()
+        for project in projects:
             self._ensure_workspace(project)
-        self.project_tabs.load_projects(proyectos)
-        if not proyectos:
+        self.project_tabs.load_projects(projects)
+        if not projects:
             self._show_empty_state()
 
         self._install_shortcuts()

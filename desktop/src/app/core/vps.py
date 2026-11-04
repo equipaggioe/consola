@@ -93,18 +93,19 @@ def installed_services(remote: Remote, app: str) -> list[str]:
     raises if it cannot ask: offering them all then would hide that the VPS does not answer
     (ADR-0076).
     """
-    ejes = [*_APP_UNITS, *PACKAGE_SERVICES]
-    nombres = {resolve_service(app, s): s for s in ejes}
+    axes = [*_APP_UNITS, *PACKAGE_SERVICES]
+    names = {resolve_service(app, s): s for s in axes}
     if not reachable(remote):
         raise TaskError(
             f"No se entra al VPS como {remote.target}: no se puede preguntar qué servicios tiene."
         )
-    lista = " ".join(quote(n) for n in nombres)
+    listing = " ".join(quote(n) for n in names)
     # `true`: the exit code of the loop is that of its last unit, and a missing one is fine.
-    salida = capture(
-        remote, f'for s in {lista}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done; true'
+    output = capture(
+        remote,
+        f'for s in {listing}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done; true',
     )
-    return [nombres[linea] for linea in salida.split() if linea in nombres]
+    return [names[line] for line in output.split() if line in names]
 
 
 def unit_installed(remote: Remote, service: str) -> bool:
@@ -196,21 +197,21 @@ _SERVER_GET = (
 
 def server_get(remote: Remote, path: str, token: str = "") -> tuple[str, str]:
     """`GET <path>` del servidor: su estado y su cuerpo. Sin respuesta, el estado va vacio."""
-    salida = capture(
+    output = capture(
         remote,
         f"python3 -c {quote(_SERVER_GET)} {quote(path)}",
         check=False,
         stdin_text=f"{token}\n",
     )
-    estado, _, cuerpo = salida.partition("\n")
-    return estado, cuerpo
+    state, _, body = output.partition("\n")
+    return state, body
 
 
 def health(remote: Remote, service: str) -> dict[str, str]:
     """Resumen de un vistazo para el chequeo de salud: servicio, API, disco y memoria."""
     return {
         "acceso": f"ok ({remote.target})",
-        "servicio": service_state(remote, service),
+        "service": service_state(remote, service),
         "api": server_get(remote, "/api/health")[0],
         "uptime": capture(remote, "uptime -p", check=False),
         "carga": capture(remote, "uptime | sed 's/.*load average: //'", check=False),

@@ -45,10 +45,10 @@ class Sdk:
         if subpath is None:
             raise TaskError(f"Herramienta desconocida del SDK: {name}")
 
-        nombres = HOST.executable_names(name)
+        names = HOST.executable_names(name)
 
         if self.root:
-            for candidate in (self.root.joinpath(*subpath, n) for n in nombres):
+            for candidate in (self.root.joinpath(*subpath, n) for n in names):
                 if candidate.is_file():
                     return str(candidate)
             raise TaskError(
@@ -56,7 +56,7 @@ class Sdk:
                 f"Esperado en: {self.root.joinpath(*subpath)}"
             )
 
-        found = which_any(nombres)
+        found = which_any(names)
         if found:
             return found
         raise TaskError(
@@ -89,7 +89,7 @@ def avd_home() -> Path:
 # El numero de modelo dentro del nombre de un dispositivo, para ordenarlos del
 # nuevo al viejo. Exige que antes haya una palabra: sin eso, `3.7" WVGA` entra
 # como modelo 3 y los tamanos de pantalla se mezclan con los Pixel.
-_MODELO = re.compile(r"^[A-Za-z][A-Za-z ]*?\s(\d+)")
+_MODEL = re.compile(r"^[A-Za-z][A-Za-z ]*?\s(\d+)")
 
 
 @dataclass(frozen=True)
@@ -134,26 +134,26 @@ class Device:
         que las system images por API (`Image.order`), y lo que no tiene numero
         (Pixel, Pixel Fold, Pixel Tablet) va despues de los que si.
         """
-        familia = f"{self.tag} {self.id}".lower()
-        clave = (-self._modelo, self.name or self.id)
-        for marca in ("tv", "wear", "automotive", "desktop", "glasses", "xr"):
-            if marca in familia:
-                return (4, *clave)
-        for rango, marcas in enumerate(
+        family = f"{self.tag} {self.id}".lower()
+        key = (-self._model, self.name or self.id)
+        for mark in ("tv", "wear", "automotive", "desktop", "glasses", "xr"):
+            if mark in family:
+                return (4, *key)
+        for span, marks in enumerate(
             (("pixel",), ("phone", "nexus"), ("tablet", "foldable", "resizable"))
         ):
-            if any(m in familia for m in marcas):
-                return (rango, *clave)
-        return (3, *clave)
+            if any(m in family for m in marks):
+                return (span, *key)
+        return (3, *key)
 
     @property
-    def _modelo(self) -> int:
+    def _model(self) -> int:
         """El numero de modelo del nombre: 9 en "Pixel 9 Pro", 10 en "Nexus 10".
 
         Tiene que empezar por letra para no confundir el modelo con el tamano
         de pantalla: `3.7" WVGA (Nexus One)` no es un Pixel 3.
         """
-        match = _MODELO.match(self.name or self.id)
+        match = _MODEL.match(self.name or self.id)
         return int(match.group(1)) if match else 0
 
 
@@ -247,15 +247,15 @@ def facet_labels(images: list[Image]) -> dict[str, str]:
     Se arman de las imagenes que hay y no de una tabla fija porque las versiones
     salen del catalogo del SDK, que gana una por ano.
     """
-    etiquetas: dict[str, str] = {}
-    for imagen in images:
-        if imagen.api:
-            etiquetas[f"android-{imagen.api}"] = f"Android {imagen.api}"
-        if imagen.variant:
-            etiquetas[imagen.variant] = VARIANTS.get(imagen.variant, imagen.variant)
-        if imagen.abi:
-            etiquetas[imagen.abi] = ABIS.get(imagen.abi, imagen.abi)
-    return etiquetas
+    labels: dict[str, str] = {}
+    for image in images:
+        if image.api:
+            labels[f"android-{image.api}"] = f"Android {image.api}"
+        if image.variant:
+            labels[image.variant] = VARIANTS.get(image.variant, image.variant)
+        if image.abi:
+            labels[image.abi] = ABIS.get(image.abi, image.abi)
+    return labels
 
 
 # Orden de preferencia dentro de una misma API. Lo que no este listado va al
@@ -285,55 +285,55 @@ def device_catalog(sdk: Sdk, *, refresh: bool = False) -> list[Device]:
     Cacheado en disco (`core/cache.py`): la consulta tarda varios segundos y el
     catalogo cambia cuando se actualiza el SDK, no durante una sesion.
     """
-    crudos = cache.cached(_DEVICE_CACHE, lambda: _read_device_catalog(sdk), refresh=refresh)
-    return sorted((Device(**d) for d in crudos), key=lambda d: d.order)
+    raws = cache.cached(_DEVICE_CACHE, lambda: _read_device_catalog(sdk), refresh=refresh)
+    return sorted((Device(**d) for d in raws), key=lambda d: d.order)
 
 
 def _read_device_catalog(sdk: Sdk) -> list[dict[str, str]]:
-    salida = capture([sdk.tool("avdmanager"), "list", "device"], timeout=120, check=False)
-    dispositivos: list[dict[str, str]] = []
-    actual: dict[str, str] | None = None
-    for linea in salida.splitlines():
-        limpia = linea.strip()
-        if limpia.startswith("id:"):
+    output = capture([sdk.tool("avdmanager"), "list", "device"], timeout=120, check=False)
+    devices: list[dict[str, str]] = []
+    current: dict[str, str] | None = None
+    for line in output.splitlines():
+        clean = line.strip()
+        if clean.startswith("id:"):
             # `id: 9 or "pixel_4"` — el id util es el entrecomillado, no el
             # numero: el numero cambia de posicion con cada version del SDK.
-            if actual:
-                dispositivos.append(actual)
-            partes = limpia.split('"')
-            actual = {"id": partes[1] if len(partes) > 1 else limpia.split(":", 1)[1].strip()}
-        elif actual is not None and ":" in limpia:
-            clave, _, valor = limpia.partition(":")
-            campo = clave.strip().lower()
-            if campo in ("name", "oem", "tag"):
-                actual[campo] = valor.strip()
-    if actual:
-        dispositivos.append(actual)
-    return dispositivos
+            if current:
+                devices.append(current)
+            parts = clean.split('"')
+            current = {"id": parts[1] if len(parts) > 1 else clean.split(":", 1)[1].strip()}
+        elif current is not None and ":" in clean:
+            key, _, value = clean.partition(":")
+            field = key.strip().lower()
+            if field in ("name", "oem", "tag"):
+                current[field] = value.strip()
+    if current:
+        devices.append(current)
+    return devices
 
 
 def image_catalog(sdk: Sdk, *, refresh: bool = False) -> list[Image]:
     """Todas las system images publicadas, esten instaladas o no."""
-    paquetes = cache.cached(_IMAGE_CACHE, lambda: _read_image_catalog(sdk), refresh=refresh)
-    return sorted((parse_image(p) for p in paquetes), key=lambda i: i.order)
+    packages = cache.cached(_IMAGE_CACHE, lambda: _read_image_catalog(sdk), refresh=refresh)
+    return sorted((parse_image(p) for p in packages), key=lambda i: i.order)
 
 
 def _read_image_catalog(sdk: Sdk) -> list[str]:
-    salida = capture([sdk.tool("sdkmanager"), "--list"], timeout=600, check=False)
-    vistos: list[str] = []
-    for linea in salida.splitlines():
-        paquete = linea.split("|")[0].strip()
-        if paquete.startswith("system-images;") and paquete not in vistos:
-            vistos.append(paquete)
-    return vistos
+    output = capture([sdk.tool("sdkmanager"), "--list"], timeout=600, check=False)
+    seen: list[str] = []
+    for line in output.splitlines():
+        package = line.split("|")[0].strip()
+        if package.startswith("system-images;") and package not in seen:
+            seen.append(package)
+    return seen
 
 
 def parse_image(package: str) -> Image:
     """`system-images;android-36;google_apis;x86_64` -> sus tres partes."""
-    partes = package.split(";")
-    if len(partes) < 4:
+    parts = package.split(";")
+    if len(parts) < 4:
         return Image(package)
-    return Image(package, partes[1].replace("android-", ""), partes[2], partes[3])
+    return Image(package, parts[1].replace("android-", ""), parts[2], parts[3])
 
 
 def forget_catalogs() -> None:
@@ -348,17 +348,17 @@ def suggest_avd_name(device: str, image: str) -> str:
     `avdmanager` solo acepta letras, numeros, guion, punto y guion bajo.
     """
     api = parse_image(image).api
-    crudo = f"{device}_api{api}" if api else device
-    return "".join(c if c.isalnum() or c in "-_." else "_" for c in crudo)
+    raw = f"{device}_api{api}" if api else device
+    return "".join(c if c.isalnum() or c in "-_." else "_" for c in raw)
 
 
 # --- inventario ------------------------------------------------------------
 
 
 def list_avds(sdk: Sdk) -> list[str]:
-    salida = capture([sdk.emulator, "-list-avds"], timeout=60, check=False)
+    output = capture([sdk.emulator, "-list-avds"], timeout=60, check=False)
     return [
-        line.strip() for line in salida.splitlines() if line.strip() and " " not in line.strip()
+        line.strip() for line in output.splitlines() if line.strip() and " " not in line.strip()
     ]
 
 
@@ -369,10 +369,10 @@ def list_images(sdk: Sdk) -> list[str]:
     instala o desinstala una, y una lista vieja aca haria que "Crear AVD"
     ofrezca una imagen que ya no esta.
     """
-    salida = capture([sdk.tool("sdkmanager"), "--list_installed"], timeout=180, check=False)
+    output = capture([sdk.tool("sdkmanager"), "--list_installed"], timeout=180, check=False)
     return [
         line.split("|")[0].strip()
-        for line in salida.splitlines()
+        for line in output.splitlines()
         if line.strip().startswith("system-images;")
     ]
 
@@ -383,10 +383,10 @@ def list_devices(sdk: Sdk) -> list[str]:
     El emulador se desprende del proceso que lo lanzo (ADR-0028), asi
     que su estado no se puede inferir de un PID: hay que sondearlo.
     """
-    salida = capture([sdk.adb, "devices"], timeout=30, check=False)
+    output = capture([sdk.adb, "devices"], timeout=30, check=False)
     return [
         line.split()[0]
-        for line in salida.splitlines()[1:]
+        for line in output.splitlines()[1:]
         if line.strip().endswith("device") and line.startswith("emulator-")
     ]
 
@@ -398,14 +398,14 @@ def running(sdk: Sdk) -> dict[str, str]:
     preguntarselo a la consola del propio emulador. Es lo que permite avisar
     que un AVD ya esta corriendo antes de lanzarlo por segunda vez.
     """
-    vivos: dict[str, str] = {}
+    alive: dict[str, str] = {}
     for serial in list_devices(sdk):
-        salida = capture([sdk.adb, "-s", serial, "emu", "avd", "name"], timeout=15, check=False)
-        nombre = next(
-            (l.strip() for l in salida.splitlines() if l.strip() and l.strip() != "OK"), ""
+        output = capture([sdk.adb, "-s", serial, "emu", "avd", "name"], timeout=15, check=False)
+        name = next(
+            (l.strip() for l in output.splitlines() if l.strip() and l.strip() != "OK"), ""
         )
-        vivos[serial] = nombre
-    return vivos
+        alive[serial] = name
+    return alive
 
 
 def free_port(sdk: Sdk) -> int:
@@ -417,9 +417,9 @@ def free_port(sdk: Sdk) -> int:
     contra que dispositivo correr. Sin esto habria que adivinar cual de los
     emuladores vivos es el que lanzo esta pestana.
     """
-    ocupados = {s.rsplit("-", 1)[-1] for s in list_devices(sdk)}
+    busy = {s.rsplit("-", 1)[-1] for s in list_devices(sdk)}
     for port in PORT_RANGE:
-        if str(port) not in ocupados and ports.is_free(port, host="127.0.0.1"):
+        if str(port) not in busy and ports.is_free(port, host="127.0.0.1"):
             return port
     raise TaskError("No quedan puertos de emulador libres (5554-5584).")
 
@@ -511,17 +511,17 @@ def wait_for_boot(ctx: TaskContext, sdk: Sdk, *, timeout: float = 180.0, serial:
     Con `serial` espera a ESE y no al primero que aparezca: con dos emuladores
     vivos, "el primero" es una loteria.
     """
-    limite = time.time() + timeout
-    while time.time() < limite:
+    limit = time.time() + timeout
+    while time.time() < limit:
         ctx.raise_if_cancelled()
-        for encontrado in [serial] if serial else list_devices(sdk):
-            listo = capture(
-                [sdk.adb, "-s", encontrado, "shell", "getprop", "sys.boot_completed"],
+        for found in [serial] if serial else list_devices(sdk):
+            ready = capture(
+                [sdk.adb, "-s", found, "shell", "getprop", "sys.boot_completed"],
                 timeout=15,
                 check=False,
             )
-            if listo.strip() == "1":
-                return encontrado
+            if ready.strip() == "1":
+                return found
         time.sleep(2)
     raise TaskError(f"Ningun emulador termino de arrancar en {timeout:.0f}s.")
 
