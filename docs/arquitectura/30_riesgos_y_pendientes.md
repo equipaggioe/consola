@@ -38,7 +38,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 | Qué | ADR | Plan |
 |---|---|---|
-| Lo que Consola todavía no cumple de canone: lo que queda de `ruff check` (docstrings, `W505`, nombres), el código en inglés, `windows/`, `dialogs/` y `widgets/`, «Tema» con `colors.py` y Fusion (`tests/test_theme.py` falla), `IniFormat`, Qt Linguist, `release.yml` y `pysidedeploy.spec`. El CI queda en rojo hasta entonces | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | — |
+| Lo que Consola todavía no cumple de canone: lo que queda de `ruff check` (docstrings, `W505`, nombres), el código en inglés, `windows/`, `dialogs/` y `widgets/`, `IniFormat`, Qt Linguist, `release.yml` y `pysidedeploy.spec`. El CI queda en rojo hasta entonces | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | — |
 | «Compilar ejecutable»: empaquetar solo en CI con `pyside6-deploy`, sin PyInstaller, sin subir al VPS, sin número de versión ni manifiesto. Sale el ADR-0024 y cambian el 0025, el 0026 y el punto 4 del 0056 | [0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | «Vaciar VPS» con el programa que desinstala, cuando canone lo traiga. Hasta entonces, desarmar un VPS es reinstalarlo desde el proveedor | [0062](../adr/0062-vaciar-vps-sale.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | Bitácora, historial y presets en un SQLite de la máquina (`core/store.py`) | — | — |
