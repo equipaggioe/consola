@@ -38,8 +38,8 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 | Qué | ADR | Plan |
 |---|---|---|
-| Lo que Consola todavía no cumple de canone: `windows/`, `dialogs/` y `widgets/`, `IniFormat`, Qt Linguist, `pysidedeploy.spec`, el icono y `resources.qrc`. `release.yml` falla en un tag hasta tener el `.spec` | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
-| La sección «Tema» de canone, sin implementar mientras canone la declare en desarrollo. Falta `desktop/tests/test_theme.py`, que `verificar.py` de `origin/master` de canone todavía exige y el de `sveltekit-3` no | ADR-0116 de canone | [cumplir_canone.md](../planes/cumplir_canone.md) |
+| Lo que pide `qt.md` de canone y Consola no tiene: `windows/`, `dialogs/` y `widgets/`, `IniFormat`, Qt Linguist, `pysidedeploy.spec`, el icono y `resources.qrc`. No es exigible mientras canone declare Qt en desarrollo. `release.yml` falla en un tag hasta tener el `.spec` | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
+| La sección «Tema» de canone, sin implementar mientras canone la declare en desarrollo (ADR-0116 de canone) | ADR-0116 de canone | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | «Compilar ejecutable»: empaquetar solo en CI con `pyside6-deploy`, sin PyInstaller, sin subir al VPS, sin número de versión ni manifiesto. Sale el ADR-0024 y cambian el 0025, el 0026 y el punto 4 del 0056 | [0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | «Vaciar VPS» con el programa que desinstala, cuando canone lo traiga. Hasta entonces, desarmar un VPS es reinstalarlo desde el proveedor | [0062](../adr/0062-vaciar-vps-sale.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | Bitácora, historial y presets en un SQLite de la máquina (`core/store.py`) | — | — |
@@ -75,6 +75,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 Construido y nunca probado en condiciones reales:
 
 - **La primera instalación en una máquina recién creada, desde la ventana.** El 2026-11-02 se apretaron en la ventana de Consola, con clics simulados, «Configurar VPS» (sobre un VPS ya instalado), «Instalar paquetes base», «Cargar credenciales», «Control del servicio», «Ver logs del servicio», «Health check», «Ver eventos», «Ejecutar comando», «Desplegar versión», «Levantar backend» y «Correr migraciones». La primera corrida de `install.py` como root corrió sin la ventana, y la huella nueva se simuló olvidando la anterior. «Publicar versión» corrió por el panel, sin mostrar la ventana.
+- **Desplegar un repo que no sea `equipaggio`.** Solo `equipaggio` se publicó y se desplegó con Consola (`v0.1.0` y `v0.1.1`, en un VPS de prueba). Ningún otro repo de canone se probó.
 - **«Abrir sesión SSH».** Abre una terminal externa, y no se probó.
 - **La comprobación de la raíz del panel en `caddy.sh` de canone.** Aquí no hay Caddy, así que corre por primera vez en `infra.yml` cuando se empuje canone. El arreglo del `Caddyfile` sí se comprobó en el VPS de prueba.
 - **«Actualizar Cloudflare» cuando tiene que cambiar el registro.** Corrió el 2026-11-02 con el registro ya correcto y con uno que no existe. La escritura nunca corrió, porque el permiso de Claude Code bloquea los cambios de DNS. Corre con `proxied=True`, que con dos niveles de subdominio dejaría sin certificado al proxy de Cloudflare *(sin confirmar)*.

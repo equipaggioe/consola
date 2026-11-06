@@ -1,21 +1,20 @@
 # Plan — que Consola cumpla canone entera
 
-> **Estado (verificado 2026-11-04).** En la rama `cumplir-canone`, sin empujar. Hecho: `ruff format`,
-> `ruff check`, los tipos de Pyrefly con `@override`, y el código en inglés, con la redacción de los
-> docstrings revisada. HTTP pasó a
-> `QNetworkAccessManager` ([ADR-0079](../adr/0079-http-bloquea-el-hilo-de-la-tarea.md), propuesta). La
-> sección «Tema» no se implementa porque canone la declara en desarrollo (ADR-0116 de canone); lo
-> recuerda su fila en el [30](../arquitectura/30_riesgos_y_pendientes.md). También están `release.yml`
+> **Estado (verificado 2026-11-06).** En la rama `cumplir-canone`, sin empujar. Con canone en `main`
+> (`28fca93`), `verificar.py --repo .` da 0 incumplimientos y pasan `ruff`, `pyrefly` en Windows y
+> en Linux, `deptry` y las 419 pruebas. Canone declaró en desarrollo `qt.md` (y Android, Flet,
+> Flutter y SvelteKit): no se aplica a ningún repositorio y `verificar.py` no exige nada de ella. Por
+> eso lo del §2 **no es exigible hoy** y se conserva como lo que habrá que hacer cuando Qt salga de
+> desarrollo. Hecho: el código en inglés, `ruff`, los tipos, HTTP con `QNetworkAccessManager`
+> ([ADR-0079](../adr/0079-http-bloquea-el-hilo-de-la-tarea.md), propuesta), `release.yml`
 > ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)) y `api/`
-> ([ADR-0080](../adr/0080-las-respuestas-http-se-leen-con-modelos-en-api.md)). Falta lo de la §2. El
-> objetivo sale del
+> ([ADR-0080](../adr/0080-las-respuestas-http-se-leen-con-modelos-en-api.md)). El objetivo sale del
 > [ADR-0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md); lo
 > que hay está en [arquitectura](../arquitectura/README.md), y si este plan no coincide con ella, manda
 > ella.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
-> `canone/plataformas/python.md`, `canone/plataformas/qt.md` y este plan. Lo primero es contestar las
-> preguntas de la §3.
+> `canone/plataformas/python.md` y este plan.
 
 ## 1. Cómo se comprueba
 
@@ -38,9 +37,9 @@ saltada. No es el runner de GitHub: las bibliotecas de Qt, git y Node se agregar
 ventana entera. Después de mover archivos o conexiones hay que abrirla sin pantalla y apretar sus
 señales.
 
-## 2. Lo que falta
+## 2. Cuando Qt salga de desarrollo
 
-En este orden: cada etapa deja el repo en verde y lleva su commit.
+Nada de esto se exige hoy. En este orden: cada etapa deja el repo en verde y lleva su commit.
 
 ### 2.1 Estructura de `ui/`
 
@@ -103,15 +102,13 @@ Nada de esto está decidido; las recomendaciones son propuestas.
 | 2 | ¿Linguist cubre también los mensajes de `core/` y `command_docs.py`? `core/` no importa Qt salvo excepciones | Sí, con `QCoreApplication.translate`: `transversal.md` pide un producto multilingüe. Exige un ADR que amplíe la excepción de `core/` |
 | 3 | ¿De dónde sale el icono de 1024 px? Solo hay `ui/assets/equipaggio.png` de 400 × 400, y agrandarlo lo deja borroso | Que lo entregues tú, o rasterizar el rombo de la marca si es el icono que quieres |
 | 6 | ¿Se confirma el ADR-0079 (HTTP bloqueando el hilo de la tarea, en vez de señales)? | Sí: las tareas se leen de arriba abajo |
-| 7 | ¿Se confirma el punto 2 del ADR-0116 de canone (`verificar.py` deja de exigir `tests/test_theme.py`)? | Sí: exigirla deja en rojo el CI de Consola y le impide publicar un release, porque `release.yml` corre primero `ci.yml` |
+| 7 | ¿Se confirma el punto 2 del ADR-0116 de canone (`verificar.py` deja de exigir `tests/test_theme.py`)? Ya está en `main` de canone, pero el ADR lo deja en propuesta | Sí: exigirla deja en rojo el CI de Consola y le impide publicar un release, porque `release.yml` corre primero `ci.yml` |
 
 ## 4. Antes de empujar
 
-1. **Canone primero, y en `master`.** El job `canone` del CI clona canone desde GitHub, que todavía exige
-   `tests/test_theme.py`. El ADR-0116 está en la rama local `sveltekit-3`, que lleva commits sin empujar y
-   donde hay otra sesión trabajando. Sin decidir cuándo pasa a `master`.
-2. Sin decidir: empujar `cumplir-canone`, abrir un PR y mirar el CI. Esta rama nunca corrió en él, y
-   `ci.yml` solo corre con un push a `main`, con un PR, con `workflow_call` y por el cron.
+Sin decidir: empujar `cumplir-canone`, abrir un PR y mirar el CI. Esta rama nunca corrió en él, y
+`ci.yml` solo corre con un push a `main`, con un PR, con `workflow_call` y por el cron. El job `canone`
+clona canone desde GitHub, cuyo `main` ya está en `28fca93`.
 
 ## 5. Sin verificar
 
