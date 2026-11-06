@@ -23,6 +23,8 @@ Lo que va por stdin no pasa por el log. Un comando que lee stdin se lanza sin `-
 
 El despliegue lo hacen los programas de canone ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Consola prepara la máquina y corre `install.py` y `credentials.py` (§4), y publica, firma y despliega versiones (§4b). No clona el repo en el VPS ni escribe configuración de servicios: eso lo instala `install.py`.
 
+**Regla:** lo que deja un cambio permanente en un VPS lo hace un programa de canone. Si canone no lo trae, se agrega primero a canone. No alcanza a lo que corre en esta máquina (compilar, crear el tag, firmar), a correr lo que canone ya instaló (`deploy.py`, `credentials.py`, `systemctl`, los registros, la salud), ni a lo que canone deja a quien prepara la máquina (sus paquetes, el swap). Hoy la incumplen «Quitar acceso SSH» y el ámbito remoto de los botones de base (30).
+
 Este documento describe los botones que siguen alcanzando el VPS.
 
 ## 3. Rutas del repo desplegado
