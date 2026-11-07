@@ -107,7 +107,7 @@ Un archivo roto a mano se trata como si no hubiera nada, y el primer guardado lo
 | `vps-services-<host>` | 60 s, y la clave lleva el host: dos repos son casi siempre dos VPS |
 | Emuladores vivos | No se cachea nunca |
 
-Una caché ilegible es una caché vacía, nunca un error que corte una tarea. Al terminar una tarea de máquina, `forget_machine_cache()` olvida lo instalado y lo creado.
+Una entrada que no existe o que venció se vuelve a pedir. Una que no se puede leer o escribir corta la tarea con `TaskError`, nombrando el archivo (`core/cache.py`). Al terminar una tarea de máquina, `forget_machine_cache()` olvida lo instalado y lo creado.
 
 ## 9. El `.env` del servidor
 

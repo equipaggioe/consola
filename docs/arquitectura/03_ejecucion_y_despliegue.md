@@ -8,7 +8,7 @@ uv sync
 uv run python -m app.main
 ```
 
-No hay instalador ni empaquetado propio: Consola se ejecuta desde el repositorio. Puede empaquetarse a sí misma con su botón «Build binario», que deduce `main.py` en la raíz cuando el repo no tiene ninguna app Python que descubrir (`core/tasks/builders.py::resolve_entrypoint`).
+Consola se ejecuta desde el repositorio. Con cada tag, `.github/workflows/release.yml` corre `ci.yml` y construye con `pyside6-deploy` `desktop-linux.bin` y `desktop-windows.exe` en un release que queda en borrador hasta tener su `.sha256`. Hoy falla, porque falta `desktop/pysidedeploy.spec` ([30](30_riesgos_y_pendientes.md)). Puede empaquetarse a sí misma con su botón «Build binario», que deduce `main.py` en la raíz cuando el repo no tiene ninguna app Python que descubrir (`core/tasks/builders.py::resolve_entrypoint`).
 
 ## 2. Hilos y procesos
 

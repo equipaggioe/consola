@@ -121,6 +121,8 @@ Mientras la consulta corre, el panel se dibuja con las listas vacías y el botó
 
 Un eje descubierto sin valores no es «olvidaste elegir»: es que el repo —o la máquina, o el VPS— no tiene eso. El panel lo dice con esas palabras («no hay AVD en esta máquina», «no hay servicio en este VPS») y el botón se bloquea con ese motivo, salvo que el eje admita estar vacío.
 
+Un eje consultado cuya fuente falla —el SDK, el VPS, la cámara o GitHub— no se dibuja vacío: el panel muestra lo que dijo la fuente en su lugar (`AxisDef.query_error`) y el botón se bloquea con ese mensaje.
+
 ## 8. La barra de estado
 
 Una sola, de borde a borde, fuera de los `TabPanel`. Muestra el repo activo, el estado de Java, Git, Android y Flutter (mirando el disco, sin lanzar `flutter doctor`), la RAM disponible, y los candados del repo. Un clic en un candado salta a la sección Seguridad.

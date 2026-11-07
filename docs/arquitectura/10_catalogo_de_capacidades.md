@@ -106,5 +106,6 @@ Un paso que el panel no dibujó no viene marcado en el payload, así que llega a
 2. Una variación que solo cambia una constante es un eje, no un botón nuevo ([ADR-0004](../adr/0004-un-boton-por-capacidad.md)).
 3. Un dato que la tarea lee y que no cambia entre dos corridas es configuración, no eje ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md)).
 4. Un dato distinto en cada corrida y sin default posible se pregunta al correr con `ctx.ask`, no se guarda.
-5. Si la capacidad es destructiva, hay que declarar qué rompe en `core/protection.py::RULES` ([14](14_seguro_de_destructivos.md)).
-6. Un botón nuevo entra en la tabla de [20](20_referencia_datos.md) y, si merece texto largo, en `core/command_docs.py`.
+5. Una compuesta reusa otra solo si quiere todos sus pasos: la llama y le reenvía sus banderas. Si quiere una parte, esa parte se extrae a una compuesta propia y las dos la usan (`populate_db`). Un parámetro que la externa no reenvía queda en su default: al agregar un eje, se revisa quién lo reenvía.
+6. Si la capacidad es destructiva, hay que declarar qué rompe en `core/protection.py::RULES` ([14](14_seguro_de_destructivos.md)).
+7. Un botón nuevo entra en la tabla de [20](20_referencia_datos.md) y, si merece texto largo, en `core/command_docs.py`.

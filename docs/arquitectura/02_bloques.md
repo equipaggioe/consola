@@ -21,7 +21,7 @@ flowchart TD
 | **1 — atómicas** | Una responsabilidad, construida sobre el nivel 0. Casi todas son de tres a diez líneas | Sí, si alguien la pide sola | `core/tasks/*.py` |
 | **2 — compuestas** | Encadenan atómicas en un orden fijo. No reimplementan nada: llaman | Sí, además del botón de cada paso | `core/tasks/*.py` |
 
-`api/` guarda los modelos de Pydantic de las respuestas HTTP que se leen (Cloudflare y el índice de Flutter); lo usa `core/tasks/utils.py` y no importa nada de Consola.
+`api/` guarda los modelos de Pydantic de las respuestas HTTP que se leen (Cloudflare y el índice de Flutter); lo usa `core/tasks/utils.py` y no importa nada de Consola. Toda respuesta HTTP de un tercero se lee con su modelo, y una que no coincide detiene la tarea con `TaskError`.
 
 La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `core/`, y `core/` no importa ni de `ui/` ni de `core/tasks/`. La excepción es una importación diferida dentro de una función, no de módulo: `core/context.py` pide el registro para traducir el id de un paso a su etiqueta.
 

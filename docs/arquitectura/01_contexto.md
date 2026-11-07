@@ -2,13 +2,15 @@
 
 ## 1. Qué es
 
-Aplicación de escritorio (PySide6) que ejecuta las operaciones de desarrollo y de operación de **los repositorios que se le abren como pestañas**: levantar los servidores de desarrollo, compilar, aprovisionar y operar un VPS, administrar la base de datos y el SDK de Android. Hoy no despliega: el despliegue lo hacen los programas de canone, que Consola todavía no corre ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
+Aplicación de escritorio (PySide6) que ejecuta las operaciones de desarrollo y de operación de **los repositorios que se le abren como pestañas**: levantar los servidores de desarrollo, compilar, aprovisionar y operar un VPS, administrar la base de datos y el SDK de Android. Despliega corriendo los programas de canone, sin reimplementarlos ([15](15_vps_y_despliegue.md)).
+
+Consola es un repositorio más de canone: cumple sus convenciones sin ADR de desviación, y lo que todavía no cumple se anota en el [30](30_riesgos_y_pendientes.md).
 
 Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La lógica vive una sola vez, en la app, y se aplica a cualquier repo abierto.
 
 | Principio | Cómo se ve en el código |
 |---|---|
-| Un botón ejecuta una función Python, no un script | Nada invoca `python scripts/x/y.py`; el único `subprocess` es a binarios externos reales (`git`, `gh`, `ssh`, `ssh-keygen`, `flutter`, `pnpm`, `adb`, `psql`, `pyinstaller`) |
+| Un botón ejecuta una función Python, no un script | Nada invoca `python scripts/x/y.py`; el único `subprocess` es a binarios externos reales (`git`, `gh`, `ssh`, `ssh-keygen`, `flutter`, `pnpm`, `adb`, `psql`, `pyinstaller`) o a un programa de canone |
 | La capacidad se declara y se implementa por separado | `core/catalog.py` declara la forma; `core/tasks/` le da cuerpo con `Registry.bind` ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)) |
 | Lo que varía es un eje del panel, no otro botón | `systemd_action` tiene nueve acciones y un eje; no hay nueve botones ([ADR-0004](../adr/0004-un-boton-por-capacidad.md)) |
 | La forma del repo decide qué se ofrece | Las apps, las SPA y el servidor salen de mirar las carpetas (`core/targets.py`); un repo sin migraciones no tiene el botón «Migrar» |

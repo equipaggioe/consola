@@ -10,6 +10,8 @@ Nada de `core/` (fuera de `core/tasks/` y `core/http.py`) importa Qt, imprime a 
 - `input()` se reemplazó por `ctx.ask` / `ctx.confirm`, que abren el diálogo que corresponde.
 - `subprocess.run` se reemplazó por `ctx.run` / `ctx.capture`, que transmiten en vivo y atienden la cancelación.
 
+Todo lo que ejecuta algo es una capacidad, aunque lo dispare un ícono de la interfaz: corre por el mismo runner, con el mismo log, los mismos errores y la misma cancelación. Si no tiene sentido como botón, se declara `hidden=True` y declara sus ejes igual. `ui/` no importa `subprocess` ni módulos de herramientas: pide una capacidad por id.
+
 ## 2. El único `subprocess` es a un binario externo real o a un programa de canone
 
 `flutter`, `pnpm`, `git`, `ssh`, `scp`, `adb`, `emulator`, `sdkmanager`, `psql`, `pyinstaller`, `uvicorn`, o un programa de canone. Ninguna capacidad lanza otro script de Consola como proceso: si necesita lo que hace otra, la llama como función con `ctx.child(...)` ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)).
