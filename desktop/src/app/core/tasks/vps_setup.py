@@ -98,6 +98,21 @@ def access(ctx: TaskContext) -> Access:
     )
 
 
+def admin(ctx: TaskContext) -> Access:
+    """Enter through the admin account: what `install.py` leaves.
+
+    canone's programs run from it with `sudo`, and root no longer
+    enters.
+    """
+    entry = access(ctx)
+    if entry.is_root:
+        raise TaskError(
+            "La cuenta que administra todavía no existe: corre «Configurar VPS» "
+            "con «Instalar infraestructura» primero."
+        )
+    return entry
+
+
 def _upload(ctx: TaskContext, entry: Access) -> str:
     """Upload canone's `plantilla/infra/` and return the temp folder."""
     infra = canone.infra_dir(ctx.config)
@@ -227,12 +242,7 @@ def load_credentials(ctx: TaskContext) -> None:
     lines = canone.credential_lines(ctx.root, ctx.config)
     for line in lines.splitlines():
         ctx.guard(line.partition("=")[2])
-    entry = access(ctx)
-    if entry.is_root:
-        raise TaskError(
-            "La cuenta que administra todavía no existe: corre «Configurar VPS» "
-            "con «Instalar infraestructura» primero."
-        )
+    entry = admin(ctx)
     destination = _upload(ctx, entry)
     try:
         entry.run(ctx, f"python3 {destination}/credentials.py {ssh.quote(app)}", text=lines)

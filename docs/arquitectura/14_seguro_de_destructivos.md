@@ -6,7 +6,7 @@ No es apretar un botón sin querer: es apretarlo **en el repo equivocado**. Y no
 
 ## 2. El seguro es por tipo de objetivo, no por botón
 
-Lo que importa es el radio de daño. Un mismo botón puede tocar dos objetivos (`reinit_migrations` vacía la base y borra archivos del repo) y un mismo botón puede tocar objetivos distintos según sus parámetros (`teardown_db` contra `local` no sale de esta máquina; contra `remote` alcanza al VPS).
+Lo que importa es el radio de daño. Un mismo botón puede tocar dos objetivos (`reinit_migrations` vacía la base y borra archivos del repo) y un mismo botón puede tocar objetivos distintos según sus parámetros (`rebuild_db` contra `local` no sale de esta máquina; contra `remote` alcanza al VPS).
 
 | Objetivo | Se lee | Protegido por defecto | Por qué |
 |---|---|---|---|
@@ -25,9 +25,10 @@ Un objetivo que no figura en el `params.json` cae en su default: agregar uno nue
 | Acción | Objetivos |
 |---|---|
 | `revoke_ssh` | `vps` |
-| `teardown_db`, `rebuild_db` | `db`, y `vps` si el ámbito es `remote` |
+| `teardown_db` | `db`: actúa solo sobre la base local |
+| `rebuild_db` | `db`, y `vps` si el ámbito es `remote` |
 | `restore_db` | `db`: actúa solo sobre la base local |
-| `reinit_migrations` | `db` + `local`, y `vps` si el ámbito es `remote` |
+| `reinit_migrations` | `db` + `local`: actúa solo sobre la base local |
 | `clean_artifacts` | `local`, salvo en simulacro |
 | `sync_common_files` | `otros_repos`, salvo en simulacro |
 | `git_force_push` | `origin` |

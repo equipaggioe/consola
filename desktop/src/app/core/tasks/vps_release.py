@@ -20,7 +20,7 @@ from app.core.errors import TaskError
 from app.core.host import HOST
 from app.core.registry import registry
 from app.core.tasks.git import _current_branch, _ensure_git
-from app.core.tasks.vps_setup import Access, access
+from app.core.tasks.vps_setup import Access, admin
 
 WORKFLOW = "release.yml"
 # How often to ask about the `release.yml` run, and how many times to
@@ -219,17 +219,7 @@ def deploy_release(ctx: TaskContext, tag: str) -> None:
     migrations.
     """
     _, app = _repo(ctx.root)
-    _deploy(ctx, _admin(ctx), app, tag)
-
-
-def _admin(ctx: TaskContext) -> Access:
-    entry = access(ctx)
-    if entry.is_root:
-        raise TaskError(
-            "La cuenta que administra todavía no existe: corre «Configurar VPS» "
-            "con «Instalar infraestructura» primero."
-        )
-    return entry
+    _deploy(ctx, admin(ctx), app, tag)
 
 
 def _deploy(ctx: TaskContext, entry: Access, app: str, tag: str) -> None:
@@ -252,7 +242,7 @@ def deploy_latest(ctx: TaskContext) -> str:
             f"El último release, {tag}, no tiene {canone.signature(app, tag)}: "
             "fírmalo con «Publicar versión» sin «Crear tag»."
         )
-    entry = _admin(ctx)
+    entry = admin(ctx)
     current = ssh.capture(
         entry.remote, f"readlink {ssh.quote(f'/srv/{app}/current')}", check=False
     )

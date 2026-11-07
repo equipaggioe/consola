@@ -40,11 +40,6 @@ def remote_path(config: Config, *parts: str) -> str:
     return f"{root}/{tail}" if tail else root
 
 
-def remote_python(config: Config) -> str:
-    """Return the server venv's interpreter in the deployed repo."""
-    return remote_path(config, config.require("VPS_PYTHON"))
-
-
 # --- systemd ---
 #
 # canone's `install.py` installs a VPS's units: the repo declares none,

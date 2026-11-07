@@ -89,7 +89,7 @@ def test_a_declared_extension_the_system_lacks_stops_the_task(
 
     admin = types.SimpleNamespace(query=query, execute=execute)
 
-    def resolve_admin(ctx: TaskContext, scope: str) -> types.SimpleNamespace:
+    def resolve_admin(ctx: TaskContext) -> types.SimpleNamespace:
         return admin
 
     monkeypatch.setattr(db, "resolve_admin", resolve_admin)
@@ -113,6 +113,7 @@ def test_without_a_declared_extension_no_package_or_argument_is_added(
     tmp_path: Path, values: dict[str, str]
 ) -> None:
     """Without a declared extension, no package or argument is added."""
+    (tmp_path / "README.md").write_text("Estado: en desarrollo\n", encoding="utf-8")
     config = Config(
         {"DOMAIN": "example.net", "VALKEY_MEMORY": "256mb", "VPS_USER": "admin", **values}
     )

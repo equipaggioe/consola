@@ -327,6 +327,14 @@ class Step:
     # repo that does not version its schema does not have «ejecutar
     # migraciones» turned off, it does not have it.
     requires_repo: str = ""
+    # The values of the `scope` axis where the step exists; empty, all.
+    # Emptying the VPS's database is another act than deleting the local
+    # tables, and with the other scope the step neither draws nor runs.
+    scopes: frozenset[str] = frozenset()
+
+    def applies(self, scope: str) -> bool:
+        """Return whether the step exists with that scope."""
+        return not self.scopes or scope in self.scopes
 
 
 @dataclass
@@ -465,7 +473,8 @@ class Capability:
         """
         checked = set(payload.get("steps") or ())
         kwargs = {axis.name: self._axis_value(axis, payload) for axis in self.axes}
-        kwargs.update({step.id: step.id in checked for step in self.steps})
+        scope = kwargs.get("scope", "")
+        kwargs.update({step.id: step.id in checked and step.applies(scope) for step in self.steps})
         return kwargs
 
     def _axis_value(self, axis: AxisDef, payload: dict[str, Any]) -> Any:

@@ -6,7 +6,7 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
-from app.core import ports, ssh, vps
+from app.core import canone, ports, ssh, vps
 from app.core.context import TaskContext
 from app.core.envfile import Config, read_value
 from app.core.errors import TaskError
@@ -20,6 +20,10 @@ SCOPES = (LOCAL, REMOTE)
 # what `version()` returns and what `pg_dump --version` prints.
 _VERSION_MAJOR = re.compile(r"(\d+)")
 _URL_PASSWORD = re.compile(r"://([^:/@]+):([^@]+)@")
+# Where the VPS's PostgreSQL listens, and the local port a tunnel to it
+# tries first (despliegue.md of canone, «PostgreSQL»).
+VPS_SOCKET = "/run/postgresql/.s.PGSQL.5432"
+TUNNEL_PORT = 5432
 
 
 def build_url(*, user: str, password: str, host: str, port: int, name: str) -> str:
@@ -130,7 +134,7 @@ def connect(ctx: TaskContext, scope: str = LOCAL) -> Connection:
     local = ports.resolve_port(ssh_remote, label="puerto del tunel")
 
     ctx.warn(f"Base de datos REMOTA del VPS: los cambios afectan a {remote.host}.")
-    tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=ssh_remote)
+    tunnel = ssh.open_tunnel(remote, local_port=local, destination=f"127.0.0.1:{ssh_remote}")
     ctx.hold_tunnel(tunnel)
     ctx.info(f"Tunel SSH abierto: {tunnel.endpoint} -> {remote.host}:{ssh_remote}")
 
@@ -138,21 +142,37 @@ def connect(ctx: TaskContext, scope: str = LOCAL) -> Connection:
     return Connection(url, REMOTE, tunnel, port=local)
 
 
-def vps_url(ctx: TaskContext, remote: ssh.Remote) -> str:
-    """Return the VPS's database as seen FROM the VPS.
+def reader(app: str) -> str:
+    """Return the role that reads a canone app's database."""
+    return f"{app}_read"
 
-    That is `127.0.0.1` and its real port, without a tunnel.
-    `connect(REMOTE)` returns the same database as seen from here, and
-    opens a tunnel for that. The tunnel lets a process on this machine
-    reach that database; when the process runs on the other side
-    (`core/runner.py`) it is unneeded, and its local port would mean
-    nothing there.
+
+def vps_tunnel(ctx: TaskContext) -> ssh.Tunnel:
+    """Open a tunnel to the socket of the VPS's PostgreSQL.
+
+    canone's roles have no password and enter by `peer`. Through the
+    socket, PostgreSQL sees the account `sshd` opens the tunnel with,
+    the one that administers, and `install.py` lets it in only as
+    `<app>_read`: it reads, and changes nothing.
     """
-    user, password, name = credentials(ctx.config)
-    ctx.guard(password)
-    return build_url(
-        user=user, password=password, host="127.0.0.1", port=vps.postgres_port(remote), name=name
-    )
+    remote = ssh.resolve_remote(ctx.config)
+    local = ports.resolve_port(TUNNEL_PORT, label="puerto del tunel")
+    tunnel = ssh.open_tunnel(remote, local_port=local, destination=VPS_SOCKET)
+    ctx.hold_tunnel(tunnel)
+    ctx.info(f"Tunel SSH abierto: {tunnel.endpoint} -> {remote.host}:{VPS_SOCKET}")
+    return tunnel
+
+
+def connect_vps(ctx: TaskContext) -> Connection:
+    """Return the VPS's database as `<app>_read`, through `vps_tunnel`.
+
+    The database is `<app>`, the one `install.py` creates, and not
+    `DB_NAME`, which names the local one.
+    """
+    _, app = canone.origin(ctx.root)
+    tunnel = vps_tunnel(ctx)
+    url = f"postgresql://{reader(app)}@127.0.0.1:{tunnel.local_port}/{app}"
+    return Connection(url, REMOTE, tunnel, port=tunnel.local_port)
 
 
 # --- superuser channel ---
@@ -178,39 +198,20 @@ def quote_literal(value: str) -> str:
 
 @dataclass
 class Admin:
-    """Run SQL as Postgres superuser, locally or on the VPS.
+    """Run SQL as the local Postgres superuser.
 
-    It is the `scope` axis's mechanism for life cycle operations such as
-    creating or deleting a role or database: unlike `Connection`, which
-    connects as the application, this channel needs admin rights, so it
-    goes through `psql` and not the driver.
+    It is the channel for life cycle operations such as creating or
+    deleting a role or database: unlike `Connection`, which connects as
+    the application, this one needs admin rights, so it goes through
+    `psql` and not the driver. On the VPS, canone's `install.py` and
+    `database.py` do that.
     """
 
-    scope: str
-    remote: "ssh.Remote | None" = None
     argv: list[str] = field(default_factory=list)
     env: dict[str, str] = field(default_factory=dict)
 
-    @property
-    def is_remote(self) -> bool:
-        """Return whether it runs on the VPS."""
-        return self.scope == REMOTE
-
     def _command(self, database: str, sql: str, *, tuples: bool = False) -> list[str]:
         flags = ["-tA"] if tuples else []
-        if self.is_remote:
-            assert self.remote is not None
-            ssh_remote = " ".join(
-                [
-                    "sudo -n -u postgres psql -v ON_ERROR_STOP=1 -X -q",
-                    *flags,
-                    "-d",
-                    ssh.quote(database),
-                    "-c",
-                    ssh.quote(sql),
-                ]
-            )
-            return self.remote.argv(ssh_remote)
         return [*self.argv, "-v", "ON_ERROR_STOP=1", "-X", "-q", *flags, "-d", database, "-c", sql]
 
     def execute(self, ctx: TaskContext, sql: str, *, database: str = "postgres") -> None:
@@ -271,14 +272,11 @@ def check_tool_version(ctx: TaskContext, tool: Path, client: str, server: str) -
     )
 
 
-def resolve_admin(ctx: TaskContext, scope: str = LOCAL) -> Admin:
-    """Return the superuser channel of that scope."""
-    if scope == REMOTE:
-        return Admin(REMOTE, remote=ssh.resolve_remote(ctx.config))
-
+def resolve_admin(ctx: TaskContext) -> Admin:
+    """Return the local superuser channel."""
     # Setting.default='postgres' already covers empty
     superuser = ctx.config.get("PG_SUPERUSER")
     password = ctx.config.require("PG_PASSWORD")
     ctx.guard(password)
     argv = [str(pg_tool("psql")), "-U", superuser, "-h", "127.0.0.1", "-p", str(local_port())]
-    return Admin(LOCAL, argv=argv, env={"PGPASSWORD": password})
+    return Admin(argv=argv, env={"PGPASSWORD": password})

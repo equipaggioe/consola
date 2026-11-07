@@ -1,6 +1,6 @@
 # ADR-0078 · Contra un VPS de canone la base no se migra por túnel, y el ámbito remoto espera a canone
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. El punto 3 lo reemplaza el [ADR-0082](0082-contra-el-vps-los-botones-de-base-corren-database-py.md)
 - **Fecha:** 2026-11-02
 - **Alcance:** core/runner.py, core/database.py, core/tasks/database.py
 

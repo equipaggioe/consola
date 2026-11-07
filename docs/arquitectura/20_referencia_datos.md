@@ -17,7 +17,6 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `VPS_USER` | VPS | Usuario de despliegue | | | exige |
 | `SUDO_PASSWORD` | VPS | Contraseña de sudo | secreto | se pide una vez por sesión | usa |
 | `VPS_KEY_NAME` | VPS | Nombre de la llave SSH | | | exige |
-| `VPS_PYTHON` | VPS | Python del VPS | | `server/.venv/bin/python` | usa |
 | `VPS_DEPLOY_DIR` | VPS | Directorio de despliegue | | | exige |
 | `DOMAIN` | VPS | Dominio | | `CF_DOMAIN_NAME` | exige |
 | `VALKEY_MEMORY` | VPS | Memoria de Valkey | | | exige |

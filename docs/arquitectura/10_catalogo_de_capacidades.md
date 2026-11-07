@@ -87,7 +87,7 @@ Un `Step` es una casilla de una compuesta, y su `id` es el nombre del booleano d
  'missing_env': [claves]}
 ```
 
-`Capability.kwargs_from(payload)` sabe en qué balde cayó cada eje por su `expand` y su `select`, aplica `multiline`, `cast`, `truthy`, `combine`/`join`, y suma un booleano por paso. Un eje ausente vale su default declarado, que es lo que el panel habría mostrado.
+`Capability.kwargs_from(payload)` sabe en qué balde cayó cada eje por su `expand` y su `select`, aplica `multiline`, `cast`, `truthy`, `combine`/`join`, y suma un booleano por paso. Un paso con `scopes` vale `False` si el eje `scope` elegido no está entre ellos, aunque su casilla siga marcada: «Borrar tablas» solo existe en local y «Vaciar la base» solo en el VPS ([16](16_base_de_datos.md) §6). Un eje ausente vale su default declarado, que es lo que el panel habría mostrado.
 
 ## 6. Qué se ve en cada repo
 
@@ -95,7 +95,7 @@ Un `Step` es una casilla de una compuesta, y su `id` es el nombre del booleano d
 |---|---|
 | ¿Este botón existe aquí? | `catalog.applicable_ids(root)` → `Capability.applies_to(features)`. Hoy la única característica es `migrations` |
 | ¿Qué valores tiene su eje? | `catalog.for_project` con `targets.names_of` |
-| ¿Qué pasos quedan? | `Capability.steps_for(features)`, sobre la copia que mira el panel |
+| ¿Qué pasos quedan? | `Capability.steps_for(features)`, sobre la copia que mira el panel; de esos, el panel oculta los de otro ámbito (`Step.applies`) |
 | ¿Puede correr ya? | `ui/params_panel.py::_blockers` y, sin abrir la pestaña, `ui/readiness.py` |
 
 Un paso que el panel no dibujó no viene marcado en el payload, así que llega a la función en `False`: queda apagado, no «sin decidir».

@@ -185,9 +185,10 @@ Construido en la fase 1 *(propuesta, sin confirmar en lo que no responde una pre
 | `PUBLIC_ROUTES` | Salió, con `base.generated.js` y la comprobación del HTML (ADR-0065) |
 | `GITHUB_KEY_TITLE` | Salió con «Vaciar VPS» |
 | `VPS_USER` | Sin default. `DB_USER` y `DB_NAME` pasan a salir del nombre del repo, que es lo que daban cuando `VPS_USER` estaba vacío |
-| `VPS_DEPLOY_DIR`, `VPS_PYTHON` | Quedan: las lee la subida de «Compilar ejecutable» (sin decidir) y el ámbito remoto de la base (pregunta 15) |
+| `VPS_DEPLOY_DIR` | Queda: la lee la subida de «Compilar ejecutable» (sin decidir) |
+| `VPS_PYTHON` | Salió: el ámbito remoto de la base corre `database.py` de canone ([ADR-0082](../adr/0082-contra-el-vps-los-botones-de-base-corren-database-py.md)) |
 | `SERVICES`, `UVICORN_APP` | Salieron en la fase 4 (ADR-0068) |
-| `GIT_REPO_URL` | Queda: la lee `vps.repo_name`, para el ámbito remoto de la base y la subida de «Compilar ejecutable» |
+| `GIT_REPO_URL` | Queda: la lee `vps.repo_name`, para la subida de «Compilar ejecutable» |
 | `BUILD_OUT_WEB` | Queda (pregunta 17) |
 | `DOMAIN`, `VALKEY_MEMORY`, `PERMISSIONS_ALLOW`, `TURN`, `TURN_IP`, `LOGS_IP`, `PRIVATE`, `SUDO_PASSWORD` | Entraron, en el grupo VPS o GitHub. Las lee la fase 2 |
 | `RESTIC_PASSWORD`, `GITHUB_TOKEN` | En el grupo «Credenciales» |
@@ -208,7 +209,6 @@ como la llave de una receptora.
 | Restaurar desde la receptora. `despliegue.md` describe el `restic restore`, el `pg_restore` y después `ANALYZE`, pero canone no trae un programa | Un reemplazo de `restore_db` |
 | Desinstalar lo que instala `install.py` | **Vaciar VPS** |
 | Volver a una versión que sigue en `/srv/<app>/releases/`: `deploy.py` falla si la carpeta de la versión existe, y ahí quedan las cinco más nuevas. Comprobado el 2026-11-02: con `v0.1.1` activa, pedir `v0.1.0` responde `already exists` y `current` no cambia | Que «Desplegar versión» vuelva a la activa o a una de esas cinco |
-| Operar la base del VPS desde esta máquina: los roles entran por `peer` y no tienen contraseña, así que el túnel al 5432 no se autentica *(sin confirmar)* | El ámbito remoto de «Reconstruir base», «Borrar base y rol», «Reiniciar historial de migraciones», los seeders, «Habilitar extensiones», «Explorar datos» y «Abrir túnel a Postgres» (pregunta 15) |
 
 Hallazgo de lectura en canone *(sin confirmar)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
 `-i`, así que usan la llave por defecto de la receptora y no una con nombre como `VPS_KEY_NAME`.
@@ -241,7 +241,7 @@ confirmar)*:
 | «Compilar ejecutable» | Queda con el bump, la subida al VPS y el manifiesto de release, porque su reemplazo está sin decidir; por eso `bump_version` y `upload_to_vps` siguen |
 | «Compilar app Flutter», «Compilar SPA» | Sin bump ni subida: solo compilan |
 | Los cuatro botones de base del §3 | Sin eje `scope`: solo la base local (ADR-0060) |
-| Los demás botones de base con ámbito remoto | Quedan como estaban hasta resolverlos en canone (pregunta 15, §5) |
+| Los demás botones de base con ámbito remoto | Corren `database.py` de canone, o quedan solo en local ([ADR-0082](../adr/0082-contra-el-vps-los-botones-de-base-corren-database-py.md)) |
 | «Force push», «Force reset» | Sin eje `side` (ADR-0061) |
 | «Vaciar VPS» | Sin el paso de las unidades. En la fase 1 salió entero (ADR-0062) |
 | `sync_server_env` | Quedó hasta la fase 5, que lo sacó |

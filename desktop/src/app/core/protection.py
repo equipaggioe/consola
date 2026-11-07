@@ -11,7 +11,7 @@ Three decisions hold the design up:
    blast radius: the VPS, the database, other repos. One button can
    touch two targets (`reinit_migrations` empties the database and
    deletes repo files), and one button can touch different targets by
-   its parameters (`teardown_db` against `local` stays on this machine;
+   its parameters (`rebuild_db` against `local` stays on this machine;
    against `remote` it reaches the VPS).
 
 2. **The switch lives in its own section, not the parameters panel.**
@@ -130,18 +130,17 @@ class Rule:
 
 RULES: dict[str, Rule] = {
     "revoke_ssh": Rule(always=("vps",)),
+    "teardown_db": Rule(always=("db",)),
     # `local` stays on this machine; `remote` reaches the server. The
     # same button, two different blast radii.
-    "teardown_db": Rule(always=("db",), when={"scope": {"remote": ("vps",)}}),
     "rebuild_db": Rule(always=("db",), when={"scope": {"remote": ("vps",)}}),
     # It overwrites the whole local database with the dump. It has no
     # written confirmation of its own: the per-repo guard covers it
     # (ADR-0047).
     "restore_db": Rule(always=("db",)),
-    # It touches two targets: it empties the schema of the database
-    # `scope` says and deletes the files in the open repo's
-    # `alembic/versions/`.
-    "reinit_migrations": Rule(always=("db", "local"), when={"scope": {"remote": ("vps",)}}),
+    # It touches two targets: it empties the local database's schema and
+    # deletes the files in the open repo's `alembic/versions/`.
+    "reinit_migrations": Rule(always=("db", "local")),
     "clean_artifacts": Rule(always=("local",), dry_run={"apply": ("dry_run",)}),
     "sync_common_files": Rule(always=("other_repos",), dry_run={"apply": ("dry_run",)}),
     # `push` rewrites origin and leaves this machine as is; `reset`

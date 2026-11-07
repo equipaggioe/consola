@@ -89,3 +89,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0079](0079-http-bloquea-el-hilo-de-la-tarea.md) | HTTP va por QNetworkAccessManager y bloquea el hilo de la tarea |
 | [0080](0080-las-respuestas-http-se-leen-con-modelos-en-api.md) | Las respuestas HTTP de terceros se leen con modelos de Pydantic en `api/` |
 | [0081](0081-consola-se-publica-para-windows-y-linux.md) | Consola se publica para Windows y Linux |
+| [0082](0082-contra-el-vps-los-botones-de-base-corren-database-py.md) | Contra el VPS, los botones de base corren `database.py` de canone y leen como `<app>_read` |

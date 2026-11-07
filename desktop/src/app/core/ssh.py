@@ -274,7 +274,8 @@ class Tunnel:
 
     remote: Remote
     local_port: int
-    remote_port: int
+    # What it reaches on the VPS: `127.0.0.1:<port>` or a socket.
+    destination: str
     proc: subprocess.Popen[str]
 
     @property
@@ -300,9 +301,13 @@ class Tunnel:
         self.close()
 
 
-def open_tunnel(remote: Remote, *, local_port: int, remote_port: int) -> Tunnel:
-    """Open a tunnel and return it once it forwards."""
-    forward = f"127.0.0.1:{local_port}:127.0.0.1:{remote_port}"
+def open_tunnel(remote: Remote, *, local_port: int, destination: str) -> Tunnel:
+    """Open a tunnel and return it once it forwards.
+
+    `destination` is what it reaches on the VPS: `127.0.0.1:<port>`, or
+    the path of a socket.
+    """
+    forward = f"127.0.0.1:{local_port}:{destination}"
     # Without ExitOnForwardFailure, a taken local port leaves ssh alive
     # forwarding nothing, and the connection lands on what already
     # listened there.
@@ -320,7 +325,7 @@ def open_tunnel(remote: Remote, *, local_port: int, remote_port: int) -> Tunnel:
     ]
     proc = process.spawn(argv, detached=True)
     process.bind_to_app(proc)
-    return Tunnel(remote, local_port, remote_port, proc)
+    return Tunnel(remote, local_port, destination, proc)
 
 
 # --- keys and known_hosts ---

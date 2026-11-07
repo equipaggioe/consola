@@ -63,6 +63,7 @@ _VPS_REACH = (
     "systemd_action",
     "revoke_ssh",
     "view_events",
+    "ssh_tunnel",
 )
 # «Publicar versión» asks for them per step
 # (`core/catalog.py::PUBLISH_RELEASE_STEPS`): creating the tag does not
@@ -71,9 +72,20 @@ _VPS_STEPS = ("publish_release",)
 
 # Only those of the database without a `scope` axis: those with one
 # declare their keys on the axis (`core/catalog.py::_scope_axis`), since
-# they depend on the chosen scope. The tunnel always goes to the VPS;
-# the other four, always to the local database (ADR-0060).
-_DB_FIXED = ("ssh_tunnel", "bootstrap_db", "migrate_db", "backup_db", "restore_db")
+# they depend on the chosen scope. These go always to the local
+# database (ADR-0060). The tunnel goes to the VPS, without them.
+_DB_FIXED = (
+    "bootstrap_db",
+    "migrate_db",
+    "backup_db",
+    "restore_db",
+    "enable_extensions",
+    "reinit_migrations",
+    "teardown_db",
+)
+# Those that run SQL as the local superuser. «Reconstruir base» asks for
+# them in its «Borrar tablas» step, which exists only locally.
+_PG_FIXED = ("bootstrap_db", "teardown_db", "enable_extensions", "reinit_migrations")
 
 SETTINGS: tuple[Setting, ...] = (
     # --- Server ---
@@ -123,20 +135,14 @@ SETTINGS: tuple[Setting, ...] = (
             "deploy_version",
             "systemd_action",
             "view_logs",
+            "rebuild_db",
+            "run_seeders",
+            "run_mock_seeders",
             "health_check",
         ),
     ),
     Setting(
         "VPS_KEY_NAME", "VPS", "Nombre de la llave SSH", required_by=_VPS_REACH, used_by=_VPS_STEPS
-    ),
-    # Both are read by the database's remote scope (`core/runner.py`),
-    # which runs the deployed repo's Python.
-    Setting(
-        "VPS_PYTHON",
-        "VPS",
-        "Python del VPS",
-        default="server/.venv/bin/python",
-        used_by=("rebuild_db", "run_seeders", "run_mock_seeders"),
     ),
     Setting("VPS_DEPLOY_DIR", "VPS", "Directorio de despliegue", required_by=("upload_to_vps",)),
     # The arguments of `install.py` that change between deployments
@@ -196,14 +202,14 @@ SETTINGS: tuple[Setting, ...] = (
         "VPS",
         "Superusuario Postgres",
         default="postgres",
-        required_by=("bootstrap_db", "teardown_db", "rebuild_db"),
+        required_by=_PG_FIXED,
     ),
     Setting(
         "PG_PASSWORD",
         "VPS",
         "Password del superusuario",
         secret=True,
-        required_by=("bootstrap_db", "teardown_db", "rebuild_db"),
+        required_by=_PG_FIXED,
     ),
     # Configuration and not a run parameter: which extensions the schema
     # needs is a property of the project. It comes from no Postgres
@@ -224,8 +230,7 @@ SETTINGS: tuple[Setting, ...] = (
     ),
     # --- GitHub ---
     #
-    # The repo's name on the VPS comes from it (`vps.repo_name`), which
-    # names its folder in the database's remote scope.
+    # The repo's name on the VPS comes from it (`vps.repo_name`).
     Setting(
         "GIT_REPO_URL",
         "GitHub",

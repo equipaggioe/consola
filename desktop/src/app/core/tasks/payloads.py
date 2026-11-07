@@ -111,12 +111,11 @@ SOURCES = {"seed": SEED, "partitions": PARTITIONS}
 
 
 def run(ctx: TaskContext, runner: Runner, source: str, *args: str) -> int:
-    """Run a payload with the project's Python, where the runner says.
+    """Run a payload with the project's Python.
 
-    Payloads need not know where they run: all they take from the
-    environment is the working directory, which gives the `sys.path`
-    that lets them import `app.` and `seeders.`, and `DATABASE_URL`. The
-    `Runner` sets both, so the same text works here and on the VPS.
+    All payloads take from the environment is the working directory,
+    which gives the `sys.path` that lets them import `app.` and
+    `seeders.`, and the database. The `Runner` sets both.
 
     The log shows a summary and not the real argv: `-c` carries the
     whole program as one argument, and dumping it would be fifty lines

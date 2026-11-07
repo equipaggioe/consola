@@ -32,11 +32,16 @@ def missing_keys(capability: Capability, env: dict[str, str], repo_path: str) ->
     capability = for_project(capability, repo_path)
     needed = set(required_keys_for(capability.id))
     state = params_store.load(repo_path, capability.id) or {}
+    scope = ""
     for axis in capability.axes:
         if axis.requires_env:
             needed |= axis.keys_for(_chosen(axis, state))
+        if axis.name == "scope":
+            scope = _chosen(axis, state)[0]
     for step in registry.resolve_steps(capability):
         if active is not None and step.optional and step.id not in active:
+            continue
+        if not step.applies(scope):
             continue
         needed |= step.requires_env
         needed |= set(required_keys_for(step.id))

@@ -34,9 +34,8 @@ Este documento describe los botones que siguen alcanzando el VPS.
 | `vps.repo_name(config)` | El nombre del repo, derivado de `GIT_REPO_URL`. La carpeta local puede no coincidir, y por eso no se usa como default silencioso |
 | `vps.deploy_root` | `<VPS_DEPLOY_DIR>/<repo>` |
 | `vps.remote_path(config, *partes)` | La misma jerarquía relativa que en el repo local |
-| `vps.remote_python` | El intérprete del venv del servidor, dentro del repo desplegado |
 
-Las leen el ámbito remoto de la base ([16](16_base_de_datos.md)) y la subida de «Compilar ejecutable» ([17](17_builds_y_artefactos.md)).
+Las lee la subida de «Compilar ejecutable» ([17](17_builds_y_artefactos.md)).
 
 ## 4. Configurar VPS
 
@@ -46,7 +45,7 @@ Las leen el ámbito remoto de la base ([16](16_base_de_datos.md)) y la subida de
 |---|---|
 | Paquetes y uv (`install_software`) | `apt-get install` de `canone.packages`: los de la máquina de canone, más PostGIS si `DB_EXTENSIONS` la nombra, coturn con `TURN` y lo del journal con `LOGS`. Después corre `uv.py` |
 | Swap (`create_swap`) | Si el swap no llega a la memoria, crea `/swapfile` con lo que falta y lo agrega a `/etc/fstab`. Sin eso, `install.py` falla |
-| Infraestructura (`install_infra`) | Corre `install.py` con `canone.install_args`. La primera vez, como root por `ssh -tt`, y escribe la contraseña de la cuenta recién cuando aparece cada pregunta (`process.converse`); después, con `sudo` |
+| Infraestructura (`install_infra`) | Corre `install.py` con `canone.install_args`, con `--development` si el `README.md` dice `Estado: en desarrollo` ([16](16_base_de_datos.md) §6). La primera vez, como root por `ssh -tt`, y escribe la contraseña de la cuenta recién cuando aparece cada pregunta (`process.converse`); después, con `sudo` |
 | Credenciales (`load_credentials`) | Pasa a `credentials.py`, por stdin, una línea `campo=valor` por credencial (`canone.credential_lines`, [13](13_configuracion_y_persistencia.md) §2). Corta antes de enviar si falta un valor o si `config.env` tiene una clave sin fuente |
 | Último release (`vps_release.deploy_latest`) | Despliega el release que GitHub da como `latest`, si tiene su firma. Si `/srv/<app>/current` ya es ese release, no hace nada ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)) |
 

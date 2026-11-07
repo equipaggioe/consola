@@ -559,21 +559,24 @@ DOCS: dict[str, CommandDoc] = {
     ),
     "enable_extensions": CommandDoc(
         summary=(
-            "Crea en la base las extensiones de Postgres que declara "
-            "DB_EXTENSIONS, por el canal de superusuario."
+            "Crea en la base local las extensiones de Postgres que declara "
+            "DB_EXTENSIONS, por el canal de superusuario. En el VPS las crea "
+            "install.py."
         ),
         steps=[
             "Lee DB_EXTENSIONS, descarta repetidos y termina si queda vacía.",
-            "Abre el canal de superusuario del ámbito: psql local, o sudo -u "
-            "postgres psql por SSH.",
+            "Abre el canal de superusuario local con psql.",
             "Consulta pg_available_extensions por cada nombre y corta si el sistema no la tiene.",
             "Corre CREATE EXTENSION IF NOT EXISTS sobre la base de la aplicación.",
         ],
     ),
     "teardown_db": CommandDoc(
-        summary="Borra la base de la aplicación y su rol.",
+        summary=(
+            "Borra la base local de la aplicación y su rol. En el VPS los roles son "
+            "de install.py, y la base se vacía con «Reconstruir base»."
+        ),
         steps=[
-            "Abre el canal de superusuario del ámbito elegido.",
+            "Abre el canal de superusuario local.",
             "Corre pg_terminate_backend sobre las conexiones vivas de esa base.",
             "Corre DROP DATABASE IF EXISTS.",
             "Corre DROP ROLE IF EXISTS del rol de la aplicación.",
@@ -592,22 +595,34 @@ DOCS: dict[str, CommandDoc] = {
     ),
     "rebuild_db": CommandDoc(
         summary=(
-            "Vacía las tablas de la base y la vuelve a llenar: migraciones, particiones y seeders."
+            "Vacía la base y la vuelve a llenar: migraciones y seeders. En local "
+            "borra las tablas; en el VPS corre database.py de canone, paso a paso."
         ),
         steps=[
-            "Abre el canal de superusuario del ámbito elegido.",
+            "En local:",
+            "Abre el canal de superusuario local.",
             "Lista las tablas del esquema public, salvo spatial_ref_sys, e informa cuántas son.",
             "Corre DROP TABLE IF EXISTS CASCADE sobre todas.",
             "Corre alembic upgrade head.",
             "Corre el mantenimiento de particiones del proyecto.",
             "Ejecuta las funciones seed_ del paquete seeders/.",
             "Ejecuta las del paquete mock_data/.",
+            "En el VPS:",
+            "Corta si el README dice Estado: en producción.",
+            "Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o pedida "
+            "una vez por sesión; corta si todavía no existe la cuenta que administra.",
+            "Corre sudo python3 /usr/local/lib/<app>/database.py empty: detiene el "
+            "servidor y borra la base y los archivos subidos; la crea otra vez vacía.",
+            "Corre database.py migrate: las migraciones y los seeders de la versión "
+            "activa, y arranca el servidor.",
+            "Corre database.py seed: los seeders otra vez.",
+            "Corre database.py seed --mock: el paquete mock_data/.",
         ],
     ),
     "reinit_migrations": CommandDoc(
         summary=(
-            "Vacía la base, borra el historial de alembic/versions y escribe una "
-            "migración inicial nueva."
+            "Vacía la base local, borra el historial de alembic/versions y "
+            "escribe una migración inicial nueva."
         ),
         steps=[
             "Lista las tablas del esquema public y las borra con DROP TABLE CASCADE.",
@@ -618,28 +633,38 @@ DOCS: dict[str, CommandDoc] = {
     ),
     "run_seeders": CommandDoc(
         summary=(
-            "Ejecuta las funciones seed_ del paquete seeders/ del proyecto, con "
-            "el python de su venv."
+            "Ejecuta las funciones seed_ del paquete seeders/ del proyecto: en "
+            "local con el python de su venv, en el VPS con database.py seed."
         ),
         steps=[
-            "Elige el lado según el ámbito: el venv del repo contra la base "
-            "local, o el venv del VPS contra la base de ahí.",
+            "En local:",
             "Lanza por -c el programa de seeders, sin escribir nada en disco.",
             "Recorre el paquete seeders/ y junta todas las funciones que empiezan con seed_.",
             "Las ejecuta en orden dentro de una sesión, nombrando cada una.",
             "Hace rollback y corta si alguna falla, o un solo commit si todas pasan.",
+            "En el VPS:",
+            "Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o pedida "
+            "una vez por sesión; corta si todavía no existe la cuenta que administra.",
+            "Corre sudo python3 /usr/local/lib/<app>/database.py seed: los seeders "
+            "de la versión activa.",
         ],
     ),
     "run_mock_seeders": CommandDoc(
         summary=(
-            "Ejecuta las funciones seed_ del paquete mock_data/ del proyecto, "
-            "con el python de su venv."
+            "Ejecuta las funciones seed_ del paquete mock_data/ del proyecto: en "
+            "local con el python de su venv, en el VPS con database.py seed --mock."
         ),
         steps=[
-            "Elige el lado según el ámbito, igual que los seeders base.",
-            "Lanza por -c el mismo programa, apuntado al paquete mock_data/.",
+            "En local:",
+            "Lanza por -c el mismo programa de los seeders, apuntado al paquete mock_data/.",
             "Recorre el paquete y junta sus funciones seed_.",
             "Las ejecuta en orden y commitea una sola vez al final.",
+            "En el VPS:",
+            "Corta si el README dice Estado: en producción.",
+            "Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o pedida "
+            "una vez por sesión; corta si todavía no existe la cuenta que administra.",
+            "Corre sudo python3 /usr/local/lib/<app>/database.py seed --mock, que "
+            "falla en una máquina sin la marca de desarrollo.",
         ],
     ),
     "backup_db": CommandDoc(
@@ -674,14 +699,14 @@ DOCS: dict[str, CommandDoc] = {
     ),
     "ssh_tunnel": CommandDoc(
         summary=(
-            "Abre un túnel SSH al Postgres del VPS y lo deja levantado como servicio de fondo."
+            "Abre un túnel SSH al Postgres del VPS y lo deja levantado como "
+            "servicio de fondo. Entra como <app>_read: lee y no cambia nada."
         ),
         steps=[
             "Resuelve el destino SSH del repo.",
-            "Le pregunta al Postgres del VPS en qué puerto escucha.",
-            "Toma ese mismo número de este lado, o el siguiente libre.",
-            "Levanta el reenvío de puertos por SSH.",
-            "Informa el extremo local al que apuntar el cliente.",
+            "Toma el puerto 5432 de este lado, o el siguiente libre.",
+            "Levanta el reenvío por SSH al socket /run/postgresql/.s.PGSQL.5432 del VPS.",
+            "Informa el extremo local, el rol <app>_read, sin contraseña, y la base <app>.",
         ],
     ),
     "explore_db": CommandDoc(
@@ -691,8 +716,8 @@ DOCS: dict[str, CommandDoc] = {
             "Queda conectada hasta que cierras la pestaña."
         ),
         steps=[
-            "Abre la base del ámbito con el rol de la app: local contra "
-            "127.0.0.1, remoto por un túnel SSH.",
+            "Abre la base del ámbito: la local con el rol de la app contra "
+            "127.0.0.1; la del VPS como <app>_read, por un túnel SSH a su socket.",
             "Se conecta en solo lectura: el servidor rechaza cualquier escritura.",
             "Muestra en la consola el servidor, la base, su tamaño y las tablas "
             "con su estimado de filas.",

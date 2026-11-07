@@ -4,6 +4,9 @@ Each step is an atomic capability with its own button, and `rebuild_db`
 is the composite that chains them. Likewise `bootstrap_db` (create role,
 create database, permissions, extensions, migrate) and `teardown_db`
 (delete database, delete role).
+
+Against the VPS, what changes its database is canone's `database.py`,
+run from the admin account (ADR-0074): Consola only chooses the command.
 """
 
 from __future__ import annotations
@@ -12,22 +15,22 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+from app.core import canone, db_explorer, envfile, files, runner
 from app.core import database as db
-from app.core import db_explorer, envfile, files, runner, ssh, vps
 from app.core.context import TaskContext
 from app.core.database import Connection
 from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.registry import registry
 from app.core.ssh import Tunnel
-from app.core.tasks import payloads
+from app.core.tasks import payloads, vps_setup
 
 # --- schema life cycle ---
 
 
-def create_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
+def create_role(ctx: TaskContext) -> str:
     """Create the application's role, or update its password."""
-    admin = db.resolve_admin(ctx, scope)
+    admin = db.resolve_admin(ctx)
     user, password, _ = db.credentials(ctx.config)
     ctx.guard(password)
 
@@ -46,9 +49,9 @@ def create_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     return user
 
 
-def create_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
+def create_database(ctx: TaskContext) -> str:
     """Create the database owned by the app's role, or change owner."""
-    admin = db.resolve_admin(ctx, scope)
+    admin = db.resolve_admin(ctx)
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
 
@@ -64,9 +67,9 @@ def create_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     return name
 
 
-def grant_privileges(ctx: TaskContext, scope: str = db.LOCAL) -> None:
+def grant_privileges(ctx: TaskContext) -> None:
     """Grant the role on the database and the public schema."""
-    admin = db.resolve_admin(ctx, scope)
+    admin = db.resolve_admin(ctx)
     user, _, name = db.credentials(ctx.config)
     ident, owner = db.quote_ident(name), db.quote_ident(user)
     admin.execute(ctx, f"GRANT ALL PRIVILEGES ON DATABASE {ident} TO {owner};")
@@ -74,16 +77,16 @@ def grant_privileges(ctx: TaskContext, scope: str = db.LOCAL) -> None:
     ctx.ok(f"Permisos otorgados a {user} sobre {name}.")
 
 
-def enable_extensions(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
+def enable_extensions(ctx: TaskContext) -> list[str]:
     """Enable the extensions `DB_EXTENSIONS` declares, as superuser.
 
     It is separate from migrations because `CREATE EXTENSION` of an
     *untrusted* extension, with PostGIS the one that matters, requires
-    superuser, and Alembic runs as the app's role (`runner.resolve`
+    superuser, and Alembic runs as the app's role (`runner.local`
     builds the URL with `db.credentials`). A migration asking for it
     would die with «permission denied to create extension». This is the
-    only channel with superuser: `db.resolve_admin`, which with remote
-    scope enters over SSH as `postgres`.
+    only channel with superuser: `db.resolve_admin`. On the VPS,
+    `install.py --extension` creates them.
 
     The list is declared in the repo's configuration, not deduced.
     `alembic revision --autogenerate` never writes a `CREATE EXTENSION`,
@@ -113,7 +116,7 @@ def enable_extensions(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
         ctx.info("DB_EXTENSIONS esta vacia: no hay nada que habilitar.")
         return []
 
-    admin = db.resolve_admin(ctx, scope)
+    admin = db.resolve_admin(ctx)
     _, _, name = db.credentials(ctx.config)
     enabled = []
     for extension in requested:
@@ -135,14 +138,14 @@ def enable_extensions(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
     return enabled
 
 
-def drop_tables(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
+def drop_tables(ctx: TaskContext) -> list[str]:
     """Delete all tables of the public schema, except PostGIS's own.
 
     It is `rebuild_db`'s first step, and it makes sense alone: leaving
     the database empty without touching the role, the database or
     written migrations.
     """
-    admin = db.resolve_admin(ctx, scope)
+    admin = db.resolve_admin(ctx)
     _, _, name = db.credentials(ctx.config)
     tables = admin.query(
         ctx,
@@ -164,12 +167,12 @@ def drop_tables(ctx: TaskContext, scope: str = db.LOCAL) -> list[str]:
     return tables
 
 
-def drop_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
+def drop_database(ctx: TaskContext) -> str:
     """Delete the whole database.
 
     Cutting live connections or DROP fails.
     """
-    admin = db.resolve_admin(ctx, scope)
+    admin = db.resolve_admin(ctx)
     _, _, name = db.credentials(ctx.config)
     admin.execute(
         ctx,
@@ -183,9 +186,9 @@ def drop_database(ctx: TaskContext, scope: str = db.LOCAL) -> str:
     return name
 
 
-def drop_role(ctx: TaskContext, scope: str = db.LOCAL) -> str:
+def drop_role(ctx: TaskContext) -> str:
     """Delete the application's role."""
-    admin = db.resolve_admin(ctx, scope)
+    admin = db.resolve_admin(ctx)
     user, _, _ = db.credentials(ctx.config)
     admin.execute(ctx, f"DROP ROLE IF EXISTS {db.quote_ident(user)};")
     ctx.ok(f"Rol eliminado: {user}")
@@ -212,26 +215,14 @@ def reset_migrations(ctx: TaskContext) -> int:
     return len(files)
 
 
-def generate_migration(
-    ctx: TaskContext, scope: str = db.LOCAL, message: str = "auto"
-) -> Path | None:
+def generate_migration(ctx: TaskContext, message: str = "auto") -> Path | None:
     """Autogenerate an Alembic revision. Return None if nothing changed.
 
-    It is the group's only one always running on this machine, even with
-    remote scope: it leaves a file in `alembic/versions/` to review and
-    commit, and generated on the VPS it would land in the deployed repo.
-    It reaches the remote database through the tunnel, like any other
-    local process (`runner.here`).
+    It leaves a file in `alembic/versions/` to review and commit.
     """
     versions = runner.server_root(ctx) / "alembic" / "versions"
     before = {p.name for p in versions.glob("*.py")}
-
-    revision = ("-m", "alembic", "revision", "--autogenerate", "-m", message)
-    if scope == db.LOCAL:
-        runner.local(ctx).run(ctx, *revision)
-    else:
-        with db.connect(ctx, scope) as conn:
-            runner.here(ctx, conn).run(ctx, *revision)
+    runner.local(ctx).run(ctx, "-m", "alembic", "revision", "--autogenerate", "-m", message)
 
     new = {p.name for p in versions.glob("*.py")} - before
     if not new:
@@ -242,38 +233,82 @@ def generate_migration(
     return generated
 
 
-def apply_migrations(ctx: TaskContext, scope: str = db.LOCAL, revision: str = "head") -> None:
-    """Bring the database up to date with the written revisions.
-
-    It touches no files, so it runs on the side the scope says: with
-    `remote`, on the VPS, with the revisions the deployment brought and
-    no tunnel.
-    """
-    runner.resolve(ctx, scope).run(ctx, "-m", "alembic", "upgrade", revision)
+def apply_migrations(ctx: TaskContext, revision: str = "head") -> None:
+    """Bring the local database up to date with the revisions."""
+    runner.local(ctx).run(ctx, "-m", "alembic", "upgrade", revision)
     ctx.ok(f"Migraciones aplicadas hasta {revision}.")
 
 
-def ensure_partitions(ctx: TaskContext, scope: str = db.LOCAL) -> None:
+def ensure_partitions(ctx: TaskContext) -> None:
     """Create the partitions of partitioned tables.
 
     `alembic revision --autogenerate` does not generate partitions or
     the DEFAULT one, so without this step the first INSERT dies with «no
     partition of relation found for row».
     """
-    payloads.run(ctx, runner.resolve(ctx, scope), "partitions")
+    payloads.run(ctx, runner.local(ctx), "partitions")
 
 
 # --- data ---
 
 
 def run_seeders(ctx: TaskContext, scope: str = db.LOCAL) -> None:
-    """Run the base seeders: the project's `seeders/` package."""
-    payloads.run(ctx, runner.resolve(ctx, scope), "seed", "seeders")
+    """Run the base seeders: the project's `seeders/` package.
+
+    On the VPS, those of the active version, with `database.py seed`.
+    """
+    if scope == db.LOCAL:
+        payloads.run(ctx, runner.local(ctx), "seed", "seeders")
+    else:
+        _database_py(ctx, "seed")
 
 
 def run_mock_seeders(ctx: TaskContext, scope: str = db.LOCAL) -> None:
-    """Run the test seeders: the project's `mock_data/` package."""
-    payloads.run(ctx, runner.resolve(ctx, scope), "seed", "mock_data")
+    """Run the test seeders: the project's `mock_data/` package.
+
+    On the VPS, with `database.py seed --mock`, which runs only on a
+    machine marked for development.
+    """
+    if scope == db.LOCAL:
+        payloads.run(ctx, runner.local(ctx), "seed", "mock_data")
+    else:
+        _in_development(ctx)
+        _database_py(ctx, "seed --mock")
+
+
+# --- the VPS's database ---
+
+
+def _database_py(ctx: TaskContext, command: str) -> None:
+    """Run canone's `database.py` on the VPS, from the admin account."""
+    _, app = canone.origin(ctx.root)
+    entry = vps_setup.admin(ctx)
+    entry.run(ctx, canone.database_command(app, command))
+    ctx.ok(f"database.py {command}: listo en {entry.remote.host}.")
+
+
+def _in_development(ctx: TaskContext) -> None:
+    """Stop if the README says the repo is in production.
+
+    `database.py` refuses too, on a machine without the development
+    mark. This stops before reaching the VPS.
+    """
+    if canone.state(ctx.root) != canone.DEVELOPMENT:
+        raise TaskError(
+            "El README dice «Estado: en producción»: Consola no vacía la base del VPS "
+            "ni le carga datos de prueba."
+        )
+
+
+def empty_vps_database(ctx: TaskContext) -> None:
+    """Empty the VPS's database and its uploaded files.
+
+    `database.py empty` stops the server and leaves the database as
+    `install.py` creates it: empty and without migrations.
+    """
+    _in_development(ctx)
+    ctx.warn("Se borran la base del VPS y los archivos subidos.")
+    _database_py(ctx, "empty")
 
 
 # --- backup and diagnostics ---
@@ -455,15 +490,17 @@ def restore_database(ctx: TaskContext, dump: str = "") -> Path:
 
 
 def open_db_tunnel(ctx: TaskContext) -> Tunnel:
-    """Open a Postgres tunnel that outlives its tab (ADR-0016)."""
-    remote = ssh.resolve_remote(ctx.config)
-    ssh_remote = vps.postgres_port(remote)
-    from app.core import ports
+    """Open a Postgres tunnel that outlives its tab (ADR-0016).
 
-    local = ports.resolve_port(ssh_remote, label="puerto del tunel")
-    tunnel = ssh.open_tunnel(remote, local_port=local, remote_port=ssh_remote)
-    ctx.hold_tunnel(tunnel)
-    ctx.ok(f"Tunel abierto en {tunnel.endpoint} -> {remote.host}:{ssh_remote}")
+    It enters as `<app>_read`, without a password, to the `<app>`
+    database: it reads, and changes nothing.
+    """
+    _, app = canone.origin(ctx.root)
+    tunnel = db.vps_tunnel(ctx)
+    ctx.ok(
+        f"Tunel abierto en {tunnel.endpoint}: entra como {db.reader(app)}, sin contraseña, "
+        f"a la base {app}."
+    )
     return tunnel
 
 
@@ -473,10 +510,12 @@ def explore_db(ctx: TaskContext, scope: str = db.LOCAL) -> None:
     A live task, like a launcher (ADR-0015): it holds the connection
     and, on remote, the SSH tunnel, and what it delivers is not its log
     but the tree and data view of the same tab. Before publishing it
-    tests the connection with the app's role and leaves in the console
-    the server, database, user, size and tables.
+    tests the connection and leaves in the console the server, database,
+    user, size and tables. Locally it connects as the app's role; on the
+    VPS, as `<app>_read`.
     """
-    with db.connect(ctx, scope) as conn:
+    conn = db.connect(ctx, db.LOCAL) if scope == db.LOCAL else db.connect_vps(ctx)
+    with conn:
         with db_explorer.open_readonly(conn.url) as probe:
             info = db_explorer.server_info(probe)
             relations = db_explorer.list_relations(probe)
@@ -507,14 +546,13 @@ def explore_db(ctx: TaskContext, scope: str = db.LOCAL) -> None:
 
 def populate_db(
     ctx: TaskContext,
-    scope: str = db.LOCAL,
     *,
     migrate: bool = True,
     partitions: bool = True,
     seeders: bool = True,
     mock_seeders: bool = False,
 ) -> None:
-    """Composite: migrate, partitions, seeders.
+    """Composite: migrate, partitions, seeders, on the local database.
 
     It leaves USABLE a database that exists, however it came to exist.
 
@@ -533,16 +571,16 @@ def populate_db(
     """
     if migrate:
         ctx.step("migrate")
-        apply_migrations(ctx, scope)
+        apply_migrations(ctx)
     if partitions:
         ctx.step("partitions")
-        ensure_partitions(ctx, scope)
+        ensure_partitions(ctx)
     if seeders:
         ctx.step("seeders")
-        run_seeders(ctx, scope)
+        run_seeders(ctx)
     if mock_seeders:
         ctx.step("mock_seeders")
-        run_mock_seeders(ctx, scope)
+        run_mock_seeders(ctx)
 
 
 def bootstrap_db(
@@ -570,19 +608,18 @@ def bootstrap_db(
     """
     if role:
         ctx.step("role")
-        create_role(ctx, db.LOCAL)
+        create_role(ctx)
     if database:
         ctx.step("database")
-        create_database(ctx, db.LOCAL)
+        create_database(ctx)
     if privileges:
         ctx.step("privileges")
-        grant_privileges(ctx, db.LOCAL)
+        grant_privileges(ctx)
     if extensions:
         ctx.step("extensions")
-        enable_extensions(ctx, db.LOCAL)
+        enable_extensions(ctx)
     populate_db(
         ctx,
-        db.LOCAL,
         migrate=migrate,
         partitions=partitions,
         seeders=seeders,
@@ -596,12 +633,13 @@ def rebuild_db(
     scope: str = db.LOCAL,
     *,
     drop: bool = True,
+    empty: bool = True,
     migrate: bool = True,
     partitions: bool = True,
     seeders: bool = True,
     mock_seeders: bool = True,
 ) -> None:
-    """Destructive composite: delete tables, refill with `populate_db`.
+    """Destructive composite: empty the database and fill it again.
 
     The same destination as `bootstrap_db`, another starting point: a
     database that exists.
@@ -613,35 +651,48 @@ def rebuild_db(
 
     Each step is a checkbox because each is asked for alone in real
     life: rerunning the mock seeders without destroying the schema is
-    the most common.
+    the most common. Locally it deletes the tables and refills with
+    `populate_db`. On the VPS each step is a `database.py` command:
+    `empty`, `migrate`, which also runs the seeders and starts the
+    server, `seed` and `seed --mock`. `drop` and `partitions` exist only
+    locally, and `empty` only on the VPS (`Step.scopes`).
     """
-    _, _, name = db.credentials(ctx.config)
-    if drop:
-        ctx.step("drop")
-        drop_tables(ctx, scope)
-    populate_db(
-        ctx,
-        scope,
-        migrate=migrate,
-        partitions=partitions,
-        seeders=seeders,
-        mock_seeders=mock_seeders,
-    )
-    ctx.note(f"Reconstruccion de {name} ({scope}) completada.")
+    if scope == db.LOCAL:
+        _, _, name = db.credentials(ctx.config)
+        if drop:
+            ctx.step("drop")
+            drop_tables(ctx)
+        populate_db(
+            ctx,
+            migrate=migrate,
+            partitions=partitions,
+            seeders=seeders,
+            mock_seeders=mock_seeders,
+        )
+        ctx.note(f"Reconstruccion de {name} (local) completada.")
+        return
+    if empty:
+        ctx.step("empty")
+        empty_vps_database(ctx)
+    if migrate:
+        ctx.step("migrate")
+        _database_py(ctx, "migrate")
+    if seeders:
+        ctx.step("seeders")
+        run_seeders(ctx, db.REMOTE)
+    if mock_seeders:
+        ctx.step("mock_seeders")
+        run_mock_seeders(ctx, db.REMOTE)
+    ctx.note("Reconstruccion de la base del VPS completada.")
 
 
 def reinit_migrations(
-    ctx: TaskContext,
-    scope: str = db.LOCAL,
-    *,
-    drop: bool = True,
-    reset: bool = True,
-    generate: bool = True,
+    ctx: TaskContext, *, drop: bool = True, reset: bool = True, generate: bool = True
 ) -> None:
     """Destructive composite: empty, delete versions and rewrite.
 
-    It empties the database, deletes `alembic/versions/` and writes the
-    initial migration.
+    It empties the local database, deletes `alembic/versions/` and
+    writes the initial migration.
 
     It empties the schema itself, and that is no excess of scope:
     autogenerate compares models against the live database, so over a
@@ -651,32 +702,37 @@ def reinit_migrations(
     It does not apply the migration: it leaves the database empty and
     the history at zero, exactly the state `rebuild_db` starts from,
     which applies, makes partitions and seeds.
+
+    Only locally: the VPS takes the new history with «Reconstruir base»,
+    emptying only, and «Desplegar versión».
     """
     _, _, name = db.credentials(ctx.config)
     if drop:
         ctx.step("drop")
-        drop_tables(ctx, scope)
+        drop_tables(ctx)
     if reset:
         ctx.step("reset")
         reset_migrations(ctx)
     if generate:
         ctx.step("generate")
-        generate_migration(ctx, scope, message="initial_migration")
+        generate_migration(ctx, message="initial_migration")
     ctx.note(f"Historial de migraciones reiniciado; {name} quedo vacia.")
 
 
-def teardown_db(
-    ctx: TaskContext, scope: str = db.LOCAL, *, database: bool = True, role: bool = True
-) -> None:
-    """Destructive composite: delete the database and the role."""
+def teardown_db(ctx: TaskContext, *, database: bool = True, role: bool = True) -> None:
+    """Destructive composite: delete the local database and the role.
+
+    On the VPS the roles are `install.py`'s, and «Reconstruir base»
+    empties the database.
+    """
     _, _, name = db.credentials(ctx.config)
     if database:
         ctx.step("database")
-        drop_database(ctx, scope)
+        drop_database(ctx)
     if role:
         ctx.step("role")
-        drop_role(ctx, scope)
-    ctx.note(f"Teardown de {name} ({scope}).")
+        drop_role(ctx)
+    ctx.note(f"Teardown de {name}.")
 
 
 def migrate_db(
@@ -693,10 +749,10 @@ def migrate_db(
     """
     if generate:
         ctx.step("generate")
-        generate_migration(ctx, db.LOCAL, message=message)
+        generate_migration(ctx, message=message)
     if apply:
         ctx.step("apply")
-        apply_migrations(ctx, db.LOCAL)
+        apply_migrations(ctx)
 
 
 def bind_all() -> None:

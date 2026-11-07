@@ -1,18 +1,9 @@
-"""Where the project's code runs: here or on the VPS.
+"""Run the project's code on this machine: Alembic, seeders, partitions.
 
-Loose SQL could already choose a side: with remote scope,
-`database.Admin` sends `psql` over SSH and opens no tunnel. But what the
-repo's *code* needs, Alembic for autogenerate and the seeders and
-partitions, always ran on this machine regardless of scope.
-
-This module is the missing half of the `scope` axis: it chooses the
-interpreter and the project's folder, here or in the deployed repo, and
-runs there.
-
-It copies nothing to the other side. The program travels in the command
-line (`-m alembic ...`, `-c <source>`) and the interpreter is the venv's
-in the deployed repo; anything the server has in its venv can run this
-way, without uploading a file first.
+It chooses the server venv's interpreter, the project's folder and how
+the database is reached: as the schema's owner with its credentials in
+a canone repo, by `DATABASE_URL` in the others. On the VPS that code
+runs with canone's `deploy.py` and `database.py` (ADR-0060).
 """
 
 from __future__ import annotations
@@ -20,7 +11,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from app.core import canone, fields, ssh, vps
+from app.core import canone, fields
 from app.core import database as db
 from app.core.context import Level, TaskContext
 from app.core.errors import TaskError
@@ -46,47 +37,30 @@ class Runner:
     """A Python interpreter of the project, its folder and database.
 
     A sibling of `database.Admin`: same split, another channel. `Admin`
-    runs SQL as superuser, local with `psql` and remote over SSH;
-    `Runner` runs Python programs with the server's dependencies, on the
-    same side.
+    runs SQL as superuser with `psql`; `Runner` runs Python programs
+    with the server's dependencies.
     """
 
     python: str
     cwd: str
     database_url: str
-    remote: ssh.Remote | None = None
     # The credentials folder in a canone repo: its `Settings` reads only
     # from there, and `database_url` does not reach it.
     credentials: str = ""
-
-    @property
-    def is_remote(self) -> bool:
-        """Return whether it runs on the VPS."""
-        return self.remote is not None
 
     def run(self, ctx: TaskContext, *args: str, echo: bool = True) -> int:
         """Run `python <args>` in the server folder.
 
         `DATABASE_URL` travels in the process's environment, never
         written to a file: it is what the runner's caller already
-        resolved, not a second resolution or a second tunnel. On the
-        remote side it goes as an assignment before the command;
-        `ctx.guard` masks the password in the log.
+        resolved, not a second resolution.
         """
-        if self.remote is None:
-            environment = (
-                {"CREDENTIALS_DIRECTORY": self.credentials}
-                if self.credentials
-                else {"DATABASE_URL": self.database_url}
-            )
-            return ctx.run([self.python, *args], cwd=self.cwd, env=environment, echo=echo)
-        command = " ".join(ssh.quote(a) for a in (self.python, *args))
-        return ssh.run(
-            ctx,
-            self.remote,
-            f"cd {ssh.quote(self.cwd)} && DATABASE_URL={ssh.quote(self.database_url)} {command}",
-            echo=echo,
+        environment = (
+            {"CREDENTIALS_DIRECTORY": self.credentials}
+            if self.credentials
+            else {"DATABASE_URL": self.database_url}
         )
+        return ctx.run([self.python, *args], cwd=self.cwd, env=environment, echo=echo)
 
     def log_command(self, ctx: TaskContext, summary: str) -> None:
         """Announce in the log a command whose real argv cannot be read.
@@ -95,35 +69,7 @@ class Runner:
         console with fifty lines of code that say nothing. Whoever uses
         this passes `echo=False` to `run`.
         """
-        donde = f"{self.remote.target}:" if self.remote else ""
-        ctx.log(f"{donde}{self.python} {summary}", Level.CMD)
-
-
-def resolve(ctx: TaskContext, scope: str = db.LOCAL) -> Runner:
-    """Return the runner of that scope: here or on the VPS.
-
-    It is the path of what only touches the database: applying
-    migrations, seeding, ensuring partitions. None of that writes in the
-    repo, so it runs fine on both sides and should run where the
-    database is.
-    """
-    if scope not in db.SCOPES:
-        raise TaskError(f"Ambito invalido: {scope!r}. Usa {' | '.join(db.SCOPES)}.")
-
-    if scope == db.LOCAL:
-        return local(ctx)
-
-    remote = ssh.resolve_remote(ctx.config)
-    interpreter = vps.remote_python(ctx.config)
-    if not ssh.path_exists(remote, interpreter):
-        raise TaskError(
-            f"No existe el Python del venv en el VPS: {interpreter}. Lo dejaba el "
-            "despliegue propio de Consola, que ya no existe (ADR-0059)."
-        )
-
-    destination = vps.remote_path(ctx.config, ctx.config.get("SERVER_DIR", "server"))
-    ctx.info(f"Se ejecuta en el VPS: {remote.target}:{destination}")
-    return Runner(interpreter, destination, db.vps_url(ctx, remote), remote)
+        ctx.log(f"{self.python} {summary}", Level.CMD)
 
 
 def write_credentials(ctx: TaskContext, server: Path, folder: str, files: dict[str, str]) -> Path:
@@ -170,13 +116,6 @@ def local(ctx: TaskContext) -> Runner:
 
 
 def here(ctx: TaskContext, conn: db.Connection) -> Runner:
-    """Return the runner on this machine, against `conn`'s database.
-
-    With its tunnel if that database is the VPS's. It is for what also
-    writes in the open repo: Alembic `revision --autogenerate` leaves a
-    file in `alembic/versions/` to review and commit. Generated on the
-    VPS it would land in the deployed repo, which is not the one that
-    gets committed.
-    """
+    """Return the runner on this machine, against `conn`'s database."""
     root = server_root(ctx)
     return Runner(str(venv_python(root / ".venv")), str(root), conn.url)

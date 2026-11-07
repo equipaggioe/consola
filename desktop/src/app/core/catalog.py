@@ -32,10 +32,11 @@ _IMAGE_FACETS = (
 # of labels so the panel does not show raw lower-case values.
 _SCOPE_LABELS = {"local": "Local", "remote": "Remoto"}
 
-# Every button with this axis connects to the database
-# (`db.credentials`): user, database and password on both scopes, and on
-# remote also what opens SSH.
+# Locally, every button with this axis connects to the database
+# (`db.credentials`): user, database and password. On the VPS it enters
+# by SSH, and canone's roles have no password.
 _DB_KEYS = {"DB_USER", "DB_NAME", "DB_PASSWORD"}
+_PG_KEYS = {"PG_SUPERUSER", "PG_PASSWORD"}
 
 
 def _scope_axis() -> AxisDef:
@@ -46,7 +47,7 @@ def _scope_axis() -> AxisDef:
         labels=_SCOPE_LABELS,
         requires_env={
             "local": _DB_KEYS,
-            "remote": _DB_KEYS | {"VPS_IP", "VPS_USER", "VPS_KEY_NAME"},
+            "remote": {"VPS_IP", "VPS_USER", "VPS_KEY_NAME"},
         },
     )
 
@@ -493,15 +494,22 @@ BOOTSTRAP_DB_STEPS = [
 ]
 
 
-# The five of `database.rebuild_db`, in the function's order.
+# Those of `database.rebuild_db`, in the function's order.
 #
 # Rebuilding does not rewrite the migration history: it applies what is
 # there. Deleting it and writing a new initial one is
 # `reinit_migrations`, its own button.
+#
+# Locally it deletes the tables as superuser; on the VPS
+# `database.py empty` deletes the database and the uploaded files.
+# canone has no partitions.
+_LOCAL = frozenset({"local"})
+_REMOTE = frozenset({"remote"})
 REBUILD_DB_STEPS = [
-    Step("drop", "Borrar tablas"),
+    Step("drop", "Borrar tablas", requires_env=_PG_KEYS, scopes=_LOCAL),
+    Step("empty", "Vaciar la base y los archivos subidos", scopes=_REMOTE),
     Step("migrate", "Ejecutar migraciones", requires_repo=targets.MIGRATIONS),
-    Step("partitions", "Crear particiones"),
+    Step("partitions", "Crear particiones", scopes=_LOCAL),
     Step("seeders", "Cargar seeders"),
     Step("mock_seeders", "Cargar datos mock"),
 ]
@@ -1154,9 +1162,10 @@ def load_catalog() -> None:
 
     # --- Database ---
     #
-    # Four buttons without a `scope` axis: they act only on the local
-    # database. On the VPS `install.py` creates the database,
-    # `deploy.py` migrates and canone's receiver backs it up (ADR-0060).
+    # The buttons without a `scope` axis act only on the local database.
+    # On the VPS `install.py` creates the database and its extensions,
+    # `deploy.py` migrates, canone's receiver backs it up (ADR-0060) and
+    # `database.py` empties and seeds it.
     registry.register(
         Capability(
             id="bootstrap_db",
@@ -1177,8 +1186,7 @@ def load_catalog() -> None:
             group="Base de datos",
             kind="once",
             icon="🧩",
-            description="Crea en la base las extensiones de Postgres que declara el repo.",
-            axes=[_scope_axis()],
+            description="Crea en la base local las extensiones de Postgres que declara el repo.",
             stub=True,
         )
     )
@@ -1195,8 +1203,8 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # All four receive `scope` in their function, with the axis now
-    # offering it instead of the signature's `local`.
+    # On the VPS they run `database.py seed`, with `--mock` only on a
+    # machine in development.
     registry.register(
         Capability(
             id="run_seeders",
@@ -1224,7 +1232,8 @@ def load_catalog() -> None:
     )
     # Live like a launcher: it holds the connection, and on remote the
     # tunnel, until the tab closes, and it delivers the tree and data
-    # view, not the log (ADR-0015).
+    # view, not the log (ADR-0015). On the VPS it enters as
+    # `<app>_read`.
     registry.register(
         Capability(
             id="explore_db",
@@ -1239,9 +1248,9 @@ def load_catalog() -> None:
             stub=True,
         )
     )
-    # The tunnel has no parameters: the remote port comes from the VPS
-    # and `core/ports.py` chooses the local one if the given one is
-    # taken.
+    # The tunnel has no parameters: it goes to the socket of the VPS's
+    # PostgreSQL, enters as `<app>_read`, and `core/ports.py` chooses
+    # the local port if 5432 is taken.
     registry.register(
         Capability(
             id="ssh_tunnel",
@@ -1249,7 +1258,7 @@ def load_catalog() -> None:
             group="Base de datos",
             kind="background",
             icon="🔗",
-            description="Abre un túnel SSH al Postgres del VPS para conectarse en local.",
+            description="Abre un túnel SSH al Postgres del VPS para leerlo en local.",
             stub=True,
         )
     )
@@ -1287,8 +1296,7 @@ def load_catalog() -> None:
             group="Base de datos",
             kind="destructive",
             icon="🔁",
-            description="Vacía las tablas y vuelve a llenar la base: migraciones, particiones y "
-            "seeders.",
+            description="Vacía la base y vuelve a llenarla: migraciones y seeders.",
             axes=[_scope_axis()],
             steps=REBUILD_DB_STEPS,
             stub=True,
@@ -1304,7 +1312,6 @@ def load_catalog() -> None:
             requires_repo=targets.MIGRATIONS,
             description="Reinicia el historial de migraciones: deja una sola inicial con los "
             "modelos de hoy.",
-            axes=[_scope_axis()],
             steps=REINIT_MIGRATIONS_STEPS,
             stub=True,
         )
@@ -1316,8 +1323,7 @@ def load_catalog() -> None:
             group="Base de datos",
             kind="destructive",
             icon="💥",
-            description="Borra la base de la aplicación y su rol.",
-            axes=[_scope_axis()],
+            description="Borra la base local de la aplicación y su rol.",
             steps=TEARDOWN_DB_STEPS,
             stub=True,
         )

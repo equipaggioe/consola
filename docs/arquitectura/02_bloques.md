@@ -44,7 +44,7 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `ssh.py` | `Remote`, ejecución remota con o sin stdin, `scp`, túneles, llaves |
 | `vps.py` | Rutas del repo desplegado, los servicios systemd y su journal |
 | `database.py` | Resolver la base local o la remota por túnel, y el canal de superusuario |
-| `runner.py` | Dónde corre el código del repo: el venv de aquí o el del VPS |
+| `runner.py` | Corre el código del repo con el venv de aquí, contra la base local |
 | `db_explorer.py` | Introspección de solo lectura sobre `pg_catalog` |
 | `db_models.py` | Los modelos del repo, importados con su propio Python, para comparar contra la base |
 | `versioning.py` | Leer y subir la versión de `pubspec.yaml`, `package.json` o `pyproject.toml` |

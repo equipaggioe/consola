@@ -201,6 +201,7 @@ class ParamsPanel(QWidget):
         # the group it replaces has to be let go.
         self._option_groups: dict[str, QButtonGroup] = {}
         self._step_checks: dict[str, QCheckBox] = {}
+        self._step_rows: dict[str, QWidget] = {}
         self._restoring = True  # while building, no change saves
         # Without this, a QWidget subclass ignores its own sheet's
         # background and shows the global sheet's gray (`theme.py`): the
@@ -765,6 +766,7 @@ class ParamsPanel(QWidget):
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.stateChanged.connect(self._refresh_summary)
             self._step_checks[step.id] = check
+            self._step_rows[step.id] = row
 
             row_lay.addWidget(check)
             row_lay.addStretch()
@@ -936,9 +938,18 @@ class ParamsPanel(QWidget):
         return [v for v, c in self._checks.get(axis_name, {}).items() if c.isChecked()]
 
     def active_steps(self) -> list[Step]:
+        """Return the steps that run: checked, and of this scope."""
+        scope = self.option_value("scope")
+        return [s for s in self._checked_steps() if s.applies(scope)]
+
+    def _checked_steps(self) -> list[Step]:
         # With one required step the section does not draw: with no
         # checkbox, the step is active by definition.
-        """Return the ids of the active steps."""
+        """Return the checked steps, whatever the scope.
+
+        They are what is saved: switching to the other scope and back
+        keeps the boxes as they were.
+        """
         return [
             s
             for s in self.steps
@@ -1012,7 +1023,7 @@ class ParamsPanel(QWidget):
         """Return what is checked right now, in serializable form."""
         return {
             "variants": {name: self.selection(name) for name in self._checks},
-            "steps": [s.id for s in self.active_steps()],
+            "steps": [s.id for s in self._checked_steps()],
             "options": {name: self._option_payload(name) for name in self._options},
             "fields": {name: self.field_value(name) for name in self._fields},
             "picks": {name: self.pick_value(name) for name in self._pick_names()},
@@ -1306,6 +1317,11 @@ class ParamsPanel(QWidget):
         return reasons
 
     def _refresh_summary(self, *_args) -> None:
+        scope = self.option_value("scope")
+        for step in self.steps:
+            row = self._step_rows.get(step.id)
+            if row is not None:
+                row.setVisible(step.applies(scope))
         self._persist()
         blockers = self._blockers()
         self.run_btn.setEnabled(not blockers)

@@ -47,6 +47,12 @@ _GITHUB = re.compile(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$")
 # A tag `deploy.py` deploys (despliegue.md of canone, «Versiones»).
 _TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
 PARTS = ("major", "minor", "patch")
+# The state, in a line of its own of the README (repositorio.md of
+# canone).
+_STATE = re.compile(r"^Estado: (en desarrollo|en producción)$", re.M)
+DEVELOPMENT = "en desarrollo"
+# What `database.py` receives (despliegue.md of canone, «PostgreSQL»).
+DATABASE_COMMANDS = ("empty", "migrate", "seed", "seed --mock")
 
 
 def infra_dir(config: Config) -> Path:
@@ -86,6 +92,31 @@ def origin(root: Path) -> tuple[str, str]:
     if found is None:
         raise TaskError(f"origin no es un repo de GitHub: {url}")
     return found.group(1), found.group(2)
+
+
+def state(root: Path) -> str:
+    """Return the state the repo's README declares.
+
+    It is the only place it is declared: «Configurar VPS» marks the
+    machine for development by it, and Consola does not empty a database
+    whose repo is in production. A README that does not declare it
+    stops: no state is assumed.
+    """
+    readme = root / "README.md"
+    found = _STATE.search(readme.read_text(encoding="utf-8")) if readme.is_file() else None
+    if found is None:
+        raise TaskError(
+            f"{readme} no declara su estado: falta una línea «Estado: en desarrollo» "
+            "o «Estado: en producción»."
+        )
+    return found.group(1)
+
+
+def database_command(app: str, command: str) -> str:
+    """Return `database.py` with a command; `install.py` installs it."""
+    if command not in DATABASE_COMMANDS:
+        raise TaskError(f"database.py no tiene el comando {command!r}.")
+    return f"python3 /usr/local/lib/{app}/database.py {command}"
 
 
 def packages(config: Config) -> list[str]:
@@ -134,6 +165,10 @@ def install_args(
     `keys` are the two public keys: `VPS_KEY_NAME`'s and the one kept
     elsewhere. They are the account's two `--key` and the releases' two
     `--signer`. On a machine that has them, `install.py` adds nothing.
+
+    `--development` goes if the README says `Estado: en desarrollo`:
+    `database.py` empties the database only on a machine with that mark,
+    and `install.py` without it deletes it.
     """
     args = [
         app,
@@ -150,6 +185,8 @@ def install_args(
         args += ["--signer", key]
     if config.flag("PRIVATE"):
         args.append("--private")
+    if state(root) == DEVELOPMENT:
+        args.append("--development")
     for system in desktops(root):
         args += ["--desktop", system]
     for piece in without(root):

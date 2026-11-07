@@ -28,8 +28,9 @@ class Settings(BaseSettings):
 '''
 
 
-def repo(tmp_path: Path, **values: str) -> tuple[Path, Config]:
+def repo(tmp_path: Path, state: str = "en desarrollo", **values: str) -> tuple[Path, Config]:
     """Return a fake repo and its config."""
+    (tmp_path / "README.md").write_text(f"# demo\n\nEstado: {state}\n", encoding="utf-8")
     (tmp_path / "server" / "src" / "app").mkdir(parents=True)
     (tmp_path / "server" / "src" / "app" / "config.py").write_text(CONFIG_PY, encoding="utf-8")
     (tmp_path / "panel").mkdir()
@@ -80,6 +81,31 @@ def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -
     assert sin == ["web", "landing"]
     assert "--turn" not in args
     assert "--logs" not in args
+    assert "--development" in args
+
+
+def test_a_repo_in_production_installs_without_the_development_mark(tmp_path: Path) -> None:
+    """A repo in production installs without `--development`."""
+    root, config = repo(tmp_path, state="en producción")
+    assert "--development" not in canone.install_args(root, config, "demo", "equipaggio", KEYS)
+
+
+def test_a_readme_without_a_state_stops(tmp_path: Path) -> None:
+    """A README without its state stops: none is assumed."""
+    root, config = repo(tmp_path)
+    (root / "README.md").write_text("# demo\n", encoding="utf-8")
+    with pytest.raises(TaskError, match="Estado"):
+        canone.install_args(root, config, "demo", "equipaggio", KEYS)
+
+
+def test_database_py_only_receives_its_commands() -> None:
+    """`database.py` only receives its own commands."""
+    assert (
+        canone.database_command("demo", "seed --mock")
+        == "python3 /usr/local/lib/demo/database.py seed --mock"
+    )
+    with pytest.raises(TaskError):
+        canone.database_command("demo", "empty; reboot")
 
 
 def test_logs_go_all_three_or_none(tmp_path: Path) -> None:
