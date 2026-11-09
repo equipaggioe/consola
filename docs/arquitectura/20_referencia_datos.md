@@ -121,10 +121,10 @@ Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Con
 | Ruta | Quién |
 |---|---|
 | `<VPS_DEPLOY_DIR>/<repo>/…` | `build_binary`: el ejecutable, su manifiesto, su checksum y su manifiesto de release |
-| Los paquetes de canone y `/usr/local/bin/uv` | `install_software` |
-| `/swapfile` y su línea de `/etc/fstab` | `create_swap` |
+| Los paquetes de `packages.py` y `/usr/local/bin/uv` | `install_software` |
+| `/swapfile` y su línea de `/etc/fstab`, de `swap.py` | `create_swap` |
 | Lo que instalan `install.py` y `credentials.py` | `install_infra`, `load_credentials` |
-| `/tmp/consola-canone/` | Los tres anteriores; se borra al terminar |
+| `/tmp/consola-canone/` | `install_software`, `create_swap`, `install_infra` y `load_credentials`; se borra al terminar |
 
 ### En esta máquina
 

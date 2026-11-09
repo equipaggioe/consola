@@ -339,9 +339,6 @@ class ParamsPanel(QWidget):
         # stops from.
         self._live_box = self._build_live()
         lay.addWidget(self._live_box)
-        # Then what running will do, before choosing how.
-        self._preview_box = self._build_preview()
-        lay.addWidget(self._preview_box)
 
         picks = self.capability.pick_axes
         if picks:
@@ -352,6 +349,10 @@ class ParamsPanel(QWidget):
 
         if len(self.steps) > 1:
             lay.addWidget(self._build_steps())
+
+        # What running will do, under the steps that run it.
+        self._preview_box = self._build_preview()
+        lay.addWidget(self._preview_box)
 
         # A single-valued axis is not chosen either, but it shows:
         # checked and disabled, so WHICH one is seen (which mobile app,
@@ -711,9 +712,10 @@ class ParamsPanel(QWidget):
     def _fill_preview(self, checks: tuple[list[str], list[str]], error: str = "") -> None:
         """Show what running will do, or why it could not be asked.
 
-        One disabled check per value, marked if running does it: they
-        are not chosen here, `config.env` decides them, so they read
-        like the checks of the parameters without being one.
+        One disabled check per value, in alphabetical order, marked if
+        running does it: they are not chosen here, `config.env` decides
+        them. The marked ones keep the blue of a marked check and not
+        the gray of a disabled one, so what will run reads at a glance.
         """
         every, marked = checks
         while self._preview_layout.count() > 1:
@@ -721,10 +723,14 @@ class ParamsPanel(QWidget):
             widget = item.widget() if item else None
             if widget:
                 widget.deleteLater()
-        for value in every:
+        for value in sorted(every):
             check = QCheckBox(value)
             check.setChecked(value in marked)
             check.setEnabled(False)
+            check.setStyleSheet(
+                "QCheckBox::indicator:checked:disabled "
+                f"{{ background: {Colors.ACCENT}; border: 1px solid {Colors.ACCENT}; }}"
+            )
             check.setToolTip(PREVIEW_HINTS.get(self.capability.preview, ""))
             self._preview_layout.addWidget(check)
         if error:

@@ -23,7 +23,7 @@ Lo que va por stdin no pasa por el log. Un comando que lee stdin se lanza sin `-
 
 El despliegue lo hacen los programas de canone ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Consola prepara la máquina y corre `install.py` y `credentials.py` (§4), y publica, firma y despliega versiones (§4b). No clona el repo en el VPS ni escribe configuración de servicios: eso lo instala `install.py`.
 
-**Regla:** lo que deja un cambio permanente en un VPS lo hace un programa de canone. Si canone no lo trae, se agrega primero a canone. No alcanza a lo que corre en esta máquina (compilar, crear el tag, firmar), a correr lo que canone ya instaló (`deploy.py`, `credentials.py`, `systemctl`, los registros, la salud), ni a lo que canone deja a quien prepara la máquina (el swap). Hoy la incumplen «Quitar acceso SSH» y el ámbito remoto de los botones de base (30).
+**Regla:** lo que deja un cambio permanente en un VPS lo hace un programa de canone. Si canone no lo trae, se agrega primero a canone. No alcanza a lo que corre en esta máquina (compilar, crear el tag, firmar), a correr lo que canone ya instaló (`deploy.py`, `credentials.py`, `systemctl`, los registros, la salud). Hoy la incumplen «Quitar acceso SSH» y el ámbito remoto de los botones de base (30).
 
 Este documento describe los botones que siguen alcanzando el VPS.
 
@@ -44,7 +44,7 @@ Las lee la subida de «Compilar ejecutable» ([17](17_builds_y_artefactos.md)).
 | Paso | Qué hace |
 |---|---|
 | Paquetes y uv (`install_software`) | Corre `packages.py` de canone, que tiene la lista («Máquina» de [`despliegue.md` de canone](https://github.com/equipaggioe/canone/blob/main/plataformas/despliegue.md#máquina)), con las opciones de `install.py` que agregan un paquete: `--extension` por cada una de `DB_EXTENSIONS`, `--turn` con `TURN` y `--logs` con `LOGS` (`canone.package_args`). Si la máquina no tiene `python3`, lo instala con apt antes, porque `packages.py` corre con él. Después corre `uv.py` |
-| Swap (`create_swap`) | Si el swap no llega a la memoria, crea `/swapfile` con lo que falta y lo agrega a `/etc/fstab`. Sin eso, `install.py` falla |
+| Swap (`create_swap`) | Corre `swap.py` de canone, que crea `/swapfile` con lo que le falta al swap para llegar a la memoria y lo agrega a `/etc/fstab`; con eso, no cambia nada. Sin swap, `install.py` falla |
 | Infraestructura (`install_infra`) | Corre `install.py` con `canone.install_args`, con `--development` si el `README.md` dice `Estado: en desarrollo` ([16](16_base_de_datos.md) §6). La primera vez, como root por `ssh -tt`, y escribe la contraseña de la cuenta recién cuando aparece cada pregunta (`process.converse`); después, con `sudo` |
 | Credenciales (`load_credentials`) | Pasa a `credentials.py`, por stdin, una línea `campo=valor` por credencial (`canone.credential_lines`, [13](13_configuracion_y_persistencia.md) §2). Corta antes de enviar si falta un valor o si `config.env` tiene una clave sin fuente |
 | Último release (`vps_release.deploy_latest`) | Despliega el release que GitHub da como `latest`, si tiene su firma. Si `/srv/<app>/current` ya es ese release, no hace nada ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)) |

@@ -46,7 +46,7 @@ Detalle de cada formato en [20](20_referencia_datos.md); el reparto entre repo y
 
 | Destino | Con qué | Qué escribe |
 |---|---|---|
-| VPS | `ssh`, `scp`, túneles `-L` | `/swapfile`, lo que instalan `packages.py`, `uv.py`, `install.py` y `credentials.py`, y el ejecutable de «Compilar ejecutable» con sus manifiestos bajo `VPS_DEPLOY_DIR`. No escribe configuración de servicios ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)) |
+| VPS | `ssh`, `scp`, túneles `-L` | Lo que instalan `packages.py`, `swap.py`, `uv.py`, `install.py` y `credentials.py`, y el ejecutable de «Compilar ejecutable» con sus manifiestos bajo `VPS_DEPLOY_DIR`. No escribe configuración de servicios ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)) |
 | GitHub | `git` | Empuja ramas y clona repos |
 | Cloudflare | API v4 | Un registro A |
 | Esta máquina | `~/.ssh`, entorno del usuario | Pares de llaves, `known_hosts`, `HKCU\Environment` o el perfil del shell |

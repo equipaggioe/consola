@@ -19,7 +19,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 
 ## 2. Qué no es
 
-- **No es un servidor ni un agente.** No corre nada propio en el VPS: lo que deja allá es el swap, lo que instalan `packages.py`, `uv.py`, `install.py` y `credentials.py`, y el ejecutable que sube «Compilar ejecutable».
+- **No es un servidor ni un agente.** No corre nada propio en el VPS: lo que deja allá es lo que instalan `packages.py`, `swap.py`, `uv.py`, `install.py` y `credentials.py`, y el ejecutable que sube «Compilar ejecutable».
 - **No es multiusuario ni remoto.** Corre en la máquina de una persona, con sus llaves SSH (`~/.ssh`) y sus SDK.
 - **No edita el código de los repos que administra.** Los únicos archivos que escribe dentro de un repo son suyos: `.consola/`, `releases/<app>/<plataforma>.json` y el manifiesto de versión del ejecutable ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Aparte están las imágenes del grupo Imágenes: las capturas reveladas y los íconos de las apps ([19](19_imagenes.md)).
 
