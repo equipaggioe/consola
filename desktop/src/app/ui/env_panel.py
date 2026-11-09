@@ -262,6 +262,7 @@ class EnvPanel(QWidget):
         self._row_group: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
         self.file_status = ""
+        self.read_error = ""
         self.fields, self.fields_error = self._read_fields()
         # Without this, a QWidget subclass ignores its own sheet's
         # background and shows the global sheet's gray (`theme.py`): the
@@ -289,7 +290,8 @@ class EnvPanel(QWidget):
         """Return the `Settings` fields, or the error preventing it.
 
         The error does not bring the panel down: it shows above the
-        form, and any keys in the file stay under «Otras claves».
+        form, and the file is not written while it lasts, since without
+        the fields the save would erase the credentials.
         """
         server = Path(self.project.path) / envfile.Config.for_project(self.project.path).get(
             "SERVER_DIR"
@@ -334,7 +336,7 @@ class EnvPanel(QWidget):
 
         self.create_btn = QPushButton("Crear archivo")
         self.create_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.create_btn.clicked.connect(self.create_file)
+        self.create_btn.clicked.connect(self.save)
 
         self.reload_btn = QPushButton("Recargar")
         self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -476,26 +478,28 @@ class EnvPanel(QWidget):
 
     def reload(self) -> None:
         """Reread the file into the form."""
-        values = {**envfile.load_config(self.project.path), **params_store.machine_env()}
+        text = self._read_file()
+        saved = envfile.parse_env(text or "")
+        values = {**saved, **params_store.machine_env()}
         for key, row in self.rows.items():
             row.blockSignals(True)
             row.set_value(values.get(key, ""))
             row.blockSignals(False)
 
-        exists = os.path.isfile(envfile.config_path(self.project.path))
-        if not exists:
-            self.banner_label.setText(
-                "No hay .consola/config.env todavía. Pulsa «Crear archivo» para "
-                "generarlo en blanco con todas las claves."
-            )
-            self.banner.setVisible(True)
-        else:
-            self.banner.setVisible(False)
-
-        self._sync_file_bar(exists)
+        self._sync_file_bar(text)
         self._refresh_defaults()
         self.values_changed.emit(self.values())
         self.reloaded.emit()
+
+    def _read_file(self) -> str | None:
+        """Return the file's text, keeping why it cannot be read."""
+        try:
+            text = envfile.config_text(self.project.path)
+        except TaskError as error:
+            self.read_error = str(error)
+            return None
+        self.read_error = ""
+        return text
 
     def _refresh_defaults(self) -> None:
         """Recompute each field's watermark: its default if left empty.
@@ -515,16 +519,56 @@ class EnvPanel(QWidget):
             cfg = envfile.Config(without_this, repo_name=envfile.repo_name_of(self.project.path))
             row.set_default_display(cfg.get(key))
 
-    def _sync_file_bar(self, exists: bool) -> None:
+    def _sync_file_bar(self, text: str | None) -> None:
+        """Show the file's state and the button that updates it.
+
+        The button hides only when the file already has the schema's
+        form; until then it says whether it creates or rewrites it.
+        Neither it nor Save is enabled when the file cannot be read or
+        the repo's fields are unknown: writing then would leave blank
+        what could not be read, or erase the credentials.
+        """
         rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, "/")
-        self.file_status = f"{rel} — {'listo' if exists else 'no existe'}"
+        blocked = bool(self.read_error or self.fields_error)
+        current = text is not None and not blocked and envfile.is_current(text, self.fields)
+        if self.read_error:
+            state, notice = "ilegible", self.read_error
+        elif text is None:
+            state = "no existe"
+            notice = (
+                f"No hay {rel} todavía. Pulsa «Crear archivo» para generarlo con todas las claves."
+            )
+        elif current:
+            state, notice = "listo", ""
+        else:
+            state = "desactualizado"
+            notice = self._outdated_notice(rel, envfile.parse_env(text))
+        if self.fields_error:
+            notice = f"No se escribe {rel} mientras config.py tenga el error de arriba."
+
+        self.file_status = f"{rel} — {state}"
         self.file_status_changed.emit(self.file_status)
-        self.create_btn.setVisible(not exists)
-        self.import_btn.setVisible(exists)
+        self.banner_label.setText(notice)
+        self.banner.setVisible(bool(notice))
+
+        self.create_btn.setText("Crear archivo" if text is None else "Actualizar archivo")
         self.create_btn.setToolTip(
-            "Crea el archivo con todas las claves del esquema, agrupadas y en blanco"
+            "Escribe el archivo con todas las claves del esquema, en su orden y con sus "
+            "comentarios, conservando los valores"
         )
+        self.create_btn.setVisible(not current and not blocked)
+        self.save_btn.setEnabled(not blocked)
+        self.import_btn.setVisible(text is not None)
+        self.import_btn.setEnabled(not blocked)
         self.import_btn.setToolTip("Importa claves conocidas desde otro archivo .env")
+
+    def _outdated_notice(self, rel: str, saved: dict[str, str]) -> str:
+        """Say the file is outdated, and what writing it erases."""
+        notice = f"{rel} no tiene la forma actual del esquema."
+        removed = envfile.removed_keys(saved, self.fields)
+        if removed:
+            notice += f" Al escribirlo se borran: {', '.join(removed)}."
+        return notice
 
     def browse_import(self) -> None:
         """Import known keys from any .env file the user chooses.
@@ -553,19 +597,6 @@ class EnvPanel(QWidget):
             f"Revisa y guarda para escribir el archivo."
         )
 
-    def create_file(self) -> None:
-        """Create `.consola/config.env` with ALL the schema's keys.
-
-        Those any control may come to ask for, grouped by category,
-        commented and empty. It overwrites nothing: if the file exists
-        or the form has values, written or imported, they stay and only
-        missing keys add blank.
-        """
-        path = envfile.save_config(self.project.path, self.values(), self.fields)
-        self.reload()
-        self._notify(f"Archivo creado en {path}")
-        self.saved.emit(self.values())
-
     def _notify(self, text: str) -> None:
         self.banner_label.setText(text)
         self.banner.setVisible(True)
@@ -573,12 +604,23 @@ class EnvPanel(QWidget):
     def save(self) -> None:
         """Send each value to its place: the repo's file or QSettings.
 
-        `save_config` already discards machine keys, so the two writes
-        do not clash (`core/envfile.render_config`).
+        Save and «Crear/Actualizar archivo» both land here: the file is
+        always written whole, with all the schema's keys in its order,
+        and the form's values. `save_config` discards machine keys, so
+        the two writes do not clash (`core/envfile.render_config`), and
+        the keys the schema no longer declares, which it names after
+        writing.
         """
+        text = self._read_file()
+        if self.read_error:
+            self._sync_file_bar(text)
+            return
+        removed = envfile.removed_keys(envfile.parse_env(text or ""), self.fields)
         params_store.save_machine_env(self.values())
         envfile.save_config(self.project.path, self.values(), self.fields)
-        self.banner.setVisible(False)
+        self._sync_file_bar(self._read_file())
+        if removed:
+            self._notify(f"Se borraron de config.env: {', '.join(removed)}.")
         self.saved.emit(self.values())
         self.values_changed.emit(self.values())
 

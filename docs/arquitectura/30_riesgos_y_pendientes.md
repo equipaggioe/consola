@@ -30,10 +30,6 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | H13 | **El avance de cmdline-tools solo llega al terminar.** `dl.google.com` deja el total en `-1` hasta el último aviso, y `_download` descarta los avisos sin total: 1 de 72, medido el 2026-11-04. La descarga de Flutter sí trae el total: 47 avisos en 5 s. No se investigó por qué difieren. Hoy no se ve, por H1 | `core/tasks/utils.py::_download` |
 ## 3. Pendientes abiertos
 
-### Reportados en uso
-
-- **Los secretos se ven en el formulario.** «Contraseña de sudo» y los demás campos con `secret=True` se muestran en claro en la configuración del repo. Visto el 2026-11-02 `ui/env_panel.py`.
-
 ### Decididos y sin construir
 
 | Qué | ADR | Plan |

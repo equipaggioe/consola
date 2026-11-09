@@ -8,7 +8,6 @@ from collections.abc import Iterable
 from app.core.errors import MissingConfig, TaskError
 from app.core.settings import (
     GROUP_ORDER,
-    SETTINGS,
     Setting,
     get_setting,
     repo_settings,
@@ -81,6 +80,22 @@ def has_config(repo_path: str) -> bool:
     return os.path.isfile(config_path(repo_path))
 
 
+def config_text(repo_path: str) -> str | None:
+    """Return the text of the repo's `config.env`, or None if absent.
+
+    A file that exists and cannot be read stops: read as empty, the next
+    save would write it back blank.
+    """
+    path = config_path(repo_path)
+    try:
+        with open(path, "r", encoding="utf-8") as fh:
+            return fh.read()
+    except FileNotFoundError:
+        return None
+    except (OSError, UnicodeDecodeError) as error:
+        raise TaskError(f"No se puede leer {path}: {error}") from error
+
+
 # Generic description of the dynamic default, for the template file,
 # which belongs to no repo and cannot resolve it to a value.
 _DYNAMIC_DEFAULT_HINTS = {
@@ -113,17 +128,12 @@ def describe(setting: Setting) -> str:
 def render_config(values: dict[str, str], fields: tuple[Setting, ...] = ()) -> str:
     """Regenerate the file grouped by category.
 
-    Foreign keys stay at the end.
-
-    Only `scope='repo'` keys: what belongs to the machine and not the
-    project is not written here even if it comes in `values`
-    (`core/settings.py`). `fields` are the repo's `Settings` fields
-    (`core/fields.py`), which go in their group.
+    Only the schema's `scope='repo'` keys and the repo's `Settings`
+    fields (`core/fields.py`), which go in their group. Any other key in
+    `values` is not written: machine keys belong in QSettings
+    (`core/settings.py`), and a key the schema no longer declares is
+    gone (`removed_keys` names them before saving).
     """
-    # Machine keys count as known so they do NOT fall into «Otras
-    # claves»: the file does not write them, in their group or at the
-    # end.
-    known = {s.key for s in (*SETTINGS, *fields)}
     groups = settings_by_group(fields)
     out = [HEADER]
     for group in GROUP_ORDER:
@@ -136,12 +146,18 @@ def render_config(values: dict[str, str], fields: tuple[Setting, ...] = ()) -> s
             if note:
                 out.append(f"# {note}\n")
             out.append(f"{setting.key}={values.get(setting.key, '')}\n")
-    extra = {k: v for k, v in values.items() if k not in known}
-    if extra:
-        out.append("\n# Otras claves\n")
-        for key in sorted(extra):
-            out.append(f"{key}={extra[key]}\n")
     return "".join(out)
+
+
+def removed_keys(values: dict[str, str], fields: tuple[Setting, ...] = ()) -> list[str]:
+    """Return the keys of `values` `render_config` does not write."""
+    written = {s.key for s in (*repo_settings(), *fields)}
+    return sorted(k for k in values if k not in written)
+
+
+def is_current(text: str, fields: tuple[Setting, ...] = ()) -> bool:
+    """Return whether the file's text already has the schema's form."""
+    return text == render_config(parse_env(text), fields)
 
 
 def save_config(repo_path: str, values: dict[str, str], fields: tuple[Setting, ...] = ()) -> str:
@@ -303,9 +319,3 @@ class Config:
     def missing(self, *keys: str) -> list[str]:
         """Return which of those keys have no value."""
         return [k for k in keys if not self.get(k)]
-
-    def secrets(self) -> list[str]:
-        """Return the values to mask in the console (ADR-0064)."""
-        return [
-            self.values[s.key] for s in SETTINGS if s.secret and self.values.get(s.key, "").strip()
-        ]

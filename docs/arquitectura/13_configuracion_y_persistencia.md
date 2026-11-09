@@ -19,7 +19,7 @@ Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0064](../ad
 | Campo | Qué dice |
 |---|---|
 | `group` | En qué bloque del formulario aparece |
-| `secret` | Se enmascara al mostrarla y en el log |
+| `secret` | `config.env` la comenta como «secreto». El formulario la muestra en claro a propósito: el valor ya está en claro en `config.env`, y ocultarlo solo impediría revisar lo escrito. El log no la mira: lo enmascara cada tarea con `ctx.guard` ([04](04_conceptos_transversales.md) §5) |
 | `default` | El mismo valor para cualquier repo (`ROOT_USER=root`) |
 | `default_hint` | El default existe pero lo pone otro (la carpeta de build de cada framework): se muestra de marca de agua |
 | `kind='list'` | Campo multilínea; en el archivo se guarda separado por comas |
@@ -36,10 +36,10 @@ Cada línea de `config.env` es de una de tres fuentes ([ADR-0063](../adr/0063-la
 | Fuente | Qué claves | Adónde van |
 |---|---|---|
 | Los campos de `Settings` del repo | Uno por campo de `<SERVER_DIR>/src/app/config.py`, en mayúsculas, salvo `database_url` y `turn_secret`. Los lee `core/fields.py` con `ast` | A `credentials.py` |
-| Nombre fijo | `RESTIC_PASSWORD` y `GITHUB_TOKEN` | A `credentials.py` |
+| Nombre fijo | `RESTIC_PASSWORD`, y `GITHUB_TOKEN` si `PRIVATE` dice que sí | A `credentials.py` |
 | El registro de `core/settings.py` | Los argumentos de `install.py` y las claves propias de Consola | A `install.py`, o las lee Consola |
 
-El formulario muestra las dos primeras en el grupo «Credenciales». Los campos se leen al abrir el repo; un campo que se llame como una clave del registro corta, y un `config.py` sin la clase `Settings` se avisa arriba del formulario.
+El formulario muestra las dos primeras en el grupo «Credenciales», junto con `DATABASE_URL`, que es del registro y no va a `credentials.py`: es la base local de las credenciales de desarrollo (§9). Los campos se leen al abrir el repo; un campo que se llame como una clave del registro corta, y un `config.py` sin la clase `Settings` se avisa arriba del formulario.
 
 ## 3. Defaults: fijos y dinámicos
 
@@ -59,7 +59,11 @@ Un default fijo tiene un efecto que conviene tener presente: **una clave con def
 
 ## 4. El archivo `config.env`
 
-Se **regenera** entero desde el esquema al guardar: encabezado, un bloque por grupo, y un comentario por clave que dice para qué sirve y cuál es su default. Las claves ajenas que hubiera en el archivo se conservan al final, bajo «Otras claves»; las de máquina no se escriben aunque vengan en los valores.
+No hay plantilla: la forma del archivo es el esquema de `core/settings.py` más los campos de `Settings` del repo, y `core/envfile.py::render_config` la escribe. Se **regenera** entero al guardar: encabezado, un bloque por grupo, y un comentario por clave que dice para qué sirve y cuál es su default. Solo se escriben las claves de `scope='repo'` y los campos; cualquier otra que hubiera en el archivo, ajena o de máquina, se borra.
+
+El botón del pie, «Crear archivo» o «Actualizar archivo», escribe lo mismo que «Guardar» y está a la vista mientras el archivo no tenga esa forma (`envfile.is_current`), así que un cambio del esquema lo hace aparecer en cada repo. Antes de escribir, el aviso nombra las claves que se van a borrar, y después, las que se borraron.
+
+Un archivo que existe y no se puede leer no se trata como vacío: el panel muestra el error y no deja guardar, porque escribir dejaría en blanco lo que no se leyó. Tampoco deja guardar mientras `config.py` tenga un error, porque sin los campos se borrarían las credenciales.
 
 Leerlo nunca toca `os.environ`: una tarea no puede pisarle el entorno a las otras pestañas que corren a la vez.
 

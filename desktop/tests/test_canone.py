@@ -10,7 +10,7 @@ from typing import Any, cast
 
 import pytest
 
-from app.core import canone, envfile, process, runner
+from app.core import canone, envfile, fields, process, runner
 from app.core.context import TaskContext
 from app.core.envfile import Config
 from app.core.errors import TaskError
@@ -41,7 +41,7 @@ def repo(tmp_path: Path, state: str = "en desarrollo", **values: str) -> tuple[P
         "DB_EXTENSIONS": "",
         **values,
     }
-    envfile.save_config(str(tmp_path), base)
+    envfile.save_config(str(tmp_path), base, fields.field_settings(tmp_path / "server"))
     return tmp_path, Config.for_project(str(tmp_path))
 
 
@@ -144,9 +144,11 @@ def test_credentials_by_source(tmp_path: Path) -> None:
 
 def test_a_foreign_key_stops_before_sending(tmp_path: Path) -> None:
     """A key in no source stops before sending."""
-    root, config = repo(
-        tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r", TURN_SECRET="viejo"
-    )
+    root, _ = repo(tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r")
+    # Written by hand: Consola's save writes no key without a source.
+    with open(envfile.config_path(str(root)), "a", encoding="utf-8") as fh:
+        fh.write("TURN_SECRET=viejo\n")
+    config = Config.for_project(str(root))
     with pytest.raises(TaskError) as error:
         canone.credential_lines(root, config)
     assert "TURN_SECRET" in str(error.value)
