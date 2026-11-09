@@ -23,7 +23,7 @@ Lo que va por stdin no pasa por el log. Un comando que lee stdin se lanza sin `-
 
 El despliegue lo hacen los programas de canone ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)). Consola prepara la máquina y corre `install.py` y `credentials.py` (§4), y publica, firma y despliega versiones (§4b). No clona el repo en el VPS ni escribe configuración de servicios: eso lo instala `install.py`.
 
-**Regla:** lo que deja un cambio permanente en un VPS lo hace un programa de canone. Si canone no lo trae, se agrega primero a canone. No alcanza a lo que corre en esta máquina (compilar, crear el tag, firmar), a correr lo que canone ya instaló (`deploy.py`, `credentials.py`, `systemctl`, los registros, la salud), ni a lo que canone deja a quien prepara la máquina (sus paquetes, el swap). Hoy la incumplen «Quitar acceso SSH» y el ámbito remoto de los botones de base (30).
+**Regla:** lo que deja un cambio permanente en un VPS lo hace un programa de canone. Si canone no lo trae, se agrega primero a canone. No alcanza a lo que corre en esta máquina (compilar, crear el tag, firmar), a correr lo que canone ya instaló (`deploy.py`, `credentials.py`, `systemctl`, los registros, la salud), ni a lo que canone deja a quien prepara la máquina (el swap). Hoy la incumplen «Quitar acceso SSH» y el ámbito remoto de los botones de base (30).
 
 Este documento describe los botones que siguen alcanzando el VPS.
 
@@ -43,11 +43,13 @@ Las lee la subida de «Compilar ejecutable» ([17](17_builds_y_artefactos.md)).
 
 | Paso | Qué hace |
 |---|---|
-| Paquetes y uv (`install_software`) | `apt-get install` de `canone.packages`: los de la máquina de canone, más PostGIS si `DB_EXTENSIONS` la nombra, coturn con `TURN` y lo del journal con `LOGS`. Después corre `uv.py` |
+| Paquetes y uv (`install_software`) | Corre `packages.py` de canone, que tiene la lista ([ADR-0131 de canone](https://github.com/equipaggioe/canone/blob/main/adr/0131-los-paquetes-de-la-maquina-los-instala-packages-py.md)), con las opciones de `install.py` que agregan un paquete: `--extension` por cada una de `DB_EXTENSIONS`, `--turn` con `TURN` y `--logs` con `LOGS` (`canone.package_args`). Si la máquina no tiene `python3`, lo instala con apt antes, porque `packages.py` corre con él. Después corre `uv.py` |
 | Swap (`create_swap`) | Si el swap no llega a la memoria, crea `/swapfile` con lo que falta y lo agrega a `/etc/fstab`. Sin eso, `install.py` falla |
 | Infraestructura (`install_infra`) | Corre `install.py` con `canone.install_args`, con `--development` si el `README.md` dice `Estado: en desarrollo` ([16](16_base_de_datos.md) §6). La primera vez, como root por `ssh -tt`, y escribe la contraseña de la cuenta recién cuando aparece cada pregunta (`process.converse`); después, con `sudo` |
 | Credenciales (`load_credentials`) | Pasa a `credentials.py`, por stdin, una línea `campo=valor` por credencial (`canone.credential_lines`, [13](13_configuracion_y_persistencia.md) §2). Corta antes de enviar si falta un valor o si `config.env` tiene una clave sin fuente |
 | Último release (`vps_release.deploy_latest`) | Despliega el release que GitHub da como `latest`, si tiene su firma. Si `/srv/<app>/current` ya es ese release, no hace nada ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)) |
+
+Antes de correr, «Instalar paquetes base» y «Configurar VPS» muestran arriba de sus parámetros los paquetes que se van a instalar: `canone.packages` corre `packages.py --list` de `CANONE_DIR` con el Python de esta máquina, sobre el `config.env` guardado, y se vuelve a preguntar al guardarlo (`Capability.preview`, `catalog.preview_lines`). Si no se puede preguntar, en su lugar va el motivo.
 
 El DNS tiene que apuntar al VPS antes de correrla. Si no, Caddy se queda sin certificado y sus reintentos se espacian: el 2026-11-02 esperaba 20 minutos, y hubo que reiniciarlo para que lo pidiera al crear los registros. Let's Encrypt es el único emisor que responde: el Caddy 2.6.2 de Debian prueba ZeroSSL después, y ZeroSSL lo rechaza con `caddy_legacy_user_removed`.
 

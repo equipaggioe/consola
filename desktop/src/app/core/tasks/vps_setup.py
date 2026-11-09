@@ -3,8 +3,9 @@
 ADR-0059.
 
 The machine reaches `install.py` with its packages, uv and as much swap
-as memory: whoever prepares it supplies that, which is Consola
-(despliegue.md of canone, «Maquina»). Then `install.py` installs the
+as memory (despliegue.md of canone, «Máquina»). canone's `packages.py`
+and `uv.py` install the first two; the swap is left to whoever prepares
+the machine, which is Consola. Then `install.py` installs the
 app, creates the admin account and allows entry only by key, and
 `credentials.py` encrypts the credentials.
 
@@ -141,23 +142,27 @@ def refresh_known_host(ctx: TaskContext) -> str:
 
 
 def install_software(ctx: TaskContext) -> list[str]:
-    """Install the packages `install.py` assumes, and uv with `uv.py`.
+    """Run canone's `packages.py`, and then `uv.py`.
 
-    Packages come from the repo and not an axis: PostGIS if
-    `DB_EXTENSIONS` names it, coturn with `TURN`, and the journal's with
-    `LOGS` (`canone.packages`). `uv.py` installs the uv version canone
-    fixes (ADR-0110 of canone): it runs again when canone changes it.
+    The packages come from canone, not from here: `packages.py` gets the
+    options of `install.py` that add one, from `config.env`
+    (`canone.package_args`, ADR-0131 of canone). It runs with the
+    machine's `python3`: an image without it gets it from apt first.
+    `uv.py` installs the uv version canone fixes (ADR-0110 of canone):
+    it runs again when canone changes it.
     """
     entry = access(ctx)
     packages = canone.packages(ctx.config)
-    package_list = " ".join(ssh.quote(p) for p in packages)
-    entry.run(
-        ctx,
-        "export DEBIAN_FRONTEND=noninteractive && apt-get update -qq && "
-        f"apt-get install -y {package_list}",
-    )
+    ctx.info(f"Paquetes de canone para este repo: {', '.join(packages)}")
     destination = _upload(ctx, entry)
+    options = " ".join(ssh.quote(a) for a in canone.package_args(ctx.config))
     try:
+        entry.run(
+            ctx,
+            "command -v python3 >/dev/null || { apt-get update -qq && "
+            "DEBIAN_FRONTEND=noninteractive apt-get install -y python3; }",
+        )
+        entry.run(ctx, f"python3 {destination}/packages.py {options}".rstrip())
         entry.run(ctx, f"python3 {destination}/uv.py")
     finally:
         _cleanup(ctx, entry)

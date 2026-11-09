@@ -9,6 +9,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | Clave | Grupo | Etiqueta | Tipo | Default | |
 |---|---|---|---|---|---|
 | `API_URL` | Server | URL pública de la API | | | exige |
+| `SERVER_DIR` | Server | Carpeta del server | | `server` | usa |
 | `CF_API_TOKEN` | Cloudflare | API token | secreto | | exige |
 | `CF_DOMAIN_NAME` | Cloudflare | Dominio | | | exige |
 | `CF_RECORD_NAME` | Cloudflare | Registro DNS | | | exige |
@@ -24,20 +25,19 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `TURN` | VPS | Llamadas con coturn | sí/no | | usa |
 | `TURN_IP` | VPS | IP pública para TURN | | | usa |
 | `LOGS_IP` | VPS | IP del túnel de logs | | | usa |
-| `DB_USER` | VPS | Rol de la base | | nombre del repo | exige |
-| `DB_NAME` | VPS | Base de datos | | `<repo>_db` | exige |
-| `DB_PASSWORD` | VPS | Password de la base | secreto | | exige |
-| `BACKUP_DIR` | VPS | Carpeta de respaldos | | `.backups` | usa |
-| `BACKUP_KEEP` | VPS | Respaldos a conservar | | `7` | usa |
-| `PG_SUPERUSER` | VPS | Superusuario Postgres | | `postgres` | exige |
-| `PG_PASSWORD` | VPS | Password del superusuario | secreto | | exige |
-| `DB_EXTENSIONS` | VPS | Extensiones de Postgres | lista | | usa |
+| `DB_USER` | Base de datos | Rol de la base | | nombre del repo | exige |
+| `DB_NAME` | Base de datos | Base de datos | | `<repo>_db` | exige |
+| `DB_PASSWORD` | Base de datos | Password de la base | secreto | | exige |
+| `BACKUP_DIR` | Base de datos | Carpeta de respaldos | | `.backups` | usa |
+| `BACKUP_KEEP` | Base de datos | Respaldos a conservar | | `7` | usa |
+| `PG_SUPERUSER` | Base de datos | Superusuario Postgres | | `postgres` | exige |
+| `PG_PASSWORD` | Base de datos | Password del superusuario | secreto | | exige |
+| `DB_EXTENSIONS` | Base de datos | Extensiones de Postgres | lista | | usa |
 | `GIT_REPO_URL` | GitHub | URL del repositorio | | | usa |
 | `PRIVATE` | GitHub | Repo privado | sí/no | | usa |
 | `DATABASE_URL` | Credenciales | Base de desarrollo | secreto | | usa |
 | `RESTIC_PASSWORD` | Credenciales | Contraseña de restic | secreto | | exige |
 | `GITHUB_TOKEN` | Credenciales | Token de GitHub | secreto | | usa |
-| `SERVER_DIR` | Systemd | Carpeta del server | | `server` | usa |
 | `BUILD_OUT_APK` | Builds | Carpeta del build APK | | donde lo deja el framework | usa |
 | `BUILD_OUT_AAB` | Builds | Carpeta del build AAB | | ídem | usa |
 | `BUILD_OUT_WEB` | Builds | Carpeta del build web | | ídem | usa |
@@ -88,6 +88,8 @@ Lista plana de nombres de extensión.
 Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (archivo temporal y `os.replace`), agrupada cada 500 ms.
 
 ## 4. `QSettings` (organización y aplicación: `Consola`)
+
+Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Consola.ini` en Linux.
 
 | Clave | Qué |
 |---|---|

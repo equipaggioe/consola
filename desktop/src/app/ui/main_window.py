@@ -219,7 +219,6 @@ class MainWindow(QMainWindow):
         self.project_tabs.project_retinted.connect(self._on_project_retinted)
 
         self.action_menu.action_requested.connect(self._on_action_requested)
-        self.action_menu.focus_search_requested.connect(self.action_search.box.setFocus)
         self.action_menu.only_favorites_toggled.connect(self._on_only_favorites)
         self.action_menu.section_toggled.connect(self._on_section_toggled)
 
@@ -318,15 +317,13 @@ class MainWindow(QMainWindow):
 
     # --- shortcuts ---
     def _install_shortcuts(self) -> None:
-        """Set the shortcuts that hang from no menu item.
-
-        Ctrl+L lives in `ui/menu_bar.py`, on its `QAction`: declaring it
-        here too would give an ambiguous shortcut and neither would
-        respond.
-        """
+        """Set the window's shortcuts; none hangs from a menu item."""
         QShortcut(QKeySequence("Ctrl+Tab"), self).activated.connect(lambda: self._cycle(1))
         QShortcut(QKeySequence("Ctrl+Shift+Tab"), self).activated.connect(lambda: self._cycle(-1))
         QShortcut(QKeySequence("Ctrl+T"), self).activated.connect(self.project_tabs._pick_repo)
+        QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(
+            lambda: self.action_search.box.setFocus()
+        )
         # By position on pressing: reordering tabs renumbers by itself.
         for i in range(9):
             QShortcut(QKeySequence(f"Ctrl+{i + 1}"), self).activated.connect(

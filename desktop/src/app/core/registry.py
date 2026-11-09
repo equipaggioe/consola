@@ -397,6 +397,10 @@ class Capability:
     # emulator» button: what runs shows where one chooses, and stops
     # from there.
     live_state: str = ""
+    # what running will do, shown on top of the parameters before
+    # running: the packages canone installs for this repo
+    # (`core/catalog.py::preview_lines`)
+    preview: str = ""
     stub: bool = True
     func: Callable[..., Any] | None = None
 

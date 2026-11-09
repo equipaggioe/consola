@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import Signal
-from PySide6.QtGui import QAction, QKeySequence
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMenuBar, QWidget
 
 from app.core.registry import Capability, registry
@@ -27,7 +27,6 @@ class ActionMenuBar(QMenuBar):
     """
 
     action_requested = Signal(str)  # capability_id: open its tab
-    focus_search_requested = Signal()
     only_favorites_toggled = Signal(bool)
     section_toggled = Signal(str, bool)  # section id, visible
 
@@ -190,20 +189,14 @@ class ActionMenuBar(QMenuBar):
         return action
 
     def _build_view_menu(self) -> None:
-        """Build the search, «Solo favoritos» and the visible sections.
+        """Build «Solo favoritos» and the visible sections.
 
-        The last two are preferences of the app, not of the repo: they
-        hold for every tab. The checks are read again on opening the
-        menu, since a section also hides from its header's right click.
+        Both are preferences of the app, not of the repo: they hold for
+        every tab. The checks are read again on opening the menu, since
+        a section also hides from its header's right click.
         """
         menu = self._add_menu("Ver", checks=True)
         self._view_menu = menu
-        search = QAction("Buscar acciones", self)
-        search.setShortcut(QKeySequence("Ctrl+L"))
-        search.triggered.connect(self.focus_search_requested.emit)
-        menu.addAction(search)
-
-        menu.addSeparator()
         self._only_favorites_action = QAction("Solo favoritos", self)
         self._only_favorites_action.setCheckable(True)
         self._only_favorites_action.setChecked(self._only_favorites)

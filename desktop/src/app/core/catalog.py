@@ -179,12 +179,28 @@ SHOTS_LANGUAGES = "shots_languages"
 _SHOTS_AXES = {SHOTS_APPS: "apps", SHOTS_THEMES: "themes", SHOTS_LANGUAGES: "languages"}
 # the repo's apps that take their icon from the logo
 ICON_APPS = "icon_apps"
+# the packages canone's `packages.py` installs for this repo
+PACKAGES = "packages"
+# the title each preview goes under in the panel
+PREVIEW_TITLES = {PACKAGES: "Paquetes que se instalan"}
 
 # What is installed and created changes while Consola is open, so they
 # cache for a minute and no more: enough not to repeat the query on
 # opening three tabs in a row, and not enough to lie after an install.
 # The two large catalogs use the month default of `core/cache.py`.
 _FRESH = 60.0
+
+
+def preview_lines(source: str, *, config: Config) -> list[str]:
+    """Return what a capability's preview shows.
+
+    It asks canone's `packages.py --list` with the options `config.env`
+    gives (ADR-0131 of canone). It reads the saved file: what the task
+    will read when it runs.
+    """
+    if source == PACKAGES:
+        return canone.packages(config)
+    raise TaskError(f"Vista previa desconocida: {source}")
 
 
 def queried_values(
@@ -1456,6 +1472,7 @@ def load_catalog() -> None:
             icon="🚀",
             description="Deja el VPS listo con los programas de canone: paquetes, swap, "
             "install.py, credenciales y el último release.",
+            preview=PACKAGES,
             steps=BOOTSTRAP_VPS_STEPS,
             stub=True,
         )
@@ -1469,6 +1486,7 @@ def load_catalog() -> None:
             kind="once",
             icon="📦",
             description="Instala en el VPS los paquetes que pide canone para este repo, y uv.",
+            preview=PACKAGES,
             stub=True,
         )
     )

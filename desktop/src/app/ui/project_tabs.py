@@ -12,11 +12,13 @@ from PySide6.QtGui import (
     QContextMenuEvent,
     QEnterEvent,
     QFont,
+    QIcon,
     QMouseEvent,
     QPainter,
     QPainterPath,
     QPaintEvent,
     QPen,
+    QPixmap,
 )
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -29,7 +31,7 @@ from PySide6.QtWidgets import (
 )
 
 from app.core.projects import Project
-from app.theme import Colors, Fonts, tint
+from app.theme import Colors, Fonts, on_color, tint
 from app.ui import palettes, params_store, project_store, repo_logo
 from app.ui.palettes import Palette
 from app.ui.widgets import ReorderableBar, ReorderableTab
@@ -236,6 +238,9 @@ class ProjectTab(ReorderableTab):
 
     def _context_menu(self) -> QMenu:
         menu = QMenu(self)
+        # Qt sets the samples against the edge; these leave them where
+        # the Ver menu sets its checks (`ui/menu_bar.py::_menu_style`).
+        menu.setStyleSheet("QMenu::icon { left: 8px; } QMenu::item { padding-left: 16px; }")
         path_action = QAction(self.project.path, self)
         path_action.setEnabled(False)
         menu.addAction(path_action)
@@ -243,10 +248,13 @@ class ProjectTab(ReorderableTab):
 
         # Color is chosen, not assigned by chance: adding a repo gives
         # it the first free theme, and any other can be picked here.
+        # Each item carries its sample in the box where a check would
+        # go, and the chosen one carries the check inside its sample.
+        ratio = self.devicePixelRatioF()
         for key, pal in palettes.THEMES.items():
-            action = QAction(pal.label, self)
-            action.setCheckable(True)
-            action.setChecked(key == self.project.theme)
+            action = QAction(
+                swatch(pal.accent, chosen=key == self.project.theme, ratio=ratio), pal.label, self
+            )
             action.triggered.connect(lambda _=False, k=key: self.set_theme(k))
             menu.addAction(action)
         return menu
@@ -283,6 +291,35 @@ class ProjectTab(ReorderableTab):
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawPath(path)
         p.end()
+
+
+def swatch(color: str, *, chosen: bool, ratio: float) -> QIcon:
+    """Return a box filled with `color`, with a check if `chosen`.
+
+    The size and the radius of a check box (`QCheckBox::indicator` in
+    `app/theme.py`), so the color menu reads as a list of boxes.
+    """
+    side = 15
+    pixmap = QPixmap(round(side * ratio), round(side * ratio))
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    p = QPainter(pixmap)
+    p.setRenderHint(QPainter.RenderHint.Antialiasing)
+    box = QPainterPath()
+    box.addRoundedRect(QRectF(0.5, 0.5, side - 1, side - 1), 4, 4)
+    p.fillPath(box, QColor(color))
+    if chosen:
+        pen = QPen(QColor(on_color(color)))
+        pen.setWidthF(1.8)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        p.setPen(pen)
+        tick = QPainterPath(QPointF(3.8, 7.8))
+        tick.lineTo(6.4, 10.4)
+        tick.lineTo(11.2, 4.8)
+        p.drawPath(tick)
+    p.end()
+    return QIcon(pixmap)
 
 
 class AddProjectTab(QWidget):

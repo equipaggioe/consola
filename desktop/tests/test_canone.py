@@ -125,13 +125,32 @@ def test_turn_ip_without_turn_stops(tmp_path: Path) -> None:
         canone.install_args(root, config, "demo", "equipaggio", KEYS)
 
 
-def test_packages_by_repo(tmp_path: Path) -> None:
-    """Packages depend on the repo."""
+def test_package_options_by_repo(tmp_path: Path) -> None:
+    """The options of packages.py depend on the repo."""
     _, config = repo(tmp_path, DB_EXTENSIONS="postgis", TURN="si")
-    packages = canone.packages(config)
-    assert canone.POSTGIS_PACKAGE in packages
-    assert "coturn" in packages
-    assert "wireguard-tools" not in packages
+    assert canone.package_args(config) == ["--extension", "postgis", "--turn"]
+
+
+def test_packages_come_from_packages_py(tmp_path: Path) -> None:
+    """The packages are what packages.py --list prints."""
+    infra = tmp_path / "canone" / "plantilla" / "infra"
+    infra.mkdir(parents=True)
+    (infra / "install.py").write_text("", encoding="utf-8")
+    (infra / "packages.py").write_text(
+        "import sys\nprint(*['base', *sys.argv[1:]], sep='\\n')\n", encoding="utf-8"
+    )
+    config = Config({"DB_EXTENSIONS": "postgis", "CANONE_DIR": str(tmp_path / "canone")})
+    assert canone.packages(config) == ["base", "--list", "--extension", "postgis"]
+
+
+def test_without_packages_py_it_says_so(tmp_path: Path) -> None:
+    """A canone copy without packages.py stops and says so."""
+    infra = tmp_path / "canone" / "plantilla" / "infra"
+    infra.mkdir(parents=True)
+    (infra / "install.py").write_text("", encoding="utf-8")
+    config = Config({"CANONE_DIR": str(tmp_path / "canone")})
+    with pytest.raises(TaskError, match="packages.py"):
+        canone.packages(config)
 
 
 def test_credentials_by_source(tmp_path: Path) -> None:

@@ -312,7 +312,7 @@ class EnvPanel(QWidget):
 
         The file's state, existing or not, does not go here: it travels
         through `file_status_changed` to the section header's label.
-        Order: import and create at left, Reload and Save at right. Save
+        Order: import or create at left, Reload and Save at right. Save
         is the only way to persist edits, because row changes only emit
         in memory.
         """
@@ -513,10 +513,11 @@ class EnvPanel(QWidget):
         """Show the file's state and the button that updates it.
 
         The button hides only when the file already has the schema's
-        form; until then it says whether it creates or rewrites it.
-        Neither it nor Save is enabled when the file cannot be read or
-        the repo's fields are unknown: writing then would leave blank
-        what could not be read, or erase the credentials.
+        form; until then it says whether it creates or rewrites it, and
+        import is not offered. Neither it nor Save is enabled when the
+        file cannot be read or the repo's fields are unknown: writing
+        then would leave blank what could not be read, or erase the
+        credentials.
         """
         rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, "/")
         blocked = bool(self.read_error or self.fields_error)
@@ -547,10 +548,12 @@ class EnvPanel(QWidget):
             "Escribe el archivo con todas las claves del esquema, en su orden y con sus "
             "comentarios, conservando los valores"
         )
+        # The two share the slot: importing fills the form of a file
+        # that already has the schema's form, so until it has it the
+        # place goes to the button that gives it that form.
         self.create_btn.setVisible(not current and not blocked)
         self.save_btn.setEnabled(not blocked)
-        self.import_btn.setVisible(text is not None)
-        self.import_btn.setEnabled(not blocked)
+        self.import_btn.setVisible(current)
         self.import_btn.setToolTip("Importa claves conocidas desde otro archivo .env")
 
     def _outdated_notice(self, rel: str, saved: dict[str, str]) -> str:

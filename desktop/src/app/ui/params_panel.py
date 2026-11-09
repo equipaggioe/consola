@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from dataclasses import replace
+from pathlib import Path
 from typing import Any, override
 
 from PySide6.QtCore import QObject, Qt, QThread, Signal
@@ -20,12 +21,13 @@ from PySide6.QtWidgets import (
     QPushButton,
     QScrollArea,
     QSizePolicy,
+    QStyledItemDelegate,
     QVBoxLayout,
     QWidget,
 )
 
 from app.core import envfile
-from app.core.catalog import for_project, queried_values
+from app.core.catalog import PREVIEW_TITLES, for_project, preview_lines, queried_values
 from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.projects import Project
@@ -110,6 +112,13 @@ class AxesLoader(QThread):
                 no_values: tuple[list[str], dict[str, str]] = ([], {})
                 resolved[_LIVE] = no_values
                 errors[_LIVE] = str(exc)
+        if self._capability.preview:
+            try:
+                resolved[_PREVIEW] = preview_lines(self._capability.preview, config=self._config)
+            except TaskError as exc:
+                no_lines: list[str] = []
+                resolved[_PREVIEW] = no_lines
+                errors[_PREVIEW] = str(exc)
         resolved[_ERRORS] = errors
         self.ready.emit(resolved)
 
@@ -118,6 +127,8 @@ class AxesLoader(QThread):
 # loader's result. It is not an axis: it is not chosen, it is looked at
 # and stopped.
 _LIVE = "@live"
+# And that of what running will do (`Capability.preview`).
+_PREVIEW = "@preview"
 # And that of the axes whose query failed, each with its reason.
 _ERRORS = "@errors"
 
@@ -126,9 +137,10 @@ _ERRORS = "@errors"
 # instead of pushing it (`_pick_combo`).
 _COMBO_MIN_CHARS = 8
 
-# Limit on how wide an open list can grow. Without it, the system image
-# catalog would open a dropdown wider than the window.
-_POPUP_MAX_WIDTH = 460
+# The arrow of a closed list. Drawn by hand because styling the combo's
+# border leaves the native drop-down box on top of it, cutting the right
+# edge; styling `::drop-down` hides that box and its arrow with it.
+_ARROW = (Path(__file__).with_name("assets") / "chevron-down.svg").as_posix()
 
 
 class ParamsPanel(QWidget):
@@ -226,10 +238,15 @@ class ParamsPanel(QWidget):
         self.apply_state(params_store.load(self.project.path, self.capability.id))
         self._restoring = False
         self._refresh_summary()
-        if any(a.is_queried for a in self.capability.axes) or self.capability.live_state:
+        if self._asks():
             self._load_machine()
 
     # --- queried catalogs ----------------------------------------
+    def _asks(self) -> bool:
+        """Return whether something of the panel comes from asking."""
+        cap = self.capability
+        return any(a.is_queried for a in cap.axes) or bool(cap.live_state or cap.preview)
+
     def _load_machine(self, refresh: bool = False) -> None:
         """Ask for the SDK and VPS catalogs, not blocking the window."""
         if self._loader is not None and self._loader.isRunning():
@@ -238,7 +255,7 @@ class ParamsPanel(QWidget):
         self._refresh_summary()
         self._loader = AxesLoader(
             self.capability,
-            envfile.Config.for_project(self.project.path),
+            params_store.task_config(self.project.path),
             self.project.path,
             refresh,
             self,
@@ -265,6 +282,7 @@ class ParamsPanel(QWidget):
                 elif axis.name in self._option_layouts:
                     self._fill_options(axis)
             self._fill_live(resolved.get(_LIVE, ([], {})), resolved[_ERRORS].get(_LIVE, ""))
+            self._fill_preview(resolved.get(_PREVIEW, []), resolved[_ERRORS].get(_PREVIEW, ""))
         finally:
             self._restoring = False
         self._loading = False
@@ -291,7 +309,7 @@ class ParamsPanel(QWidget):
         truly asked again, and the SDK's two large catalogs, which only
         change when the SDK updates, are not reread on each click.
         """
-        if any(a.is_queried for a in self.capability.axes) or self.capability.live_state:
+        if self._asks():
             self._load_machine()
 
     # --- building -------------------------------------------------
@@ -313,6 +331,9 @@ class ParamsPanel(QWidget):
         # stops from.
         self._live_box = self._build_live()
         lay.addWidget(self._live_box)
+        # Then what running will do, before choosing how.
+        self._preview_box = self._build_preview()
+        lay.addWidget(self._preview_box)
 
         picks = self.capability.pick_axes
         if picks:
@@ -414,8 +435,8 @@ class ParamsPanel(QWidget):
         # have 50 characters, so the whole panel could not narrow below
         # that and scrollbars appeared in a tight column. With this the
         # combo settles for `_COMBO_MIN_CHARS` and takes what the row
-        # gives; long text reads on opening, where the list widens by
-        # itself (`_fit_popup`).
+        # gives. The open list keeps that same width, under the field,
+        # so a long entry is cut there too.
         combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToMinimumContentsLengthWithIcon)
         combo.setMinimumContentsLength(_COMBO_MIN_CHARS)
         combo.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
@@ -426,6 +447,10 @@ class ParamsPanel(QWidget):
             completer.setFilterMode(Qt.MatchFlag.MatchContains)
             completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
             combo.setCompleter(completer)
+        # The default delegate of a combo ignores `::item` in the
+        # stylesheet: without this one, the entries would not take the
+        # field's padding and their text would not line up with it.
+        combo.setItemDelegate(QStyledItemDelegate(combo))
         combo.setStyleSheet(self._combo_style())
         return combo
 
@@ -454,11 +479,17 @@ class ParamsPanel(QWidget):
                 color: {Colors.TEXT}; font-size: {Fonts.SIZE_XS}px;
             }}
             QComboBox:focus {{ border: 1px solid {self.pal.accent}; }}
+            QComboBox::drop-down {{
+                subcontrol-origin: padding; subcontrol-position: center right;
+                width: 18px; right: 6px; border: none; background: transparent;
+            }}
+            QComboBox::down-arrow {{ image: url({_ARROW}); width: 10px; height: 6px; }}
             QComboBox QAbstractItemView {{
                 background: {self.pal.surface_alt}; color: {Colors.TEXT};
                 selection-background-color: {self.pal.accent};
-                border: 1px solid {self.pal.border};
+                border: 1px solid {self.pal.border}; outline: 0;
             }}
+            QComboBox QAbstractItemView::item {{ padding: 0 8px; min-height: 26px; }}
         """
 
     def _build_facets(self, axis: AxisDef) -> QWidget:
@@ -529,22 +560,6 @@ class ParamsPanel(QWidget):
             index = combo.findData(resolved.get(facet.name, ""))
             combo.setCurrentIndex(max(index, 0))
             combo.blockSignals(False)
-            self._fit_popup(combo)
-
-    def _fit_popup(self, combo: QComboBox) -> None:
-        """Widen the open list to its longest entry.
-
-        It is the counterpart of `_pick_combo`: the closed control
-        narrows with the column, and what is cut there comes back on
-        opening, when entries truly get compared. Without this,
-        narrowing the combo also narrowed the dropdown and labels got
-        cut right where one was choosing.
-        """
-        metrics = combo.fontMetrics()
-        width = max(
-            (metrics.horizontalAdvance(combo.itemText(i)) for i in range(combo.count())), default=0
-        )
-        combo.view().setMinimumWidth(min(width + 28, _POPUP_MAX_WIDTH))
 
     def _fill_pick(self, axis: AxisDef) -> None:
         """Reload a long list's options, keeping what was chosen."""
@@ -571,7 +586,6 @@ class ParamsPanel(QWidget):
         index = combo.findData(previous)
         combo.setCurrentIndex(index if index >= 0 else 0)
         combo.blockSignals(False)
-        self._fit_popup(combo)
 
     def _fill_multi(self, axis: AxisDef) -> None:
         """Recreate the checkboxes of a machine-filled axis."""
@@ -670,6 +684,32 @@ class ParamsPanel(QWidget):
             )
             self._live_layout.addWidget(reason)
         self._live_box.setVisible(bool(values) or bool(error))
+
+    def _build_preview(self) -> QWidget:
+        """Build the header with what running will do.
+
+        Hidden until the answer comes.
+        """
+        box = QWidget()
+        box.setStyleSheet("background: transparent;")
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(7)
+        lay.addWidget(SectionLabel(PREVIEW_TITLES.get(self.capability.preview, "")))
+        self._preview_text = QLabel()
+        self._preview_text.setWordWrap(True)
+        lay.addWidget(self._preview_text)
+        box.setVisible(False)
+        return box
+
+    def _fill_preview(self, lines: list[str], error: str = "") -> None:
+        """Show what running will do, or why it could not be asked."""
+        color = Colors.ERROR if error else Colors.TEXT_LABEL
+        self._preview_text.setText(error or ", ".join(lines))
+        self._preview_text.setStyleSheet(
+            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_SM}px;"
+        )
+        self._preview_box.setVisible(bool(lines) or bool(error))
 
     def _build_fields(self, axes: list[AxisDef]) -> QWidget:
         """Build the written axes: an install folder, an API level."""
@@ -913,7 +953,7 @@ class ParamsPanel(QWidget):
             self.dry_btn.clicked.connect(lambda: self._emit_execute(dry_run=True))
             lay.addWidget(self.dry_btn)
 
-        self.run_btn = QPushButton("▶  Ejecutar")
+        self.run_btn = QPushButton("Ejecutar")
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_btn.setFixedHeight(34)
         self.run_btn.clicked.connect(self._emit_execute)

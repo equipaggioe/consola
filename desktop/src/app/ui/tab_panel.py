@@ -61,8 +61,11 @@ from app.ui.widgets.led import LedIndicator
 class SubTabButton(ReorderableTab):
     """A second-level tab: one run inside the active repo.
 
-    Visually subordinate to the top level: lower, smaller type and
-    underlined, not with a top bar, in the repo's color.
+    A folder tab, like the repo tabs of the title bar: the active one
+    paints in the console's background and opens into it, with no line
+    below, so the console and the right column read as its content. The
+    others sink into the bar with only an outline. No icon: the name
+    already says which action it is.
     """
 
     clicked = Signal()
@@ -70,7 +73,7 @@ class SubTabButton(ReorderableTab):
 
     HEIGHT = 34
 
-    def __init__(self, title: str, icon: str, pal: Palette, parent: QWidget | None = None) -> None:
+    def __init__(self, title: str, pal: Palette, parent: QWidget | None = None) -> None:
         """Build the tab."""
         super().__init__(parent)
         self.title = title
@@ -86,9 +89,6 @@ class SubTabButton(ReorderableTab):
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 10, 0)
         layout.setSpacing(7)
-
-        self.icon_label = QLabel(icon or "⚡")
-        self.icon_label.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_SM}px;")
 
         self.title_label = QLabel(title)
 
@@ -108,7 +108,6 @@ class SubTabButton(ReorderableTab):
         """)
         self.close_btn.clicked.connect(self.close_requested.emit)
 
-        layout.addWidget(self.icon_label)
         layout.addWidget(self.title_label)
         layout.addWidget(self.close_btn)
 
@@ -118,6 +117,7 @@ class SubTabButton(ReorderableTab):
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
         self.pal = pal
+        self._sync_text()
         self.update()
 
     def set_active(self, active: bool) -> None:
@@ -131,8 +131,9 @@ class SubTabButton(ReorderableTab):
         f.setPixelSize(Fonts.SIZE_SM)
         f.setBold(self.is_active)
         self.title_label.setFont(f)
+        # Active: the repo's accent, as the name of the active repo tab.
         color = (
-            Colors.TEXT
+            self.pal.accent
             if self.is_active
             else (Colors.TEXT_DIM if self._hovered else Colors.TEXT_MUTED)
         )
@@ -173,32 +174,37 @@ class SubTabButton(ReorderableTab):
 
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
+        """Paint the tab.
+
+        It reaches the bar's bottom edge: the active one covers the
+        bar's line with the console's background, and that gap in the
+        line is what joins it to what is below.
+        """
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect())
-        accent = QColor(self.pal.accent)
+        r = QRectF(self.rect()).adjusted(1.5, 0.5, -1.5, 0)
+        # Rounded on top and open below: it goes on into the content.
+        path = QPainterPath()
+        path.moveTo(r.left(), r.bottom() + 1)
+        path.lineTo(r.left(), r.top() + 7)
+        path.quadTo(r.left(), r.top(), r.left() + 7, r.top())
+        path.lineTo(r.right() - 7, r.top())
+        path.quadTo(r.right(), r.top(), r.right(), r.top() + 7)
+        path.lineTo(r.right(), r.bottom() + 1)
 
         if self.is_active:
-            path = QPainterPath()
-            path.addRoundedRect(r.adjusted(2, 4, -2, -3), 7, 7)
-            p.fillPath(path, QColor(accent.red(), accent.green(), accent.blue(), 34))
-            underline = QPainterPath()
-            underline.addRoundedRect(
-                QRectF(r.left() + 8, r.bottom() - 3, r.width() - 16, 2.5), 1.2, 1.2
-            )
-            p.fillPath(underline, accent)
-        elif self._hovered or self.is_dragging:
-            path = QPainterPath()
-            path.addRoundedRect(r.adjusted(2, 4, -2, -3), 7, 7)
-            p.fillPath(path, QColor(self.pal.surface_hover))
-
+            p.fillPath(path, QColor(self.pal.bg))
+            edge = QColor(self.pal.border)
+        else:
+            edge = QColor(self.pal.border_light)
+            edge.setAlpha(200 if (self._hovered or self.is_dragging) else 110)
+        pen = QPen(edge)
+        pen.setWidthF(1.0)
         if self.is_dragging:
-            pen = QPen(accent)
-            pen.setWidthF(1.2)
             pen.setStyle(Qt.PenStyle.DotLine)
-            p.setPen(pen)
-            p.setBrush(Qt.BrushStyle.NoBrush)
-            p.drawRoundedRect(r.adjusted(2.5, 4.5, -2.5, -3.5), 7, 7)
+        p.setPen(pen)
+        p.setBrush(Qt.BrushStyle.NoBrush)
+        p.drawPath(path)
         p.end()
 
 
@@ -504,7 +510,9 @@ class TabPanel(ReorderableBar):
         self.sub_bar.setObjectName("subBar")
         self.sub_bar.setFixedHeight(SubTabButton.HEIGHT + 4)
         sub_bar_layout = QHBoxLayout(self.sub_bar)
-        sub_bar_layout.setContentsMargins(10, 0, 10, 0)
+        # No bottom margin: the tabs reach the bar's line
+        # (`SubTabButton`).
+        sub_bar_layout.setContentsMargins(10, 4, 10, 0)
         sub_bar_layout.setSpacing(2)
 
         self.tabs_layout = QHBoxLayout()
@@ -539,6 +547,7 @@ class TabPanel(ReorderableBar):
         self.env_panel.values_changed.connect(self._on_env_changed)
         self.env_panel.reloaded.connect(self._on_env_reloaded)
         self.env_panel.saved.connect(self._refresh_logo)
+        self.env_panel.saved.connect(self._refresh_previews)
 
         # Guards do not come from `config.env`: they live in
         # `.consola/params.json` and save on touching them, without
@@ -758,7 +767,7 @@ class TabPanel(ReorderableBar):
         section shows the whole file, unfiltered. It is not reopened at
         start, since it only holds a log (`_persist_tabs` skips it).
         """
-        tab = SubTabButton(CONFIG_TAB.name, CONFIG_TAB.icon, self.pal)
+        tab = SubTabButton(CONFIG_TAB.name, self.pal)
         tab.setToolTip(CONFIG_TAB.description)
         self.tabs_layout.addWidget(tab)
         self.tabs.append(tab)
@@ -841,7 +850,7 @@ class TabPanel(ReorderableBar):
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
         lay.addStretch()
-        btn = QPushButton("▶  Ejecutar")
+        btn = QPushButton("Ejecutar")
         btn.setFixedHeight(34)
         btn.setEnabled(False)
         self._footer_placeholder_btn = btn
@@ -899,7 +908,7 @@ class TabPanel(ReorderableBar):
             self._activate(tab)
             return tab, self._views[tab]
 
-        tab = SubTabButton(title, capability.icon, self.pal)
+        tab = SubTabButton(title, self.pal)
         tab.setToolTip(capability.description)
         self.tabs_layout.addWidget(tab)
         self.tabs.append(tab)
@@ -1422,6 +1431,16 @@ class TabPanel(ReorderableBar):
         for panel in self._params.values():
             panel.refresh_machine()
         self._refresh_logo()
+
+    def _refresh_previews(self, *_args) -> None:
+        """Ask again what each open action will do.
+
+        A preview reads the saved `config.env`, so saving can change it:
+        `DB_EXTENSIONS` or `TURN` change the packages.
+        """
+        for panel in self._params.values():
+            if panel.capability.preview:
+                panel.reload_catalogs()
 
     def _refresh_logo(self, *_args) -> None:
         """Reread the logo: `BRAND_ICON` may have changed."""

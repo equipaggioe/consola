@@ -2,10 +2,11 @@
 
 canone fixes each program by its interface: `install.py` by its
 arguments, `credentials.py` by the lines it reads from stdin,
-`deploy.py` by the tag and the release's file names. What the machine
-has to have before `install.py`, its packages and swap, is left to
-whoever prepares it. All that is built here from `config.env` and the
-repo, with no effects: it can be tested without a VPS.
+`deploy.py` by the tag and the release's file names, `packages.py` by
+the options it shares with `install.py` (ADR-0131 of canone). The swap
+the machine needs before `install.py` is left to whoever prepares it.
+All that is built here from `config.env` and the repo, with no effects
+but asking `packages.py --list`: it can be tested without a VPS.
 """
 
 from __future__ import annotations
@@ -15,28 +16,10 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
-from app.core import envfile, fields, process
+from app.core import envfile, fields, process, toolchain
 from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.settings import get_setting
-
-# What `install.py` assumes installed (despliegue.md of canone,
-# «Maquina»).
-BASE_PACKAGES = (
-    "caddy",
-    "postgresql",
-    "valkey-server",
-    "restic",
-    "sudo",
-    "python3",
-    "nftables",
-    "unattended-upgrades",
-    "systemd-timesyncd",
-    "ca-certificates",
-)
-POSTGIS_PACKAGE = "postgresql-17-postgis-3"
-TURN_PACKAGES = ("coturn",)
-LOGS_PACKAGES = ("systemd-journal-remote", "wireguard-tools")
 
 # The pieces `install.py --without` can leave out, except `sweep`: the
 # repo has no signal for it, and the template always brings the task.
@@ -119,16 +102,32 @@ def database_command(app: str, command: str) -> str:
     return f"python3 /usr/local/lib/{app}/database.py {command}"
 
 
-def packages(config: Config) -> list[str]:
-    """Return the packages the machine needs for this repo."""
-    names = list(BASE_PACKAGES)
-    if "postgis" in envfile.split_list(config.get("DB_EXTENSIONS")):
-        names.append(POSTGIS_PACKAGE)
+def package_args(config: Config) -> list[str]:
+    """Return the options of `packages.py`.
+
+    Those of `install.py` that add a package, with the same names.
+    """
+    args: list[str] = []
+    for extension in envfile.split_list(config.get("DB_EXTENSIONS")):
+        args += ["--extension", extension]
     if config.flag("TURN"):
-        names += TURN_PACKAGES
+        args.append("--turn")
     if _logs(config):
-        names += LOGS_PACKAGES
-    return names
+        args.append("--logs")
+    return args
+
+
+def packages(config: Config) -> list[str]:
+    """Return the packages `packages.py` installs for this repo.
+
+    It asks `packages.py --list` of the local canone copy, with the
+    local Python: the list lives only in canone (ADR-0131 of canone).
+    """
+    program = infra_dir(config) / "packages.py"
+    if not program.is_file():
+        raise TaskError(f"No hay packages.py en {program.parent}: actualiza la copia de canone.")
+    argv = [*toolchain.python_cmd(), str(program), "--list", *package_args(config)]
+    return process.capture(argv, timeout=30).split()
 
 
 def desktops(root: Path) -> list[str]:

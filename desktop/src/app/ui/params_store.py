@@ -35,7 +35,7 @@ from typing import Any, cast
 
 from PySide6.QtCore import QSettings, QTimer
 
-from app.core.envfile import CONSOLA_DIR, ensure_ignored
+from app.core.envfile import CONSOLA_DIR, Config, ensure_ignored
 
 _FILE_NAME = "params.json"
 # The repo's guards (`core/protection.py`) share the file with each
@@ -99,6 +99,19 @@ def machine_env() -> dict[str, Any]:
 
     settings = QSettings()
     return {s.key: str(settings.value(f"machine/{s.key}", "") or "") for s in machine_settings()}
+
+
+def task_config(repo_path: str) -> Config:
+    """Return the config a task runs with: the repo's plus machine keys.
+
+    Machine keys go on top because no repo value can compete:
+    `core/envfile.render_config` does not write them to the file. The
+    panel's queries and previews read this same one, so they see what
+    the task will.
+    """
+    config = Config.for_project(repo_path)
+    config.values.update({k: v for k, v in machine_env().items() if v})
+    return config
 
 
 def save_machine_env(values: dict[str, Any]) -> None:

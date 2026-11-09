@@ -9,22 +9,9 @@ from typing import Any, override
 from PySide6.QtCore import QObject, QThread, Signal
 
 from app.core.context import TaskContext
-from app.core.envfile import Config
 from app.core.errors import Cancelled, MissingConfig, TaskError
 from app.core.projects import Project
 from app.ui import params_store
-
-
-def _config_for(repo_path: str) -> Config:
-    """Return the config a task runs with: the repo's plus machine keys.
-
-    Machine keys (`ui/params_store.py::machine_env`) go on top because
-    no repo value can compete: `core/envfile.render_config` does not
-    write them to the file.
-    """
-    config = Config.for_project(repo_path)
-    config.values.update({k: v for k, v in params_store.machine_env().items() if v})
-    return config
 
 
 class TaskRunner(QThread):
@@ -130,7 +117,7 @@ class TaskRunner(QThread):
         ctx = TaskContext(
             capability_id=self._capability_id,
             project=self._project,
-            config=_config_for(self._project.path),
+            config=params_store.task_config(self._project.path),
             log_sink=lambda msg, level: self.logged.emit(msg, level),
             ask_sink=self._ask,
             note_sink=lambda entry: self.noted.emit(entry),

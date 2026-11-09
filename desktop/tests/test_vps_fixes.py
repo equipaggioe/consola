@@ -117,7 +117,7 @@ def test_without_a_declared_extension_no_package_or_argument_is_added(
     config = Config(
         {"DOMAIN": "example.net", "VALKEY_MEMORY": "256mb", "VPS_USER": "admin", **values}
     )
-    assert canone.POSTGIS_PACKAGE not in canone.packages(config)
+    assert "--extension" not in canone.package_args(config)
     args = canone.install_args(tmp_path, config, "demo", "owner", ("key one", "key two"))
     assert "--extension" not in args
 

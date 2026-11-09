@@ -36,7 +36,7 @@ Lo que no alcance a cerrarse lo mata el sistema, solo en Windows: un túnel `ssh
 |---|---|---|
 | `<repo>/.consola/config.env` | Los datos que las tareas leen | Todo. Es del repo, está en su `.gitignore` |
 | `<repo>/.consola/params.json` | Parámetros de cada botón, seguros y pestañas abiertas | Todo |
-| `QSettings` (`Consola/Consola`) | Repos abiertos, favoritas, secciones ocultas, parámetros de las acciones de máquina | Reinstalar el repo |
+| `QSettings` (`Consola/Consola`), en `%APPDATA%\Consola\Consola.ini` o `~/.config/Consola/Consola.ini` | Repos abiertos, valores de las claves de máquina, favoritas, secciones ocultas, parámetros de las acciones de máquina | Reinstalar el repo |
 | `%LOCALAPPDATA%\Consola\cache` o `~/.cache/consola` | Catálogos del SDK y servicios del VPS | La sesión; caducan por edad |
 | Memoria (`core/session.py`) | Endpoints publicados, puerto del backend, serial del emulador | Nada: muere con el proceso |
 
@@ -46,7 +46,7 @@ Detalle de cada formato en [20](20_referencia_datos.md); el reparto entre repo y
 
 | Destino | Con qué | Qué escribe |
 |---|---|---|
-| VPS | `ssh`, `scp`, túneles `-L` | Los paquetes de apt, `/swapfile`, lo que instalan `uv.py`, `install.py` y `credentials.py`, y el ejecutable de «Compilar ejecutable» con sus manifiestos bajo `VPS_DEPLOY_DIR`. No escribe configuración de servicios ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)) |
+| VPS | `ssh`, `scp`, túneles `-L` | `/swapfile`, lo que instalan `packages.py`, `uv.py`, `install.py` y `credentials.py`, y el ejecutable de «Compilar ejecutable» con sus manifiestos bajo `VPS_DEPLOY_DIR`. No escribe configuración de servicios ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)) |
 | GitHub | `git` | Empuja ramas y clona repos |
 | Cloudflare | API v4 | Un registro A |
 | Esta máquina | `~/.ssh`, entorno del usuario | Pares de llaves, `known_hosts`, `HKCU\Environment` o el perfil del shell |

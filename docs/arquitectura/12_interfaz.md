@@ -22,7 +22,7 @@ Cada repo tiene su propio `TabPanel`, indexado por la ruta normalizada de su car
 
 ## 2. El color del repo
 
-Cada repo tiene un **tema** y un **logo**. El tema es una clave (`blue`, `indigo`, `violet`, `pink`, `coral`, `amber`, `green`, `cyan`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú; al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
+Cada repo tiene un **tema** y un **logo**. El tema es una clave (`blue`, `indigo`, `violet`, `pink`, `coral`, `amber`, `green`, `cyan`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú, cada uno con su muestra: un cuadro del tamaño y el radio de una casilla, pintado con el acento del tema, y el del tema elegido lleva la palomita dentro (`project_tabs.swatch`); al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
 
 Una paleta es un acento más la escalera de fondos que se deriva de él. Los fondos son **color, no gris**: el tono del acento a una saturación fija por rol, del 38 % al 55 % en HSL. Teñir **no cambia la luminosidad** del neutro de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
 
@@ -32,10 +32,10 @@ Los ocho acentos son claros: el acento va **encima** de los fondos —la barra d
 
 | Rol | Dónde |
 |---|---|
-| `accent` | Barra de título, borde de contorno de la ventana (solo con el foco), subrayado de la pestaña de ejecución activa, botón Ejecutar, foco de los campos, candados cerrados |
+| `accent` | Barra de título, borde de contorno de la ventana (solo con el foco), nombre de la pestaña de ejecución activa, botón Ejecutar, foco de los campos, candados cerrados |
 | `on_accent` | Lo que va **sobre** la barra de título: la marca, el nombre, el contorno y la × de las pestañas no seleccionadas, el «+», los botones de ventana |
 | `chrome` | Fila de la barra de menú y pestaña del repo seleccionado: la banda más clara y más saturada de la escalera |
-| `bg` | Consola y lienzo izquierdo: el escalón más oscuro del contenido, el que se lee |
+| `bg` | Consola, lienzo izquierdo y pestaña de ejecución activa: el escalón más oscuro del contenido, el que se lee |
 | `panel` | Cuerpo de las secciones de la columna derecha |
 | `surface` | Cabeceras de sección, pie y barra de estado |
 | `surface_alt` | Campos, listas y chips |
@@ -63,7 +63,7 @@ El logo se recorta a lo que dibuja y llena el cuadrado por su lado largo: el mar
 
 Los tres botones de ventana se **pintan** —trazo de 1.6 px en `on_accent`—, no se escriben: como caracteres («─», «□», «✕») eran trazos de un píxel que se perdían contra el acento, y la negrita no engorda un carácter de dibujo de caja. El fondo del hover sale del mismo `on_accent` al 16 %, salvo el de cerrar, que es rojo.
 
-El campo del buscador es un campo de «Configuración del repo» y nada más: mismo fondo (`surface_alt`), borde (`border`), alto (28 px), radio, cuerpo de letra (12 px) y foco (`accent`). Los campos de «Parámetros» son otra medida: 30 px y 13 px de letra.
+El campo del buscador es un campo de «Configuración del repo» y nada más: mismo fondo (`surface_alt`), borde (`border`), alto (28 px), radio, cuerpo de letra (12 px) y foco (`accent`). Los campos de «Parámetros» son otra medida: 30 px y 13 px de letra. La flecha de una lista cerrada de «Parámetros» es un SVG propio (`ui/assets/chevron-down.svg`) dentro del relleno: con el borde estilado, Qt deja encima su caja de la flecha y corta el borde derecho, y estilar `::drop-down` para sacar esa caja borra también la flecha. La lista abierta tiene el ancho del campo y cae alineada bajo él, con el texto de cada entrada a la misma x que el del campo; una entrada más larga que el campo se corta con «…».
 
 Los menús desplegados de la barra y la lista del buscador son del repo abierto: fondo `panel` —dos escalones por debajo de la fila de la que cuelgan, porque sobre `chrome` un popup queda a 1.06:1 y no se recorta—, borde `border_light`, el ítem bajo el cursor en `surface_hover` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `panel` que el popup, para que se lean como una sola pieza. En Ver, la palomita de cada casilla va a 13 px del borde y el texto a 33, en vez de los 5 y 41 que Qt pone por defecto.
 
@@ -74,12 +74,12 @@ Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` rep
 | Superficie | Qué hace |
 |---|---|
 | Barra de menú | El catálogo entero por grupo, a un recorrido de hover. Un clic **abre** la pestaña |
-| Buscador | Filtra sobre todas las acciones, con teclado (flechas, Enter, Ctrl+Enter). Cada fila trae su filete de favorita, la marca de nivel (`◈` compuesta, `◦` atómica), la de alcance (`⌂` es de la máquina) y un **▶** que corre de una |
+| Buscador | Filtra sobre todas las acciones, con teclado (Ctrl+L lo enfoca; flechas, Enter, Ctrl+Enter). Cada fila trae su filete de favorita, la marca de nivel (`◈` compuesta, `◦` atómica), la de alcance (`⌂` es de la máquina) y un **▶** que corre de una |
 | «Solo favoritos», en el menú Ver | Poda los menús. **No** poda el buscador: buscar es ir por algo puntual, y esconder justo lo que se busca sería un chiste cruel |
 
 Los menús de acciones son los grupos del catálogo, en el orden en que `core/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar. Cada acción va por su nombre, sin el emoji; una destructiva lleva `⚠` al final. Una favorita se marca con el filete de su fila en el buscador o con la estrella del pie, junto a Ejecutar ([§5](#5-la-columna-derecha)).
 
-Después va **Ver**, que tiene «Buscar acciones» (Ctrl+L), «Solo favoritos» y una casilla por sección de la columna derecha; las dos últimas son preferencias de la aplicación, no del repo.
+Después va **Ver**, que tiene «Solo favoritos» y una casilla por sección de la columna derecha: las dos son preferencias de la aplicación, no del repo.
 
 Dentro de un menú **no hay encabezados de sección**: los tramos se cortan con rayas. Una raya sale de `Capability.cut` —el catálogo declara que ese botón abre un tramo— o de ser el primer destructivo del grupo, que va siempre al fondo detrás de una raya sin que nadie lo declare ([ADR-0043](../adr/0043-un-menu-sin-secciones.md)). Un menú que se quedó sin acciones aplicables desaparece de la barra, y cada raya se dibuja solo si quedó algo visible de los dos lados.
 
@@ -90,6 +90,8 @@ El ▶ solo aparece en lo que puede correr ya: `ui/readiness.py` mira exactament
 El recuento se **pide**, no se hace en el acto: `ui/main_window.py::_refresh_readiness` arranca un temporizador de 200 ms y la pasada corre una sola vez cuando se detiene la ráfaga. Quien lo dispara es, entre otros, cada tecla de un campo de texto —del panel de parámetros y del de configuración—, y la pasada resuelve las 61 acciones contra el repo. Esa pasada comparte además un único recorrido del repo entre todas (`core/targets.py::one_scan`) en vez de recorrerlo una vez por acción; el recorrido se suelta al terminar, así que cada pasada sigue mirando el disco de nuevo.
 
 ## 4. La pestaña de ejecución
+
+Las pestañas de ejecución son de carpeta, como las de repo en la barra de título: la activa se pinta de `bg`, el fondo de la consola, llega hasta la línea de abajo de la barra y la tapa, así que se abre hacia la consola y la columna derecha, que se leen como su contenido. Lleva el nombre en negrita y en el acento del repo. Las demás no tienen relleno: solo el contorno en `border_light`, que el hover sube de 110 a 200 de alfa. Llevan el nombre de la acción, sin el emoji.
 
 `TabView` tiene la consola y, si la capacidad lo declara, una segunda vista: el navegador embebido (`view='web'`) o el explorador de base (`view='db'`). La barra de la pestaña muestra la URL que publicó la tarea con su estado ([ADR-0008](../adr/0008-un-launcher-entrega-un-endpoint.md)).
 

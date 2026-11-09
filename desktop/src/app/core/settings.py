@@ -106,7 +106,15 @@ SETTINGS: tuple[Setting, ...] = (
     Setting("CF_DOMAIN_NAME", "Cloudflare", "Dominio", required_by=("update_cloudflare",)),
     Setting("CF_RECORD_NAME", "Cloudflare", "Registro DNS", required_by=("update_cloudflare",)),
     # --- VPS ---
-    Setting("VPS_IP", "VPS", "IP del servidor", required_by=_VPS_REACH, used_by=_VPS_STEPS),
+    # «Refrescar known_hosts» only forgets this host in known_hosts:
+    # it needs the IP, not the account nor the key.
+    Setting(
+        "VPS_IP",
+        "VPS",
+        "IP del servidor",
+        required_by=(*_VPS_REACH, "refresh_known_host"),
+        used_by=_VPS_STEPS,
+    ),
     Setting(
         "ROOT_USER",
         "VPS",
@@ -170,11 +178,19 @@ SETTINGS: tuple[Setting, ...] = (
     Setting(
         "LOGS_IP", "VPS", "IP del túnel de logs", used_by=("bootstrap_vps", "install_software")
     ),
+    # --- Database ---
+    #
+    # The local database's, save `DB_EXTENSIONS`, which is also the
+    # VPS's: the database buttons reach the VPS's through canone's
+    # `database.py`, which reads none of the others (ADR-0082).
+    #
     # Empty, the role is the deployment user itself
     # (`Config._dynamic_default`).
-    Setting("DB_USER", "VPS", "Rol de la base", required_by=_DB_FIXED),
-    Setting("DB_NAME", "VPS", "Base de datos", required_by=_DB_FIXED),
-    Setting("DB_PASSWORD", "VPS", "Password de la base", secret=True, required_by=_DB_FIXED),
+    Setting("DB_USER", "Base de datos", "Rol de la base", required_by=_DB_FIXED),
+    Setting("DB_NAME", "Base de datos", "Base de datos", required_by=_DB_FIXED),
+    Setting(
+        "DB_PASSWORD", "Base de datos", "Password de la base", secret=True, required_by=_DB_FIXED
+    ),
     # Where `backup_db` dumps fall and where `restore_db` reads them
     # from. Relative resolves against the repo's root; absolute is used
     # as is, which lets them leave the repo: `.backups/` is in no
@@ -187,7 +203,7 @@ SETTINGS: tuple[Setting, ...] = (
     # appear in these two buttons' filtered settings panel.
     Setting(
         "BACKUP_DIR",
-        "VPS",
+        "Base de datos",
         "Carpeta de respaldos",
         default=".backups",
         used_by=("backup_db", "restore_db"),
@@ -196,17 +212,23 @@ SETTINGS: tuple[Setting, ...] = (
     # the same criterion as `DB_EXTENSIONS`: a datum the task reads, not
     # a decision of the run. How many backups a project keeps does not
     # change between two presses of the button.
-    Setting("BACKUP_KEEP", "VPS", "Respaldos a conservar", default="7", used_by=("backup_db",)),
+    Setting(
+        "BACKUP_KEEP",
+        "Base de datos",
+        "Respaldos a conservar",
+        default="7",
+        used_by=("backup_db",),
+    ),
     Setting(
         "PG_SUPERUSER",
-        "VPS",
+        "Base de datos",
         "Superusuario Postgres",
         default="postgres",
         required_by=_PG_FIXED,
     ),
     Setting(
         "PG_PASSWORD",
-        "VPS",
+        "Base de datos",
         "Password del superusuario",
         secret=True,
         required_by=_PG_FIXED,
@@ -223,10 +245,12 @@ SETTINGS: tuple[Setting, ...] = (
     # every VPS (ADR-0071).
     Setting(
         "DB_EXTENSIONS",
-        "VPS",
+        "Base de datos",
         "Extensiones de Postgres",
         kind="list",
-        used_by=("bootstrap_db", "enable_extensions"),
+        # Also the VPS's: PostGIS's package (`canone.packages`) and
+        # `--extension` of `install.py` come from here.
+        used_by=("bootstrap_db", "enable_extensions", "install_software", "bootstrap_vps"),
     ),
     # --- GitHub ---
     #
@@ -267,10 +291,10 @@ SETTINGS: tuple[Setting, ...] = (
         secret=True,
         used_by=("load_credentials",),
     ),
-    # --- Systemd ---
+    # --- Server ---
     Setting(
         "SERVER_DIR",
-        "Systemd",
+        "Server",
         "Carpeta del server",
         default="server",
         used_by=("load_credentials",),
@@ -404,9 +428,9 @@ GROUP_ORDER = (
     "Server",
     "Cloudflare",
     "VPS",
+    "Base de datos",
     "GitHub",
     "Credenciales",
-    "Systemd",
     "Builds",
     "Marca",
     "Capturas",
