@@ -32,9 +32,10 @@ from app.core.projects import Project
 from app.core.registry import AxisDef, Capability, Step, registry
 from app.core.settings import relevant_keys_for, required_keys_for
 from app.theme import Colors, Fonts
-from app.ui import palettes, params_store
+from app.ui import favorites, palettes, params_store
 from app.ui.env_panel import EnvPanel
 from app.ui.palettes import Palette
+from app.ui.widgets import FavoriteStar
 
 
 class SectionLabel(QLabel):
@@ -120,12 +121,6 @@ _LIVE = "@live"
 # And that of the axes whose query failed, each with its reason.
 _ERRORS = "@errors"
 
-# Width of each feature's label on a `pick` axis with `facets`. Fixed
-# and shared so the lists align in a column: three combos each starting
-# where its word ends read as three loose controls and not three parts
-# of one choice.
-_FACET_LABEL_WIDTH = 86
-
 # Minimum width of a closed list, in characters. It is not the real
 # width but all the combo requires, so it then stretches with the row
 # instead of pushing it (`_pick_combo`).
@@ -150,6 +145,8 @@ class ParamsPanel(QWidget):
     stop_requested = Signal(str)
     # the footer's Clear: empty the tab's log
     clear_requested = Signal()
+    # the footer's star marked or unmarked the action; already saved
+    favorite_changed = Signal()
 
     def __init__(
         self,
@@ -321,10 +318,6 @@ class ParamsPanel(QWidget):
         if picks:
             lay.addWidget(self._build_picks(picks))
 
-        fields = self.capability.field_axes
-        if fields:
-            lay.addWidget(self._build_fields(fields))
-
         for axis in self.capability.multi_axes:
             lay.addWidget(self._build_multi_axis(axis))
 
@@ -342,6 +335,12 @@ class ParamsPanel(QWidget):
         singles = [a for a in self.capability.single_axes if a.values or a.is_queried]
         if singles:
             lay.addWidget(self._build_options(singles))
+
+        # The written fields go last, under the choices: «Otra IP» reads
+        # below the option that asks for it.
+        fields = self.capability.field_axes
+        if fields:
+            lay.addWidget(self._build_fields(fields))
 
         self._content = content
         scroll.setWidget(content)
@@ -367,28 +366,36 @@ class ParamsPanel(QWidget):
             if axis.facets:
                 lay.addWidget(self._build_facets(axis))
                 continue
-            row = QVBoxLayout()
-            row.setSpacing(4)
-            row.addWidget(self._pick_title(axis.display))
             combo = self._pick_combo(searchable=True)
             combo.currentIndexChanged.connect(self._refresh_summary)
             self._picks[axis.name] = combo
             self._fill_pick(axis)
-            row.addWidget(combo)
-            lay.addLayout(row)
+            lay.addLayout(self._labeled(axis.display, combo))
         return box
 
-    def _pick_title(self, text: str) -> QLabel:
+    def _labeled(self, text: str, field: QWidget, *, top: bool = False) -> QHBoxLayout:
+        """Return a row with the label at left and the field at right.
+
+        The labels column is as wide as that of «Configuración del
+        repo» (`EnvPanel.label_width`), and both bodies have the same
+        margins: the fields of the two sections start at the same x and
+        are as wide. `top` raises the label to the first line of a field
+        taller than one.
+        """
         label = QLabel(text)
-        # With `wordWrap` the label asks at minimum for its longest word
-        # and not the whole phrase: «Máquina virtual (instaladas)»
-        # required 364px, and the label and not the list stopped the
-        # column from narrowing.
+        label.setFixedWidth(self.env_panel.label_width)
+        # With `wordWrap` a label longer than the column breaks in two
+        # instead of pushing the field to the right.
         label.setWordWrap(True)
         label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
+            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_XS}px;"
         )
-        return label
+        row = QHBoxLayout()
+        row.setSpacing(8)
+        align = Qt.AlignmentFlag.AlignTop if top else Qt.AlignmentFlag.AlignVCenter
+        row.addWidget(label, 0, align)
+        row.addWidget(field, 1)
+        return row
 
     def _pick_combo(self, *, searchable: bool) -> QComboBox:
         """Return the panel's closed list.
@@ -444,7 +451,7 @@ class ParamsPanel(QWidget):
             QComboBox {{
                 background: {self.pal.surface_alt}; border: 1px solid {self.pal.border};
                 border-radius: 5px; padding: 0 8px;
-                color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
+                color: {Colors.TEXT}; font-size: {Fonts.SIZE_XS}px;
             }}
             QComboBox:focus {{ border: 1px solid {self.pal.accent}; }}
             QComboBox QAbstractItemView {{
@@ -473,19 +480,11 @@ class ParamsPanel(QWidget):
         box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
-        lay.setSpacing(4)
-        lay.addWidget(self._pick_title(axis.display))
+        lay.setSpacing(7)
+        lay.addWidget(SectionLabel(axis.display))
 
         self._facets[axis.name] = {}
         for facet in axis.facets:
-            row = QHBoxLayout()
-            row.setSpacing(8)
-            label = QLabel(facet.label)
-            label.setFixedWidth(_FACET_LABEL_WIDTH)
-            label.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                f"font-size: {Fonts.SIZE_XS}px;"
-            )
             combo = self._pick_combo(searchable=False)
 
             def on_facet(_index: int, a: AxisDef = axis) -> None:
@@ -493,9 +492,7 @@ class ParamsPanel(QWidget):
 
             combo.currentIndexChanged.connect(on_facet)
             self._facets[axis.name][facet.name] = combo
-            row.addWidget(label)
-            row.addWidget(combo, 1)
-            lay.addLayout(row)
+            lay.addLayout(self._labeled(facet.label, combo))
         self._fill_facets(axis)
         return box
 
@@ -675,11 +672,7 @@ class ParamsPanel(QWidget):
         self._live_box.setVisible(bool(values) or bool(error))
 
     def _build_fields(self, axes: list[AxisDef]) -> QWidget:
-        """Build the written axes: an install folder, an API level.
-
-        They go on top because they condition the rest: choosing
-        components is no use if the SDK will land elsewhere.
-        """
+        """Build the written axes: an install folder, an API level."""
         box = QWidget()
         box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
@@ -687,15 +680,6 @@ class ParamsPanel(QWidget):
         lay.setSpacing(9)
 
         for axis in axes:
-            row = QVBoxLayout()
-            row.setSpacing(4)
-            label = QLabel(axis.display)
-            label.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: "
-                f"{Fonts.SIZE_SM}px;"
-            )
-            row.addWidget(label)
-
             # `values[0]` is the default, written in the field and not
             # left as a watermark: so one sees what will be used.
             default = axis.values[0] if axis.values else ""
@@ -722,8 +706,7 @@ class ParamsPanel(QWidget):
             field.setPlaceholderText(default)
             field.setStyleSheet(self._field_style(axis.multiline))
             self._fields[axis.name] = field
-            row.addWidget(field)
-            lay.addLayout(row)
+            lay.addLayout(self._labeled(axis.display, field, top=axis.multiline))
         return box
 
     def _build_multi_axis(self, axis: AxisDef) -> QWidget:
@@ -884,7 +867,7 @@ class ParamsPanel(QWidget):
             QLineEdit, QPlainTextEdit {{
                 background: {self.pal.surface_alt}; border: 1px solid {self.pal.border};
                 border-radius: 5px; padding: {"5px 8px" if multiline else "0 8px"};
-                color: {Colors.TEXT}; font-size: {Fonts.SIZE_SM}px;
+                color: {Colors.TEXT}; font-size: {Fonts.SIZE_XS}px;
             }}
             QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {self.pal.accent}; }}
         """
@@ -914,6 +897,13 @@ class ParamsPanel(QWidget):
         lay.addWidget(clear_btn)
         lay.addStretch()
 
+        # Next to Run: it marks the action being looked at, the other
+        # place being the search row's stripe.
+        self.fav_star = FavoriteStar(self.pal.accent)
+        self.fav_star.set_favorite(favorites.is_favorite(self.capability.id))
+        self.fav_star.marked.connect(self._on_star_marked)
+        lay.addWidget(self.fav_star, 0, Qt.AlignmentFlag.AlignVCenter)
+
         self.dry_btn: QPushButton | None = None
         if self._dry_run_axis is not None:
             self.dry_btn = QPushButton("Simulacro")
@@ -931,6 +921,14 @@ class ParamsPanel(QWidget):
         lay.addWidget(self.run_btn)
         self._restyle_run()
         return foot
+
+    def _on_star_marked(self, value: bool) -> None:
+        favorites.set_favorite(self.capability.id, value)
+        self.favorite_changed.emit()
+
+    def refresh_favorite(self) -> None:
+        """Catch the star up when another surface marked its action."""
+        self.fav_star.set_favorite(favorites.is_favorite(self.capability.id))
 
     # --- state ---
     def selection(self, axis_name: str) -> list[str]:
@@ -1167,6 +1165,7 @@ class ParamsPanel(QWidget):
         """
         self.pal = pal
         self._restyle()
+        self.fav_star.set_accent(pal.accent)
 
     def _restyle(self) -> None:
         # The panel is the BODY of the «Parámetros» section: `panel`,

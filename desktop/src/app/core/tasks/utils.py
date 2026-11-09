@@ -256,11 +256,17 @@ def _cloudflare[A: cloudflare.Answer](
 def update_cloudflare(
     ctx: TaskContext, ip_mode: str = "vps", custom_ip: str = "", ttl: int = 1, proxied: bool = True
 ) -> str:
-    """Point the DNS record to the detected, VPS or fixed IP."""
+    """Point the DNS record to the VPS's, this machine's or another IP.
+
+    «Otra» with the field empty stops: falling to `VPS_IP` would point
+    the record somewhere nobody chose.
+    """
     if ip_mode == "detect":
         ip = detect_public_ip(ctx)
     elif ip_mode == "static":
-        ip = custom_ip or ctx.config.require("VPS_IP")
+        ip = custom_ip.strip()
+        if not ip:
+            raise TaskError("Elegiste «Otra» y el campo «Otra IP» está vacío.")
     else:
         ip = ctx.config.require("VPS_IP")
 

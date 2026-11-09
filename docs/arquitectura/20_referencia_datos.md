@@ -94,7 +94,7 @@ Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (ar
 | `projects/list` | JSON con los repos abiertos: ruta y nombre, en orden |
 | `projects/order` | Clave vieja; solo se borra en `clear()` |
 | `favorites/ids` | Ids de las acciones favoritas |
-| `favorites/only` | El interruptor «solo favoritos» |
+| `favorites/only` | «Solo favoritos», del menú Ver |
 | `ui/hidden_sections` | Secciones ocultas de la columna derecha |
 | `params/machine/<capability_id>` | Parámetros de las acciones `scope='machine'` |
 | `machine/<CLAVE>` | Valores de las claves `scope='machine'` de `core/settings.py` |

@@ -61,9 +61,9 @@ Un default fijo tiene un efecto que conviene tener presente: **una clave con def
 
 No hay plantilla: la forma del archivo es el esquema de `core/settings.py` más los campos de `Settings` del repo, y `core/envfile.py::render_config` la escribe. Se **regenera** entero al guardar: encabezado, un bloque por grupo, y un comentario por clave que dice para qué sirve y cuál es su default. Solo se escriben las claves de `scope='repo'` y los campos; cualquier otra que hubiera en el archivo, ajena o de máquina, se borra.
 
-El botón del pie, «Crear archivo» o «Actualizar archivo», escribe lo mismo que «Guardar» y está a la vista mientras el archivo no tenga esa forma (`envfile.is_current`), así que un cambio del esquema lo hace aparecer en cada repo. Antes de escribir, el aviso nombra las claves que se van a borrar, y después, las que se borraron.
+El botón del pie, «Crear archivo» o «Actualizar archivo», escribe lo mismo que «Guardar» y está a la vista mientras el archivo no tenga esa forma (`envfile.is_current`), así que un cambio del esquema lo hace aparecer en cada repo. El estado del archivo va en la cabecera de la sección: «listo» en gris, y «no existe», «desactualizado», «ilegible» o «no se puede guardar» en color de advertencia, con el detalle al pasar el cursor; el de «desactualizado» nombra las claves que se van a borrar. Guardar e importar se comportan como el botón de una acción: abren la pestaña «Configuración del repo», o la traen al frente, y dejan ahí lo que hicieron: el archivo guardado, las claves que se borraron, las importadas, o por qué no se guardó ([12](12_interfaz.md) §4).
 
-Un archivo que existe y no se puede leer no se trata como vacío: el panel muestra el error y no deja guardar, porque escribir dejaría en blanco lo que no se leyó. Tampoco deja guardar mientras `config.py` tenga un error, porque sin los campos se borrarían las credenciales.
+Un archivo que existe y no se puede leer no se trata como vacío: la cabecera muestra el error y el panel no deja guardar, porque escribir dejaría en blanco lo que no se leyó. Tampoco deja guardar mientras `config.py` tenga un error, porque sin los campos se borrarían las credenciales.
 
 Leerlo nunca toca `os.environ`: una tarea no puede pisarle el entorno a las otras pestañas que corren a la vez.
 

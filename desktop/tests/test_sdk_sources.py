@@ -8,9 +8,11 @@ from typing import Any
 import pytest
 
 from app.core import canone, files
+from app.core.catalog import load_catalog
 from app.core.context import TaskContext
 from app.core.envfile import Config
 from app.core.errors import TaskError
+from app.core.registry import registry
 from app.core.tasks import utils
 
 CONFIG = {
@@ -113,6 +115,68 @@ def test_cloudflare_changes_the_record_it_read(monkeypatch: pytest.MonkeyPatch) 
     method, url, body = calls[-1]
     assert (method, url.endswith("/zones/z1/dns_records/r1")) == ("PUT", True)
     assert json.loads(body or b"")["content"] == "203.0.113.9"
+
+
+def _record_answers(calls: list[bytes | None]) -> Any:
+    """Answer zone, record and PUT, keeping each body sent."""
+    answers = iter(
+        [
+            ok([{"id": "z1", "name": "ejemplo.net"}]),
+            ok([{"id": "r1", "content": "203.0.113.1", "type": "A"}]),
+            ok({"id": "r1"}),
+        ]
+    )
+
+    def request(url: str, *, method: str, headers: Any, body: bytes | None) -> bytes:
+        calls.append(body)
+        return next(answers)
+
+    return request
+
+
+def test_cloudflare_points_to_a_written_ip(monkeypatch: pytest.MonkeyPatch) -> None:
+    """«Otra» sends what was written, not `VPS_IP`."""
+    calls: list[bytes | None] = []
+    monkeypatch.setattr(utils.http, "request", _record_answers(calls))
+    ctx = TaskContext("prueba", config=Config(CONFIG))
+    assert utils.update_cloudflare(ctx, ip_mode="static", custom_ip=" 198.51.100.7 ") == (
+        "198.51.100.7"
+    )
+    assert json.loads(calls[-1] or b"")["content"] == "198.51.100.7"
+
+
+def test_cloudflare_with_other_and_no_ip_stops(monkeypatch: pytest.MonkeyPatch) -> None:
+    """«Otra» with the field empty does not fall to `VPS_IP`."""
+    calls: list[bytes | None] = []
+    monkeypatch.setattr(utils.http, "request", _record_answers(calls))
+    with pytest.raises(TaskError, match="Otra IP"):
+        utils.update_cloudflare(
+            TaskContext("prueba", config=Config(CONFIG)), ip_mode="static", custom_ip=""
+        )
+    assert calls == []
+
+
+def test_cloudflare_points_to_this_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+    """«La pública de esta máquina» sends the detected IP."""
+    calls: list[bytes | None] = []
+    monkeypatch.setattr(utils.http, "request", _record_answers(calls))
+
+    def detect(ctx: TaskContext) -> str:
+        return "192.0.2.44"
+
+    monkeypatch.setattr(utils, "detect_public_ip", detect)
+    ctx = TaskContext("prueba", config=Config(CONFIG))
+    assert utils.update_cloudflare(ctx, ip_mode="detect") == "192.0.2.44"
+    assert json.loads(calls[-1] or b"")["content"] == "192.0.2.44"
+
+
+def test_the_cloudflare_axes_reach_the_function() -> None:
+    """The panel's choice arrives as `ip_mode` and `custom_ip`."""
+    load_catalog()
+    capability = registry.get_capability("update_cloudflare")
+    assert capability is not None
+    payload = {"options": {"ip_mode": "static"}, "fields": {"custom_ip": "198.51.100.7"}}
+    assert capability.kwargs_from(payload) == {"ip_mode": "static", "custom_ip": "198.51.100.7"}
 
 
 def test_a_rejected_cloudflare_answer_says_why(monkeypatch: pytest.MonkeyPatch) -> None:

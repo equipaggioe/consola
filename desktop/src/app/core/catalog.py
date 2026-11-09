@@ -1501,7 +1501,26 @@ def load_catalog() -> None:
             group="VPS",
             kind="once",
             icon="☁️",
-            description="Apunta el registro DNS de Cloudflare a la IP pública actual.",
+            description="Apunta el registro DNS de Cloudflare a la IP del VPS, a la pública "
+            "de esta máquina o a otra escrita.",
+            axes=[
+                AxisDef(
+                    "ip_mode",
+                    ["vps", "detect", "static"],
+                    "scope",
+                    label="IP",
+                    default="vps",
+                    labels={
+                        "vps": "La del VPS",
+                        "detect": "La pública de esta máquina",
+                        "static": "Otra",
+                    },
+                    requires_env={"vps": {"VPS_IP"}},
+                ),
+                # Read only with «Otra»: `update_cloudflare` stops if
+                # that is chosen and it is empty.
+                AxisDef("custom_ip", [""], "field", label="Otra IP"),
+            ],
             stub=True,
         )
     )

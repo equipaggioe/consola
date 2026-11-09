@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QMenu, QMenuBar, QWidget
 
 from app.core.registry import Capability, registry
 from app.theme import Colors, Fonts
-from app.ui import favorites
+from app.ui import favorites, section_visibility
 from app.ui.palettes import NEUTRAL, Palette
 
 # A text marker and not custom paint: a `QMenu` does not allow tinting
@@ -28,6 +28,8 @@ class ActionMenuBar(QMenuBar):
 
     action_requested = Signal(str)  # capability_id: open its tab
     focus_search_requested = Signal()
+    only_favorites_toggled = Signal(bool)
+    section_toggled = Signal(str, bool)  # section id, visible
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the menus from the registry."""
@@ -55,7 +57,6 @@ class ActionMenuBar(QMenuBar):
 
         self._build_action_menus()
         self._build_view_menu()
-        self._build_help_menu()
 
         self.set_project_active(False)
         self._apply_filters()
@@ -72,15 +73,15 @@ class ActionMenuBar(QMenuBar):
         self.pal = pal
         self.setStyleSheet(self._bar_style())
         for menu in self._menus:
-            menu.setStyleSheet(self._menu_style())
+            menu.setStyleSheet(self._menu_style(checks=menu is self._view_menu))
 
     def _bar_style(self) -> str:
         """Return the bar's style.
 
         The strip itself is not painted: the row that holds it sets the
         background (`chrome`) and the bottom line, and it reaches
-        further right than the menu, where the favorites switch goes.
-        What is painted is the open menu's title, in the background of
+        further right than the menu, where the search goes. What is
+        painted is the open menu's title, in the background of
         the popup hanging from it, so they read as one piece.
         """
         return f"""
@@ -95,21 +96,28 @@ class ActionMenuBar(QMenuBar):
             QMenuBar::item:pressed {{ background: {self.pal.panel}; }}
         """
 
-    def _menu_style(self) -> str:
+    def _menu_style(self, *, checks: bool = False) -> str:
         """Return the popup's style.
 
         The popup is `panel`, two steps below the row it hangs from: on
         `chrome` it would not stand out (1.06:1 against the bar), and
         the item under the cursor needs its own step above the popup.
-        The `:disabled` rule is for the Help menu's legend, an item that
-        cannot be pressed.
 
         `QMenu::separator` is required: with a style sheet on the
         `QMenu`, Qt stops drawing the separator's native line and only
         its blank height remains. Without this rule, the cuts of
         ADR-0043 show as empty space, not a line.
+
+        `checks` is for the Ver menu, whose items carry a check: by
+        default Qt draws it 5 px from the edge and the text at 41.
+        These two rules leave them at 13 and 33, measured offscreen.
         """
-        return f"""
+        checks_css = (
+            "QMenu::indicator { left: 8px; } QMenu::item { padding-left: 16px; }" if checks else ""
+        )
+        return (
+            checks_css
+            + f"""
             QMenu {{
                 background: {self.pal.panel}; color: {Colors.TEXT};
                 border: 1px solid {self.pal.border_light};
@@ -117,18 +125,16 @@ class ActionMenuBar(QMenuBar):
             QMenu::item:selected {{
                 background: {self.pal.surface_hover}; color: {self.pal.accent};
             }}
-            QMenu::item:disabled {{
-                color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;
-            }}
             QMenu::separator {{
                 height: 1px; margin: 4px 8px;
                 background: {self.pal.border_light};
             }}
         """
+        )
 
-    def _add_menu(self, title: str) -> QMenu:
+    def _add_menu(self, title: str, *, checks: bool = False) -> QMenu:
         menu = self.addMenu(title)
-        menu.setStyleSheet(self._menu_style())
+        menu.setStyleSheet(self._menu_style(checks=checks))
         self._menus.append(menu)
         return menu
 
@@ -171,7 +177,8 @@ class ActionMenuBar(QMenuBar):
             self._group_menus.append(menu)
 
     def _make_action(self, menu: QMenu, cap: Capability) -> QAction:
-        label = f"{cap.icon}  {cap.name}".strip()
+        """Return the menu item: the name, without the emoji."""
+        label = cap.name
         if cap.kind == "destructive":
             label += f"  {MARK_DANGER}"
         action = QAction(label, menu)
@@ -183,18 +190,46 @@ class ActionMenuBar(QMenuBar):
         return action
 
     def _build_view_menu(self) -> None:
-        menu = self._add_menu("Ver")
+        """Build the search, «Solo favoritos» and the visible sections.
+
+        The last two are preferences of the app, not of the repo: they
+        hold for every tab. The checks are read again on opening the
+        menu, since a section also hides from its header's right click.
+        """
+        menu = self._add_menu("Ver", checks=True)
+        self._view_menu = menu
         search = QAction("Buscar acciones", self)
         search.setShortcut(QKeySequence("Ctrl+L"))
         search.triggered.connect(self.focus_search_requested.emit)
         menu.addAction(search)
 
-    def _build_help_menu(self) -> None:
-        """Only the marker's legend."""
-        menu = self._add_menu("Ayuda")
-        item = QAction(f"{MARK_DANGER}  = destructiva", self)
-        item.setEnabled(False)
-        menu.addAction(item)
+        menu.addSeparator()
+        self._only_favorites_action = QAction("Solo favoritos", self)
+        self._only_favorites_action.setCheckable(True)
+        self._only_favorites_action.setChecked(self._only_favorites)
+        self._only_favorites_action.toggled.connect(self.only_favorites_toggled.emit)
+        menu.addAction(self._only_favorites_action)
+
+        menu.addSeparator()
+        self._section_actions: dict[str, QAction] = {}
+        for section_id, title in section_visibility.SECTIONS.items():
+            action = QAction(title, self)
+            action.setCheckable(True)
+
+            def on_section(visible: bool, s: str = section_id) -> None:
+                self.section_toggled.emit(s, visible)
+
+            action.toggled.connect(on_section)
+            self._section_actions[section_id] = action
+            menu.addAction(action)
+        menu.aboutToShow.connect(self._sync_view_checks)
+
+    def _sync_view_checks(self) -> None:
+        hidden = section_visibility.hidden_sections()
+        for section_id, action in self._section_actions.items():
+            action.blockSignals(True)
+            action.setChecked(section_id not in hidden)
+            action.blockSignals(False)
 
     # --- state ---
     def set_project_active(self, active: bool) -> None:
@@ -221,7 +256,7 @@ class ActionMenuBar(QMenuBar):
 
     # --- only favorites ---
     def set_only_favorites(self, value: bool) -> None:
-        """Apply the title bar's switch.
+        """Apply «Solo favoritos» of the Ver menu.
 
         With it on, group menus show only marked actions, and a group
         with none disappears from the bar instead of staying as an empty
@@ -230,6 +265,9 @@ class ActionMenuBar(QMenuBar):
         if value == self._only_favorites:
             return
         self._only_favorites = value
+        self._only_favorites_action.blockSignals(True)
+        self._only_favorites_action.setChecked(value)
+        self._only_favorites_action.blockSignals(False)
         self._apply_filters()
 
     def set_favorites(self, ids: set[str]) -> None:

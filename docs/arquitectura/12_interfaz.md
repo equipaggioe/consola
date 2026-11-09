@@ -4,16 +4,16 @@
 
 ```
 barra de título   marca ◇ · pestañas de REPOS · minimizar / maximizar / cerrar
-barra de menú     catálogo por grupo · buscador · «solo favoritos»
+barra de menú     catálogo por grupo · Ver · buscador
 ─────────────────────────────────────────────┬──────────────────────────────
  pestañas de EJECUCIÓN del repo activo       │ Acción
  consola  |  segunda vista (navegador | base)│ Seguridad
                                              │ Parámetros
                                              │ Configuración del repo
                                              ├──────────────────────────────
-                                             │ Limpiar · Simulacro · Ejecutar
+                                             │ Limpiar · ☆ · Simulacro · Ejecutar
 ─────────────────────────────────────────────┴──────────────────────────────
-barra de estado   repo · herramientas · RAM · candados
+barra de estado   candados del repo                    herramientas · RAM
 ```
 
 Un repositorio abierto es lo que una pestaña de navegador: el contexto entero de lo que se ve debajo. Por eso comparten fila con los botones de ventana, y por eso la ventana es sin marco (`Qt.FramelessWindowHint`), con agarres propios en los bordes ([ADR-0031](../adr/0031-la-ventana-como-navegador.md)).
@@ -37,11 +37,11 @@ Los ocho acentos son claros: el acento va **encima** de los fondos —la barra d
 | `chrome` | Fila de la barra de menú y pestaña del repo seleccionado: la banda más clara y más saturada de la escalera |
 | `bg` | Consola y lienzo izquierdo: el escalón más oscuro del contenido, el que se lee |
 | `panel` | Cuerpo de las secciones de la columna derecha |
-| `surface` | Cabeceras de sección, cabecera derecha, pie y barra de estado |
+| `surface` | Cabeceras de sección, pie y barra de estado |
 | `surface_alt` | Campos, listas y chips |
 | `border` | Separadores y marcos |
 
-Los grises del texto, de más claro a más apagado: `TEXT` (texto corrido), `TEXT_LABEL` (rótulo de un campo y del interruptor «solo favoritos»), `TEXT_DIM` (resúmenes de sección) y `TEXT_MUTED` (pistas cortas y rutas).
+Los grises del texto, de más claro a más apagado: `TEXT` (texto corrido), `TEXT_LABEL` (rótulo de un campo), `TEXT_DIM` (resúmenes de sección) y `TEXT_MUTED` (pistas cortas y rutas).
 
 Lo que **no** sale de la paleta: los grises del texto, los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED) y el fondo de la barra de pestañas de acciones, que va en el gris neutro `Colors.SURFACE` en los ocho temas (su línea de abajo sí es `border` del repo). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
 
@@ -54,7 +54,6 @@ El **logo** es `BRAND_ICON`, el mismo SVG del que salen los íconos de las apps 
 | Dónde | Lado |
 |---|---|
 | Pestaña del repo, a la izquierda del nombre | 18 px |
-| Cabecera de la columna derecha, sin acción abierta (con una, va el emoji de la acción) | 20 px |
 | Bienvenida del repo, sin pestañas de ejecución | 64 px |
 | Tarjeta del repo en los avisos del seguro ([14](14_seguro_de_destructivos.md)) | 18 px |
 
@@ -66,7 +65,7 @@ Los tres botones de ventana se **pintan** —trazo de 1.6 px en `on_accent`—, 
 
 El campo del buscador es un campo de «Configuración del repo» y nada más: mismo fondo (`surface_alt`), borde (`border`), alto (28 px), radio, cuerpo de letra (12 px) y foco (`accent`). Los campos de «Parámetros» son otra medida: 30 px y 13 px de letra.
 
-Los menús desplegados de la barra y la lista del buscador son del repo abierto: fondo `panel` —dos escalones por debajo de la fila de la que cuelgan, porque sobre `chrome` un popup queda a 1.06:1 y no se recorta—, borde `border_light`, el ítem bajo el cursor en `surface_hover` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `panel` que el popup, para que se lean como una sola pieza. La leyenda del menú Ayuda, que es un ítem que no se puede apretar, queda en `TEXT_MUTED`, que no se tiñe.
+Los menús desplegados de la barra y la lista del buscador son del repo abierto: fondo `panel` —dos escalones por debajo de la fila de la que cuelgan, porque sobre `chrome` un popup queda a 1.06:1 y no se recorta—, borde `border_light`, el ítem bajo el cursor en `surface_hover` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `panel` que el popup, para que se lean como una sola pieza. En Ver, la palomita de cada casilla va a 13 px del borde y el texto a 33, en vez de los 5 y 41 que Qt pone por defecto.
 
 Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` repite los neutros pelados de `ui/theme.py`, con la misma escalera y sin teñir.
 
@@ -76,9 +75,11 @@ Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` rep
 |---|---|
 | Barra de menú | El catálogo entero por grupo, a un recorrido de hover. Un clic **abre** la pestaña |
 | Buscador | Filtra sobre todas las acciones, con teclado (flechas, Enter, Ctrl+Enter). Cada fila trae su filete de favorita, la marca de nivel (`◈` compuesta, `◦` atómica), la de alcance (`⌂` es de la máquina) y un **▶** que corre de una |
-| «Solo favoritos» | Poda los menús. **No** poda el buscador: buscar es ir por algo puntual, y esconder justo lo que se busca sería un chiste cruel |
+| «Solo favoritos», en el menú Ver | Poda los menús. **No** poda el buscador: buscar es ir por algo puntual, y esconder justo lo que se busca sería un chiste cruel |
 
-Los ocho menús de la barra son los grupos del catálogo, en el orden en que `core/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar.
+Los menús de acciones son los grupos del catálogo, en el orden en que `core/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar. Cada acción va por su nombre, sin el emoji; una destructiva lleva `⚠` al final. Una favorita se marca con el filete de su fila en el buscador o con la estrella del pie, junto a Ejecutar ([§5](#5-la-columna-derecha)).
+
+Después va **Ver**, que tiene «Buscar acciones» (Ctrl+L), «Solo favoritos» y una casilla por sección de la columna derecha; las dos últimas son preferencias de la aplicación, no del repo.
 
 Dentro de un menú **no hay encabezados de sección**: los tramos se cortan con rayas. Una raya sale de `Capability.cut` —el catálogo declara que ese botón abre un tramo— o de ser el primer destructivo del grupo, que va siempre al fondo detrás de una raya sin que nadie lo declare ([ADR-0043](../adr/0043-un-menu-sin-secciones.md)). Un menú que se quedó sin acciones aplicables desaparece de la barra, y cada raya se dibuja solo si quedó algo visible de los dos lados.
 
@@ -91,6 +92,8 @@ El recuento se **pide**, no se hace en el acto: `ui/main_window.py::_refresh_rea
 ## 4. La pestaña de ejecución
 
 `TabView` tiene la consola y, si la capacidad lo declara, una segunda vista: el navegador embebido (`view='web'`) o el explorador de base (`view='db'`). La barra de la pestaña muestra la URL que publicó la tarea con su estado ([ADR-0008](../adr/0008-un-launcher-entrega-un-endpoint.md)).
+
+La pestaña **«Configuración del repo»** no es del catálogo: la abren Guardar e importar en esa sección, y guarda lo que hicieron. No tiene parámetros; mostrándola, la sección Configuración enseña el archivo entero, sin filtrar. No se reabre al arrancar (`TabPanel._open_config_tab`).
 
 Las pestañas se reordenan arrastrando (`ui/widgets/tab_reorder.py`) y **se reabren al arrancar**: qué botones quedaron a mano es una decisión sobre ese repo, y va a su `params.json` ([ADR-0033](../adr/0033-que-es-de-la-app-y-que-del-repo.md)). Reabrirlas no corre nada.
 
@@ -105,9 +108,11 @@ Un acordeón de cuatro secciones («Acción», «Seguridad», «Parámetros», �
 | Parámetros | Los ejes y los pasos de la acción abierta |
 | Configuración del repo | `.consola/config.env` del repo, **filtrado** a lo que la acción puede llegar a mirar con lo que está marcado ahora |
 
-La cabecera de cada sección se ve siempre, esté abierta o cerrada. El reparto de alto es automático y se puede forzar arrastrando la barra fina entre dos secciones abiertas; doble clic vuelve al automático. Qué secciones se ocultan es preferencia global de la aplicación, no del repo.
+La columna no tiene cabecera propia: empieza por la primera sección visible. La cabecera de cada sección se ve siempre, esté abierta o cerrada. El reparto de alto es automático y se puede forzar arrastrando la barra fina entre dos secciones abiertas; doble clic vuelve al automático. Qué secciones se ocultan es preferencia global de la aplicación, no del repo: se elige en el menú Ver o con el clic derecho sobre la cabecera de una sección.
 
-El pie con **Limpiar · Simulacro · Ejecutar** vive fuera del acordeón, fijo al fondo: el botón no se pliega con su sección ni hay que bajar hasta él. «Simulacro» solo aparece cuando la acción tiene un eje excluyente con el valor `simulacro`, y fuerza ese valor en el payload de esa corrida sin tocar lo guardado.
+En Parámetros, un campo de texto o una lista va a la derecha de su rótulo, como en Configuración del repo: la columna de rótulos tiene el ancho de la de Configuración (`EnvPanel.label_width`) y los dos cuerpos tienen los mismos márgenes, así que los campos de las dos secciones empiezan en la misma x y tienen el mismo ancho. Un rótulo más largo que la columna se parte en dos líneas. Las casillas (componentes, pasos, opciones) siguen en columna bajo su título, y los campos de texto van al final, debajo de ellas: «Otra IP» de Cloudflare queda bajo la opción que la pide.
+
+El pie con **Limpiar · ☆ · Simulacro · Ejecutar** vive fuera del acordeón, fijo al fondo: el botón no se pliega con su sección ni hay que bajar hasta él. La estrella marca o desmarca como favorita la acción abierta, y se pone al día cuando se marca desde el buscador. «Simulacro» solo aparece cuando la acción tiene un eje excluyente con el valor `simulacro`, y fuerza ese valor en el payload de esa corrida sin tocar lo guardado.
 
 ## 6. Cuándo se relee lo consultado
 
@@ -125,7 +130,7 @@ Un eje consultado cuya fuente falla —el SDK, el VPS, la cámara o GitHub— no
 
 ## 8. La barra de estado
 
-Una sola, de borde a borde, fuera de los `TabPanel`. Muestra el repo activo, el estado de Java, Git, Android y Flutter (mirando el disco, sin lanzar `flutter doctor`), la RAM disponible, y los candados del repo. Un clic en un candado salta a la sección Seguridad.
+Una sola, de borde a borde, fuera de los `TabPanel`. A la izquierda, lo del repo activo: sus candados, uno por objetivo del seguro; un clic en un candado salta a la sección Seguridad. A la derecha, lo de la máquina, que vale para cualquier repo: el estado de Java, Git, Android y Flutter (mirando el disco, sin lanzar `flutter doctor`) y, tras una raya, la RAM disponible. Sin repo abierto, la izquierda queda vacía.
 
 El LED verde **pulsa** solo cuando algo está vivo ahora mismo; un hecho estático —una herramienta instalada— es el mismo verde sin animación.
 

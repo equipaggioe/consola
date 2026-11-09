@@ -20,7 +20,6 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | # | Hallazgo | Evidencia |
 |---|---|---|
 | H1 | **`ctx.progress()` no llega a ninguna parte.** `TaskRunner` crea el `TaskContext` sin `progress_sink`, así que el avance de la descarga del SDK —la única que lo emite, cientos de megas— se descarta en silencio. El docstring de `TaskRunner` lo nombra entre los canales que puentea | `ui/task_runner.py::run`, `core/tasks/utils.py::_download` |
-| H2 | **«Actualizar Cloudflare» no usa la IP detectada.** La función tiene `ip_mode`, `custom_ip`, `ttl` y `proxied`, y el catálogo no declara ningún eje: corre siempre con `ip_mode='vps'`, o sea con `VPS_IP`. La descripción del botón dice «a la IP pública actual», y `detect_public_ip` queda sin alcanzar | `core/catalog.py` (registro de `update_cloudflare`), `core/tasks/utils.py::update_cloudflare` |
 | H3 | **«Ver logs» no ofrece sus filtros.** `view_logs` acepta `lines`, `since`, `priority` y `grep`, y `vps.journal_command` los arma; el catálogo solo declara `service` y `follow`, así que siempre son 200 líneas sin filtrar | `core/catalog.py`, `core/tasks/vps_server.py::view_logs` |
 | H4 | **«Migrar» no deja escribir el mensaje de la revisión.** `migrate_db(message=...)` existe y no tiene eje: toda revisión autogenerada se llama `auto` | `core/catalog.py`, `core/tasks/database.py::migrate_db` |
 | H8 | **«Levantar backend» con ámbito remoto no llega a la base de un VPS de canone.** Pregunta el puerto con `sudo -n`, que pide contraseña, y entra por TCP con `DB_USER` y `DB_PASSWORD`, cuando los roles de canone entran por `peer` y sin contraseña. Solo lo usa un repo sin el `Settings` de canone | `core/database.py::connect`, `core/vps.py::postgres_port`, `core/tasks/launchers.py::serve_backend` |
@@ -28,7 +27,12 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | H11 | **Una versión que no arrancó no se puede volver a desplegar.** Si la salud falla y `current` vuelve a la anterior, su carpeta queda en `releases/`, y pedirla otra vez responde `already exists`: hay que publicar otra. Comprobado el 2026-11-02 con `v0.1.3` de prueba. Canone lo cambió en `main` (ADR-0123 de canone), sin probarlo en un VPS. | `deploy.py` de canone |
 | H9 | **«Generar migración» escribe una revisión vacía si el modelo no cambió.** Su docstring promete `None` y el aviso «El modelo no cambio», pero Alembic genera el archivo igual: corrido el 2026-11-02 contra `equipaggio`, dejó un `upgrade` sin operaciones | `core/tasks/database.py::generate_migration` |
 | H13 | **El avance de cmdline-tools solo llega al terminar.** `dl.google.com` deja el total en `-1` hasta el último aviso, y `_download` descarta los avisos sin total: 1 de 72, medido el 2026-11-04. La descarga de Flutter sí trae el total: 47 avisos en 5 s. No se investigó por qué difieren. Hoy no se ve, por H1 | `core/tasks/utils.py::_download` |
+
 ## 3. Pendientes abiertos
+
+### Reportados en uso
+
+- **Cambiar de pestaña de repo tarda 0,7 s, y arrancar, unos 8 s**, con ocho repos abiertos. Visto el 2026-11-09. Medido sin pantalla: de los 0,7 s, 0,63 son `MainWindow._apply_window_border`, que pone una hoja de estilo en el `centralWidget` y obliga a Qt a repulir todos los widgets de los ocho espacios de trabajo; sin esa llamada, el cambio baja a 0,07 s y el arranque a 5,9 s. La misma llamada corre cada vez que la ventana gana o pierde el foco. Del arranque, 5,7 s son construir los ocho `TabPanel` de entrada. Lo mismo en `main` que en esta rama.
 
 ### Decididos y sin construir
 
@@ -81,7 +85,7 @@ Construido y nunca probado en condiciones reales:
 
 - **Consola en Linux**, con la ventana ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md)). `pytest` pasó el 2026-11-04 en Debian 13 dentro de WSL, con las tres pruebas `posix_only` de `tests/test_host.py`. Falta una pasada a mano: detener una tarea y una «App Python» que relanza al guardar, respaldar y restaurar contra la base local, «SSH Login», instalar los SDK y ver la fuente de la consola.
 - La **instalación completa de los SDK** de punta a punta: escribir el registro o el perfil y que el emulador acelere. El 2026-11-04 `_download` bajó entero el zip de cmdline-tools para Windows, idéntico byte a byte al de `curl`, pasó la verificación con el SHA-256 de la página, y se detuvo a los 5 s durante la descarga de Flutter para Windows.
-- **«Actualizar Cloudflare» con los modelos de `api/cloudflare.py` contra el servicio real.** Se probó con respuestas simuladas.
+- **«Actualizar Cloudflare» con los modelos de `api/cloudflare.py` contra el servicio real**, y sus tres orígenes de la IP: la del VPS, la pública de esta máquina y otra escrita. Se probó con respuestas simuladas. El TTL (automático) y el proxy (activado) siguen sin eje.
 - **El revelado para tiendas con capturas reales.** Las reglas de Play y las medidas de App Store se tomaron de las fichas oficiales el 2026-09-24, pero ninguna tanda se subió a una tienda. El tope de recorte de App Store (`max_crop` 3 %) es un número elegido para que un teléfono 1080×2400 pase; nadie miró todavía qué se pierde en esa franja.
 - Los builds de **escritorio, macOS e iOS**: `BUILD_PLATFORMS` los declara y el eje solo ofrece los del sistema anfitrión.
 - **«Respaldar» y «Restaurar» con PostGIS y con los roles de canone.** Corrieron el 2026-11-02 contra una base aparte con `pg_trgm`: el respaldo y la restauración recuperan los datos, y la extensión sigue. Falta una base con PostGIS y una cuyo dueño sea `<app>_owner` ([ADR-0060](../adr/0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md), [ADR-0047](../adr/0047-restaurar-es-un-destructivo-del-seguro-por-repo.md)).

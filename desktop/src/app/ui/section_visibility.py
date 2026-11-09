@@ -1,8 +1,9 @@
 """Which sections of the side column stay visible.
 
 The sections are in `ui/tab_panel.py`: Action, Security, Parameters and
-Settings. It is a global app preference, not per repository, in
-QSettings like «only favorites» (`ui/favorites.py`).
+Settings. They hide from the Ver menu or a section header's right
+click. It is a global app preference, not per repository, in QSettings
+like «only favorites» (`ui/favorites.py`).
 """
 
 from __future__ import annotations
@@ -12,6 +13,15 @@ from typing import cast
 from PySide6.QtCore import QSettings
 
 _HIDDEN_KEY = "ui/hidden_sections"
+
+# Each section's id, what it saves under, and its title, in the
+# column's order. The Ver menu (`ui/menu_bar.py`) lists them too.
+SECTIONS = {
+    "accion": "Acción",
+    "seguridad": "Seguridad",
+    "parametros": "Parámetros",
+    "configuracion": "Configuración del repo",
+}
 
 
 def hidden_sections() -> set[str]:

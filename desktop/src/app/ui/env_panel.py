@@ -248,7 +248,11 @@ class EnvPanel(QWidget):
     values_changed = Signal(dict)
     # config.env's state: it goes to the section's label the whole file
     # was reread (Reload button), not one keystroke.
-    file_status_changed = Signal(str)
+    file_status_changed = Signal()
+    # What a button did to the file (saved, imported, erased) and its
+    # console level: `ui/tab_panel.py` writes it in the settings tab, so
+    # it takes no height from the form.
+    notice = Signal(str, str)
     # `ui/tab_panel.py` listens to also reread the queried axes: which
     # VPS to ask comes from this file.
     reloaded = Signal()
@@ -261,7 +265,11 @@ class EnvPanel(QWidget):
         self.rows: dict[str, EnvRow] = {}
         self._row_group: dict[str, QWidget] = {}
         self._filter: set[str] | None = None
+        # The file's state for the section header: the short word, the
+        # detail for its tooltip, and whether it asks for attention.
         self.file_status = ""
+        self.file_detail = ""
+        self.file_warn = False
         self.read_error = ""
         self.fields, self.fields_error = self._read_fields()
         # Without this, a QWidget subclass ignores its own sheet's
@@ -277,8 +285,6 @@ class EnvPanel(QWidget):
         # on the section's edge, at hand and not competing with the
         # first key for attention.
         root.addWidget(self._build_body(), 1)
-        self.banner = self._build_banner()
-        root.addWidget(self.banner)
         self.file_bar = self._build_file_bar()
         root.addWidget(self.file_bar)
         self._restyle()
@@ -300,21 +306,6 @@ class EnvPanel(QWidget):
             return fields.field_settings(server), ""
         except TaskError as error:
             return (), str(error)
-
-    def _build_banner(self) -> QWidget:
-        box = QWidget()
-        lay = QHBoxLayout(box)
-        lay.setContentsMargins(16, 8, 16, 8)
-        lay.setSpacing(8)
-
-        self.banner_label = QLabel("")
-        self.banner_label.setWordWrap(True)
-        self.banner_label.setStyleSheet(
-            f"background: transparent; color: {Colors.WARNING}; font-size: {Fonts.SIZE_XS}px;"
-        )
-        lay.addWidget(self.banner_label, 1)
-        box.setVisible(False)
-        return box
 
     def _build_file_bar(self) -> QWidget:
         """Build the footer with the actions on `config.env`.
@@ -367,9 +358,6 @@ class EnvPanel(QWidget):
         """
         self.setStyleSheet(f"EnvPanel {{ background: {self.pal.panel}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
-        self.banner.setStyleSheet(
-            f"background: transparent; border-top: 1px solid {self.pal.border};"
-        )
         self.file_bar.setStyleSheet(
             f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
         )
@@ -437,8 +425,10 @@ class EnvPanel(QWidget):
         lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
         # Width of the labels column: what the longest of the WHOLE
-        # schema asks for, not a fixed number.
-        label_width = self._label_width()
+        # schema asks for, not a fixed number. The Parameters section
+        # takes it too, so its fields line up with these
+        # (`ui/params_panel.py::_labeled`).
+        label_width = self.label_width = self._label_width()
 
         if self.fields_error:
             notice = QLabel(self.fields_error)
@@ -532,24 +522,25 @@ class EnvPanel(QWidget):
         blocked = bool(self.read_error or self.fields_error)
         current = text is not None and not blocked and envfile.is_current(text, self.fields)
         if self.read_error:
-            state, notice = "ilegible", self.read_error
+            state, detail = "ilegible", self.read_error
         elif text is None:
             state = "no existe"
-            notice = (
+            detail = (
                 f"No hay {rel} todavía. Pulsa «Crear archivo» para generarlo con todas las claves."
             )
         elif current:
-            state, notice = "listo", ""
+            state, detail = "listo", ""
         else:
             state = "desactualizado"
-            notice = self._outdated_notice(rel, envfile.parse_env(text))
+            detail = self._outdated_notice(rel, envfile.parse_env(text))
         if self.fields_error:
-            notice = f"No se escribe {rel} mientras config.py tenga el error de arriba."
+            state = "no se puede guardar"
+            detail = f"No se escribe {rel} mientras config.py tenga el error de arriba."
 
         self.file_status = f"{rel} — {state}"
-        self.file_status_changed.emit(self.file_status)
-        self.banner_label.setText(notice)
-        self.banner.setVisible(bool(notice))
+        self.file_detail = detail
+        self.file_warn = bool(detail)
+        self.file_status_changed.emit()
 
         self.create_btn.setText("Crear archivo" if text is None else "Actualizar archivo")
         self.create_btn.setToolTip(
@@ -586,20 +577,17 @@ class EnvPanel(QWidget):
             return
         imported = envfile.import_from(path)
         if not imported:
-            self._notify(f"{os.path.basename(path)} no tiene claves reconocidas.")
+            self.notice.emit(f"{os.path.basename(path)} no tiene claves reconocidas.", "warn")
             return
         for key, value in imported.items():
             row = self.rows.get(key)
             if row is not None and not row.value():
                 row.set_value(value)
-        self._notify(
+        self.notice.emit(
             f"Se importaron {len(imported)} claves de {os.path.basename(path)}. "
-            f"Revisa y guarda para escribir el archivo."
+            f"Revisa y guarda para escribir el archivo.",
+            "info",
         )
-
-    def _notify(self, text: str) -> None:
-        self.banner_label.setText(text)
-        self.banner.setVisible(True)
 
     def save(self) -> None:
         """Send each value to its place: the repo's file or QSettings.
@@ -614,13 +602,15 @@ class EnvPanel(QWidget):
         text = self._read_file()
         if self.read_error:
             self._sync_file_bar(text)
+            self.notice.emit(f"No se guardó: {self.read_error}", "error")
             return
         removed = envfile.removed_keys(envfile.parse_env(text or ""), self.fields)
         params_store.save_machine_env(self.values())
-        envfile.save_config(self.project.path, self.values(), self.fields)
+        path = envfile.save_config(self.project.path, self.values(), self.fields)
         self._sync_file_bar(self._read_file())
+        self.notice.emit(f"Guardado {path}", "ok")
         if removed:
-            self._notify(f"Se borraron de config.env: {', '.join(removed)}.")
+            self.notice.emit(f"Se borraron de config.env: {', '.join(removed)}.", "warn")
         self.saved.emit(self.values())
         self.values_changed.emit(self.values())
 

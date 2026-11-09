@@ -12,8 +12,8 @@ class FavoriteStar(QPushButton):
     """Mark as favorite the action being looked at.
 
     In the menu bar search, a favorite is marked on the row's stripe.
-    This star does the same from the parameters header, without
-    searching for the action again.
+    This star does the same from the footer, next to Run, without
+    searching for the action again (`ui/params_panel.py`).
     """
 
     marked = Signal(bool)

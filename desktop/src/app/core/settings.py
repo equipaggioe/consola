@@ -231,12 +231,7 @@ SETTINGS: tuple[Setting, ...] = (
     # --- GitHub ---
     #
     # The repo's name on the VPS comes from it (`vps.repo_name`).
-    Setting(
-        "GIT_REPO_URL",
-        "GitHub",
-        "URL del repositorio",
-        used_by=("systemd_action", "view_logs", "health_check"),
-    ),
+    Setting("GIT_REPO_URL", "GitHub", "URL del repositorio", used_by=("upload_to_vps",)),
     # `--private`: the VPS downloads the release with a token. `si` or
     # `no`.
     Setting("PRIVATE", "GitHub", "Repo privado", used_by=("bootstrap_vps", "load_credentials")),

@@ -178,9 +178,20 @@ class AccordionSection(QWidget):
         """Flip open and closed."""
         self.set_expanded(not self._expanded)
 
-    def set_summary(self, text: str) -> None:
-        """Set the summary shown while closed."""
-        self.header.summary.setText(text)
+    def set_summary(self, text: str, detail: str = "", warn: bool = False) -> None:
+        """Set the summary, its tooltip and whether it warns.
+
+        `warn` paints it in `Colors.WARNING` instead of the muted gray:
+        the state of «Configuración del repo» when the file is not
+        ready, whose detail reads in the tooltip.
+        """
+        summary = self.header.summary
+        summary.setText(text)
+        summary.setToolTip(detail)
+        color = Colors.WARNING if warn else Colors.TEXT_MUTED
+        summary.setStyleSheet(
+            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
+        )
 
     def set_palette(self, pal: Palette) -> None:
         """Repaint the header.

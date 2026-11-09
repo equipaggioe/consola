@@ -31,7 +31,7 @@ from app.core.catalog import applicable_ids
 from app.core.projects import Project
 from app.core.registry import registry
 from app.theme import Colors, Fonts
-from app.ui import favorites, palettes, params_store, project_store, readiness
+from app.ui import favorites, palettes, params_store, project_store, readiness, section_visibility
 from app.ui.action_search import ActionSearch
 from app.ui.menu_bar import ActionMenuBar
 from app.ui.palettes import NEUTRAL, Palette
@@ -39,7 +39,6 @@ from app.ui.project_tabs import ProjectTabBar
 from app.ui.repo_logo import RepoLogo
 from app.ui.tab_panel import TabPanel, WorkspaceStatusBar
 from app.ui.title_bar import TitleBar
-from app.ui.widgets import ToggleSwitch
 
 # How long to wait before recounting which actions are ready. Short: the
 # time a burst of typing takes to stop, and what is recomputed is
@@ -168,7 +167,7 @@ class MainWindow(QMainWindow):
         self.title_bar.close_requested.connect(self.close)
         self.main_layout.addWidget(self.title_bar)
 
-        # --- Level 2: menu bar and the «solo favoritos» mode ---
+        # --- Level 2: menu bar and search ---
         self.main_layout.addWidget(self._build_menu_row())
 
         # --- Body: the active repo's workspace ---
@@ -221,13 +220,15 @@ class MainWindow(QMainWindow):
 
         self.action_menu.action_requested.connect(self._on_action_requested)
         self.action_menu.focus_search_requested.connect(self.action_search.box.setFocus)
+        self.action_menu.only_favorites_toggled.connect(self._on_only_favorites)
+        self.action_menu.section_toggled.connect(self._on_section_toggled)
 
         self.action_search.action_requested.connect(self._on_action_requested)
         self.action_search.run_requested.connect(self._on_run_requested)
 
         # Favorites: three surfaces for one set, the search row's
-        # stripe, the parameters header's star and the menus' pruning.
-        # Whoever marks saves it, and from here the rest are told.
+        # stripe, the star next to Run and the menus' pruning. Whoever
+        # marks saves it, and from here the rest are told.
         self.action_search.favorites_changed.connect(self._on_favorites_changed)
         self._on_only_favorites(favorites.only_favorites(), save=False)
 
@@ -242,17 +243,14 @@ class MainWindow(QMainWindow):
 
     # --- menu row ---
     def _build_menu_row(self) -> QWidget:
-        """Build the action menus and the «solo favoritos» switch.
+        """Build the action menus and the search.
 
-        The switch is no action but a viewing mode: it prunes this bar's
-        menus, so it goes in the same row as what it trims and not in
-        the title bar, which only has window chrome.
+        «Solo favoritos» is in the bar's Ver menu (`ui/menu_bar.py`).
         """
         row = QWidget()
         # A selector by name and not a bare `QWidget`: a sheet without a
-        # selector inherits to the children, and the switch's label came
-        # out underlined by the same `border-bottom` that closes the
-        # row.
+        # selector inherits to the children, which came out underlined
+        # by the same `border-bottom` that closes the row.
         row.setObjectName("menuRow")
         self.menu_row = row
         lay = QHBoxLayout(row)
@@ -265,10 +263,6 @@ class MainWindow(QMainWindow):
         # (`ui/action_search.py`).
         self.action_search = ActionSearch()
         lay.addWidget(self.action_search, 0, Qt.AlignmentFlag.AlignVCenter)
-
-        self.fav_switch = ToggleSwitch("solo favoritos", favorites.only_favorites())
-        self.fav_switch.toggled.connect(self._on_only_favorites)
-        lay.addWidget(self.fav_switch, 0, Qt.AlignmentFlag.AlignVCenter)
         return row
 
     # --- empty state: no repository in tabs ---
@@ -439,14 +433,13 @@ class MainWindow(QMainWindow):
     def _apply_palette(self, pal: Palette) -> None:
         """Apply the repo's palette to what lives outside its workspace.
 
-        The title bar, the menu row and its open menus, the favorites
-        switch, the search, the status bar and the window's outline
+        The title bar, the menu row and its open menus, the search, the
+        status bar and the window's outline
         (`_apply_window_border`).
         """
         self.pal = pal
         self.title_bar.set_palette(pal)
         self.action_menu.set_palette(pal)
-        self.fav_switch.set_accent(pal.accent)
         self.action_search.set_palette(pal)
         self.status_bar.set_palette(pal)
         self.menu_row.setStyleSheet(
@@ -457,7 +450,7 @@ class MainWindow(QMainWindow):
 
     # --- favorites ---
     def _on_only_favorites(self, value: bool, save: bool = True) -> None:
-        """React to the menu row's switch: it prunes the group menus.
+        """React to «Solo favoritos» of the Ver menu: it prunes menus.
 
         The search does not obey it: it always searches all actions.
         """
@@ -476,9 +469,8 @@ class MainWindow(QMainWindow):
         ids = favorites.favorite_ids()
         self.action_menu.set_favorites(ids)
         self.action_search.set_favorites(ids)
-        workspace = self.current_workspace
-        if workspace is not None:
-            workspace.refresh_favorite_star()
+        for workspace in self.workspaces.values():
+            workspace.refresh_favorite_stars()
 
     # --- reactions ---
     def _on_project_added(self, project: Project) -> None:
@@ -608,6 +600,11 @@ class MainWindow(QMainWindow):
     def _do_refresh_readiness(self) -> None:
         ready = readiness.ready_ids(self.project_tabs.active_project)
         self.action_search.set_ready(ready)
+
+    def _on_section_toggled(self, section_id: str, visible: bool) -> None:
+        """React to a section checked or unchecked in the Ver menu."""
+        section_visibility.set_section_hidden(section_id, not visible)
+        self._on_sections_changed()
 
     def _on_sections_changed(self) -> None:
         """Section visibility is global.

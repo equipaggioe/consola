@@ -173,6 +173,10 @@ class ProjectTab(ReorderableTab):
         self.update()
         super().leaveEvent(event)
 
+    # The tab keeps its press and its drag: passed on to the parent,
+    # they reached `TitleBar`, which after 6 px starts moving the
+    # window, and Windows's move loop took the drag from the tab. A
+    # double click does go on, and maximizes as on the rest of the bar.
     @override
     def mousePressEvent(self, event: QMouseEvent) -> None:
         if event.button() == Qt.MouseButton.LeftButton:
@@ -180,17 +184,23 @@ class ProjectTab(ReorderableTab):
             self._reorder_press(event)
         elif event.button() == Qt.MouseButton.MiddleButton and self._closable:
             self.close_requested.emit()
-        super().mousePressEvent(event)
+        event.accept()
 
     @override
     def mouseMoveEvent(self, event: QMouseEvent) -> None:
         self._reorder_move(event)
-        super().mouseMoveEvent(event)
+        event.accept()
 
     @override
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
         self._reorder_release(event)
-        super().mouseReleaseEvent(event)
+        event.accept()
+
+    @override
+    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
+        # Not the default, which calls `mousePressEvent` and would keep
+        # it: it goes on to `TitleBar`.
+        event.ignore()
 
     # --- theme ---
     def set_theme(self, key: str) -> None:

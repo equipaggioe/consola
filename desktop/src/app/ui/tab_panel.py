@@ -38,19 +38,19 @@ from app.core.projects import Project
 from app.core.registry import Capability, registry
 from app.core.toolstatus import Tool
 from app.theme import Colors, Fonts
-from app.ui import favorites, palettes, params_store, repo_logo, section_visibility
+from app.ui import palettes, params_store, repo_logo, section_visibility
 from app.ui.command_info_panel import CommandInfoPanel
 from app.ui.console_view import ConsoleView
 from app.ui.env_panel import EnvPanel
 from app.ui.guard_dialog import BlockedDialog, ReminderDialog
 from app.ui.palettes import Palette
 from app.ui.params_panel import ParamsPanel
+from app.ui.section_visibility import SECTIONS
 from app.ui.security_panel import SecurityPanel
 from app.ui.tab_view import TabView
 from app.ui.task_runner import TaskRunner
 from app.ui.widgets import (
     AccordionSection,
-    FavoriteStar,
     ReorderableBar,
     ReorderableTab,
     SectionResizeGrip,
@@ -202,6 +202,19 @@ class SubTabButton(ReorderableTab):
         p.end()
 
 
+# The tab of «Configuración del repo» (`TabPanel._open_config_tab`). It
+# is no catalog action: nothing runs it, so it is not registered; it
+# only gives the tab its name, icon and tooltip.
+CONFIG_TAB = Capability(
+    id="repo_config",
+    name="Configuración del repo",
+    group="",
+    kind="once",
+    icon="⚙️",
+    description="Lo que hicieron los botones de Configuración del repo: guardar e importar.",
+)
+
+
 class PadlockChip(QLabel):
     """A protection target on the status bar.
 
@@ -238,7 +251,13 @@ class PadlockChip(QLabel):
 
 
 class WorkspaceStatusBar(QWidget):
-    """The workspace's bottom bar: active repo, services and state."""
+    """The window's bottom bar: the repo at left, the machine at right.
+
+    At left, what belongs to the active repo: its guards, and the
+    background services when someone reports them. At right, what
+    belongs to this machine and holds for every repo: the tools and the
+    RAM.
+    """
 
     # click on the active repo's guards indicator
     security_clicked = Signal()
@@ -261,42 +280,8 @@ class WorkspaceStatusBar(QWidget):
         layout.setContentsMargins(16, 0, 16, 0)
         layout.setSpacing(12)
 
-        self.services_layout = QHBoxLayout()
-        self.services_layout.setSpacing(10)
-        layout.addLayout(self.services_layout)
-
-        layout.addStretch()
-
-        # From here rightward, each section is separated from the
-        # previous by a thin line: environment, guards and state read as
-        # distinct blocks.
-        self._sep_tools = self._divider()
-        layout.addWidget(self._sep_tools)
-
-        # Environment state: it checks itself, not with a button. It
-        # goes before the clock because it is the machine's information,
-        # not this run's.
-        self.tools_layout = QHBoxLayout()
-        self.tools_layout.setSpacing(10)
-        layout.addLayout(self.tools_layout)
-        self._tools: dict[str, tuple[LedIndicator, QLabel]] = {}
-        self.refresh_tools()
-
-        # Available RAM: unlike the SDKs, it changes all the time and
-        # not only after an install, so it has its own timer.
-        self.ram_label = QLabel()
-        self.ram_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
-        )
-        self.tools_layout.addWidget(self.ram_label)
-        self._ram_timer = QTimer(self)
-        self._ram_timer.timeout.connect(self.refresh_ram)
-        self._ram_timer.start(5000)
-        self.refresh_ram()
-
-        self._sep_security = self._divider()
-        layout.addWidget(self._sep_security)
-
+        # --- the repo ---
+        #
         # The active repo's protection targets (`core/protection.py`),
         # each with its open or closed padlock, always in view whichever
         # action is open above (`ADR-0018` §4). A click on any jumps to
@@ -308,14 +293,35 @@ class WorkspaceStatusBar(QWidget):
         self._security_row.setSpacing(9)
         layout.addWidget(self.security_box)
 
-        self._sep_status = self._divider()
-        layout.addWidget(self._sep_status)
+        self.services_layout = QHBoxLayout()
+        self.services_layout.setSpacing(10)
+        layout.addLayout(self.services_layout)
 
-        self.status_label = QLabel("● 0 tareas activas  ·  00:00:00")
-        self.status_label.setStyleSheet(
+        layout.addStretch()
+
+        # --- the machine ---
+        #
+        # Environment state: it checks itself, not with a button.
+        self.tools_layout = QHBoxLayout()
+        self.tools_layout.setSpacing(10)
+        layout.addLayout(self.tools_layout)
+        self._tools: dict[str, tuple[LedIndicator, QLabel]] = {}
+        self.refresh_tools()
+
+        self._sep_ram = self._divider()
+        layout.addWidget(self._sep_ram)
+
+        # Available RAM: unlike the SDKs, it changes all the time and
+        # not only after an install, so it has its own timer.
+        self.ram_label = QLabel()
+        self.ram_label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
         )
-        layout.addWidget(self.status_label)
+        layout.addWidget(self.ram_label)
+        self._ram_timer = QTimer(self)
+        self._ram_timer.timeout.connect(self.refresh_ram)
+        self._ram_timer.start(5000)
+        self.refresh_ram()
 
         self._restyle()
 
@@ -358,11 +364,11 @@ class WorkspaceStatusBar(QWidget):
         launching a heavy build.
         """
         ram = sysinfo.available_ram()
+        self.ram_label.setVisible(ram is not None)
+        self._sep_ram.setVisible(ram is not None)
         if ram is None:
-            self.ram_label.setVisible(False)
             return
         available, total = ram
-        self.ram_label.setVisible(True)
         self.ram_label.setText(f"RAM {available:.1f}/{total:.1f} GB")
         threshold = total * 0.15
         color = Colors.TEXT_DIM if available > threshold else Colors.WARNING
@@ -406,20 +412,12 @@ class WorkspaceStatusBar(QWidget):
 
         self.services_layout.addWidget(container)
 
-    def set_status(self, text: str) -> None:
-        """Set the state's text."""
-        self.status_label.setText(text)
-
     def clear(self) -> None:
-        """Show nothing about guards or tasks: no repository is open.
+        """Show no guards: no repository is open.
 
         See `ui/main_window.py::_show_empty_state`.
         """
         self.security_box.setVisible(False)
-        # With no guards to show, the divider preceding them is not
-        # needed.
-        self._sep_security.setVisible(False)
-        self.set_status("")
 
     def set_protection(self, state: dict[str, Any]) -> None:
         """Refresh the padlocks with the state of EACH target.
@@ -438,7 +436,6 @@ class WorkspaceStatusBar(QWidget):
                 widget.deleteLater()
 
         self.security_box.setVisible(True)
-        self._sep_security.setVisible(True)
         for target in protection.TARGETS:
             protected = protection.is_protected(state, target)
             chip = PadlockChip(target.chip, target.label, protected, self.pal)
@@ -462,8 +459,7 @@ class WorkspaceStatusBar(QWidget):
                 border-top: 1px solid {self.pal.border};
             }}
         """)
-        for line in (self._sep_tools, self._sep_security, self._sep_status):
-            line.setStyleSheet(f"background: {self.pal.border}; border: none;")
+        self._sep_ram.setStyleSheet(f"background: {self.pal.border}; border: none;")
 
 
 class TabPanel(ReorderableBar):
@@ -475,13 +471,13 @@ class TabPanel(ReorderableBar):
     """
 
     params_changed = Signal()  # some panel saved new parameters
+    # a favorite was marked or unmarked from a footer's star
+    favorite_changed = Signal()
     machine_changed = (
         Signal()
         # a machine task changed the environment (SDK installed, AVD
         # created)
     )
-    # a favorite was marked or unmarked from the star
-    favorite_changed = Signal()
     # a section of the side column was shown or hidden a task left a new
     # repo on disk (clone): its folder, to open it as a tab
     sections_changed = Signal()
@@ -529,8 +525,7 @@ class TabPanel(ReorderableBar):
         self.welcome_widget = self._build_welcome()
         self.content_area.addWidget(self.welcome_widget)
 
-        # --- right column: a single header and an accordion of sections
-        # ---
+        # --- right column: an accordion of sections ---
         #
         # An accordion and not tabs because the three read together: a
         # `ParamsPanel` block may say config keys are missing, «VPS_IP»,
@@ -555,21 +550,26 @@ class TabPanel(ReorderableBar):
         # Its header always says «Acción»; folded, that is all that
         # shows.
         self.info_panel = CommandInfoPanel()
-        self.info_section = AccordionSection("Acción", self.info_panel, expanded=False)
+        self.info_section = AccordionSection(SECTIONS["accion"], self.info_panel, expanded=False)
         # Folded at first: its header already sums up how many targets
         # are protected (`_refresh_security_summary`), so opening it is
         # only to touch the guards, not to find out.
-        self.security_section = AccordionSection("Seguridad", self.security_panel, expanded=False)
+        self.security_section = AccordionSection(
+            SECTIONS["seguridad"], self.security_panel, expanded=False
+        )
         # Open at first and without folding by itself: it is the section
         # used on each run, and opening an action only to have to open
         # this too is one click too many. `_relayout_right` gives it its
         # full natural height.
-        self.params_section = AccordionSection("Parámetros", self.params_stack, expanded=True)
-        self.config_section = AccordionSection("Configuración del repo", self.env_panel)
+        self.params_section = AccordionSection(
+            SECTIONS["parametros"], self.params_stack, expanded=True
+        )
+        self.config_section = AccordionSection(SECTIONS["configuracion"], self.env_panel)
         # config.env's state goes in the section's label, not on a
         # separate line of its footer.
-        self.env_panel.file_status_changed.connect(self.config_section.set_summary)
-        self.config_section.set_summary(self.env_panel.file_status)
+        self.env_panel.file_status_changed.connect(self._show_file_status)
+        self.env_panel.notice.connect(self._on_env_notice)
+        self._show_file_status()
 
         # A layout and not a `QSplitter`: folding is setting a height
         # cap on the section, and a splitter keeps its own sizes apart;
@@ -640,17 +640,6 @@ class TabPanel(ReorderableBar):
         # sections and bars built.
         self.right_column.installEventFilter(self)  # see `eventFilter`
 
-        # action the header shows, for the star
-        self._header_cap_id = ""
-        self.right_header = self._build_right_header()
-        # The header never hides: with all sections hidden there is
-        # still somewhere to right-click to bring them back.
-        self.right_header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
-
-        def on_header_menu(pos: QPoint) -> None:
-            self._show_sections_menu(self.right_header.mapToGlobal(pos))
-
-        self.right_header.customContextMenuRequested.connect(on_header_menu)
         self.apply_section_visibility()
 
         # Fixed footer with Run and Dry run: outside the accordion, so
@@ -665,7 +654,6 @@ class TabPanel(ReorderableBar):
         right_layout = QVBoxLayout(right_container)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
-        right_layout.addWidget(self.right_header)
         right_layout.addWidget(self.right_column, 1)
         right_layout.addWidget(self.run_footer)
 
@@ -700,6 +688,9 @@ class TabPanel(ReorderableBar):
         # While saved tabs reopen they should not be saved step by step:
         # it saves once when the loop ends.
         self._restoring = False
+        # The tab where «Configuración del repo» writes what its buttons
+        # did, as an action's tab; None until one of them is pressed.
+        self._config_tab: SubTabButton | None = None
 
         # The whole workspace is born with the repo's color: the
         # accordion's headers and panels build in gray and their first
@@ -742,85 +733,53 @@ class TabPanel(ReorderableBar):
         self._persist_tabs()
 
     # --- building ------------------------------------------------
-    def _build_right_header(self) -> QWidget:
-        """Build the right column's single header.
+    def _show_file_status(self) -> None:
+        """Show config.env's state in its section's header."""
+        env = self.env_panel
+        self.config_section.set_summary(env.file_status, env.file_detail, env.file_warn)
 
-        It shows the active repo with no tab open, and the current
-        action's name when there is one.
+    def _on_env_notice(self, text: str, level: str) -> None:
+        """Write what a settings button did in the settings tab.
+
+        Saving and importing act like an action's button: they open
+        their tab, or bring it forward, and leave the result there.
         """
-        head = QWidget()
-        # By name: without a selector, the bottom line was inherited by
-        # each child.
-        head.setObjectName("rightHeader")
-        lay = QHBoxLayout(head)
-        lay.setContentsMargins(16, 10, 16, 10)
-        lay.setSpacing(8)
-
-        # With no action open, the repo's logo; with one, the action's
-        # emoji.
-        self.right_header_logo = repo_logo.RepoLogoView(20, self.logo)
-        self.right_header_icon = QLabel()
-        self.right_header_icon.setStyleSheet(
-            f"background: transparent; font-size: {Fonts.SIZE_LG}px;"
-        )
-        self.right_header_icon.setVisible(False)
-
-        titles = QVBoxLayout()
-        titles.setContentsMargins(0, 0, 0, 0)
-        titles.setSpacing(1)
-        self.right_header_name = QLabel(self.project.name)
-        self.right_header_name.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT}; "
-            f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
-        )
-        # The action's description lives in the accordion's «Acción»
-        # section, which shows it whole with its steps. Here only the
-        # name.
-        titles.addWidget(self.right_header_name)
-
-        # Mark the open action a favorite, next to its name: the other
-        # place to mark is the search row's stripe, which has to be gone
-        # to. With no action open the header shows the repo, and there
-        # is nothing to mark.
-        self.fav_star = FavoriteStar(self.pal.accent)
-        self.fav_star.setEnabled(False)
-        self.fav_star.marked.connect(self._on_star_marked)
-
-        lay.addWidget(self.right_header_logo, 0, Qt.AlignmentFlag.AlignTop)
-        lay.addWidget(self.right_header_icon, 0, Qt.AlignmentFlag.AlignTop)
-        lay.addLayout(titles, 1)
-        lay.addWidget(self.fav_star, 0, Qt.AlignmentFlag.AlignVCenter)
-        return head
-
-    def _on_star_marked(self, value: bool) -> None:
-        cap_id = self._header_cap_id
-        if not cap_id:
-            return
-        favorites.set_favorite(cap_id, value)
-        self.favorite_changed.emit()
-
-    def refresh_favorite_star(self) -> None:
-        """Catch the star up when another surface marked its action.
-
-        It saves nothing again.
-        """
-        if self._header_cap_id:
-            self.fav_star.set_favorite(favorites.is_favorite(self._header_cap_id))
-
-    def _set_right_header(self, capability: Capability | None) -> None:
-        """Show the open action, or the repo if there is none."""
-        self.right_header_logo.setVisible(capability is None)
-        self.right_header_icon.setVisible(capability is not None)
-        if capability is None:
-            self.right_header_name.setText(self.project.name)
+        tab = self._config_tab
+        if tab is None:
+            tab = self._open_config_tab()
         else:
-            self.right_header_icon.setText(capability.icon)
-            self.right_header_name.setText(capability.name)
-        self._header_cap_id = capability.id if capability is not None else ""
-        self.fav_star.setEnabled(bool(self._header_cap_id))
-        self.fav_star.set_favorite(
-            bool(self._header_cap_id) and favorites.is_favorite(self._header_cap_id)
-        )
+            self._activate(tab)
+        self._consoles[tab].append_log(text, level)
+
+    def _open_config_tab(self) -> SubTabButton:
+        """Open the tab of «Configuración del repo».
+
+        It has a console and no parameters: showing it, the settings
+        section shows the whole file, unfiltered. It is not reopened at
+        start, since it only holds a log (`_persist_tabs` skips it).
+        """
+        tab = SubTabButton(CONFIG_TAB.name, CONFIG_TAB.icon, self.pal)
+        tab.setToolTip(CONFIG_TAB.description)
+        self.tabs_layout.addWidget(tab)
+        self.tabs.append(tab)
+        view = TabView(CONFIG_TAB, self.project, self.content_area)
+        view.set_palette(self.pal)
+        view.console.append_log(f"─── {CONFIG_TAB.name} ───", "info")
+        self.content_area.addWidget(view)
+        self._views[tab] = view
+        self._consoles[tab] = view.console
+        view.cleared.connect(lambda t=tab: self._on_cleared(t))
+        tab.clicked.connect(lambda t=tab: self._activate(t))
+        tab.close_requested.connect(lambda t=tab: self.close_tab(t))
+        self._config_tab = tab
+        self.empty_hint.setVisible(False)
+        self._activate(tab)
+        return tab
+
+    def refresh_favorite_stars(self) -> None:
+        """Catch the stars up when another surface marked an action."""
+        for panel in self._params.values():
+            panel.refresh_favorite()
 
     def _build_welcome(self) -> QWidget:
         w = QWidget()
@@ -953,7 +912,6 @@ class TabPanel(ReorderableBar):
         console.append_log(f"─── {capability.name} ───", "info")
         if capability.description:
             console.append_log(capability.description, "info")
-        console.append_log("Ajusta los parámetros a la derecha y pulsa Ejecutar.", "info")
         self.content_area.addWidget(view)
         self._views[tab] = view
         self._consoles[tab] = console
@@ -973,6 +931,7 @@ class TabPanel(ReorderableBar):
         panel.params_changed.connect(lambda p=panel: self._refilter_env(p))
         panel.stop_requested.connect(on_stop)
         panel.clear_requested.connect(view.clear_console)
+        panel.favorite_changed.connect(self.favorite_changed.emit)
         self.params_stack.addWidget(panel)
         self.run_footer.addWidget(panel.footer)
         self._params[tab] = panel
@@ -1083,6 +1042,8 @@ class TabPanel(ReorderableBar):
             panel.footer.deleteLater()
             panel.deleteLater()
 
+        if tab is self._config_tab:
+            self._config_tab = None
         self.tabs.remove(tab)
         self.tabs_layout.removeWidget(tab)
         tab.setParent(None)
@@ -1098,7 +1059,6 @@ class TabPanel(ReorderableBar):
             self.params_stack.setCurrentIndex(0)
             self.run_footer.setCurrentIndex(0)
             self.env_panel.filter_for(None)
-            self._set_right_header(None)
             self.info_panel.set_capability(None)
             self.info_section.set_expanded(False, announce=False)
             # Parameters stays open: it is its default state, even if it
@@ -1150,14 +1110,12 @@ class TabPanel(ReorderableBar):
             section.set_palette(pal)
         for grip in self._grips.values():
             grip.set_palette(pal)
-        self.fav_star.set_accent(pal.accent)
 
     def _restyle(self) -> None:
         """Paint the backgrounds THIS panel sets.
 
-        The runs sub-bar, the console's canvas, the right column's
-        header and the two placeholders. Each panel repaints what is
-        inside it.
+        The runs sub-bar, the console's canvas and the two placeholders.
+        Each panel repaints what is inside it.
         """
         # The action tabs bar is NOT tinted: it goes in the neutral gray
         # `Colors.SURFACE` in all eight themes. The line below does
@@ -1169,10 +1127,6 @@ class TabPanel(ReorderableBar):
             }}
         """)
         self.content_area.setStyleSheet(f"background: {self.pal.bg};")
-        self.right_header.setStyleSheet(
-            f"QWidget#rightHeader {{ background: {self.pal.surface}; "
-            f"border-bottom: 1px solid {self.pal.border}; }}"
-        )
         self._params_placeholder.setStyleSheet(f"background: {self.pal.panel};")
         self._footer_placeholder.setStyleSheet(
             f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
@@ -1211,12 +1165,18 @@ class TabPanel(ReorderableBar):
             # SDK's large catalogs stay from the cache.
             panel.reload_catalogs()
             self.env_panel.filter_for(panel.relevant_keys())
-            self._set_right_header(panel.capability)
             self.info_panel.set_capability(panel.capability)
             # Opening an action opens its parameters; if it was folded
             # by hand, it opens again: it is what the click went looking
             # for.
             self.params_section.set_expanded(True, announce=False)
+            QTimer.singleShot(0, self._relayout_right)
+        else:
+            # The settings tab: no parameters and the whole file.
+            self.params_stack.setCurrentIndex(0)
+            self.run_footer.setCurrentIndex(0)
+            self.env_panel.filter_for(None)
+            self.info_panel.set_capability(None)
             QTimer.singleShot(0, self._relayout_right)
 
     def _refilter_env(self, panel: ParamsPanel) -> None:
@@ -1233,8 +1193,7 @@ class TabPanel(ReorderableBar):
     def eventFilter(self, obj: QObject, event: QEvent) -> bool:
         """Share out again: the right column changed height.
 
-        A resized window, or the header grew with the action's
-        description. Settings's height is «what is left».
+        A resized window. Settings's height is «what is left».
         """
         if obj is self.right_column and event.type() == QEvent.Type.Resize:
             self._relayout_right()
@@ -1467,7 +1426,6 @@ class TabPanel(ReorderableBar):
     def _refresh_logo(self, *_args) -> None:
         """Reread the logo: `BRAND_ICON` may have changed."""
         self.logo = repo_logo.resolve(self.project.path)
-        self.right_header_logo.set_logo(self.logo)
         self.welcome_logo.set_logo(self.logo)
         self.logo_changed.emit(self.logo)
 
