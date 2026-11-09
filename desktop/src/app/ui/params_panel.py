@@ -27,7 +27,13 @@ from PySide6.QtWidgets import (
 )
 
 from app.core import envfile
-from app.core.catalog import PREVIEW_TITLES, for_project, preview_lines, queried_values
+from app.core.catalog import (
+    PREVIEW_HINTS,
+    PREVIEW_TITLES,
+    for_project,
+    preview_checks,
+    queried_values,
+)
 from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.projects import Project
@@ -114,10 +120,10 @@ class AxesLoader(QThread):
                 errors[_LIVE] = str(exc)
         if self._capability.preview:
             try:
-                resolved[_PREVIEW] = preview_lines(self._capability.preview, config=self._config)
+                resolved[_PREVIEW] = preview_checks(self._capability.preview, config=self._config)
             except TaskError as exc:
-                no_lines: list[str] = []
-                resolved[_PREVIEW] = no_lines
+                nothing: tuple[list[str], list[str]] = ([], [])
+                resolved[_PREVIEW] = nothing
                 errors[_PREVIEW] = str(exc)
         resolved[_ERRORS] = errors
         self.ready.emit(resolved)
@@ -282,7 +288,9 @@ class ParamsPanel(QWidget):
                 elif axis.name in self._option_layouts:
                     self._fill_options(axis)
             self._fill_live(resolved.get(_LIVE, ([], {})), resolved[_ERRORS].get(_LIVE, ""))
-            self._fill_preview(resolved.get(_PREVIEW, []), resolved[_ERRORS].get(_PREVIEW, ""))
+            self._fill_preview(
+                resolved.get(_PREVIEW, ([], [])), resolved[_ERRORS].get(_PREVIEW, "")
+            )
         finally:
             self._restoring = False
         self._loading = False
@@ -696,20 +704,37 @@ class ParamsPanel(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
         lay.addWidget(SectionLabel(PREVIEW_TITLES.get(self.capability.preview, "")))
-        self._preview_text = QLabel()
-        self._preview_text.setWordWrap(True)
-        lay.addWidget(self._preview_text)
+        self._preview_layout = lay
         box.setVisible(False)
         return box
 
-    def _fill_preview(self, lines: list[str], error: str = "") -> None:
-        """Show what running will do, or why it could not be asked."""
-        color = Colors.ERROR if error else Colors.TEXT_LABEL
-        self._preview_text.setText(error or ", ".join(lines))
-        self._preview_text.setStyleSheet(
-            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_SM}px;"
-        )
-        self._preview_box.setVisible(bool(lines) or bool(error))
+    def _fill_preview(self, checks: tuple[list[str], list[str]], error: str = "") -> None:
+        """Show what running will do, or why it could not be asked.
+
+        One disabled check per value, marked if running does it: they
+        are not chosen here, `config.env` decides them, so they read
+        like the checks of the parameters without being one.
+        """
+        every, marked = checks
+        while self._preview_layout.count() > 1:
+            item = self._preview_layout.takeAt(1)
+            widget = item.widget() if item else None
+            if widget:
+                widget.deleteLater()
+        for value in every:
+            check = QCheckBox(value)
+            check.setChecked(value in marked)
+            check.setEnabled(False)
+            check.setToolTip(PREVIEW_HINTS.get(self.capability.preview, ""))
+            self._preview_layout.addWidget(check)
+        if error:
+            reason = QLabel(error)
+            reason.setWordWrap(True)
+            reason.setStyleSheet(
+                f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_SM}px;"
+            )
+            self._preview_layout.addWidget(reason)
+        self._preview_box.setVisible(bool(every) or bool(error))
 
     def _build_fields(self, axes: list[AxisDef]) -> QWidget:
         """Build the written axes: an install folder, an API level."""

@@ -29,7 +29,7 @@ Hoy están vinculadas todas. `dev_env` no se vincula: declara `stub=False` a man
 | `fanout` | Nombre del eje `many` que se reparte en pestañas en vez de recorrerse en bucle |
 | `concurrent` | Compuesta cuyos pasos se lanzan en paralelo, uno por pestaña |
 | `live_state` | Inventario que el panel muestra como cabecera de estado, con su ✕ por fila |
-| `preview` | Lo que va a hacer correrla, que el panel muestra arriba de los parámetros: hoy, los paquetes de canone (`catalog.preview_lines`) |
+| `preview` | Lo que va a hacer correrla, que el panel muestra arriba de los parámetros como casillas deshabilitadas: hoy, los paquetes de canone, marcados los que se instalan (`catalog.preview_checks`) |
 
 ## 3. Los ejes
 

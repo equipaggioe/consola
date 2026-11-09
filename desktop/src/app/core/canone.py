@@ -121,12 +121,23 @@ def packages(config: Config) -> list[str]:
     """Return the packages `packages.py` installs for this repo.
 
     It asks `packages.py --list` of the local canone copy, with the
-    local Python: the list lives only in canone (ADR-0131 of canone).
+    local Python: the list lives only in canone (despliegue.md of
+    canone, «Máquina»; ADR-0131 of canone).
     """
+    return _listed(config, package_args(config))
+
+
+def installable(config: Config) -> list[str]:
+    """Return every package `packages.py` can install (`--all`)."""
+    return _listed(config, ["--all"])
+
+
+def _listed(config: Config, options: list[str]) -> list[str]:
+    """Return what `packages.py --list` prints with those options."""
     program = infra_dir(config) / "packages.py"
     if not program.is_file():
         raise TaskError(f"No hay packages.py en {program.parent}: actualiza la copia de canone.")
-    argv = [*toolchain.python_cmd(), str(program), "--list", *package_args(config)]
+    argv = [*toolchain.python_cmd(), str(program), "--list", *options]
     return process.capture(argv, timeout=30).split()
 
 

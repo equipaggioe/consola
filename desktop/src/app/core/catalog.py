@@ -181,8 +181,9 @@ _SHOTS_AXES = {SHOTS_APPS: "apps", SHOTS_THEMES: "themes", SHOTS_LANGUAGES: "lan
 ICON_APPS = "icon_apps"
 # the packages canone's `packages.py` installs for this repo
 PACKAGES = "packages"
-# the title each preview goes under in the panel
-PREVIEW_TITLES = {PACKAGES: "Paquetes que se instalan"}
+# the title each preview goes under in the panel, and what decides it
+PREVIEW_TITLES = {PACKAGES: "Paquetes"}
+PREVIEW_HINTS = {PACKAGES: "Lo decide config.env: DB_EXTENSIONS, TURN y LOGS"}
 
 # What is installed and created changes while Consola is open, so they
 # cache for a minute and no more: enough not to repeat the query on
@@ -191,15 +192,15 @@ PREVIEW_TITLES = {PACKAGES: "Paquetes que se instalan"}
 _FRESH = 60.0
 
 
-def preview_lines(source: str, *, config: Config) -> list[str]:
-    """Return what a capability's preview shows.
+def preview_checks(source: str, *, config: Config) -> tuple[list[str], list[str]]:
+    """Return what a capability's preview shows: all, and the marked.
 
-    It asks canone's `packages.py --list` with the options `config.env`
-    gives (ADR-0131 of canone). It reads the saved file: what the task
-    will read when it runs.
+    Every package canone's `packages.py` can install, and those it will
+    install with the options `config.env` gives. It reads the saved
+    file: what the task will read when it runs.
     """
     if source == PACKAGES:
-        return canone.packages(config)
+        return canone.installable(config), canone.packages(config)
     raise TaskError(f"Vista previa desconocida: {source}")
 
 
