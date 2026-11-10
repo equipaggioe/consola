@@ -615,10 +615,8 @@ class MainWindow(QMainWindow):
     def _on_machine_saved(self) -> None:
         """Reread the machine keys in every workspace.
 
-        They hold for every repo.
-
-        Without this, another repo's form kept the old value, and its
-        Save wrote it back.
+        They hold for every repo: each repo's machine section shows the
+        new values, and its steps check against them.
         """
         for workspace in self.workspaces.values():
             workspace.reload_machine()

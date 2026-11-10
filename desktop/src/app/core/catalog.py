@@ -183,7 +183,9 @@ ICON_APPS = "icon_apps"
 PACKAGES = "packages"
 # the title each preview goes under in the panel, and what decides it
 PREVIEW_TITLES = {PACKAGES: "Paquetes"}
-PREVIEW_HINTS = {PACKAGES: "Lo decide config.env: DB_EXTENSIONS, TURN y LOGS"}
+PREVIEW_HINTS = {
+    PACKAGES: "Lo deciden DB_EXTENSIONS y LOGS, y coturn si Settings declara turn_secret"
+}
 
 # What is installed and created changes while Consola is open, so they
 # cache for a minute and no more: enough not to repeat the query on
@@ -192,15 +194,17 @@ PREVIEW_HINTS = {PACKAGES: "Lo decide config.env: DB_EXTENSIONS, TURN y LOGS"}
 _FRESH = 60.0
 
 
-def preview_checks(source: str, *, config: Config) -> tuple[list[str], list[str]]:
+def preview_checks(
+    source: str, *, config: Config, root: Path | str
+) -> tuple[list[str], list[str]]:
     """Return what a capability's preview shows: all, and the marked.
 
     Every package canone's `packages.py` can install, and those it will
-    install with the options `config.env` gives. It reads the saved
-    file: what the task will read when it runs.
+    install with the options the repo gives. It reads the saved
+    `config.env`: what the task will read when it runs.
     """
     if source == PACKAGES:
-        return canone.installable(config), canone.packages(config)
+        return canone.installable(config), canone.packages(Path(root), config)
     raise TaskError(f"Vista previa desconocida: {source}")
 
 
@@ -564,7 +568,7 @@ BOOTSTRAP_VPS_STEPS = [
     Step(
         "infra",
         "Instalar infraestructura",
-        requires_env={"DOMAIN", "VALKEY_MEMORY", "OFFLINE_KEY"},
+        requires_env={"DOMAIN", "OFFLINE_KEY"},
     ),
     Step("credentials", "Cargar credenciales", requires_env={"RESTIC_PASSWORD"}),
     Step("deploy", "Desplegar el último release"),

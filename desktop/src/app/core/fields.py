@@ -19,8 +19,10 @@ from app.core.settings import Setting, get_setting
 CONFIG = Path("src") / "app" / "config.py"
 GROUP = "Credenciales"
 
+# The secret of coturn: only an app with calls declares it (ADR-0085).
+TURN = "turn_secret"
 # `install.py` writes these, not `credentials.py` (ADR-0105 of canone).
-WRITTEN_BY_INSTALL = ("database_url", "turn_secret")
+WRITTEN_BY_INSTALL = ("database_url", TURN)
 
 
 def settings_fields(server: Path) -> list[str]:

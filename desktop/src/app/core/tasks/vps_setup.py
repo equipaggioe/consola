@@ -196,17 +196,17 @@ def install_software(ctx: TaskContext) -> list[str]:
     """Run canone's `packages.py`, and then `uv.py`.
 
     The packages come from canone, not from here: `packages.py` gets the
-    options of `install.py` that add one, from `config.env`
+    options of `install.py` that add one, from `config.env` and the repo
     (`canone.package_args`, ADR-0131 of canone). It runs with the
     machine's `python3`: an image without it gets it from apt first.
     `uv.py` installs the uv version canone fixes (ADR-0110 of canone):
     it runs again when canone changes it.
     """
     entry = access(ctx)
-    packages = canone.packages(ctx.config)
+    packages = canone.packages(ctx.root, ctx.config)
     ctx.info(f"Paquetes de canone para este repo: {', '.join(packages)}")
     destination = _upload(ctx, entry)
-    options = " ".join(ssh.quote(a) for a in canone.package_args(ctx.config))
+    options = " ".join(ssh.quote(a) for a in canone.package_args(ctx.root, ctx.config))
     try:
         _ensure_python(ctx, entry)
         entry.run(ctx, f"python3 {destination}/packages.py {options}".rstrip())
@@ -232,6 +232,22 @@ def create_swap(ctx: TaskContext) -> None:
         _cleanup(ctx, entry)
 
 
+def _valkey_memory(ctx: TaskContext, entry: Access) -> str:
+    """Return `VALKEY_MEMORY`, or the share of the VPS's memory.
+
+    The share is `VALKEY_PERCENT` of `MemTotal`, read on the VPS, and
+    the log says which it was (ADR-0086).
+    """
+    written = ctx.config.get("VALKEY_MEMORY")
+    if written:
+        return written
+    percent = ctx.config.get("VALKEY_PERCENT")
+    meminfo = ssh.capture(entry.remote, "cat /proc/meminfo")
+    memory = canone.valkey_memory(meminfo, percent)
+    ctx.info(f"Memoria de Valkey: {memory}, el {percent} % de la RAM del VPS.")
+    return memory
+
+
 def install_infra(ctx: TaskContext) -> None:
     """Upload canone's `plantilla/infra/` and run `install.py`.
 
@@ -251,8 +267,9 @@ def install_infra(ctx: TaskContext) -> None:
             "OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, "
             "guardada fuera de esta máquina."
         )
-    arguments = canone.install_args(ctx.root, ctx.config, app, owner, (key, outside))
     entry = access(ctx)
+    memory = _valkey_memory(ctx, entry)
+    arguments = canone.install_args(ctx.root, ctx.config, app, owner, (key, outside), memory)
     destination = _upload(ctx, entry)
     command = " ".join(ssh.quote(a) for a in ("python3", f"{destination}/install.py", *arguments))
     try:

@@ -47,7 +47,8 @@ def repo(tmp_path: Path, state: str = "en desarrollo", **values: str) -> tuple[P
 
 def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -> None:
     """Install arguments come from the repo and the configuration."""
-    root, config = repo(tmp_path, PRIVATE="si", PERMISSIONS_ALLOW="camera")
+    root, config = repo(tmp_path, PRIVATE="si")
+    (root / "permissions").write_text("camera\ngeolocation\n", encoding="utf-8")
     workflows = root / ".github" / "workflows"
     workflows.mkdir(parents=True)
     (workflows / "release.yml").write_text(
@@ -62,7 +63,7 @@ def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -
         "            archivo: desktop-windows.exe\n",
         encoding="utf-8",
     )
-    args = canone.install_args(root, config, "demo", "equipaggio", KEYS)
+    args = canone.install_args(root, config, "demo", "equipaggio", KEYS, "256mb")
     assert args[:7] == [
         "demo",
         "ejemplo.net",
@@ -79,15 +80,39 @@ def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -
     # It has panel/, not web/ or landing/.
     sin = [args[i + 1] for i, a in enumerate(args) if a == "--without"]
     assert sin == ["web", "landing"]
+    allowed = [args[i + 1] for i, a in enumerate(args) if a == "--allow"]
+    assert allowed == ["camera", "geolocation"]
     assert "--turn" not in args
     assert "--logs" not in args
     assert "--development" in args
 
 
+def test_without_permissions_nothing_is_allowed(tmp_path: Path) -> None:
+    """Without the repo's `permissions`, no `--allow` goes."""
+    root, config = repo(tmp_path)
+    assert "--allow" not in canone.install_args(root, config, "demo", "equipaggio", KEYS, "1mb")
+
+
+def test_valkey_memory_is_a_share_of_memtotal() -> None:
+    """`VALKEY_PERCENT` of `MemTotal`, in whole MB."""
+    meminfo = "MemTotal:        2014000 kB\nMemFree:          500000 kB\n"
+    assert canone.valkey_memory(meminfo, "12.5") == "245mb"
+    assert canone.valkey_memory(meminfo, "25") == "491mb"
+
+
+@pytest.mark.parametrize("percent", ["", "doce", "0", "120"])
+def test_a_wrong_percent_stops(percent: str) -> None:
+    """A percent that is not a number from 0 to 100 stops."""
+    with pytest.raises(TaskError, match="VALKEY_PERCENT"):
+        canone.valkey_memory("MemTotal: 1000 kB\n", percent)
+
+
 def test_a_repo_in_production_installs_without_the_development_mark(tmp_path: Path) -> None:
     """A repo in production installs without `--development`."""
     root, config = repo(tmp_path, state="en producción")
-    assert "--development" not in canone.install_args(root, config, "demo", "equipaggio", KEYS)
+    assert "--development" not in canone.install_args(
+        root, config, "demo", "equipaggio", KEYS, "256mb"
+    )
 
 
 def test_a_readme_without_a_state_stops(tmp_path: Path) -> None:
@@ -95,7 +120,7 @@ def test_a_readme_without_a_state_stops(tmp_path: Path) -> None:
     root, config = repo(tmp_path)
     (root / "README.md").write_text("# demo\n", encoding="utf-8")
     with pytest.raises(TaskError, match="Estado"):
-        canone.install_args(root, config, "demo", "equipaggio", KEYS)
+        canone.install_args(root, config, "demo", "equipaggio", KEYS, "256mb")
 
 
 def test_database_py_only_receives_its_commands() -> None:
@@ -115,20 +140,36 @@ def test_logs_go_all_three_or_none(tmp_path: Path) -> None:
     # not from config.env.
     config = Config({**config.values, "LOGS": "equipaggio.net:51820"}, repo_name="demo")
     with pytest.raises(TaskError):
-        canone.install_args(root, config, "demo", "equipaggio", KEYS)
+        canone.install_args(root, config, "demo", "equipaggio", KEYS, "256mb")
 
 
-def test_turn_ip_without_turn_stops(tmp_path: Path) -> None:
-    """`TURN_IP` without `TURN` stops."""
+def _with_calls(root: Path) -> None:
+    """Declare `turn_secret` in Settings: an app with calls."""
+    config_py = root / "server" / "src" / "app" / "config.py"
+    config_py.write_text(CONFIG_PY + "    turn_secret: str\n", encoding="utf-8")
+
+
+def test_turn_ip_without_calls_stops(tmp_path: Path) -> None:
+    """`TURN_IP` in a repo without `turn_secret` stops."""
     root, config = repo(tmp_path, TURN_IP="203.0.113.5")
-    with pytest.raises(TaskError):
-        canone.install_args(root, config, "demo", "equipaggio", KEYS)
+    with pytest.raises(TaskError, match="turn_secret"):
+        canone.install_args(root, config, "demo", "equipaggio", KEYS, "256mb")
+
+
+def test_turn_comes_from_turn_secret(tmp_path: Path) -> None:
+    """A Settings with `turn_secret` installs coturn, with its IP."""
+    root, config = repo(tmp_path, TURN_IP="203.0.113.5")
+    _with_calls(root)
+    args = canone.install_args(root, config, "demo", "equipaggio", KEYS, "256mb")
+    assert args[args.index("--turn") :][:3] == ["--turn", "--turn-ip", "203.0.113.5"]
 
 
 def test_package_options_by_repo(tmp_path: Path) -> None:
     """The options of packages.py depend on the repo."""
-    _, config = repo(tmp_path, DB_EXTENSIONS="postgis", TURN="si")
-    assert canone.package_args(config) == ["--extension", "postgis", "--turn"]
+    root, config = repo(tmp_path, DB_EXTENSIONS="postgis")
+    assert canone.package_args(root, config) == ["--extension", "postgis"]
+    _with_calls(root)
+    assert canone.package_args(root, config) == ["--extension", "postgis", "--turn"]
 
 
 def test_packages_come_from_packages_py(tmp_path: Path) -> None:
@@ -140,7 +181,7 @@ def test_packages_come_from_packages_py(tmp_path: Path) -> None:
         "import sys\nprint(*['base', *sys.argv[1:]], sep='\\n')\n", encoding="utf-8"
     )
     config = Config({"DB_EXTENSIONS": "postgis", "CANONE_DIR": str(tmp_path / "canone")})
-    assert canone.packages(config) == ["base", "--list", "--extension", "postgis"]
+    assert canone.packages(tmp_path, config) == ["base", "--list", "--extension", "postgis"]
 
 
 def test_without_packages_py_it_says_so(tmp_path: Path) -> None:
@@ -150,7 +191,7 @@ def test_without_packages_py_it_says_so(tmp_path: Path) -> None:
     (infra / "install.py").write_text("", encoding="utf-8")
     config = Config({"CANONE_DIR": str(tmp_path / "canone")})
     with pytest.raises(TaskError, match="packages.py"):
-        canone.packages(config)
+        canone.packages(tmp_path, config)
 
 
 def test_credentials_by_source(tmp_path: Path) -> None:

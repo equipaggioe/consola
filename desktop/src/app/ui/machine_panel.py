@@ -1,10 +1,9 @@
-"""The keys of this machine (`Setting.scope='machine'`), on their own.
+"""The keys of this machine (`Setting.scope='machine'`).
 
-The repo's form shows them too, but only those the open action claims,
-and only with a repo open. This section shows all of them and saves
-them where they live, QSettings (`ui/params_store.py::machine_env`).
-It starts hidden: it shows from the Ver menu
-(`ui/section_visibility.py`).
+The only place they edit: the repo's form leaves them out. This section
+shows all of them and saves them where they live, QSettings
+(`ui/params_store.py::machine_env`). It starts hidden: it shows from
+the Ver menu (`ui/section_visibility.py`).
 """
 
 from __future__ import annotations

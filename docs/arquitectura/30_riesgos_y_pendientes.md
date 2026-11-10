@@ -94,6 +94,9 @@ Construido y nunca probado en condiciones reales:
 
 ## 4. Deuda estructural declarada
 
+- **Cambiar `VALKEY_MEMORY` en un VPS ya instalado no se aplica hasta reiniciar Valkey.** «Configurar VPS» corre `install.py`, que escribe el `maxmemory` nuevo y enciende la instancia con `enable --now`, que no reinicia la que ya corre.
+- **`config.env` escribe `TURN_IP=` en un repo sin llamadas.** El formulario no la muestra sin `turn_secret` (`Setting.needs`), pero `envfile.render_config` escribe todas las claves del esquema.
+
 - **Las pruebas cubren la lógica pura.** Lo que Consola ejecuta de verdad (SSH, `subprocess`, el driver de Postgres) no se prueba aquí: son efectos sobre máquinas y repos ajenos. Sigue sin ejercitar parte de esa lógica pura: `AxisDef` y `kwargs_from` (`core/registry.py`), `protection.decide`, `core/targets.py` y `core/versioning.py`.
 - **La interfaz asume una sola ventana.** `favorites`, `section_visibility` y `project_store` escriben en `QSettings` global, sin instancia.
 - **`ui/tab_panel.py` tiene 1.815 líneas** y concentra el espacio de trabajo entero: sub-pestañas, acordeón, barra de estado, despacho de la ejecución y los diálogos de las preguntas.

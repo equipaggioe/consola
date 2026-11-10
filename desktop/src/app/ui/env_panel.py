@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 from app.core import envfile, fields
 from app.core.errors import TaskError
 from app.core.projects import Project
-from app.core.settings import Setting, machine_settings, settings_by_group
+from app.core.settings import Setting, settings_by_group
 from app.theme import Colors, Fonts
 from app.ui import palettes, params_store
 from app.ui.palettes import Palette
@@ -232,12 +232,14 @@ class EnvPanel(QWidget):
     guards went to `ui/security_panel.py`: no task reads them, so they
     are no datum of this file (`core/settings.py`, at the end).
 
-    One group does not go to the file: «Máquina»
-    (`Setting.scope='machine'`). It is data too, since `build_binary`
-    reads it, but of THIS machine and not the project, so it saves in
-    QSettings (`ui/params_store.py::machine_env`). It edits here because
-    that is where one looks for a value with a key's name; the group's
-    name says it is not the repo's.
+    The machine keys (`Setting.scope='machine'`) are not here: they are
+    THIS machine's and not the project's, and they edit in their own
+    section (`ui/machine_panel.py`). `values` still carries them, from
+    QSettings, so a step's check sees what the run will read.
+
+    A key with `needs` shows only if the repo's `Settings` declares that
+    field, or if it already holds a value: hidden, a leftover value
+    could not be erased from here.
 
     The «Credenciales» group adds the repo's `Settings` fields
     (`core/fields.py`), read on opening the panel: a new field in
@@ -271,6 +273,7 @@ class EnvPanel(QWidget):
         self.file_detail = ""
         self.file_warn = False
         self.read_error = ""
+        self.declared: set[str] = set()  # `_read_fields` fills it
         self.fields, self.fields_error = self._read_fields()
         # Without this, a QWidget subclass ignores its own sheet's
         # background and shows the global sheet's gray (`theme.py`): the
@@ -306,6 +309,7 @@ class EnvPanel(QWidget):
             "SERVER_DIR"
         )
         try:
+            self.declared = set(fields.settings_fields(server))
             return fields.field_settings(server), ""
         except TaskError as error:
             return (), str(error)
@@ -442,7 +446,10 @@ class EnvPanel(QWidget):
             )
             lay.addWidget(notice)
 
-        for group, settings in settings_by_group(self.fields).items():
+        for group, every in settings_by_group(self.fields).items():
+            settings = [s for s in every if s.scope != "machine"]
+            if not settings:
+                continue
             block_widget = QWidget()
             block_widget.setStyleSheet("background: transparent;")
             block = QVBoxLayout(block_widget)
@@ -467,19 +474,23 @@ class EnvPanel(QWidget):
 
     # --- API ---
     def values(self) -> dict[str, str]:
-        """Return the form's values."""
-        return {key: row.value() for key, row in self.rows.items()}
+        """Return the form's values, plus the machine keys' values."""
+        return {
+            **params_store.machine_env(),
+            **{key: row.value() for key, row in self.rows.items()},
+        }
 
     def reload(self) -> None:
         """Reread the file into the form."""
         text = self._read_file()
         saved = envfile.parse_env(text or "")
-        values = {**saved, **params_store.machine_env()}
         for key, row in self.rows.items():
             row.blockSignals(True)
-            row.set_value(values.get(key, ""))
+            row.set_value(saved.get(key, ""))
             row.blockSignals(False)
 
+        # A key with `needs` can appear or go with what was reread.
+        self.filter_for(self._filter)
         self._sync_file_bar(text)
         self._refresh_defaults()
         self.values_changed.emit(self.values())
@@ -495,17 +506,12 @@ class EnvPanel(QWidget):
         return self._content.sizeHint().height() + self.file_bar.sizeHint().height()
 
     def reload_machine(self) -> None:
-        """Reread only the machine keys, keeping unsaved repo edits.
+        """Pass on the machine keys the machine section saved.
 
-        Another form saved them: the machine section or another
-        repo's.
+        They have no row here, but `values` carries them: the defaults
+        and the steps' checks are recomputed with the new ones, keeping
+        unsaved repo edits.
         """
-        values = params_store.machine_env()
-        for setting in machine_settings():
-            row = self.rows[setting.key]
-            row.blockSignals(True)
-            row.set_value(values.get(setting.key, ""))
-            row.blockSignals(False)
         self._refresh_defaults()
         self.values_changed.emit(self.values())
 
@@ -621,14 +627,13 @@ class EnvPanel(QWidget):
         )
 
     def save(self) -> None:
-        """Send each value to its place: the repo's file or QSettings.
+        """Write the repo's file.
 
         Save and «Crear/Actualizar archivo» both land here: the file is
         always written whole, with all the schema's keys in its order,
-        and the form's values. `save_config` discards machine keys, so
-        the two writes do not clash (`core/envfile.render_config`), and
-        the keys the schema no longer declares, which it names after
-        writing.
+        and the form's values. `save_config` discards the machine keys
+        `values` carries (`core/envfile.render_config`), and the keys
+        the schema no longer declares, which it names after writing.
         """
         text = self._read_file()
         if self.read_error:
@@ -636,7 +641,6 @@ class EnvPanel(QWidget):
             self.notice.emit(f"No se guardó: {self.read_error}", "error")
             return
         removed = envfile.removed_keys(envfile.parse_env(text or ""), self.fields)
-        params_store.save_machine_env(self.values())
         path = envfile.save_config(self.project.path, self.values(), self.fields)
         self._sync_file_bar(self._read_file())
         self.notice.emit(f"Guardado {path}", "ok")
@@ -664,8 +668,11 @@ class EnvPanel(QWidget):
         self._filter = keys
         visible_groups: set[QWidget] = set()
         for key, block in self._row_group.items():
-            visible = keys is None or key in keys
-            self.rows[key].setVisible(visible)
+            row = self.rows[key]
+            needs = row.setting.needs
+            applies = not needs or needs in self.declared or bool(row.value())
+            visible = applies and (keys is None or key in keys)
+            row.setVisible(visible)
             if visible:
                 visible_groups.add(block)
         for group_widget in set(self._row_group.values()):

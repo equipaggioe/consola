@@ -25,6 +25,8 @@ from app.core.settings import get_setting
 # repo has no signal for it, and the template always brings the task.
 SURFACES = ("web", "panel", "landing")
 RELEASE = Path(".github") / "workflows" / "release.yml"
+# The browser features the app uses, one per line (ADR-0136 of canone).
+PERMISSIONS = Path("permissions")
 _DESKTOP = re.compile(r"^\s+archivo: desktop-(linux|windows|macos)\.", re.M)
 _GITHUB = re.compile(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$")
 # A tag `deploy.py` deploys (despliegue.md of canone, «Versiones»).
@@ -102,7 +104,17 @@ def database_command(app: str, command: str) -> str:
     return f"python3 /usr/local/lib/{app}/database.py {command}"
 
 
-def package_args(config: Config) -> list[str]:
+def calls(root: Path, config: Config) -> bool:
+    """Return whether the app relays calls: `install.py --turn`.
+
+    The repo says so in its code: an app with calls reads `turn_secret`,
+    which `install.py` writes only with `--turn`, and canone makes every
+    `Settings` field required (ADR-0085).
+    """
+    return fields.TURN in fields.settings_fields(root / config.get("SERVER_DIR"))
+
+
+def package_args(root: Path, config: Config) -> list[str]:
     """Return the options of `packages.py`.
 
     Those of `install.py` that add a package, with the same names.
@@ -110,21 +122,21 @@ def package_args(config: Config) -> list[str]:
     args: list[str] = []
     for extension in envfile.split_list(config.get("DB_EXTENSIONS")):
         args += ["--extension", extension]
-    if config.flag("TURN"):
+    if calls(root, config):
         args.append("--turn")
     if _logs(config):
         args.append("--logs")
     return args
 
 
-def packages(config: Config) -> list[str]:
+def packages(root: Path, config: Config) -> list[str]:
     """Return the packages `packages.py` installs for this repo.
 
     It asks `packages.py --list` of the local canone copy, with the
     local Python: the list lives only in canone (despliegue.md of
     canone, «Máquina»; ADR-0131 of canone).
     """
-    return _listed(config, package_args(config))
+    return _listed(config, package_args(root, config))
 
 
 def installable(config: Config) -> list[str]:
@@ -149,6 +161,36 @@ def desktops(root: Path) -> list[str]:
     return _DESKTOP.findall(release.read_text(encoding="utf-8"))
 
 
+def permissions(root: Path) -> list[str]:
+    """Return each line of the repo's `permissions`, for `--allow`.
+
+    Without the file, the app allows none.
+    """
+    path = root / PERMISSIONS
+    if not path.is_file():
+        return []
+    return path.read_text(encoding="utf-8").splitlines()
+
+
+def valkey_memory(meminfo: str, percent: str) -> str:
+    """Return that percent of `MemTotal`, as Valkey's `maxmemory` in MB.
+
+    `meminfo` is the VPS's `/proc/meminfo`. ADR-0086.
+    """
+    found = re.search(r"^MemTotal:\s+(\d+) kB$", meminfo, re.M)
+    if found is None:
+        raise TaskError("/proc/meminfo del VPS no trae MemTotal.")
+    try:
+        share = float(percent)
+    except ValueError:
+        raise TaskError(
+            f"VALKEY_PERCENT tiene que ser un número, como 12.5: {percent!r}."
+        ) from None
+    if not 0 < share <= 100:
+        raise TaskError(f"VALKEY_PERCENT va de 0 a 100: {percent}.")
+    return f"{max(1, int(int(found.group(1)) * share / 100 / 1024))}mb"
+
+
 def without(root: Path) -> list[str]:
     """Return the pieces the repo lacks, by their folder at the root."""
     return [piece for piece in SURFACES if not (root / piece).is_dir()]
@@ -168,9 +210,12 @@ def _logs(config: Config) -> tuple[str, str, str] | None:
 
 
 def install_args(
-    root: Path, config: Config, app: str, owner: str, keys: tuple[str, str]
+    root: Path, config: Config, app: str, owner: str, keys: tuple[str, str], memory: str
 ) -> list[str]:
     """Return the arguments of `install.py`, without the program.
+
+    `memory` is Valkey's `maxmemory`: `VALKEY_MEMORY`, or the share of
+    the VPS's memory that `VALKEY_PERCENT` gives (`valkey_memory`).
 
     `keys` are the two public keys: `VPS_KEY_NAME`'s and the one kept
     elsewhere. They are the account's two `--key` and the releases' two
@@ -183,7 +228,7 @@ def install_args(
     args = [
         app,
         config.require("DOMAIN"),
-        config.require("VALKEY_MEMORY"),
+        memory,
         "--owner",
         owner,
         "--admin",
@@ -201,16 +246,19 @@ def install_args(
         args += ["--desktop", system]
     for piece in without(root):
         args += ["--without", piece]
-    for function in envfile.split_list(config.get("PERMISSIONS_ALLOW")):
+    for function in permissions(root):
         args += ["--allow", function]
     for extension in envfile.split_list(config.get("DB_EXTENSIONS")):
         args += ["--extension", extension]
-    if config.flag("TURN"):
+    if calls(root, config):
         args.append("--turn")
         if config.get("TURN_IP"):
             args += ["--turn-ip", config.get("TURN_IP")]
     elif config.get("TURN_IP"):
-        raise TaskError("TURN_IP sin TURN: --turn-ip necesita --turn.")
+        raise TaskError(
+            f"TURN_IP sin {fields.TURN} en Settings: --turn-ip necesita --turn. "
+            "Bórrala de config.env."
+        )
     logs = _logs(config)
     if logs is not None:
         args += ["--logs", logs[0], "--logs-key", logs[1], "--logs-ip", logs[2]]

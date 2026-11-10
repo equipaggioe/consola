@@ -42,6 +42,11 @@ class Setting:
     # left Backend amber for a key it would never look at
     # (docs/arquitectura/13_configuracion_y_persistencia.md).
     used_by: tuple[str, ...] = field(default_factory=tuple)
+    # The `Settings` field the repo declares when the key applies to it:
+    # `TURN_IP` only means something to an app with calls, the one that
+    # reads `turn_secret` (ADR-0085). Without it, the form does not show
+    # the key (`ui/env_panel.py`).
+    needs: str = ""
 
     @property
     def display(self) -> str:
@@ -163,22 +168,29 @@ SETTINGS: tuple[Setting, ...] = (
     # (ADR-0063). The domain is the landing's; the other pieces hang
     # from it (`app.<domain>`, `panel.<domain>`).
     Setting("DOMAIN", "VPS", "Dominio", used_by=("bootstrap_vps",)),
-    # Its Valkey's `maxmemory`, like `256mb`. No default: it depends on
-    # the machine and the app, and canone fixes none.
-    Setting("VALKEY_MEMORY", "VPS", "Memoria de Valkey", used_by=("bootstrap_vps",)),
-    # The browser features allowed (`--allow`), one per line.
+    # Its Valkey's `maxmemory`, like `256mb`. It wins: empty,
+    # «Configurar VPS» computes it with `VALKEY_PERCENT` of the VPS's
+    # memory (ADR-0086).
     Setting(
-        "PERMISSIONS_ALLOW",
+        "VALKEY_MEMORY",
         "VPS",
-        "Permisos del navegador",
-        kind="list",
+        "Memoria de Valkey",
+        default_hint="el % de RAM de abajo, al configurar",
         used_by=("bootstrap_vps",),
     ),
-    # `--turn`: whether the app relays calls with coturn. `si` or `no`.
-    Setting("TURN", "VPS", "Llamadas con coturn", used_by=("bootstrap_vps", "install_software")),
+    # Only for computing `VALKEY_MEMORY` when it is empty. Valkey fixes
+    # no share of a machine it shares with PostgreSQL and the server:
+    # an eighth leaves a quarter at most while it saves its `.rdb`,
+    # which may double it.
+    Setting(
+        "VALKEY_PERCENT", "VPS", "% de RAM para Valkey", default="12.5", used_by=("bootstrap_vps",)
+    ),
     # `--turn-ip`: the public IPv4, when the interface only has a
-    # private one.
-    Setting("TURN_IP", "VPS", "IP pública para TURN", used_by=("bootstrap_vps",)),
+    # private one. `--turn` is no key: it goes when the repo's Settings
+    # declares `turn_secret` (`canone.calls`, ADR-0085).
+    Setting(
+        "TURN_IP", "VPS", "IP pública para TURN", used_by=("bootstrap_vps",), needs="turn_secret"
+    ),
     # `--logs-ip`: the address Equipaggio gave this machine. The
     # destination and key are Equipaggio's, and go in the Machine group.
     Setting(
@@ -395,6 +407,7 @@ SETTINGS: tuple[Setting, ...] = (
         "PYINSTALLER_BIN",
         "Máquina",
         "Ruta de PyInstaller",
+        default_hint="venv de la app, si no el PATH",
         scope="machine",
         used_by=("build_binary",),
     ),

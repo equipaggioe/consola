@@ -120,7 +120,9 @@ class AxesLoader(QThread):
                 errors[_LIVE] = str(exc)
         if self._capability.preview:
             try:
-                resolved[_PREVIEW] = preview_checks(self._capability.preview, config=self._config)
+                resolved[_PREVIEW] = preview_checks(
+                    self._capability.preview, config=self._config, root=self._root
+                )
             except TaskError as exc:
                 nothing: tuple[list[str], list[str]] = ([], [])
                 resolved[_PREVIEW] = nothing

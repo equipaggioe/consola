@@ -92,3 +92,5 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0082](0082-contra-el-vps-los-botones-de-base-corren-database-py.md) | Contra el VPS, los botones de base corren `database.py` de canone y leen como `<app>_read` |
 | [0083](0083-vaciar-vps-corre-uninstall-py-de-canone.md) | «Vaciar VPS» vuelve y corre `uninstall.py` de canone, en tres niveles |
 | [0084](0084-configurar-vps-pone-la-llave-con-la-contrasena-de-root.md) | «Configurar VPS» pone la llave con la contraseña de root |
+| [0085](0085-turn-sale-de-turn-secret.md) | `--turn` sale de que `Settings` declare `turn_secret`, no de una clave |
+| [0086](0086-la-memoria-de-valkey-sale-de-un-valor-o-de-un-porcentaje.md) | La memoria de Valkey sale de un valor, o de un porcentaje de la RAM del VPS |

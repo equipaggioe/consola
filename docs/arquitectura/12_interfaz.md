@@ -108,8 +108,8 @@ Un acordeón de cinco secciones («Acción», «Seguridad», «Parámetros», «
 | Acción | La ficha larga del comando: qué hace y qué pasos ejecuta, de `core/command_docs.py`. Sin texto largo, cae en la descripción de una línea más las etiquetas de los pasos |
 | Seguridad | Los seis interruptores del seguro del repo ([14](14_seguro_de_destructivos.md)) |
 | Parámetros | Los ejes y los pasos de la acción abierta |
-| Configuración del repo | `.consola/config.env` del repo, **filtrado** a lo que la acción puede llegar a mirar con lo que está marcado ahora |
-| Configuración de la máquina | Todas las claves `scope='machine'`, sin filtrar, con Recargar y Guardar (`ui/machine_panel.py`). Empieza oculta: se muestra desde el menú Ver. Abierta, se le reserva el alto de todas sus filas |
+| Configuración del repo | `.consola/config.env` del repo, **filtrado** a lo que la acción puede llegar a mirar con lo que está marcado ahora. Sin las claves de máquina |
+| Configuración de la máquina | Todas las claves `scope='machine'`, sin filtrar, con Recargar y Guardar (`ui/machine_panel.py`): el único lugar donde se editan. Empieza oculta: se muestra desde el menú Ver. Abierta, se le reserva el alto de todas sus filas |
 
 La columna no tiene cabecera propia: empieza por la primera sección visible. La cabecera de cada sección se ve siempre, esté abierta o cerrada. El reparto de alto es automático y se puede forzar arrastrando la barra fina entre dos secciones abiertas; doble clic vuelve al automático. El pie con Recargar y Guardar de las dos configuraciones tiene alto fijo: una sección corta achica el formulario, no los botones. Qué secciones se ocultan es preferencia global de la aplicación, no del repo: se elige en el menú Ver o con el clic derecho sobre la cabecera de una sección. Mientras no hay nada guardado, la única oculta es «Configuración de la máquina» (`section_visibility.HIDDEN_BY_DEFAULT`).
 

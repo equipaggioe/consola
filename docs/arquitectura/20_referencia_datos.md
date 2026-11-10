@@ -4,7 +4,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 
 ## 1. Claves de `.consola/config.env`
 
-51 claves declaradas en `core/settings.py`, 46 del repo y cinco de la máquina, más una por campo de `Settings` del repo, en el grupo «Credenciales» ([13](13_configuracion_y_persistencia.md) §2). «Exige» significa que alguna acción no puede correr sin ella (su botón queda en ámbar); «usa» que la miran pero corren igual; «—», que no la lee ninguna acción.
+49 claves declaradas en `core/settings.py`, 44 del repo y cinco de la máquina, más una por campo de `Settings` del repo, en el grupo «Credenciales» ([13](13_configuracion_y_persistencia.md) §2). «Exige» significa que alguna acción no puede correr sin ella (su botón queda en ámbar); «usa» que la miran pero corren igual; «—», que no la lee ninguna acción.
 
 | Clave | Grupo | Etiqueta | Tipo | Default | |
 |---|---|---|---|---|---|
@@ -21,10 +21,9 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `VPS_KEY_NAME` | VPS | Nombre de la llave SSH | | | exige |
 | `VPS_DEPLOY_DIR` | VPS | Directorio de despliegue | | | exige |
 | `DOMAIN` | VPS | Dominio | | `CF_DOMAIN_NAME` | exige |
-| `VALKEY_MEMORY` | VPS | Memoria de Valkey | | | exige |
-| `PERMISSIONS_ALLOW` | VPS | Permisos del navegador | lista | | usa |
-| `TURN` | VPS | Llamadas con coturn | sí/no | | usa |
-| `TURN_IP` | VPS | IP pública para TURN | | | usa |
+| `VALKEY_MEMORY` | VPS | Memoria de Valkey | | el `VALKEY_PERCENT` de la RAM del VPS, calculado al configurar | usa |
+| `VALKEY_PERCENT` | VPS | % de RAM para Valkey | | `12.5` | usa |
+| `TURN_IP` | VPS | IP pública para TURN | `needs='turn_secret'` | | usa |
 | `LOGS_IP` | VPS | IP del túnel de logs | | | usa |
 | `DB_USER` | Base de datos | Rol de la base | | nombre del repo | exige |
 | `DB_NAME` | Base de datos | Base de datos | | `<repo>_db` | exige |

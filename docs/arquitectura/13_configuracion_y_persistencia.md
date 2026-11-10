@@ -10,7 +10,7 @@ Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0064](../ad
 | `<repo>/.consola/params.json` | **Decisiones de la consola sobre ese repo**: lo marcado en cada botón, los seguros, las pestañas abiertas | Ningún paso lee un `PROTECT_*` ni una casilla; son decisiones, no datos |
 | `QSettings` | **Lo de esta máquina**: los valores de las claves `scope='machine'` (la «configuración de la máquina», como `CANONE_DIR`), qué repos están en pestañas, las favoritas, las secciones ocultas, los parámetros de las acciones `scope='machine'` | Un repo no puede opinar sobre dónde va el SDK de Android ni sobre qué hay en tu barra |
 
-`QSettings` es un archivo INI en los dos sistemas, `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Consola.ini` en Linux, y no el registro de Windows: `main.py` fija el formato antes de crear la ventana. Las claves de máquina se editan en el grupo «Máquina» del formulario de Configuración del repo, filtradas como las demás, o todas juntas en la sección «Configuración de la máquina»; no van a `config.env`. Al guardar desde cualquiera de los dos, `MainWindow._on_machine_saved` las vuelve a leer en el formulario de cada repo abierto, sin tocar lo que el repo no guardó.
+`QSettings` es un archivo INI en los dos sistemas, `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Consola.ini` en Linux, y no el registro de Windows: `main.py` fija el formato antes de crear la ventana. Las claves de máquina se editan solo en la sección «Configuración de la máquina» (`ui/machine_panel.py`): el formulario de Configuración del repo no las muestra, y no van a `config.env`. `EnvPanel.values` las suma desde `QSettings`, así que la validación de cada paso las ve. Al guardarlas, `MainWindow._on_machine_saved` vuelve a leerlas en cada repo abierto, sin tocar lo que el repo no guardó.
 
 `.consola/.gitignore`, con `*`, ignora la carpeta entera. Lo escribe `core/envfile.py::ensure_ignored` la primera vez que se escribe en `.consola/`, y si no puede, el guardado falla: sin él, `config.env` queda listo para commitearse. El `.gitignore` del repo no se toca ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md)).
 
@@ -28,6 +28,7 @@ Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0064](../ad
 | `scope` | `repo` (va al archivo) o `machine` (va a `QSettings`) |
 | `required_by` | Sin ella, esas acciones no pueden correr |
 | `used_by` | Esas acciones la miran, pero corren igual sin ella |
+| `needs` | El campo de `Settings` que el repo declara cuando la clave le corresponde. Sin él, el formulario no la muestra, salvo que ya tenga un valor, para poder borrarlo. Hoy solo `TURN_IP`, con `turn_secret` ([ADR-0085](../adr/0085-turn-sale-de-turn-secret.md)) |
 
 La distinción entre las dos últimas es la que evita un ámbar falso: `backend` nunca lee `API_URL` —quien la lee es el build de Flutter, que la exige—, así que exigirla dejaba el Backend bloqueado por una clave que jamás iba a mirar.
 

@@ -502,10 +502,12 @@ DOCS: dict[str, CommandDoc] = {
             "Si el swap no llega a la memoria, crea /swapfile con lo que falta, lo "
             "activa y lo agrega a /etc/fstab.",
             "Lee de git remote el dueño y el nombre del repo en GitHub.",
-            "Arma los argumentos de install.py: DOMAIN, VALKEY_MEMORY, --owner, "
+            "Si VALKEY_MEMORY está vacía, lee la RAM del VPS y la calcula con VALKEY_PERCENT.",
+            "Arma los argumentos de install.py: DOMAIN, la memoria de Valkey, --owner, "
             "--admin VPS_USER, las dos llaves (VPS_KEY_NAME y OFFLINE_KEY) como "
             "--key y --signer, --private, --desktop del release.yml, --without "
-            "por las piezas que faltan, --allow, --extension, --turn y --logs.",
+            "por las piezas que faltan, --allow por cada línea de permissions, "
+            "--extension, --turn si Settings declara turn_secret, y --logs.",
             "Sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone.",
             "La primera vez corre install.py como root por ssh -tt y escribe la "
             "contraseña de la cuenta cuando la pide, dos veces; después, con sudo "
@@ -524,7 +526,8 @@ DOCS: dict[str, CommandDoc] = {
             "SUDO_PASSWORD o pedida una vez por sesión; si no, como root con la "
             "misma llave.",
             "Arma la lista: los de la máquina de canone, más PostGIS si "
-            "DB_EXTENSIONS la nombra, coturn con TURN y lo del journal con LOGS.",
+            "DB_EXTENSIONS la nombra, coturn si Settings declara turn_secret y lo "
+            "del journal con LOGS.",
             "Corre apt-get update y apt-get install -y con DEBIAN_FRONTEND=noninteractive.",
             "Sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone y corre "
             "uv.py, que instala la versión de uv que fija canone.",

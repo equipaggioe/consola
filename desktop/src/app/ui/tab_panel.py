@@ -578,12 +578,10 @@ class TabPanel(ReorderableBar):
             SECTIONS["parametros"], self.params_stack, expanded=True
         )
         self.config_section = AccordionSection(SECTIONS["configuracion"], self.env_panel)
-        # All the machine keys, with or without an action that claims
-        # them. Last, below the repo's, and hidden until the Ver menu
-        # shows it.
+        # The machine keys: the only place they edit. Last, below the
+        # repo's, and hidden until the Ver menu shows it.
         self.machine_panel = MachinePanel(self.pal, self.env_panel.label_width)
         self.machine_panel.saved.connect(self.machine_saved.emit)
-        self.env_panel.saved.connect(self.machine_saved.emit)
         self.machine_section = AccordionSection(SECTIONS["maquina"], self.machine_panel)
         # config.env's state goes in the section's label, not on a
         # separate line of its footer.
