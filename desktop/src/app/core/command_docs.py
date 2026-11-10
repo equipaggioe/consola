@@ -417,8 +417,9 @@ DOCS: dict[str, CommandDoc] = {
             "La base: detiene el servidor y sus timers, y borra la base, sus roles, sus "
             "credenciales, su línea de pg_hba y los archivos de los usuarios.",
             "La app: además, cada unidad, sitio, credencial, cuenta y carpeta de la app.",
-            "Como recién creada: además el swap, uv y los paquetes de packages.py salvo "
-            "sudo. Deja el que se llevaría un paquete instalado a mano, y lo dice.",
+            "La máquina: además el swap, uv, el túnel del journal y los archivos que "
+            "install.py escribe para toda la máquina. Los paquetes quedan: dejarlo como lo "
+            "entrega el proveedor es reinstalarlo desde su panel.",
             "Ningún nivel toca la cuenta que administra, sus llaves ni el sshd, y root sigue "
             "bloqueado. En simulacro solo lista lo que haría.",
         ],

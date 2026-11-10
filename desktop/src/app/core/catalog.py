@@ -1611,8 +1611,8 @@ def load_catalog() -> None:
             group="VPS",
             kind="destructive",
             icon="🧨",
-            description="Deshace en el VPS lo que instaló canone: la base, la app o la máquina "
-            "entera; en simulacro solo lo lista.",
+            description="Deshace en el VPS lo que instaló canone: la base, la app o la máquina, "
+            "salvo los paquetes; en simulacro solo lo lista.",
             axes=[
                 AxisDef(
                     "level",
@@ -1623,7 +1623,7 @@ def load_catalog() -> None:
                     labels={
                         "database": "La base",
                         "app": "La app",
-                        "machine": "Como recién creada",
+                        "machine": "La máquina",
                     },
                 ),
                 AxisDef(

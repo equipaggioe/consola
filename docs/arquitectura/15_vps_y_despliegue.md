@@ -110,7 +110,7 @@ Actuar sobre una unidad y leer su journal piden root: van por `vps_setup.Access`
 |---|---|
 | La base (`database`) | Detiene el servidor y sus timers, y borra la base, sus tres roles, sus credenciales, su línea de `pg_hba.conf` y `pg_ident.conf`, los archivos de los usuarios y el dump. «Configurar VPS» los vuelve a crear |
 | La app (`app`) | Cada unidad, sitio, credencial, cuenta y carpeta de la app |
-| Como recién creada (`machine`) | El swap, uv, lo que `install.py` escribe para toda la máquina, y los paquetes de `packages.py` y de sus familias (`postgresql-17`, `valkey-tools`…) con sus datos, salvo `sudo`. Deja el paquete cuya purga se llevaría otro de la imagen, y lo dice: en el VPS de prueba, `python3` y `ca-certificates`, que se llevaban `netplan.io`, que arma la red al arrancar, y `cloud-init`; y sin `ca-certificates` apt no baja de su espejo HTTPS |
+| La máquina (`machine`) | El swap, uv, el túnel del journal y los archivos que `install.py` escribe para toda la máquina y ningún paquete trae. Los paquetes quedan, con lo que `install.py` sobrescribió en ellos, como el `Caddyfile`: dejar el VPS como lo entrega el proveedor es reinstalarlo desde su panel, y después «Configurar VPS» |
 
 Ningún nivel toca la cuenta que administra, sus llaves ni `00-<app>.conf`, y root sigue bloqueado: después se vuelve a entrar por la misma cuenta. El simulacro corre `uninstall.py --dry-run`, que lista lo que haría; lo demás pasa por el seguro de los objetivos `vps` y `db` ([14](14_seguro_de_destructivos.md)).
 
