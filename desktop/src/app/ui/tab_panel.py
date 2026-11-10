@@ -43,6 +43,7 @@ from app.ui.command_info_panel import CommandInfoPanel
 from app.ui.console_view import ConsoleView
 from app.ui.env_panel import EnvPanel
 from app.ui.guard_dialog import BlockedDialog, ReminderDialog
+from app.ui.machine_panel import MachinePanel
 from app.ui.palettes import Palette
 from app.ui.params_panel import ParamsPanel
 from app.ui.section_visibility import SECTIONS
@@ -487,6 +488,9 @@ class TabPanel(ReorderableBar):
     # a section of the side column was shown or hidden a task left a new
     # repo on disk (clone): its folder, to open it as a tab
     sections_changed = Signal()
+    # The machine keys were saved, from its section or from this repo's
+    # form: `MainWindow` rereads them in every workspace.
+    machine_saved = Signal()
     repo_ready = Signal(str)
     # config.env was reread: the `RepoLogo`, for the repo's tab
     logo_changed = Signal(object)
@@ -574,6 +578,13 @@ class TabPanel(ReorderableBar):
             SECTIONS["parametros"], self.params_stack, expanded=True
         )
         self.config_section = AccordionSection(SECTIONS["configuracion"], self.env_panel)
+        # All the machine keys, with or without an action that claims
+        # them. Last, below the repo's, and hidden until the Ver menu
+        # shows it.
+        self.machine_panel = MachinePanel(self.pal, self.env_panel.label_width)
+        self.machine_panel.saved.connect(self.machine_saved.emit)
+        self.env_panel.saved.connect(self.machine_saved.emit)
+        self.machine_section = AccordionSection(SECTIONS["maquina"], self.machine_panel)
         # config.env's state goes in the section's label, not on a
         # separate line of its footer.
         self.env_panel.file_status_changed.connect(self._show_file_status)
@@ -602,12 +613,14 @@ class TabPanel(ReorderableBar):
             self.security_section,
             self.params_section,
             self.config_section,
+            self.machine_section,
         )
         # The key each one saves under in `ui/section_visibility.py`.
         self._section_ids = {
             self.info_section: "accion",
             self.security_section: "seguridad",
             self.params_section: "parametros",
+            self.machine_section: "maquina",
             self.config_section: "configuracion",
         }
 
@@ -629,8 +642,8 @@ class TabPanel(ReorderableBar):
             # and left a dead gap.
             self._column.addWidget(section, 0)
             section.toggled.connect(self._on_section_toggled)
-            # Settings is last: it has no one to negotiate with below.
-            if section is not self.config_section:
+            # The last one has no one to negotiate with below.
+            if section is not self._all_sections[-1]:
                 self._manual[section] = None
                 grip = SectionResizeGrip()
                 grip.pressed.connect(lambda s=section: self._begin_resize(s))
@@ -1113,6 +1126,7 @@ class TabPanel(ReorderableBar):
         for view in self._views.values():
             view.set_palette(pal)
         self.env_panel.set_palette(pal)
+        self.machine_panel.set_palette(pal)
         self.security_panel.set_palette(pal)
         self.info_panel.set_palette(pal)
         for section in self._all_sections:
@@ -1236,8 +1250,9 @@ class TabPanel(ReorderableBar):
         height = {s: s.header_height() for s in sections}
         free = max(0, total - spent)
 
-        # The excess goes to the last open section, normally Settings,
-        # but if folded Parameters absorbs it, and so on upward.
+        # The excess goes to the last open section, Settings or the
+        # machine section below it when shown, but if folded Parameters
+        # absorbs it, and so on upward.
         # Otherwise, with it folded the rest fell in the final spring
         # and the last header came off the bottom edge, leaving a dead
         # gap.
@@ -1255,8 +1270,10 @@ class TabPanel(ReorderableBar):
             # Keep the floor for each open section left below: an open
             # section showing no body reads as broken. That makes the
             # bar stop on dragging instead of erasing what is below.
-            # Settings also has a roomier minimum.
-            reserve = self.MIN_BODY * sum(1 for s in sections[i + 1 :] if s.is_expanded())
+            # Settings also has a roomier minimum, and the machine
+            # section keeps all its rows: they are few, and Settings
+            # above would otherwise take everything.
+            reserve = sum(self._floor(s) for s in sections[i + 1 :] if s.is_expanded())
             if (
                 self._manual[section] is None
                 and section is self.params_section
@@ -1331,6 +1348,11 @@ class TabPanel(ReorderableBar):
         """
         return tuple(s for s in self._all_sections if not s.isHidden())
 
+    def reload_machine(self) -> None:
+        """Reread the machine keys that another form saved."""
+        self.machine_panel.reload()
+        self.env_panel.reload_machine()
+
     def apply_section_visibility(self) -> None:
         """Show or hide the sections by the saved preference."""
         hidden = section_visibility.hidden_sections()
@@ -1373,6 +1395,12 @@ class TabPanel(ReorderableBar):
         for section, grip in self._grips.items():
             grip.setVisible(self._grip_visible(section))
 
+    def _floor(self, section: AccordionSection) -> int:
+        """Return the body height kept for an open section below."""
+        if section is self.machine_section:
+            return self.machine_panel.content_height()
+        return self.MIN_BODY
+
     def _section_wanted(self, section: AccordionSection) -> int:
         """Return the body height an open section asks for."""
         manual = self._manual.get(section)
@@ -1382,6 +1410,10 @@ class TabPanel(ReorderableBar):
             return self._info_wanted()
         if section is self.security_section:
             return self._security_wanted()
+        if section is self.machine_section:
+            return self.machine_panel.content_height()
+        if section is self.config_section:
+            return self.env_panel.content_height()
         # Parameters asks for its whole natural height: the idea is
         # seeing all the action's options without scrolling.
         # `_relayout_right`'s reserve keeps Settings from being left

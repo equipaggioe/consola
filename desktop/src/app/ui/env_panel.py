@@ -24,7 +24,7 @@ from PySide6.QtWidgets import (
 from app.core import envfile, fields
 from app.core.errors import TaskError
 from app.core.projects import Project
-from app.core.settings import Setting, settings_by_group
+from app.core.settings import Setting, machine_settings, settings_by_group
 from app.theme import Colors, Fonts
 from app.ui import palettes, params_store
 from app.ui.palettes import Palette
@@ -287,6 +287,9 @@ class EnvPanel(QWidget):
         root.addWidget(self._build_body(), 1)
         self.file_bar = self._build_file_bar()
         root.addWidget(self.file_bar)
+        # Its natural height always: a short section takes it from the
+        # form's scroll, and squeezed the buttons otherwise.
+        self.file_bar.setFixedHeight(self.file_bar.sizeHint().height())
         self._restyle()
 
         self.reload()
@@ -418,6 +421,7 @@ class EnvPanel(QWidget):
         self._scroll = scroll  # `_restyle` repaints it
 
         content = QWidget()
+        self._content = content  # `content_height` measures it
         content.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(content)
         lay.setContentsMargins(16, 12, 16, 12)
@@ -480,6 +484,30 @@ class EnvPanel(QWidget):
         self._refresh_defaults()
         self.values_changed.emit(self.values())
         self.reloaded.emit()
+
+    def content_height(self) -> int:
+        """Return the height of the whole form and its footer.
+
+        From the content, not the scroll wrapping it: a `QScrollArea`
+        has no height of its own. It is what Settings asks for when the
+        machine section, below, is the one taking the excess.
+        """
+        return self._content.sizeHint().height() + self.file_bar.sizeHint().height()
+
+    def reload_machine(self) -> None:
+        """Reread only the machine keys, keeping unsaved repo edits.
+
+        Another form saved them: the machine section or another
+        repo's.
+        """
+        values = params_store.machine_env()
+        for setting in machine_settings():
+            row = self.rows[setting.key]
+            row.blockSignals(True)
+            row.set_value(values.get(setting.key, ""))
+            row.blockSignals(False)
+        self._refresh_defaults()
+        self.values_changed.emit(self.values())
 
     def _read_file(self) -> str | None:
         """Return the file's text, keeping why it cannot be read."""

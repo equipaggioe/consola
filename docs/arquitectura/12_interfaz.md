@@ -101,7 +101,7 @@ Las pestañas se reordenan arrastrando (`ui/widgets/tab_reorder.py`) y **se reab
 
 ## 5. La columna derecha
 
-Un acordeón de cuatro secciones («Acción», «Seguridad», «Parámetros», «Configuración del repo»), no pestañas: se leen juntas —un bloqueo de Parámetros puede decir «faltan claves» y la respuesta está en Configuración, debajo—.
+Un acordeón de cinco secciones («Acción», «Seguridad», «Parámetros», «Configuración del repo», «Configuración de la máquina»), no pestañas: se leen juntas —un bloqueo de Parámetros puede decir «faltan claves» y la respuesta está en Configuración, debajo—.
 
 | Sección | Qué muestra |
 |---|---|
@@ -109,8 +109,9 @@ Un acordeón de cuatro secciones («Acción», «Seguridad», «Parámetros», �
 | Seguridad | Los seis interruptores del seguro del repo ([14](14_seguro_de_destructivos.md)) |
 | Parámetros | Los ejes y los pasos de la acción abierta |
 | Configuración del repo | `.consola/config.env` del repo, **filtrado** a lo que la acción puede llegar a mirar con lo que está marcado ahora |
+| Configuración de la máquina | Todas las claves `scope='machine'`, sin filtrar, con Recargar y Guardar (`ui/machine_panel.py`). Empieza oculta: se muestra desde el menú Ver. Abierta, se le reserva el alto de todas sus filas |
 
-La columna no tiene cabecera propia: empieza por la primera sección visible. La cabecera de cada sección se ve siempre, esté abierta o cerrada. El reparto de alto es automático y se puede forzar arrastrando la barra fina entre dos secciones abiertas; doble clic vuelve al automático. Qué secciones se ocultan es preferencia global de la aplicación, no del repo: se elige en el menú Ver o con el clic derecho sobre la cabecera de una sección.
+La columna no tiene cabecera propia: empieza por la primera sección visible. La cabecera de cada sección se ve siempre, esté abierta o cerrada. El reparto de alto es automático y se puede forzar arrastrando la barra fina entre dos secciones abiertas; doble clic vuelve al automático. El pie con Recargar y Guardar de las dos configuraciones tiene alto fijo: una sección corta achica el formulario, no los botones. Qué secciones se ocultan es preferencia global de la aplicación, no del repo: se elige en el menú Ver o con el clic derecho sobre la cabecera de una sección. Mientras no hay nada guardado, la única oculta es «Configuración de la máquina» (`section_visibility.HIDDEN_BY_DEFAULT`).
 
 En Parámetros, un campo de texto o una lista va a la derecha de su rótulo, como en Configuración del repo: la columna de rótulos tiene el ancho de la de Configuración (`EnvPanel.label_width`) y los dos cuerpos tienen los mismos márgenes, así que los campos de las dos secciones empiezan en la misma x y tienen el mismo ancho. Un rótulo más largo que la columna se parte en dos líneas. Las casillas (componentes, pasos, opciones) siguen en columna bajo su título, y los campos de texto van al final, debajo de ellas: «Otra IP» de Cloudflare queda bajo la opción que la pide.
 

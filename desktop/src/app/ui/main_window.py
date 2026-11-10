@@ -362,6 +362,7 @@ class MainWindow(QMainWindow):
             workspace.machine_changed.connect(self.status_bar.refresh_tools)
             workspace.favorite_changed.connect(self._on_favorites_changed)
             workspace.sections_changed.connect(self._on_sections_changed)
+            workspace.machine_saved.connect(self._on_machine_saved)
             workspace.repo_ready.connect(self.project_tabs.open_path)
             workspace.logo_changed.connect(on_logo)
             self.workspaces[key] = workspace
@@ -610,6 +611,18 @@ class MainWindow(QMainWindow):
         """
         for workspace in self.workspaces.values():
             workspace.apply_section_visibility()
+
+    def _on_machine_saved(self) -> None:
+        """Reread the machine keys in every workspace.
+
+        They hold for every repo.
+
+        Without this, another repo's form kept the old value, and its
+        Save wrote it back.
+        """
+        for workspace in self.workspaces.values():
+            workspace.reload_machine()
+        self._refresh_readiness()
 
     def _on_params_changed(self) -> None:
         """Recount: a step turned off or on changes the keys it claims.

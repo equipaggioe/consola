@@ -90,7 +90,7 @@ class ActionMenuBar(QMenuBar):
                 min-height: 20px;
                 padding: 3px 2px;
             }}
-            QMenuBar::item {{ background: transparent; padding: 9px 13px; }}
+            QMenuBar::item {{ background: transparent; padding: 5px 13px; }}
             QMenuBar::item:selected {{ background: {self.pal.panel}; }}
             QMenuBar::item:pressed {{ background: {self.pal.panel}; }}
         """
