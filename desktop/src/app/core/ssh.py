@@ -14,7 +14,7 @@ from app.core import process
 from app.core.context import TaskContext
 from app.core.envfile import Config
 from app.core.errors import TaskError
-from app.core.host import HOST
+from app.core.host import ASKPASS_VARIABLE, HOST
 
 # `accept-new`: the first connection to a VPS records its fingerprint,
 # and a changed one still stops. Without this, `BatchMode` rejects a new
@@ -205,6 +205,57 @@ def reachable(remote: Remote) -> bool:
     a task with its own button (ADR-0004).
     """
     return succeeds(remote, "echo ok")
+
+
+# Only the password: a key the VPS does not know yet would spend one
+# of the attempts sshd allows.
+PASSWORD_ONLY = [
+    "-o",
+    "PubkeyAuthentication=no",
+    "-o",
+    "PreferredAuthentications=password,keyboard-interactive",
+    "-o",
+    "NumberOfPasswordPrompts=1",
+]
+
+
+def _askpass(ctx: TaskContext, password: str) -> dict[str, str]:
+    """Return the environment where `ssh` and `scp` take the password.
+
+    They read a password only from a terminal, so they get it from
+    `SSH_ASKPASS`, which prints it from the environment: it goes in no
+    argument, file or log.
+    """
+    ctx.guard(password)
+    return {
+        "SSH_ASKPASS": str(HOST.askpass(HOST.data_dir())),
+        "SSH_ASKPASS_REQUIRE": "force",
+        # Without a display, OpenSSH before 8.4 ignores SSH_ASKPASS.
+        "DISPLAY": "none",
+        ASKPASS_VARIABLE: password,
+    }
+
+
+def _with_password(ctx: TaskContext, argv: list[str], remote: Remote, password: str) -> None:
+    if ctx.run(argv, env=_askpass(ctx, password), check=False) != 0:
+        raise TaskError(
+            f"Falló como {remote.target} con la contraseña: puede estar mal, el VPS no "
+            "acepta contraseñas o el comando falló (arriba)."
+        )
+
+
+def upload_with_password(
+    ctx: TaskContext, remote: Remote, source: Path, destination: str, password: str
+) -> None:
+    """Copy a file to the VPS, entering with the password of remote."""
+    argv = ["scp", *CONNECT_TIMEOUT, *PASSWORD_ONLY, str(source), f"{remote.target}:{destination}"]
+    _with_password(ctx, argv, remote, password)
+
+
+def run_with_password(ctx: TaskContext, remote: Remote, command: str, password: str) -> None:
+    """Run a command on the VPS, entering with remote's password."""
+    argv = ["ssh", *CONNECT_TIMEOUT, "-n", *PASSWORD_ONLY, remote.target, command]
+    _with_password(ctx, argv, remote, password)
 
 
 def path_exists(remote: Remote, remote_path: str) -> bool:

@@ -407,6 +407,22 @@ DOCS: dict[str, CommandDoc] = {
             "Borra en esta máquina la clave privada y su .pub, solo si lo anterior salió bien.",
         ],
     ),
+    "clean_vps": CommandDoc(
+        summary=(
+            "Deshace en el VPS lo que instaló canone, con uninstall.py de canone. "
+            "Cada nivel incluye al anterior."
+        ),
+        steps=[
+            "Entra por la cuenta que administra, con sudo, y sube plantilla/infra/ de canone.",
+            "La base: detiene el servidor y sus timers, y borra la base, sus roles, sus "
+            "credenciales, su línea de pg_hba y los archivos de los usuarios.",
+            "La app: además, cada unidad, sitio, credencial, cuenta y carpeta de la app.",
+            "Como recién creada: además el swap, uv y los paquetes de packages.py salvo "
+            "sudo. Deja el que se llevaría un paquete instalado a mano, y lo dice.",
+            "Ningún nivel toca la cuenta que administra, sus llaves ni el sshd, y root sigue "
+            "bloqueado. En simulacro solo lista lo que haría.",
+        ],
+    ),
     # --- Deployment ---
     "publish_release": CommandDoc(
         summary=(
@@ -478,6 +494,9 @@ DOCS: dict[str, CommandDoc] = {
         ),
         steps=[
             "Si está marcado, borra del known_hosts la huella vieja del VPS.",
+            "Crea la llave VPS_KEY_NAME en ~/.ssh si falta. Si no entra al VPS, entra "
+            "una vez como root con su contraseña (ROOT_PASSWORD, o la pide), sube "
+            "authorize.py de canone y lo corre, que la agrega a su authorized_keys.",
             "Corre los pasos de «Instalar paquetes base».",
             "Si el swap no llega a la memoria, crea /swapfile con lo que falta, lo "
             "activa y lo agrega a /etc/fstab.",

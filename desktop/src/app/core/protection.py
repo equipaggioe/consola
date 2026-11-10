@@ -130,6 +130,8 @@ class Rule:
 
 RULES: dict[str, Rule] = {
     "revoke_ssh": Rule(always=("vps",)),
+    # Every level drops the VPS's database.
+    "clean_vps": Rule(always=("vps", "db"), dry_run={"apply": ("dry_run",)}),
     "teardown_db": Rule(always=("db",)),
     # `local` stays on this machine; `remote` reaches the server. The
     # same button, two different blast radii.

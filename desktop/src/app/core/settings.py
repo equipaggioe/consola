@@ -62,6 +62,7 @@ _VPS_REACH = (
     "view_logs",
     "systemd_action",
     "revoke_ssh",
+    "clean_vps",
     "view_events",
     "ssh_tunnel",
 )
@@ -122,6 +123,10 @@ SETTINGS: tuple[Setting, ...] = (
         default="root",
         required_by=("install_software", "bootstrap_vps"),
     ),
+    # The password of the provider, for the first entry only: «Poner la
+    # llave» enters with it once and leaves the key. Empty, it is asked.
+    # After `install.py` root no longer enters.
+    Setting("ROOT_PASSWORD", "VPS", "Contraseña de root", secret=True, used_by=("bootstrap_vps",)),
     # The account that administers the VPS: the `--admin` of
     # `install.py`. No default, because canone does not let it be named
     # like the app (ADR-0087 of canone).
@@ -147,6 +152,7 @@ SETTINGS: tuple[Setting, ...] = (
             "run_seeders",
             "run_mock_seeders",
             "health_check",
+            "clean_vps",
         ),
     ),
     Setting(
@@ -409,7 +415,13 @@ SETTINGS: tuple[Setting, ...] = (
         "Máquina",
         "Carpeta de canone",
         scope="machine",
-        required_by=("install_software", "bootstrap_vps", "load_credentials", "create_spa"),
+        required_by=(
+            "install_software",
+            "bootstrap_vps",
+            "load_credentials",
+            "clean_vps",
+            "create_spa",
+        ),
     ),
     # `--logs` and `--logs-key`: Equipaggio's WireGuard endpoint and its
     # public key. They are the same for all VPSs sending it their

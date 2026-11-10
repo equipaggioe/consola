@@ -58,6 +58,10 @@ def _port_in(conf: Path) -> int | None:
     return None
 
 
+# Where `ssh` finds the password its `SSH_ASKPASS` prints.
+ASKPASS_VARIABLE = "CONSOLA_SSH_PASSWORD"
+
+
 class Host(ABC):
     """The answers that depend on the system Consola runs on."""
 
@@ -184,6 +188,15 @@ class Host(ABC):
     @abstractmethod
     def data_dir(self) -> Path:
         """Return Consola's data folder on this machine."""
+
+    @abstractmethod
+    def askpass(self, folder: Path) -> Path:
+        """Write in folder an `SSH_ASKPASS` that prints the password.
+
+        It prints the variable `ASKPASS_VARIABLE`: the password goes in
+        the environment of `ssh` and not in the file, which has nothing
+        secret.
+        """
 
     @abstractmethod
     def memory(self) -> tuple[int, int] | None:
@@ -360,6 +373,22 @@ class WindowsHost(Host):
         base = os.environ.get("LOCALAPPDATA") or (Path.home() / "AppData" / "Local")
         return Path(base) / "Consola"
 
+    def askpass(self, folder: Path) -> Path:
+        """Write a `.cmd` that has PowerShell print the variable.
+
+        Not `echo %VAR%`: cmd expands `%`, `^`, `&` and `!` of the
+        password itself.
+        """
+        helper = folder / "askpass.cmd"
+        folder.mkdir(parents=True, exist_ok=True)
+        helper.write_text(
+            "@powershell -NoProfile -NonInteractive -Command "
+            f'"[Console]::Out.Write($env:{ASKPASS_VARIABLE})"\r\n',
+            encoding="utf-8",
+            newline="",
+        )
+        return helper
+
     def memory(self) -> tuple[int, int] | None:
         """Return RAM from `GlobalMemoryStatusEx`."""
         import ctypes
@@ -495,6 +524,14 @@ class PosixHost(Host):
         """Return `$XDG_CACHE_HOME/consola` or `~/.cache/consola`."""
         base = os.environ.get("XDG_CACHE_HOME") or (Path.home() / ".cache")
         return Path(base) / "consola"
+
+    def askpass(self, folder: Path) -> Path:
+        """Write an executable `sh` that prints the variable."""
+        helper = folder / "askpass.sh"
+        folder.mkdir(parents=True, exist_ok=True)
+        helper.write_text(f'#!/bin/sh\nprintf "%s\\n" "${ASKPASS_VARIABLE}"\n', encoding="utf-8")
+        helper.chmod(0o700)
+        return helper
 
     def memory(self) -> tuple[int, int] | None:
         """Return RAM from `/proc/meminfo`."""

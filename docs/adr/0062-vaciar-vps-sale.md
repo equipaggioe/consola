@@ -1,6 +1,6 @@
 # ADR-0062 · «Vaciar VPS» sale hasta que canone traiga el programa que desinstala
 
-- **Estado:** Aceptada
+- **Estado:** Reemplazada por [ADR-0083](0083-vaciar-vps-corre-uninstall-py-de-canone.md)
 - **Fecha:** 2026-10-31
 - **Alcance:** core/catalog.py, core/tasks/vps_ops.py, core/protection.py, core/settings.py
 

@@ -15,6 +15,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `CF_RECORD_NAME` | Cloudflare | Registro DNS | | | exige |
 | `VPS_IP` | VPS | IP del servidor | | | exige |
 | `ROOT_USER` | VPS | Usuario root | | `root` | exige |
+| `ROOT_PASSWORD` | VPS | Contraseña de root | secreto | se pide si la llave no entra | usa |
 | `VPS_USER` | VPS | Usuario de despliegue | | | exige |
 | `SUDO_PASSWORD` | VPS | Contraseña de sudo | secreto | se pide una vez por sesión | usa |
 | `VPS_KEY_NAME` | VPS | Nombre de la llave SSH | | | exige |
@@ -97,7 +98,7 @@ Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Con
 | `projects/order` | Clave vieja; solo se borra en `clear()` |
 | `favorites/ids` | Ids de las acciones favoritas |
 | `favorites/only` | «Solo favoritos», del menú Ver |
-| `ui/hidden_sections` | Secciones ocultas de la columna derecha |
+| `ui/hidden_sections` | Secciones ocultas de la columna derecha. Sin nada guardado, «Configuración de la máquina» |
 | `params/machine/<capability_id>` | Parámetros de las acciones `scope='machine'` |
 | `machine/<CLAVE>` | Valores de las claves `scope='machine'` de `core/settings.py` |
 
@@ -202,6 +203,7 @@ Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Con
 |  | `run_command` | Ejecutar comando | A |  |
 |  | `ssh_login` | Abrir sesión SSH | A | interactiva |
 |  | `revoke_ssh` | Quitar acceso SSH | C | destructiva |
+|  | `clean_vps` | Vaciar VPS | A | destructiva |
 | Emuladores | `install_system_image` | Instalar imagen de sistema | A | ⌂ |
 |  | `create_avd` | Crear AVD | A | ⌂ |
 |  | `launch_emulator` | Abrir emulador | A | `live`, ⌂ |

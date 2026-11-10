@@ -90,3 +90,5 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0080](0080-las-respuestas-http-se-leen-con-modelos-en-api.md) | Las respuestas HTTP de terceros se leen con modelos de Pydantic en `api/` |
 | [0081](0081-consola-se-publica-para-windows-y-linux.md) | Consola se publica para Windows y Linux |
 | [0082](0082-contra-el-vps-los-botones-de-base-corren-database-py.md) | Contra el VPS, los botones de base corren `database.py` de canone y leen como `<app>_read` |
+| [0083](0083-vaciar-vps-corre-uninstall-py-de-canone.md) | «Vaciar VPS» vuelve y corre `uninstall.py` de canone, en tres niveles |
+| [0084](0084-configurar-vps-pone-la-llave-con-la-contrasena-de-root.md) | «Configurar VPS» pone la llave con la contraseña de root |

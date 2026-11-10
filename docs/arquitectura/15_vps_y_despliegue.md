@@ -39,10 +39,11 @@ Las lee la subida de «Compilar ejecutable» ([17](17_builds_y_artefactos.md)).
 
 ## 4. Configurar VPS
 
-«Configurar VPS» (`bootstrap_vps`) encadena cinco pasos, que se pueden volver a correr porque cada uno detecta lo que ya está ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)):
+«Configurar VPS» (`bootstrap_vps`) encadena seis pasos, que se pueden volver a correr porque cada uno detecta lo que ya está ([ADR-0066](../adr/0066-configurar-vps-prepara-la-maquina-y-corre-install-py.md)):
 
 | Paso | Qué hace |
 |---|---|
+| Poner la llave (`install_key`) | Crea la llave `VPS_KEY_NAME` en `~/.ssh` si falta. Si no entra ni como la cuenta ni como root, entra una vez como root con su contraseña, la del proveedor, de `ROOT_PASSWORD` o pedida: sube `authorize.py` de canone y lo corre con la llave, que queda en el `authorized_keys` de root ([ADR-0084](../adr/0084-configurar-vps-pone-la-llave-con-la-contrasena-de-root.md)). `scp` y `ssh` leen una contraseña solo de una terminal, así que la toman de `SSH_ASKPASS`: un script de `HOST.askpass` que la imprime desde el entorno, sin que pase por un argumento, un archivo ni el log |
 | Paquetes y uv (`install_software`) | Corre `packages.py` de canone, que tiene la lista («Máquina» de [`despliegue.md` de canone](https://github.com/equipaggioe/canone/blob/main/plataformas/despliegue.md#máquina)), con las opciones de `install.py` que agregan un paquete: `--extension` por cada una de `DB_EXTENSIONS`, `--turn` con `TURN` y `--logs` con `LOGS` (`canone.package_args`). Si la máquina no tiene `python3`, lo instala con apt antes, porque `packages.py` corre con él. Después corre `uv.py` |
 | Swap (`create_swap`) | Corre `swap.py` de canone, que crea `/swapfile` con lo que le falta al swap para llegar a la memoria y lo agrega a `/etc/fstab`; con eso, no cambia nada. Sin swap, `install.py` falla |
 | Infraestructura (`install_infra`) | Corre `install.py` con `canone.install_args`, con `--development` si el `README.md` dice `Estado: en desarrollo` ([16](16_base_de_datos.md) §6). La primera vez, como root por `ssh -tt`, y escribe la contraseña de la cuenta recién cuando aparece cada pregunta (`process.converse`); después, con `sudo` |
@@ -103,7 +104,15 @@ Actuar sobre una unidad y leer su journal piden root: van por `vps_setup.Access`
 
 ## 6. Deshacer
 
-No hay un botón que vacíe el VPS: desarmar uno es reinstalarlo desde el panel del proveedor ([ADR-0062](../adr/0062-vaciar-vps-sale.md)).
+«Vaciar VPS» (`vps_setup.clean_vps`) sube `plantilla/infra/` de canone y corre `uninstall.py <app> <nivel>` desde la cuenta que administra, con `sudo` ([ADR-0083](../adr/0083-vaciar-vps-corre-uninstall-py-de-canone.md)). Cada nivel incluye al anterior:
+
+| Nivel | Qué borra `uninstall.py` |
+|---|---|
+| La base (`database`) | Detiene el servidor y sus timers, y borra la base, sus tres roles, sus credenciales, su línea de `pg_hba.conf` y `pg_ident.conf`, los archivos de los usuarios y el dump. «Configurar VPS» los vuelve a crear |
+| La app (`app`) | Cada unidad, sitio, credencial, cuenta y carpeta de la app |
+| Como recién creada (`machine`) | El swap, uv, lo que `install.py` escribe para toda la máquina, y los paquetes de `packages.py` y de sus familias (`postgresql-17`, `valkey-tools`…) con sus datos, salvo `sudo`. Deja el paquete cuya purga se llevaría otro de la imagen, y lo dice: en el VPS de prueba, `python3` y `ca-certificates`, que se llevaban `netplan.io`, que arma la red al arrancar, y `cloud-init`; y sin `ca-certificates` apt no baja de su espejo HTTPS |
+
+Ningún nivel toca la cuenta que administra, sus llaves ni `00-<app>.conf`, y root sigue bloqueado: después se vuelve a entrar por la misma cuenta. El simulacro corre `uninstall.py --dry-run`, que lista lo que haría; lo demás pasa por el seguro de los objetivos `vps` y `db` ([14](14_seguro_de_destructivos.md)).
 
 `revoke_ssh` muestra la huella exacta que va a sacar antes de tocar nada: revocar la llave equivocada deja el servidor inalcanzable. Sus dos lados son desmarcables por separado. Si no se puede sacar la llave del VPS —no entra, la línea no está o es la última—, corta y deja el par local.
 

@@ -25,6 +25,7 @@ Un objetivo que no figura en el `params.json` cae en su default: agregar uno nue
 | Acción | Objetivos |
 |---|---|
 | `revoke_ssh` | `vps` |
+| `clean_vps` | `vps` + `db`, salvo en simulacro |
 | `teardown_db` | `db`: actúa solo sobre la base local |
 | `rebuild_db` | `db`, y `vps` si el ámbito es `remote` |
 | `restore_db` | `db`: actúa solo sobre la base local |

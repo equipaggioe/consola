@@ -116,7 +116,7 @@ Decidido el 2026-10-31: los nombres de los botones y qué es casilla de una comp
 | **Instalar paquetes base** (`install_software`) | Se queda | `redis` pasa a `valkey-server`; se suman `restic`, `nftables`, `unattended-upgrades`, `systemd-timesyncd` y `ca-certificates`, y `coturn`, `postgresql-17-postgis-3` o `systemd-journal-remote` y `wireguard-tools` según el repo. Después de los paquetes, sube `canone/plantilla/infra/uv.py` y corre `sudo python3 uv.py`, que instala `uv` (ADR-0110). Se vuelve a correr cuando canone cambia la versión de uv |
 | **Control del servicio** (`systemd_action`), **Ver logs del servicio** (`view_logs`) | Se quedan | El eje lista los nombres de canone: `<app>`, `<app>-sweep`, `-purge`, `-dump`, `-backup`, `valkey-server@<app>`, `caddy`, `coturn` |
 | **Health check** (`health_check`) | Se queda | `GET /api/health` en el 8000, que responde 204 |
-| **Vaciar VPS** (`clean_vps`) | Salió en la fase 1 (ADR-0062). Vuelve cuando canone traiga el programa que desinstala (§5) | Borra unidades de canone, `/srv/<app>`, `/var/lib/<app>*`, credstore, sitios de Caddy, Valkey, `sshd_config.d`, la base y sus roles, y los usuarios `<app>`, `<app>_owner` y `<app>-receiver`. Queda en pie `00-<app>.conf` y la cuenta que administra, o la máquina queda sin entrada (sin confirmar) |
+| **Vaciar VPS** (`clean_vps`) | Volvió el 2026-11-09 con `uninstall.py` de canone, en tres niveles ([ADR-0083](../adr/0083-vaciar-vps-corre-uninstall-py-de-canone.md)), sin probar contra un VPS | Lo que borra cada nivel está en el [15](../arquitectura/15_vps_y_despliegue.md) §6 |
 | **Configurar Coturn** (`configure_coturn`) | Casilla de **Configurar VPS** | `install.py --turn [--turn-ip]`: sin TLS, y el secreto lo genera `install.py` (ADR-0096) |
 | **Configurar base de datos** (`bootstrap_db`) en el VPS | Sin reemplazo | `install.py` crea la base y los dos roles. En local sigue igual |
 | **Correr migraciones** (`migrate_db`) en el VPS | **Desplegar versión** | En el VPS migra `deploy.py`. En local sigue igual |
@@ -207,7 +207,6 @@ como la llave de una receptora.
 | Falta | Qué bloquea |
 |---|---|
 | Restaurar desde la receptora. `despliegue.md` describe el `restic restore`, el `pg_restore` y después `ANALYZE`, pero canone no trae un programa | Un reemplazo de `restore_db` |
-| Desinstalar lo que instala `install.py` | **Vaciar VPS** |
 | Volver a una versión que sigue en `/srv/<app>/releases/`: `deploy.py` falla si la carpeta de la versión existe, y ahí quedan las cinco más nuevas. Comprobado el 2026-11-02: con `v0.1.1` activa, pedir `v0.1.0` responde `already exists` y `current` no cambia | Que «Desplegar versión» vuelva a la activa o a una de esas cinco |
 
 Hallazgo de lectura en canone *(sin confirmar)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
@@ -226,7 +225,7 @@ de esa llave por defecto, o canone tiene que sumar un `-i` a los dos scripts.
 | 4 | `systemd_action`, `view_logs`, `health_check`, ver eventos | Fase 2 |
 | 5 | `backend` con `credentials/` (C5) y salida de `sync_server_env` | Fase 1 |
 | 6 | Instalar receptora y pedir respaldo | Fase 2 |
-| 7 | `clean_vps` nuevo | Fase 2 y el desinstalador del §5 |
+| 7 | `clean_vps` nuevo. Construido el 2026-11-09 (ADR-0083), sin probar contra un VPS | Fase 2 y el desinstalador del §5 |
 
 Las fases 0 a 4 son las que despliegan los repos y van primero. Las 5 a 7 no hacen falta para
 desplegar. Las fases 6 y 7 quedan pendientes (decidido el 2026-11-02).

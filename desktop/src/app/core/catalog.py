@@ -558,6 +558,7 @@ MIGRATE_DB_STEPS = [
 # it is needed only after reinstalling the VPS.
 BOOTSTRAP_VPS_STEPS = [
     Step("known_host", "Refrescar known_hosts", default=False),
+    Step("key", "Poner la llave"),
     Step("software", "Instalar paquetes y uv"),
     Step("swap", "Crear swap"),
     Step(
@@ -1598,6 +1599,42 @@ def load_catalog() -> None:
             icon="🔓",
             description="Quita del VPS la clave pública con la que entra esta máquina.",
             steps=REVOKE_SSH_STEPS,
+            stub=True,
+        )
+    )
+    # canone's `uninstall.py` does it, not Consola (ADR-0083). Each
+    # level includes the one before; the default is the smallest.
+    registry.register(
+        Capability(
+            id="clean_vps",
+            name="Vaciar VPS",
+            group="VPS",
+            kind="destructive",
+            icon="🧨",
+            description="Deshace en el VPS lo que instaló canone: la base, la app o la máquina "
+            "entera; en simulacro solo lo lista.",
+            axes=[
+                AxisDef(
+                    "level",
+                    ["database", "app", "machine"],
+                    "scope",
+                    label="Nivel",
+                    default="database",
+                    labels={
+                        "database": "La base",
+                        "app": "La app",
+                        "machine": "Como recién creada",
+                    },
+                ),
+                AxisDef(
+                    "apply",
+                    ["dry_run", "delete"],
+                    "scope",
+                    label="Modo",
+                    truthy="delete",
+                    labels={"dry_run": "Simulacro", "delete": "Borrar"},
+                ),
+            ],
             stub=True,
         )
     )

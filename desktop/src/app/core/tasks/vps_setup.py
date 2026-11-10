@@ -8,10 +8,10 @@ as memory (despliegue.md of canone, «Máquina»): canone's `packages.py`,
 `install.py` installs the app, creates the admin account and allows
 entry only by key, and `credentials.py` encrypts the credentials.
 
-The first time root enters with the `VPS_KEY_NAME` key, set when
-creating the VPS. After `install.py` root no longer enters, and
-everything goes through the `VPS_USER` account with `sudo`, which asks
-for its password.
+The first time root enters with the `VPS_KEY_NAME` key, which the
+provider's panel set or `install_key` added with root's password. After
+`install.py` root no longer enters, and everything goes through the
+`VPS_USER` account with `sudo`, which asks for its password.
 """
 
 from __future__ import annotations
@@ -26,6 +26,13 @@ from app.core.registry import registry
 # Where canone's programs are uploaded. Deleted at the end.
 REMOTE_DIR = "/tmp/consola-canone"
 SUDO_KEY = "SUDO_PASSWORD"
+ROOT_PASSWORD_KEY = "ROOT_PASSWORD"
+AUTHORIZE = "authorize.py"
+# canone's programs run with it, and an image may come without it.
+PYTHON = (
+    "command -v python3 >/dev/null || { apt-get update -qq && "
+    "DEBIAN_FRONTEND=noninteractive apt-get install -y python3; }"
+)
 
 
 @dataclass(frozen=True)
@@ -130,11 +137,7 @@ def _ensure_python(ctx: TaskContext, entry: Access) -> None:
     canone's programs run with it, `packages.py` and `swap.py` among
     them, and an image may come without it.
     """
-    entry.run(
-        ctx,
-        "command -v python3 >/dev/null || { apt-get update -qq && "
-        "DEBIAN_FRONTEND=noninteractive apt-get install -y python3; }",
-    )
+    entry.run(ctx, PYTHON)
 
 
 # --- atomic ---
@@ -151,6 +154,42 @@ def refresh_known_host(ctx: TaskContext) -> str:
     host = ctx.config.require("VPS_IP")
     ssh.forget_host(ctx, host)
     return host
+
+
+def install_key(ctx: TaskContext) -> None:
+    """Create the local key, and leave it in root's `authorized_keys`.
+
+    A new VPS may take only root's password, the one of the provider:
+    it enters with it once, from `ROOT_PASSWORD` or asked, and canone's
+    `authorize.py` adds the key. Then every step enters with the key.
+    If the key already enters, as root or as the admin account, it does
+    nothing.
+    """
+    _, app = canone.origin(ctx.root)
+    private = ssh.ensure_local_keypair(ctx, ctx.config.require("VPS_KEY_NAME"), comment=app)
+    admin_remote = ssh.resolve_remote(ctx.config)
+    root = admin_remote.as_user(ctx.config.get("ROOT_USER"))
+    if ssh.reachable(admin_remote) or ssh.reachable(root):
+        ctx.ok("La llave ya entra al VPS.")
+        return
+    password = ctx.config.get(ROOT_PASSWORD_KEY) or ctx.ask(
+        f"Contraseña de {root.target} (la del proveedor)", secret=True
+    )
+    if not password:
+        raise TaskError("Sin la contraseña de root no se puede poner la llave en el VPS.")
+    # canone's `authorize.py` writes the key, not Consola (ADR-0084).
+    script = f"/tmp/consola-{AUTHORIZE}"
+    ssh.upload_with_password(ctx, root, canone.infra_dir(ctx.config) / AUTHORIZE, script, password)
+    ssh.run_with_password(
+        ctx,
+        root,
+        f"{PYTHON}; python3 {script} {ssh.quote(ssh.public_key(private))}; "
+        f"status=$?; rm -f {script}; exit $status",
+        password,
+    )
+    if not ssh.reachable(root):
+        raise TaskError(f"La llave quedó en {root.target}, pero no entra con ella.")
+    ctx.ok(f"La llave {private.name} entra como {root.target}.")
 
 
 def install_software(ctx: TaskContext) -> list[str]:
@@ -254,6 +293,28 @@ def load_credentials(ctx: TaskContext) -> None:
     ctx.ok(f"{len(lines.splitlines())} credenciales cargadas.")
 
 
+# --- undo ---
+
+
+def clean_vps(ctx: TaskContext, level: str = "database", apply: bool = False) -> None:
+    """Run canone's `uninstall.py` at that level; a dry run only lists.
+
+    ADR-0083. It enters through the admin account, which no level
+    touches: root stays locked, so it is the way back in.
+    """
+    _, app = canone.origin(ctx.root)
+    entry = admin(ctx)
+    destination = _upload(ctx, entry)
+    command = f"python3 {destination}/uninstall.py {ssh.quote(app)} {ssh.quote(level)}"
+    try:
+        entry.run(ctx, command if apply else f"{command} --dry-run")
+    finally:
+        _cleanup(ctx, entry)
+    if apply:
+        ctx.ok(f"VPS vaciado: {level}.")
+        ctx.note(f"VPS {ctx.config.require('VPS_IP')} vaciado: {level}.")
+
+
 # --- composite ---
 
 
@@ -261,6 +322,7 @@ def bootstrap_vps(
     ctx: TaskContext,
     *,
     known_host: bool = False,
+    key: bool = True,
     software: bool = True,
     swap: bool = True,
     infra: bool = True,
@@ -281,6 +343,9 @@ def bootstrap_vps(
     if known_host:
         ctx.step("known_host")
         refresh_known_host(ctx)
+    if key:
+        ctx.step("key")
+        install_key(ctx)
     if software:
         ctx.step("software")
         install_software(ctx)
@@ -302,6 +367,8 @@ def bootstrap_vps(
 def bind_all() -> None:
     """Register the group's functions in the catalog."""
     registry.bind("refresh_known_host", refresh_known_host)
+    registry.bind("install_key", install_key)
     registry.bind("install_software", install_software)
     registry.bind("load_credentials", load_credentials)
     registry.bind("bootstrap_vps", bootstrap_vps)
+    registry.bind("clean_vps", clean_vps)
