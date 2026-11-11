@@ -137,7 +137,7 @@ class SubTabButton(ReorderableTab):
         color = (
             parts.RUN_TAB_ACTIVE.on(self.pal).fg
             if self.is_active
-            else (Colors.TEXT_DIM if self._hovered else parts.RUN_TAB.on(self.pal).fg)
+            else (Colors.TEXT_LABEL if self._hovered else parts.RUN_TAB.on(self.pal).fg)
         )
         self.title_label.setStyleSheet(f"background: transparent; color: {color};")
 
