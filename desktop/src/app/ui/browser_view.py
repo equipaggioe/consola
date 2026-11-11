@@ -22,6 +22,7 @@ from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app.theme import Colors, Fonts
+from app.ui import parts
 from app.ui.palettes import NEUTRAL, Palette
 
 try:
@@ -106,11 +107,19 @@ class BrowserView(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        self._bar.setStyleSheet(
-            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};"
-        )
+        bar = parts.TOOL_BAR.on(self.pal)
+        self._bar.setStyleSheet(f"background: {bar.bg}; border-bottom: 1px solid {bar.border};")
         if self._fallback is not None:
-            self._fallback.setStyleSheet(f"background: {self.pal.bg};")
+            self._fallback.setStyleSheet(f"background: {parts.CANVAS.on(self.pal).bg};")
+            button = parts.FILLED_BUTTON.on(self.pal)
+            self._opener.setStyleSheet(f"""
+                QPushButton {{
+                    background: {button.bg}; color: {button.fg};
+                    border: none; border-radius: 6px; padding: 8px 16px;
+                    font-size: {Fonts.SIZE_SM}px;
+                }}
+                QPushButton:hover {{ background: {button.hover}; }}
+            """)
 
     def _tool(self, glyph: str, tip: str, slot: Callable[[], None]) -> QPushButton:
         btn = QPushButton(glyph)
@@ -146,13 +155,7 @@ class BrowserView(QWidget):
 
         opener = QPushButton("Abrir en el navegador del sistema")
         opener.setCursor(Qt.CursorShape.PointingHandCursor)
-        opener.setStyleSheet(f"""
-            QPushButton {{
-                background: {Colors.SURFACE_ALT}; color: {Colors.TEXT};
-                border: none; border-radius: 6px; padding: 8px 16px;
-                font-size: {Fonts.SIZE_SM}px;
-            }}
-        """)
+        self._opener = opener
         opener.clicked.connect(lambda: open_external(self._url))
 
         lay.addWidget(text)

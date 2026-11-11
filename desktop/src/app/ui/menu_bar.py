@@ -8,7 +8,7 @@ from PySide6.QtWidgets import QMenu, QMenuBar, QWidget
 
 from app.core.registry import Capability, registry
 from app.theme import Colors, Fonts
-from app.ui import favorites, section_visibility
+from app.ui import favorites, parts, section_visibility
 from app.ui.palettes import NEUTRAL, Palette
 
 # A text marker and not custom paint: a `QMenu` does not allow tinting
@@ -83,16 +83,17 @@ class ActionMenuBar(QMenuBar):
         painted is the open menu's title, in the background of
         the popup hanging from it, so they read as one piece.
         """
+        bar = parts.MENU_BAR.on(self.pal)
         return f"""
             QMenuBar {{
-                background: transparent; color: {Colors.TEXT};
+                background: transparent; color: {bar.fg};
                 font-size: {Fonts.SIZE_BASE}px;
                 min-height: 20px;
                 padding: 3px 2px;
             }}
             QMenuBar::item {{ background: transparent; padding: 5px 13px; }}
-            QMenuBar::item:selected {{ background: {self.pal.panel}; }}
-            QMenuBar::item:pressed {{ background: {self.pal.panel}; }}
+            QMenuBar::item:selected {{ background: {bar.hover}; }}
+            QMenuBar::item:pressed {{ background: {bar.hover}; }}
         """
 
     def _menu_style(self, *, checks: bool = False) -> str:
@@ -114,19 +115,21 @@ class ActionMenuBar(QMenuBar):
         checks_css = (
             "QMenu::indicator { left: 8px; } QMenu::item { padding-left: 16px; }" if checks else ""
         )
+        menu = parts.MENU.on(self.pal)
+        item = parts.MENU_ITEM.on(self.pal)
         return (
             checks_css
             + f"""
             QMenu {{
-                background: {self.pal.panel}; color: {Colors.TEXT};
-                border: 1px solid {self.pal.border_light};
+                background: {menu.bg}; color: {menu.fg};
+                border: 1px solid {menu.border};
             }}
             QMenu::item:selected {{
-                background: {self.pal.surface_hover}; color: {self.pal.accent};
+                background: {item.bg}; color: {item.fg};
             }}
             QMenu::separator {{
                 height: 1px; margin: 4px 8px;
-                background: {self.pal.border_light};
+                background: {menu.border};
             }}
         """
         )

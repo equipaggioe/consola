@@ -32,8 +32,9 @@ from PySide6.QtWidgets import (
 
 from app.core.projects import Project
 from app.theme import Colors, Fonts, on_color, tint
-from app.ui import palettes, params_store, project_store, repo_logo
+from app.ui import palettes, params_store, parts, project_store, repo_logo
 from app.ui.palettes import Palette
+from app.ui.swatches_dialog import SwatchesDialog
 from app.ui.widgets import ReorderableBar, ReorderableTab
 
 
@@ -136,7 +137,11 @@ class ProjectTab(ReorderableTab):
         # Selected: the repo's accent over its dark band. The others:
         # the ink that reads over the active repo's accent, the
         # background of the bar they rest on.
-        color = self.pal.accent if self.is_active else self.active_pal.on_accent
+        color = (
+            parts.REPO_TAB_SELECTED.on(self.pal).fg
+            if self.is_active
+            else parts.REPO_TAB.on(self.active_pal).fg
+        )
         self.name_label.setStyleSheet(f"background: transparent; color: {color};")
         self.close_btn.setStyleSheet(f"""
             QPushButton {{
@@ -229,10 +234,10 @@ class ProjectTab(ReorderableTab):
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         """Show the path and the colors, with no level in between.
 
-        The eight themes go loose in the menu and not in a submenu: the
-        menu offers nothing else, so a submenu would be an extra step to
-        reach all there is. Removing the repo is not here either: the
-        tab's × does it.
+        The eight themes go loose in the menu and not in a submenu: a
+        submenu would be an extra step to reach them. Below them, «Roles
+        y partes» shows what each color is made of. Removing the repo is
+        not here: the tab's × does it.
         """
         self._context_menu().exec(event.globalPos())
 
@@ -257,6 +262,13 @@ class ProjectTab(ReorderableTab):
             )
             action.triggered.connect(lambda _=False, k=key: self.set_theme(k))
             menu.addAction(action)
+
+        # What each role and part look like, to choose them in
+        # `ui/parts.py`, next to the colors it depends on.
+        menu.addSeparator()
+        swatches = QAction("Roles y partes…", self)
+        swatches.triggered.connect(lambda: SwatchesDialog(self.pal, self.window()).exec())
+        menu.addAction(swatches)
         return menu
 
     # --- paint -----------------------------------------------------
@@ -276,12 +288,13 @@ class ProjectTab(ReorderableTab):
         path.addRoundedRect(r, 7, 7)
 
         if self.is_active:
-            p.fillPath(path, QColor(self.pal.chrome))
+            p.fillPath(path, QColor(parts.REPO_TAB_SELECTED.on(self.pal).bg))
             p.end()
             return
 
-        p.fillPath(path, QColor(self.active_pal.accent))
-        edge = QColor(self.active_pal.on_accent)
+        tab = parts.REPO_TAB.on(self.active_pal)
+        p.fillPath(path, QColor(tab.bg))
+        edge = QColor(tab.border)
         edge.setAlpha(150 if (self._hovered or self.is_dragging) else 90)
         pen = QPen(edge)
         pen.setWidthF(1.2)
@@ -371,7 +384,8 @@ class AddProjectTab(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(7.5, 6.5, -7.5, -6.5)
 
-        edge = QColor(self.pal.on_accent)
+        add = parts.ADD_TAB.on(self.pal)
+        edge = QColor(add.border)
         edge.setAlpha(150 if self._hovered else 90)
         pen = QPen(edge)
         pen.setWidthF(1.2)
@@ -381,7 +395,7 @@ class AddProjectTab(QWidget):
         path.addRoundedRect(r, 6, 6)
         p.drawPath(path)
 
-        glyph = QColor(self.pal.on_accent)
+        glyph = QColor(add.fg)
         glyph.setAlpha(255 if self._hovered else 190)
         pen = QPen(glyph)
         pen.setWidth(2)

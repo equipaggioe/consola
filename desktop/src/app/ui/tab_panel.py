@@ -38,7 +38,7 @@ from app.core.projects import Project
 from app.core.registry import Capability, registry
 from app.core.toolstatus import Tool
 from app.theme import Colors, Fonts
-from app.ui import palettes, params_store, repo_logo, section_visibility
+from app.ui import palettes, params_store, parts, repo_logo, section_visibility
 from app.ui.command_info_panel import CommandInfoPanel
 from app.ui.console_view import ConsoleView
 from app.ui.env_panel import EnvPanel
@@ -64,9 +64,10 @@ class SubTabButton(ReorderableTab):
 
     A folder tab, like the repo tabs of the title bar: the active one
     paints in the console's background and opens into it, with no line
-    below, so the console and the right column read as its content. The
-    others sink into the bar with only an outline. No icon: the name
-    already says which action it is.
+    below, so the console and the right column read as its content. Its
+    name goes in white and bold. The others sink into the bar with only
+    an outline and their name dimmed. No icon: the name already says
+    which action it is.
     """
 
     clicked = Signal()
@@ -132,11 +133,11 @@ class SubTabButton(ReorderableTab):
         f.setPixelSize(Fonts.SIZE_SM)
         f.setBold(self.is_active)
         self.title_label.setFont(f)
-        # Active: the repo's accent, as the name of the active repo tab.
+        # Active: in bold.
         color = (
-            self.pal.accent
+            parts.RUN_TAB_ACTIVE.on(self.pal).fg
             if self.is_active
-            else (Colors.TEXT_DIM if self._hovered else Colors.TEXT_MUTED)
+            else (Colors.TEXT_DIM if self._hovered else parts.RUN_TAB.on(self.pal).fg)
         )
         self.title_label.setStyleSheet(f"background: transparent; color: {color};")
 
@@ -194,10 +195,18 @@ class SubTabButton(ReorderableTab):
         path.lineTo(r.right(), r.bottom() + 1)
 
         if self.is_active:
-            p.fillPath(path, QColor(self.pal.bg))
-            edge = QColor(self.pal.border)
+            active = parts.RUN_TAB_ACTIVE.on(self.pal)
+            p.fillPath(path, QColor(active.bg))
+            edge = QColor(active.border)
         else:
-            edge = QColor(self.pal.border_light)
+            # Its fill stops one row short: the bar's line runs on
+            # under it, and only the active one breaks it.
+            tab = parts.RUN_TAB.on(self.pal)
+            p.save()
+            p.setClipRect(QRectF(self.rect()).adjusted(0, 0, 0, -1))
+            p.fillPath(path, QColor(tab.bg))
+            p.restore()
+            edge = QColor(tab.border)
             edge.setAlpha(200 if (self._hovered or self.is_dragging) else 110)
         pen = QPen(edge)
         pen.setWidthF(1.0)
@@ -239,7 +248,7 @@ class PadlockChip(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Closed = safe (the repo's color); open = exposed to a
         # destructive action with no net, and that is red in every repo.
-        color = pal.accent if protected else Colors.ERROR
+        color = parts.PADLOCK.on(pal).fg if protected else Colors.ERROR
         self.setStyleSheet(
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
         )
@@ -337,7 +346,7 @@ class WorkspaceStatusBar(QWidget):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.VLine)
         line.setFixedWidth(1)
-        line.setStyleSheet(f"background: {self.pal.border}; border: none;")
+        line.setStyleSheet(f"background: {parts.STATUS_BAR.on(self.pal).border}; border: none;")
         line.setFixedHeight(16)
         return line
 
@@ -460,13 +469,14 @@ class WorkspaceStatusBar(QWidget):
             self.set_protection(self._protection)
 
     def _restyle(self) -> None:
+        bar = parts.STATUS_BAR.on(self.pal)
         self.setStyleSheet(f"""
             WorkspaceStatusBar {{
-                background: {self.pal.surface};
-                border-top: 1px solid {self.pal.border};
+                background: {bar.bg};
+                border-top: 1px solid {bar.border};
             }}
         """)
-        self._sep_ram.setStyleSheet(f"background: {self.pal.border}; border: none;")
+        self._sep_ram.setStyleSheet(f"background: {bar.border}; border: none;")
 
 
 class TabPanel(ReorderableBar):
@@ -1138,23 +1148,25 @@ class TabPanel(ReorderableBar):
         The runs sub-bar, the console's canvas and the two placeholders.
         Each panel repaints what is inside it.
         """
-        # The action tabs bar is NOT tinted: it goes in the neutral gray
-        # `Colors.SURFACE` in all eight themes. The line below does
-        # belong to the repo.
+        bar = parts.RUN_BAR.on(self.pal)
+        footer = parts.FOOTER.on(self.pal)
+        run = parts.RUN_BUTTON_OFF.on(self.pal)
         self.sub_bar.setStyleSheet(f"""
             QWidget#subBar {{
-                background: {Colors.SURFACE};
-                border-bottom: 1px solid {self.pal.border};
+                background: {bar.bg};
+                border-bottom: 1px solid {bar.border};
             }}
         """)
-        self.content_area.setStyleSheet(f"background: {self.pal.bg};")
-        self._params_placeholder.setStyleSheet(f"background: {self.pal.panel};")
+        self.content_area.setStyleSheet(f"background: {parts.CANVAS.on(self.pal).bg};")
+        self._params_placeholder.setStyleSheet(
+            f"background: {parts.SECTION_BODY.on(self.pal).bg};"
+        )
         self._footer_placeholder.setStyleSheet(
-            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
+            f"background: {footer.bg}; border-top: 1px solid {footer.border};"
         )
         self._footer_placeholder_btn.setStyleSheet(f"""
             QPushButton {{
-                background: {self.pal.surface_alt}; color: {Colors.TEXT_MUTED};
+                background: {run.bg}; color: {run.fg};
                 border: none; border-radius: 6px; padding: 0 22px;
                 font-size: {Fonts.SIZE_SM}px; font-weight: 600;
             }}

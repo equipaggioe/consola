@@ -31,6 +31,7 @@ from app.core.envfile import Config
 from app.core.projects import Project
 from app.core.registry import Capability
 from app.theme import Colors, Fonts
+from app.ui import parts
 from app.ui.browser_view import BrowserView, open_external
 from app.ui.console_view import ConsoleView
 from app.ui.palettes import NEUTRAL, Palette
@@ -38,9 +39,10 @@ from app.ui.widgets.led import LedIndicator
 
 
 def _chip_style(pal: Palette) -> str:
+    chip = parts.CHIP.on(pal)
     return f"""
         QPushButton {{
-            background: {pal.surface_alt}; color: {Colors.TEXT_DIM};
+            background: {chip.bg}; color: {chip.fg};
             border: none; border-radius: 5px; padding: 0 10px;
             font-size: {Fonts.SIZE_XS}px;
         }}
@@ -83,6 +85,7 @@ class TabView(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
+        self.header = self._build_header()
         self.tool_bar = self._build_tool_bar()
         self._restyle()
 
@@ -90,6 +93,7 @@ class TabView(QWidget):
         self.stack = QStackedWidget(self)
         self.stack.addWidget(self.console)
 
+        root.addWidget(self.header)
         root.addWidget(self.tool_bar)
         root.addWidget(self.stack, 1)
         # Only launchers publish an endpoint to show; «Explorar base»
@@ -98,6 +102,23 @@ class TabView(QWidget):
         self.tool_bar.setVisible(capability.group == "Ejecutar" or bool(capability.view))
 
     # --- building ---
+    def _build_header(self) -> QWidget:
+        """Build the bar that names the view below, like a section's.
+
+        The right column's sections (`widgets/accordion.py`) say what
+        they hold; this one says it for the left: «Consola», or the
+        second view when it is the one showing.
+        """
+        bar = QWidget()
+        bar.setObjectName("viewHeader")
+        bar.setFixedHeight(30)
+        lay = QHBoxLayout(bar)
+        lay.setContentsMargins(12, 0, 12, 0)
+        self.header_title = QLabel(CONSOLA.upper())
+        lay.addWidget(self.header_title)
+        lay.addStretch(1)
+        return bar
+
     def _build_tool_bar(self) -> QWidget:
         """Build the tab's top strip: the endpoint the task published.
 
@@ -201,8 +222,18 @@ class TabView(QWidget):
             self._explorer.set_palette(pal)
 
     def _restyle(self) -> None:
+        header = parts.CONSOLE_HEADER.on(self.pal)
+        self.header.setStyleSheet(
+            f"QWidget#viewHeader {{ background: {header.bg}; "
+            f"border-bottom: 1px solid {header.border}; }}"
+        )
+        self.header_title.setStyleSheet(
+            f"background: transparent; color: {header.fg}; "
+            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;"
+        )
+        bar = parts.TOOL_BAR.on(self.pal)
         self.tool_bar.setStyleSheet(
-            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};"
+            f"background: {bar.bg}; border-bottom: 1px solid {bar.border};"
         )
         for chip in self._chips:
             chip.setStyleSheet(_chip_style(self.pal))
@@ -273,6 +304,7 @@ class TabView(QWidget):
         """Show the console."""
         self.stack.setCurrentWidget(self.console)
         self.view_btn.setText(VIEW_NAMES.get(self.capability.view, ""))
+        self.header_title.setText(CONSOLA.upper())
 
     def show_browser(self) -> None:
         """Create the browser the first time it is needed.
@@ -289,6 +321,7 @@ class TabView(QWidget):
             self._browser.load(self._url)
         self.stack.setCurrentWidget(self._browser)
         self.view_btn.setText(CONSOLA)
+        self.header_title.setText(VIEW_NAMES["web"].upper())
 
     def show_explorer(self) -> None:
         """Show the explorer."""
@@ -296,6 +329,7 @@ class TabView(QWidget):
             return
         self.stack.setCurrentWidget(self._explorer)
         self.view_btn.setText(CONSOLA)
+        self.header_title.setText(VIEW_NAMES["db"].upper())
 
     # --- database explorer ---
     def _start_explorer(self, safe_url: str) -> None:

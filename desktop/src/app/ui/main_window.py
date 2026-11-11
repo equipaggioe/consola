@@ -31,7 +31,15 @@ from app.core.catalog import applicable_ids
 from app.core.projects import Project
 from app.core.registry import registry
 from app.theme import Colors, Fonts
-from app.ui import favorites, palettes, params_store, project_store, readiness, section_visibility
+from app.ui import (
+    favorites,
+    palettes,
+    params_store,
+    parts,
+    project_store,
+    readiness,
+    section_visibility,
+)
 from app.ui.action_search import ActionSearch
 from app.ui.menu_bar import ActionMenuBar
 from app.ui.palettes import NEUTRAL, Palette
@@ -416,15 +424,15 @@ class MainWindow(QMainWindow):
         so the content does not shift a pixel on activating. Maximized
         it is not needed.
         """
+        window = parts.WINDOW.on(self.pal)
         if self.isMaximized():
             self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {self.pal.bg}; }}"
+                f"QWidget#centralWidget {{ background: {window.bg}; }}"
             )
         else:
-            color = self.pal.accent if self.isActiveWindow() else self.pal.border
+            color = window.focus if self.isActiveWindow() else window.border
             self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {self.pal.bg}; "
-                f"border: 1px solid {color}; }}"
+                f"QWidget#centralWidget {{ background: {window.bg}; border: 1px solid {color}; }}"
             )
 
     # --- the active repo's palette ---
@@ -440,9 +448,9 @@ class MainWindow(QMainWindow):
         self.action_menu.set_palette(pal)
         self.action_search.set_palette(pal)
         self.status_bar.set_palette(pal)
+        bar = parts.MENU_BAR.on(pal)
         self.menu_row.setStyleSheet(
-            f"QWidget#menuRow {{ background: {pal.chrome}; "
-            f"border-bottom: 1px solid {pal.border}; }}"
+            f"QWidget#menuRow {{ background: {bar.bg}; border-bottom: 1px solid {bar.border}; }}"
         )
         self._apply_window_border()
 

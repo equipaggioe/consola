@@ -16,7 +16,7 @@ import pytest
 from PySide6.QtGui import QColor
 
 from app.theme import Colors
-from app.ui import palettes
+from app.ui import palettes, parts
 from app.ui.palettes import Palette
 
 THEMES = list(palettes.THEMES.values())
@@ -216,3 +216,37 @@ def test_it_does_not_repeat_while_themes_remain() -> None:
     # With all eight used, it returns to the first instead of having no
     # answer.
     assert palettes.first_free(used) == next(iter(palettes.THEMES))
+
+
+PARTS = {name: look for name, look in vars(parts).items() if isinstance(look, parts.Look)}
+
+
+@pytest.mark.parametrize("pal", [*THEMES, palettes.NEUTRAL], ids=[*IDS, "neutral"])
+@pytest.mark.parametrize("name", PARTS)
+def test_each_part_resolves(pal: Palette, name: str) -> None:
+    """Every slot a part declares gives a color in every theme."""
+    paint = PARTS[name].on(pal)
+    for slot in PARTS[name].slots():
+        assert QColor(getattr(paint, slot)).isValid()
+
+
+@pytest.mark.parametrize("pal", THEMES, ids=IDS)
+@pytest.mark.parametrize(
+    "name", [n for n, look in PARTS.items() if look.bg and look.fg and n != "RUN_BUTTON_OFF"]
+)
+def test_the_text_of_each_part_reads(pal: Palette, name: str) -> None:
+    """A part's text reads over its own background (`ui/parts.py`).
+
+    3:1, WCAG's floor for interface elements: changing a role in the
+    table can drop a part below it, and it has to show here. Ejecutar
+    off is left out: WCAG asks no contrast of a disabled control, and
+    its muted text is what says it is off.
+    """
+    paint = PARTS[name].on(pal)
+    assert contrast(paint.fg, paint.bg) >= 3.0
+
+
+def test_a_slot_not_declared_raises() -> None:
+    """Asking for a slot the part does not paint fails."""
+    with pytest.raises(LookupError):
+        _ = parts.CANVAS.on(palettes.NEUTRAL).fg

@@ -12,8 +12,9 @@ still a dark theme; what changes is that the hue shows.
 Two signals, two tools, and they do not clash:
 
 - **hue** says WHICH repo you are in. Only one, present in everything.
-- **lightness** says WHICH PANEL you look at. The console is the darkest
-  step, the sections' body one lighter, headers one more. A hue per
+- **lightness** says WHICH PANEL you look at. The console and the
+  section headers are the darkest step, the sections' bodies and the
+  runs sub-bar one lighter. A hue per
   section would cancel the first signal: if «Parámetros» were always
   green, green would stop meaning «green repo».
 
@@ -115,8 +116,8 @@ class Palette:
     label: str
     accent: str
     chrome: str  # menu bar row and the selected repo's tab
-    bg: str  # console and left canvas: the darkest step
-    panel: str  # body of the right column's sections
+    bg: str  # console, left canvas and section headers: the darkest
+    panel: str  # sections' bodies, runs sub-bar, menus and dialogs
     surface: str  # sub-bar, section headers, footer, status bar
     surface_hover: str
     surface_alt: str  # fields, combos, chips

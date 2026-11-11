@@ -50,6 +50,7 @@ from app.core import db_explorer as dbx
 from app.core import db_models as dbm
 from app.core.files import human_size
 from app.theme import Colors, Fonts, mono
+from app.ui import parts
 from app.ui.db_worker import DbWorker
 from app.ui.palettes import NEUTRAL, Palette
 
@@ -262,20 +263,26 @@ class DbExplorerView(QWidget):
         and the right header, which do declare one, and the chips
         repaint apart.
         """
+        table = parts.TABLE.on(self.pal)
+        header = parts.TABLE_HEADER.on(self.pal)
+        tab = parts.TABLE_TAB.on(self.pal)
+        field = parts.FIELD.on(self.pal)
+        tree = parts.TABLE_TREE.on(self.pal)
+        bar = parts.TOOL_BAR.on(self.pal)
         self.setStyleSheet(f"""
-            QWidget#dbExplorer {{ background: {self.pal.bg}; }}
+            QWidget#dbExplorer {{ background: {parts.CANVAS.on(self.pal).bg}; }}
             QTreeWidget, QTableView, QTableWidget {{
-                background: {self.pal.bg}; color: {Colors.TEXT};
+                background: {table.bg}; color: {table.fg};
                 border: none; font-size: {Fonts.SIZE_SM}px;
-                selection-background-color: {self.pal.surface_hover};
-                selection-color: {Colors.TEXT};
-                gridline-color: {self.pal.surface};
-                alternate-background-color: {self.pal.panel};
+                selection-background-color: {table.hover};
+                selection-color: {table.fg};
+                gridline-color: {table.border};
+                alternate-background-color: {parts.TABLE_ALT_ROW.on(self.pal).bg};
             }}
             QHeaderView::section {{
-                background: {self.pal.surface}; color: {Colors.TEXT_DIM};
-                border: none; border-right: 1px solid {self.pal.border};
-                border-bottom: 1px solid {self.pal.border};
+                background: {header.bg}; color: {header.fg};
+                border: none; border-right: 1px solid {header.border};
+                border-bottom: 1px solid {header.border};
                 padding: 4px 8px; font-size: {Fonts.SIZE_XS}px;
             }}
             QTabWidget::pane {{ border: none; }}
@@ -284,23 +291,21 @@ class DbExplorerView(QWidget):
                 padding: 6px 14px; border: none; font-size: {Fonts.SIZE_SM}px;
             }}
             QTabBar::tab:selected {{
-                color: {Colors.TEXT};
-                border-bottom: 2px solid {self.pal.accent};
+                color: {tab.fg};
+                border-bottom: 2px solid {tab.border};
             }}
             QLineEdit {{
-                background: {self.pal.surface_alt}; color: {Colors.TEXT};
-                border: 1px solid {self.pal.border}; border-radius: 6px;
+                background: {field.bg}; color: {field.fg};
+                border: 1px solid {field.border}; border-radius: 6px;
                 padding: 5px 8px; font-size: {Fonts.SIZE_SM}px;
             }}
             QScrollArea {{ border: none; background: transparent; }}
         """)
         self._tree_side.setStyleSheet(
-            f"QWidget#dbTreeSide {{ background: {self.pal.bg}; "
-            f"border-right: 1px solid {self.pal.border}; }}"
+            f"QWidget#dbTreeSide {{ background: {tree.bg}; "
+            f"border-right: 1px solid {tree.border}; }}"
         )
-        self._head.setStyleSheet(
-            f"background: {self.pal.surface}; border-bottom: 1px solid {self.pal.border};"
-        )
+        self._head.setStyleSheet(f"background: {bar.bg}; border-bottom: 1px solid {bar.border};")
         for chip in self._chips:
             chip.setStyleSheet(self._chip_style())
 
@@ -450,9 +455,10 @@ class DbExplorerView(QWidget):
         return btn
 
     def _chip_style(self) -> str:
+        chip = parts.CHIP.on(self.pal)
         return f"""
             QPushButton {{
-                background: {self.pal.surface_alt}; color: {Colors.TEXT_DIM};
+                background: {chip.bg}; color: {chip.fg};
                 border: none; border-radius: 5px; padding: 0 10px; font-size: {Fonts.SIZE_XS}px;
             }}
             QPushButton:hover {{ color: {Colors.TEXT}; }}

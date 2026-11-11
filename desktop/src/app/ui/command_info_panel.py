@@ -8,6 +8,7 @@ from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLay
 from app.core import command_docs
 from app.core.registry import Capability
 from app.theme import Colors, Fonts
+from app.ui import parts
 from app.ui.palettes import NEUTRAL, Palette
 
 
@@ -75,10 +76,11 @@ class CommandInfoPanel(QWidget):
         gets its color by hand in this same sheet, which is the closest
         and the one that wins.
         """
+        body = parts.SECTION_BODY.on(self.pal).bg
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+            f"QScrollBar:vertical {{ background: {body}; width: 8px; }}"
         )
 
     def set_palette(self, pal: Palette) -> None:
@@ -87,8 +89,8 @@ class CommandInfoPanel(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        # Section body: `panel`, one step below its header.
-        self.setStyleSheet(f"CommandInfoPanel {{ background: {self.pal.panel}; }}")
+        body = parts.SECTION_BODY.on(self.pal)
+        self.setStyleSheet(f"CommandInfoPanel {{ background: {body.bg}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
 
     # --- API ---

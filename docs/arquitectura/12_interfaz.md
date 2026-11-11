@@ -7,8 +7,8 @@ barra de título   marca ◇ · pestañas de REPOS · minimizar / maximizar / ce
 barra de menú     catálogo por grupo · Ver · buscador
 ─────────────────────────────────────────────┬──────────────────────────────
  pestañas de EJECUCIÓN del repo activo       │ Acción
- consola  |  segunda vista (navegador | base)│ Seguridad
-                                             │ Parámetros
+ CONSOLA (nombre de la vista)                │ Seguridad
+ consola  |  segunda vista (navegador | base)│ Parámetros
                                              │ Configuración del repo
                                              ├──────────────────────────────
                                              │ Limpiar · ☆ · Simulacro · Ejecutar
@@ -30,24 +30,33 @@ La saturación es absoluta, no una fracción de la del acento. Si fuera una frac
 
 Los ocho acentos son claros: el acento va **encima** de los fondos —la barra de título, el rombo de la marca, los filetes, el texto de enlace— y tiene que despegarse de ellos.
 
-| Rol | Dónde |
+Los **roles** son los colores entre los que se elige (`Role` en `ui/parts.py`):
+
+| Rol | Qué es |
 |---|---|
-| `accent` | Barra de título, borde de contorno de la ventana (solo con el foco), nombre de la pestaña de ejecución activa, botón Ejecutar, foco de los campos, candados cerrados |
-| `on_accent` | Lo que va **sobre** la barra de título: la marca, el nombre, el contorno y la × de las pestañas no seleccionadas, el «+», los botones de ventana |
-| `chrome` | Fila de la barra de menú y pestaña del repo seleccionado: la banda más clara y más saturada de la escalera |
-| `bg` | Consola, lienzo izquierdo y pestaña de ejecución activa: el escalón más oscuro del contenido, el que se lee |
-| `panel` | Cuerpo de las secciones de la columna derecha |
-| `surface` | Cabeceras de sección, pie y barra de estado |
-| `surface_alt` | Campos, listas y chips |
-| `border` | Separadores y marcos |
+| `accent` | El color del repo |
+| `on_accent` | Lo legible sobre el acento (`on_color`) |
+| `chrome` | La banda más clara y más saturada de la escalera |
+| `bg` | El escalón más oscuro |
+| `panel`, `surface`, `surface_hover`, `surface_alt` | Los escalones siguientes, de más oscuro a más claro |
+| `border`, `border_light` | Separadores y marcos |
+| `TEXT`, `TEXT_LABEL`, `TEXT_DIM`, `TEXT_MUTED` | Los grises del texto, de más claro a más apagado: texto corrido, rótulo de un campo, resúmenes de sección, pistas cortas y rutas |
 
-Los grises del texto, de más claro a más apagado: `TEXT` (texto corrido), `TEXT_LABEL` (rótulo de un campo), `TEXT_DIM` (resúmenes de sección) y `TEXT_MUTED` (pistas cortas y rutas).
+Las **partes** son las zonas de la ventana: barra de título, fila del menú, menú desplegado, cabecera y cuerpo de sección, campo, pie, barra de estado… Qué rol pinta cada una lo dice **una sola tabla**, `ui/parts.py`: cada parte es un `Look` que da un `Role` a cada ranura que pinta —`bg` (fondo), `fg` (texto), `border` (contorno), `hover` (fondo bajo el cursor o fila elegida) y `focus` (borde con el foco)—. Ningún widget nombra un rol: pide su parte (`parts.SECTION_HEADER.on(pal)`) y lee la ranura, y pedir una ranura que la parte no declara lanza `LookupError`. Para cambiar el tono de una parte se cambia su rol en esa tabla; al escribir `Role.` el editor lista los roles. `tests/test_palettes.py` comprueba que cada parte resuelve en los ocho temas y en `NEUTRAL`, y que su texto se lee sobre su fondo a 3:1 (salvo Ejecutar apagado: WCAG no le pide contraste a un control deshabilitado).
 
-Lo que **no** sale de la paleta: los grises del texto, los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED) y el fondo de la barra de pestañas de acciones, que va en el gris neutro `Colors.SURFACE` en los ocho temas (su línea de abajo sí es `border` del repo). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
+Los roles que nombra el resto de esta sección son los que hoy tiene `ui/parts.py`.
+
+Una casilla marcada de Parámetros o de Seguridad se rellena con `CHECK`, hoy el acento del repo: el panel repite las reglas de la hoja global (`theme.check_css`) con su paleta, y por estar más cerca de la casilla gana. Deshabilitada va en `TEXT_MUTED`, salvo las de la vista previa (`previewCheck`), que llevan el relleno de `CHECK` porque muestran lo que la corrida va a tomar, no una opción apagada. La casilla sin marcar sigue en los neutros de la hoja global.
+
+Lo que **no** se tiñe: los grises del texto y los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
+
+La pestaña de ejecución activa (`RUN_TAB_ACTIVE`) se pinta de `bg` y se abre a lo que tiene debajo, con el nombre en `TEXT` y negrita: rompe la línea de la barra, y esa abertura es lo que la une a su contenido. Las demás (`RUN_TAB`) llevan contorno, el nombre en `TEXT_MUTED` y un fondo propio, hoy `panel`, el mismo de la barra; su relleno se detiene una fila antes del borde inferior, así que la línea de la barra sigue de largo debajo de ellas.
+
+Debajo de las pestañas de ejecución va una barra que nombra la vista (`TabView._build_header`, parte `CONSOLE_HEADER`): «CONSOLA», o «NAVEGADOR» o «EXPLORADOR» cuando se ve la segunda vista. Hace en la columna izquierda lo que las cabeceras de sección hacen en la derecha, con las mismas medidas (30 px de alto, mayúsculas de 12 px en negrita), pero no se pliega.
 
 Las pestañas de repo **no seleccionadas** llevan de fondo el acento del repo activo —el color con el que queda pintada la barra de título— y el contorno de `on_accent`, el mismo del «+», que es lo único que las recorta; el hover lo sube de 90 a 150 de alfa. La **seleccionada** se pinta de `chrome`, la banda de la fila del menú, que es la que va justo debajo: la pestaña queda conectada con el contenido que abre, como en un navegador, con el nombre en el acento del repo y sin contorno. El «+» es una pestaña más, la que todavía no tiene repo. Cambiar el color del repo activo repinta la fila entera.
 
-El menú del clic derecho sobre una pestaña es la ruta y los ocho colores, nada más: quitar el repo es la × de la pestaña, y repetirlo en el menú no agregaba un camino, agregaba una lista más larga.
+El menú del clic derecho sobre una pestaña es la ruta, los ocho colores y «Roles y partes…»: quitar el repo es la × de la pestaña, y repetirlo en el menú no agregaba un camino, agregaba una lista más larga. «Roles y partes…» abre `SwatchesDialog` (`ui/swatches_dialog.py`), que solo muestra: una grilla con cada `Role` en los ocho temas (muestra y hex, con el tema del repo en negrita) y una fila por parte de `ui/parts.py`, con una muestra «Aa» pintada como la pinta la parte y cada ranura con su rol, en el tema del repo. Lo lee del código al abrirse; lo que cambia un color sigue siendo editar `ui/parts.py`.
 
 El **logo** es `BRAND_ICON`, el mismo SVG del que salen los íconos de las apps del repo ([19](19_imagenes.md)), leído de su `config.env` (`ui/repo_logo.py`, [ADR-0058](../adr/0058-el-logo-del-repo-en-la-interfaz.md)). Un repo sin `BRAND_ICON` lleva la marca de Equipaggio (`ui/assets/equipaggio.png`); uno cuyo `BRAND_ICON` no existe, no es SVG o Qt no lo lee muestra ⚠, con el error en el tooltip.
 

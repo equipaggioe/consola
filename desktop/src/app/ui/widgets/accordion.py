@@ -9,6 +9,7 @@ from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from app.theme import Colors, Fonts
+from app.ui import parts
 from app.ui.palettes import NEUTRAL, Palette
 
 # `QWIDGETSIZE_MAX`: what Qt understands as «no height limit».
@@ -36,7 +37,6 @@ class AccordionHeader(QWidget):
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.pal = NEUTRAL
-        self._restyle()
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(9, 0, 12, 0)
@@ -44,15 +44,7 @@ class AccordionHeader(QWidget):
 
         self.chevron = QLabel("▾")
         self.chevron.setFixedWidth(11)
-        self.chevron.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
-        )
-
         self.title = QLabel(title.upper())
-        self.title.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;"
-        )
 
         # What the section has to say without opening it («3 de 5
         # protegidos»). Empty by default: not every section has a useful
@@ -64,6 +56,7 @@ class AccordionHeader(QWidget):
 
         lay.addWidget(self.chevron)
         lay.addWidget(self.title)
+        self._restyle()
         lay.addStretch(1)
         lay.addWidget(self.summary)
 
@@ -73,17 +66,25 @@ class AccordionHeader(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        # The header goes one step LIGHTER than its section's body
-        # (`pal.panel`): that separates a section from its neighbor and
-        # the label from its content. When both were the same gray, the
-        # right column read as one stain.
+        # The header and its section's body go on different steps:
+        # that separates a section from its neighbor and the label from
+        # its content. When both were the same gray, the right column
+        # read as one stain.
+        header = parts.SECTION_HEADER.on(self.pal)
         self.setStyleSheet(f"""
             QWidget#accordionHeader {{
-                background: {self.pal.surface};
-                border-bottom: 1px solid {self.pal.border};
+                background: {header.bg};
+                border-bottom: 1px solid {header.border};
             }}
-            QWidget#accordionHeader:hover {{ background: {self.pal.surface_hover}; }}
+            QWidget#accordionHeader:hover {{ background: {header.hover}; }}
         """)
+        self.chevron.setStyleSheet(
+            f"background: transparent; color: {header.fg}; font-size: {Fonts.SIZE_XS}px;"
+        )
+        self.title.setStyleSheet(
+            f"background: transparent; color: {header.fg}; "
+            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;"
+        )
 
     @override
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
@@ -234,12 +235,13 @@ class SectionResizeGrip(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
+        grip = parts.SECTION_GRIP.on(self.pal)
         self.setStyleSheet(f"""
             QWidget#sectionGrip {{
-                background: {self.pal.surface};
-                border-bottom: 1px solid {self.pal.border};
+                background: {grip.bg};
+                border-bottom: 1px solid {grip.border};
             }}
-            QWidget#sectionGrip:hover {{ background: {self.pal.surface_hover}; }}
+            QWidget#sectionGrip:hover {{ background: {grip.hover}; }}
         """)
 
     @override

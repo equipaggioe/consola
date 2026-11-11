@@ -19,7 +19,7 @@ from PySide6.QtWidgets import (
 
 from app.core.registry import registry
 from app.theme import Colors, Fonts
-from app.ui import favorites
+from app.ui import favorites, parts
 from app.ui.palettes import NEUTRAL, Palette
 from app.ui.widgets import ActionRow
 
@@ -129,16 +129,17 @@ class ActionSearch(QWidget):
             self.box.clear()
 
     def _restyle_box(self) -> None:
+        field = parts.FIELD.on(self.pal)
         self.box.setStyleSheet(f"""
             QLineEdit {{
-                background: {self.pal.surface_alt};
-                color: {Colors.TEXT};
-                border: 1px solid {self.pal.border};
+                background: {field.bg};
+                color: {field.fg};
+                border: 1px solid {field.border};
                 border-radius: 5px;
                 padding: 5px 8px;
                 font-size: {Fonts.SIZE_XS}px;
             }}
-            QLineEdit:focus {{ border: 1px solid {self.pal.accent}; }}
+            QLineEdit:focus {{ border: 1px solid {field.focus}; }}
             QLineEdit:disabled {{ color: {Colors.TEXT_MUTED}; }}
         """)
 
@@ -149,19 +150,21 @@ class ActionSearch(QWidget):
         same (`ui/menu_bar.py::_menu_style`): `panel`, two steps below
         the bar.
         """
+        popup = parts.SEARCH_LIST.on(self.pal)
         return f"""
             QFrame#actionSearchPopup {{
-                background: {self.pal.panel};
-                border: 1px solid {self.pal.border_light};
+                background: {popup.bg};
+                border: 1px solid {popup.border};
                 border-radius: 8px;
             }}
         """
 
     def _scroll_style(self) -> str:
+        popup = parts.SEARCH_LIST.on(self.pal)
         return f"""
             QScrollArea {{ border: none; background: transparent; }}
-            QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}
-            QScrollBar::handle:vertical {{ background: {self.pal.border_light}; border-radius: 4px;
+            QScrollBar:vertical {{ background: {popup.bg}; width: 8px; }}
+            QScrollBar::handle:vertical {{ background: {popup.border}; border-radius: 4px;
                 }}
         """
 

@@ -20,7 +20,7 @@ from PySide6.QtWidgets import (
 
 from app.core.settings import machine_settings
 from app.theme import Fonts
-from app.ui import params_store
+from app.ui import params_store, parts
 from app.ui.env_panel import EnvRow
 from app.ui.palettes import Palette
 
@@ -110,24 +110,27 @@ class MachinePanel(QWidget):
 
         The body is `panel` and the footer `surface`.
         """
-        self.setStyleSheet(f"MachinePanel {{ background: {self.pal.panel}; }}")
+        body = parts.SECTION_BODY.on(self.pal)
+        footer = parts.FOOTER.on(self.pal)
+        button = parts.ACCENT_BUTTON.on(self.pal)
+        self.setStyleSheet(f"MachinePanel {{ background: {body.bg}; }}")
         # The same as `EnvPanel._scroll_style`: the viewport shows the
         # panel's background, and the bar's groove gets it by hand.
         self._scroll.setStyleSheet(
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+            f"QScrollBar:vertical {{ background: {body.bg}; width: 8px; }}"
         )
         self.footer.setStyleSheet(
-            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
+            f"background: {footer.bg}; border-top: 1px solid {footer.border};"
         )
         button_css = f"""
             QPushButton {{
-                background: transparent; border: 1px solid {self.pal.accent};
-                color: {self.pal.accent}; border-radius: 5px;
+                background: transparent; border: 1px solid {button.border};
+                color: {button.fg}; border-radius: 5px;
                 padding: 4px 12px; font-size: {Fonts.SIZE_XS}px;
             }}
-            QPushButton:hover {{ background: {self.pal.surface_hover}; }}
+            QPushButton:hover {{ background: {button.hover}; }}
         """
         for button in (self.reload_btn, self.save_btn):
             button.setStyleSheet(button_css)

@@ -18,6 +18,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QWidget
 
 from app.theme import Colors, Fonts, mono
+from app.ui import parts
 from app.ui.palettes import NEUTRAL, Palette
 
 
@@ -49,10 +50,12 @@ class ConsoleView(QPlainTextEdit):
         self._restyle()
 
     def _restyle(self) -> None:
+        console = parts.CONSOLE.on(self.pal)
+        field = parts.FIELD.on(self.pal)
         self.setStyleSheet(f"""
             QPlainTextEdit {{
-                background-color: {self.pal.bg};
-                color: {Colors.TEXT_DIM};
+                background-color: {console.bg};
+                color: {console.fg};
                 selection-background-color: {self.pal.glow(0.30)};
                 border: none;
                 padding: 10px 12px;
@@ -60,9 +63,9 @@ class ConsoleView(QPlainTextEdit):
         """)
         self.search_bar.setStyleSheet(f"""
             QLineEdit {{
-                background-color: {self.pal.surface_alt};
-                color: {Colors.TEXT};
-                border: 1px solid {self.pal.border};
+                background-color: {field.bg};
+                color: {field.fg};
+                border: 1px solid {field.border};
                 border-radius: 4px;
                 padding: 6px;
                 font-size: 14px;

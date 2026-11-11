@@ -24,8 +24,8 @@ from PySide6.QtWidgets import QCheckBox, QFrame, QScrollArea, QVBoxLayout, QWidg
 
 from app.core import protection
 from app.core.projects import Project
-from app.theme import Fonts
-from app.ui import params_store
+from app.theme import Fonts, check_css
+from app.ui import params_store, parts
 from app.ui.palettes import NEUTRAL, Palette
 
 
@@ -97,10 +97,13 @@ class SecurityPanel(QWidget):
         gets its color by hand in this same sheet, which is the closest
         and the one that wins.
         """
+        body = parts.SECTION_BODY.on(self.pal)
+        check = parts.CHECK.on(self.pal)
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+            f"QScrollBar:vertical {{ background: {body.bg}; width: 8px; }}"
+            + check_css(check.bg, check.border)
         )
 
     def set_palette(self, pal: Palette) -> None:
@@ -109,8 +112,7 @@ class SecurityPanel(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        # Section body: `panel`, one step below its header.
-        self._body.setStyleSheet(f"background: {self.pal.panel};")
+        self._body.setStyleSheet(f"background: {parts.SECTION_BODY.on(self.pal).bg};")
         self._scroll.setStyleSheet(self._scroll_style())
 
     def state(self) -> dict[str, Any]:

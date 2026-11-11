@@ -26,7 +26,7 @@ from app.core.errors import TaskError
 from app.core.projects import Project
 from app.core.settings import Setting, settings_by_group
 from app.theme import Colors, Fonts
-from app.ui import palettes, params_store
+from app.ui import palettes, params_store, parts
 from app.ui.palettes import Palette
 
 
@@ -206,18 +206,19 @@ class EnvRow(QWidget):
     def _restyle(self) -> None:
         # Lighter border = key without a value. The same signal, now in
         # the repo's tinted borders.
-        border = self.pal.border if self.value() else self.pal.border_light
+        field = parts.FIELD.on(self.pal)
+        border = field.border if self.value() else parts.FIELD_EMPTY.on(self.pal).border
         widget = "QPlainTextEdit" if self._is_list else "QLineEdit"
         self.field.setStyleSheet(f"""
             {widget} {{
-                background: {self.pal.surface_alt};
-                color: {Colors.TEXT};
+                background: {field.bg};
+                color: {field.fg};
                 border: 1px solid {border};
                 border-radius: 5px;
                 padding: 5px 8px;
                 font-size: {Fonts.SIZE_XS}px;
             }}
-            {widget}:focus {{ border: 1px solid {self.pal.accent}; }}
+            {widget}:focus {{ border: 1px solid {field.focus}; }}
         """)
 
 
@@ -360,13 +361,14 @@ class EnvPanel(QWidget):
     def _restyle(self) -> None:
         """Paint the «Configuración del repo» section's backgrounds.
 
-        The body is `panel`, one step below its header, and the footer
+        The body is `panel`, one step above its header, and the footer
         with Save and Reload rises to `surface`, like the other bars.
         """
-        self.setStyleSheet(f"EnvPanel {{ background: {self.pal.panel}; }}")
+        footer = parts.FOOTER.on(self.pal)
+        self.setStyleSheet(f"EnvPanel {{ background: {parts.SECTION_BODY.on(self.pal).bg}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
         self.file_bar.setStyleSheet(
-            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
+            f"background: {footer.bg}; border-top: 1px solid {footer.border};"
         )
         self._restyle_create()
 
@@ -381,20 +383,22 @@ class EnvPanel(QWidget):
         gets its color by hand in this same sheet, which is the closest
         and the one that wins.
         """
+        body = parts.SECTION_BODY.on(self.pal).bg
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+            f"QScrollBar:vertical {{ background: {body}; width: 8px; }}"
         )
 
     def _restyle_create(self) -> None:
+        button = parts.ACCENT_BUTTON.on(self.pal)
         button_css = f"""
             QPushButton {{
-                background: transparent; border: 1px solid {self.pal.accent};
-                color: {self.pal.accent}; border-radius: 5px;
+                background: transparent; border: 1px solid {button.border};
+                color: {button.fg}; border-radius: 5px;
                 padding: 4px 12px; font-size: {Fonts.SIZE_XS}px;
             }}
-            QPushButton:hover {{ background: {self.pal.surface_hover}; }}
+            QPushButton:hover {{ background: {button.hover}; }}
         """
         self.create_btn.setStyleSheet(button_css)
         self.import_btn.setStyleSheet(button_css)

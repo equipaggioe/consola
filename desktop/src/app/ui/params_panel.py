@@ -39,8 +39,8 @@ from app.core.errors import TaskError
 from app.core.projects import Project
 from app.core.registry import AxisDef, Capability, Step, registry
 from app.core.settings import relevant_keys_for, required_keys_for
-from app.theme import Colors, Fonts
-from app.ui import favorites, palettes, params_store
+from app.theme import Colors, Fonts, check_css
+from app.ui import favorites, palettes, params_store, parts
 from app.ui.env_panel import EnvPanel
 from app.ui.palettes import Palette
 from app.ui.widgets import FavoriteStar
@@ -476,29 +476,32 @@ class ParamsPanel(QWidget):
         gets its color by hand in this same sheet, which is the closest
         and the one that wins.
         """
+        body = parts.SECTION_BODY.on(self.pal).bg
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {self.pal.panel}; width: 8px; }}"
+            f"QScrollBar:vertical {{ background: {body}; width: 8px; }}"
         )
 
     def _combo_style(self) -> str:
+        field = parts.FIELD.on(self.pal)
+        listing = parts.COMBO_LIST.on(self.pal)
         return f"""
             QComboBox {{
-                background: {self.pal.surface_alt}; border: 1px solid {self.pal.border};
+                background: {field.bg}; border: 1px solid {field.border};
                 border-radius: 5px; padding: 0 8px;
-                color: {Colors.TEXT}; font-size: {Fonts.SIZE_XS}px;
+                color: {field.fg}; font-size: {Fonts.SIZE_XS}px;
             }}
-            QComboBox:focus {{ border: 1px solid {self.pal.accent}; }}
+            QComboBox:focus {{ border: 1px solid {field.focus}; }}
             QComboBox::drop-down {{
                 subcontrol-origin: padding; subcontrol-position: center right;
                 width: 18px; right: 6px; border: none; background: transparent;
             }}
             QComboBox::down-arrow {{ image: url({_ARROW}); width: 10px; height: 6px; }}
             QComboBox QAbstractItemView {{
-                background: {self.pal.surface_alt}; color: {Colors.TEXT};
-                selection-background-color: {self.pal.accent};
-                border: 1px solid {self.pal.border}; outline: 0;
+                background: {listing.bg}; color: {listing.fg};
+                selection-background-color: {listing.hover};
+                border: 1px solid {listing.border}; outline: 0;
             }}
             QComboBox QAbstractItemView::item {{ padding: 0 8px; min-height: 26px; }}
         """
@@ -729,10 +732,9 @@ class ParamsPanel(QWidget):
             check = QCheckBox(value)
             check.setChecked(value in marked)
             check.setEnabled(False)
-            check.setStyleSheet(
-                "QCheckBox::indicator:checked:disabled "
-                f"{{ background: {Colors.ACCENT}; border: 1px solid {Colors.ACCENT}; }}"
-            )
+            # Marked like an enabled check (`_restyle`): it shows what
+            # the run will take, not a choice that is off.
+            check.setObjectName("previewCheck")
             check.setToolTip(PREVIEW_HINTS.get(self.capability.preview, ""))
             self._preview_layout.addWidget(check)
         if error:
@@ -936,13 +938,14 @@ class ParamsPanel(QWidget):
             lay.addWidget(note)
 
     def _field_style(self, multiline: bool) -> str:
+        field = parts.FIELD.on(self.pal)
         return f"""
             QLineEdit, QPlainTextEdit {{
-                background: {self.pal.surface_alt}; border: 1px solid {self.pal.border};
+                background: {field.bg}; border: 1px solid {field.border};
                 border-radius: 5px; padding: {"5px 8px" if multiline else "0 8px"};
-                color: {Colors.TEXT}; font-size: {Fonts.SIZE_XS}px;
+                color: {field.fg}; font-size: {Fonts.SIZE_XS}px;
             }}
-            QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {self.pal.accent}; }}
+            QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {field.focus}; }}
         """
 
     @property
@@ -1241,14 +1244,21 @@ class ParamsPanel(QWidget):
         self.fav_star.set_accent(pal.accent)
 
     def _restyle(self) -> None:
-        # The panel is the BODY of the «Parámetros» section: `panel`,
-        # one step below the header labeling it. The scrollbar paints
-        # apart: its groove is not a sheet background but Qt's palette
-        # color, and it stayed gray inside a tinted panel.
-        self.setStyleSheet(f"ParamsPanel {{ background: {self.pal.panel}; }}")
+        # The panel is the BODY of the «Parámetros» section. The
+        # scrollbar paints apart: its groove is not a sheet background
+        # but Qt's palette color, and it stayed gray inside a tinted
+        # panel. The checks go here, so they reach every one inside.
+        check = parts.CHECK.on(self.pal)
+        footer = parts.FOOTER.on(self.pal)
+        self.setStyleSheet(
+            f"ParamsPanel {{ background: {parts.SECTION_BODY.on(self.pal).bg}; }}"
+            + check_css(check.bg, check.border)
+            + "QCheckBox#previewCheck::indicator:checked:disabled "
+            f"{{ background: {check.bg}; border: 1px solid {check.border}; }}"
+        )
         self._scroll.setStyleSheet(self._scroll_style())
         self.footer.setStyleSheet(
-            f"background: {self.pal.surface}; border-top: 1px solid {self.pal.border};"
+            f"background: {footer.bg}; border-top: 1px solid {footer.border};"
         )
         for button in (self.clear_btn, self.dry_btn):
             if button is not None:
@@ -1266,13 +1276,14 @@ class ParamsPanel(QWidget):
 
         The only filled button of the footer is Run.
         """
+        button = parts.BUTTON.on(self.pal)
         return f"""
             QPushButton {{
-                background: transparent; border: 1px solid {self.pal.border};
-                color: {Colors.TEXT_DIM}; border-radius: 6px;
+                background: transparent; border: 1px solid {button.border};
+                color: {button.fg}; border-radius: 6px;
                 padding: 0 16px; font-size: {Fonts.SIZE_SM}px;
             }}
-            QPushButton:hover {{ background: {self.pal.surface_hover}; color: {Colors.TEXT}; }}
+            QPushButton:hover {{ background: {button.hover}; color: {Colors.TEXT}; }}
             QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; }}
         """
 
@@ -1408,17 +1419,17 @@ class ParamsPanel(QWidget):
         self._restyle_run()
 
     def _restyle_run(self) -> None:
-        enabled = self.run_btn.isEnabled()
+        run = (parts.RUN_BUTTON if self.run_btn.isEnabled() else parts.RUN_BUTTON_OFF).on(self.pal)
         self.run_btn.setStyleSheet(f"""
             QPushButton {{
-                background: {self.pal.accent if enabled else self.pal.surface_alt};
-                color: {self.pal.on_accent if enabled else Colors.TEXT_MUTED};
+                background: {run.bg};
+                color: {run.fg};
                 border: none; border-radius: 6px;
                 padding: 0 22px;
                 font-size: {Fonts.SIZE_SM}px; font-weight: 600;
             }}
             QPushButton:hover {{
-                background: {self.pal.accent if enabled else self.pal.surface_alt};
+                background: {run.bg};
             }}
         """)
 

@@ -123,6 +123,27 @@ def apply_theme(app: QApplication) -> None:
     app.setPalette(palette)
 
 
+def check_css(fill: str, border: str) -> str:
+    """Return the rules of a marked check box, filled with `fill`.
+
+    The global sheet uses it with the neutral accent; a panel of a repo
+    repeats it with its palette's (`ui/parts.py::CHECK`), and being
+    closer to the box, it wins. The disabled one goes along: a closer
+    `:checked` would also paint it, and disabled it is gray.
+    """
+    return f"""
+    QCheckBox::indicator:checked {{
+        background: {fill};
+        border: 1px solid {border};
+        image: none;
+    }}
+    QCheckBox::indicator:checked:disabled {{
+        background: {Colors.TEXT_MUTED};
+        border: 1px solid {Colors.TEXT_MUTED};
+    }}
+    """
+
+
 def global_stylesheet() -> str:
     """Return the app's global style sheet."""
     return f"""
@@ -195,15 +216,7 @@ def global_stylesheet() -> str:
     QCheckBox::indicator:hover {{
         border: 1px solid {Colors.TEXT_DIM};
     }}
-    QCheckBox::indicator:checked {{
-        background: {Colors.ACCENT};
-        border: 1px solid {Colors.ACCENT};
-        image: none;
-    }}
-    QCheckBox::indicator:checked:disabled {{
-        background: {Colors.TEXT_MUTED};
-        border: 1px solid {Colors.TEXT_MUTED};
-    }}
+    {check_css(Colors.ACCENT, Colors.ACCENT)}
     QSplitter::handle {{
         background-color: {Colors.BORDER};
     }}

@@ -8,7 +8,8 @@ from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import QColor, QEnterEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QPolygonF
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 
-from app.theme import Colors, Fonts, on_color, tint
+from app.theme import Colors, Fonts, tint
+from app.ui import parts
 from app.ui.palettes import NEUTRAL, Palette
 from app.ui.project_tabs import ProjectTab
 
@@ -87,7 +88,7 @@ class BrandMark(QWidget):
 
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
-        fg = pal.on_accent
+        fg = parts.TITLE_BAR.on(pal).fg
         self.diamond.set_color(fg)
         self.title.setStyleSheet(f"""
             background: transparent;
@@ -222,7 +223,7 @@ class TitleBar(QWidget):
         self.setFixedHeight(self.HEIGHT)
         # The whole row paints in the active repo's color: it signals
         # which repo is open, instead of a line under its tab.
-        self.accent = Colors.ACCENT
+        self.fill = parts.TITLE_BAR.on(NEUTRAL).bg
         self._press_pos: QPoint | None = None
 
         layout = QHBoxLayout(self)
@@ -251,9 +252,10 @@ class TitleBar(QWidget):
     # --- state ---
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
-        self.accent = pal.accent
+        paint = parts.TITLE_BAR.on(pal)
+        self.fill = paint.bg
         self.brand.set_palette(pal)
-        fg = on_color(pal.accent)
+        fg = paint.fg
         for btn in (self.min_btn, self.max_btn, self.close_btn):
             btn.set_foreground(fg)
         self.update()
@@ -303,5 +305,5 @@ class TitleBar(QWidget):
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(self.accent))
+        p.fillRect(self.rect(), QColor(self.fill))
         p.end()
