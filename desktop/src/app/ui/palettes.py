@@ -19,8 +19,8 @@ Two signals, two tools, and they do not clash:
   green, green would stop meaning «green repo».
 
 **No background is black.** The darkest is `bg`, the canvas where one
-reads; the menu bar row (`chrome`) is the lightest band of the ladder
-and the most saturated. The title bar is painted in the accent, and what
+reads; the section headers and the console's (`chrome`) are the most
+saturated band. The title bar is painted in the accent, and what
 rests on it, the brand and the repo tabs, carries no plate.
 
 What does NOT come in here: `SUCCESS`, `WARNING`, `ERROR` and the LEDs.
@@ -85,9 +85,9 @@ def _tinted(base: str, accent: str, sat: float) -> str:
 
 # Which neutral each role comes from and how saturated it paints. They
 # are colored backgrounds, not hinted grays: below 35 % the hue stops
-# reading at screen size and everything looks gray again. The menu row
-# is the most saturated: it is the band that says at a glance which repo
-# this is, and it also carries the selected repo's tab.
+# reading at screen size and everything looks gray again. The headers
+# are the most saturated: they are the band that says at a glance which
+# repo this is.
 _RECIPE: tuple[tuple[str, str, float], ...] = (
     ("chrome", Colors.CHROME, 0.50),
     ("bg", Colors.BG, 0.38),
@@ -115,7 +115,7 @@ class Palette:
     key: str
     label: str
     accent: str
-    chrome: str  # menu bar row and the selected repo's tab
+    chrome: str  # section headers and the console's
     bg: str  # console, left canvas and section headers: the darkest
     panel: str  # sections' bodies, runs sub-bar, menus and dialogs
     surface: str  # sub-bar, section headers, footer, status bar

@@ -78,7 +78,7 @@ class ActionMenuBar(QMenuBar):
         """Return the bar's style.
 
         The strip itself is not painted: the row that holds it sets the
-        background (`chrome`) and the bottom line, and it reaches
+        background (`surface_alt`) and the bottom line, and it reaches
         further right than the menu, where the search goes. What is
         painted is the open menu's title, in the background of
         the popup hanging from it, so they read as one piece.
@@ -99,9 +99,9 @@ class ActionMenuBar(QMenuBar):
     def _menu_style(self, *, checks: bool = False) -> str:
         """Return the popup's style.
 
-        The popup is `panel`, two steps below the row it hangs from: on
-        `chrome` it would not stand out (1.06:1 against the bar), and
-        the item under the cursor needs its own step above the popup.
+        The popup is `panel`, below the row it hangs from, so it stands
+        out against the bar, and the item under the cursor needs its own
+        step above the popup.
 
         `QMenu::separator` is required: with a style sheet on the
         `QMenu`, Qt stops drawing the separator's native line and only

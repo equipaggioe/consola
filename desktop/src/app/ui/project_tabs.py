@@ -34,28 +34,25 @@ from app.core.projects import Project
 from app.theme import Colors, Fonts, on_color, tint
 from app.ui import palettes, params_store, parts, project_store, repo_logo
 from app.ui.palettes import Palette
-from app.ui.swatches_dialog import SwatchesDialog
 from app.ui.widgets import ReorderableBar, ReorderableTab
 
 
 class ProjectTab(ReorderableTab):
     """A top-level tab: one repository.
 
-    The active one paints in its accent, the same as the title bar
-    holding it, with no outline: it melts into it. The others paint in
-    the ACTIVE repo's background (`chrome`, the band of the row below)
-    with outline and name in THEIR repo's accent: they sink against the
-    active one, as a back tab should, and each still says which color it
-    is.
+    The selected one paints in the menu row's background, with its name
+    in its accent: it joins the row below. The others paint in the
+    ACTIVE repo's accent, the title bar they rest on, with outline and
+    name in the ink that reads over it (`ui/parts.py`).
     """
 
     clicked = Signal()
     close_requested = Signal()
     theme_changed = Signal()
 
-    # The whole title bar's height. 44 and not 38: inside the outline,
-    # at 38 the name stuck to the bottom edge.
-    HEIGHT = 44
+    # The whole title bar's height. 40 with the outline 4 px in from
+    # each edge: at 38 with 5 px, the name stuck to the bottom edge.
+    HEIGHT = 40
     LOGO = 18
 
     def __init__(self, project: Project, parent: QWidget | None = None) -> None:
@@ -262,13 +259,6 @@ class ProjectTab(ReorderableTab):
             )
             action.triggered.connect(lambda _=False, k=key: self.set_theme(k))
             menu.addAction(action)
-
-        # What each role and part look like, to choose them in
-        # `ui/parts.py`, next to the colors it depends on.
-        menu.addSeparator()
-        swatches = QAction("Roles y partes…", self)
-        swatches.triggered.connect(lambda: SwatchesDialog(self.pal, self.window()).exec())
-        menu.addAction(swatches)
         return menu
 
     # --- paint -----------------------------------------------------
@@ -276,14 +266,14 @@ class ProjectTab(ReorderableTab):
     def paintEvent(self, event: QPaintEvent) -> None:
         """Paint the tab.
 
-        Selected: `chrome`, the band of the row below. The others: the
-        active repo's accent, the color of the bar they rest on, and the
-        «+»'s outline, which is all that sets them apart; hover raises
-        it.
+        Selected: `surface_alt`, the band of the row below. The others:
+        the active repo's accent, the color of the bar they rest on, and
+        the «+»'s outline, which is all that sets them apart; hover
+        raises it.
         """
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect()).adjusted(1.5, 5.0, -1.5, -5.0)
+        r = QRectF(self.rect()).adjusted(1.5, 4.0, -1.5, -4.0)
         path = QPainterPath()
         path.addRoundedRect(r, 7, 7)
 
@@ -382,7 +372,7 @@ class AddProjectTab(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        r = QRectF(self.rect()).adjusted(7.5, 6.5, -7.5, -6.5)
+        r = QRectF(self.rect()).adjusted(7.5, 5.5, -7.5, -5.5)
 
         add = parts.ADD_TAB.on(self.pal)
         edge = QColor(add.border)

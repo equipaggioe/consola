@@ -61,7 +61,7 @@ if TYPE_CHECKING:
 
 
 class TabView(QWidget):
-    """Toolbar, view switcher, and the console or the second view."""
+    """The header with the endpoint, and the console or second view."""
 
     # Clear: the tab decides whether it also stops its task
     cleared = Signal()
@@ -69,7 +69,7 @@ class TabView(QWidget):
     def __init__(
         self, capability: Capability, project: Project | None = None, parent: QWidget | None = None
     ) -> None:
-        """Build the bar and the console."""
+        """Build the header and the console."""
         super().__init__(parent)
         self.capability = capability
         self.project = project
@@ -86,7 +86,6 @@ class TabView(QWidget):
         root.setSpacing(0)
 
         self.header = self._build_header()
-        self.tool_bar = self._build_tool_bar()
         self._restyle()
 
         self.console = ConsoleView(self)
@@ -94,12 +93,7 @@ class TabView(QWidget):
         self.stack.addWidget(self.console)
 
         root.addWidget(self.header)
-        root.addWidget(self.tool_bar)
         root.addWidget(self.stack, 1)
-        # Only launchers publish an endpoint to show; «Explorar base»
-        # too, because its button is the only way back to the console.
-        # Clear does not live here: it is in the footer, next to Run.
-        self.tool_bar.setVisible(capability.group == "Ejecutar" or bool(capability.view))
 
     # --- building ---
     def _build_header(self) -> QWidget:
@@ -107,28 +101,18 @@ class TabView(QWidget):
 
         The right column's sections (`widgets/accordion.py`) say what
         they hold; this one says it for the left: «Consola», or the
-        second view when it is the one showing.
+        second view when it is the one showing. After the name goes the
+        endpoint the task published, which appears and disappears with
+        the URL. Clear does not live here: it is in the footer, next to
+        Run.
         """
         bar = QWidget()
         bar.setObjectName("viewHeader")
         bar.setFixedHeight(30)
         lay = QHBoxLayout(bar)
-        lay.setContentsMargins(12, 0, 12, 0)
-        self.header_title = QLabel(CONSOLA.upper())
-        lay.addWidget(self.header_title)
-        lay.addStretch(1)
-        return bar
-
-    def _build_tool_bar(self) -> QWidget:
-        """Build the tab's top strip: the endpoint the task published.
-
-        It appears and disappears with the URL.
-        """
-        bar = QWidget()
-        bar.setFixedHeight(36)
-        lay = QHBoxLayout(bar)
-        lay.setContentsMargins(12, 0, 10, 0)
+        lay.setContentsMargins(12, 0, 8, 0)
         lay.setSpacing(8)
+        self.header_title = QLabel(CONSOLA.upper())
 
         self.led = LedIndicator(bar, size=9)
         self.state_label = QLabel("")
@@ -163,6 +147,8 @@ class TabView(QWidget):
             self.view_btn,
         ]
 
+        lay.addWidget(self.header_title)
+        lay.addSpacing(8)
         lay.addWidget(self.led)
         lay.addWidget(self.state_label)
         lay.addWidget(self.url_label)
@@ -230,10 +216,6 @@ class TabView(QWidget):
         self.header_title.setStyleSheet(
             f"background: transparent; color: {header.fg}; "
             f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;"
-        )
-        bar = parts.TOOL_BAR.on(self.pal)
-        self.tool_bar.setStyleSheet(
-            f"background: {bar.bg}; border-bottom: 1px solid {bar.border};"
         )
         for chip in self._chips:
             chip.setStyleSheet(_chip_style(self.pal))

@@ -85,12 +85,11 @@ class ActionSearch(QWidget):
 
     # --- state that comes from the window ---
     def set_palette(self, pal: Palette) -> None:
-        """Repaint the field like any «Configuración del repo» field.
+        """Repaint the field like a «Configuración del repo» field.
 
-        Same background (`surface_alt`), border, height, radius, type
-        size and focus (`ui/env_panel.py`). Standing out less on
-        `chrome` than on `panel` over there does not make it something
-        else: a text field in this window looks like this.
+        Same border, height, radius, type size and focus
+        (`ui/env_panel.py`); the background is the repo's color and not
+        the other fields' gray (`parts.SEARCH_FIELD`).
         """
         self.pal = pal
         self._restyle_box()
@@ -129,7 +128,7 @@ class ActionSearch(QWidget):
             self.box.clear()
 
     def _restyle_box(self) -> None:
-        field = parts.FIELD.on(self.pal)
+        field = parts.SEARCH_FIELD.on(self.pal)
         self.box.setStyleSheet(f"""
             QLineEdit {{
                 background: {field.bg};

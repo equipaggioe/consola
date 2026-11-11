@@ -65,9 +65,9 @@ class SubTabButton(ReorderableTab):
     A folder tab, like the repo tabs of the title bar: the active one
     paints in the console's background and opens into it, with no line
     below, so the console and the right column read as its content. Its
-    name goes in white and bold. The others sink into the bar with only
-    an outline and their name dimmed. No icon: the name already says
-    which action it is.
+    name goes in white and bold. The others carry the repo's hue on the
+    bar's step, with an outline and their name dimmed. No icon: the
+    name already says which action it is.
     """
 
     clicked = Signal()
@@ -507,6 +507,8 @@ class TabPanel(ReorderableBar):
 
     # Floor of an accordion section's body when dragging it by hand.
     MIN_BODY = 48
+    # The gap above the run tabs: it sets them apart from the menu row.
+    SUB_BAR_TOP = 8
 
     def __init__(self, project: Project, parent: QWidget | None = None) -> None:
         """Build the workspace and reopen its saved tabs."""
@@ -522,11 +524,11 @@ class TabPanel(ReorderableBar):
         # --- sub-tabs bar ---
         self.sub_bar = QWidget()
         self.sub_bar.setObjectName("subBar")
-        self.sub_bar.setFixedHeight(SubTabButton.HEIGHT + 4)
+        self.sub_bar.setFixedHeight(SubTabButton.HEIGHT + self.SUB_BAR_TOP)
         sub_bar_layout = QHBoxLayout(self.sub_bar)
         # No bottom margin: the tabs reach the bar's line
         # (`SubTabButton`).
-        sub_bar_layout.setContentsMargins(10, 4, 10, 0)
+        sub_bar_layout.setContentsMargins(10, self.SUB_BAR_TOP, 10, 0)
         sub_bar_layout.setSpacing(2)
 
         self.tabs_layout = QHBoxLayout()

@@ -163,22 +163,24 @@ def test_backgrounds_carry_real_color(pal: Palette, role: str) -> None:
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
 def test_the_menu_bar_is_not_black(pal: Palette) -> None:
-    """`chrome` is the menu row's band.
+    """The menu row's band is light, not dark.
 
-    The lightest of the ladder of backgrounds and not the darkest: above
-    the sections' body and headers.
+    Above the sections' body and headers (`ui/parts.py`).
     """
-    assert _luminance(pal.chrome) > _luminance(pal.surface)
+    bar = parts.MENU_BAR.on(pal).bg
+    assert _luminance(bar) > _luminance(parts.SECTION_HEADER.on(pal).bg)
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
 def test_the_selected_tab_reads(pal: Palette) -> None:
-    """The selected repo's tab paints in `chrome`.
+    """The selected repo's tab paints in the menu row's band.
 
-    The color of the menu row just below, with the name in the accent
-    (`ui/project_tabs.py`).
+    The color of the row just below, with the name in the accent
+    (`ui/parts.py`, `ui/project_tabs.py`). 4.5 and not the parts' 3:1:
+    the name is running text.
     """
-    assert contrast(pal.accent, pal.chrome) >= 4.5
+    tab = parts.REPO_TAB_SELECTED.on(pal)
+    assert contrast(tab.fg, tab.bg) >= 4.5
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)

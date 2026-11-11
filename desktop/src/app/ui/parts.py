@@ -159,42 +159,48 @@ class Paint:
 TITLE_BAR = Look(bg=Role.ACCENT, fg=Role.ON_ACCENT)
 # The repo tabs that are not selected, painted with the ACTIVE repo's palette.
 REPO_TAB = Look(bg=Role.ACCENT, fg=Role.ON_ACCENT, border=Role.ON_ACCENT)
-# The selected repo tab, with its own palette: it joins the menu row.
-REPO_TAB_SELECTED = Look(bg=Role.CHROME, fg=Role.ACCENT)
+# The selected repo tab, with its own palette: it joins the menu row
+# (`MENU_BAR`, below).
+REPO_TAB_SELECTED = Look(bg=Role.SURFACE_ALT, fg=Role.ACCENT)
 # The «+» that adds a repo.
 ADD_TAB = Look(fg=Role.ON_ACCENT, border=Role.ON_ACCENT)
 
 # What is behind everything, and the outline of the frameless window.
 WINDOW = Look(bg=Role.GRAY_BG, border=Role.BORDER, focus=Role.ACCENT)
 # The menu row; `hover` is the title of the open menu.
-MENU_BAR = Look(bg=Role.CHROME, fg=Role.TEXT, border=Role.BORDER, hover=Role.PANEL)
+MENU_BAR = Look(bg=REPO_TAB_SELECTED.bg, fg=Role.TEXT, border=Role.BORDER, hover=Role.PANEL)
 # A popup of the menu bar; `border` is also its separators.
 MENU = Look(bg=Role.PANEL, fg=Role.TEXT, border=Role.BORDER_LIGHT)
 # The item under the cursor in a menu.
 MENU_ITEM = Look(bg=Role.SURFACE_HOVER, fg=Role.ACCENT)
+# The action search's field, on the menu row: in the repo's color, not
+# in the gray of the other fields.
+SEARCH_FIELD = Look(bg=Role.SURFACE_ALT, fg=Role.TEXT, border=Role.GRAY_BORDER, focus=Role.ACCENT)
 # The action search's list; `border` is also its scroll bar.
 SEARCH_LIST = Look(bg=Role.PANEL, border=Role.BORDER_LIGHT)
 
 # --- headers ----------------------------------------------------------
 
 # The clickable bar with a section's name. «CONSOLA» is the same part.
-SECTION_HEADER = Look(bg=Role.SURFACE_ALT, fg=Role.TEXT, border=Role.BORDER, hover=Role.SURFACE_HOVER)
-# The bar under the run tabs that names the view: «CONSOLA».
+SECTION_HEADER = Look(bg=Role.CHROME, fg=Role.TEXT, border=Role.BORDER, hover=Role.SURFACE_HOVER)
+# The bar under the run tabs that names the view («CONSOLA») and
+# carries the endpoint the task published.
 CONSOLE_HEADER = SECTION_HEADER
 
 # --- left: runs -------------------------------------------------------
 
 # The bar with the run tabs.
 RUN_BAR = Look(bg=Role.GRAY_PANEL, border=Role.BORDER)
-# A run tab that is not active: below the bar and the active one.
-RUN_TAB = Look(bg=Role.BG, fg=Role.TEXT_DIM, border=Role.BORDER_LIGHT)
+# A run tab that is not active: the bar's step in the repo's hue, so the
+# tint is what sets it apart from the gray bar.
+RUN_TAB = Look(bg=Role.PANEL, fg=Role.TEXT_DIM, border=Role.BORDER_LIGHT)
 # The active run tab, open into the header below it: the same `bg`.
 RUN_TAB_ACTIVE = Look(bg=CONSOLE_HEADER.bg, fg=Role.TEXT, border=Role.BORDER)
 # Behind the console and the second view.
 CANVAS = Look(bg=Role.GRAY_BG)
 # The output of a run.
 CONSOLE = Look(bg=Role.GRAY_BG, fg=Role.TEXT_DIM)
-# The strip above the console, the browser and the database.
+# The strip above the browser and the database.
 TOOL_BAR = Look(bg=Role.GRAY_SURFACE, border=Role.GRAY_BORDER)
 # The small buttons of those bars.
 CHIP = Look(bg=Role.GRAY_SURFACE_ALT, fg=Role.TEXT_DIM)
@@ -215,14 +221,15 @@ TABLE_TAB = Look(fg=Role.TEXT, border=Role.ACCENT)
 
 # --- right: sections --------------------------------------------------
 
-# The bar to drag between two open sections.
-SECTION_GRIP = Look(bg=Role.SURFACE, border=Role.BORDER, hover=Role.SURFACE_HOVER)
 # What a section holds, with its scroll bar.
 SECTION_BODY = Look(bg=Role.GRAY_PANEL)
+# The bar to drag between two open sections: the body's color, so it
+# only shows on hover.
+SECTION_GRIP = Look(bg=SECTION_BODY.bg, border=Role.BORDER, hover=Role.GRAY_SURFACE_HOVER)
 # The bottom strip of a panel: Limpiar · Ejecutar, Guardar · Recargar.
 FOOTER = Look(bg=Role.GRAY_SURFACE, border=Role.GRAY_BORDER)
 # Text fields and closed lists.
-FIELD = Look(bg=Role.SURFACE_ALT, fg=Role.TEXT, border=Role.GRAY_BORDER, focus=Role.ACCENT)
+FIELD = Look(bg=Role.GRAY_SURFACE_ALT, fg=Role.TEXT, border=Role.GRAY_BORDER, focus=Role.ACCENT)
 # A field of «Configuración del repo» whose key has no value.
 FIELD_EMPTY = Look(border=Role.GRAY_BORDER_LIGHT)
 # The open list of a combo; `hover` is the selected entry.
@@ -250,7 +257,7 @@ FILLED_BUTTON = Look(
 # --- bottom and dialogs -----------------------------------------------
 
 # The bottom bar with padlocks, tools and RAM.
-STATUS_BAR = Look(bg=Role.GRAY_SURFACE, border=Role.BORDER)
+STATUS_BAR = Look(bg=Role.GRAY_SURFACE_HOVER, border=Role.BORDER)
 # A closed padlock (the open one is red in every theme).
 PADLOCK = Look(fg=Role.ACCENT)
 # The notices of the destructive guard.

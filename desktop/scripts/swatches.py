@@ -1,15 +1,22 @@
-"""The colors of each role and each part, to choose in `ui/parts.py`.
+"""Show the colors of each role and part, to choose in `ui/parts.py`.
 
-It opens from the color menu of a repo tab (`ui/project_tabs.py`). It
-only shows: what changes a part's color is its role in `ui/parts.py`.
-Everything is read from the code when it opens, so it never lags behind
-the table.
+From `desktop/`: `uv run python scripts/swatches.py <theme>`, with one
+of the eight theme keys (`blue`, `green`…). The roles go in the eight
+themes; the parts, painted in the one given.
+
+It only shows: what changes a part's color is its role in
+`ui/parts.py`. Everything is read from the code when it opens, so it
+never lags behind the table.
 """
 
 from __future__ import annotations
 
+import argparse
+import sys
+
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
+    QApplication,
     QDialog,
     QGridLayout,
     QHBoxLayout,
@@ -19,7 +26,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.theme import Fonts
+from app.theme import Fonts, apply_theme
 from app.ui import palettes, parts
 from app.ui.palettes import Palette
 from app.ui.parts import Look, Role
@@ -148,3 +155,18 @@ class SwatchesDialog(QDialog):
         sample.setAlignment(Qt.AlignmentFlag.AlignCenter)
         sample.setStyleSheet(css + f"font-size: {Fonts.SIZE_SM}px; font-weight: 600;")
         return sample
+
+
+def main() -> None:
+    """Open the window with the theme given on the command line."""
+    parser = argparse.ArgumentParser(description="Roles y partes de ui/parts.py")
+    parser.add_argument("theme", choices=list(palettes.THEMES), help="the parts' theme")
+    args = parser.parse_args()
+    app = QApplication(sys.argv[:1])
+    apply_theme(app)
+    SwatchesDialog(palettes.THEMES[args.theme]).show()
+    sys.exit(app.exec())
+
+
+if __name__ == "__main__":
+    main()

@@ -11,7 +11,7 @@ class Colors:
 
     # dark ink over a light background (`on_color`); never a background
     INK = "#0a0b10"
-    CHROME = "#262d3d"  # menu bar row: its own band, above the sections
+    CHROME = "#262d3d"  # section headers and the console's
     BG = "#0d1117"  # content canvas: console and left canvas
     PANEL = "#1c212b"  # body of the right column's sections
     SURFACE = "#232935"  # sub-bar, section headers, footer, status bar
