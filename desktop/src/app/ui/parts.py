@@ -178,14 +178,14 @@ SEARCH_LIST = Look(bg=Role.PANEL, border=Role.BORDER_LIGHT)
 # --- headers ----------------------------------------------------------
 
 # The clickable bar with a section's name. «CONSOLA» is the same part.
-SECTION_HEADER = Look(bg=Role.SURFACE, fg=Role.TEXT, border=Role.BORDER, hover=Role.SURFACE_HOVER)
+SECTION_HEADER = Look(bg=Role.SURFACE_ALT, fg=Role.TEXT, border=Role.BORDER, hover=Role.SURFACE_HOVER)
 # The bar under the run tabs that names the view: «CONSOLA».
 CONSOLE_HEADER = SECTION_HEADER
 
 # --- left: runs -------------------------------------------------------
 
 # The bar with the run tabs.
-RUN_BAR = Look(bg=Role.PANEL, border=Role.BORDER)
+RUN_BAR = Look(bg=Role.GRAY_PANEL, border=Role.BORDER)
 # A run tab that is not active: below the bar and the active one.
 RUN_TAB = Look(bg=Role.BG, fg=Role.TEXT_DIM, border=Role.BORDER_LIGHT)
 # The active run tab, open into the header below it: the same `bg`.
@@ -222,7 +222,7 @@ SECTION_BODY = Look(bg=Role.GRAY_PANEL)
 # The bottom strip of a panel: Limpiar · Ejecutar, Guardar · Recargar.
 FOOTER = Look(bg=Role.GRAY_SURFACE, border=Role.GRAY_BORDER)
 # Text fields and closed lists.
-FIELD = Look(bg=Role.GRAY_SURFACE_ALT, fg=Role.TEXT, border=Role.GRAY_BORDER, focus=Role.ACCENT)
+FIELD = Look(bg=Role.SURFACE_ALT, fg=Role.TEXT, border=Role.GRAY_BORDER, focus=Role.ACCENT)
 # A field of «Configuración del repo» whose key has no value.
 FIELD_EMPTY = Look(border=Role.GRAY_BORDER_LIGHT)
 # The open list of a combo; `hover` is the selected entry.
