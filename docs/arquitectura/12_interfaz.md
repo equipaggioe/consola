@@ -26,7 +26,7 @@ Cada repo tiene un **tema** y un **logo**. El tema es una clave (`blue`, `indigo
 
 Una paleta es un acento más la escalera de fondos que se deriva de él: el tono del acento a una saturación fija por rol, del 38 % al 55 % en HSL. Teñir **no cambia la luminosidad** del neutro de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
 
-No todo fondo se tiñe. **Las bandas, las cabeceras y los menús llevan el color del repo** (barra de título, fila del menú y sus desplegables, barra y pestañas de ejecución, cabecera «CONSOLA», cabeceras de sección); **los cuerpos donde se lee y se escribe van en gris** (consola, cuerpo de las secciones, campos, chips, tablas, pies, barra de estado, diálogos). Con todo teñido, la ventana se leía como una sola mancha de color. El gris es el mismo escalón sin teñir, con la misma luminancia, así que pasar una parte de color a gris no mueve ningún contraste.
+**La distribución de colores no está definida por el momento.** Qué rol pinta cada parte se ajusta a prueba en `ui/parts.py`, que es la única fuente. Los roles que nombra este documento pueden no estar al día: manda `parts.py`.
 
 La saturación es absoluta, no una fracción de la del acento. Si fuera una fracción, un repo con un acento apagado (el verde) quedaría gris y uno con un acento saturado (el azul) no, sin que eso signifique nada.
 
@@ -53,11 +53,9 @@ Una casilla marcada de Parámetros o de Seguridad se rellena con `CHECK`, hoy el
 
 Lo que **no** se tiñe: los grises del texto y los colores de estado (`SUCCESS`, `WARNING`, `ERROR`, los LED). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
 
-La pestaña de ejecución activa (`RUN_TAB_ACTIVE`) se pinta de `bg` y se abre a lo que tiene debajo, la cabecera «CONSOLA», del mismo `bg`, con el nombre en `TEXT` y negrita: rompe la línea de la barra, y esa abertura es lo que la une a su contenido. Las demás (`RUN_TAB`) llevan contorno, el nombre en `TEXT_DIM` (`TEXT_LABEL` bajo el cursor) y de fondo `surface_alt`, un escalón por encima del `panel` de la barra, para que se recorten de ella; su relleno se detiene una fila antes del borde inferior, así que la línea de la barra sigue de largo debajo de ellas.
+La pestaña de ejecución activa (`RUN_TAB_ACTIVE`) toma el fondo de la cabecera «CONSOLA», que tiene debajo, con el nombre en negrita: rompe la línea de la barra, y esa abertura es lo que la une a su contenido. Las demás (`RUN_TAB`) llevan contorno y un fondo distinto del de la barra y del de la activa; su relleno se detiene una fila antes del borde inferior, así que la línea de la barra sigue de largo debajo de ellas.
 
-Debajo de las pestañas de ejecución va una barra que nombra la vista (`TabView._build_header`, parte `CONSOLE_HEADER`): «CONSOLA», o «NAVEGADOR» o «EXPLORADOR» cuando se ve la segunda vista. Hace en la columna izquierda lo que las cabeceras de sección hacen en la derecha, con las mismas medidas (30 px de alto, mayúsculas de 12 px en negrita), pero no se pliega.
-
-Las cabeceras de sección (`SECTION_HEADER`) van en `surface` con el nombre y el chevron en el acento del repo, sobre el cuerpo gris (`GRAY_PANEL`): el color del repo baja por la columna derecha en las cabeceras, no en los cuerpos.
+Debajo de las pestañas de ejecución va una barra que nombra la vista (`TabView._build_header`, parte `CONSOLE_HEADER`): «CONSOLA», o «NAVEGADOR» o «EXPLORADOR» cuando se ve la segunda vista. Hace en la columna izquierda lo que las cabeceras de sección hacen en la derecha: es la misma parte (`CONSOLE_HEADER = SECTION_HEADER`), así que se pinta igual y cambia con ellas, con las mismas medidas (30 px de alto, mayúsculas de 12 px en negrita), pero no se pliega.
 
 Las pestañas de repo **no seleccionadas** llevan de fondo el acento del repo activo —el color con el que queda pintada la barra de título— y el contorno de `on_accent`, el mismo del «+», que es lo único que las recorta; el hover lo sube de 90 a 150 de alfa. La **seleccionada** se pinta de `chrome`, la banda de la fila del menú, que es la que va justo debajo: la pestaña queda conectada con el contenido que abre, como en un navegador, con el nombre en el acento del repo y sin contorno. El «+» es una pestaña más, la que todavía no tiene repo. Cambiar el color del repo activo repinta la fila entera.
 
@@ -105,7 +103,7 @@ El recuento se **pide**, no se hace en el acto: `ui/main_window.py::_refresh_rea
 
 ## 4. La pestaña de ejecución
 
-Las pestañas de ejecución son de carpeta, como las de repo en la barra de título: la activa se pinta de `bg`, el fondo de la cabecera «CONSOLA», llega hasta la línea de abajo de la barra y la tapa, así que se abre hacia la consola y la columna derecha, que se leen como su contenido. Lleva el nombre en negrita. Las demás van en `surface_alt` con el contorno en `border_light`, que el hover sube de 110 a 200 de alfa ([§2](#2-el-color-del-repo)). Llevan el nombre de la acción, sin el emoji.
+Las pestañas de ejecución son de carpeta, como las de repo en la barra de título: la activa se pinta del fondo de la cabecera «CONSOLA», llega hasta la línea de abajo de la barra y la tapa, así que se abre hacia la consola y la columna derecha, que se leen como su contenido. Lleva el nombre en negrita. Las demás llevan contorno, que el hover sube de 110 a 200 de alfa ([§2](#2-el-color-del-repo)). Llevan el nombre de la acción, sin el emoji.
 
 `TabView` tiene la consola y, si la capacidad lo declara, una segunda vista: el navegador embebido (`view='web'`) o el explorador de base (`view='db'`). La barra de la pestaña muestra la URL que publicó la tarea con su estado ([ADR-0008](../adr/0008-un-launcher-entrega-un-endpoint.md)).
 

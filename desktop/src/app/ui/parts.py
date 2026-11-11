@@ -157,13 +157,13 @@ class Paint:
 
 # The whole first row: the brand, the window buttons.
 TITLE_BAR = Look(bg=Role.ACCENT, fg=Role.ON_ACCENT)
-# The repo tabs that are not selected, painted with the ACTIVE repo's
-# palette: they rest on the title bar.
+# The repo tabs that are not selected, painted with the ACTIVE repo's palette.
 REPO_TAB = Look(bg=Role.ACCENT, fg=Role.ON_ACCENT, border=Role.ON_ACCENT)
 # The selected repo tab, with its own palette: it joins the menu row.
 REPO_TAB_SELECTED = Look(bg=Role.CHROME, fg=Role.ACCENT)
 # The «+» that adds a repo.
 ADD_TAB = Look(fg=Role.ON_ACCENT, border=Role.ON_ACCENT)
+
 # What is behind everything, and the outline of the frameless window.
 WINDOW = Look(bg=Role.GRAY_BG, border=Role.BORDER, focus=Role.ACCENT)
 # The menu row; `hover` is the title of the open menu.
@@ -175,16 +175,21 @@ MENU_ITEM = Look(bg=Role.SURFACE_HOVER, fg=Role.ACCENT)
 # The action search's list; `border` is also its scroll bar.
 SEARCH_LIST = Look(bg=Role.PANEL, border=Role.BORDER_LIGHT)
 
+# --- headers ----------------------------------------------------------
+
+# The clickable bar with a section's name. «CONSOLA» is the same part.
+SECTION_HEADER = Look(bg=Role.SURFACE, fg=Role.TEXT, border=Role.BORDER, hover=Role.SURFACE_HOVER)
+# The bar under the run tabs that names the view: «CONSOLA».
+CONSOLE_HEADER = SECTION_HEADER
+
 # --- left: runs -------------------------------------------------------
 
 # The bar with the run tabs.
 RUN_BAR = Look(bg=Role.PANEL, border=Role.BORDER)
-# A run tab that is not active: a step above the bar, so it stands out.
-RUN_TAB = Look(bg=Role.SURFACE_ALT, fg=Role.TEXT_DIM, border=Role.BORDER_LIGHT)
+# A run tab that is not active: below the bar and the active one.
+RUN_TAB = Look(bg=Role.BG, fg=Role.TEXT_DIM, border=Role.BORDER_LIGHT)
 # The active run tab, open into the header below it: the same `bg`.
-RUN_TAB_ACTIVE = Look(bg=Role.BG, fg=Role.TEXT, border=Role.BORDER)
-# The bar under the run tabs that names the view: «CONSOLA».
-CONSOLE_HEADER = Look(bg=Role.BG, fg=Role.TEXT_DIM, border=Role.BORDER)
+RUN_TAB_ACTIVE = Look(bg=CONSOLE_HEADER.bg, fg=Role.TEXT, border=Role.BORDER)
 # Behind the console and the second view.
 CANVAS = Look(bg=Role.GRAY_BG)
 # The output of a run.
@@ -210,10 +215,6 @@ TABLE_TAB = Look(fg=Role.TEXT, border=Role.ACCENT)
 
 # --- right: sections --------------------------------------------------
 
-# The clickable bar with a section's name, in the repo's accent.
-SECTION_HEADER = Look(
-    bg=Role.SURFACE, fg=Role.ACCENT, border=Role.BORDER, hover=Role.SURFACE_HOVER
-)
 # The bar to drag between two open sections.
 SECTION_GRIP = Look(bg=Role.SURFACE, border=Role.BORDER, hover=Role.SURFACE_HOVER)
 # What a section holds, with its scroll bar.
