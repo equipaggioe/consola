@@ -384,7 +384,6 @@ def bootstrap_vps(
 def bind_all() -> None:
     """Register the group's functions in the catalog."""
     registry.bind("refresh_known_host", refresh_known_host)
-    registry.bind("install_key", install_key)
     registry.bind("install_software", install_software)
     registry.bind("load_credentials", load_credentials)
     registry.bind("bootstrap_vps", bootstrap_vps)
