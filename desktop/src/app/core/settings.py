@@ -366,13 +366,14 @@ SETTINGS: tuple[Setting, ...] = (
     #
     # The camera is a script of the repo (Playwright, `flutter drive`):
     # Consola runs it and does not ask what it does inside. No default:
-    # no repo has a camera until it writes one.
+    # no repo has a camera until it writes one. What it generates goes
+    # next to it, in scripts/screenshots/ (repositorio.md of canone).
     Setting("SHOTS_CMD", "Capturas", "Comando para capturas", required_by=("shoot_screens",)),
     Setting(
         "SHOTS_RAW",
         "Capturas",
         "Carpeta de capturas crudas",
-        default="demo/capturas",
+        default="scripts/screenshots/capturas",
         used_by=("shoot_screens", "render_shots", "screenshots"),
     ),
     Setting(
@@ -389,7 +390,7 @@ SETTINGS: tuple[Setting, ...] = (
         "SHOTS_DIST",
         "Capturas",
         "Carpeta de los demás destinos",
-        default="demo/publicables",
+        default="scripts/screenshots/publicables",
         used_by=("render_shots", "screenshots"),
     ),
     # --- Machine ---

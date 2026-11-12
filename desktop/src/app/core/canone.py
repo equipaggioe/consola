@@ -28,6 +28,9 @@ RELEASE = Path(".github") / "workflows" / "release.yml"
 # The browser features the app uses, one per line (ADR-0136 of canone).
 PERMISSIONS = Path("permissions")
 _DESKTOP = re.compile(r"^\s+archivo: desktop-(linux|windows|macos)\.", re.M)
+# Each app of mobile/ that the release brings as its universal APK
+# (despliegue.md of canone, «Versiones»).
+_MOBILE = re.compile(r'gh release upload "\$GITHUB_REF_NAME" (mobile(?:-[a-z]+)?)\.apk')
 _GITHUB = re.compile(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$")
 # A tag `deploy.py` deploys (despliegue.md of canone, «Versiones»).
 _TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
@@ -161,6 +164,14 @@ def desktops(root: Path) -> list[str]:
     return _DESKTOP.findall(release.read_text(encoding="utf-8"))
 
 
+def mobiles(root: Path) -> list[str]:
+    """Return each app of mobile/ whose APK `release.yml` uploads."""
+    release = root / RELEASE
+    if not release.is_file():
+        return []
+    return list(dict.fromkeys(_MOBILE.findall(release.read_text(encoding="utf-8"))))
+
+
 def permissions(root: Path) -> list[str]:
     """Return each line of the repo's `permissions`, for `--allow`.
 
@@ -244,6 +255,8 @@ def install_args(
         args.append("--development")
     for system in desktops(root):
         args += ["--desktop", system]
+    for piece in mobiles(root):
+        args += ["--mobile", piece]
     for piece in without(root):
         args += ["--without", piece]
     for function in permissions(root):

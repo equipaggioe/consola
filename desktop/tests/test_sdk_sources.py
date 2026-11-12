@@ -215,3 +215,17 @@ def test_desktops_reads_the_matrix_of_the_template(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     assert canone.desktops(tmp_path) == ["linux", "windows"]
+
+
+def test_mobiles_reads_the_apks_the_release_uploads(tmp_path: Path) -> None:
+    """Each `<piece>.apk` that `release.yml` uploads counts once."""
+    workflows = tmp_path / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "release.yml").write_text(
+        '      - run: gh release upload "$GITHUB_REF_NAME" mobile-customer.apk\n'
+        '      - run: gh release upload "$GITHUB_REF_NAME" mobile-vendor.apk\n'
+        '      - run: gh release upload "$GITHUB_REF_NAME" mobile-customer.apk\n'
+        '      - run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.archivo }}"\n',
+        encoding="utf-8",
+    )
+    assert canone.mobiles(tmp_path) == ["mobile-customer", "mobile-vendor"]

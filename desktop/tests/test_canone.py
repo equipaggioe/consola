@@ -60,7 +60,9 @@ def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -
         "          - os: ubuntu-latest\n"
         "            archivo: desktop-linux.bin\n"
         "          - os: windows-latest\n"
-        "            archivo: desktop-windows.exe\n",
+        "            archivo: desktop-windows.exe\n"
+        "  mobile:\n"
+        '      - run: gh release upload "$GITHUB_REF_NAME" mobile-customer.apk\n',
         encoding="utf-8",
     )
     args = canone.install_args(root, config, "demo", "equipaggio", KEYS, "256mb")
@@ -77,6 +79,8 @@ def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -
     assert args.count("--signer") == 2
     assert "--private" in args
     assert ["--desktop", "linux"] == args[args.index("--desktop") : args.index("--desktop") + 2]
+    mobile = args.index("--mobile")
+    assert args[mobile : mobile + 2] == ["--mobile", "mobile-customer"]
     # It has panel/, not web/ or landing/.
     sin = [args[i + 1] for i, a in enumerate(args) if a == "--without"]
     assert sin == ["web", "landing"]

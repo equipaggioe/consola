@@ -505,7 +505,7 @@ DOCS: dict[str, CommandDoc] = {
             "Si VALKEY_MEMORY está vacía, lee la RAM del VPS y la calcula con VALKEY_PERCENT.",
             "Arma los argumentos de install.py: DOMAIN, la memoria de Valkey, --owner, "
             "--admin VPS_USER, las dos llaves (VPS_KEY_NAME y OFFLINE_KEY) como "
-            "--key y --signer, --private, --desktop del release.yml, --without "
+            "--key y --signer, --private, --desktop y --mobile del release.yml, --without "
             "por las piezas que faltan, --allow por cada línea de permissions, "
             "--extension, --turn si Settings declara turn_secret, y --logs.",
             "Sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone.",
