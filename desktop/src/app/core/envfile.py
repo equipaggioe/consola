@@ -173,13 +173,21 @@ def save_config(repo_path: str, values: dict[str, str], fields: tuple[Setting, .
     return path
 
 
-def ensure_ignored(repo_path: str) -> None:
-    """Keep `.consola/` out of commits with its own `.gitignore`.
+# What `.consola/.gitignore` keeps out of commits (ADR-0087): the data
+# and decisions of whoever runs Consola, and what the camera generates.
+# The camera itself, in `.consola/camera/`, is versioned.
+IGNORED = ("config.env", "params.json", "capturas/", "publicables/")
 
-    ADR-0064.
+
+def ensure_ignored(repo_path: str) -> None:
+    """Keep the data of `.consola/` out of commits, with its .gitignore.
+
+    ADR-0064 and ADR-0087.
 
     It goes inside the folder and not in the repo's `.gitignore`, which
-    belongs to canone's template and not Consola. If it cannot be
+    belongs to canone's template and not Consola. It adds the lines of
+    `IGNORED` that are missing and keeps the others; a `*` from before
+    ADR-0087 goes, because it also ignores the camera. If it cannot be
     written the exception rises: saving without that file leaves
     `config.env`, with its secrets, ready to be committed.
 
@@ -187,13 +195,18 @@ def ensure_ignored(repo_path: str) -> None:
     and needs the same guarantee.
     """
     path = os.path.join(repo_path, CONSOLA_DIR, ".gitignore")
+    current = ""
     if os.path.isfile(path):
         with open(path, "r", encoding="utf-8") as fh:
-            if fh.read() == "*\n":
-                return
+            current = fh.read()
+    lines = [line for line in current.splitlines() if line.strip() != "*"]
+    lines += [entry for entry in IGNORED if entry not in lines]
+    wanted = "".join(f"{line}\n" for line in lines)
+    if current == wanted:
+        return
     os.makedirs(os.path.dirname(path), exist_ok=True)
     with open(path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write("*\n")
+        fh.write(wanted)
 
 
 def import_from(path: str) -> dict[str, str]:

@@ -6,13 +6,22 @@ El grupo **Imágenes** produce el material gráfico de las apps de un repo: sus 
 
 | Parte | Quién | Dónde |
 |---|---|---|
-| El escenario, las rutas del servidor ficticio, entrar sin login, navegar | el script del repo | lo que declara `SHOTS_CMD` |
+| El escenario, las rutas del servidor ficticio, entrar sin login, navegar | el script del repo | `.consola/camera/` del repo, versionada; la corre lo que declara `SHOTS_CMD` |
 | Leer el contrato, servidor ficticio, Vite, página, reintentos, emulador | el kit de Consola, que corre dentro de la cámara | `camera/index.mjs` (§6) |
 | Elegir apps, temas, idiomas y emulador; encender el emulador | Consola | `core/tasks/images.py::shoot_screens` |
 | Validar lo que dejó la cámara | Consola | `core/shots.py::collect`, `missing_combinations` |
 | Convertir cada crudo para cada destino y escribir el manifiesto | Consola | `core/shots.py` (`render_*`, `write_manifest`), `core/shots_presets.json` |
 
 La cámara es código del repo porque solo el repo sabe navegar su app ([ADR-0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md)). Los datos salen de un escenario servido por un servidor ficticio, nunca de una base ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)), y la plomería que comparten todas las cámaras es un kit de Consola ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
+
+Como la cámara no corre sin ese kit, vive en la carpeta de Consola del repo, y lo que genera, al lado e ignorado ([ADR-0087](../adr/0087-la-camara-va-en-consola-camera-y-sus-capturas-en-consola.md)):
+
+| Carpeta | Qué guarda | Git |
+|---|---|---|
+| `.consola/camera/` | La cámara, su escenario y su `package.json`, con un `.gitignore` propio para `node_modules/` | Versionada |
+| `.consola/capturas/` | Los crudos (`SHOTS_RAW`) | Ignorada |
+| `.consola/publicables/` | Una carpeta por destino que no es la landing (`SHOTS_DIST`) | Ignorada |
+| `landing/static/capturas/` | Lo que revela el destino `landing` (`SHOTS_PUBLISH`) | Versionada: es de la landing |
 
 ## 2. Los botones
 

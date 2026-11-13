@@ -1,6 +1,7 @@
 # ADR-0064 · En `config.env` van los datos que las tareas leen, y `.consola/` se ignora con su propio `.gitignore`
 
 - **Estado:** Aceptada
+- **Modificada por:** [ADR-0087](0087-la-camara-va-en-consola-camera-y-sus-capturas-en-consola.md), que reemplaza el punto 5
 - **Fecha:** 2026-10-31
 - **Alcance:** core/envfile.py, core/settings.py, ui/params_store.py, ui/project_store.py
 

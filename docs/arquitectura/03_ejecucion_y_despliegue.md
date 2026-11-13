@@ -34,7 +34,7 @@ Lo que no alcance a cerrarse lo mata el sistema, solo en Windows: un túnel `ssh
 
 | Dónde | Qué | Sobrevive a |
 |---|---|---|
-| `<repo>/.consola/config.env` | Los datos que las tareas leen | Todo. Es del repo, está en su `.gitignore` |
+| `<repo>/.consola/config.env` | Los datos que las tareas leen | Todo. Es del repo, está en `.consola/.gitignore` |
 | `<repo>/.consola/params.json` | Parámetros de cada botón, seguros y pestañas abiertas | Todo |
 | `QSettings` (`Consola/Consola`), en `%APPDATA%\Consola\Consola.ini` o `~/.config/Consola/Consola.ini` | Repos abiertos, valores de las claves de máquina, favoritas, secciones ocultas, parámetros de las acciones de máquina | Reinstalar el repo |
 | `%LOCALAPPDATA%\Consola\cache` o `~/.cache/consola` | Catálogos del SDK y servicios del VPS | La sesión; caducan por edad |

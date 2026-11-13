@@ -51,3 +51,41 @@ def test_an_unreadable_file_stops(tmp_path: Path) -> None:
     path.write_bytes(b"VPS_IP=\xff\n")
     with pytest.raises(TaskError, match="No se puede leer"):
         envfile.config_text(str(tmp_path))
+
+
+def _gitignore(repo: Path) -> Path:
+    return repo / envfile.CONSOLA_DIR / ".gitignore"
+
+
+def test_ensure_ignored_writes_the_data_and_the_captures(tmp_path: Path) -> None:
+    """A new .gitignore ignores data and captures, not the camera."""
+    envfile.ensure_ignored(str(tmp_path))
+    assert _gitignore(tmp_path).read_text(encoding="utf-8") == (
+        "config.env\nparams.json\ncapturas/\npublicables/\n"
+    )
+
+
+def test_ensure_ignored_replaces_the_star_that_hid_the_camera(tmp_path: Path) -> None:
+    """The `*` from before ADR-0087 goes: it also ignored the camera."""
+    _gitignore(tmp_path).parent.mkdir()
+    _gitignore(tmp_path).write_text("*\n", encoding="utf-8")
+    envfile.ensure_ignored(str(tmp_path))
+    assert "*" not in _gitignore(tmp_path).read_text(encoding="utf-8").splitlines()
+
+
+def test_ensure_ignored_keeps_the_lines_the_repo_added(tmp_path: Path) -> None:
+    """A line of the repo stays, and only the missing ones are added."""
+    _gitignore(tmp_path).parent.mkdir()
+    _gitignore(tmp_path).write_text("config.env\nnotas.txt\n", encoding="utf-8")
+    envfile.ensure_ignored(str(tmp_path))
+    assert _gitignore(tmp_path).read_text(encoding="utf-8") == (
+        "config.env\nnotas.txt\nparams.json\ncapturas/\npublicables/\n"
+    )
+
+
+def test_ensure_ignored_leaves_a_complete_file_alone(tmp_path: Path) -> None:
+    """With every line present, the file is not rewritten."""
+    envfile.ensure_ignored(str(tmp_path))
+    before = _gitignore(tmp_path).stat().st_mtime_ns
+    envfile.ensure_ignored(str(tmp_path))
+    assert _gitignore(tmp_path).stat().st_mtime_ns == before
