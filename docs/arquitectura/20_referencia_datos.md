@@ -49,9 +49,9 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `BRAND_ICON_FOREGROUND` | Marca | Capa frontal Android (SVG) | | | usa |
 | `BRAND_ICON_MASKABLE` | Marca | Ícono maskable de PWA (SVG) | | | usa |
 | `SHOTS_CMD` | Capturas | Comando para capturas | | | exige |
-| `SHOTS_RAW` | Capturas | Carpeta de capturas crudas | | `.consola/capturas` | usa |
+| `SHOTS_RAW` | Capturas | Carpeta de capturas crudas | | `.consola/screenshots` | usa |
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |
-| `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `.consola/publicables` | usa |
+| `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `.consola/publishable` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |
 | `OFFLINE_KEY` | Máquina | Llave pública guardada fuera | `scope='machine'` | | exige |
 | `CANONE_DIR` | Máquina | Carpeta de canone | `scope='machine'` | | exige |
@@ -109,7 +109,7 @@ Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Con
 |---|---|---|
 | `.consola/config.env` | `envfile.save_config` | Regenerado desde el esquema |
 | `.consola/params.json` | `ui/params_store.py` | Parámetros, seguros y pestañas |
-| `.consola/.gitignore` | `envfile.ensure_ignored` | Ignora `config.env`, `params.json`, `capturas/` y `publicables/`; `camera/` se versiona |
+| `.consola/.gitignore` | `envfile.ensure_ignored` | Ignora `config.env`, `params.json`, `screenshots/` y `publishable/`; `camera/` se versiona |
 | `releases/<app>/<plataforma>.json` | `build_binary` | Manifiesto de release |
 | `<app>/pyproject.toml` | `build_binary` | Solo si no había manifiesto: se crea en `0.0.0` |
 | `<BACKUP_DIR>/<base>-<sello>.dump` | `backup_db` | Volcado `pg_dump -Fc`, rotado. `BACKUP_DIR` por omisión `.backups`, y puede ser absoluta: entonces no está en el repo |

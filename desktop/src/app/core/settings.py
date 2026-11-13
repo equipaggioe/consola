@@ -368,14 +368,14 @@ SETTINGS: tuple[Setting, ...] = (
     # Consola runs it and does not ask what it does inside. No default:
     # no repo has a camera until it writes one. It only runs with
     # Consola's kit, so it goes in .consola/camera/, versioned, and what
-    # it generates in .consola/capturas/ and .consola/publicables/,
+    # it generates in .consola/screenshots/ and .consola/publishable/,
     # which .consola/.gitignore ignores (ADR-0087).
     Setting("SHOTS_CMD", "Capturas", "Comando para capturas", required_by=("shoot_screens",)),
     Setting(
         "SHOTS_RAW",
         "Capturas",
         "Carpeta de capturas crudas",
-        default=".consola/capturas",
+        default=".consola/screenshots",
         used_by=("shoot_screens", "render_shots", "screenshots"),
     ),
     Setting(
@@ -392,7 +392,7 @@ SETTINGS: tuple[Setting, ...] = (
         "SHOTS_DIST",
         "Capturas",
         "Carpeta de los demás destinos",
-        default=".consola/publicables",
+        default=".consola/publishable",
         used_by=("render_shots", "screenshots"),
     ),
     # --- Machine ---

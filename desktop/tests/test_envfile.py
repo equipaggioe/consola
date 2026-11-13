@@ -61,7 +61,7 @@ def test_ensure_ignored_writes_the_data_and_the_captures(tmp_path: Path) -> None
     """A new .gitignore ignores data and captures, not the camera."""
     envfile.ensure_ignored(str(tmp_path))
     assert _gitignore(tmp_path).read_text(encoding="utf-8") == (
-        "config.env\nparams.json\ncapturas/\npublicables/\n"
+        "config.env\nparams.json\nscreenshots/\npublishable/\n"
     )
 
 
@@ -79,7 +79,7 @@ def test_ensure_ignored_keeps_the_lines_the_repo_added(tmp_path: Path) -> None:
     _gitignore(tmp_path).write_text("config.env\nnotas.txt\n", encoding="utf-8")
     envfile.ensure_ignored(str(tmp_path))
     assert _gitignore(tmp_path).read_text(encoding="utf-8") == (
-        "config.env\nnotas.txt\nparams.json\ncapturas/\npublicables/\n"
+        "config.env\nnotas.txt\nparams.json\nscreenshots/\npublishable/\n"
     )
 
 

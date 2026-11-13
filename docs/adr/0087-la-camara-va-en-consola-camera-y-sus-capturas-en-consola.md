@@ -1,4 +1,4 @@
-# ADR-0087 · La cámara del repo va en `.consola/camera/`, y sus capturas en `.consola/capturas/` y `.consola/publicables/`
+# ADR-0087 · La cámara del repo va en `.consola/camera/`, y sus capturas en `.consola/screenshots/` y `.consola/publishable/`
 
 - **Estado:** Aceptada
 - **Fecha:** 2026-11-12
@@ -18,10 +18,10 @@ entera.
 
 1. **La cámara va en `.consola/camera/` del repo, versionada**, con su escenario y su
    `package.json`.
-2. **Los crudos van en `.consola/capturas/` y los demás destinos en `.consola/publicables/`**:
+2. **Los crudos van en `.consola/screenshots/` y los demás destinos en `.consola/publishable/`**:
    son los valores por omisión de `SHOTS_RAW` y `SHOTS_DIST`. Los que revela el destino `landing`
    siguen en `landing/static/capturas/`.
-3. **`.consola/.gitignore` ignora `config.env`, `params.json`, `capturas/` y `publicables/`**, en
+3. **`.consola/.gitignore` ignora `config.env`, `params.json`, `screenshots/` y `publishable/`**, en
    vez de `*`. `envfile.ensure_ignored` agrega las líneas que falten, conserva las demás y quita el
    `*`. Reemplaza el punto 5 del ADR-0064, salvo que sigue fallando si no puede escribirlo.
 

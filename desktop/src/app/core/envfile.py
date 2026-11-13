@@ -176,7 +176,7 @@ def save_config(repo_path: str, values: dict[str, str], fields: tuple[Setting, .
 # What `.consola/.gitignore` keeps out of commits (ADR-0087): the data
 # and decisions of whoever runs Consola, and what the camera generates.
 # The camera itself, in `.consola/camera/`, is versioned.
-IGNORED = ("config.env", "params.json", "capturas/", "publicables/")
+IGNORED = ("config.env", "params.json", "screenshots/", "publishable/")
 
 
 def ensure_ignored(repo_path: str) -> None:

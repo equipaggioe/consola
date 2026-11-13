@@ -19,8 +19,8 @@ Como la cámara no corre sin ese kit, vive en la carpeta de Consola del repo, y 
 | Carpeta | Qué guarda | Git |
 |---|---|---|
 | `.consola/camera/` | La cámara, su escenario y su `package.json`, con un `.gitignore` propio para `node_modules/` | Versionada |
-| `.consola/capturas/` | Los crudos (`SHOTS_RAW`) | Ignorada |
-| `.consola/publicables/` | Una carpeta por destino que no es la landing (`SHOTS_DIST`) | Ignorada |
+| `.consola/screenshots/` | Los crudos (`SHOTS_RAW`) | Ignorada |
+| `.consola/publishable/` | Una carpeta por destino que no es la landing (`SHOTS_DIST`) | Ignorada |
 | `landing/static/capturas/` | Lo que revela el destino `landing` (`SHOTS_PUBLISH`) | Versionada: es de la landing |
 
 ## 2. Los botones
