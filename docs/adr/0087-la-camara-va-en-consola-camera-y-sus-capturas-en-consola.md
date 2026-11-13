@@ -20,7 +20,7 @@ entera.
    `package.json`.
 2. **Los crudos van en `.consola/screenshots/` y los demás destinos en `.consola/publishable/`**:
    son los valores por omisión de `SHOTS_RAW` y `SHOTS_DIST`. Los que revela el destino `landing`
-   siguen en `landing/static/capturas/`.
+   siguen en `landing/static/screenshots/`.
 3. **`.consola/.gitignore` ignora `config.env`, `params.json`, `screenshots/` y `publishable/`**, en
    vez de `*`. `envfile.ensure_ignored` agrega las líneas que falten, conserva las demás y quita el
    `*`. Reemplaza el punto 5 del ADR-0064, salvo que sigue fallando si no puede escribirlo.

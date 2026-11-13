@@ -38,7 +38,7 @@ def png(path: Path, width: int, height: int) -> Path:
 
 def test_the_arguments_carry_the_selection_and_the_device_only_if_any() -> None:
     """The arguments carry the selection, and the device only if any."""
-    output = Path("/repo/demo/capturas")
+    output = Path("/repo/.consola/screenshots")
     assert shots.camera_args(["panel", "app"], ["oscuro"], ["es", "en"], output) == [
         "--apps",
         "panel,app",
@@ -86,13 +86,16 @@ def test_what_the_camera_declares_is_checked(text: str, error: str) -> None:
 
 def test_a_relative_folder_hangs_from_the_repo_and_an_absolute_one_stays(tmp_path: Path) -> None:
     """A relative folder hangs from the repo; an absolute one stays."""
-    assert shots.resolve_dir(tmp_path, "demo/capturas") == tmp_path / "demo" / "capturas"
+    assert (
+        shots.resolve_dir(tmp_path, ".consola/screenshots")
+        == tmp_path / ".consola" / "screenshots"
+    )
     assert shots.resolve_dir(tmp_path, str(tmp_path / "x")) == tmp_path / "x"
 
 
 def test_it_reads_the_raw_shots_with_their_app_type(repo: Path) -> None:
     """It reads the raw shots with their app type."""
-    raw = repo / "demo" / "capturas"
+    raw = repo / ".consola" / "screenshots"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     png(raw / "app" / "chats.claro.en.png", 10, 10)
     read = {(s.app, s.kind, s.screen, s.theme, s.language) for s in shots.collect(repo, raw)}
@@ -107,7 +110,7 @@ def test_it_reads_the_raw_shots_with_their_app_type(repo: Path) -> None:
 )
 def test_a_name_outside_the_contract_stops(repo: Path, name: str) -> None:
     """A name outside the contract stops."""
-    raw = repo / "demo" / "capturas"
+    raw = repo / ".consola" / "screenshots"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     (raw / "panel" / name).write_bytes(b"")
     with pytest.raises(TaskError):
@@ -116,7 +119,7 @@ def test_a_name_outside_the_contract_stops(repo: Path, name: str) -> None:
 
 def test_a_folder_that_is_not_an_app_of_the_repo_stops(repo: Path) -> None:
     """A folder that is not an app of the repo stops."""
-    raw = repo / "demo" / "capturas"
+    raw = repo / ".consola" / "screenshots"
     png(raw / "servidor" / "chat.oscuro.es.png", 10, 10)
     with pytest.raises(TaskError, match="no corresponde"):
         shots.collect(repo, raw)
@@ -124,7 +127,7 @@ def test_a_folder_that_is_not_an_app_of_the_repo_stops(repo: Path) -> None:
 
 def test_it_says_which_combinations_have_no_shot(repo: Path) -> None:
     """It says which combinations have no shot."""
-    raw = repo / "demo" / "capturas"
+    raw = repo / ".consola" / "screenshots"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     taken = shots.collect(repo, raw, ["panel"])
     assert shots.missing_combinations(taken, ["panel"], ["oscuro", "claro"], ["es"]) == [
@@ -134,7 +137,7 @@ def test_it_says_which_combinations_have_no_shot(repo: Path) -> None:
 
 def test_deleting_the_previous_run_only_touches_what_will_be_taken_again(repo: Path) -> None:
     """Deleting the previous run touches only what is taken again."""
-    raw = repo / "demo" / "capturas"
+    raw = repo / ".consola" / "screenshots"
     png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
     remains = png(raw / "panel" / "chat.oscuro.en.png", 10, 10)
     assert shots.clear_raw(raw, ["panel"], ["oscuro"], ["es"]) == 1
@@ -143,7 +146,7 @@ def test_deleting_the_previous_run_only_touches_what_will_be_taken_again(repo: P
 
 def test_the_landing_shrinks_to_its_type_cap_and_never_grows(repo: Path, tmp_path: Path) -> None:
     """The landing shrinks to its type's cap and never grows."""
-    raw = repo / "demo" / "capturas"
+    raw = repo / ".consola" / "screenshots"
     png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
     png(raw / "app" / "chats.oscuro.es.png", 400, 800)
     preset = shots.load_presets()["landing"]
@@ -159,7 +162,7 @@ def test_the_landing_shrinks_to_its_type_cap_and_never_grows(repo: Path, tmp_pat
 
 def taken(repo: Path, phone: tuple[int, int] = (1080, 2400)) -> list[Shot]:
     """Return raw shots taken with that phone size."""
-    raw = repo / "demo" / "capturas"
+    raw = repo / ".consola" / "screenshots"
     png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
     png(raw / "app" / "chats.claro.es.png", *phone)
     return shots.collect(repo, raw)
@@ -218,7 +221,7 @@ def test_open_graph_only_takes_desktop_and_social_crops_what_it_must(repo: Path)
 
 def test_a_destination_without_raw_shots_of_its_type_stops(repo: Path) -> None:
     """A destination without raw shots of its type stops."""
-    raw = repo / "demo" / "capturas"
+    raw = repo / ".consola" / "screenshots"
     png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
     with pytest.raises(TaskError, match="ninguna captura"):
         shots.plan("Google Play", shots.load_presets()["play"], shots.collect(repo, raw))
@@ -238,7 +241,7 @@ def test_the_press_kit_keeps_the_raw_shots_uncompressed(repo: Path, tmp_path: Pa
     import zipfile
 
     derived = shots.render_archive(taken(repo), tmp_path, "presskit")
-    with zipfile.ZipFile(tmp_path / "capturas.zip") as zip_:
+    with zipfile.ZipFile(tmp_path / "screenshots.zip") as zip_:
         assert sorted(zip_.namelist()) == ["app/chats.claro.es.png", "panel/chat.oscuro.es.png"]
         assert {i.compress_type for i in zip_.infolist()} == {zipfile.ZIP_STORED}
     assert {d.archive for d in derived} == {"app/chats.claro.es.png", "panel/chat.oscuro.es.png"}

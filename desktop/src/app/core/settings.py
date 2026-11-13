@@ -382,7 +382,7 @@ SETTINGS: tuple[Setting, ...] = (
         "SHOTS_PUBLISH",
         "Capturas",
         "Carpeta de la landing",
-        default="landing/static/capturas",
+        default="landing/static/screenshots",
         used_by=("render_shots", "screenshots"),
     ),
     # Any destination that is not the landing (stores, manual, social,

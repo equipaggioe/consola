@@ -265,7 +265,7 @@ DOCS: dict[str, CommandDoc] = {
             "App Store, Open Graph y Redes sociales: escala hasta cubrir la "
             "medida exacta del preset y recorta del centro, en SHOTS_DIST.",
             "Press kit: los crudos sin comprimir en un ZIP.",
-            "Escribe un capturas.json por destino con el hash de cada archivo, "
+            "Escribe un screenshots.json por destino con el hash de cada archivo, "
             "y dice qué archivos cambiaron, cuáles son nuevos y cuáles ya no "
             "están respecto de la corrida anterior.",
         ],

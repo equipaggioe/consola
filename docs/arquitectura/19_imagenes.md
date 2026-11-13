@@ -21,7 +21,7 @@ Como la cámara no corre sin ese kit, vive en la carpeta de Consola del repo, y 
 | `.consola/camera/` | La cámara, su escenario y su `package.json`, con un `.gitignore` propio para `node_modules/` | Versionada |
 | `.consola/screenshots/` | Los crudos (`SHOTS_RAW`) | Ignorada |
 | `.consola/publishable/` | Una carpeta por destino que no es la landing (`SHOTS_DIST`) | Ignorada |
-| `landing/static/capturas/` | Lo que revela el destino `landing` (`SHOTS_PUBLISH`) | Versionada: es de la landing |
+| `landing/static/screenshots/` | Lo que revela el destino `landing` (`SHOTS_PUBLISH`) | Versionada: es de la landing |
 
 ## 2. Los botones
 
@@ -72,7 +72,7 @@ Los presets viven en `core/shots_presets.json`, no en el código: las medidas de
 | `og` | Solo crudos SPA. 1200×630, recortando lo que haga falta | `<SHOTS_DIST>/og/<idioma>/<app>/<pantalla>.<tema>.og.png` |
 | `social` | Cuadrado 1080×1080 de todo crudo; historia 1080×1920 solo de móviles. Recorta lo que haga falta | `<SHOTS_DIST>/social/<idioma>/<app>/<pantalla>.<tema>.{square,story}.png` |
 | `manual` | PNG a resolución nativa | `<SHOTS_DIST>/manual/<idioma>/<app>/<pantalla>.<tema>.png` |
-| `presskit` | Los crudos tal cual, sin comprimir, en un ZIP | `<SHOTS_DIST>/presskit/capturas.zip` (`<app>/<pantalla>.<tema>.<idioma>.png` dentro) |
+| `presskit` | Los crudos tal cual, sin comprimir, en un ZIP | `<SHOTS_DIST>/presskit/screenshots.zip` (`<app>/<pantalla>.<tema>.<idioma>.png` dentro) |
 
 `core/shots.py::plan` decide qué sale de cada crudo, con los datos del preset:
 
@@ -84,7 +84,7 @@ Las medidas fijas se obtienen escalando hasta cubrir (aquí **sí** se agranda: 
 
 Un teléfono 1080×2400 sirve para App Store (recorta 2,5 %) y no para Play (2,22:1). Uno 1080×2160 sirve para Play y no para App Store (recortaría 7,7 %). **Ninguna proporción de teléfono sirve para las dos**: son dos tandas, sacadas con dispositivos distintos.
 
-Cada destino deja un `capturas.json` en su carpeta: `{destination, items}` con app, pantalla, tema, idioma, archivo, medida y `sha256` de cada archivo (en el press kit, el del crudo, con su `member` dentro del ZIP). Sin fecha y ordenado: dos corridas iguales dan el mismo archivo. Antes de reescribirlo se compara con el anterior, y el log dice qué archivos **cambiaron**, cuáles son **nuevos** y cuáles **ya no están**. Esa es la regresión visual.
+Cada destino deja un `screenshots.json` en su carpeta: `{destination, items}` con app, pantalla, tema, idioma, archivo, medida y `sha256` de cada archivo (en el press kit, el del crudo, con su `member` dentro del ZIP). Sin fecha y ordenado: dos corridas iguales dan el mismo archivo. Antes de reescribirlo se compara con el anterior, y el log dice qué archivos **cambiaron**, cuáles son **nuevos** y cuáles **ya no están**. Esa es la regresión visual.
 
 Se planean todos los destinos marcados antes de convertir ninguno. El revelado no borra nada de lo que ya hay en `SHOTS_PUBLISH` ni en `SHOTS_DIST`: un archivo de una pantalla que ya no existe queda ahí hasta que alguien lo borre, y el manifiesto es la lista de lo vigente.
 

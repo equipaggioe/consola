@@ -50,7 +50,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `BRAND_ICON_MASKABLE` | Marca | Ícono maskable de PWA (SVG) | | | usa |
 | `SHOTS_CMD` | Capturas | Comando para capturas | | | exige |
 | `SHOTS_RAW` | Capturas | Carpeta de capturas crudas | | `.consola/screenshots` | usa |
-| `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/capturas` | usa |
+| `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/screenshots` | usa |
 | `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `.consola/publishable` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |
 | `OFFLINE_KEY` | Máquina | Llave pública guardada fuera | `scope='machine'` | | exige |

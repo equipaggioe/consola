@@ -34,7 +34,7 @@ _RAW_NAME = re.compile(r"^(?P<screen>[^.]+)\.(?P<theme>[^.]+)\.(?P<language>[^.]
 PRESETS_FILE = Path(__file__).with_name("shots_presets.json")
 # The plumbing cameras share (ADR-0051). It travels in `--kit`.
 KIT = Path(__file__).resolve().parents[1] / "camera" / "index.mjs"
-MANIFEST = "capturas.json"
+MANIFEST = "screenshots.json"
 
 
 @dataclass(frozen=True)
@@ -375,7 +375,7 @@ def render_archive(raws: list[Shot], out_dir: Path, destination: str) -> list[De
     """Pack the raw shots, uncompressed, in a ZIP: the press kit."""
     from PIL import Image
 
-    file = out_dir / "capturas.zip"
+    file = out_dir / "screenshots.zip"
     file.parent.mkdir(parents=True, exist_ok=True)
     derived = []
     with zipfile.ZipFile(file, "w", zipfile.ZIP_STORED) as zip_:
@@ -399,7 +399,7 @@ class Changes:
 
 
 def write_manifest(out_dir: Path, destination: str, derived: list[Derived]) -> Changes:
-    """Write the destination's `capturas.json` and say what changed.
+    """Write the destination's `screenshots.json` and say what changed.
 
     The landing and the manual index it instead of writing paths by
     hand. Undated and sorted: two equal runs give the same file, and
