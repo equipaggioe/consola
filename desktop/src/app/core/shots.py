@@ -21,7 +21,7 @@ from typing import Any
 from app.core import targets
 from app.core.errors import TaskError
 
-THEMES = ("claro", "oscuro")
+THEMES = ("light", "dark")
 
 # The app types that can be photographed: what has a screen. The server
 # and desktop apps stay out until someone needs them.

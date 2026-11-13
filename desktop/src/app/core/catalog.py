@@ -638,7 +638,7 @@ def _shot_destinations_axis() -> AxisDef:
     )
 
 
-SHOT_THEME_LABELS = {"claro": "Claro", "oscuro": "Oscuro"}
+SHOT_THEME_LABELS = {"light": "Claro", "dark": "Oscuro"}
 
 
 # What Consola passes the repo's camera as arguments (`--apps`,

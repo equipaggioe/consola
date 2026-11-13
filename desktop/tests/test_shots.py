@@ -39,11 +39,11 @@ def png(path: Path, width: int, height: int) -> Path:
 def test_the_arguments_carry_the_selection_and_the_device_only_if_any() -> None:
     """The arguments carry the selection, and the device only if any."""
     output = Path("/repo/.consola/screenshots")
-    assert shots.camera_args(["panel", "app"], ["oscuro"], ["es", "en"], output) == [
+    assert shots.camera_args(["panel", "app"], ["dark"], ["es", "en"], output) == [
         "--apps",
         "panel,app",
         "--themes",
-        "oscuro",
+        "dark",
         "--languages",
         "es,en",
         "--output",
@@ -52,7 +52,7 @@ def test_the_arguments_carry_the_selection_and_the_device_only_if_any() -> None:
         str(shots.KIT),
     ]
     assert shots.KIT.is_file()
-    assert shots.camera_args(["app"], ["claro"], ["es"], output, "emulator-5554")[-2:] == [
+    assert shots.camera_args(["app"], ["light"], ["es"], output, "emulator-5554")[-2:] == [
         "--device",
         "emulator-5554",
     ]
@@ -61,11 +61,11 @@ def test_the_arguments_carry_the_selection_and_the_device_only_if_any() -> None:
 def test_the_axes_come_from_what_the_camera_says_it_captures() -> None:
     """The axes come from what the camera says it captures."""
     declared = shots.parse_supported(
-        '{"panel": {"themes": ["oscuro"], "languages": ["es"]},'
-        ' "app": {"themes": ["oscuro", "claro"], "languages": ["es", "en"], "mobile": true}}'
+        '{"panel": {"themes": ["dark"], "languages": ["es"]},'
+        ' "app": {"themes": ["dark", "light"], "languages": ["es", "en"], "mobile": true}}'
     )
     assert shots.supported_values(declared, "apps") == ["panel", "app"]
-    assert shots.supported_values(declared, "themes") == ["claro", "oscuro"]
+    assert shots.supported_values(declared, "themes") == ["light", "dark"]
     assert shots.supported_values(declared, "languages") == ["es", "en"]
 
 
@@ -74,7 +74,7 @@ def test_the_axes_come_from_what_the_camera_says_it_captures() -> None:
     [
         ("listo", "no contestó JSON"),
         ("{}", "ninguna app"),
-        ('{"panel": {"themes": ["oscuro"]}}', "panel sin temas o sin idiomas"),
+        ('{"panel": {"themes": ["dark"]}}', "panel sin temas o sin idiomas"),
         ('{"panel": {"themes": ["sepia"], "languages": ["es"]}}', "fuera del contrato: sepia"),
     ],
 )
@@ -96,22 +96,22 @@ def test_a_relative_folder_hangs_from_the_repo_and_an_absolute_one_stays(tmp_pat
 def test_it_reads_the_raw_shots_with_their_app_type(repo: Path) -> None:
     """It reads the raw shots with their app type."""
     raw = repo / ".consola" / "screenshots"
-    png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
-    png(raw / "app" / "chats.claro.en.png", 10, 10)
+    png(raw / "panel" / "chat.dark.es.png", 10, 10)
+    png(raw / "app" / "chats.light.en.png", 10, 10)
     read = {(s.app, s.kind, s.screen, s.theme, s.language) for s in shots.collect(repo, raw)}
     assert read == {
-        ("panel", "spa-vite", "chat", "oscuro", "es"),
-        ("app", "flutter-app", "chats", "claro", "en"),
+        ("panel", "spa-vite", "chat", "dark", "es"),
+        ("app", "flutter-app", "chats", "light", "en"),
     }
 
 
 @pytest.mark.parametrize(
-    "name", ["chat.png", "chat.oscuro.png", "chat.oscuro.es.webp", "chat.sepia.es.png"]
+    "name", ["chat.png", "chat.dark.png", "chat.dark.es.webp", "chat.sepia.es.png"]
 )
 def test_a_name_outside_the_contract_stops(repo: Path, name: str) -> None:
     """A name outside the contract stops."""
     raw = repo / ".consola" / "screenshots"
-    png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
+    png(raw / "panel" / "chat.dark.es.png", 10, 10)
     (raw / "panel" / name).write_bytes(b"")
     with pytest.raises(TaskError):
         shots.collect(repo, raw)
@@ -120,7 +120,7 @@ def test_a_name_outside_the_contract_stops(repo: Path, name: str) -> None:
 def test_a_folder_that_is_not_an_app_of_the_repo_stops(repo: Path) -> None:
     """A folder that is not an app of the repo stops."""
     raw = repo / ".consola" / "screenshots"
-    png(raw / "servidor" / "chat.oscuro.es.png", 10, 10)
+    png(raw / "servidor" / "chat.dark.es.png", 10, 10)
     with pytest.raises(TaskError, match="no corresponde"):
         shots.collect(repo, raw)
 
@@ -128,32 +128,32 @@ def test_a_folder_that_is_not_an_app_of_the_repo_stops(repo: Path) -> None:
 def test_it_says_which_combinations_have_no_shot(repo: Path) -> None:
     """It says which combinations have no shot."""
     raw = repo / ".consola" / "screenshots"
-    png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
+    png(raw / "panel" / "chat.dark.es.png", 10, 10)
     taken = shots.collect(repo, raw, ["panel"])
-    assert shots.missing_combinations(taken, ["panel"], ["oscuro", "claro"], ["es"]) == [
-        "panel · claro · es"
+    assert shots.missing_combinations(taken, ["panel"], ["dark", "light"], ["es"]) == [
+        "panel · light · es"
     ]
 
 
 def test_deleting_the_previous_run_only_touches_what_will_be_taken_again(repo: Path) -> None:
     """Deleting the previous run touches only what is taken again."""
     raw = repo / ".consola" / "screenshots"
-    png(raw / "panel" / "chat.oscuro.es.png", 10, 10)
-    remains = png(raw / "panel" / "chat.oscuro.en.png", 10, 10)
-    assert shots.clear_raw(raw, ["panel"], ["oscuro"], ["es"]) == 1
+    png(raw / "panel" / "chat.dark.es.png", 10, 10)
+    remains = png(raw / "panel" / "chat.dark.en.png", 10, 10)
+    assert shots.clear_raw(raw, ["panel"], ["dark"], ["es"]) == 1
     assert [p.name for p in (raw / "panel").iterdir()] == [remains.name]
 
 
 def test_the_landing_shrinks_to_its_type_cap_and_never_grows(repo: Path, tmp_path: Path) -> None:
     """The landing shrinks to its type's cap and never grows."""
     raw = repo / ".consola" / "screenshots"
-    png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
-    png(raw / "app" / "chats.oscuro.es.png", 400, 800)
+    png(raw / "panel" / "chat.dark.es.png", 2880, 1800)
+    png(raw / "app" / "chats.dark.es.png", 400, 800)
     preset = shots.load_presets()["landing"]
     output = tmp_path / "publicado"
     done = {s.app: shots.render_landing(s, preset, output).path for s in shots.collect(repo, raw)}
 
-    assert done["panel"] == output / "panel" / "chat.oscuro.es.webp"
+    assert done["panel"] == output / "panel" / "chat.dark.es.webp"
     with Image.open(done["panel"]) as image:
         assert (image.format, image.size) == ("WEBP", (1920, 1200))
     with Image.open(done["app"]) as image:
@@ -163,8 +163,8 @@ def test_the_landing_shrinks_to_its_type_cap_and_never_grows(repo: Path, tmp_pat
 def taken(repo: Path, phone: tuple[int, int] = (1080, 2400)) -> list[Shot]:
     """Return raw shots taken with that phone size."""
     raw = repo / ".consola" / "screenshots"
-    png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
-    png(raw / "app" / "chats.claro.es.png", *phone)
+    png(raw / "panel" / "chat.dark.es.png", 2880, 1800)
+    png(raw / "app" / "chats.light.es.png", *phone)
     return shots.collect(repo, raw)
 
 
@@ -184,7 +184,7 @@ def test_play_leaves_the_raw_shot_at_its_size_and_without_alpha(
     pairs = shots.plan("Google Play", shots.load_presets()["play"], raws)
     assert [(s.app, m) for s, m in pairs] == [("app", None)]
     done = shots.render_sized(*pairs[0], tmp_path, "play")
-    assert done.path == tmp_path / "es" / "app" / "chats.claro.png"
+    assert done.path == tmp_path / "es" / "app" / "chats.light.png"
     with Image.open(done.path) as image:
         assert (image.mode, image.size) == ("RGB", (1080, 1920))
 
@@ -222,7 +222,7 @@ def test_open_graph_only_takes_desktop_and_social_crops_what_it_must(repo: Path)
 def test_a_destination_without_raw_shots_of_its_type_stops(repo: Path) -> None:
     """A destination without raw shots of its type stops."""
     raw = repo / ".consola" / "screenshots"
-    png(raw / "panel" / "chat.oscuro.es.png", 2880, 1800)
+    png(raw / "panel" / "chat.dark.es.png", 2880, 1800)
     with pytest.raises(TaskError, match="ninguna captura"):
         shots.plan("Google Play", shots.load_presets()["play"], shots.collect(repo, raw))
 
@@ -232,7 +232,7 @@ def test_the_manual_leaves_the_png_at_native_resolution(repo: Path, tmp_path: Pa
     pairs = shots.plan("Manual", shots.load_presets()["manual"], taken(repo))
     assert all(m is None for _, m in pairs)
     done = shots.render_sized(pairs[0][0], None, tmp_path, "manual")
-    assert done.path == tmp_path / "es" / "app" / "chats.claro.png"
+    assert done.path == tmp_path / "es" / "app" / "chats.light.png"
     assert (done.width, done.height) == (1080, 2400)
 
 
@@ -242,9 +242,9 @@ def test_the_press_kit_keeps_the_raw_shots_uncompressed(repo: Path, tmp_path: Pa
 
     derived = shots.render_archive(taken(repo), tmp_path, "presskit")
     with zipfile.ZipFile(tmp_path / "screenshots.zip") as zip_:
-        assert sorted(zip_.namelist()) == ["app/chats.claro.es.png", "panel/chat.oscuro.es.png"]
+        assert sorted(zip_.namelist()) == ["app/chats.light.es.png", "panel/chat.dark.es.png"]
         assert {i.compress_type for i in zip_.infolist()} == {zipfile.ZIP_STORED}
-    assert {d.archive for d in derived} == {"app/chats.claro.es.png", "panel/chat.oscuro.es.png"}
+    assert {d.archive for d in derived} == {"app/chats.light.es.png", "panel/chat.dark.es.png"}
 
 
 def test_the_manifest_is_stable_and_says_what_changed_since_the_last_run(
@@ -257,7 +257,7 @@ def test_the_manifest_is_stable_and_says_what_changed_since_the_last_run(
     raws = taken(repo)
     derived = [shots.render_landing(s, preset, tmp_path) for s in raws]
     first = shots.write_manifest(tmp_path, "landing", derived)
-    assert first.added == ["app/chats.claro.es.webp", "panel/chat.oscuro.es.webp"]
+    assert first.added == ["app/chats.light.es.webp", "panel/chat.dark.es.webp"]
     text = (tmp_path / shots.MANIFEST).read_text(encoding="utf-8")
 
     same = shots.write_manifest(tmp_path, "landing", list(reversed(derived)))
@@ -270,10 +270,10 @@ def test_the_manifest_is_stable_and_says_what_changed_since_the_last_run(
     other = [shots.render_landing(panel, preset, tmp_path)]
     changes = shots.write_manifest(tmp_path, "landing", other)
     assert (changes.changed, changes.removed) == (
-        ["panel/chat.oscuro.es.webp"],
-        ["app/chats.claro.es.webp"],
+        ["panel/chat.dark.es.webp"],
+        ["app/chats.light.es.webp"],
     )
     assert (
         json.loads((tmp_path / shots.MANIFEST).read_text(encoding="utf-8"))["items"][0]["file"]
-        == "panel/chat.oscuro.es.webp"
+        == "panel/chat.dark.es.webp"
     )

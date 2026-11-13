@@ -13,30 +13,30 @@ import { test } from 'node:test';
 import { checkSupported, combinations, parseArgs, reply, SCENARIO_PATH, shotPath, startFakeServer } from './index.mjs';
 
 const supported = {
-	panel: { themes: ['oscuro'], languages: ['es'] },
-	app: { themes: ['oscuro', 'claro'], languages: ['es', 'en'], mobile: true }
+	panel: { themes: ['dark'], languages: ['es'] },
+	app: { themes: ['dark', 'light'], languages: ['es', 'en'], mobile: true }
 };
-const argv = (extra = []) => ['--apps', 'panel', '--themes', 'oscuro', '--languages', 'es', '--output', '/raw', '--kit', '/k.mjs', ...extra];
+const argv = (extra = []) => ['--apps', 'panel', '--themes', 'dark', '--languages', 'es', '--output', '/raw', '--kit', '/k.mjs', ...extra];
 
 test('lee el contrato', () => {
 	const args = parseArgs(argv(), supported);
-	assert.deepEqual(args, { apps: ['panel'], themes: ['oscuro'], languages: ['es'], output: '/raw', kit: '/k.mjs', device: '' });
-	const movil = parseArgs(['--apps', 'app', '--themes', 'oscuro,claro', '--languages', 'es,en', '--output', '/raw', '--kit', '/k', '--device', 'emulator-5554'], supported);
+	assert.deepEqual(args, { apps: ['panel'], themes: ['dark'], languages: ['es'], output: '/raw', kit: '/k.mjs', device: '' });
+	const movil = parseArgs(['--apps', 'app', '--themes', 'dark,light', '--languages', 'es,en', '--output', '/raw', '--kit', '/k', '--device', 'emulator-5554'], supported);
 	assert.deepEqual(combinations(movil), [
-		{ theme: 'oscuro', language: 'es' },
-		{ theme: 'oscuro', language: 'en' },
-		{ theme: 'claro', language: 'es' },
-		{ theme: 'claro', language: 'en' }
+		{ theme: 'dark', language: 'es' },
+		{ theme: 'dark', language: 'en' },
+		{ theme: 'light', language: 'es' },
+		{ theme: 'light', language: 'en' }
 	]);
 });
 
 test('lo que la cámara no soporta es error, no se salta', () => {
-	assert.throws(() => parseArgs(['--apps', 'panel', '--themes', 'claro', '--languages', 'es', '--output', '/r', '--kit', '/k'], supported), /panel: no tiene el tema claro/);
-	assert.throws(() => parseArgs(['--apps', 'panel', '--themes', 'oscuro', '--languages', 'en', '--output', '/r', '--kit', '/k'], supported), /panel: no tiene el idioma en/);
-	assert.throws(() => parseArgs(['--apps', 'landing', '--themes', 'oscuro', '--languages', 'es', '--output', '/r', '--kit', '/k'], supported), /landing: esta cámara no la captura/);
-	assert.throws(() => parseArgs(['--apps', 'app', '--themes', 'oscuro', '--languages', 'es', '--output', '/r', '--kit', '/k'], supported), /falta --device/);
+	assert.throws(() => parseArgs(['--apps', 'panel', '--themes', 'light', '--languages', 'es', '--output', '/r', '--kit', '/k'], supported), /panel: no tiene el tema light/);
+	assert.throws(() => parseArgs(['--apps', 'panel', '--themes', 'dark', '--languages', 'en', '--output', '/r', '--kit', '/k'], supported), /panel: no tiene el idioma en/);
+	assert.throws(() => parseArgs(['--apps', 'landing', '--themes', 'dark', '--languages', 'es', '--output', '/r', '--kit', '/k'], supported), /landing: esta cámara no la captura/);
+	assert.throws(() => parseArgs(['--apps', 'app', '--themes', 'dark', '--languages', 'es', '--output', '/r', '--kit', '/k'], supported), /falta --device/);
 	assert.throws(() => parseArgs(argv(['--pantalla', 'chat']), supported), /Argumento desconocido: --pantalla/);
-	assert.throws(() => parseArgs(['--apps', 'panel', '--themes', 'oscuro', '--languages', 'es', '--kit', '/k'], supported), /Falta --output/);
+	assert.throws(() => parseArgs(['--apps', 'panel', '--themes', 'dark', '--languages', 'es', '--kit', '/k'], supported), /Falta --output/);
 });
 
 test('con --supported imprime lo que captura y termina (ADR-0054)', () => {
@@ -52,17 +52,17 @@ test('lo que declara la cámara se revisa antes de usarlo', () => {
 	assert.equal(checkSupported(supported), supported);
 	assert.throws(() => checkSupported({}), /no declara ninguna app/);
 	assert.throws(() => checkSupported({ panel: { themes: ['sepia'], languages: ['es'] } }), /panel: sepia no es un tema del contrato/);
-	assert.throws(() => checkSupported({ panel: { themes: ['oscuro'], languages: [] } }), /panel: falta languages/);
-	assert.throws(() => checkSupported({ panel: { themes: ['oscuro'], languages: ['es'], movil: true } }), /clave desconocida movil/);
-	assert.throws(() => parseArgs(argv(), { panel: { themes: ['oscuro'] } }), /panel: falta languages/);
+	assert.throws(() => checkSupported({ panel: { themes: ['dark'], languages: [] } }), /panel: falta languages/);
+	assert.throws(() => checkSupported({ panel: { themes: ['dark'], languages: ['es'], movil: true } }), /clave desconocida movil/);
+	assert.throws(() => parseArgs(argv(), { panel: { themes: ['dark'] } }), /panel: falta languages/);
 });
 
 test('el nombre del crudo es el del contrato', () => {
 	const output = mkdtempSync(join(tmpdir(), 'camara-'));
-	const path = shotPath(output, 'panel', 'chat', 'oscuro', 'es');
-	assert.equal(path, join(output, 'panel', 'chat.oscuro.es.png'));
+	const path = shotPath(output, 'panel', 'chat', 'dark', 'es');
+	assert.equal(path, join(output, 'panel', 'chat.dark.es.png'));
 	assert.ok(existsSync(join(output, 'panel')));
-	assert.throws(() => shotPath(output, 'panel', 'chat.v2', 'oscuro', 'es'), /Nombre de pantalla/);
+	assert.throws(() => shotPath(output, 'panel', 'chat.v2', 'dark', 'es'), /Nombre de pantalla/);
 });
 
 const withServer = async (options, fn) => {

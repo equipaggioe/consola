@@ -22,7 +22,7 @@ import { join } from 'node:path';
 // --- Contract with Consola (ADR-0049) -----------------------------------------
 
 /** The contract's themes, as the browser's `prefers-color-scheme` names them. */
-export const COLOR_SCHEMES = { claro: 'light', oscuro: 'dark' };
+export const COLOR_SCHEMES = { light: 'light', dark: 'dark' };
 
 const LIST_FLAGS = ['apps', 'themes', 'languages'];
 const VALUE_FLAGS = ['output', 'device', 'kit'];
@@ -54,8 +54,8 @@ export const checkSupported = (supported) => {
  * `supported` maps each app to the themes and languages it can be shot in, and
  * `mobile: true` for the ones that need `--device`:
  *
- *   { panel: { themes: ['oscuro'], languages: ['es'] },
- *     app: { themes: ['oscuro'], languages: ['es'], mobile: true } }
+ *   { panel: { themes: ['dark'], languages: ['es'] },
+ *     app: { themes: ['dark'], languages: ['es'], mobile: true } }
  *
  * Anything asked for that is not supported is an error, never skipped.
  *

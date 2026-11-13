@@ -36,7 +36,7 @@ Ejes de `shoot_screens` (y del paso `shoot` de la compuesta):
 | Eje | Valores | Argumento |
 |---|---|---|
 | `apps` | las que declara la cámara (fuente consultada `SHOTS_APPS`) | `--apps` |
-| `themes` | los que tiene alguna de ellas, en el orden `claro`, `oscuro` (`SHOTS_THEMES`) | `--themes` |
+| `themes` | los que tiene alguna de ellas, en el orden `light`, `dark` (`SHOTS_THEMES`) | `--themes` |
 | `languages` | los que tiene alguna de ellas (`SHOTS_LANGUAGES`) | `--languages` |
 | `avd` | AVD creados, o ninguno. Si una app lo necesita lo dice la cámara (ADR-0052) | `--device` con el serial, solo si se eligió uno |
 
@@ -58,7 +58,7 @@ Eje de `render_shots` y de la compuesta: `destinations` (`landing`, `play`, `app
 <SHOTS_RAW>/<app>/<pantalla>.<tema>.<idioma>.png
 ```
 
-`<app>` tiene que ser una app del repo con pantalla (SPA Vite o app móvil), y su tipo decide cómo se revela. `<tema>` tiene que ser `claro` u `oscuro`. Cualquier otro archivo en esas carpetas corta la lectura: revelar a medias dejaría una mezcla de corridas.
+`<app>` tiene que ser una app del repo con pantalla (SPA Vite o app móvil), y su tipo decide cómo se revela. `<tema>` tiene que ser `light` o `dark`. Cualquier otro archivo en esas carpetas corta la lectura: revelar a medias dejaría una mezcla de corridas.
 
 ## 5. El revelado
 
@@ -103,7 +103,7 @@ La conversión usa Pillow.
 | `main(fn)` | Corre la cámara; un error se imprime y sale con código 1 |
 | `startFakeServer({port, routes, scenario, onScenario, websockets})` | El servidor ficticio. Las rutas son `[método, ruta exacta o RegExp, handler]`, lecturas y escrituras por igual (ADR-0053); el handler recibe `(url, match, req, cuerpo)`, con el cuerpo JSON ya leído. `reply(status, cuerpo)` contesta otro estado y `reply(204)`, sin cuerpo. Solo el `OPTIONS` del CORS se contesta sin ruta. Entrega el escenario en `/__demo/scenario` y llama a `onScenario` después. Un pedido o un WebSocket sin ruta contesta 500 y queda anotado, igual que un handler que falla o no devuelve nada; `assertComplete()` falla nombrándolos |
 | `startVite({appDir, port, env, readyPath})` | El `vite.js` del repo con el mismo Node, sin `VSCODE_CWD`, hasta que `readyPath` contesta |
-| `openPage(browser, {theme, language, timezoneId, now, viewport})` | Un contexto con `colorScheme` del tema (`claro` → `light`, `oscuro` → `dark`), `locale`, zona horaria y el reloj puesto en `now` |
+| `openPage(browser, {theme, language, timezoneId, now, viewport})` | Un contexto con `colorScheme` del tema, `locale`, zona horaria y el reloj puesto en `now` |
 | `retryOnReload(page, fn)`, `visit(page, url, listo)` | Reintentan cuando Vite recarga la página en frío |
 | `shoot(page, ruta, esperaMs)` | Espera y guarda la captura |
 | `android(device)` | `adb` sobre el dispositivo: zona horaria, `root`, reloj fijo y restaurarlo |
