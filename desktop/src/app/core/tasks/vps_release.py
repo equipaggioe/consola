@@ -23,6 +23,7 @@ from app.core.tasks.git import _current_branch, _ensure_git
 from app.core.tasks.vps_setup import Access, admin
 
 WORKFLOW = "release.yml"
+WORKFLOW_PATH = f".github/workflows/{WORKFLOW}"
 # How often to ask about the `release.yml` run, and how many times to
 # ask whether it exists before giving it up.
 _POLL = 15
@@ -91,37 +92,37 @@ def _pushed(ctx: TaskContext) -> None:
         raise TaskError(f"{branch} tiene commits que {upstream} no tiene: empújalos primero.")
 
 
+def release_run(answer: dict[str, Any]) -> str:
+    """Return the id of the `release.yml` run, or "" if it is not there.
+
+    `answer` is `GET /repos/{repo}/actions/runs`, newest first. The run
+    is found by the path of its workflow: `gh run list --workflow` finds
+    the file only on the default branch, and a repo can bring
+    `release.yml` in the branch it tags.
+    """
+    for run in answer["workflow_runs"]:
+        if run["path"] == WORKFLOW_PATH:
+            return str(run["id"])
+    return ""
+
+
 def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
     """Return the `release.yml` run the tag fired.
 
     GitHub creates it a few seconds later.
     """
     for _ in range(_APPEARS):
-        run = ctx.capture(
-            [
-                *gh,
-                "run",
-                "list",
-                "--repo",
-                repo,
-                "--workflow",
-                WORKFLOW,
-                "--branch",
-                tag,
-                "--json",
-                "databaseId",
-                "--jq",
-                ".[0].databaseId",
-            ],
+        answer = ctx.capture(
+            [*gh, "api", f"repos/{repo}/actions/runs?branch={tag}&event=push"],
             timeout=30.0,
         )
+        run = release_run(json.loads(answer))
         if run:
             return run
         ctx.wait_cancelled(5)
         ctx.raise_if_cancelled()
     raise TaskError(
-        f"GitHub no creó la corrida de {WORKFLOW} para {tag}: ¿tiene el repo "
-        f".github/workflows/{WORKFLOW}?"
+        f"GitHub no creó la corrida de {WORKFLOW} para {tag}: ¿tiene el repo {WORKFLOW_PATH}?"
     )
 
 
