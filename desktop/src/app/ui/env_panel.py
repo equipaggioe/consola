@@ -102,7 +102,7 @@ class EnvRow(QWidget):
         self.label.setFixedWidth(label_width)
         self.label.setToolTip(setting.key)
         self.label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_XS}px;"
+            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
         )
         if setting.kind == "list":
             self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
@@ -216,7 +216,7 @@ class EnvRow(QWidget):
                 border: 1px solid {border};
                 border-radius: 5px;
                 padding: 5px 8px;
-                font-size: {Fonts.SIZE_XS}px;
+                font-size: {Fonts.SIZE_SM}px;
             }}
             {widget}:focus {{ border: 1px solid {field.focus}; }}
         """)

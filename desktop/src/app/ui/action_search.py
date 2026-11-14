@@ -136,7 +136,7 @@ class ActionSearch(QWidget):
                 border: 1px solid {field.border};
                 border-radius: 5px;
                 padding: 5px 8px;
-                font-size: {Fonts.SIZE_XS}px;
+                font-size: {Fonts.SIZE_SM}px;
             }}
             QLineEdit:focus {{ border: 1px solid {field.focus}; }}
             QLineEdit:disabled {{ color: {Colors.TEXT_MUTED}; }}

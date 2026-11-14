@@ -24,7 +24,7 @@ from PySide6.QtWidgets import QCheckBox, QFrame, QScrollArea, QVBoxLayout, QWidg
 
 from app.core import protection
 from app.core.projects import Project
-from app.theme import Fonts, check_css
+from app.theme import check_css
 from app.ui import params_store, parts
 from app.ui.palettes import NEUTRAL, Palette
 
@@ -74,7 +74,6 @@ class SecurityPanel(QWidget):
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.setChecked(self._state[target.id])
             check.setToolTip(target.why)
-            check.setStyleSheet(f"QCheckBox {{ font-size: {Fonts.SIZE_XS}px; }}")
 
             def on_toggled(checked: bool, tid: str = target.id) -> None:
                 self._toggle(tid, checked)

@@ -420,7 +420,7 @@ class ParamsPanel(QWidget):
         # instead of pushing the field to the right.
         label.setWordWrap(True)
         label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_XS}px;"
+            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
         )
         row = QHBoxLayout()
         row.setSpacing(8)
@@ -490,7 +490,7 @@ class ParamsPanel(QWidget):
             QComboBox {{
                 background: {field.bg}; border: 1px solid {field.border};
                 border-radius: 5px; padding: 0 8px;
-                color: {field.fg}; font-size: {Fonts.SIZE_XS}px;
+                color: {field.fg}; font-size: {Fonts.SIZE_SM}px;
             }}
             QComboBox:focus {{ border: 1px solid {field.focus}; }}
             QComboBox::drop-down {{
@@ -943,7 +943,7 @@ class ParamsPanel(QWidget):
             QLineEdit, QPlainTextEdit {{
                 background: {field.bg}; border: 1px solid {field.border};
                 border-radius: 5px; padding: {"5px 8px" if multiline else "0 8px"};
-                color: {field.fg}; font-size: {Fonts.SIZE_XS}px;
+                color: {field.fg}; font-size: {Fonts.SIZE_SM}px;
             }}
             QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {field.focus}; }}
         """

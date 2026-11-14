@@ -14,7 +14,7 @@ class Colors:
     CHROME = "#262d3d"  # section headers and the console's
     BG = "#0d1117"  # content canvas: console and left canvas
     PANEL = "#1c212b"  # body of the right column's sections
-    SURFACE = "#232935"  # sub-bar, section headers, footer, status bar
+    SURFACE = "#232935"  # tool bars, table headers and footers
     SURFACE_HOVER = "#2b3240"
     # input fields and chips: the lightest surface
     SURFACE_ALT = "#2f3745"
@@ -22,7 +22,8 @@ class Colors:
     BORDER_LIGHT = "#4e586a"
     TEXT = "#f0f4f8"
     TEXT_DIM = "#9aa4b2"
-    # a field's label: lighter than TEXT_DIM, short of TEXT's white
+    # a field's label and a check box's: lighter than TEXT_DIM, short of
+    # TEXT's white
     TEXT_LABEL = "#c6cfdb"
     TEXT_MUTED = "#6b7484"
     ACCENT = "#58a6ff"
@@ -196,7 +197,7 @@ def global_stylesheet() -> str:
     }}
     QCheckBox {{
         background: transparent;
-        color: {Colors.TEXT_DIM};
+        color: {Colors.TEXT_LABEL};
         spacing: 9px;
         font-size: {Fonts.SIZE_SM}px;
     }}
@@ -210,7 +211,7 @@ def global_stylesheet() -> str:
         width: 15px;
         height: 15px;
         border-radius: 4px;
-        border: 1px solid {Colors.BORDER_LIGHT};
+        border: 1px solid {Colors.BORDER};
         background: {Colors.SURFACE_ALT};
     }}
     QCheckBox::indicator:hover {{
