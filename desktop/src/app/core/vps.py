@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+from collections.abc import Iterable
+
 from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.ssh import Remote, capture, quote, reachable, succeeds
@@ -44,8 +47,10 @@ def remote_path(config: Config, *parts: str) -> str:
 #
 # canone's `install.py` installs a VPS's units: the repo declares none,
 # and they go by their `<app>` (ADR-0068). A package's units have fixed
-# names. Restarting them or reading their journal asks for no new
-# buttons: it asks that the existing ones know where to point.
+# names. Each piece in Java runs in its instance of `<app>-java@`, named
+# after its folder, and the VPS says which ones it has. Restarting them
+# or reading their journal asks for no new buttons: it asks that the
+# existing ones know where to point.
 
 MAIN_SERVICE = "server"
 _APP_UNITS = {
@@ -72,15 +77,33 @@ SERVICE_LABELS = {
     "caddy": "Caddy",
     "coturn": "Coturn",
 }
+# The axis value of a piece in Java is `java:<piece>`, and the piece is
+# named as canone's `scripts/java.py` asks.
+JAVA = "java:"
+_PIECE = re.compile(r"[a-z][a-z0-9-]*")
+
+
+def _fixed_units(app: str) -> dict[str, str]:
+    """Return the values with a fixed unit name, and their units."""
+    found = {value: unit.format(app=app) for value, unit in _APP_UNITS.items()}
+    return found | {service: service for service in PACKAGE_SERVICES}
+
+
+def service_labels(values: Iterable[str]) -> dict[str, str]:
+    """Return what the axis shows for each value."""
+    pieces = {v: f"Java: {v.removeprefix(JAVA)}" for v in values if v.startswith(JAVA)}
+    return {**SERVICE_LABELS, **pieces}
 
 
 def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
     """Return the unit name behind a `service` axis value."""
-    if which in PACKAGE_SERVICES:
-        return which
-    if which not in _APP_UNITS:
+    piece = which.removeprefix(JAVA)
+    if which.startswith(JAVA) and _PIECE.fullmatch(piece):
+        return f"{app}-java@{piece}"
+    found = _fixed_units(app)
+    if which not in found:
         raise TaskError(f"Servicio desconocido: {which}")
-    return _APP_UNITS[which].format(app=app)
+    return found[which]
 
 
 def installed_services(remote: Remote, app: str) -> list[str]:
@@ -91,21 +114,36 @@ def installed_services(remote: Remote, app: str) -> list[str]:
     and `core/catalog.py` caches the answer. It raises if it cannot ask:
     offering them all then would hide that the VPS does not answer
     (ADR-0076).
+
+    The pieces in Java are listed and not asked one by one: `systemctl
+    cat` answers for any instance once the template is installed, and
+    the VPS is what knows which ones `install.py` enabled.
     """
-    axes = [*_APP_UNITS, *PACKAGE_SERVICES]
-    names = {resolve_service(app, s): s for s in axes}
+    names = {unit: value for value, unit in _fixed_units(app).items()}
     if not reachable(remote):
         raise TaskError(
             f"No se entra al VPS como {remote.target}: no se puede preguntar qué servicios tiene."
         )
     listing = " ".join(quote(n) for n in names)
+    pieces = quote(f"{app}-java@*")
     # `true`: the exit code of the loop is that of its last unit, and a
     # missing one is fine.
     output = capture(
         remote,
-        f'for s in {listing}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done; true',
+        f'for s in {listing}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done; '
+        f"systemctl list-units --all --no-legend --plain {pieces} | awk '{{print $1}}'; true",
     )
-    return [names[line] for line in output.split() if line in names]
+    return [value for line in output.split() if (value := _axis_value(app, line, names))]
+
+
+def _axis_value(app: str, line: str, names: dict[str, str]) -> str:
+    """Return the axis value of a unit the VPS answered, or `''`."""
+    if line in names:
+        return names[line]
+    piece = line.removeprefix(f"{app}-java@").removesuffix(".service")
+    if line.startswith(f"{app}-java@") and _PIECE.fullmatch(piece):
+        return f"{JAVA}{piece}"
+    return ""
 
 
 def unit_installed(remote: Remote, service: str) -> bool:

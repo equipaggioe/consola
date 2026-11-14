@@ -45,6 +45,39 @@ def test_unknown_service_on_the_axis() -> None:
         vps.resolve_service("banditore", "proyecto")
 
 
+def test_a_java_piece_names_its_instance() -> None:
+    """A piece in Java names its instance of `<app>-java@`."""
+    unit = vps.resolve_service("presenze", "java:server-fingerprint")
+    assert unit == "presenze-java@server-fingerprint"
+
+
+def test_a_java_piece_with_a_name_canone_does_not_allow() -> None:
+    """A piece named outside `scripts/java.py`'s pattern stops."""
+    with pytest.raises(TaskError):
+        vps.resolve_service("presenze", "java:x; reboot")
+
+
+def test_a_java_piece_has_its_label() -> None:
+    """Each piece in Java has its label."""
+    labels = vps.service_labels(["server", "java:server-fingerprint"])
+    assert labels["java:server-fingerprint"] == "Java: server-fingerprint"
+
+
+@pytest.mark.parametrize(
+    ("line", "value"),
+    [
+        ("presenze", "server"),
+        ("coturn", "coturn"),
+        ("presenze-java@server-fingerprint.service", "java:server-fingerprint"),
+        ("otra-java@server-fingerprint.service", ""),
+    ],
+)
+def test_each_unit_the_vps_answers(line: str, value: str) -> None:
+    """Each line the VPS answers becomes its axis value, or none."""
+    names = {unit: v for v, unit in vps._fixed_units("presenze").items()}
+    assert vps._axis_value("presenze", line, names) == value
+
+
 def test_systemctl_without_sudo() -> None:
     """`vps_setup.Access` adds the `sudo` that asks for the password."""
     assert vps.systemctl_command("restart", "banditore") == "systemctl restart banditore"

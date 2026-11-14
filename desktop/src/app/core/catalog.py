@@ -52,11 +52,11 @@ def _scope_axis() -> AxisDef:
     )
 
 
-# Which systemd unit the action touches. Three services run on the same
-# VPS, the repo's, coturn and Caddy, and all three restart, stop and
-# read alike. It is an axis and not three new buttons for the same
-# reason `action` is an axis and not nine buttons: all that changes
-# between them is a name.
+# Which systemd unit the action touches. Several services run on the
+# same VPS, the repo's, its pieces in Java, coturn and Caddy, and all
+# restart, stop and read alike. It is an axis and not a button per
+# service for the same reason `action` is an axis and not nine buttons:
+# all that changes between them is a name.
 #
 # Values are not enumerated: they come from asking THIS repo's VPS which
 # of canone's units exist (`VPS_SERVICES`). Always offering them all
@@ -293,7 +293,7 @@ def _vps_services(
         max_age=_FRESH,
         refresh=refresh,
     )
-    return list(values), vps.SERVICE_LABELS
+    return list(values), vps.service_labels(values)
 
 
 def _backup_files(

@@ -93,8 +93,11 @@ Lo que hace `deploy.py` en cada caso, comprobado el 2026-11-02 con versiones de 
 | `valkey` | `valkey-server@<app>` |
 | `sweep`, `purge`, `dump`, `backup` | `<app>-<valor>` |
 | `caddy`, `coturn` | Con ese nombre |
+| `java:<pieza>` | `<app>-java@<pieza>`, por cada instancia que el VPS tiene cargada |
 
-`<app>` sale de `git remote get-url origin`, y `vps.resolve_service` traduce el valor a la unidad. Los valores que se ofrecen no se enumeran: `vps.installed_services` pregunta cuáles existen en **este** VPS, en una sola consulta, y el resultado se cachea por host. Si no se puede preguntar, el panel muestra el motivo en lugar del eje y el botón queda bloqueado ([ADR-0076](../adr/0076-un-fallo-al-consultar-o-al-guardar-en-cache-se-dice.md)).
+`<app>` sale de `git remote get-url origin`, y `vps.resolve_service` traduce el valor a la unidad. Los valores que se ofrecen no se enumeran: `vps.installed_services` pregunta cuáles existen en **este** VPS, piezas en Java incluidas, en una sola consulta, y el resultado se cachea por host. Si no se puede preguntar, el panel muestra el motivo en lugar del eje y el botón queda bloqueado ([ADR-0076](../adr/0076-un-fallo-al-consultar-o-al-guardar-en-cache-se-dice.md)).
+
+Las piezas en Java no se preguntan una por una: `systemctl cat` responde que existe cualquier instancia de `<app>-java@` en cuanto la plantilla está instalada (comprobado el 2026-11-14 con `presenze-java@noexiste`). Se listan con `systemctl list-units --all '<app>-java@*'`, en la misma consulta, y así el eje ofrece las que `install.py` habilitó, no las que el repo declara.
 
 `vps.unit_installed` pregunta con `systemctl cat`, que encuentra la unidad esté donde esté su archivo: las de un paquete apt viven en `/lib/systemd/system`.
 

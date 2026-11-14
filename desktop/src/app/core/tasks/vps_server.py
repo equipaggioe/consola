@@ -51,8 +51,8 @@ def view_logs(
 
     It is a sibling capability of `systemd_action`, not a value of it:
     filters make no sense for start or stop (ADR-0023). The `service`
-    axis is the same: when coturn or Caddy do not start, their journal
-    is what has to be read.
+    axis is the same: when coturn, Caddy or a piece in Java do not
+    start, their journal is what has to be read.
     """
     unit = vps.resolve_service(canone.origin(ctx.root)[1], service)
     command = vps.journal_command(
