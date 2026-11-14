@@ -114,6 +114,9 @@ def test_without_a_declared_extension_no_package_or_argument_is_added(
 ) -> None:
     """Without a declared extension, no package or argument is added."""
     (tmp_path / "README.md").write_text("Estado: en desarrollo\n", encoding="utf-8")
+    tasks = tmp_path / "server" / "src" / "app" / "tasks.py"
+    tasks.parent.mkdir(parents=True)
+    tasks.write_text('TASKS = {"migrate": migrate, "sweep": sweep}\n', encoding="utf-8")
     config = Config(
         {"DOMAIN": "example.net", "VALKEY_MEMORY": "256mb", "VPS_USER": "admin", **values}
     )

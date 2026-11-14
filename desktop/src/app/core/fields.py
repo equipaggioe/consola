@@ -21,8 +21,9 @@ GROUP = "Credenciales"
 
 # The secret of coturn: only an app with calls declares it (ADR-0085).
 TURN = "turn_secret"
-# `install.py` writes these, not `credentials.py` (ADR-0105 of canone).
-WRITTEN_BY_INSTALL = ("database_url", TURN)
+# `install.py` writes these, not `credentials.py` (ADR-0105 of canone),
+# which refuses them.
+WRITTEN_BY_INSTALL = ("database_url", TURN, "valkey_url")
 
 
 def settings_fields(server: Path) -> list[str]:

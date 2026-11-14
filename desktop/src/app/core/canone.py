@@ -11,6 +11,7 @@ but asking `packages.py --list`: it can be tested without a VPS.
 
 from __future__ import annotations
 
+import ast
 import re
 from pathlib import Path
 from typing import Any
@@ -21,9 +22,12 @@ from app.core.envfile import Config
 from app.core.errors import TaskError
 from app.core.settings import get_setting
 
-# The pieces `install.py --without` can leave out, except `sweep`: the
-# repo has no signal for it, and the template always brings the task.
+# The web pieces `install.py --without` leaves out, by their folder.
 SURFACES = ("web", "panel", "landing")
+# The tasks of the server, `python -m app.tasks <task>`. A server
+# without `sweep` keeps no files of its users, and installs without
+# its timer.
+TASKS = Path("src") / "app" / "tasks.py"
 RELEASE = Path(".github") / "workflows" / "release.yml"
 # The browser features the app uses, one per line (ADR-0136 of canone).
 PERMISSIONS = Path("permissions")
@@ -202,9 +206,43 @@ def valkey_memory(meminfo: str, percent: str) -> str:
     return f"{max(1, int(int(found.group(1)) * share / 100 / 1024))}mb"
 
 
-def without(root: Path) -> list[str]:
-    """Return the pieces the repo lacks, by their folder at the root."""
-    return [piece for piece in SURFACES if not (root / piece).is_dir()]
+def tasks(server: Path) -> list[str]:
+    """Return the keys of `TASKS` in the server's `tasks.py`.
+
+    It is read with `ast`, like the `Settings` fields: importing it asks
+    for the repo's venv and its credentials.
+    """
+    path = server / TASKS
+    if not path.is_file():
+        raise TaskError(f"No hay {path}: el servidor no trae las tareas de canone.")
+    tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+    for node in tree.body:
+        if isinstance(node, ast.AnnAssign):
+            target = node.target
+        elif isinstance(node, ast.Assign) and len(node.targets) == 1:
+            target = node.targets[0]
+        else:
+            continue
+        if isinstance(target, ast.Name) and target.id == "TASKS":
+            if not isinstance(node.value, ast.Dict):
+                break
+            keys = node.value.keys
+            return [
+                k.value for k in keys if isinstance(k, ast.Constant) and isinstance(k.value, str)
+            ]
+    raise TaskError(f"{path} no declara el diccionario TASKS.")
+
+
+def without(root: Path, config: Config) -> list[str]:
+    """Return the pieces the repo lacks.
+
+    A web piece by its folder at the root, and `sweep` by the server's
+    tasks.
+    """
+    missing = [piece for piece in SURFACES if not (root / piece).is_dir()]
+    if "sweep" not in tasks(root / config.get("SERVER_DIR")):
+        missing.append("sweep")
+    return missing
 
 
 def _logs(config: Config) -> tuple[str, str, str] | None:
@@ -257,7 +295,7 @@ def install_args(
         args += ["--desktop", system]
     for piece in mobiles(root):
         args += ["--mobile", piece]
-    for piece in without(root):
+    for piece in without(root, config):
         args += ["--without", piece]
     for function in permissions(root):
         args += ["--allow", function]

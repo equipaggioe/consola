@@ -25,7 +25,16 @@ class Settings(BaseSettings):
     database_url: str
     health_token: str
     page_token_key: str
+    valkey_url: str
 '''
+
+TASKS_PY = """
+TASKS: dict[str, Callable[[], Awaitable[None]]] = {
+    "migrate": migrate,
+    "purge": events.purge,
+    "sweep": files.sweep,
+}
+"""
 
 
 def repo(tmp_path: Path, state: str = "en desarrollo", **values: str) -> tuple[Path, Config]:
@@ -33,6 +42,7 @@ def repo(tmp_path: Path, state: str = "en desarrollo", **values: str) -> tuple[P
     (tmp_path / "README.md").write_text(f"# demo\n\nEstado: {state}\n", encoding="utf-8")
     (tmp_path / "server" / "src" / "app").mkdir(parents=True)
     (tmp_path / "server" / "src" / "app" / "config.py").write_text(CONFIG_PY, encoding="utf-8")
+    (tmp_path / "server" / "src" / "app" / "tasks.py").write_text(TASKS_PY, encoding="utf-8")
     (tmp_path / "panel").mkdir()
     base = {
         "DOMAIN": "ejemplo.net",
@@ -89,6 +99,25 @@ def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -
     assert "--turn" not in args
     assert "--logs" not in args
     assert "--development" in args
+
+
+def test_a_server_without_sweep_installs_without_its_timer(tmp_path: Path) -> None:
+    """A server whose TASKS lacks `sweep` goes `--without sweep`."""
+    root, config = repo(tmp_path)
+    (root / "server" / "src" / "app" / "tasks.py").write_text(
+        'TASKS = {"migrate": migrate, "purge": purge}\n', encoding="utf-8"
+    )
+    args = canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    sin = [args[i + 1] for i, a in enumerate(args) if a == "--without"]
+    assert sin == ["web", "landing", "sweep"]
+
+
+def test_a_server_without_tasks_stops(tmp_path: Path) -> None:
+    """A server without tasks.py stops: its units run them."""
+    root, config = repo(tmp_path)
+    (root / "server" / "src" / "app" / "tasks.py").unlink()
+    with pytest.raises(TaskError, match="tareas de canone"):
+        canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
 
 
 def test_without_permissions_nothing_is_allowed(tmp_path: Path) -> None:
@@ -206,16 +235,48 @@ def test_credentials_by_source(tmp_path: Path) -> None:
     )
 
 
+def test_valkey_url_is_local_only(tmp_path: Path) -> None:
+    """valkey_url goes to the local credentials, not credentials.py."""
+    root, config = repo(
+        tmp_path,
+        DATABASE_URL="d",
+        HEALTH_TOKEN="h",
+        PAGE_TOKEN_KEY="p",
+        RESTIC_PASSWORD="r",
+        VALKEY_URL="v",
+    )
+    assert "valkey_url" not in canone.credential_lines(root, config)
+    files = canone.credential_files(root / "server", config)
+    assert files["app_valkey_url"] == "v"
+
+
+def test_turn_secret_is_local_only(tmp_path: Path) -> None:
+    """turn_secret goes to the local credentials, not credentials.py."""
+    root, config = repo(
+        tmp_path,
+        DATABASE_URL="d",
+        HEALTH_TOKEN="h",
+        PAGE_TOKEN_KEY="p",
+        RESTIC_PASSWORD="r",
+        VALKEY_URL="v",
+        TURN_SECRET="t",
+    )
+    config_py = root / "server" / "src" / "app" / "config.py"
+    config_py.write_text(CONFIG_PY + "    turn_secret: str\n", encoding="utf-8")
+    assert "turn_secret" not in canone.credential_lines(root, config)
+    assert canone.credential_files(root / "server", config)["app_turn_secret"] == "t"
+
+
 def test_a_foreign_key_stops_before_sending(tmp_path: Path) -> None:
     """A key in no source stops before sending."""
     root, _ = repo(tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r")
     # Written by hand: Consola's save writes no key without a source.
     with open(envfile.config_path(str(root)), "a", encoding="utf-8") as fh:
-        fh.write("TURN_SECRET=viejo\n")
+        fh.write("SECRET_FILES=viejo\n")
     config = Config.for_project(str(root))
     with pytest.raises(TaskError) as error:
         canone.credential_lines(root, config)
-    assert "TURN_SECRET" in str(error.value)
+    assert "SECRET_FILES" in str(error.value)
 
 
 def test_an_empty_field_stops(tmp_path: Path) -> None:
@@ -312,19 +373,30 @@ def _server(tmp_path: Path) -> Path:
 def test_the_development_files_come_from_config_env(tmp_path: Path) -> None:
     """The development files come from `config.env`."""
     config = Config(
-        {"DATABASE_URL": "postgresql://app@h/app", "HEALTH_TOKEN": "t", "PAGE_TOKEN_KEY": "k"}
+        {
+            "DATABASE_URL": "postgresql://app@h/app",
+            "HEALTH_TOKEN": "t",
+            "PAGE_TOKEN_KEY": "k",
+            "VALKEY_URL": "v",
+        }
     )
     assert canone.credential_files(_server(tmp_path), config) == {
         "app_database_url": "postgresql://app@h/app",
         "app_health_token": "t",
         "app_page_token_key": "k",
+        "app_valkey_url": "v",
     }
 
 
 def test_alembic_enters_as_the_owner(tmp_path: Path) -> None:
     """Alembic enters as the owner."""
     config = Config(
-        {"DATABASE_URL": "postgresql://app@h/app", "HEALTH_TOKEN": "t", "PAGE_TOKEN_KEY": "k"}
+        {
+            "DATABASE_URL": "postgresql://app@h/app",
+            "HEALTH_TOKEN": "t",
+            "PAGE_TOKEN_KEY": "k",
+            "VALKEY_URL": "v",
+        }
     )
     files = canone.credential_files(_server(tmp_path), config, owner=True)
     assert files["app_database_url"] == "postgresql://app_owner@h/app"

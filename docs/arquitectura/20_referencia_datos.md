@@ -36,6 +36,8 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `GIT_REPO_URL` | GitHub | URL del repositorio | | | usa |
 | `PRIVATE` | GitHub | Repo privado | sí/no | | usa |
 | `DATABASE_URL` | Credenciales | Base de desarrollo | secreto | | usa |
+| `VALKEY_URL` | Credenciales | Valkey de desarrollo | secreto | | usa |
+| `TURN_SECRET` | Credenciales | Secreto TURN de desarrollo | secreto | | usa |
 | `RESTIC_PASSWORD` | Credenciales | Contraseña de restic | secreto | | exige |
 | `GITHUB_TOKEN` | Credenciales | Token de GitHub | secreto | | usa |
 | `BUILD_OUT_APK` | Builds | Carpeta del build APK | | donde lo deja el framework | usa |

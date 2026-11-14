@@ -28,7 +28,7 @@ Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0064](../ad
 | `scope` | `repo` (va al archivo) o `machine` (va a `QSettings`) |
 | `required_by` | Sin ella, esas acciones no pueden correr |
 | `used_by` | Esas acciones la miran, pero corren igual sin ella |
-| `needs` | El campo de `Settings` que el repo declara cuando la clave le corresponde. Sin él, el formulario no la muestra, salvo que ya tenga un valor, para poder borrarlo. Hoy solo `TURN_IP`, con `turn_secret` ([ADR-0085](../adr/0085-turn-sale-de-turn-secret.md)) |
+| `needs` | El campo de `Settings` que el repo declara cuando la clave le corresponde. Sin él, el formulario no la muestra, salvo que ya tenga un valor, para poder borrarlo. Hoy `TURN_IP` y `TURN_SECRET`, con `turn_secret` ([ADR-0085](../adr/0085-turn-sale-de-turn-secret.md)), y `VALKEY_URL`, con `valkey_url` |
 
 La distinción entre las dos últimas es la que evita un ámbar falso: `backend` nunca lee `API_URL` —quien la lee es el build de Flutter, que la exige—, así que exigirla dejaba el Backend bloqueado por una clave que jamás iba a mirar.
 
@@ -38,11 +38,11 @@ Cada línea de `config.env` es de una de tres fuentes ([ADR-0063](../adr/0063-la
 
 | Fuente | Qué claves | Adónde van |
 |---|---|---|
-| Los campos de `Settings` del repo | Uno por campo de `<SERVER_DIR>/src/app/config.py`, en mayúsculas, salvo `database_url` y `turn_secret`. Los lee `core/fields.py` con `ast` | A `credentials.py` |
+| Los campos de `Settings` del repo | Uno por campo de `<SERVER_DIR>/src/app/config.py`, en mayúsculas, salvo `database_url`, `turn_secret` y `valkey_url`, que escribe `install.py` y `credentials.py` rechaza. Los lee `core/fields.py` con `ast` | A `credentials.py` |
 | Nombre fijo | `RESTIC_PASSWORD`, y `GITHUB_TOKEN` si `PRIVATE` dice que sí | A `credentials.py` |
 | El registro de `core/settings.py` | Los argumentos de `install.py` y las claves propias de Consola | A `install.py`, o las lee Consola |
 
-El formulario muestra las dos primeras en el grupo «Credenciales», junto con `DATABASE_URL`, que es del registro y no va a `credentials.py`: es la base local de las credenciales de desarrollo (§9). Los campos se leen al abrir el repo; un campo que se llame como una clave del registro corta, y un `config.py` sin la clase `Settings` se avisa arriba del formulario.
+El formulario muestra las dos primeras en el grupo «Credenciales», junto con `DATABASE_URL`, `VALKEY_URL` y `TURN_SECRET`, que son del registro y no van a `credentials.py`: son la base, el Valkey y el secreto de coturn locales de las credenciales de desarrollo (§9). `VALKEY_URL` y `TURN_SECRET` aparecen solo si `Settings` declara su campo (`needs`). Los campos se leen al abrir el repo; un campo que se llame como una clave del registro corta, y un `config.py` sin la clase `Settings` se avisa arriba del formulario.
 
 ## 3. Defaults: fijos y dinámicos
 
@@ -118,6 +118,6 @@ Una entrada que no existe o que venció se vuelve a pedir. Una que no se puede l
 
 ## 9. El `.env` del servidor
 
-Consola **no escribe** el `.env` de la aplicación administrada. En un repo de canone escribe, en cambio, `<servidor>/credentials/` y `credentials/migrate/` desde `config.env`, y corta si git no las ignora ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md), [ADR-0070](../adr/0070-las-credenciales-del-dueno-van-dentro-de-credentials.md)): `app_<campo>` por campo de `Settings`, con los valores de producción salvo `database_url`, que es `DATABASE_URL`, como `<rol>_owner` en `credentials/migrate/`. El launcher `backend` lee el `.env` para su entorno.
+Consola **no escribe** el `.env` de la aplicación administrada. En un repo de canone escribe, en cambio, `<servidor>/credentials/` y `credentials/migrate/` desde `config.env`, y corta si git no las ignora ([ADR-0069](../adr/0069-un-repo-de-canone-corre-en-desarrollo-con-sus-credenciales.md), [ADR-0070](../adr/0070-las-credenciales-del-dueno-van-dentro-de-credentials.md)): `app_<campo>` por campo de `Settings`, con los valores de producción salvo `database_url`, que es `DATABASE_URL` (como `<rol>_owner` en `credentials/migrate/`), `valkey_url`, que es `VALKEY_URL`, y `turn_secret`, que es `TURN_SECRET`. El launcher `backend` lee el `.env` para su entorno.
 
 La otra lectura permitida es `database.server_url`, que lee `DATABASE_URL` de `server/.env` para precargar el explorador.

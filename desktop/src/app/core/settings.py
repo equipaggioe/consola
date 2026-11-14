@@ -293,6 +293,27 @@ SETTINGS: tuple[Setting, ...] = (
         secret=True,
         used_by=("backend", "migrate_db"),
     ),
+    # The local Valkey, the same way: `app_valkey_url` of the
+    # development credentials. On the VPS `install.py` writes the
+    # socket of its instance, and `credentials.py` refuses it.
+    Setting(
+        "VALKEY_URL",
+        "Credenciales",
+        "Valkey de desarrollo",
+        secret=True,
+        used_by=("backend",),
+        needs="valkey_url",
+    ),
+    # The secret of the local coturn, the same way: on the VPS
+    # `install.py` generates it once (ADR-0085).
+    Setting(
+        "TURN_SECRET",
+        "Credenciales",
+        "Secreto TURN de desarrollo",
+        secret=True,
+        used_by=("backend",),
+        needs="turn_secret",
+    ),
     Setting(
         "RESTIC_PASSWORD",
         "Credenciales",
