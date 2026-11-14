@@ -58,7 +58,7 @@ Los programas salen de `plantilla/infra/` de la copia local de canone (`CANONE_D
 
 ## 4b. Versiones
 
-Un tag `vX.Y.Z` hace que el `release.yml` del repo publique el artefacto y su `.sha256`; Consola firma el `.sha256` y el VPS lo instala con `deploy.py`, que `install.py` dejó en `/usr/local/lib/<app>/` ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)). Lo de GitHub va por `gh`, con `--repo <dueño>/<app>` de `git remote get-url origin`.
+Un tag `vX.Y.Z` hace que el `release.yml` del repo publique el artefacto y su `.sha256`; Consola firma el `.sha256` y el VPS lo instala con `deploy.py`, que `install.py` dejó como `/usr/local/sbin/<app>-deploy` ([ADR-0067](../adr/0067-publicar-version-sube-el-ultimo-tag-de-origin.md)). Lo de GitHub va por `gh`, con `--repo <dueño>/<app>` de `git remote get-url origin`.
 
 «Publicar versión» (`publish_release`):
 
@@ -66,7 +66,7 @@ Un tag `vX.Y.Z` hace que el `release.yml` del repo publique el artefacto y su `.
 |---|---|
 | Crear tag (`create_tag`) | Corta si hay cambios sin commitear o commits que origin no tiene. Sube el tag `v*` más alto de origin según el eje `part` (`canone.next_tag`), crea el tag anotado y lo empuja. Busca la corrida de `release.yml` del tag y pregunta su estado con `gh run view` cada 15 s; si no termina bien, muestra `--log-failed` y corta |
 | Firmar release (`sign_release`) | Baja `<app>-<tag>.sha256`, lo firma con `ssh-keygen -Y sign -n deploy` y `VPS_KEY_NAME`, y sube la `.sig`. Si ya está, no firma |
-| Desplegar (`deploy_release`) | `sudo python3 /usr/local/lib/<app>/deploy.py <tag>` desde la cuenta que administra (`canone.deploy_command`) |
+| Desplegar (`deploy_release`) | `sudo /usr/local/sbin/<app>-deploy <tag>` desde la cuenta que administra (`canone.deploy_command`) |
 
 Sin «Crear tag», firma y despliega el último release publicado.
 

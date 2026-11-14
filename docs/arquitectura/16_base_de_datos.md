@@ -9,7 +9,7 @@ Cinco botones tienen el eje `local` / `remote`: «Levantar backend», «Correr s
 | `database.Connection` | La aplicación conectándose | `postgresql://…@127.0.0.1:<puerto local>` | «Explorar datos»: `<app>_read`, sin contraseña, por un túnel al socket del VPS (`db.connect_vps`). «Levantar backend»: `DB_USER` por un túnel al puerto (H8 del [30](30_riesgos_y_pendientes.md)) |
 | `database.Admin` | SQL como superusuario | `psql` local por TCP con `PGPASSWORD` | — |
 | `runner.Runner` | Programas Python del repo | El venv de `<SERVER_DIR>/.venv` | — |
-| `database.py` de canone | Vaciar, migrar y sembrar | — | `python3 /usr/local/lib/<app>/database.py <comando>`, con `sudo` desde la cuenta que administra (`vps_setup.admin`) |
+| `database.py` de canone | Vaciar, migrar y sembrar | — | `/usr/local/sbin/<app>-database <comando>`, con `sudo` desde la cuenta que administra (`vps_setup.admin`) |
 
 El canal de superusuario existe aparte porque crear un rol, crear una base o borrarlas necesitan permisos que el rol de la aplicación no tiene, y por eso pasa por `psql` y no por el driver.
 

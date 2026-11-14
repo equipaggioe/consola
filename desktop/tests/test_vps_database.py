@@ -57,7 +57,7 @@ def test_rebuilding_the_vps_runs_database_py_step_by_step(
     """Rebuilding the VPS empties, migrates and seeds, with mocks."""
     sent = _vps(monkeypatch, tmp_path, "en desarrollo")
     database.rebuild_db(_context(tmp_path), "remote", drop=False, partitions=False)
-    program = "python3 /usr/local/lib/demo/database.py"
+    program = "/usr/local/sbin/demo-database"
     assert sent == [
         f"{program} empty",
         f"{program} migrate",
@@ -84,7 +84,7 @@ def test_a_repo_in_production_still_seeds_the_vps(
     """The base seeders run in production too: they are idempotent."""
     sent = _vps(monkeypatch, tmp_path, "en producción")
     database.run_seeders(_context(tmp_path), "remote")
-    assert sent == ["python3 /usr/local/lib/demo/database.py seed"]
+    assert sent == ["/usr/local/sbin/demo-database seed"]
 
 
 @pytest.mark.parametrize(

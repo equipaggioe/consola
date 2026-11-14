@@ -160,7 +160,7 @@ def test_database_py_only_receives_its_commands() -> None:
     """`database.py` only receives its own commands."""
     assert (
         canone.database_command("demo", "seed --mock")
-        == "python3 /usr/local/lib/demo/database.py seed --mock"
+        == "/usr/local/sbin/demo-database seed --mock"
     )
     with pytest.raises(TaskError):
         canone.database_command("demo", "empty; reboot")
@@ -319,9 +319,7 @@ def test_only_published_and_signed_releases_count() -> None:
 
 def test_deploy_py_only_receives_a_tag() -> None:
     """`deploy.py` only receives a tag."""
-    assert (
-        canone.deploy_command("demo", "v1.4.0") == "python3 /usr/local/lib/demo/deploy.py v1.4.0"
-    )
+    assert canone.deploy_command("demo", "v1.4.0") == "/usr/local/sbin/demo-deploy v1.4.0"
     with pytest.raises(TaskError):
         canone.deploy_command("demo", "v1.4.0; reboot")
 

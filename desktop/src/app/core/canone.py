@@ -108,7 +108,7 @@ def database_command(app: str, command: str) -> str:
     """Return `database.py` with a command; `install.py` installs it."""
     if command not in DATABASE_COMMANDS:
         raise TaskError(f"database.py no tiene el comando {command!r}.")
-    return f"python3 /usr/local/lib/{app}/database.py {command}"
+    return f"/usr/local/sbin/{app}-database {command}"
 
 
 def calls(root: Path, config: Config) -> bool:
@@ -373,7 +373,7 @@ def deploy_command(app: str, tag: str) -> str:
     """
     if not _TAG.fullmatch(tag):
         raise TaskError(f"{tag!r} no es un tag como v1.4.0.")
-    return f"python3 /usr/local/lib/{app}/deploy.py {tag}"
+    return f"/usr/local/sbin/{app}-deploy {tag}"
 
 
 def owner_url(url: str) -> str:

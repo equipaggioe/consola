@@ -457,7 +457,7 @@ DOCS: dict[str, CommandDoc] = {
             "Lista con gh api los releases del repo que tienen su <app>-<tag>.sha256.sig.",
             "Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o "
             "pedida una vez por sesión. Corta si la cuenta todavía no existe.",
-            "Corre sudo python3 /usr/local/lib/<app>/deploy.py <tag>, que baja "
+            "Corre sudo /usr/local/sbin/<app>-deploy <tag>, que baja "
             "el release, comprueba la firma, migra, cambia current y espera la "
             "salud; si no responde y no hubo migraciones, vuelve a la anterior.",
         ],
@@ -634,7 +634,7 @@ DOCS: dict[str, CommandDoc] = {
             "Corta si el README dice Estado: en producción.",
             "Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o pedida "
             "una vez por sesión; corta si todavía no existe la cuenta que administra.",
-            "Corre sudo python3 /usr/local/lib/<app>/database.py empty: detiene el "
+            "Corre sudo /usr/local/sbin/<app>-database empty: detiene el "
             "servidor y borra la base y los archivos subidos; la crea otra vez vacía.",
             "Corre database.py migrate: las migraciones y los seeders de la versión "
             "activa, y arranca el servidor.",
@@ -668,8 +668,7 @@ DOCS: dict[str, CommandDoc] = {
             "En el VPS:",
             "Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o pedida "
             "una vez por sesión; corta si todavía no existe la cuenta que administra.",
-            "Corre sudo python3 /usr/local/lib/<app>/database.py seed: los seeders "
-            "de la versión activa.",
+            "Corre sudo /usr/local/sbin/<app>-database seed: los seeders de la versión activa.",
         ],
     ),
     "run_mock_seeders": CommandDoc(
@@ -686,7 +685,7 @@ DOCS: dict[str, CommandDoc] = {
             "Corta si el README dice Estado: en producción.",
             "Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o pedida "
             "una vez por sesión; corta si todavía no existe la cuenta que administra.",
-            "Corre sudo python3 /usr/local/lib/<app>/database.py seed --mock, que "
+            "Corre sudo /usr/local/sbin/<app>-database seed --mock, que "
             "falla en una máquina sin la marca de desarrollo.",
         ],
     ),
