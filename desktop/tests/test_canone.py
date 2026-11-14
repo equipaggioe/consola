@@ -279,6 +279,18 @@ def test_a_foreign_key_stops_before_sending(tmp_path: Path) -> None:
     assert "SECRET_FILES" in str(error.value)
 
 
+def test_the_config_it_receives_is_checked_not_the_file(tmp_path: Path) -> None:
+    """The foreign keys are those of the config the task runs with."""
+    root, config = repo(tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r")
+    with open(envfile.config_path(str(root)), "a", encoding="utf-8") as fh:
+        fh.write("SECRET_FILES=viejo\n")
+    assert "SECRET_FILES" not in canone.credential_lines(root, config)
+    built = Config({**config.values, "SECRET_FILES": "viejo"})
+    with pytest.raises(TaskError) as error:
+        canone.credential_lines(root, built)
+    assert "SECRET_FILES" in str(error.value)
+
+
 def test_an_empty_field_stops(tmp_path: Path) -> None:
     """An empty field stops."""
     root, config = repo(tmp_path, HEALTH_TOKEN="h", RESTIC_PASSWORD="r", PRIVATE="si")

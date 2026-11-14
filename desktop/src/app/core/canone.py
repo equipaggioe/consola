@@ -410,17 +410,17 @@ def credential_lines(root: Path, config: Config) -> str:
     """Return the `field=value` lines `credentials.py` reads.
 
     They come from each key's source (ADR-0063). It stops before sending
-    anything if a `config.env` key falls in no source, or if a field's
-    value is missing.
+    anything if a key of `config` falls in no source, or if a field's
+    value is missing. It looks at `config`, the one the task runs with,
+    and not at the file again: a config built in memory is checked the
+    same.
     """
     server = root / config.get("SERVER_DIR")
     declared_fields = fields.field_settings(server)
     if not declared_fields:
         raise TaskError(f"No hay campos de Settings en {server / fields.CONFIG}.")
     known = {s.key for s in declared_fields}
-    foreign = sorted(
-        k for k in envfile.load_config(str(root)) if k not in known and get_setting(k) is None
-    )
+    foreign = sorted(k for k in config.values if k not in known and get_setting(k) is None)
     if foreign:
         raise TaskError(
             "Estas claves de config.env no son de Consola ni campos de Settings: "
