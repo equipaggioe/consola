@@ -101,6 +101,22 @@ def test_install_args_come_from_the_repo_and_the_configuration(tmp_path: Path) -
     assert "--development" in args
 
 
+def test_each_piece_in_java_goes_to_packages_and_install(tmp_path: Path) -> None:
+    """Each piece release.yml builds with java.py goes as --java."""
+    root, config = repo(tmp_path)
+    workflows = root / ".github" / "workflows"
+    workflows.mkdir(parents=True)
+    (workflows / "release.yml").write_text(
+        "jobs:\n  artifact:\n      - run: python3 scripts/java.py fingerprint Afis dist\n",
+        encoding="utf-8",
+    )
+    assert canone.package_args(root, config) == ["--java", "fingerprint"]
+    args = canone.install_args(root, config, "demo", "equipaggio", KEYS, "256mb")
+    java = args.index("--java")
+    assert args[java : java + 2] == ["--java", "fingerprint"]
+    assert canone.java_pieces(tmp_path / "otro") == []
+
+
 def test_a_server_without_sweep_installs_without_its_timer(tmp_path: Path) -> None:
     """A server whose TASKS lacks `sweep` goes `--without sweep`."""
     root, config = repo(tmp_path)

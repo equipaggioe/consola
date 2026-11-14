@@ -35,6 +35,9 @@ _DESKTOP = re.compile(r"^\s+archivo: desktop-(linux|windows|macos)\.", re.M)
 # Each app of mobile/ that the release brings as its universal APK
 # (despliegue.md of canone, «Versiones»).
 _MOBILE = re.compile(r'gh release upload "\$GITHUB_REF_NAME" (mobile(?:-[a-z]+)?)\.apk')
+# Each piece in Java that release.yml builds with canone's
+# `scripts/java.py` (java.md of canone).
+_JAVA = re.compile(r"scripts/java\.py ([a-z][a-z0-9-]*) ")
 _GITHUB = re.compile(r"github\.com[:/]([^/]+)/([^/]+?)(?:\.git)?/?$")
 # A tag `deploy.py` deploys (despliegue.md of canone, «Versiones»).
 _TAG = re.compile(r"v(\d+)\.(\d+)\.(\d+)")
@@ -133,6 +136,8 @@ def package_args(root: Path, config: Config) -> list[str]:
         args.append("--turn")
     if _logs(config):
         args.append("--logs")
+    for piece in java_pieces(root):
+        args += ["--java", piece]
     return args
 
 
@@ -174,6 +179,14 @@ def mobiles(root: Path) -> list[str]:
     if not release.is_file():
         return []
     return list(dict.fromkeys(_MOBILE.findall(release.read_text(encoding="utf-8"))))
+
+
+def java_pieces(root: Path) -> list[str]:
+    """Return each piece in Java that `release.yml` builds."""
+    release = root / RELEASE
+    if not release.is_file():
+        return []
+    return list(dict.fromkeys(_JAVA.findall(release.read_text(encoding="utf-8"))))
 
 
 def permissions(root: Path) -> list[str]:
@@ -299,6 +312,8 @@ def install_args(
         args += ["--without", piece]
     for function in permissions(root):
         args += ["--allow", function]
+    for piece in java_pieces(root):
+        args += ["--java", piece]
     for extension in envfile.split_list(config.get("DB_EXTENSIONS")):
         args += ["--extension", extension]
     if calls(root, config):
