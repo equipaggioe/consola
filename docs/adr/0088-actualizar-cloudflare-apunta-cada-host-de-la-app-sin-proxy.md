@@ -1,6 +1,6 @@
 # ADR-0088 · «Actualizar Cloudflare» apunta el host de cada pieza web de la app, sin el proxy
 
-- **Estado:** Propuesta
+- **Estado:** Aceptada
 - **Fecha:** 2026-11-14
 - **Alcance:** `core/tasks/utils.py`, `core/canone.py`, `core/settings.py`
 
