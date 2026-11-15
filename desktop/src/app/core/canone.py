@@ -28,7 +28,7 @@ SURFACES = ("web", "panel", "landing")
 _HOST = {"web": "app.", "panel": "panel.", "landing": ""}
 # The tasks of the server, `python -m app.tasks <task>`. A server
 # without `sweep` keeps no files of its users, and installs without
-# its timer.
+# its timer; `TIMERS` gives the others their calendar.
 TASKS = Path("src") / "app" / "tasks.py"
 RELEASE = Path(".github") / "workflows" / "release.yml"
 # The browser features the app uses, one per line (ADR-0136 of canone).
@@ -221,15 +221,11 @@ def valkey_memory(meminfo: str, percent: str) -> str:
     return f"{max(1, int(int(found.group(1)) * share / 100 / 1024))}mb"
 
 
-def tasks(server: Path) -> list[str]:
-    """Return the keys of `TASKS` in the server's `tasks.py`.
+def _dictionary(path: Path, name: str) -> ast.Dict | None:
+    """Return the literal dictionary `name` of the module at `path`.
 
-    It is read with `ast`, like the `Settings` fields: importing it asks
-    for the repo's venv and its credentials.
+    None if the module does not declare it as a literal.
     """
-    path = server / TASKS
-    if not path.is_file():
-        raise TaskError(f"No hay {path}: el servidor no trae las tareas de canone.")
     tree = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
     for node in tree.body:
         if isinstance(node, ast.AnnAssign):
@@ -238,14 +234,57 @@ def tasks(server: Path) -> list[str]:
             target = node.targets[0]
         else:
             continue
-        if isinstance(target, ast.Name) and target.id == "TASKS":
-            if not isinstance(node.value, ast.Dict):
-                break
-            keys = node.value.keys
-            return [
-                k.value for k in keys if isinstance(k, ast.Constant) and isinstance(k.value, str)
-            ]
-    raise TaskError(f"{path} no declara el diccionario TASKS.")
+        if isinstance(target, ast.Name) and target.id == name:
+            return node.value if isinstance(node.value, ast.Dict) else None
+    return None
+
+
+def _tasks_file(server: Path) -> Path:
+    path = server / TASKS
+    if not path.is_file():
+        raise TaskError(f"No hay {path}: el servidor no trae las tareas de canone.")
+    return path
+
+
+def tasks(server: Path) -> list[str]:
+    """Return the keys of `TASKS` in the server's `tasks.py`.
+
+    It is read with `ast`, like the `Settings` fields: importing it asks
+    for the repo's venv and its credentials.
+    """
+    path = _tasks_file(server)
+    found = _dictionary(path, "TASKS")
+    if found is None:
+        raise TaskError(f"{path} no declara el diccionario TASKS.")
+    return [
+        k.value for k in found.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)
+    ]
+
+
+def timers(server: Path) -> list[tuple[str, str]]:
+    """Return each task of `TIMERS` with its `OnCalendar=`.
+
+    `TIMERS` names the tasks with a calendar of their own, which
+    `install.py --task` gives a timer (fastapi.md of canone, «Tareas
+    periódicas»). Without it there are none.
+    """
+    path = _tasks_file(server)
+    found = _dictionary(path, "TIMERS")
+    if found is None:
+        return []
+    declared = tasks(server)
+    pairs = []
+    for key, value in zip(found.keys, found.values, strict=True):
+        if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+            raise TaskError(f"{path}: cada tarea de TIMERS es un texto.")
+        if not (isinstance(value, ast.Constant) and isinstance(value.value, str) and value.value):
+            raise TaskError(
+                f"{path}: el calendario de {key.value} en TIMERS es un texto, como minutely."
+            )
+        if key.value not in declared:
+            raise TaskError(f"{path}: {key.value} está en TIMERS y no en TASKS.")
+        pairs.append((key.value, value.value))
+    return pairs
 
 
 def without(root: Path, config: Config) -> list[str]:
@@ -330,6 +369,8 @@ def install_args(
         args += ["--allow", function]
     for piece in java_pieces(root):
         args += ["--java", piece]
+    for task, calendar in timers(root / config.get("SERVER_DIR")):
+        args += ["--task", f"{task}={calendar}"]
     for extension in envfile.split_list(config.get("DB_EXTENSIONS")):
         args += ["--extension", extension]
     if calls(root, config):

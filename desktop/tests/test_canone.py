@@ -128,6 +128,41 @@ def test_a_server_without_sweep_installs_without_its_timer(tmp_path: Path) -> No
     assert sin == ["web", "landing", "sweep"]
 
 
+def test_each_task_of_timers_goes_with_its_calendar(tmp_path: Path) -> None:
+    """Each task of TIMERS goes as `--task <task>=<OnCalendar>`.
+
+    Without TIMERS no `--task` goes.
+    """
+    root, config = repo(tmp_path)
+    args = canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    assert "--task" not in args
+    tasks_py = root / "server" / "src" / "app" / "tasks.py"
+    tasks_py.write_text(
+        'TASKS = {"migrate": migrate, "alert": alert, "sweep": sweep}\n'
+        'TIMERS: dict[str, str] = {"alert": "minutely"}\n',
+        encoding="utf-8",
+    )
+    args = canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    assert [args[i + 1] for i, a in enumerate(args) if a == "--task"] == ["alert=minutely"]
+
+
+def test_a_timer_of_a_task_that_does_not_exist_stops(tmp_path: Path) -> None:
+    """A task of TIMERS that TASKS lacks stops.
+
+    So does a calendar that is not a text.
+    """
+    root, config = repo(tmp_path)
+    tasks_py = root / "server" / "src" / "app" / "tasks.py"
+    tasks_py.write_text(
+        'TASKS = {"migrate": migrate}\nTIMERS = {"alert": "minutely"}\n', encoding="utf-8"
+    )
+    with pytest.raises(TaskError, match="no en TASKS"):
+        canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    tasks_py.write_text('TASKS = {"alert": alert}\nTIMERS = {"alert": MINUTE}\n', encoding="utf-8")
+    with pytest.raises(TaskError, match="es un texto"):
+        canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+
+
 def test_a_server_without_tasks_stops(tmp_path: Path) -> None:
     """A server without tasks.py stops: its units run them."""
     root, config = repo(tmp_path)
