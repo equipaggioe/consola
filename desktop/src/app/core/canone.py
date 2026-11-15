@@ -24,6 +24,8 @@ from app.core.settings import get_setting
 
 # The web pieces `install.py --without` leaves out, by their folder.
 SURFACES = ("web", "panel", "landing")
+# The prefix of each piece's host on the app's domain.
+_HOST = {"web": "app.", "panel": "panel.", "landing": ""}
 # The tasks of the server, `python -m app.tasks <task>`. A server
 # without `sweep` keeps no files of its users, and installs without
 # its timer.
@@ -256,6 +258,20 @@ def without(root: Path, config: Config) -> list[str]:
     if "sweep" not in tasks(root / config.get("SERVER_DIR")):
         missing.append("sweep")
     return missing
+
+
+def hosts(root: Path, config: Config) -> list[str]:
+    """Return the host of each web piece the repo has.
+
+    The landing is `DOMAIN`, the web `app.DOMAIN` and the panel
+    `panel.DOMAIN` (despliegue.md of canone, «Caddy»), and each one
+    points to the machine before `install.py` («Máquina»).
+    """
+    domain = config.require("DOMAIN")
+    found = [f"{_HOST[piece]}{domain}" for piece in SURFACES if (root / piece).is_dir()]
+    if not found:
+        raise TaskError(f"{root} no tiene {', '.join(SURFACES)}: ningún host apunta al VPS.")
+    return found
 
 
 def _logs(config: Config) -> tuple[str, str, str] | None:

@@ -48,7 +48,7 @@ Detalle de cada formato en [20](20_referencia_datos.md); el reparto entre repo y
 |---|---|---|
 | VPS | `ssh`, `scp`, túneles `-L` | Lo que instalan `packages.py`, `swap.py`, `uv.py`, `install.py` y `credentials.py`, y el ejecutable de «Compilar ejecutable» con sus manifiestos bajo `VPS_DEPLOY_DIR`. No escribe configuración de servicios ([ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md)) |
 | GitHub | `git` | Empuja ramas y clona repos |
-| Cloudflare | API v4 | Un registro A |
+| Cloudflare | API v4 | El registro A de cada host de la app, sin proxy |
 | Esta máquina | `~/.ssh`, entorno del usuario | Pares de llaves, `known_hosts`, `HKCU\Environment` o el perfil del shell |
 
 Consola nunca escribe a nivel sistema en la máquina local: el PATH y las variables de los SDK van al usuario ([ADR-0029](../adr/0029-entorno-a-nivel-usuario.md)).

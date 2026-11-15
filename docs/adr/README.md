@@ -95,3 +95,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0085](0085-turn-sale-de-turn-secret.md) | `--turn` sale de que `Settings` declare `turn_secret`, no de una clave |
 | [0086](0086-la-memoria-de-valkey-sale-de-un-valor-o-de-un-porcentaje.md) | La memoria de Valkey sale de un valor, o de un porcentaje de la RAM del VPS |
 | [0087](0087-la-camara-va-en-consola-camera-y-sus-capturas-en-consola.md) | La cámara del repo va en `.consola/camera/`, y sus capturas en `.consola/screenshots/` y `.consola/publishable/` |
+| [0088](0088-actualizar-cloudflare-apunta-cada-host-de-la-app-sin-proxy.md) | «Actualizar Cloudflare» apunta el host de cada pieza web de la app, sin el proxy |

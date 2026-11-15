@@ -110,7 +110,6 @@ SETTINGS: tuple[Setting, ...] = (
         "CF_API_TOKEN", "Cloudflare", "API token", secret=True, required_by=("update_cloudflare",)
     ),
     Setting("CF_DOMAIN_NAME", "Cloudflare", "Dominio", required_by=("update_cloudflare",)),
-    Setting("CF_RECORD_NAME", "Cloudflare", "Registro DNS", required_by=("update_cloudflare",)),
     # --- VPS ---
     # «Refrescar known_hosts» only forgets this host in known_hosts:
     # it needs the IP, not the account nor the key.

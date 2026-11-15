@@ -19,7 +19,7 @@ from typing import Any
 from pydantic import ValidationError
 
 from app.api import cloudflare, flutter
-from app.core import android, files, http, userenv
+from app.core import android, canone, files, http, userenv
 from app.core.catalog import (
     ANDROID_DIR_DEFAULT,
     API_LEVEL_DEFAULT,
@@ -254,12 +254,16 @@ def _cloudflare[A: cloudflare.Answer](
 
 
 def update_cloudflare(
-    ctx: TaskContext, ip_mode: str = "vps", custom_ip: str = "", ttl: int = 1, proxied: bool = True
+    ctx: TaskContext, ip_mode: str = "vps", custom_ip: str = "", ttl: int = 1
 ) -> str:
-    """Point the DNS record to the VPS's, this machine's or another IP.
+    """Point the A record of each host of the app to an IP, no proxy.
 
-    «Otra» with the field empty stops: falling to `VPS_IP` would point
-    the record somewhere nobody chose.
+    The hosts are those of the repo's web pieces (`canone.hosts`), in
+    the zone `CF_DOMAIN_NAME`, and a missing record is created. Without
+    the proxy, Caddy gets each certificate by ACME and the server sees
+    the client's IP, which the per-IP limits count (despliegue.md of
+    canone). «Otra» with the field empty stops: falling to `VPS_IP`
+    would point the records somewhere nobody chose.
     """
     if ip_mode == "detect":
         ip = detect_public_ip(ctx)
@@ -270,35 +274,35 @@ def update_cloudflare(
     else:
         ip = ctx.config.require("VPS_IP")
 
+    names = canone.hosts(ctx.root, ctx.config)
     domain = ctx.config.require("CF_DOMAIN_NAME")
-    registry = ctx.config.require("CF_RECORD_NAME")
-
     zones = _cloudflare(ctx, "GET", f"/zones?name={domain}", cloudflare.Zones).result
     if not zones:
         raise TaskError(f"Cloudflare no conoce el dominio {domain}.")
     zone = zones[0].id
+    for name in names:
+        _point(ctx, zone, name, ip, ttl)
+    return ip
 
+
+def _point(ctx: TaskContext, zone: str, name: str, ip: str, ttl: int) -> None:
+    """Leave the A record of `name` on `ip`, without proxy."""
+    body = {"type": "A", "name": name, "content": ip, "ttl": ttl, "proxied": False}
     records = _cloudflare(
-        ctx, "GET", f"/zones/{zone}/dns_records?type=A&name={registry}", cloudflare.DnsRecords
+        ctx, "GET", f"/zones/{zone}/dns_records?type=A&name={name}", cloudflare.DnsRecords
     ).result
     if not records:
-        raise TaskError(f"No existe el registro A para {registry}.")
-
+        _cloudflare(ctx, "POST", f"/zones/{zone}/dns_records", cloudflare.Answer, body)
+        ctx.ok(f"{name}: creado -> {ip}")
+        ctx.note(f"DNS {name} apuntado a {ip}.")
+        return
     current = records[0]
-    if current.content == ip:
-        ctx.ok(f"{registry} ya apunta a {ip}. No hay nada que cambiar.")
-        return ip
-
-    _cloudflare(
-        ctx,
-        "PUT",
-        f"/zones/{zone}/dns_records/{current.id}",
-        cloudflare.Answer,
-        {"type": "A", "name": registry, "content": ip, "ttl": ttl, "proxied": proxied},
-    )
-    ctx.ok(f"{registry}: {current.content} -> {ip}")
-    ctx.note(f"DNS {registry} apuntado a {ip}.")
-    return ip
+    if current.content == ip and not current.proxied:
+        ctx.ok(f"{name} ya apunta a {ip}, sin proxy.")
+        return
+    _cloudflare(ctx, "PUT", f"/zones/{zone}/dns_records/{current.id}", cloudflare.Answer, body)
+    ctx.ok(f"{name}: {current.content} -> {ip}, sin proxy")
+    ctx.note(f"DNS {name} apuntado a {ip}.")
 
 
 # --- SDKs: common plumbing ---

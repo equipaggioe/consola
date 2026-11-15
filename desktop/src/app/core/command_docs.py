@@ -847,17 +847,18 @@ DOCS: dict[str, CommandDoc] = {
     ),
     "update_cloudflare": CommandDoc(
         summary=(
-            "Apunta el registro A de Cloudflare a la IP elegida: la del VPS, la "
-            "pública detectada, o una escrita."
+            "Apunta a la IP elegida, sin el proxy de Cloudflare, el registro A de cada "
+            "host de la app: DOMAIN para landing/, app.DOMAIN para web/ y panel.DOMAIN "
+            "para panel/."
         ),
         steps=[
             "Resuelve la IP según el modo: VPS_IP, la detectada preguntándole a "
             "un servicio externo, o la escrita.",
+            "Arma los hosts con las piezas web que el repo tiene en su raíz.",
             "Busca en Cloudflare la zona de CF_DOMAIN_NAME con el token de la API.",
-            "Busca el registro A de CF_RECORD_NAME dentro de esa zona.",
-            "Termina si ese registro ya apunta a la misma IP.",
-            "Manda el PUT con la IP nueva, el TTL y el estado de proxy.",
-            "Deja en el log el cambio de una IP a la otra.",
+            "Por cada host, crea su registro A si falta, lo deja como está si ya "
+            "apunta a esa IP sin proxy, o lo cambia con un PUT.",
+            "Deja en el log cada cambio.",
         ],
     ),
     "sync_common_files": CommandDoc(

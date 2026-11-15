@@ -12,7 +12,6 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `SERVER_DIR` | Server | Carpeta del server | | `server` | usa |
 | `CF_API_TOKEN` | Cloudflare | API token | secreto | | exige |
 | `CF_DOMAIN_NAME` | Cloudflare | Dominio | | | exige |
-| `CF_RECORD_NAME` | Cloudflare | Registro DNS | | | exige |
 | `VPS_IP` | VPS | IP del servidor | | | exige |
 | `ROOT_USER` | VPS | Usuario root | | `root` | exige |
 | `ROOT_PASSWORD` | VPS | Contraseña de root | secreto | se pide si la llave no entra | usa |

@@ -23,6 +23,7 @@ class DnsRecord(BaseModel):
 
     id: str
     content: str
+    proxied: bool
 
 
 class Zones(Answer):

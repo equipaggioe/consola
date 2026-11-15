@@ -1525,8 +1525,8 @@ def load_catalog() -> None:
             group="VPS",
             kind="once",
             icon="☁️",
-            description="Apunta el registro DNS de Cloudflare a la IP del VPS, a la pública "
-            "de esta máquina o a otra escrita.",
+            description="Apunta el host de cada pieza web de la app a la IP del VPS, a la "
+            "pública de esta máquina o a otra escrita, sin el proxy de Cloudflare.",
             axes=[
                 AxisDef(
                     "ip_mode",

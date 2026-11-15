@@ -12,13 +12,14 @@ from app.core.catalog import load_catalog
 from app.core.context import TaskContext
 from app.core.envfile import Config
 from app.core.errors import TaskError
+from app.core.projects import Project
 from app.core.registry import registry
 from app.core.tasks import utils
 
 CONFIG = {
     "CF_API_TOKEN": "token",
     "CF_DOMAIN_NAME": "ejemplo.net",
-    "CF_RECORD_NAME": "app.ejemplo.net",
+    "DOMAIN": "ejemplo.net",
     "VPS_IP": "203.0.113.9",
 }
 ANDROID_PAGE = """
@@ -94,80 +95,135 @@ def test_a_flutter_index_with_another_shape_stops(monkeypatch: pytest.MonkeyPatc
         utils._resolve_flutter_stable(TaskContext("prueba"), "windows")
 
 
-def test_cloudflare_changes_the_record_it_read(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The record's id and old content come from the models."""
-    calls: list[tuple[str, str, bytes | None]] = []
-    answers = iter(
-        [
-            ok([{"id": "z1", "name": "ejemplo.net"}]),
-            ok([{"id": "r1", "content": "203.0.113.1", "type": "A"}]),
-            ok({"id": "r1"}),
-        ]
-    )
+class FakeCloudflare:
+    """The zone `ejemplo.net` with its A records, by name."""
 
-    def request(url: str, *, method: str, headers: Any, body: bytes | None) -> bytes:
-        calls.append((method, url, body))
-        return next(answers)
+    def __init__(self, records: dict[str, tuple[str, bool]]) -> None:
+        """Keep the records and the writes it receives."""
+        self.records = {
+            name: {"id": name, "content": ip, "proxied": proxied}
+            for name, (ip, proxied) in records.items()
+        }
+        self.writes: list[tuple[str, dict[str, Any]]] = []
 
-    monkeypatch.setattr(utils.http, "request", request)
-    ip = utils.update_cloudflare(TaskContext("prueba", config=Config(CONFIG)))
+    def request(self, url: str, *, method: str, headers: Any, body: bytes | None) -> bytes:
+        """Answer as Cloudflare: zones, records, and each write."""
+        if "/zones?name=" in url:
+            return ok([{"id": "z1", "name": "ejemplo.net"}])
+        if method == "GET":
+            name = url.rpartition("name=")[2]
+            return ok([self.records[name]] if name in self.records else [])
+        sent = json.loads(body or b"")
+        self.writes.append((method, sent))
+        self.records[sent["name"]] = {
+            "id": sent["name"],
+            "content": sent["content"],
+            "proxied": sent["proxied"],
+        }
+        return ok({"id": sent["name"]})
+
+
+def _project(tmp_path: Path, *pieces: str) -> Project:
+    for piece in pieces:
+        (tmp_path / piece).mkdir()
+    return Project(name="ejemplo", path=str(tmp_path), theme="blue")
+
+
+def _cloudflare_ctx(tmp_path: Path, *pieces: str) -> TaskContext:
+    return TaskContext("prueba", project=_project(tmp_path, *pieces), config=Config(CONFIG))
+
+
+def test_cloudflare_points_each_host_without_proxy(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """Each web piece's host ends on the IP without proxy.
+
+    One record is created and one changes.
+    """
+    fake = FakeCloudflare({"app.ejemplo.net": ("203.0.113.1", True)})
+    monkeypatch.setattr(utils.http, "request", fake.request)
+    ip = utils.update_cloudflare(_cloudflare_ctx(tmp_path, "web", "landing"))
     assert ip == "203.0.113.9"
-    method, url, body = calls[-1]
-    assert (method, url.endswith("/zones/z1/dns_records/r1")) == ("PUT", True)
-    assert json.loads(body or b"")["content"] == "203.0.113.9"
+    assert fake.records == {
+        "app.ejemplo.net": {"id": "app.ejemplo.net", "content": ip, "proxied": False},
+        "ejemplo.net": {"id": "ejemplo.net", "content": ip, "proxied": False},
+    }
+    assert [method for method, _ in fake.writes] == ["PUT", "POST"]
 
 
-def _record_answers(calls: list[bytes | None]) -> Any:
-    """Answer zone, record and PUT, keeping each body sent."""
-    answers = iter(
-        [
-            ok([{"id": "z1", "name": "ejemplo.net"}]),
-            ok([{"id": "r1", "content": "203.0.113.1", "type": "A"}]),
-            ok({"id": "r1"}),
-        ]
+def test_cloudflare_leaves_a_record_already_right(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A host on the IP without proxy is not written; one with it is."""
+    fake = FakeCloudflare(
+        {"panel.ejemplo.net": ("203.0.113.9", False), "ejemplo.net": ("203.0.113.9", True)}
     )
+    monkeypatch.setattr(utils.http, "request", fake.request)
+    utils.update_cloudflare(_cloudflare_ctx(tmp_path, "panel", "landing"))
+    assert fake.writes == [
+        (
+            "PUT",
+            {
+                "type": "A",
+                "name": "ejemplo.net",
+                "content": "203.0.113.9",
+                "ttl": 1,
+                "proxied": False,
+            },
+        )
+    ]
 
-    def request(url: str, *, method: str, headers: Any, body: bytes | None) -> bytes:
-        calls.append(body)
-        return next(answers)
 
-    return request
+def test_cloudflare_without_web_pieces_stops(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """A repo without landing/, web/ or panel/ has no host to point."""
+    fake = FakeCloudflare({})
+    monkeypatch.setattr(utils.http, "request", fake.request)
+    with pytest.raises(TaskError, match="ningún host"):
+        utils.update_cloudflare(_cloudflare_ctx(tmp_path))
+    assert fake.writes == []
 
 
-def test_cloudflare_points_to_a_written_ip(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cloudflare_points_to_a_written_ip(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """«Otra» sends what was written, not `VPS_IP`."""
-    calls: list[bytes | None] = []
-    monkeypatch.setattr(utils.http, "request", _record_answers(calls))
-    ctx = TaskContext("prueba", config=Config(CONFIG))
+    fake = FakeCloudflare({})
+    monkeypatch.setattr(utils.http, "request", fake.request)
+    ctx = _cloudflare_ctx(tmp_path, "web")
     assert utils.update_cloudflare(ctx, ip_mode="static", custom_ip=" 198.51.100.7 ") == (
         "198.51.100.7"
     )
-    assert json.loads(calls[-1] or b"")["content"] == "198.51.100.7"
+    assert fake.writes[-1][1]["content"] == "198.51.100.7"
 
 
-def test_cloudflare_with_other_and_no_ip_stops(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cloudflare_with_other_and_no_ip_stops(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """«Otra» with the field empty does not fall to `VPS_IP`."""
-    calls: list[bytes | None] = []
-    monkeypatch.setattr(utils.http, "request", _record_answers(calls))
+    fake = FakeCloudflare({})
+    monkeypatch.setattr(utils.http, "request", fake.request)
     with pytest.raises(TaskError, match="Otra IP"):
-        utils.update_cloudflare(
-            TaskContext("prueba", config=Config(CONFIG)), ip_mode="static", custom_ip=""
-        )
-    assert calls == []
+        utils.update_cloudflare(_cloudflare_ctx(tmp_path, "web"), ip_mode="static", custom_ip="")
+    assert fake.writes == []
 
 
-def test_cloudflare_points_to_this_machine(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_cloudflare_points_to_this_machine(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """«La pública de esta máquina» sends the detected IP."""
-    calls: list[bytes | None] = []
-    monkeypatch.setattr(utils.http, "request", _record_answers(calls))
+    fake = FakeCloudflare({})
+    monkeypatch.setattr(utils.http, "request", fake.request)
 
     def detect(ctx: TaskContext) -> str:
         return "192.0.2.44"
 
     monkeypatch.setattr(utils, "detect_public_ip", detect)
-    ctx = TaskContext("prueba", config=Config(CONFIG))
-    assert utils.update_cloudflare(ctx, ip_mode="detect") == "192.0.2.44"
-    assert json.loads(calls[-1] or b"")["content"] == "192.0.2.44"
+    assert utils.update_cloudflare(_cloudflare_ctx(tmp_path, "web"), ip_mode="detect") == (
+        "192.0.2.44"
+    )
+    assert fake.writes[-1][1]["content"] == "192.0.2.44"
 
 
 def test_the_cloudflare_axes_reach_the_function() -> None:
@@ -179,7 +235,9 @@ def test_the_cloudflare_axes_reach_the_function() -> None:
     assert capability.kwargs_from(payload) == {"ip_mode": "static", "custom_ip": "198.51.100.7"}
 
 
-def test_a_rejected_cloudflare_answer_says_why(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_a_rejected_cloudflare_answer_says_why(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """A rejection has no `result`, and what shows is its errors."""
     rejected = {"success": False, "errors": [{"code": 9109}], "result": None}
 
@@ -188,10 +246,12 @@ def test_a_rejected_cloudflare_answer_says_why(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(utils.http, "request", request)
     with pytest.raises(TaskError, match="9109"):
-        utils.update_cloudflare(TaskContext("prueba", config=Config(CONFIG)))
+        utils.update_cloudflare(_cloudflare_ctx(tmp_path, "web"))
 
 
-def test_an_unexpected_cloudflare_answer_stops(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_an_unexpected_cloudflare_answer_stops(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
     """Something that is not its JSON stops the task and is named."""
 
     def request(*args: Any, **kwargs: Any) -> bytes:
@@ -199,7 +259,7 @@ def test_an_unexpected_cloudflare_answer_stops(monkeypatch: pytest.MonkeyPatch) 
 
     monkeypatch.setattr(utils.http, "request", request)
     with pytest.raises(TaskError, match="inesperado"):
-        utils.update_cloudflare(TaskContext("prueba", config=Config(CONFIG)))
+        utils.update_cloudflare(_cloudflare_ctx(tmp_path, "web"))
 
 
 def test_desktops_reads_the_matrix_of_the_template(tmp_path: Path) -> None:
