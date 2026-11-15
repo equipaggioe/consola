@@ -1,3 +1,9 @@
-¿Cómo funciona la llave guardada fuera?	install.py recibe dos llaves: la de esta computadora (VPS_KEY_NAME) y OFFLINE_KEY. Las dos entran por SSH a la cuenta (--key) y las dos firman releases (--signer). Si pierdes la computadora, con la otra sigues entrando y desplegando. Ojo: hoy la tuya es de prueba y está en esta misma máquina.
+el color de los checkmarks en fasle debe ser el mismo que el de los inputs
 
-¿Consola puede pedirle la IP del túnel a Equipaggio?	Hoy no: en canone no hay ninguna API para eso. Además no basta con la IP: Equipaggio también tiene que registrar la llave WireGuard que install.py genera en el VPS. Haría falta un endpoint en Equipaggio que reciba esa llave y devuelva la IP.
+el tamano de la fuente de las etiquetas y el texto de los inputs debe ser el mismo que el de las etiquetas de los checkmarls
+
+el color  de la fuente de las etiquetas de los inputs y de las etiquetas de los checkmarks deben ser los mismo
+
+el color de los imputs de texto y el de los desplegables debe ser el mismo
+
+los tonos crome  y surfaceson muy parecidos, esto es intencional? is no es intencional revisalos y ajustalos
