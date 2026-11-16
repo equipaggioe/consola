@@ -81,6 +81,11 @@ SERVICE_LABELS = {
 # named as canone's `scripts/java.py` asks.
 JAVA = "java:"
 _PIECE = re.compile(r"[a-z][a-z0-9-]*")
+# The axis value of a task with its own timer is `task:<task>`, and its
+# unit is its instance of `<app>-task@` (ADR-0151 of canone), named as
+# `install.py --task` asks.
+TASK = "task:"
+_TASK = re.compile(r"[a-z][a-z0-9_]{0,30}")
 
 
 def _fixed_units(app: str) -> dict[str, str]:
@@ -92,7 +97,8 @@ def _fixed_units(app: str) -> dict[str, str]:
 def service_labels(values: Iterable[str]) -> dict[str, str]:
     """Return what the axis shows for each value."""
     pieces = {v: f"Java: {v.removeprefix(JAVA)}" for v in values if v.startswith(JAVA)}
-    return {**SERVICE_LABELS, **pieces}
+    tasks = {v: f"Tarea: {v.removeprefix(TASK)}" for v in values if v.startswith(TASK)}
+    return {**SERVICE_LABELS, **pieces, **tasks}
 
 
 def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
@@ -100,6 +106,9 @@ def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
     piece = which.removeprefix(JAVA)
     if which.startswith(JAVA) and _PIECE.fullmatch(piece):
         return f"{app}-java@{piece}"
+    task = which.removeprefix(TASK)
+    if which.startswith(TASK) and _TASK.fullmatch(task):
+        return f"{app}-task@{task}"
     found = _fixed_units(app)
     if which not in found:
         raise TaskError(f"Servicio desconocido: {which}")
@@ -115,9 +124,10 @@ def installed_services(remote: Remote, app: str) -> list[str]:
     offering them all then would hide that the VPS does not answer
     (ADR-0076).
 
-    The pieces in Java are listed and not asked one by one: `systemctl
-    cat` answers for any instance once the template is installed, and
-    the VPS is what knows which ones `install.py` enabled.
+    The pieces in Java and the tasks with their own timer are listed and
+    not asked one by one: `systemctl cat` answers for any instance once
+    the template is installed, and the VPS is what knows which ones
+    `install.py` enabled.
     """
     names = {unit: value for value, unit in _fixed_units(app).items()}
     if not reachable(remote):
@@ -126,14 +136,17 @@ def installed_services(remote: Remote, app: str) -> list[str]:
         )
     listing = " ".join(quote(n) for n in names)
     pieces = quote(f"{app}-java@*")
+    tasks = quote(f"{app}-task@*.timer")
     # `true`: the exit code of the loop is that of its last unit, and a
     # missing one is fine.
     output = capture(
         remote,
         f'for s in {listing}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done; '
-        f"systemctl list-units --all --no-legend --plain {pieces} | awk '{{print $1}}'; true",
+        f"systemctl list-units --all --no-legend --plain {pieces} {tasks}"
+        " | awk '{print $1}'; true",
     )
-    return [value for line in output.split() if (value := _axis_value(app, line, names))]
+    found = [value for line in output.split() if (value := _axis_value(app, line, names))]
+    return list(dict.fromkeys(found))
 
 
 def _axis_value(app: str, line: str, names: dict[str, str]) -> str:
@@ -143,6 +156,9 @@ def _axis_value(app: str, line: str, names: dict[str, str]) -> str:
     piece = line.removeprefix(f"{app}-java@").removesuffix(".service")
     if line.startswith(f"{app}-java@") and _PIECE.fullmatch(piece):
         return f"{JAVA}{piece}"
+    task = line.removeprefix(f"{app}-task@").removesuffix(".timer")
+    if line.startswith(f"{app}-task@") and line.endswith(".timer") and _TASK.fullmatch(task):
+        return f"{TASK}{task}"
     return ""
 
 

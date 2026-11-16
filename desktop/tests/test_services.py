@@ -63,6 +63,14 @@ def test_a_java_piece_has_its_label() -> None:
     assert labels["java:server-fingerprint"] == "Java: server-fingerprint"
 
 
+def test_a_task_names_its_instance_and_has_its_label() -> None:
+    """A task with its own timer names its instance of `<app>-task@`."""
+    assert vps.resolve_service("concordia", "task:safety") == "concordia-task@safety"
+    assert vps.service_labels(["task:safety"])["task:safety"] == "Tarea: safety"
+    with pytest.raises(TaskError):
+        vps.resolve_service("concordia", "task:x; reboot")
+
+
 @pytest.mark.parametrize(
     ("line", "value"),
     [
@@ -70,6 +78,9 @@ def test_a_java_piece_has_its_label() -> None:
         ("coturn", "coturn"),
         ("presenze-java@server-fingerprint.service", "java:server-fingerprint"),
         ("otra-java@server-fingerprint.service", ""),
+        ("presenze-task@safety.timer", "task:safety"),
+        ("presenze-task@safety.service", ""),
+        ("otra-task@safety.timer", ""),
     ],
 )
 def test_each_unit_the_vps_answers(line: str, value: str) -> None:
