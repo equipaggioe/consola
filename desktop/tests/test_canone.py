@@ -163,6 +163,48 @@ def test_a_timer_of_a_task_that_does_not_exist_stops(tmp_path: Path) -> None:
         canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
 
 
+def test_each_task_of_browser_timers_goes_to_packages_and_install(tmp_path: Path) -> None:
+    """Each task of BROWSER_TIMERS goes as `--browser <task>=<when>`.
+
+    To `packages.py`, which installs Chromium, and to `install.py`.
+    Without BROWSER_TIMERS no `--browser` goes.
+    """
+    root, config = repo(tmp_path)
+    assert "--browser" not in canone.package_args(root, config)
+    assert "--browser" not in canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    (root / "server" / "src" / "app" / "tasks.py").write_text(
+        'TASKS = {"migrate": migrate, "attempt": attempt, "sweep": sweep}\n'
+        'BROWSER_TIMERS: dict[str, str] = {"attempt": "minutely"}\n',
+        encoding="utf-8",
+    )
+    assert canone.package_args(root, config) == ["--browser", "attempt=minutely"]
+    args = canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    assert [args[i + 1] for i, a in enumerate(args) if a == "--browser"] == ["attempt=minutely"]
+    assert "--task" not in args
+
+
+def test_a_task_in_timers_and_in_browser_timers_stops(tmp_path: Path) -> None:
+    """A task goes in TIMERS or in BROWSER_TIMERS, not in both.
+
+    So does one of BROWSER_TIMERS that TASKS lacks.
+    """
+    root, config = repo(tmp_path)
+    tasks_py = root / "server" / "src" / "app" / "tasks.py"
+    tasks_py.write_text(
+        'TASKS = {"attempt": attempt}\n'
+        'TIMERS = {"attempt": "hourly"}\nBROWSER_TIMERS = {"attempt": "minutely"}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(TaskError, match="en TIMERS y en BROWSER_TIMERS"):
+        canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    tasks_py.write_text(
+        'TASKS = {"migrate": migrate}\nBROWSER_TIMERS = {"attempt": "minutely"}\n',
+        encoding="utf-8",
+    )
+    with pytest.raises(TaskError, match="en BROWSER_TIMERS y no en TASKS"):
+        canone.package_args(root, config)
+
+
 def test_a_server_without_tasks_stops(tmp_path: Path) -> None:
     """A server without tasks.py stops: its units run them."""
     root, config = repo(tmp_path)

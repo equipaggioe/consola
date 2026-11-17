@@ -71,6 +71,15 @@ def test_a_task_names_its_instance_and_has_its_label() -> None:
         vps.resolve_service("concordia", "task:x; reboot")
 
 
+def test_a_browser_task_names_its_instance_and_has_its_label() -> None:
+    """A task that drives Chromium names its `<app>-browser@` unit."""
+    assert vps.resolve_service("bot", "browser:attempt") == "bot-browser@attempt"
+    labels = vps.service_labels(["browser:attempt"])
+    assert labels["browser:attempt"] == "Tarea con navegador: attempt"
+    with pytest.raises(TaskError):
+        vps.resolve_service("bot", "browser:x; reboot")
+
+
 @pytest.mark.parametrize(
     ("line", "value"),
     [
@@ -81,6 +90,8 @@ def test_a_task_names_its_instance_and_has_its_label() -> None:
         ("presenze-task@safety.timer", "task:safety"),
         ("presenze-task@safety.service", ""),
         ("otra-task@safety.timer", ""),
+        ("presenze-browser@attempt.timer", "browser:attempt"),
+        ("presenze-browser@attempt.service", ""),
     ],
 )
 def test_each_unit_the_vps_answers(line: str, value: str) -> None:

@@ -28,7 +28,9 @@ SURFACES = ("web", "panel", "landing")
 _HOST = {"web": "app.", "panel": "panel.", "landing": ""}
 # The tasks of the server, `python -m app.tasks <task>`. A server
 # without `sweep` keeps no files of its users, and installs without
-# its timer; `TIMERS` gives the others their calendar.
+# its timer; `TIMERS` gives the others their calendar, and
+# `BROWSER_TIMERS` that of those that drive Chromium (ADR-0172 of
+# canone).
 TASKS = Path("src") / "app" / "tasks.py"
 RELEASE = Path(".github") / "workflows" / "release.yml"
 # The browser features the app uses, one per line (ADR-0136 of canone).
@@ -140,6 +142,12 @@ def package_args(root: Path, config: Config) -> list[str]:
         args.append("--logs")
     for piece in java_pieces(root):
         args += ["--java", piece]
+    server = root / config.get("SERVER_DIR")
+    # A repo without the tasks of canone has no task that drives
+    # Chromium; `install_args` stops on it.
+    if (server / TASKS).is_file():
+        for task, calendar in browsers(server):
+            args += ["--browser", f"{task}={calendar}"]
     return args
 
 
@@ -265,24 +273,46 @@ def timers(server: Path) -> list[tuple[str, str]]:
     """Return each task of `TIMERS` with its `OnCalendar=`.
 
     `TIMERS` names the tasks with a calendar of their own, which
-    `install.py --task` gives a timer (fastapi.md of canone, «Tareas
-    periódicas»). Without it there are none.
+    `install.py --task` gives a timer (fastapi.md of canone, «Tareas»).
+    Without it there are none.
     """
+    return _calendars(server, "TIMERS")
+
+
+def browsers(server: Path) -> list[tuple[str, str]]:
+    """Return each task of `BROWSER_TIMERS` with its `OnCalendar=`.
+
+    `BROWSER_TIMERS` names the tasks that drive Chromium, which
+    `install.py --browser` runs in the unit that lets Chromium run
+    (ADR-0172 of canone). A task goes in only one of the two
+    dictionaries. Without it there are none.
+    """
+    found = _calendars(server, "BROWSER_TIMERS")
+    both = {task for task, _ in timers(server)} & {task for task, _ in found}
+    if both:
+        raise TaskError(
+            f"{server / TASKS}: {', '.join(sorted(both))} está en TIMERS y en BROWSER_TIMERS."
+        )
+    return found
+
+
+def _calendars(server: Path, name: str) -> list[tuple[str, str]]:
+    """Return each task of the dictionary `name` with its calendar."""
     path = _tasks_file(server)
-    found = _dictionary(path, "TIMERS")
+    found = _dictionary(path, name)
     if found is None:
         return []
     declared = tasks(server)
     pairs = []
     for key, value in zip(found.keys, found.values, strict=True):
         if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
-            raise TaskError(f"{path}: cada tarea de TIMERS es un texto.")
+            raise TaskError(f"{path}: cada tarea de {name} es un texto.")
         if not (isinstance(value, ast.Constant) and isinstance(value.value, str) and value.value):
             raise TaskError(
-                f"{path}: el calendario de {key.value} en TIMERS es un texto, como minutely."
+                f"{path}: el calendario de {key.value} en {name} es un texto, como minutely."
             )
         if key.value not in declared:
-            raise TaskError(f"{path}: {key.value} está en TIMERS y no en TASKS.")
+            raise TaskError(f"{path}: {key.value} está en {name} y no en TASKS.")
         pairs.append((key.value, value.value))
     return pairs
 
@@ -371,6 +401,8 @@ def install_args(
         args += ["--java", piece]
     for task, calendar in timers(root / config.get("SERVER_DIR")):
         args += ["--task", f"{task}={calendar}"]
+    for task, calendar in browsers(root / config.get("SERVER_DIR")):
+        args += ["--browser", f"{task}={calendar}"]
     for extension in envfile.split_list(config.get("DB_EXTENSIONS")):
         args += ["--extension", extension]
     if calls(root, config):

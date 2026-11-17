@@ -86,6 +86,11 @@ _PIECE = re.compile(r"[a-z][a-z0-9-]*")
 # `install.py --task` asks.
 TASK = "task:"
 _TASK = re.compile(r"[a-z][a-z0-9_]{0,30}")
+# The axis value of a task that drives Chromium is `browser:<task>`, and
+# its unit is its instance of `<app>-browser@` (ADR-0172 of canone).
+BROWSER = "browser:"
+# Each kind of task, by its axis prefix: its unit and its label.
+_TASK_UNITS = {TASK: ("task", "Tarea"), BROWSER: ("browser", "Tarea con navegador")}
 
 
 def _fixed_units(app: str) -> dict[str, str]:
@@ -97,7 +102,12 @@ def _fixed_units(app: str) -> dict[str, str]:
 def service_labels(values: Iterable[str]) -> dict[str, str]:
     """Return what the axis shows for each value."""
     pieces = {v: f"Java: {v.removeprefix(JAVA)}" for v in values if v.startswith(JAVA)}
-    tasks = {v: f"Tarea: {v.removeprefix(TASK)}" for v in values if v.startswith(TASK)}
+    tasks = {
+        v: f"{label}: {v.removeprefix(prefix)}"
+        for v in values
+        for prefix, (_, label) in _TASK_UNITS.items()
+        if v.startswith(prefix)
+    }
     return {**SERVICE_LABELS, **pieces, **tasks}
 
 
@@ -106,9 +116,10 @@ def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
     piece = which.removeprefix(JAVA)
     if which.startswith(JAVA) and _PIECE.fullmatch(piece):
         return f"{app}-java@{piece}"
-    task = which.removeprefix(TASK)
-    if which.startswith(TASK) and _TASK.fullmatch(task):
-        return f"{app}-task@{task}"
+    for prefix, (unit, _) in _TASK_UNITS.items():
+        task = which.removeprefix(prefix)
+        if which.startswith(prefix) and _TASK.fullmatch(task):
+            return f"{app}-{unit}@{task}"
     found = _fixed_units(app)
     if which not in found:
         raise TaskError(f"Servicio desconocido: {which}")
@@ -136,7 +147,7 @@ def installed_services(remote: Remote, app: str) -> list[str]:
         )
     listing = " ".join(quote(n) for n in names)
     pieces = quote(f"{app}-java@*")
-    tasks = quote(f"{app}-task@*.timer")
+    tasks = " ".join(quote(f"{app}-{unit}@*.timer") for unit, _ in _TASK_UNITS.values())
     # `true`: the exit code of the loop is that of its last unit, and a
     # missing one is fine.
     output = capture(
@@ -156,9 +167,10 @@ def _axis_value(app: str, line: str, names: dict[str, str]) -> str:
     piece = line.removeprefix(f"{app}-java@").removesuffix(".service")
     if line.startswith(f"{app}-java@") and _PIECE.fullmatch(piece):
         return f"{JAVA}{piece}"
-    task = line.removeprefix(f"{app}-task@").removesuffix(".timer")
-    if line.startswith(f"{app}-task@") and line.endswith(".timer") and _TASK.fullmatch(task):
-        return f"{TASK}{task}"
+    for prefix, (unit, _) in _TASK_UNITS.items():
+        task = line.removeprefix(f"{app}-{unit}@").removesuffix(".timer")
+        if line.startswith(f"{app}-{unit}@") and line.endswith(".timer") and _TASK.fullmatch(task):
+            return f"{prefix}{task}"
     return ""
 
 
