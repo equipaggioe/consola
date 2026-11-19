@@ -7,6 +7,7 @@ import sys
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import QApplication
 
+from app.core import http
 from app.core.catalog import load_catalog
 from app.core.tasks import bind_all
 from app.theme import apply_theme
@@ -28,6 +29,8 @@ def main() -> None:
     # `%APPDATA%/Consola/Consola.ini` or in
     # `~/.config/Consola/Consola.ini`.
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    # The app's one QNetworkAccessManager, in this thread (ADR-0089).
+    http.start()
 
     # The catalog declares each capability's shape; core/tasks gives it
     # a body.

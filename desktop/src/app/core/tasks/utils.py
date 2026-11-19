@@ -340,8 +340,18 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
 
     try:
         with destination.open("wb") as target:
+
+            def restart() -> None:
+                ctx.info("Se cortó la descarga: empieza de nuevo")
+                target.seek(0)
+                target.truncate()
+
             http.download(
-                url, target.write, on_progress=progress, should_stop=lambda: ctx.cancelled
+                url,
+                target.write,
+                on_restart=restart,
+                on_progress=progress,
+                should_stop=lambda: ctx.cancelled,
             )
     except OSError as exc:
         raise TaskError(f"Fallo la descarga: {exc}") from exc

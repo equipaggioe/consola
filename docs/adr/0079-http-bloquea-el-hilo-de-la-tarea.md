@@ -1,6 +1,6 @@
 # ADR-0079 · HTTP va por QNetworkAccessManager y bloquea el hilo de la tarea
 
-- **Estado:** Propuesta
+- **Estado:** Reemplazada por [ADR-0089](0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)
 - **Fecha:** 2026-11-03
 - **Alcance:** `core/http.py`, `core/tasks/utils.py`
 

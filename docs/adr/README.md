@@ -96,3 +96,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0086](0086-la-memoria-de-valkey-sale-de-un-valor-o-de-un-porcentaje.md) | La memoria de Valkey sale de un valor, o de un porcentaje de la RAM del VPS |
 | [0087](0087-la-camara-va-en-consola-camera-y-sus-capturas-en-consola.md) | La cámara del repo va en `.consola/camera/`, y sus capturas en `.consola/screenshots/` y `.consola/publishable/` |
 | [0088](0088-actualizar-cloudflare-apunta-cada-host-de-la-app-sin-proxy.md) | «Actualizar Cloudflare» apunta el host de cada pieza web de la app, sin el proxy |
+| [0089](0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md) | HTTP va por un solo manager, en el hilo de la interfaz, y reintenta |

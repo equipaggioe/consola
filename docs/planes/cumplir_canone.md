@@ -4,10 +4,11 @@
 > canone): ahora rige entera, salvo su sección «Tema», que sigue en desarrollo. Con canone en `main`
 > (`f1a22a4`, que agrega `services/` y los servicios externos de `api/`, ADR-0186 de canone),
 > `verificar.py --repo .` da 0 incumplimientos. En Windows, `ruff format --check`, `ruff check`,
-> `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1008 pruebas, con 3 saltadas.
+> `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1014 pruebas, con 3 saltadas.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
-> `stack.md`, los tipos, `@override`, los enums con su clase, `IniFormat`, HTTP con
-> `QNetworkAccessManager` ([ADR-0079](../adr/0079-http-bloquea-el-hilo-de-la-tarea.md), propuesta),
+> `stack.md`, los tipos, `@override`, los enums con su clase, `IniFormat`, HTTP con un solo
+> `QNetworkAccessManager` y reintentos
+> ([ADR-0089](../adr/0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)),
 > `release.yml` ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)) y `api/`
 > ([ADR-0080](../adr/0080-las-respuestas-http-se-leen-con-modelos-en-api.md)). El objetivo sale del
 > [ADR-0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md); lo
@@ -86,27 +87,6 @@ imports en 72 archivos.
 - No hay ningún `setAccessibleName` ni `setAccessibleDescription`.
 - **Sin verificar:** el nivel AA de `transversal.md`, con los objetivos de 48 × 48.
 
-### 2.6 Red
-
-`qt.md` pide un solo `QNetworkAccessManager` con `setAutoDeleteReplies(True)`. `core/http.py` crea
-uno por petición, en el hilo de la tarea, y libera la respuesta con `deleteLater()`.
-
-Decidido (pregunta 3): un solo manager, en el hilo principal. `core/http.py` conserva su forma
-bloqueante: el hilo de la tarea manda la petición por una señal encolada y espera en un
-`threading.Event`, como `_ask` con los diálogos. Las tareas siguen esperando cada respuesta de
-arriba abajo.
-
-- Una llamada desde el hilo principal se trabaría: falla con un error.
-- `tests/test_http.py` llama hoy desde el hilo principal; sus pruebas pasan a llamar desde un hilo.
-- La descarga del SDK pasa sus partes del hilo principal al de la tarea.
-- Lleva un ADR que reemplaza al ADR-0079.
-
-Decidido (pregunta 4): `core/http.py` reintenta como pide «Reintentos» de `transversal.md`, también
-con Cloudflare y el índice de Flutter: ante un fallo de red, un 502, un 503 o un 504, hasta 3 veces,
-con espera exponencial y jitter, y solo una petición idempotente. El `POST` que crea un registro DNS
-no se reintenta. Una descarga que ya entregó partes avisa a quien las recibe que descarte lo
-recibido, y vuelve a empezar.
-
 ### 2.7 Icono, recursos y empaquetado
 
 - `src/app/icon.png` de 1024 × 1024 px no existe. Sale de rasterizar el rombo de la marca, el que
@@ -168,8 +148,8 @@ duda es cómo cumplirla.
 | # | Pregunta | Dónde | Decisión |
 |---|---|---|---|
 | 1 | El árbol de `qt.md` no tenía `core/` ni `ui/`. ¿Dónde va el código que no es de Qt? | Canone | En `services/`: lo que no es interfaz ni HTTP. Ya está en `qt.md` y `flet.md` (ADR-0186 de canone). En Consola van ahí `core/` y los módulos sin widget, incluidos los dos `QThread`; `palettes.py` va junto a `theme.py` (§2.2) |
-| 3 | «Un solo `QNetworkAccessManager`» choca con el ADR-0079: cada tarea bloquea su hilo con su propio manager | Consola | Un solo manager en el hilo principal, y las tareas siguen bloqueando su hilo (§2.6). `qt.md` no cambia |
-| 4 | `api/client.py` y `api/models.py` suponían la API propia de un servidor. Consola habla con Cloudflare y con el índice de Flutter | Canone | `api/` es todo lo que habla HTTP, con `api/<servicio>.py` para cada servicio externo. Con un servicio externo, un campo desconocido se ignora y los que se leen se validan enteros, y «Reintentos» le aplica. Ya está en `qt.md`, `flet.md` y `transversal.md` (ADR-0186 de canone). En Consola: §2.2 y §2.6 |
+| 3 | «Un solo `QNetworkAccessManager`» chocaba con el ADR-0079: cada tarea bloqueaba su hilo con su propio manager | Consola | Un solo manager en el hilo principal, y las tareas siguen bloqueando su hilo. Hecho (ADR-0089) |
+| 4 | `api/client.py` y `api/models.py` suponían la API propia de un servidor. Consola habla con Cloudflare y con el índice de Flutter | Canone | `api/` es todo lo que habla HTTP, con `api/<servicio>.py` para cada servicio externo. Con un servicio externo, un campo desconocido se ignora y los que se leen se validan enteros, y «Reintentos» le aplica. Ya está en `qt.md`, `flet.md` y `transversal.md` (ADR-0186 de canone). En Consola: §2.2; los reintentos ya están (ADR-0089) |
 | 5 | ¿Linguist cubre también los mensajes de `core/` y `command_docs.py`? | Consola | Sí, con `QCoreApplication.translate` (§2.8) |
 | 6 | ¿De dónde sale el icono de 1024 px? | Consola | Del rombo de la marca, rasterizado (§2.7) |
 

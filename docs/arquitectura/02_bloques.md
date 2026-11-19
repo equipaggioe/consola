@@ -35,7 +35,7 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `envfile.py` | `.consola/config.env`: leer, regenerar, y `Config` con acceso tipado y defaults |
 | `settings.py` | El esquema de claves: quién las exige y quién solo las usa |
 | `fields.py` | Los campos de `Settings` del repo administrado, leídos con `ast` |
-| `http.py` | HTTP con `QNetworkAccessManager`, bloqueando el hilo que llama |
+| `http.py` | HTTP con el único `QNetworkAccessManager`, en el hilo de la interfaz, bloqueando el hilo de la tarea que llama, con reintentos |
 | `canone.py` | Lo que se le pasa a los programas de canone: opciones de `packages.py` y la lista que devuelve con `--list`, argumentos de `install.py`, líneas de `credentials.py` |
 | `registry.py` | `Registry`, `Capability`, `AxisDef`, `Facet`, `Step`, y el puente a los kwargs |
 | `catalog.py` | La declaración de las 54 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
