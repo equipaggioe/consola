@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from typing import Any, override
+from typing import Any
 
 from PySide6.QtCore import Qt, QTimer, Signal, Slot
-from PySide6.QtGui import (
-    QMouseEvent,
-)
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QLabel,
+    QPushButton,
     QWidget,
 )
 
@@ -27,39 +25,33 @@ from app.theme import Colors, Fonts
 from app.widgets.led_indicator import LedIndicator
 
 
-class _PadlockChip(QLabel):
+class _PadlockChip(QPushButton):
     """A protection target on the status bar.
 
     Its short name with a padlock, closed (protected) or open
-    (unprotected). A click jumps to the Security section.
+    (unprotected). A click, or Space with the focus on it, jumps to the
+    Security section: it is a button, though it looks like a label.
     """
-
-    clicked = Signal()
 
     def __init__(
         self, chip: str, label: str, protected: bool, pal: Palette, parent: QWidget | None = None
     ) -> None:
         """Build the chip."""
         super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
+        self.setFlat(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Closed = safe (the repo's color); open = exposed to a
         # destructive action with no net, and that is red in every repo.
         color = theme.PADLOCK.on(pal).fg if protected else Colors.ERROR
         self.setStyleSheet(
-            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
+            f"QPushButton {{ background: transparent; border: none; padding: 0; "
+            f"color: {color}; font-size: {Fonts.SIZE_XS}px; }}"
         )
-        self.setToolTip(
-            f"{label}: {'protegido' if protected else 'sin proteger'}. "
-            "Clic para administrar en Configuración → Seguridad."
-        )
-
-    @override
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton and self.rect().contains(
-            event.position().toPoint()
-        ):
-            self.clicked.emit()
-        super().mouseReleaseEvent(event)
+        state = "protegido" if protected else "sin proteger"
+        self.setToolTip(f"{label}: {state}. Clic para administrar en Configuración → Seguridad.")
+        # The padlock says its state only to the eye.
+        self.setAccessibleName(f"{label}: {state}")
+        self.setAccessibleDescription("Abre la sección Seguridad")
 
 
 class WorkspaceStatusBar(QWidget):
@@ -257,7 +249,7 @@ class WorkspaceStatusBar(QWidget):
         for target in protection.TARGETS:
             protected = protection.is_protected(state, target)
             chip = _PadlockChip(target.chip, target.label, protected, self.pal)
-            chip.clicked.connect(self.security_clicked.emit)
+            chip.clicked.connect(self.security_clicked)
             self._security_row.addWidget(chip)
         self._restyle()
 

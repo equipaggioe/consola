@@ -355,6 +355,15 @@ class ActionSearch(QWidget):
             # It closed with a click outside but the text stayed:
             # returning to the field reopens the list as it was.
             self._on_text(self.box.text())
+        elif obj is self.box and kind == QEvent.Type.ShortcutOverride:
+            key = cast(QKeyEvent, event).key()
+            popup_open = self._popup is not None and self._popup.isVisible()
+            if popup_open and key in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+                # With the list open, Ctrl+Enter is the list's: it runs
+                # the highlighted row, and the window's shortcut, which
+                # runs the active tab, does not take it.
+                event.accept()
+                return True
         elif obj is self.box and kind == QEvent.Type.KeyPress:
             popup_open = self._popup is not None and self._popup.isVisible()
             key = cast(QKeyEvent, event).key()

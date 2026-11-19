@@ -883,6 +883,24 @@ class TabPanel(ReorderableBar):
         w = self.params_stack.currentWidget()
         return w if isinstance(w, ParamsPanel) else None
 
+    def press_run(self, *, dry_run: bool) -> None:
+        """Press Run, or Simulacro, of the active tab, as a click would.
+
+        A button that is disabled, or a tab with no Simulacro, does
+        nothing: the same as clicking it.
+        """
+        panel = self.current_params()
+        button = None if panel is None else (panel.dry_btn if dry_run else panel.run_btn)
+        if button is not None:
+            button.click()
+
+    def cycle_tab(self, step: int) -> None:
+        """Activate the next or previous action tab, wrapping around."""
+        if not self.tabs:
+            return
+        current = next((i for i, t in enumerate(self.tabs) if t.is_active), 0)
+        self._activate(self.tabs[(current + step) % len(self.tabs)])
+
     def set_palette(self, pal: Palette) -> None:
         """Repaint the whole workspace: the repo chose another color.
 

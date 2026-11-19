@@ -15,6 +15,8 @@ from PySide6.QtGui import (
     QResizeEvent,
     QShortcut,
     QTextCharFormat,
+    QTextCursor,
+    QTextDocument,
 )
 from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QWidget
 
@@ -44,13 +46,29 @@ class ConsoleView(QPlainTextEdit):
         self.cursor_timer.timeout.connect(self._toggle_cursor)
         self.cursor_timer.start(600)
 
+        # Ctrl+F opens it; it finds as one types, Enter goes to the next
+        # match and Shift+Enter to the previous one, both wrapping
+        # around, and Escape closes it.
         self.search_bar = QLineEdit(self)
-        self.search_bar.setPlaceholderText("Search...")
+        self.search_bar.setPlaceholderText("Buscar…")
         self.search_bar.setAccessibleName("Buscar en la consola")
         self.search_bar.hide()
-        find = QShortcut(QKeySequence("Ctrl+F"), self)
-        find.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
-        find.activated.connect(self._toggle_search)
+        self.search_bar.textChanged.connect(self._find_typed)
+        self.search_bar.returnPressed.connect(self._find_next)
+        self._missing = False
+        for keys, slot, owner, context in (
+            ("Ctrl+F", self._toggle_search, self, Qt.ShortcutContext.WidgetWithChildrenShortcut),
+            (
+                "Shift+Return",
+                self._find_previous,
+                self.search_bar,
+                Qt.ShortcutContext.WidgetShortcut,
+            ),
+            ("Escape", self._close_search, self.search_bar, Qt.ShortcutContext.WidgetShortcut),
+        ):
+            shortcut = QShortcut(QKeySequence(keys), owner)
+            shortcut.setContext(context)
+            shortcut.activated.connect(slot)
         self._restyle()
 
     def set_palette(self, pal: Palette) -> None:
@@ -61,6 +79,8 @@ class ConsoleView(QPlainTextEdit):
     def _restyle(self) -> None:
         console = theme.CONSOLE.on(self.pal)
         field = theme.FIELD.on(self.pal)
+        # A search with no match turns its text red.
+        text = Colors.ERROR if self._missing else field.fg
         self.setStyleSheet(f"""
             QPlainTextEdit {{
                 background-color: {console.bg};
@@ -73,7 +93,7 @@ class ConsoleView(QPlainTextEdit):
         self.search_bar.setStyleSheet(f"""
             QLineEdit {{
                 background-color: {field.bg};
-                color: {field.fg};
+                color: {text};
                 border: 1px solid {field.border};
                 border-radius: 4px;
                 padding: 6px;
@@ -84,9 +104,11 @@ class ConsoleView(QPlainTextEdit):
     @override
     def resizeEvent(self, event: QResizeEvent) -> None:
         super().resizeEvent(event)
-        w = 200
-        h = 28
-        self.search_bar.setGeometry(self.width() - w - 20, 10, w, h)
+        # It floats over the log: no layout places it, and its size
+        # comes from its hint, so it grows with the text.
+        hint = self.search_bar.sizeHint()
+        w = max(200, hint.width())
+        self.search_bar.setGeometry(self.width() - w - 20, 10, w, hint.height())
 
     @Slot(str, str)
     def append_log(self, text: str, level: str = "info") -> None:
@@ -171,9 +193,56 @@ class ConsoleView(QPlainTextEdit):
     @Slot()
     def _toggle_search(self) -> None:
         # Show the search bar and focus it, or hide it.
-        self.search_bar.setVisible(not self.search_bar.isVisible())
         if self.search_bar.isVisible():
-            self.search_bar.setFocus()
+            self._close_search()
+            return
+        self.search_bar.show()
+        self.search_bar.setFocus()
+        self.search_bar.selectAll()
+
+    @Slot()
+    def _close_search(self) -> None:
+        # Hide the search bar and give the focus back to the log.
+        self.search_bar.hide()
+        self.setFocus()
+
+    @Slot(str)
+    def _find_typed(self, text: str) -> None:
+        # Search again from where the current match starts, so the
+        # match grows with each letter.
+        cursor = self.textCursor()
+        cursor.setPosition(cursor.selectionStart())
+        self.setTextCursor(cursor)
+        self._find(text, backward=False)
+
+    @Slot()
+    def _find_next(self) -> None:
+        # Go to the next match.
+        self._find(self.search_bar.text(), backward=False)
+
+    @Slot()
+    def _find_previous(self) -> None:
+        # Go to the previous match.
+        self._find(self.search_bar.text(), backward=True)
+
+    def _find(self, text: str, *, backward: bool) -> None:
+        """Select the next match of `text`, wrapping around the log."""
+        flags = QTextDocument.FindFlag.FindBackward if backward else QTextDocument.FindFlag(0)
+        found = not text or self.find(text, flags)
+        if not found:
+            cursor = self.textCursor()
+            cursor.movePosition(
+                QTextCursor.MoveOperation.End if backward else QTextCursor.MoveOperation.Start
+            )
+            self.setTextCursor(cursor)
+            found = self.find(text, flags)
+        if self._missing == (not found):
+            return
+        self._missing = not found
+        # The red says it to the eye; the description, to assistive
+        # technology.
+        self.search_bar.setAccessibleDescription("" if found else "Sin resultados")
+        self._restyle()
 
     @override
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:

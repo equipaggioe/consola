@@ -11,7 +11,7 @@
 > ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
 > los enums con su clase, `@Slot` en los 69 métodos conectados a una señal, las fechas y los
 > números con el `locale()` del widget, los diálogos con `open()`, el explorador con
-> `QTreeView` y `QTableView` sobre `models/`, la accesibilidad de `qt.md` salvo los atajos,
+> `QTreeView` y `QTableView` sobre `models/`, la accesibilidad de `qt.md`,
 > `IniFormat`, HTTP con un solo
 > `QNetworkAccessManager` y reintentos
 > ([ADR-0089](../adr/0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)),
@@ -22,7 +22,8 @@
 > ella.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
-> `canone/plataformas/python.md`, `canone/plataformas/qt.md` y este plan.
+> `canone/plataformas/python.md`, `canone/plataformas/qt.md` y este plan, y seguir por el §2.7. Lo
+> que espera una decisión está en el §3, «Abiertas».
 
 ## 1. Cómo se comprueba
 
@@ -50,13 +51,24 @@ la app.
 
 ### 2.5 Accesibilidad
 
-Hecho: lo que pide la sección «Accesibilidad» de `qt.md`, salvo los atajos (pregunta 10). Está en
+Hecho: lo que pide la sección «Accesibilidad» de `qt.md`, también los atajos (pregunta 10). Está en
 [12](../arquitectura/12_interfaz.md), §10.
 
-- **Sin verificar:** el nivel AA de `transversal.md`, con los objetivos de 48 × 48, el contraste y
-  el uso con el teclado. Hace falta recorrer sus criterios uno por uno. Ya se sabe que no lo cumplen
-  H15 de [30](../arquitectura/30_riesgos_y_pendientes.md) y botones de 18 a 26 px, como el `×` de
-  una pestaña o el `▶` del buscador.
+Medido el 2026-11-19 con un script sobre la ventana abierta sin pantalla, con un repo y cuatro
+pestañas de acción: 39 controles visibles. **El nivel AA no se cumple.** Lo que falla pide decisiones
+de diseño:
+
+| Criterio | Qué falla | Decisión que pide |
+|---|---|---|
+| 1.4.3, contraste del texto | `TEXT_MUTED` (#6b7484) da de 2,5 a 4,0 contra los cinco fondos neutros; `ERROR` da 3,6 a 4,4 sobre `SURFACE`, `SURFACE_ALT` y `CHROME`. `RUN_BUTTON_OFF` da 2,54, pero es un componente inactivo y está exento | Los colores son de «Tema», en desarrollo en canone (pregunta 13) |
+| 1.4.11, contraste de lo que no es texto | `BORDER` da de 1,3 a 2,0 y `BORDER_LIGHT`, de 1,7 a 2,6 contra los fondos: el borde de un campo no llega a 3:1 | La misma |
+| 2.5.8, objetivo de 24 × 24 | 16 controles: los `×` de las pestañas (18 × 18), el `✕` de apagar (20 × 20), el botón de borrar de los campos (22 × 18), los cinco candados (12 de alto), los chips de 22 de alto y dos casillas de 17 de alto | Tamaños: «Tema» pone los tamaños en `theme.py`. Y si el 48 × 48 de `transversal.md` rige en el escritorio (pregunta 14) |
+| 2.1.1, todo con el teclado | 11 controles no reciben el foco: las pestañas de acción (con Ctrl+PgDown y Ctrl+PgUp), las de repo (con Ctrl+Tab y Ctrl+1 a 9), el «+» (con Ctrl+T), la estrella de favorita, los tres botones de la ventana y el botón de borrar de los campos | Si cada pestaña y cada botón de glifo reciben el foco, o bastan los atajos |
+| 2.4.7, foco visible | 26 controles cambian de foco sin cambiar de aspecto: los botones y las casillas que tienen hoja de estilo propia | El aspecto del foco: «Tema» |
+| 2.2.2, lo que se mueve | El cursor de la consola parpadea sin fin, y el LED verde pulsa mientras un servicio está vivo; ninguno se puede detener | Si se quitan o se pueden pausar |
+
+Lo demás de AA no se midió: el texto al 200 %, el orden del foco, los mensajes de estado y el
+idioma de la pantalla, que llega con el §2.8.
 
 ### 2.7 Icono, recursos y empaquetado
 
@@ -118,7 +130,7 @@ Tampoco rige «Tema», mientras siga en desarrollo (`plataformas/README.md`, «E
 «Dónde» dice quién lo resuelve: canone, cuando la duda es qué pide una página, y Consola cuando la
 duda es cómo cumplirla.
 
-### Decididas (2026-11-18)
+### Decididas (2026-11-18 y 2026-11-19)
 
 | # | Pregunta | Dónde | Decisión |
 |---|---|---|---|
@@ -130,15 +142,17 @@ duda es cómo cumplirla.
 | 7 | El árbol de `qt.md` no tenía lugar para lo que no es código | Canone | En `src/app/assets/`: las imágenes entran en `resources.qrc`, y lo que otro programa lee del disco se queda como archivo (ADR-0189 de canone) |
 | 8 | `palettes.py` y `parts.py` no tenían lugar en el árbol | Consola | `palettes.py` en `services/`, y `parts.py` como sección de `theme.py`, donde se ubican y cambian los colores de cada parte. Hecho (ADR-0090) |
 | 9 | ¿Qué dominio declara `setOrganizationDomain`? | Canone | Ninguno: `qt.md` ya no lo pide (ADR-0192 de canone). La organización es `Equipaggio` |
+| 10 | `qt.md` pide un atajo para cada función de uso frecuente: faltaban Ejecutar, Simulacro y pasar de una pestaña de acción a otra | Consola | Ctrl+Enter, Ctrl+Shift+Enter, y Ctrl+PgDown y Ctrl+PgUp, como en un navegador. Cerrar una pestaña no tiene atajo: detiene su proceso con un solo gesto. Hecho |
+| 11 | «Los widgets se ubican con layouts», pero tres flotan sobre otros: la lista del buscador, la búsqueda de la consola y los bordes de la ventana | Canone | `qt.md` exceptúa lo que flota encima de otros: va con `setGeometry()` y su tamaño sale de `sizeHint()` (ADR-0195 de canone). En Consola, la búsqueda de la consola ya toma su alto de `sizeHint()` |
+| 12 | «Un diálogo modal se abre con `open()`». ¿Rige para los menús contextuales, que se abren con `exec()`? | Canone | No: un `QMenu` no es un diálogo, y Qt documenta `exec()` como su uso común; la nota que pide `open()` está solo en `QDialog::exec()`. `qt.md` no cambia |
 
 ### Abiertas
 
 | # | Pregunta | Dónde | Recomendación |
 |---|---|---|---|
 | 2 | `qt.md` pide copiar `tests/test_theme.py` sin editar, pero prueba reglas de «Tema», que sigue en desarrollo. Consola tiene 169 `setStyleSheet` fuera de `theme.py` y no tiene `colors.py`, así que fallaría | Canone | Que `qt.md` diga lo mismo que `flet.md`: «`theme.py` y `tests/test_theme.py` … en desarrollo como esta sección: no se copian», con las filas de Fusion y de la hoja única marcadas como de «Tema». Pendiente por decisión del usuario |
-| 10 | `qt.md` pide un atajo para cada función de uso frecuente. Hay atajos para elegir y añadir repos, el buscador y la búsqueda de la consola, pero no para Ejecutar, Simulacro ni cerrar una pestaña de acción | Consola | Ctrl+Enter para Ejecutar y Ctrl+Shift+Enter para Simulacro en la pestaña activa. Cerrar una pestaña detiene su proceso vivo (ADR-0028), así que un Ctrl+W lo haría con un solo gesto: sin atajo |
-| 11 | «Los widgets se ubican con layouts». Tres no: el desplegable del buscador, la búsqueda que flota sobre la consola y los bordes para redimensionar la ventana sin marco, que van con `setGeometry` porque flotan sobre otros | Canone | Que `qt.md` exceptúe lo que flota encima de otro widget, que un layout no puede ubicar |
-| 12 | «Un diálogo modal se abre con `open()`». Los tres menús contextuales (`QMenu`) se abren con `exec()`. Un `QMenu` no es un diálogo | Canone | Que `qt.md` lo diga, o que pida `popup()` también para los menús |
+| 13 | Los colores de texto y de borde no llegan al contraste de AA (§2.5), y son de «Tema», que sigue en desarrollo | Canone | Que «Tema» fije roles de texto y de borde que cumplan 4.5:1 y 3:1 contra cada fondo, como ya pide `transversal.md` para `brand/tokens/`; Consola los toma al implementarlo |
+| 14 | `transversal.md` pide 48 × 48 a «cada objetivo táctil». Una app de escritorio se usa con el puntero: no está claro si rige, o si basta el 24 × 24 de AA (WCAG 2.5.8) | Canone | Que diga «objetivo táctil o de puntero» y fije el valor del escritorio |
 
 ## 4. Sin verificar
 

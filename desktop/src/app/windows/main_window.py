@@ -350,11 +350,33 @@ class MainWindow(QMainWindow):
         QShortcut(QKeySequence("Ctrl+L"), self).activated.connect(
             lambda: self.action_search.box.setFocus()
         )
+        # The keypad's Enter is another key: each runs with both.
+        for keys, slot in (
+            (("Ctrl+Return", "Ctrl+Enter"), lambda: self._press_run(dry_run=False)),
+            (("Ctrl+Shift+Return", "Ctrl+Shift+Enter"), lambda: self._press_run(dry_run=True)),
+            (("Ctrl+PgDown",), lambda: self._cycle_tab(1)),
+            (("Ctrl+PgUp",), lambda: self._cycle_tab(-1)),
+        ):
+            shortcut = QShortcut(self)
+            shortcut.setKeys([QKeySequence(k) for k in keys])
+            shortcut.activated.connect(slot)
         # By position on pressing: reordering tabs renumbers by itself.
         for i in range(9):
             QShortcut(QKeySequence(f"Ctrl+{i + 1}"), self).activated.connect(
                 lambda i=i: self._select_nth(i)
             )
+
+    def _press_run(self, *, dry_run: bool) -> None:
+        # Press Run or Simulacro in the active repo's active tab.
+        workspace = self.current_workspace
+        if workspace is not None:
+            workspace.press_run(dry_run=dry_run)
+
+    def _cycle_tab(self, step: int) -> None:
+        # Go to the next or previous action tab of the active repo.
+        workspace = self.current_workspace
+        if workspace is not None:
+            workspace.cycle_tab(step)
 
     def _select_nth(self, i: int) -> None:
         tabs = self.project_tabs.tabs

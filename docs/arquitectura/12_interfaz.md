@@ -147,7 +147,7 @@ Un eje consultado cuya fuente falla —el SDK, el VPS, la cámara o GitHub— no
 
 ## 8. La barra de estado
 
-Una sola, de borde a borde, fuera de los `TabPanel`. A la izquierda, lo del repo activo: sus candados, uno por objetivo del seguro; un clic en un candado salta a la sección Seguridad. A la derecha, lo de la máquina, que vale para cualquier repo: el estado de Java, Git, Android y Flutter (mirando el disco, sin lanzar `flutter doctor`) y, tras una raya, la RAM disponible. Sin repo abierto, la izquierda queda vacía.
+Una sola, de borde a borde, fuera de los `TabPanel`. A la izquierda, lo del repo activo: sus candados, uno por objetivo del seguro; cada candado es un botón que salta a la sección Seguridad. A la derecha, lo de la máquina, que vale para cualquier repo: el estado de Java, Git, Android y Flutter (mirando el disco, sin lanzar `flutter doctor`) y, tras una raya, la RAM disponible. Sin repo abierto, la izquierda queda vacía.
 
 El LED verde **pulsa** solo cuando algo está vivo ahora mismo; un hecho estático —una herramienta instalada— es el mismo verde sin animación.
 
@@ -166,4 +166,6 @@ Lo que recibe un lector de pantalla, comprobado con UI Automation en Windows el 
 | Lo que solo se ve | El LED dice su estado en palabras («encendido», «activo», «con error»…) y quien lo pone le da el nombre; una fila del buscador dice en su descripción si es compuesta, de la máquina, destructiva o favorita; el logo que no se pudo leer se llama «Logo no válido» y describe el error |
 | Cambios | `setAccessibleName` y `setAccessibleDescription` avisan solos; una pestaña que se activa o se deja manda su `QAccessibleStateChangeEvent` |
 | Modelos | `RowsModel`, `TablesModel` y `StructureModel` responden `ToolTipRole`, `AccessibleTextRole` y `AccessibleDescriptionRole`. El texto accesible va sin las marcas `✕ ≠ +` ni los glifos, y la descripción dice en palabras el tipo, las particiones y el estado contra los modelos |
-| Atajos | Ctrl+T añade un repo, Ctrl+L enfoca el buscador, Ctrl+Tab y Ctrl+Shift+Tab pasan de repo, Ctrl+1 a Ctrl+9 eligen uno, y Ctrl+F abre la búsqueda de la consola. Todos son `QShortcut` |
+| Atajos | Ctrl+T añade un repo, Ctrl+L enfoca el buscador, Ctrl+Tab y Ctrl+Shift+Tab pasan de repo, Ctrl+1 a Ctrl+9 eligen uno, Ctrl+PgDown y Ctrl+PgUp pasan de pestaña de acción, Ctrl+Enter pulsa Ejecutar y Ctrl+Shift+Enter, Simulacro, en la pestaña activa (con las dos teclas Enter; un botón desactivado no hace nada), y Ctrl+F abre y cierra la búsqueda de la consola. Todos son `QShortcut`. Con la lista del buscador abierta, Ctrl+Enter es de la lista: corre la fila marcada |
+| Lo que flota | La búsqueda de la consola, la lista del buscador y los bordes de la ventana flotan sobre otros widgets y van con `setGeometry`: un layout no puede superponerlos. La búsqueda toma su alto de `sizeHint()` |
+| Búsqueda de la consola | Busca mientras se escribe; Enter va a la coincidencia siguiente y Shift+Enter a la anterior, las dos vuelven al principio al llegar al final, y Escape la cierra y devuelve el foco al log. Sin coincidencia, el texto se pone rojo y la descripción accesible dice «Sin resultados» |
