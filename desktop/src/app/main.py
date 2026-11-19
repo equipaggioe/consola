@@ -23,11 +23,11 @@ def main() -> None:
 
     app = QApplication(sys.argv)
     app.setApplicationName("Consola")
-    app.setOrganizationName("Consola")
+    app.setOrganizationName("Equipaggio")
     # An INI file in every system, and not the Windows registry: the
     # same format and keys in Windows and Linux. It lands in
-    # `%APPDATA%/Consola/Consola.ini` or in
-    # `~/.config/Consola/Consola.ini`.
+    # `%APPDATA%/Equipaggio/Consola.ini` or in
+    # `~/.config/Equipaggio/Consola.ini`.
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
     # The app's one QNetworkAccessManager, in this thread (ADR-0089).
     http.start()

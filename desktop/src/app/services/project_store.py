@@ -28,7 +28,6 @@ from app.services import palettes, params_store
 from app.services.projects import Project
 
 _KEY = "projects/list"
-_LEGACY_ORDER_KEY = "projects/order"
 
 
 def identity(path: str) -> str:
@@ -135,4 +134,3 @@ def save(projects: list[Project]) -> None:
 def clear() -> None:
     """Leave the bar empty, like the first time."""
     QSettings().remove(_KEY)
-    QSettings().remove(_LEGACY_ORDER_KEY)

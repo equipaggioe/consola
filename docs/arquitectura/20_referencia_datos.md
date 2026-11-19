@@ -88,19 +88,20 @@ Lista plana de nombres de extensión.
 
 Las claves con `@` no chocan con ningún `capability_id`. Escritura atómica (archivo temporal y `os.replace`), agrupada cada 500 ms.
 
-## 4. `QSettings` (organización y aplicación: `Consola`)
+## 4. `QSettings` (organización `Equipaggio`, aplicación `Consola`)
 
-Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Consola.ini` en Linux.
+Archivo INI: `%APPDATA%\Equipaggio\Consola.ini` en Windows y `~/.config/Equipaggio/Consola.ini` en Linux.
 
 | Clave | Qué |
 |---|---|
 | `projects/list` | JSON con los repos abiertos: ruta y nombre, en orden |
-| `projects/order` | Clave vieja; solo se borra en `clear()` |
 | `favorites/ids` | Ids de las acciones favoritas |
 | `favorites/only` | «Solo favoritos», del menú Ver |
 | `ui/hidden_sections` | Secciones ocultas de la columna derecha. Sin nada guardado, «Configuración de la máquina» |
 | `params/machine/<capability_id>` | Parámetros de las acciones `scope='machine'` |
 | `machine/<CLAVE>` | Valores de las claves `scope='machine'` de `services/settings.py` |
+| `main_window/geometry` | Tamaño y posición de la ventana al cerrarse; se restaura al abrir |
+| `main_window/state` | Estado de las barras de la ventana al cerrarse; se restaura al abrir |
 
 ## 5. Archivos que Consola escribe
 

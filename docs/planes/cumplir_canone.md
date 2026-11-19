@@ -46,12 +46,12 @@ la app.
 
 ### 2.3 Almacenamiento
 
-- `main.py` ya pone `IniFormat`. Falta `setOrganizationDomain`.
-- La ventana principal no lee su geometría ni su estado al crearse, ni los guarda en `closeEvent()`.
-- `services/project_store.py` borra `_LEGACY_ORDER_KEY`, una clave vieja: es compatibilidad hacia atrás, y
-  sale.
-- **Sin verificar:** un INI devuelve texto. Los favoritos ya tratan `"true"` y una lista de un
-  elemento, pero `params_store.py` y `project_store.py` no se probaron con la app.
+Ya hecho, sin commit: la ventana principal restaura su geometría y su estado al crearse y los guarda
+en `closeEvent()` (`main_window/geometry` y `main_window/state`), salió `projects/order`, y
+`tests/test_settings_ini.py` comprueba que lo guardado vuelve igual desde el INI, en otro proceso.
+
+La organización pasa a ser `Equipaggio`, y el INI, `%APPDATA%/Equipaggio/Consola.ini`. Falta
+`setOrganizationDomain` (pregunta 9).
 
 ### 2.4 PySide6, widgets, diálogos y Model/View
 
@@ -143,6 +143,7 @@ duda es cómo cumplirla.
 
 | # | Pregunta | Dónde | Recomendación |
 |---|---|---|---|
+| 9 | ¿Qué dominio declara `setOrganizationDomain`? Qt lo usa solo en macOS, donde Consola no corre; si falta, deriva uno del nombre de la organización, `equipaggio.com`. La organización ya es `Equipaggio` | Consola | Declarar `equipaggio.com`: es el mismo que Qt deriva solo, así que no cambia nada, y cumple `qt.md` |
 | 2 | `qt.md` pide copiar `tests/test_theme.py` sin editar, pero prueba reglas de «Tema», que sigue en desarrollo. Consola tiene 169 `setStyleSheet` fuera de `theme.py` y no tiene `colors.py`, así que fallaría | Canone | Que `qt.md` diga lo mismo que `flet.md`: «`theme.py` y `tests/test_theme.py` … en desarrollo como esta sección: no se copian», con las filas de Fusion y de la hoja única marcadas como de «Tema». Pendiente por decisión del usuario |
 
 ## 4. Sin verificar

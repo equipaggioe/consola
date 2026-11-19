@@ -10,7 +10,6 @@ Solo lo que el propio código declara incompleto.
 |---|---|
 | **La bitácora no existe** | `widgets/tab_panel.py`: «La bitacora todavia no existe (`services/store.py`)». `ctx.note()` está implementado y hay 18 llamadas repartidas en siete módulos de `services/tasks/`; hasta que exista el almacén, cada nota se imprime en la consola con un `✱` y se pierde al cerrar |
 | **No hay botón de Detener** | `services/task_runner.py`: «el boton de Detener todavia no existe en la UI, pero cuando exista no debe encontrarse con una tarea dormida». Se detiene cerrando la pestaña, o con «Limpiar» si hay un túnel ([11](11_ejecucion_de_tareas.md) §7) |
-| **`projects/order`** | `services/project_store.py` declara la clave vieja de `QSettings` y solo la borra en `clear()`. No se lee en ningún lado |
 | **La barra de estado no muestra servicios de fondo** | `WorkspaceStatusBar.add_service` existe y nadie la llama. Un túnel Postgres vivo no aparece ahí |
 
 ## 2. Hallazgos de la verificación
@@ -38,7 +37,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 | Qué | ADR | Plan |
 |---|---|---|
-| Lo que pide `qt.md` de canone, que ya no está en desarrollo, y Consola no tiene: `setOrganizationDomain` y la geometría de la ventana, `@Slot`, el `locale()` al formatear, `open()` en vez de `exec()`, vistas con modelo en el explorador, los roles y los nombres accesibles, Qt Linguist, `pysidedeploy.spec`, el icono, `resources.qrc` y las variables `RELEASE_DESKTOP_*`. `release.yml` falla en un tag hasta tener el `.spec` | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
+| Lo que pide `qt.md` de canone, que ya no está en desarrollo, y Consola no tiene: `setOrganizationDomain`, `@Slot`, el `locale()` al formatear, `open()` en vez de `exec()`, vistas con modelo en el explorador, los roles y los nombres accesibles, Qt Linguist, `pysidedeploy.spec`, el icono, `resources.qrc` y las variables `RELEASE_DESKTOP_*`. `release.yml` falla en un tag hasta tener el `.spec` | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | La sección «Tema» de canone, sin implementar mientras canone la declare en desarrollo (ADR-0116 de canone) | ADR-0116 de canone | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | «Compilar ejecutable»: empaquetar solo en CI con `pyside6-deploy`, sin PyInstaller, sin subir al VPS, sin número de versión ni manifiesto. Sale el ADR-0024 y cambian el 0025, el 0026 y el punto 4 del 0056 | [0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | Bitácora, historial y presets en un SQLite de la máquina (`services/store.py`) | — | — |

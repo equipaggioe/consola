@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, override
 
-from PySide6.QtCore import QEvent, Qt, QTimer
+from PySide6.QtCore import QEvent, QSettings, Qt, QTimer
 from PySide6.QtGui import (
     QCloseEvent,
     QColor,
@@ -53,6 +53,10 @@ from app.widgets.workspace_status_bar import WorkspaceStatusBar
 # time a burst of typing takes to stop, and what is recomputed is
 # nothing looked at while typing (the ▶ of the search's rows).
 _READINESS_MS = 200
+
+# The window's size and position, and the state of its bars.
+_GEOMETRY_KEY = "main_window/geometry"
+_STATE_KEY = "main_window/state"
 
 
 def _brand_icon() -> QIcon:
@@ -248,6 +252,18 @@ class MainWindow(QMainWindow):
             self._show_empty_state()
 
         self._install_shortcuts()
+        self._restore_layout()
+
+    def _restore_layout(self) -> None:
+        # The size, position and state of the last close. The first time
+        # nothing is saved, and the window keeps its default size.
+        settings = QSettings()
+        geometry = settings.value(_GEOMETRY_KEY)
+        if geometry is not None:
+            self.restoreGeometry(geometry)
+        state = settings.value(_STATE_KEY)
+        if state is not None:
+            self.restoreState(state)
 
     # --- menu row ---
     def _build_menu_row(self) -> QWidget:
@@ -520,10 +536,15 @@ class MainWindow(QMainWindow):
         down, or the last change is lost by checking a box and closing
         right away.
 
-        It also stops live tasks of all repos: without this an SSH
-        tunnel or a backend stayed running without Consola.
+        It also saves the window's size, position and state, which
+        `_restore_layout` reads on the next start, and stops live tasks
+        of all repos: without this an SSH tunnel or a backend stayed
+        running without Consola.
         """
         params_store.flush()
+        settings = QSettings()
+        settings.setValue(_GEOMETRY_KEY, self.saveGeometry())
+        settings.setValue(_STATE_KEY, self.saveState())
         for workspace in self.workspaces.values():
             workspace.shutdown()
         super().closeEvent(event)
