@@ -157,7 +157,8 @@ class Paint:
 
 # The whole first row: the brand, the window buttons.
 TITLE_BAR = Look(bg=Role.ACCENT, fg=Role.ON_ACCENT)
-# The repo tabs that are not selected, painted with the ACTIVE repo's palette.
+# The repo tabs that are not selected, painted with the ACTIVE repo's
+# palette.
 REPO_TAB = Look(bg=Role.ACCENT, fg=Role.ON_ACCENT, border=Role.ON_ACCENT)
 # The selected repo tab, with its own palette: it joins the menu row
 # (`MENU_BAR`, below).
