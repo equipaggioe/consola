@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal
+from PySide6.QtCore import Signal, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMenuBar, QWidget
 
@@ -221,6 +221,7 @@ class ActionMenuBar(QMenuBar):
             menu.addAction(action)
         menu.aboutToShow.connect(self._sync_view_checks)
 
+    @Slot()
     def _sync_view_checks(self) -> None:
         hidden = section_visibility.hidden_sections()
         for section_id, action in self._section_actions.items():

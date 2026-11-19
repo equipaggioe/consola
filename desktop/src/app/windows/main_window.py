@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, override
 
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer
+from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Slot
 from PySide6.QtGui import (
     QCloseEvent,
     QColor,
@@ -402,6 +402,7 @@ class MainWindow(QMainWindow):
         return w if isinstance(w, TabPanel) else None
 
     # --- frameless window: move, maximize, resize ---
+    @Slot()
     def _toggle_maximized(self) -> None:
         self.showNormal() if self.isMaximized() else self.showMaximized()
 
@@ -473,6 +474,7 @@ class MainWindow(QMainWindow):
         self._apply_window_border()
 
     # --- favorites ---
+    @Slot(bool)
     def _on_only_favorites(self, value: bool, save: bool = True) -> None:
         """React to «Solo favoritos» of the Ver menu: it prunes menus.
 
@@ -483,6 +485,7 @@ class MainWindow(QMainWindow):
         self.action_menu.set_only_favorites(value)
         self.action_menu.set_favorites(favorites.favorite_ids())
 
+    @Slot()
     def _on_favorites_changed(self, *_args) -> None:
         """React to a favorite marked on any surface.
 
@@ -497,10 +500,12 @@ class MainWindow(QMainWindow):
             workspace.refresh_favorite_stars()
 
     # --- reactions ---
+    @Slot(object)
     def _on_project_added(self, project: Project) -> None:
         self._ensure_workspace(project)
         self._on_project_selected(project)
 
+    @Slot(object)
     def _on_project_retinted(self, project: Project) -> None:
         """React to a repo choosing another color from its tab's menu.
 
@@ -515,6 +520,7 @@ class MainWindow(QMainWindow):
             self._apply_palette(pal)
             self._refresh_protection(workspace)
 
+    @Slot(object)
     def _on_project_removed(self, project: Project) -> None:
         workspace = self.workspaces.pop(project_store.identity(project.path), None)
         if workspace is not None:
@@ -549,6 +555,7 @@ class MainWindow(QMainWindow):
             workspace.shutdown()
         super().closeEvent(event)
 
+    @Slot(object)
     def _on_project_selected(self, project: Project) -> None:
         workspace = self._ensure_workspace(project)
         self.workspace_stack.setCurrentWidget(workspace)
@@ -566,7 +573,7 @@ class MainWindow(QMainWindow):
 
         It is for the status bar's indicator. It reads the panel
         (`security_panel.state()`), the same source the guard consults
-        when running (`TabPanel._guard_ok`): the indicator cannot say
+        when running (`TabPanel._guard`): the indicator cannot say
         one thing and the guard apply another.
         """
         self.status_bar.set_protection(workspace.security_panel.state())
@@ -575,6 +582,7 @@ class MainWindow(QMainWindow):
         if workspace is self.current_workspace:
             self._refresh_protection(workspace)
 
+    @Slot()
     def _on_security_clicked(self) -> None:
         """Jump to the active repo's Security section.
 
@@ -584,6 +592,7 @@ class MainWindow(QMainWindow):
         if workspace is not None:
             workspace.reveal_security()
 
+    @Slot(str)
     def _on_action_requested(self, capability_id: str) -> None:
         """Open or focus the action's tab; the click does not run it.
 
@@ -594,6 +603,7 @@ class MainWindow(QMainWindow):
         if capability and workspace is not None:
             workspace.open_tab(capability)
 
+    @Slot(str)
     def _on_run_requested(self, capability_id: str) -> None:
         """Open the tab and run at once: the search's ▶ button."""
         capability = registry.get_capability(capability_id)
@@ -629,15 +639,18 @@ class MainWindow(QMainWindow):
         """
         self._readiness_timer.start()
 
+    @Slot()
     def _do_refresh_readiness(self) -> None:
         ready = readiness.ready_ids(self.project_tabs.active_project)
         self.action_search.set_ready(ready)
 
+    @Slot(str, bool)
     def _on_section_toggled(self, section_id: str, visible: bool) -> None:
         """React to a section checked or unchecked in the Ver menu."""
         section_visibility.set_section_hidden(section_id, not visible)
         self._on_sections_changed()
 
+    @Slot()
     def _on_sections_changed(self) -> None:
         """Section visibility is global.
 
@@ -646,6 +659,7 @@ class MainWindow(QMainWindow):
         for workspace in self.workspaces.values():
             workspace.apply_section_visibility()
 
+    @Slot()
     def _on_machine_saved(self) -> None:
         """Reread the machine keys in every workspace.
 
@@ -656,6 +670,7 @@ class MainWindow(QMainWindow):
             workspace.reload_machine()
         self._refresh_readiness()
 
+    @Slot()
     def _on_params_changed(self) -> None:
         """Recount: a step turned off or on changes the keys it claims.
 
@@ -668,6 +683,7 @@ class MainWindow(QMainWindow):
         if tab is not None:
             tab.set_logo(logo)
 
+    @Slot()
     def _on_env_saved(self, *_args) -> None:
         """React to saved configuration changing.
 

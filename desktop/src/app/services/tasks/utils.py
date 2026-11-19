@@ -16,6 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
+from PySide6.QtCore import QLocale
 
 from app.api import android_studio, cloudflare, flutter, http, ip
 from app.services import android, canone, files, userenv
@@ -141,7 +142,7 @@ def clean_artifacts(
         ctx.info(f"  {path.relative_to(ctx.root)}")
     if len(found) > 40:
         ctx.info(f"  ... y {len(found) - 40} mas")
-    ctx.warn(f"{len(found)} elemento(s), {files.human_size(total)}.")
+    ctx.warn(f"{len(found)} elemento(s), {files.human_size(total, QLocale())}.")
 
     if not apply:
         ctx.info("Simulacro: no se borro nada.")
@@ -149,7 +150,7 @@ def clean_artifacts(
 
     for path in found:
         files.remove(path)
-    ctx.ok(f"Liberados {files.human_size(total)}.")
+    ctx.ok(f"Liberados {files.human_size(total, QLocale())}.")
     return found
 
 
@@ -310,7 +311,11 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
 
     def progress(done: int, total: int) -> None:
         if total > 0:
-            ctx.progress(done, total, f"{files.human_size(done)} de {files.human_size(total)}")
+            ctx.progress(
+                done,
+                total,
+                f"{files.human_size(done, QLocale())} de {files.human_size(total, QLocale())}",
+            )
 
     try:
         with destination.open("wb") as target:
@@ -331,7 +336,7 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
         raise TaskError(f"Fallo la descarga: {exc}") from exc
     ctx.raise_if_cancelled()
 
-    ctx.ok(f"Descargado: {files.human_size(files.size_of(destination))}")
+    ctx.ok(f"Descargado: {files.human_size(files.size_of(destination), QLocale())}")
     return destination
 
 

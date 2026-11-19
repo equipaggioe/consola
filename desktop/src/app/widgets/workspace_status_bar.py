@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, override
 
-from PySide6.QtCore import Qt, QTimer, Signal
+from PySide6.QtCore import Qt, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QMouseEvent,
 )
@@ -146,6 +146,7 @@ class WorkspaceStatusBar(QWidget):
         line.setFixedHeight(16)
         return line
 
+    @Slot()
     def refresh_tools(self) -> None:
         """Look at the disk again and repaint the environment's LEDs.
 
@@ -169,6 +170,7 @@ class WorkspaceStatusBar(QWidget):
                 f"font-size: {Fonts.SIZE_XS}px;"
             )
 
+    @Slot()
     def refresh_ram(self) -> None:
         """Show available and total RAM, rounded to the GB.
 
@@ -181,7 +183,9 @@ class WorkspaceStatusBar(QWidget):
         if ram is None:
             return
         available, total = ram
-        self.ram_label.setText(f"RAM {available:.1f}/{total:.1f} GB")
+        locale = self.locale()
+        free, size = locale.toString(available, "f", 1), locale.toString(total, "f", 1)
+        self.ram_label.setText(f"RAM {free}/{size} GB")
         threshold = total * 0.15
         color = Colors.TEXT_DIM if available > threshold else Colors.WARNING
         self.ram_label.setStyleSheet(

@@ -7,6 +7,7 @@ from typing import Any, override
 
 from PySide6.QtCore import (
     QAbstractTableModel,
+    QLocale,
     QModelIndex,
     QObject,
     QPersistentModelIndex,
@@ -35,9 +36,10 @@ class RowsModel(QAbstractTableModel):
 
     more_requested = Signal()
 
-    def __init__(self, parent: QObject | None = None) -> None:
-        """Start empty."""
+    def __init__(self, locale: QLocale, parent: QObject | None = None) -> None:
+        """Start empty, with the numbers of the view's `locale`."""
         super().__init__(parent)
+        self.locale = locale
         self.detail: dbx.TableDetail | None = None
         self.rows: list[tuple[Any, ...]] = []
         self.has_more = False
@@ -127,7 +129,7 @@ class RowsModel(QAbstractTableModel):
             if value is None:
                 return "NULL"
             if col.base_type == dbx.BYTEA:
-                return f"‹bytea {human_size(int(value))}›"
+                return f"‹bytea {human_size(int(value), self.locale)}›"
             text = value if len(value) <= dbx.CELL_CHARS else value[: dbx.CELL_CHARS] + "…"
             return text.replace("\r\n", " ⏎ ").replace("\n", " ⏎ ")
         if role == Qt.ItemDataRole.ToolTipRole:

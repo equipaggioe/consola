@@ -15,6 +15,8 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
+from PySide6.QtCore import QLocale
+
 from app.services import canone, db_explorer, envfile, files, runner
 from app.services import database as db
 from app.services.context import TaskContext
@@ -409,7 +411,8 @@ def backup_database(ctx: TaskContext) -> Path:
             env={"PGPASSWORD": password},
         )
 
-    ctx.ok(f"Backup guardado: {destination} ({files.human_size(files.size_of(destination))})")
+    size = files.human_size(files.size_of(destination), QLocale())
+    ctx.ok(f"Backup guardado: {destination} ({size})")
     rotate_backups(ctx)
     ctx.note(f"Backup de {name}: {destination.name}")
     return destination
@@ -522,15 +525,15 @@ def explore_db(ctx: TaskContext, scope: str = db.LOCAL) -> None:
 
         ctx.ok(f"Conectado a {info.database} como {info.user} (solo lectura).")
         ctx.info(f"Servidor: {info.version.split(' on ')[0]}")
-        ctx.info(f"Tamaño de la base: {files.human_size(info.size_bytes)}")
+        ctx.info(f"Tamaño de la base: {files.human_size(info.size_bytes, QLocale())}")
         tables = [r for r in relations if r.kind in "rpf" and not r.parent]
         ctx.info(
             f"{len(tables)} tabla(s), {len(relations) - len(tables)} vista(s) o partición(es):"
         )
         for rel in tables:
             ctx.info(
-                f"  {rel.qualified}  ~{db_explorer.human_count(rel.estimate)} filas"
-                f"  {files.human_size(rel.size_bytes)}"
+                f"  {rel.qualified}  ~{db_explorer.human_count(rel.estimate, QLocale())} filas"
+                f"  {files.human_size(rel.size_bytes, QLocale())}"
             )
 
         ctx.publish(db_explorer.session_key(conn.safe_url), conn.url)

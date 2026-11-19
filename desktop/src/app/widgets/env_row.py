@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QMouseEvent, QResizeEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -153,6 +153,7 @@ class EnvRow(QWidget):
     # QLineEdit's `textChanged` sends the text and QPlainTextEdit's
     # sends nothing: without the default, the multi-line field never
     # emitted `changed` and what was written did not get saved.
+    @Slot(str)
     def _on_text(self, _text: str = "") -> None:
         self._restyle()
         if self._is_list:

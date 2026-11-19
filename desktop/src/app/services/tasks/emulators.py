@@ -20,6 +20,8 @@ from __future__ import annotations
 
 import shlex
 
+from PySide6.QtCore import QLocale
+
 from app.services import android, cache, files, session
 from app.services.context import TaskContext
 from app.services.errors import TaskError
@@ -214,7 +216,7 @@ def purge_emulators(
         ctx.warn(f"AVD a borrar ({len(avds)}):")
         for name in avds:
             path = android.avd_home() / f"{name}.avd"
-            weight = files.human_size(files.size_of(path)) if path.exists() else "?"
+            weight = files.human_size(files.size_of(path), QLocale()) if path.exists() else "?"
             ctx.info(f"  {name}  ({weight})")
     if images:
         ctx.warn(f"Maquinas virtuales a desinstalar ({len(images)}):")

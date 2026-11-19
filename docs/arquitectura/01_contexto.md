@@ -14,7 +14,7 @@ Reemplaza a una carpeta `scripts/` que cada repositorio arrastraba copiada. La l
 | La capacidad se declara y se implementa por separado | `services/catalog.py` declara la forma; `services/tasks/` le da cuerpo con `Registry.bind` ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)) |
 | Lo que varía es un eje del panel, no otro botón | `systemd_action` tiene nueve acciones y un eje; no hay nueve botones ([ADR-0004](../adr/0004-un-boton-por-capacidad.md)) |
 | La forma del repo decide qué se ofrece | Las apps, las SPA y el servidor salen de mirar las carpetas (`services/targets.py`); un repo sin migraciones no tiene el botón «Migrar» |
-| Nada del núcleo conoce la interfaz | `services/` informa por el `TaskContext` que recibe ([ADR-0005](../adr/0005-todo-pasa-por-taskcontext.md)). No importa QtWidgets: Qt entra en él para sus hilos, para `QSettings` y como biblioteca de imágenes ([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md)) |
+| Nada del núcleo conoce la interfaz | `services/` informa por el `TaskContext` que recibe ([ADR-0005](../adr/0005-todo-pasa-por-taskcontext.md)). No importa QtWidgets: Qt entra en él para sus hilos, para `QSettings`, para el `QLocale` de los números y como biblioteca de imágenes ([ADR-0055](../adr/0055-los-iconos-salen-del-logo-y-los-rasteriza-qt.md)) |
 | Lo destructivo se frena por repo | El seguro mira qué rompe la corrida con esos parámetros, no si el botón «es peligroso» ([ADR-0018](../adr/0018-seguro-por-repo-y-objetivo.md)) |
 
 ## 2. Qué no es

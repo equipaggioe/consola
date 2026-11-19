@@ -5,7 +5,7 @@ See `services/protection.py`.
 **They do not live in `config.env`.** That file holds the data tasks
 need to work: the VPS's IP, the user, the token, the paths. No step ever
 reads a guard: the console looks at them before letting something run
-(`TabPanel._guard_ok`). They belong with the steps left checked in an
+(`TabPanel._guard`). They belong with the steps left checked in an
 action's panel, so they go to the same file, `.consola/params.json`
 (`services/params_store.py`).
 
@@ -115,7 +115,7 @@ class SecurityPanel(QWidget):
         self._scroll.setStyleSheet(self._scroll_style())
 
     def state(self) -> dict[str, Any]:
-        """Return what is shown: what `TabPanel._guard_ok` applies."""
+        """Return what is shown: what `TabPanel._guard` applies."""
         return dict(self._state)
 
     def content_height(self) -> int:

@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -290,6 +290,7 @@ class EnvPanel(QWidget):
             **{key: row.value() for key, row in self.rows.items()},
         }
 
+    @Slot()
     def reload(self) -> None:
         """Reread the file into the form."""
         text = self._read_file()
@@ -408,20 +409,28 @@ class EnvPanel(QWidget):
             notice += f" Al escribirlo se borran: {', '.join(removed)}."
         return notice
 
+    @Slot()
     def browse_import(self) -> None:
         """Import known keys from any .env file the user chooses.
 
         It assumes no conventions of other projects: the user chooses
-        the file, and only Save writes anything.
+        the file, and only Save writes anything. The dialog opens with
+        `open()`, and `import_file` reads what it chooses.
         """
-        path, _ = QFileDialog.getOpenFileName(
+        dialog = QFileDialog(
             self,
             "Importar variables desde…",
             self.project.path,
             "Archivos .env (*.env);;Todos los archivos (*)",
         )
-        if not path:
-            return
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
+        dialog.fileSelected.connect(self.import_file)
+        dialog.open()
+
+    @Slot(str)
+    def import_file(self, path: str) -> None:
+        """Fill the empty fields with the known keys of that file."""
         imported = envfile.import_from(path)
         if not imported:
             self.notice.emit(f"{os.path.basename(path)} no tiene claves reconocidas.", "warn")
@@ -436,6 +445,7 @@ class EnvPanel(QWidget):
             "info",
         )
 
+    @Slot()
     def save(self) -> None:
         """Write the repo's file.
 
@@ -490,6 +500,7 @@ class EnvPanel(QWidget):
             group_widget.setVisible(group_widget in visible_groups)
 
     # --- internal ---
+    @Slot()
     def _on_row_changed(self) -> None:
         self._refresh_defaults()
         self.values_changed.emit(self.values())

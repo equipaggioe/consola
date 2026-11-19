@@ -13,6 +13,7 @@ view expects is dropped.
 
 from __future__ import annotations
 
+import html
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -20,8 +21,8 @@ from typing import Any
 from PySide6.QtCore import (
     QModelIndex,
     Qt,
+    Slot,
 )
-from PySide6.QtGui import QColor
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -32,35 +33,22 @@ from PySide6.QtWidgets import (
     QScrollArea,
     QSplitter,
     QTableView,
-    QTableWidget,
-    QTableWidgetItem,
     QTabWidget,
-    QTreeWidget,
-    QTreeWidgetItem,
+    QTreeView,
     QVBoxLayout,
     QWidget,
 )
 
 from app import theme
 from app.models.rows_model import RowsModel
+from app.models.structure_model import StructureModel
+from app.models.tables_model import TablesModel
 from app.services import db_explorer as dbx
 from app.services import db_models as dbm
 from app.services.db_worker import DbWorker
 from app.services.files import human_size
 from app.services.palettes import NEUTRAL, Palette
-from app.theme import Colors, Fonts, mono
-
-# Relation, or ModelTable if missing from the database
-_ROLE_REL = Qt.ItemDataRole.UserRole
-_ROLE_GROUP = Qt.ItemDataRole.UserRole + 1  # key of a schema or folder
-
-# Mark and color of each state against the models (ADR-0015).
-_STATUS_MARK = {
-    dbm.MISSING: ("✕ ", Colors.ERROR),
-    dbm.CHANGED: ("≠ ", Colors.WARNING),
-    dbm.UNMODELED: ("+ ", Colors.ACCENT_PURPLE),
-}
-
+from app.theme import Colors, Fonts
 
 # --- view ---
 
@@ -126,7 +114,7 @@ class DbExplorerView(QWidget):
         bar = theme.TOOL_BAR.on(self.pal)
         self.setStyleSheet(f"""
             QWidget#dbExplorer {{ background: {theme.CANVAS.on(self.pal).bg}; }}
-            QTreeWidget, QTableView, QTableWidget {{
+            QTreeView, QTableView {{
                 background: {table.bg}; color: {table.fg};
                 border: none; font-size: {Fonts.SIZE_SM}px;
                 selection-background-color: {table.hover};
@@ -196,16 +184,21 @@ class DbExplorerView(QWidget):
         )
         self.models_label.setText("Comparando con los modelos…")
 
-        self.tree = QTreeWidget()
+        self.tables = TablesModel(self.locale(), self)
+        # While the tree is rebuilt, setting its current row is not the
+        # user choosing a table.
+        self._filling = False
+        self.tree = QTreeView()
+        self.tree.setModel(self.tables)
         self.tree.setHeaderHidden(True)
-        self.tree.setColumnCount(2)
         self.tree.setIndentation(14)
         self.tree.setStyleSheet("border: none;")
+        self.tree.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
         self.tree.header().setStretchLastSection(False)
-        self.tree.itemClicked.connect(self._on_tree_clicked)
-        self.tree.currentItemChanged.connect(self._on_tree_clicked)
+        self.tree.clicked.connect(self._on_tree_clicked)
+        self.tree.selectionModel().currentChanged.connect(self._on_tree_clicked)
         ll.addWidget(self.filter_box)
         ll.addWidget(self.models_label)
         ll.addWidget(self.tree, 1)
@@ -261,7 +254,7 @@ class DbExplorerView(QWidget):
         rl.addWidget(head)
 
         self.tabs = QTabWidget()
-        self.model = RowsModel(self)
+        self.model = RowsModel(self.locale(), self)
         self.model.more_requested.connect(self._request_more)
         self.table = QTableView()
         self.table.setModel(self.model)
@@ -345,6 +338,7 @@ class DbExplorerView(QWidget):
         if kind == "describe":
             self._pending["describe_keep"] = int(keep)
 
+    @Slot(int, str, object)
     def _on_result(self, req_id: int, kind: str, payload: Any) -> None:
         if self._pending.get(kind) != req_id:
             return  # it came late: something else was already asked
@@ -369,6 +363,7 @@ class DbExplorerView(QWidget):
             self._exact = payload
             self._update_header()
 
+    @Slot(int, str, str)
     def _on_failed(self, req_id: int, kind: str, message: str) -> None:
         if self._pending.get(kind) != req_id:
             return
@@ -416,7 +411,9 @@ class DbExplorerView(QWidget):
         if c is None:
             text = self._models_error or "Comparando con los modelos…"
             color = Colors.WARNING if self._models_error else Colors.TEXT_MUTED
-            self.models_label.setText(f"<span style='color:{color};'>{_html(text)}</span>")
+            self.models_label.setText(
+                f"<span style='color:{color};'>{html.escape(text, quote=False)}</span>"
+            )
             self.models_label.setToolTip(self._models_error)
             return
         parts = []
@@ -427,7 +424,7 @@ class DbExplorerView(QWidget):
         ):
             n = c.count(status)
             if n:
-                mark, color = _STATUS_MARK[status]
+                mark, color = TablesModel.MARKS[status]
                 parts.append(f"<span style='color:{color};'>{mark}{n} {text}</span>")
         if parts:
             self.models_label.setText(f"{len(c.models)} modelos: " + " · ".join(parts))
@@ -453,222 +450,73 @@ class DbExplorerView(QWidget):
         else:
             current = self._trail[-1][0].qualified if self._trail else None
         expanded = self._expanded_groups()
-        # By models whenever they could be read; by schemas is the
-        # fallback while they load or if they cannot be imported
-        # (ADR-0015).
-        by_models = self._comparison is not None
 
-        self.tree.blockSignals(True)
-        self.tree.clear()
-        groups: dict[str, QTreeWidgetItem] = {}
-        items: dict[str, QTreeWidgetItem] = {}
-        children: dict[str, int] = {}
-        for rel in relations:
-            if rel.parent:
-                key = f"{rel.schema}.{rel.parent}"
-                children[key] = children.get(key, 0) + 1
-
-        def group(key: str, label: str, parent: QTreeWidgetItem | None) -> QTreeWidgetItem:
-            if key not in groups:
-                item = QTreeWidgetItem([label, ""])
-                item.setData(0, _ROLE_GROUP, key)
-                item.setForeground(0, QColor(Colors.TEXT_DIM))
-                font = item.font(0)
-                font.setBold(True)
-                item.setFont(0, font)
-                if parent is None:
-                    self.tree.addTopLevelItem(item)
-                else:
-                    parent.addChild(item)
-                groups[key] = item
-            return groups[key]
-
-        def container(schema: str, model: dbm.ModelTable | None) -> QTreeWidgetItem | None:
-            if not by_models:
-                return group(f"schema:{schema}", schema, None)
-            if model is None:
-                return group("unmodeled", "sin modelo", None)
-            node, path = None, ""
-            for part in filter(None, model.folder.split("/")):
-                path = f"{path}/{part}" if path else part
-                node = group(f"folder:{path}", f"{part}/", node)
-            return node  # None: a model at the root of app/models
-
-        # What goes in the tree: relations that are not partitions and
-        # models whose table is missing from the database. By models,
-        # folders go before the root's loose files, as on disk, and what
-        # has no model goes last.
-        entries: list[tuple[tuple[Any, ...], dbx.Relation | dbm.ModelTable]] = []
-
-        def order(schema: str, name: str, model: dbm.ModelTable | None) -> tuple[Any, ...]:
-            if not by_models:
-                return (schema, name)
-            if model is None:
-                return (2, "", schema, name)
-            return (0 if model.folder else 1, model.folder, schema, name)
-
-        for rel in relations:
-            if not rel.parent:
-                status = self._status_of(rel.qualified)
-                entries.append(
-                    (order(rel.schema, rel.name, status.model if status else None), rel)
-                )
-        if self._comparison is not None:
-            for model in self._comparison.missing():
-                entries.append((order(model.schema, model.name, model), model))
-        entries.sort(key=lambda pair: pair[0])
-
-        for _order, entry in entries:
-            if isinstance(entry, dbm.ModelTable):
-                parent = container(entry.schema, entry)
-                item = self._missing_item(entry)
-            else:
-                status = self._status_of(entry.qualified)
-                parent = container(entry.schema, status.model if status else None)
-                item = self._relation_item(
-                    entry, children.get(entry.qualified, 0), status, show_schema=by_models
-                )
-            if parent is None:
-                self.tree.addTopLevelItem(item)
-            else:
-                parent.addChild(item)
-            items[entry.qualified] = item
-
-        for rel in relations:
-            if rel.parent and f"{rel.schema}.{rel.parent}" in items:
-                item = self._relation_item(rel, 0, None, show_schema=False)
-                items[f"{rel.schema}.{rel.parent}"].addChild(item)
-                items[rel.qualified] = item
-
+        self._filling = True
+        self.tables.set_tables(relations, self._comparison)
+        groups = {self.tables.group(i): i for i in self._indexes() if self.tables.group(i)}
         schemas = [k for k in groups if k.startswith("schema:")]
-        for key, item in groups.items():
+        for key, index in groups.items():
             # The first time `public` (or the only schema) and all
             # folders open; later it respects what was left open.
             if key in expanded:
-                item.setExpanded(expanded[key])
+                self.tree.setExpanded(index, expanded[key])
             else:
-                item.setExpanded(
-                    not key.startswith("schema:") or key == "schema:public" or len(schemas) == 1
+                self.tree.setExpanded(
+                    index,
+                    not key.startswith("schema:") or key == "schema:public" or len(schemas) == 1,
                 )
-        if current and current in items:
-            self.tree.setCurrentItem(items[current])
-        self.tree.blockSignals(False)
+        if current:
+            index = self.tables.index_of(current)
+            if index.isValid():
+                self.tree.setCurrentIndex(index)
+        self._filling = False
         self._apply_tree_filter(self.filter_box.text())
 
-    def _expanded_groups(self) -> dict[str, bool]:
-        found: dict[str, bool] = {}
-
-        def visit(item: QTreeWidgetItem) -> None:
-            key = item.data(0, _ROLE_GROUP)
-            if key:
-                found[key] = item.isExpanded()
-            for i in range(item.childCount()):
-                child = item.child(i)
-                if child is not None:
-                    visit(child)
-
-        for i in range(self.tree.topLevelItemCount()):
-            top = self.tree.topLevelItem(i)
-            if top is not None:
-                visit(top)
+    def _indexes(self, parent: QModelIndex = QModelIndex()) -> list[QModelIndex]:
+        """Return every row of the tree under `parent`, depth first."""
+        found = []
+        for row in range(self.tables.rowCount(parent)):
+            index = self.tables.index(row, 0, parent)
+            found.append(index)
+            found.extend(self._indexes(index))
         return found
 
-    def _relation_item(
-        self,
-        rel: dbx.Relation,
-        partitions: int,
-        status: dbm.TableStatus | None,
-        *,
-        show_schema: bool,
-    ) -> QTreeWidgetItem:
-        glyph = {"v": "◇ ", "m": "◈ ", "f": "⇢ "}.get(rel.kind, "")
-        mark, mark_color = _STATUS_MARK.get(status.status, ("", "")) if status else ("", "")
-        name = rel.qualified if show_schema and rel.schema != dbm.DEFAULT_SCHEMA else rel.name
-        extra = f"  ({partitions})" if partitions else ""
-        item = QTreeWidgetItem(
-            [
-                f"{mark}{glyph}{name}{extra}",
-                "" if rel.kind == "v" else dbx.human_count(rel.estimate),
-            ]
-        )
-        item.setData(0, _ROLE_REL, rel)
-        item.setForeground(1, QColor(Colors.TEXT_MUTED))
-        item.setTextAlignment(1, Qt.AlignmentFlag.AlignRight)
+    def _expanded_groups(self) -> dict[str, bool]:
+        # Whether each schema or folder is open, by its key.
+        return {
+            self.tables.group(index): self.tree.isExpanded(index)
+            for index in self._indexes()
+            if self.tables.group(index)
+        }
 
-        tip = [f"<b>{rel.qualified}</b> · {rel.kind_label}"]
-        if rel.kind not in ("v",):
-            tip.append(f"~{dbx.human_count(rel.estimate)} filas · {human_size(rel.size_bytes)}")
-        if rel.comment:
-            tip.append(_html(rel.comment))
-        if status is not None and status.model is not None:
-            tip.append(f"Modelo: app/models/{status.model.source}")
-        if not rel.readable:
-            tip.append(
-                f"<span style='color:{Colors.WARNING};'>El rol de la app no tiene SELECT</span>"
-            )
-            item.setForeground(0, QColor(Colors.TEXT_MUTED))
-        elif mark:
-            item.setForeground(0, QColor(mark_color))
-        elif rel.kind in ("v", "m", "f") or rel.extension:
-            item.setForeground(0, QColor(Colors.TEXT_DIM))
-        if status is not None and status.status == dbm.CHANGED:
-            lines = [_html(d.text) for d in status.diffs[:12]]
-            if len(status.diffs) > 12:
-                lines.append(f"… y {len(status.diffs) - 12} más")
-            tip.append(
-                f"<span style='color:{Colors.WARNING};'>Difiere de su modelo:</span><br>"
-                + "<br>".join(lines)
-            )
-        elif status is not None and status.status == dbm.UNMODELED:
-            tip.append(
-                f"<span style='color:{Colors.ACCENT_PURPLE};'>"
-                "Ningún modelo declara esta tabla</span>"
-            )
-        item.setToolTip(0, "<br>".join(tip))
-        return item
-
-    @staticmethod
-    def _missing_item(model: dbm.ModelTable) -> QTreeWidgetItem:
-        mark, color = _STATUS_MARK[dbm.MISSING]
-        item = QTreeWidgetItem([f"{mark}{model.name}", "falta"])
-        item.setData(0, _ROLE_REL, model)
-        item.setForeground(0, QColor(color))
-        item.setForeground(1, QColor(color))
-        item.setTextAlignment(1, Qt.AlignmentFlag.AlignRight)
-        item.setToolTip(
-            0,
-            f"<b>{model.qualified}</b><br>Modelo: app/models/{model.source}<br>"
-            f"<span style='color:{color};'>Está en los modelos y no en la base: "
-            "falta migrar</span>",
-        )
-        return item
-
+    @Slot(str)
     def _apply_tree_filter(self, text: str) -> None:
+        # Hide the rows whose name does not have `text`, and open the
+        # groups with a match.
         needle = text.strip().lower()
 
-        def visit(item: QTreeWidgetItem) -> bool:
-            entry = item.data(0, _ROLE_REL)
+        def visit(index: QModelIndex) -> bool:
+            entry = self.tables.entry(index)
             own = entry is not None and (not needle or needle in entry.name.lower())
             child_hit = False
-            for i in range(item.childCount()):
-                child = item.child(i)
-                child_hit = (child is not None and visit(child)) or child_hit
+            for row in range(self.tables.rowCount(index)):
+                child_hit = visit(self.tables.index(row, 0, index)) or child_hit
             # A group hides only if there is a filter and nothing inside
             # matches.
             visible = own or child_hit or (entry is None and not needle)
-            item.setHidden(not visible)
+            self.tree.setRowHidden(index.row(), index.parent(), not visible)
             if needle and child_hit:
-                item.setExpanded(True)
+                self.tree.setExpanded(index, True)
             return own or child_hit
 
-        for i in range(self.tree.topLevelItemCount()):
-            top = self.tree.topLevelItem(i)
-            if top is not None:
-                visit(top)
+        for row in range(self.tables.rowCount()):
+            visit(self.tables.index(row, 0))
 
-    def _on_tree_clicked(self, item: QTreeWidgetItem | None, *_args: object) -> None:
-        entry = item.data(0, _ROLE_REL) if item is not None else None
-        if entry is None:
+    @Slot(QModelIndex)
+    def _on_tree_clicked(self, index: QModelIndex) -> None:
+        # Open the table of the row chosen, unless it is already open.
+        entry = self.tables.entry(index)
+        if self._filling or entry is None:
             return
         if isinstance(entry, dbm.ModelTable):
             if self._missing is None or self._missing.qualified != entry.qualified:
@@ -756,6 +604,7 @@ class DbExplorerView(QWidget):
             where=self._trail[-1][1],
         )
 
+    @Slot()
     def _request_more(self) -> None:
         self._request_rows(offset=len(self.model.rows))
 
@@ -766,6 +615,7 @@ class DbExplorerView(QWidget):
             if header.sectionSize(i) > 320:
                 header.resizeSection(i, 320)
 
+    @Slot(int)
     def _on_sort(self, section: int) -> None:
         """Ask the server to order: sorting what is loaded would lie."""
         if self._detail is None:
@@ -778,6 +628,7 @@ class DbExplorerView(QWidget):
         self.model.reset(self._detail)
         self._request_rows(offset=0)
 
+    @Slot()
     def _count(self) -> None:
         if self._trail:
             rel, where = self._trail[-1]
@@ -802,17 +653,17 @@ class DbExplorerView(QWidget):
         parts = [rel.kind_label]
         if self._exact is not None:
             rows = "fila" if self._exact == 1 else "filas"
-            parts.append(
-                f"{self._exact:,} {rows}".replace(",", ".") + (" con el filtro" if where else "")
-            )
+            exact = self.locale().toString(self._exact)
+            parts.append(f"{exact} {rows}" + (" con el filtro" if where else ""))
         elif rel.kind != "v":
-            parts.append(f"~{dbx.human_count(rel.estimate)} filas")
+            parts.append(f"~{dbx.human_count(rel.estimate, self.locale())} filas")
         if rel.kind != "v":
-            parts.append(human_size(rel.size_bytes))
+            parts.append(human_size(rel.size_bytes, self.locale()))
         self.subtitle.setText("  ·  ".join(parts))
         self.count_btn.setEnabled(self._detail is not None and self._exact is None)
 
     # --- follow an FK ---
+    @Slot(QModelIndex)
     def _on_cell_double_clicked(self, index: QModelIndex) -> None:
         if self._detail is None or not index.isValid():
             return
@@ -972,11 +823,12 @@ class DbExplorerView(QWidget):
             table.setToolTip("Doble clic para abrir esa tabla")
 
             def follow_incoming(
-                row: int, _column: int, fks: list[dbx.ForeignKey] = detail.incoming
+                index: QModelIndex, fks: list[dbx.ForeignKey] = detail.incoming
             ) -> None:
-                self._follow(fks[row].ref_schema, fks[row].ref_table, dbx.Filter())
+                fk = fks[index.row()]
+                self._follow(fk.ref_schema, fk.ref_table, dbx.Filter())
 
-            table.cellDoubleClicked.connect(follow_incoming)
+            table.doubleClicked.connect(follow_incoming)
         for pane in self._panes():
             pane.addStretch()
 
@@ -1022,7 +874,7 @@ class DbExplorerView(QWidget):
         headers: list[str],
         rows: list[list[str]],
         title_color: str = Colors.TEXT_MUTED,
-    ) -> QTableWidget:
+    ) -> QTableView:
         label = QLabel(title.upper())
         label.setStyleSheet(
             f"background: transparent; color: {title_color}; font-size: {Fonts.SIZE_XS}px; "
@@ -1030,22 +882,14 @@ class DbExplorerView(QWidget):
         )
         pane.addWidget(label)
 
-        table = QTableWidget(len(rows), len(headers))
-        table.setHorizontalHeaderLabels(headers)
+        table = QTableView()
+        table.setModel(StructureModel(headers, rows, table))
         table.verticalHeader().setVisible(False)
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
         table.setWordWrap(False)
         table.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
         table.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        for r, values in enumerate(rows):
-            for c, value in enumerate(values):
-                item = QTableWidgetItem(value)
-                if len(value) > 40:
-                    item.setToolTip(value)
-                if c == 0:
-                    item.setFont(mono(item.font()))
-                table.setItem(r, c, item)
         table.resizeColumnsToContents()
         header = table.horizontalHeader()
         header.setStretchLastSection(True)
@@ -1057,7 +901,3 @@ class DbExplorerView(QWidget):
         table.setFixedHeight(header.sizeHint().height() + row_h * len(rows) + 18)
         pane.addWidget(table)
         return table
-
-
-def _html(text: str) -> str:
-    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")

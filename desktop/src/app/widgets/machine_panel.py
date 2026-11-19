@@ -8,7 +8,7 @@ from the Ver menu (`services/section_visibility.py`).
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -82,6 +82,7 @@ class MachinePanel(QWidget):
         self._restyle()
         self.reload()
 
+    @Slot()
     def reload(self) -> None:
         """Read the saved values into the form."""
         values = params_store.machine_env()
@@ -90,6 +91,7 @@ class MachinePanel(QWidget):
             row.set_value(values.get(key, ""))
             row.blockSignals(False)
 
+    @Slot()
     def save(self) -> None:
         """Write the form's values to QSettings."""
         params_store.save_machine_env({key: row.value() for key, row in self.rows.items()})

@@ -6,7 +6,7 @@ from dataclasses import replace
 from pathlib import Path
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -186,6 +186,7 @@ class ParamsPanel(QWidget):
         self._loader.ready.connect(self._on_machine_ready)
         self._loader.start()
 
+    @Slot(dict)
     def _on_machine_ready(self, resolved: dict[str, Any]) -> None:
         """Fill the lists the query feeds, keeping what was chosen."""
         saved = params_store.load(self.project.path, self.capability.id)
@@ -911,6 +912,7 @@ class ParamsPanel(QWidget):
         self._restyle_run()
         return foot
 
+    @Slot(bool)
     def _on_star_marked(self, value: bool) -> None:
         favorites.set_favorite(self.capability.id, value)
         self.favorite_changed.emit()
@@ -1312,6 +1314,7 @@ class ParamsPanel(QWidget):
             reasons.append(f"faltan claves de configuración: {', '.join(missing)}")
         return reasons
 
+    @Slot()
     def _refresh_summary(self, *_args) -> None:
         scope = self.option_value("scope")
         for step in self.steps:
@@ -1346,7 +1349,8 @@ class ParamsPanel(QWidget):
             }}
         """)
 
-    def _emit_execute(self, _checked: bool = False, *, dry_run: bool = False) -> bool:
+    @Slot()
+    def _emit_execute(self, *, dry_run: bool = False) -> bool:
         if self._blockers():
             return False
         payload = self.payload()

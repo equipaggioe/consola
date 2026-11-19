@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import override
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal, Slot
 from PySide6.QtGui import (
     QColor,
     QEnterEvent,
@@ -262,11 +262,17 @@ class ProjectTabBar(ReorderableBar):
             t.set_closable(True)
 
     # --- add a repo --------------------------------------------------
+    @Slot()
     def _pick_repo(self) -> None:
-        path = QFileDialog.getExistingDirectory(self, "Elegir carpeta del repositorio", "")
-        if path:
-            self.open_path(path)
+        # Open the folder dialog: `open_path` takes what it chooses.
+        dialog = QFileDialog(self, "Elegir carpeta del repositorio")
+        dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        dialog.setFileMode(QFileDialog.FileMode.Directory)
+        dialog.setOption(QFileDialog.Option.ShowDirsOnly)
+        dialog.fileSelected.connect(self.open_path)
+        dialog.open()
 
+    @Slot(str)
     def open_path(self, path: str) -> None:
         """Open that folder as a tab, or jump to its tab if open.
 

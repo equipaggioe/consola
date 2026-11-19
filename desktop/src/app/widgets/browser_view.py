@@ -18,7 +18,7 @@ import webbrowser
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import Qt, QUrl, Signal
+from PySide6.QtCore import Qt, QUrl, Signal, Slot
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app import theme
@@ -175,6 +175,7 @@ class BrowserView(QWidget):
         if self.page is not None and url:
             self.page.setUrl(QUrl(url))
 
+    @Slot()
     def reload(self) -> None:
         """Reload, or load the endpoint's URL if no page is loaded yet.
 
@@ -189,14 +190,17 @@ class BrowserView(QWidget):
         else:
             self.page.reload()
 
+    @Slot()
     def _go_back(self) -> None:
         if self.page is not None:
             self.page.back()
 
+    @Slot()
     def _go_forward(self) -> None:
         if self.page is not None:
             self.page.forward()
 
+    @Slot(QUrl)
     def _on_url_changed(self, url: QUrl) -> None:
         """Change the label when navigating inside the app.
 

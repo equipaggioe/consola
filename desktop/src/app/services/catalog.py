@@ -6,6 +6,8 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
+from PySide6.QtCore import QLocale
+
 from app.services import android, cache, canone, files, icons, shots, ssh, targets, toolchain, vps
 from app.services.envfile import Config
 from app.services.errors import TaskError
@@ -394,7 +396,7 @@ def _backup_label(path: Path) -> str:
         )
     except ValueError:
         return path.name
-    return f"{when:%Y-%m-%d %H:%M}  ·  {files.human_size(files.size_of(path))}"
+    return f"{when:%Y-%m-%d %H:%M}  ·  {files.human_size(files.size_of(path), QLocale())}"
 
 
 def forget_machine_cache() -> None:

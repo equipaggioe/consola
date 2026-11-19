@@ -39,7 +39,9 @@ Guarda además lo que la función devolvió en `self.result`. Casi ninguna capac
 | `expect` no vacío | Campo de texto: hay que escribir exactamente eso. La fricción es el punto |
 | `ASK_SECRET` | Campo con eco oculto |
 | `ASK_TEXT` | Campo normal. Cerrarlo devuelve `ASK_CANCELLED`, que no es lo mismo que responder vacío |
-| Resto | Sí/No, con el botón peligroso sin ser el predeterminado |
+| Resto | Sí/No, con el botón peligroso sin ser el predeterminado. Solo «Sí» es un sí: Escape o cerrar la ventana contestan «no» |
+
+Cada diálogo se abre con `open()`, y la respuesta sale de su `finished`, también cuando se cierra con la X.
 
 La distinción entre cancelar y responder vacío importa: en `create_avd` el vacío significa «usa el nombre derivado», así que un Escape creaba el AVD igual.
 
@@ -75,7 +77,7 @@ Hace tres cosas de una vez: publica el endpoint en la sesión, emite la señal q
 
 `widgets/tab_panel.py::_run` es el punto único: por aquí pasan el botón Ejecutar y el ▶ del buscador. En orden:
 
-1. **Seguro.** `_guard_ok` clasifica la corrida con `services/protection.decide` ([14](14_seguro_de_destructivos.md)). Está aquí y no en el panel porque este es el único camino común a las dos formas de ejecutar.
+1. **Seguro.** `_guard` clasifica la corrida con `services/protection.decide` ([14](14_seguro_de_destructivos.md)). Está aquí y no en el panel porque este es el único camino común a las dos formas de ejecutar. Lo que deja pasar sigue en `_dispatch`: enseguida, o desde el `accepted` del recordatorio, que se abre con `open()`.
 2. **Concurrente.** Si la capacidad es `concurrent`, reparte sus pasos en pestañas y termina; no hay `func` que llamar.
 3. **Sin cuerpo.** Sin `func`, corre la simulación que reporta exactamente lo que correría.
 4. **Reparto.** Si es `live` y tiene `fanout`, una pestaña por valor marcado; el primero se queda en la pestaña desde la que se apretó, solo cambiando de nombre.

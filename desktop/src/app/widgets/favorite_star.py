@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from app.theme import Colors, Fonts, tint
@@ -48,6 +48,7 @@ class FavoriteStar(QPushButton):
         self.accent = accent
         self._restyle()
 
+    @Slot()
     def _on_clicked(self) -> None:
         self.set_favorite(not self._favorite, announce=True)
 

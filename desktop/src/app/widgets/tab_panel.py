@@ -5,7 +5,7 @@ from __future__ import annotations
 import time
 from typing import Any, override
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRectF, Qt, QTimer, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QRectF, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QColor,
     QEnterEvent,
@@ -17,6 +17,7 @@ from PySide6.QtGui import (
     QPen,
 )
 from PySide6.QtWidgets import (
+    QDialog,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -523,11 +524,13 @@ class TabPanel(ReorderableBar):
         self._persist_tabs()
 
     # --- building ------------------------------------------------
+    @Slot()
     def _show_file_status(self) -> None:
         """Show config.env's state in its section's header."""
         env = self.env_panel
         self.config_section.set_summary(env.file_status, env.file_detail, env.file_warn)
 
+    @Slot(str, str)
     def _on_env_notice(self, text: str, level: str) -> None:
         """Write what a settings button did in the settings tab.
 
@@ -1073,6 +1076,7 @@ class TabPanel(ReorderableBar):
             # absorbing section keeps it and not the final spring.
             self._column.setStretchFactor(section, 1 if section is absorbing else 0)
 
+    @Slot()
     def _on_section_toggled(self, *_args) -> None:
         # Folding a section discards its manual height: reopening
         # expects the size its content computes, not what it had three
@@ -1205,6 +1209,7 @@ class TabPanel(ReorderableBar):
     def _info_wanted(self) -> int:
         return self.info_panel.content_height() + 28
 
+    @Slot(dict)
     def _refresh_security_summary(self, state: dict[str, Any]) -> None:
         """Show how many targets are protected in the section's header.
 
@@ -1217,10 +1222,12 @@ class TabPanel(ReorderableBar):
             f"{protected} de {total} protegidos" if protected else "sin seguros"
         )
 
+    @Slot(dict)
     def _on_env_changed(self, values: dict[str, Any]) -> None:
         for panel in self._params.values():
             panel.set_env(values)
 
+    @Slot()
     def _on_env_reloaded(self) -> None:
         """Reload the parameters too when reloading `config.env`.
 
@@ -1234,6 +1241,7 @@ class TabPanel(ReorderableBar):
             panel.refresh_machine()
         self._refresh_logo()
 
+    @Slot()
     def _refresh_previews(self, *_args) -> None:
         """Ask again what each open action will do.
 
@@ -1244,6 +1252,7 @@ class TabPanel(ReorderableBar):
             if panel.capability.preview:
                 panel.reload_catalogs()
 
+    @Slot()
     def _refresh_logo(self, *_args) -> None:
         """Reread the logo: `BRAND_ICON` may have changed."""
         self.logo = repo_logo.resolve(self.project.path)
@@ -1270,9 +1279,13 @@ class TabPanel(ReorderableBar):
         # this is the only point BOTH ways of running pass through: the
         # Run button and the rail's run button (`quick_run`). Placing it
         # in the panel would leave the second path with no net.
-        if not self._guard_ok(capability, payload, console):
-            return
+        self._guard(tab, capability, payload, console)
 
+    def _dispatch(
+        self, tab: _SubTabButton, capability: Capability, payload: dict[str, Any]
+    ) -> None:
+        """Run what the guard let pass, by the capability's shape."""
+        console = self._consoles[tab]
         # A concurrent composite runs nothing itself: it shares out its
         # steps, which are capabilities, one per tab (ADR-0011).
         if capability.concurrent:
@@ -1290,9 +1303,13 @@ class TabPanel(ReorderableBar):
             self._run_real(tab, console, capability, capability.kwargs_from(payload))
 
     # --- guard by target type ---
-    def _guard_ok(
-        self, capability: Capability, payload: dict[str, Any], console: ConsoleView
-    ) -> bool:
+    def _guard(
+        self,
+        tab: _SubTabButton,
+        capability: Capability,
+        payload: dict[str, Any],
+        console: ConsoleView,
+    ) -> None:
         """Let pass, warn or block, by `services/protection.decide`.
 
         What decides is not «it is destructive» but «what it breaks,
@@ -1301,13 +1318,19 @@ class TabPanel(ReorderableBar):
         `teardown_db` against `local` does not decide the same as
         against `remote`, and a protected target does not open a door to
         skip the guard: it closes it.
+
+        The notices open with `open()`, so the run goes on from the
+        reminder's `accepted`.
         """
         decision, targets = protection.decide(self.security_panel.state(), capability.id, payload)
         if decision == protection.Decision.ALLOW:
-            return True
+            self._dispatch(tab, capability, payload)
+            return
 
         if decision == protection.Decision.BLOCK:
-            BlockedDialog(self.project, capability.name, targets, self).exec()
+            blocked = BlockedDialog(self.project, capability.name, targets, self)
+            blocked.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            blocked.open()
             which = ", ".join(t.label for t in targets)
             console.append_log(
                 f"Bloqueado: {capability.name} toca {which} y este repo lo "
@@ -1315,15 +1338,23 @@ class TabPanel(ReorderableBar):
                 f"seccion Seguridad.",
                 "error",
             )
-            return False
+            return
 
-        dialog = ReminderDialog(self.project, capability.name, targets, self)
-        if dialog.exec() == ReminderDialog.DialogCode.Accepted:
-            return True
-        console.append_log(
-            f"Cancelado: {capability.name} no llego a correr sobre {self.project.name}.", "warn"
-        )
-        return False
+        reminder = ReminderDialog(self.project, capability.name, targets, self)
+        reminder.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+
+        def on_accepted() -> None:
+            self._dispatch(tab, capability, payload)
+
+        def on_rejected() -> None:
+            console.append_log(
+                f"Cancelado: {capability.name} no llego a correr sobre {self.project.name}.",
+                "warn",
+            )
+
+        reminder.accepted.connect(on_accepted)
+        reminder.rejected.connect(on_rejected)
+        reminder.open()
 
     # --- sharing into tabs ---
     def _fanout_values(self, capability: Capability, payload: dict[str, Any]) -> list[str]:
@@ -1512,37 +1543,45 @@ class TabPanel(ReorderableBar):
 
         It always calls `provide_answer`, also when the dialog closes
         with the X: without that the task stays waiting for an answer
-        that never comes. An empty answer is a «no» for `confirm`.
+        that never comes. An empty answer is a «no» for `confirm`. The
+        dialogs open with `open()`, and the answer goes from their
+        `finished`.
         """
-        if expect:
-            answer, ok = QInputDialog.getText(
-                self, "Confirmar", question, QLineEdit.EchoMode.Normal
-            )
-            runner.provide_answer(answer if ok else "")
-            return
-
-        if shape in (context.ASK_SECRET, context.ASK_TEXT):
-            mode = (
-                QLineEdit.EchoMode.Password
-                if shape == context.ASK_SECRET
-                else QLineEdit.EchoMode.Normal
-            )
-            answer, ok = QInputDialog.getText(self, "Dato requerido", question, mode)
+        if expect or shape in (context.ASK_SECRET, context.ASK_TEXT):
+            dialog = QInputDialog(self)
+            dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+            dialog.setWindowTitle("Confirmar" if expect else "Dato requerido")
+            dialog.setLabelText(question)
+            if not expect and shape == context.ASK_SECRET:
+                dialog.setTextEchoMode(QLineEdit.EchoMode.Password)
             # Cancelling is not answering empty: for some questions
             # empty means «use the derived value»
             # (`services/context.py::ASK_CANCELLED`).
-            runner.provide_answer(answer if ok else context.ASK_CANCELLED)
+            cancelled = "" if expect else context.ASK_CANCELLED
+
+            def on_text(result: int) -> None:
+                accepted = result == QDialog.DialogCode.Accepted.value
+                runner.provide_answer(dialog.textValue() if accepted else cancelled)
+
+            dialog.finished.connect(on_text)
+            dialog.open()
             return
 
         box = QMessageBox(self)
+        box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         box.setIcon(QMessageBox.Icon.Warning if danger else QMessageBox.Icon.Question)
         box.setWindowTitle("Confirmar" if danger else "Pregunta")
         box.setText(question)
-        box.addButton("Sí", QMessageBox.ButtonRole.YesRole)
+        yes = box.addButton("Sí", QMessageBox.ButtonRole.YesRole)
         no = box.addButton("No", QMessageBox.ButtonRole.NoRole)
         box.setDefaultButton(no)
-        box.exec()
-        runner.provide_answer("no" if box.clickedButton() is no else "si")
+
+        def on_button(_result: int) -> None:
+            # Only «Sí» is a yes: closing it any other way is a no.
+            runner.provide_answer("si" if box.clickedButton() is yes else "no")
+
+        box.finished.connect(on_button)
+        box.open()
 
     def _run_stub(self, console: ConsoleView, payload: dict[str, Any]) -> None:
         """Simulate the run: report exactly what would run.

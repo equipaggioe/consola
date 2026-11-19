@@ -17,6 +17,8 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
+from PySide6.QtCore import QLocale
+
 from app.services import canone, files, icons, ssh, targets, toolchain, versioning, vps
 from app.services.context import TaskContext
 from app.services.errors import TaskError
@@ -130,7 +132,7 @@ def compile_flutter(ctx: TaskContext, directory: str = "", platform_id: str = "a
             f"El build {destination.label} termino pero no aparecio nada en {pattern}."
         )
     output = _deliver(ctx, app.path, platform_id, output)
-    ctx.ok(f"{destination.label}: {output} ({files.human_size(files.size_of(output))})")
+    ctx.ok(f"{destination.label}: {output} ({files.human_size(files.size_of(output), QLocale())})")
     return output
 
 
@@ -234,7 +236,7 @@ def compile_spa(ctx: TaskContext, directory: str = "") -> Path:
     spa = _target(ctx, targets.SPA_VITE, directory)
     ctx.run([*toolchain.pnpm_cmd(), "run", "build"], cwd=spa.path)
     output = _spa_output(spa)
-    ctx.ok(f"Build de {spa.name}: {output} ({files.human_size(files.size_of(output))})")
+    ctx.ok(f"Build de {spa.name}: {output} ({files.human_size(files.size_of(output), QLocale())})")
     return output
 
 
@@ -540,7 +542,7 @@ def compile_binary(
     artifact = _binary_output(app_dir, label, onefile)
     if not artifact.exists():
         raise TaskError(f"PyInstaller no dejo el binario esperado en {artifact}.")
-    ctx.ok(f"Binario: {artifact} ({files.human_size(files.size_of(artifact))})")
+    ctx.ok(f"Binario: {artifact} ({files.human_size(files.size_of(artifact), QLocale())})")
     return artifact
 
 

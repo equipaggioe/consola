@@ -1,14 +1,16 @@
 # Plan — que Consola cumpla canone entera
 
-> **Estado (verificado 2026-11-18).** Canone sacó `qt.md` de desarrollo (`461d857` y `e6b3d0b` de
+> **Estado (verificado 2026-11-19).** Canone sacó `qt.md` de desarrollo (`461d857` y `e6b3d0b` de
 > canone): ahora rige entera, salvo su sección «Tema», que sigue en desarrollo. Con canone en `main`
 > (`8856ea4`, que comprueba el árbol, ADR-0188 y ADR-0189 de canone), `verificar.py --repo .` da 0
 > incumplimientos. En Windows, `ruff format --check`, `ruff check`,
-> `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1014 pruebas, con 3 saltadas.
+> `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1015 pruebas, con 3 saltadas.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
 > `stack.md`, el árbol de `qt.md`
 > ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
-> los enums con su clase, `IniFormat`, HTTP con un solo
+> los enums con su clase, `@Slot` en los 69 métodos conectados a una señal, las fechas y los
+> números con el `locale()` del widget, los diálogos con `open()`, el explorador con
+> `QTreeView` y `QTableView` sobre `models/`, `IniFormat`, HTTP con un solo
 > `QNetworkAccessManager` y reintentos
 > ([ADR-0089](../adr/0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)),
 > `release.yml` ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)) y `api/`
@@ -44,19 +46,11 @@ Rige desde que `qt.md` salió de desarrollo. En este orden: cada etapa deja el r
 su commit. Los conteos salen de buscar en el código (2026-11-17); lo de accesibilidad no se probó con
 la app.
 
-### 2.4 PySide6, widgets, diálogos y Model/View
-
-| Pide `qt.md` | Hoy |
-|---|---|
-| `@Slot` en todo método conectado a una señal | Ningún `@Slot`; unas 73 conexiones a métodos |
-| Fechas y números con el `locale()` del widget | `widgets/console_view.py` (`strftime`), `widgets/db_explorer_view.py` (miles con `replace`) y `widgets/tab_panel.py` (la RAM) |
-| Un diálogo modal se abre con `open()`, nunca con `exec()` | `widgets/tab_panel.py`: `BlockedDialog`, `ReminderDialog` y un `QMessageBox`. También `QFileDialog.getOpenFileName` y `getExistingDirectory`, y dos `QInputDialog.getText`, que corren `exec()` por dentro (lectura propia) |
-| Vista con modelo, sin `QTreeWidget` ni `QTableWidget` | Los dos en `widgets/db_explorer_view.py` |
-
 ### 2.5 Accesibilidad
 
-- El `data()` de `RowsModel` responde `ToolTipRole`, pero no `AccessibleTextRole` ni
-  `AccessibleDescriptionRole`.
+- El `data()` de `RowsModel`, `TablesModel` y `StructureModel` responde `ToolTipRole` (el de
+  `StructureModel`, solo con un texto de más de 40 caracteres), pero ninguno `AccessibleTextRole`
+  ni `AccessibleDescriptionRole`.
 - Hay 9 `paintEvent` y ninguna `QAccessibleInterface`. Falta ver cuáles dibujan contenido y cuáles
   solo decoran.
 - No hay ningún `setAccessibleName` ni `setAccessibleDescription`.
@@ -100,6 +94,10 @@ Hoy no hay ninguna llamada a `tr` ni a `translate`. Conteo por script, aproximad
 - El job `desktop` de `ci.yml` y el de `release.yml` compilan cada `.ts` con `pyside6-lrelease`,
   copian el `qtbase_<locale>.qm` de Qt y arman `rc_resources.py` con `pyside6-rcc`, como en la
   plantilla.
+- Los textos que `services/` arma para la interfaz llevan fechas y números: `catalog.py::_backup_label`
+  escribe la fecha del respaldo con `strftime`, y los mensajes de las tareas pasan `QLocale()` a
+  `files.human_size` y a `db_explorer.human_count`. Al traducirlos, la fecha sale también de
+  `QLocale`.
 - Es la etapa más grande.
 
 ### 2.9 Lo que no aplica

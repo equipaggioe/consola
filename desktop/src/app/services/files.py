@@ -11,6 +11,8 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from pathlib import Path
 
+from PySide6.QtCore import QLocale
+
 from app.services.host import HOST
 
 
@@ -146,11 +148,6 @@ def extract_zip(archive: Path, target: Path) -> Path:
     return target
 
 
-def human_size(size: int) -> str:
-    """Return a size in bytes as readable text."""
-    total = float(size)
-    for unit in ("B", "KB", "MB", "GB"):
-        if total < 1024 or unit == "GB":
-            return f"{total:.0f} {unit}" if unit == "B" else f"{total:.1f} {unit}"
-        total /= 1024.0
-    return f"{total:.1f} GB"
+def human_size(size: int, locale: QLocale) -> str:
+    """Return a size in bytes as readable text, in `locale`."""
+    return locale.formattedDataSize(size, 1, QLocale.DataSizeFormat.DataSizeTraditionalFormat)

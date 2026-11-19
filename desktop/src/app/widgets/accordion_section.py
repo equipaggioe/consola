@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QSize, Qt, Signal
+from PySide6.QtCore import QSize, Qt, Signal, Slot
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
@@ -175,6 +175,7 @@ class AccordionSection(QWidget):
         if announce:
             self.toggled.emit(value)
 
+    @Slot()
     def toggle(self) -> None:
         """Flip open and closed."""
         self.set_expanded(not self._expanded)

@@ -2,17 +2,18 @@
 
 from __future__ import annotations
 
-import datetime
+import re
 from typing import override
 
-from PySide6.QtCore import Qt, QTimer
+from PySide6.QtCore import QDateTime, QLocale, Qt, QTimer, Slot
 from PySide6.QtGui import (
     QAction,
     QColor,
     QContextMenuEvent,
     QFont,
-    QKeyEvent,
+    QKeySequence,
     QResizeEvent,
+    QShortcut,
     QTextCharFormat,
 )
 from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QWidget
@@ -20,6 +21,9 @@ from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QWidget
 from app import theme
 from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts, mono
+
+# The time zone of a QLocale time format, with its parentheses.
+_ZONE = re.compile(r"\s*\(?t+\)?")
 
 
 class ConsoleView(QPlainTextEdit):
@@ -42,6 +46,9 @@ class ConsoleView(QPlainTextEdit):
         self.search_bar = QLineEdit(self)
         self.search_bar.setPlaceholderText("Search...")
         self.search_bar.hide()
+        find = QShortcut(QKeySequence("Ctrl+F"), self)
+        find.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)
+        find.activated.connect(self._toggle_search)
         self._restyle()
 
     def set_palette(self, pal: Palette) -> None:
@@ -79,6 +86,7 @@ class ConsoleView(QPlainTextEdit):
         h = 28
         self.search_bar.setGeometry(self.width() - w - 20, 10, w, h)
 
+    @Slot(str, str)
     def append_log(self, text: str, level: str = "info") -> None:
         """Append one line, colored by its level."""
         fmt = QTextCharFormat()
@@ -91,7 +99,7 @@ class ConsoleView(QPlainTextEdit):
         level = level.lower()
         level_color = color_map.get(level, Colors.TEXT_DIM)
 
-        now = datetime.datetime.now(datetime.UTC).astimezone().strftime("%Y-%m-%d %H:%M:%S")
+        now = self._stamp()
 
         cursor = self.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
@@ -118,6 +126,19 @@ class ConsoleView(QPlainTextEdit):
 
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
 
+    def _stamp(self) -> str:
+        """Return the date and time of now, in the widget's locale.
+
+        The time takes the long format without its time zone: a log
+        needs the seconds, which the short format leaves out.
+        """
+        locale = self.locale()
+        now = QDateTime.currentDateTime()
+        clock = _ZONE.sub("", locale.timeFormat(QLocale.FormatType.LongFormat))
+        day = locale.toString(now.date(), QLocale.FormatType.ShortFormat)
+        return f"{day} {locale.toString(now.time(), clock)}"
+
+    @Slot()
     def clear_console(self) -> None:
         """Empty the view."""
         self.clear()
@@ -129,6 +150,7 @@ class ConsoleView(QPlainTextEdit):
         self.append_log("El esqueleto de UI está funcionando correctamente.", "info")
         self.append_log("Stub ejecutado", "ok")
 
+    @Slot()
     def _toggle_cursor(self) -> None:
         cursor = self.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
@@ -144,14 +166,12 @@ class ConsoleView(QPlainTextEdit):
             cursor.insertText("▍", fmt)
             self.cursor_visible = True
 
-    @override
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        if event.modifiers() & Qt.KeyboardModifier.ControlModifier and event.key() == Qt.Key.Key_F:
-            self.search_bar.setVisible(not self.search_bar.isVisible())
-            if self.search_bar.isVisible():
-                self.search_bar.setFocus()
-            return
-        super().keyPressEvent(event)
+    @Slot()
+    def _toggle_search(self) -> None:
+        # Show the search bar and focus it, or hide it.
+        self.search_bar.setVisible(not self.search_bar.isVisible())
+        if self.search_bar.isVisible():
+            self.search_bar.setFocus()
 
     @override
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:

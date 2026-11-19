@@ -18,6 +18,7 @@ from typing import Any
 import psycopg
 from psycopg import Connection, sql
 from psycopg.sql import SQL, Composed
+from PySide6.QtCore import QLocale
 
 from app.services.errors import TaskError
 
@@ -482,12 +483,12 @@ def count_exact(conn: Connection, relation: Relation, where: Filter | None = Non
 # --- format ---
 
 
-def human_count(n: int | None) -> str:
-    """Return a count as short text."""
+def human_count(n: int | None, locale: QLocale) -> str:
+    """Return a count as short text, with the numbers of `locale`."""
     if n is None:
         return "?"
     for limit, suffix in ((1_000_000_000, "G"), (1_000_000, "M"), (1_000, "k")):
         if n >= limit:
             value = n / limit
-            return f"{value:.1f}{suffix}" if value < 10 else f"{value:.0f}{suffix}"
-    return str(n)
+            return locale.toString(value, "f", 1 if value < 10 else 0) + suffix
+    return locale.toString(n)

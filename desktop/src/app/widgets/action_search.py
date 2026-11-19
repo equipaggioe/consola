@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import cast, override
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt, Signal
+from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt, Signal, Slot
 from PySide6.QtGui import QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -251,6 +251,7 @@ class ActionSearch(QWidget):
     def _visible_rows(self) -> list[ActionRow]:
         return [row for row in self._rows if not row.isHidden()]
 
+    @Slot(str)
     def _on_text(self, text: str) -> None:
         needle = text.strip().lower()
         if not needle:
@@ -321,14 +322,17 @@ class ActionSearch(QWidget):
         return visible[self._current] if 0 <= self._current < len(visible) else None
 
     # --- firing ---
+    @Slot(str)
     def _open(self, cap_id: str) -> None:
         self.box.clear()
         self.action_requested.emit(cap_id)
 
+    @Slot(str)
     def _run(self, cap_id: str) -> None:
         self.box.clear()
         self.run_requested.emit(cap_id)
 
+    @Slot(str, bool)
     def _on_favorite_toggled(self, cap_id: str, value: bool) -> None:
         """Save the mark from the list and tell the other surfaces.
 

@@ -15,7 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -173,6 +173,7 @@ class TabView(QWidget):
             else:
                 w.setVisible(visible)
 
+    @Slot()
     def clear_console(self) -> None:
         """Empty the log and put the action's header back.
 
@@ -221,6 +222,7 @@ class TabView(QWidget):
             chip.setStyleSheet(_chip_style(self.pal))
 
     # --- endpoint ---
+    @Slot(str, str, bool, str)
     def set_endpoint(self, url: str, label: str, web: bool, state: str) -> None:
         """Show the endpoint from `ctx.serve()` and its state.
 
@@ -268,11 +270,13 @@ class TabView(QWidget):
         self.copy_btn.setEnabled(alive)
         self.external_btn.setEnabled(alive)
 
+    @Slot()
     def _copy_url(self) -> None:
         QGuiApplication.clipboard().setText(self._url)
         self.console.append_log(f"URL copiada: {self._url}", "ok")
 
     # --- views ---
+    @Slot()
     def _toggle_view(self) -> None:
         if self.stack.currentWidget() is self.console:
             if self.capability.has_db_view:
