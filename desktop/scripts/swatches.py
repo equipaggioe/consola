@@ -1,11 +1,11 @@
-"""Show the colors of each role and part, to choose in `ui/parts.py`.
+"""Show the colors of each role and part, to choose in `theme.py`.
 
 From `desktop/`: `uv run python scripts/swatches.py <theme>`, with one
 of the eight theme keys (`blue`, `green`…). The roles go in the eight
 themes; the parts, painted in the one given.
 
 It only shows: what changes a part's color is its role in
-`ui/parts.py`. Everything is read from the code when it opens, so it
+`theme.py`. Everything is read from the code when it opens, so it
 never lags behind the table.
 """
 
@@ -26,10 +26,10 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.theme import Fonts, apply_theme
-from app.ui import palettes, parts
-from app.ui.palettes import Palette
-from app.ui.parts import Look, Role
+from app import theme
+from app.services import palettes
+from app.services.palettes import Palette
+from app.theme import Fonts, Look, Role, apply_theme
 
 
 def _square(color: str, side: int = 16) -> QLabel:
@@ -61,7 +61,7 @@ class SwatchesDialog(QDialog):
         self.pal = pal
         self.setWindowTitle(f"Roles y partes · {pal.label}")
         self.resize(1040, 760)
-        dialog = parts.DIALOG.on(pal)
+        dialog = theme.DIALOG.on(pal)
         self.setStyleSheet(f"QDialog {{ background: {dialog.bg}; }}")
 
         content = QWidget()
@@ -93,44 +93,44 @@ class SwatchesDialog(QDialog):
         This repo's theme goes in bold: it is the one the parts below
         are painted with.
         """
-        dialog = parts.DIALOG.on(self.pal)
+        dialog = theme.DIALOG.on(self.pal)
         grid_box = QWidget()
         grid = QGridLayout(grid_box)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(14)
         grid.setVerticalSpacing(6)
         themes = list(palettes.THEMES.values())
-        for col, theme in enumerate(themes, start=1):
-            mine = theme.key == self.pal.key
-            grid.addWidget(_text(theme.label, theme.accent, bold=mine), 0, col)
+        for col, other in enumerate(themes, start=1):
+            mine = other.key == self.pal.key
+            grid.addWidget(_text(other.label, other.accent, bold=mine), 0, col)
         for row, role in enumerate(Role, start=1):
             grid.addWidget(_text(f"Role.{role.name}", dialog.fg), row, 0)
-            for col, theme in enumerate(themes, start=1):
-                hex_color = parts.color(role, theme)
+            for col, other in enumerate(themes, start=1):
+                hex_color = theme.color(role, other)
                 cell = QHBoxLayout()
                 cell.setSpacing(6)
                 cell.addWidget(_square(hex_color))
-                cell.addWidget(_text(hex_color, dialog.fg, bold=theme.key == self.pal.key))
+                cell.addWidget(_text(hex_color, dialog.fg, bold=other.key == self.pal.key))
                 cell.addStretch(1)
                 grid.addLayout(cell, row, col)
         return grid_box
 
     def _parts(self) -> QWidget:
         """Return a row per part: its sample and each slot's role."""
-        dialog = parts.DIALOG.on(self.pal)
+        dialog = theme.DIALOG.on(self.pal)
         grid_box = QWidget()
         grid = QGridLayout(grid_box)
         grid.setContentsMargins(0, 0, 0, 0)
         grid.setHorizontalSpacing(16)
         grid.setVerticalSpacing(8)
-        looks = [(n, v) for n, v in vars(parts).items() if isinstance(v, Look)]
+        looks = [(n, v) for n, v in vars(theme).items() if isinstance(v, Look)]
         for row, (name, look) in enumerate(looks):
             grid.addWidget(_text(name, dialog.fg, bold=True), row, 0)
             grid.addWidget(self._sample(look), row, 1)
             slots = QHBoxLayout()
             slots.setSpacing(6)
             for slot, role in look.slots().items():
-                slots.addWidget(_square(parts.color(role, self.pal), 14))
+                slots.addWidget(_square(theme.color(role, self.pal), 14))
                 slots.addWidget(_text(f"{slot} = {role.name}", dialog.fg))
                 slots.addSpacing(10)
             slots.addStretch(1)
@@ -159,7 +159,7 @@ class SwatchesDialog(QDialog):
 
 def main() -> None:
     """Open the window with the theme given on the command line."""
-    parser = argparse.ArgumentParser(description="Roles y partes de ui/parts.py")
+    parser = argparse.ArgumentParser(description="Roles y partes de theme.py")
     parser.add_argument("theme", choices=list(palettes.THEMES), help="the parts' theme")
     args = parser.parse_args()
     app = QApplication(sys.argv[:1])
