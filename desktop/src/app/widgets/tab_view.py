@@ -115,6 +115,7 @@ class TabView(QWidget):
         self.header_title = QLabel(CONSOLA.upper())
 
         self.led = LedIndicator(bar, size=9)
+        self.led.setAccessibleName("Estado del endpoint")
         self.state_label = QLabel("")
         self.state_label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"

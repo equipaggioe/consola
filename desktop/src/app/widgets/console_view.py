@@ -33,6 +33,7 @@ class ConsoleView(QPlainTextEdit):
         """Build the read-only view."""
         super().__init__(parent)
         self.setReadOnly(True)
+        self.setAccessibleName("Consola")
         self.pal = NEUTRAL
         font = mono(QFont())
         font.setPixelSize(Fonts.SIZE_MONO)
@@ -45,6 +46,7 @@ class ConsoleView(QPlainTextEdit):
 
         self.search_bar = QLineEdit(self)
         self.search_bar.setPlaceholderText("Search...")
+        self.search_bar.setAccessibleName("Buscar en la consola")
         self.search_bar.hide()
         find = QShortcut(QKeySequence("Ctrl+F"), self)
         find.setContext(Qt.ShortcutContext.WidgetWithChildrenShortcut)

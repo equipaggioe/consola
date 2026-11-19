@@ -66,6 +66,10 @@ class StructureModel(QAbstractTableModel):
             return value
         if role == Qt.ItemDataRole.ToolTipRole:
             return value if len(value) > 40 else None
+        if role == Qt.ItemDataRole.AccessibleTextRole:
+            return value or "vacío"
+        if role == Qt.ItemDataRole.AccessibleDescriptionRole:
+            return self.headers[index.column()]
         if role == Qt.ItemDataRole.FontRole and index.column() == 0:
             return mono(QFont())
         return None

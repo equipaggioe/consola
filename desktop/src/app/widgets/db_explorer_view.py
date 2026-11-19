@@ -23,6 +23,7 @@ from PySide6.QtCore import (
     Qt,
     Slot,
 )
+from PySide6.QtGui import QAction
 from PySide6.QtWidgets import (
     QAbstractItemView,
     QHBoxLayout,
@@ -173,7 +174,14 @@ class DbExplorerView(QWidget):
         ll.setSpacing(6)
         self.filter_box = QLineEdit()
         self.filter_box.setPlaceholderText("Filtrar tablas…")
+        self.filter_box.setAccessibleName("Filtrar tablas")
         self.filter_box.setClearButtonEnabled(True)
+        # Qt's clear action has no text, so its button reaches
+        # assistive technology with no name. The object name is Qt's.
+        clear = self.filter_box.findChild(QAction, "_q_qlineeditclearaction")
+        if clear is None:
+            raise RuntimeError("QLineEdit has no clear action")
+        clear.setText("Borrar el texto")
         self.filter_box.textChanged.connect(self._apply_tree_filter)
 
         self.models_label = QLabel("")

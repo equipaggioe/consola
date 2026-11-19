@@ -4,9 +4,26 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QEnterEvent, QFont, QMouseEvent, QPainter, QPaintEvent
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QSizePolicy, QWidget
+from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleActionInterface,
+    QAccessibleInterface,
+    QColor,
+    QEnterEvent,
+    QFont,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+)
+from PySide6.QtWidgets import (
+    QAccessibleWidget,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QSizePolicy,
+    QWidget,
+)
 
 from app.theme import Colors, Fonts, tint
 
@@ -123,6 +140,9 @@ class ActionRow(QWidget):
         self.setMouseTracking(True)
         self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
         self.setToolTip(self._tooltip(label))
+        # The tooltip is rich text: assistive technology gets it plain.
+        self.setAccessibleName(label)
+        self._describe()
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 12, 0)
@@ -146,6 +166,7 @@ class ActionRow(QWidget):
         layout.addWidget(_LevelMark(composite))
 
         self.run_btn = QPushButton("▶")
+        self.run_btn.setAccessibleName("Ejecutar")
         self.run_btn.setFixedSize(26, 26)
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_btn.clicked.connect(lambda: self.run_requested.emit(self.capability_id))
@@ -170,6 +191,18 @@ class ActionRow(QWidget):
             "Clic para abrir · clic en el filete para marcar favorita</span>"
         )
         return "<br>".join(lines)
+
+    def _describe(self) -> None:
+        """Say in words what the stripe and the marks say to the eye."""
+        about = [self.description.rstrip(".")] if self.description else []
+        about.append("compuesta" if self.composite else "atómica")
+        if self.machine:
+            about.append("de la máquina")
+        if self.danger:
+            about.append("destructiva")
+        if self.favorite:
+            about.append("favorita")
+        self.setAccessibleDescription(", ".join(about))
 
     def matches(self, needle: str) -> bool:
         """Return the text the filter looks at.
@@ -227,6 +260,7 @@ class ActionRow(QWidget):
         if value == self.favorite:
             return
         self.favorite = value
+        self._describe()
         self._restyle()
         self.update()
 
@@ -305,3 +339,31 @@ class ActionRow(QWidget):
             bar_width = 5.0 if self._pin_hovered else 2.5
             p.fillRect(QRectF(0, 3, bar_width, r.height() - 6), _alpha(edge.name(), bar_alpha))
         p.end()
+
+
+class _Accessible(QAccessibleWidget):
+    """The row as a button: pressing it opens the action."""
+
+    def __init__(self, row: ActionRow) -> None:
+        """Give the row the button role."""
+        super().__init__(row, QAccessible.Role.Button)
+        self.row = row
+
+    @override
+    def actionNames(self) -> list[str]:
+        return [QAccessibleActionInterface.pressAction(), *super().actionNames()]
+
+    @override
+    def doAction(self, actionName: str) -> None:
+        if actionName == QAccessibleActionInterface.pressAction():
+            self.row.triggered.emit(self.row.capability_id)
+        else:
+            super().doAction(actionName)
+
+
+def _interface(key: str, obj: QObject) -> QAccessibleInterface | None:
+    """Return the interface of `ActionRow`, for `installFactory`."""
+    return _Accessible(obj) if isinstance(obj, ActionRow) else None
+
+
+QAccessible.installFactory(_interface)

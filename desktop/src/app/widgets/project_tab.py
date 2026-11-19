@@ -46,7 +46,6 @@ class ProjectTab(ReorderableTab):
     name in the ink that reads over it (`theme.py`).
     """
 
-    clicked = Signal()
     close_requested = Signal()
     theme_changed = Signal()
 
@@ -72,6 +71,7 @@ class ProjectTab(ReorderableTab):
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(project.path)
+        self.setAccessibleName(project.name)
         self.setStyleSheet("ProjectTab { background: transparent; }")
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
@@ -87,6 +87,7 @@ class ProjectTab(ReorderableTab):
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         self.close_btn = QPushButton("×")
+        self.close_btn.setAccessibleName(f"Cerrar {project.name}")
         self.close_btn.setFixedSize(20, 20)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.clicked.connect(self.close_requested.emit)
@@ -105,6 +106,7 @@ class ProjectTab(ReorderableTab):
         self.is_active = active
         self._sync_text()
         self.update()
+        self._announce_active()
 
     def set_active_palette(self, pal: Palette) -> None:
         """Set the active repo's palette, the background of a back tab.

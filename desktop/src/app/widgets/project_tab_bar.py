@@ -5,8 +5,11 @@ from __future__ import annotations
 import os
 from typing import override
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, Qt, Signal, Slot
+from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, Signal, Slot
 from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleActionInterface,
+    QAccessibleInterface,
     QColor,
     QEnterEvent,
     QMouseEvent,
@@ -16,6 +19,7 @@ from PySide6.QtGui import (
     QPen,
 )
 from PySide6.QtWidgets import (
+    QAccessibleWidget,
     QFileDialog,
     QHBoxLayout,
     QWidget,
@@ -47,7 +51,8 @@ class _AddProjectTab(QWidget):
         self.setStyleSheet("_AddProjectTab { background: transparent; }")
         self.pal = palettes.NEUTRAL
         self._hovered = False
-        self.setToolTip("Anadir repositorio")
+        self.setToolTip("Añadir repositorio")
+        self.setAccessibleName("Añadir repositorio")
 
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
@@ -297,3 +302,31 @@ class ProjectTabBar(ReorderableBar):
         project = Project(name, clean, theme)
         self.add_project(project, select=True)
         self.project_added.emit(project)
+
+
+class _Accessible(QAccessibleWidget):
+    """The «+» as a button that presses like a click."""
+
+    def __init__(self, tab: _AddProjectTab) -> None:
+        """Give the «+» the button role."""
+        super().__init__(tab, QAccessible.Role.Button)
+        self.tab = tab
+
+    @override
+    def actionNames(self) -> list[str]:
+        return [QAccessibleActionInterface.pressAction(), *super().actionNames()]
+
+    @override
+    def doAction(self, actionName: str) -> None:
+        if actionName == QAccessibleActionInterface.pressAction():
+            self.tab.clicked.emit()
+        else:
+            super().doAction(actionName)
+
+
+def _interface(key: str, obj: QObject) -> QAccessibleInterface | None:
+    """Return the interface of the «+», for `installFactory`."""
+    return _Accessible(obj) if isinstance(obj, _AddProjectTab) else None
+
+
+QAccessible.installFactory(_interface)

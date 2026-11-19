@@ -200,6 +200,7 @@ class WorkspaceStatusBar(QWidget):
         clayout.setSpacing(5)
 
         led = LedIndicator(size=8)
+        led.setAccessibleName(tool.label)
         label = QLabel(tool.label)
         clayout.addWidget(led)
         clayout.addWidget(label)
@@ -217,6 +218,7 @@ class WorkspaceStatusBar(QWidget):
         clayout.setSpacing(5)
 
         led = LedIndicator(size=9)
+        led.setAccessibleName(name)
         led.set_state("green")
         clayout.addWidget(led)
 

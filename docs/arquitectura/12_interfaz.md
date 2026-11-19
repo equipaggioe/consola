@@ -154,3 +154,16 @@ El LED verde **pulsa** solo cuando algo está vivo ahora mismo; un hecho estáti
 ## 9. El explorador de base
 
 Árbol de esquemas y relaciones a la izquierda, y a la derecha Datos o Estructura. Corre sobre su propio `DbWorker`, así que una consulta lenta no congela el árbol; las páginas se piden al desplazar y entran cuando la respuesta llega. Detalle en [16](16_base_de_datos.md).
+
+## 10. Accesibilidad
+
+Lo que recibe un lector de pantalla, comprobado con UI Automation en Windows el 2026-11-19:
+
+| Qué | Cómo |
+|---|---|
+| Widgets de Qt | Su propia interfaz accesible. Un botón que muestra un glifo (`×`, `▶`, `‹`, `☆`) lleva un `accessibleName` en palabras; un campo lo toma de su etiqueta con `setBuddy` (`EnvRow`, `ParamsPanel._labeled`) o de su propósito (el buscador, el filtro del explorador, la búsqueda de la consola). La consola se llama «Consola», y el botón de borrar de un `QLineEdit` lleva texto en la acción `_q_qlineeditclearaction` de Qt, que no lo trae |
+| Widgets que se dibujan | Cada módulo trae su `QAccessibleWidget` y lo instala con `QAccessible.installFactory`: las pestañas de los dos niveles (`ReorderableTab`) son `PageTab`, seleccionadas si están activas y con la acción de pulsar; el «+» y cada fila del buscador (`ActionRow`) son `Button`; el LED es `Indicator`, y el logo, `Graphic`. El rombo de la marca queda invisible: `CONSOLA`, a su lado, ya la nombra |
+| Lo que solo se ve | El LED dice su estado en palabras («encendido», «activo», «con error»…) y quien lo pone le da el nombre; una fila del buscador dice en su descripción si es compuesta, de la máquina, destructiva o favorita; el logo que no se pudo leer se llama «Logo no válido» y describe el error |
+| Cambios | `setAccessibleName` y `setAccessibleDescription` avisan solos; una pestaña que se activa o se deja manda su `QAccessibleStateChangeEvent` |
+| Modelos | `RowsModel`, `TablesModel` y `StructureModel` responden `ToolTipRole`, `AccessibleTextRole` y `AccessibleDescriptionRole`. El texto accesible va sin las marcas `✕ ≠ +` ni los glifos, y la descripción dice en palabras el tipo, las particiones y el estado contra los modelos |
+| Atajos | Ctrl+T añade un repo, Ctrl+L enfoca el buscador, Ctrl+Tab y Ctrl+Shift+Tab pasan de repo, Ctrl+1 a Ctrl+9 eligen uno, y Ctrl+F abre la búsqueda de la consola. Todos son `QShortcut` |

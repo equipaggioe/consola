@@ -26,6 +26,7 @@ class FavoriteStar(QPushButton):
         super().__init__(parent)
         self.accent = accent
         self._favorite = False
+        self.setAccessibleName("Favorita")
         self.setFixedSize(26, 26)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -55,7 +56,11 @@ class FavoriteStar(QPushButton):
     def _restyle(self) -> None:
         self.setText(self.FULL if self._favorite else self.EMPTY)
         color = self.accent if self._favorite else Colors.TEXT_MUTED
-        self.setToolTip("Quitar de favoritas" if self._favorite else "Marcar como favorita")
+        tip = "Quitar de favoritas" if self._favorite else "Marcar como favorita"
+        self.setToolTip(tip)
+        # A new tooltip does not reach assistive technology; a new
+        # description does.
+        self.setAccessibleDescription(tip)
         self.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: none; border-radius: 5px;

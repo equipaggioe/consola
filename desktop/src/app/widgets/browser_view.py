@@ -125,6 +125,7 @@ class BrowserView(QWidget):
         btn = QPushButton(glyph)
         btn.setFixedSize(24, 24)
         btn.setToolTip(tip)
+        btn.setAccessibleName(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setStyleSheet(f"""
             QPushButton {{

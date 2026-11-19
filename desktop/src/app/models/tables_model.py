@@ -24,6 +24,14 @@ from app.theme import Colors
 type Entry = dbx.Relation | dbm.ModelTable
 
 _GLYPHS = {"v": "◇ ", "m": "◈ ", "f": "⇢ "}
+# Each state against the models in words, for assistive technology:
+# the marks and colors say it only to the eye.
+_STATES = {
+    dbm.MISSING: "falta en la base",
+    dbm.CHANGED: "difiere de su modelo",
+    dbm.UNMODELED: "sin modelo",
+}
+_GROUPS = {"schema": "esquema", "folder": "carpeta de modelos", "unmodeled": "tablas sin modelo"}
 _HEADERS = ("Tabla", "Filas")
 
 
@@ -182,15 +190,37 @@ class TablesModel(QAbstractItemModel):
             return int(Qt.AlignmentFlag.AlignRight)
         if role == Qt.ItemDataRole.ToolTipRole and column == 0:
             return self._relation_tip(rel, status)
+        if role == Qt.ItemDataRole.AccessibleTextRole:
+            if column == 1:
+                return "" if rel.kind == "v" else f"unas {self._count(rel)} filas"
+            schema = node.show_schema and rel.schema != dbm.DEFAULT_SCHEMA
+            return rel.qualified if schema else rel.name
+        if role == Qt.ItemDataRole.AccessibleDescriptionRole:
+            return self._relation_about(node, rel)
         return None
+
+    def _count(self, rel: dbx.Relation) -> str:
+        # The estimate of rows, as short text.
+        return dbx.human_count(rel.estimate, self.locale)
+
+    def _relation_about(self, node: _Node, rel: dbx.Relation) -> str:
+        # The relation in words: kind, partitions, state and access.
+        about = [rel.kind_label]
+        if node.partitions:
+            about.append(f"{node.partitions} particiones")
+        if node.status is not None and node.status.status in _STATES:
+            about.append(_STATES[node.status.status])
+        if not rel.readable:
+            about.append("el rol de la app no tiene SELECT")
+        return ", ".join(about)
 
     def _relation_tip(self, rel: dbx.Relation, status: dbm.TableStatus | None) -> str:
         # The relation's tooltip: kind, estimate, size, comment, model
         # and how it differs from it.
         tip = [f"<b>{rel.qualified}</b> · {rel.kind_label}"]
         if rel.kind not in ("v",):
-            count = dbx.human_count(rel.estimate, self.locale)
-            tip.append(f"~{count} filas · {human_size(rel.size_bytes, self.locale)}")
+            size = human_size(rel.size_bytes, self.locale)
+            tip.append(f"~{self._count(rel)} filas · {size}")
         if rel.comment:
             tip.append(html.escape(rel.comment, quote=False))
         if status is not None and status.model is not None:
@@ -319,6 +349,10 @@ def _group_data(node: _Node, column: int, role: int) -> Any:
         font = QFont()
         font.setBold(True)
         return font
+    if role == Qt.ItemDataRole.AccessibleTextRole:
+        return node.label
+    if role == Qt.ItemDataRole.AccessibleDescriptionRole:
+        return _GROUPS[node.group.split(":")[0]]
     return None
 
 
@@ -331,6 +365,10 @@ def _missing_data(model: dbm.ModelTable, column: int, role: int) -> Any:
         return QColor(color)
     if role == Qt.ItemDataRole.TextAlignmentRole and column == 1:
         return int(Qt.AlignmentFlag.AlignRight)
+    if role == Qt.ItemDataRole.AccessibleTextRole:
+        return "falta" if column == 1 else model.name
+    if role == Qt.ItemDataRole.AccessibleDescriptionRole:
+        return f"{_STATES[dbm.MISSING]}: está en app/models/{model.source}"
     if role == Qt.ItemDataRole.ToolTipRole and column == 0:
         return (
             f"<b>{model.qualified}</b><br>Modelo: app/models/{model.source}<br>"

@@ -4,9 +4,18 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import Property, QEasingCurve, QPropertyAnimation, Qt
-from PySide6.QtGui import QBrush, QColor, QPainter, QPaintEvent, QPen, QRadialGradient
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import Property, QEasingCurve, QObject, QPropertyAnimation, Qt
+from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleInterface,
+    QBrush,
+    QColor,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QRadialGradient,
+)
+from PySide6.QtWidgets import QAccessibleWidget, QWidget
 
 from app.theme import Colors
 
@@ -22,12 +31,22 @@ class LedIndicator(QWidget):
     """
 
     STEADY = ("off", "on", "amber", "red")
+    # What each state says to assistive technology, which does not see
+    # the color. Whoever places the LED gives it its name.
+    WORDS = {
+        "off": "apagado",
+        "on": "encendido",
+        "green": "activo",
+        "amber": "con advertencia",
+        "red": "con error",
+    }
 
     def __init__(self, parent: QWidget | None = None, size: int = 10) -> None:
         """Build the LED."""
         super().__init__(parent)
         self.setFixedSize(size, size)
         self._state = "off"
+        self.setAccessibleDescription(self.WORDS["off"])
         self._opacity = 1.0
         self._size = size
 
@@ -41,6 +60,8 @@ class LedIndicator(QWidget):
     def set_state(self, state: str) -> None:
         """Set the state, and start or stop the pulse."""
         self._state = state
+        # Qt sends the change of description to assistive technology.
+        self.setAccessibleDescription(self.WORDS[state])
         if state == "green":
             if self.animation.state() != QPropertyAnimation.State.Running:
                 self.animation.start()
@@ -109,3 +130,19 @@ class LedIndicator(QWidget):
             painter.drawEllipse(center, glow_radius, glow_radius)
 
         painter.end()
+
+
+class _Accessible(QAccessibleWidget):
+    """The LED as an indicator: its name, and its state in words."""
+
+    def __init__(self, led: LedIndicator) -> None:
+        """Give the LED the indicator role."""
+        super().__init__(led, QAccessible.Role.Indicator)
+
+
+def _interface(key: str, obj: QObject) -> QAccessibleInterface | None:
+    """Return the interface of `LedIndicator`, for `installFactory`."""
+    return _Accessible(obj) if isinstance(obj, LedIndicator) else None
+
+
+QAccessible.installFactory(_interface)

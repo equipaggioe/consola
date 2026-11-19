@@ -4,9 +4,17 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QFont, QImage, QPainter, QPaintEvent
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import QObject, QRectF, QSize, Qt
+from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleInterface,
+    QColor,
+    QFont,
+    QImage,
+    QPainter,
+    QPaintEvent,
+)
+from PySide6.QtWidgets import QAccessibleWidget, QWidget
 
 from app.services.repo_logo import RepoLogo, trimmed
 from app.theme import Colors
@@ -31,6 +39,10 @@ class RepoLogoView(QWidget):
         self._image = trimmed(logo.source) if logo.source else None
         self._scaled: QImage | None = None
         self.setToolTip(logo.error)
+        # The ⚠ in place of the logo says something only to the eye:
+        # its name and the error say it in words.
+        self.setAccessibleName("Logo no válido" if logo.error else "Logo del repositorio")
+        self.setAccessibleDescription(logo.error)
         self.update()
 
     @override
@@ -59,3 +71,19 @@ class RepoLogoView(QWidget):
         p.setFont(f)
         p.setPen(QColor(Colors.ERROR))
         p.drawText(QRectF(self.rect()), Qt.AlignmentFlag.AlignCenter, "⚠")
+
+
+class _Accessible(QAccessibleWidget):
+    """The logo as a graphic, with its name."""
+
+    def __init__(self, view: RepoLogoView) -> None:
+        """Give the logo the graphic role."""
+        super().__init__(view, QAccessible.Role.Graphic)
+
+
+def _interface(key: str, obj: QObject) -> QAccessibleInterface | None:
+    """Return the interface of `RepoLogoView`, for `installFactory`."""
+    return _Accessible(obj) if isinstance(obj, RepoLogoView) else None
+
+
+QAccessible.installFactory(_interface)

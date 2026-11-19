@@ -4,13 +4,15 @@
 > canone): ahora rige entera, salvo su sección «Tema», que sigue en desarrollo. Con canone en `main`
 > (`8856ea4`, que comprueba el árbol, ADR-0188 y ADR-0189 de canone), `verificar.py --repo .` da 0
 > incumplimientos. En Windows, `ruff format --check`, `ruff check`,
-> `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1015 pruebas, con 3 saltadas.
+> `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1015 pruebas, con 3 saltadas. En
+> Linux (distro `Testing`), los pasos del job `desktop` de `ci.yml` dan 0 y pasan 1018.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
 > `stack.md`, el árbol de `qt.md`
 > ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
 > los enums con su clase, `@Slot` en los 69 métodos conectados a una señal, las fechas y los
 > números con el `locale()` del widget, los diálogos con `open()`, el explorador con
-> `QTreeView` y `QTableView` sobre `models/`, `IniFormat`, HTTP con un solo
+> `QTreeView` y `QTableView` sobre `models/`, la accesibilidad de `qt.md` salvo los atajos,
+> `IniFormat`, HTTP con un solo
 > `QNetworkAccessManager` y reintentos
 > ([ADR-0089](../adr/0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)),
 > `release.yml` ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)) y `api/`
@@ -48,13 +50,13 @@ la app.
 
 ### 2.5 Accesibilidad
 
-- El `data()` de `RowsModel`, `TablesModel` y `StructureModel` responde `ToolTipRole` (el de
-  `StructureModel`, solo con un texto de más de 40 caracteres), pero ninguno `AccessibleTextRole`
-  ni `AccessibleDescriptionRole`.
-- Hay 9 `paintEvent` y ninguna `QAccessibleInterface`. Falta ver cuáles dibujan contenido y cuáles
-  solo decoran.
-- No hay ningún `setAccessibleName` ni `setAccessibleDescription`.
-- **Sin verificar:** el nivel AA de `transversal.md`, con los objetivos de 48 × 48.
+Hecho: lo que pide la sección «Accesibilidad» de `qt.md`, salvo los atajos (pregunta 10). Está en
+[12](../arquitectura/12_interfaz.md), §10.
+
+- **Sin verificar:** el nivel AA de `transversal.md`, con los objetivos de 48 × 48, el contraste y
+  el uso con el teclado. Hace falta recorrer sus criterios uno por uno. Ya se sabe que no lo cumplen
+  H15 de [30](../arquitectura/30_riesgos_y_pendientes.md) y botones de 18 a 26 px, como el `×` de
+  una pestaña o el `▶` del buscador.
 
 ### 2.7 Icono, recursos y empaquetado
 
@@ -134,6 +136,9 @@ duda es cómo cumplirla.
 | # | Pregunta | Dónde | Recomendación |
 |---|---|---|---|
 | 2 | `qt.md` pide copiar `tests/test_theme.py` sin editar, pero prueba reglas de «Tema», que sigue en desarrollo. Consola tiene 169 `setStyleSheet` fuera de `theme.py` y no tiene `colors.py`, así que fallaría | Canone | Que `qt.md` diga lo mismo que `flet.md`: «`theme.py` y `tests/test_theme.py` … en desarrollo como esta sección: no se copian», con las filas de Fusion y de la hoja única marcadas como de «Tema». Pendiente por decisión del usuario |
+| 10 | `qt.md` pide un atajo para cada función de uso frecuente. Hay atajos para elegir y añadir repos, el buscador y la búsqueda de la consola, pero no para Ejecutar, Simulacro ni cerrar una pestaña de acción | Consola | Ctrl+Enter para Ejecutar y Ctrl+Shift+Enter para Simulacro en la pestaña activa. Cerrar una pestaña detiene su proceso vivo (ADR-0028), así que un Ctrl+W lo haría con un solo gesto: sin atajo |
+| 11 | «Los widgets se ubican con layouts». Tres no: el desplegable del buscador, la búsqueda que flota sobre la consola y los bordes para redimensionar la ventana sin marco, que van con `setGeometry` porque flotan sobre otros | Canone | Que `qt.md` exceptúe lo que flota encima de otro widget, que un layout no puede ubicar |
+| 12 | «Un diálogo modal se abre con `open()`». Los tres menús contextuales (`QMenu`) se abren con `exec()`. Un `QMenu` no es un diálogo | Canone | Que `qt.md` lo diga, o que pida `popup()` también para los menús |
 
 ## 4. Sin verificar
 

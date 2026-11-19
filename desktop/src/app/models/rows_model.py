@@ -145,6 +145,15 @@ class RowsModel(QAbstractTableModel):
             if col.fk:
                 return f"Doble clic para ir a {col.fk.ref_table}"
             return None
+        if role == Qt.ItemDataRole.AccessibleTextRole:
+            if value is None:
+                return "nulo"
+            if col.base_type == dbx.BYTEA:
+                return f"bytea de {human_size(int(value), self.locale)}"
+            return value if len(value) <= dbx.CELL_CHARS else value[: dbx.CELL_CHARS]
+        if role == Qt.ItemDataRole.AccessibleDescriptionRole:
+            about = f"{col.name}, {col.type}"
+            return f"{about}, lleva a {col.fk.ref_table}" if col.fk else about
         if role == Qt.ItemDataRole.ForegroundRole:
             if value is None or col.base_type == dbx.BYTEA:
                 return QColor(Colors.TEXT_MUTED)

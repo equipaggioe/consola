@@ -329,6 +329,8 @@ class ParamsPanel(QWidget):
         taller than one.
         """
         label = QLabel(text)
+        # The label names the field for assistive technology.
+        label.setBuddy(field)
         label.setFixedWidth(self.env_panel.label_width)
         # With `wordWrap` a label longer than the column breaks in two
         # instead of pushing the field to the right.
@@ -592,6 +594,7 @@ class ParamsPanel(QWidget):
             stop.setFixedSize(20, 20)
             stop.setCursor(Qt.CursorShape.PointingHandCursor)
             stop.setToolTip("Apagar")
+            stop.setAccessibleName(f"Apagar {labels.get(value, value)}")
             stop.setStyleSheet(f"""
                 QPushButton {{ background: transparent; border: none;
                                color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px; }}

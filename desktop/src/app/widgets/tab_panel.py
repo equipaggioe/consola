@@ -75,7 +75,6 @@ class _SubTabButton(ReorderableTab):
     name already says which action it is.
     """
 
-    clicked = Signal()
     close_requested = Signal()
 
     HEIGHT = 34
@@ -91,6 +90,7 @@ class _SubTabButton(ReorderableTab):
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("_SubTabButton { background: transparent; }")
+        self.setAccessibleName(title)
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
@@ -100,6 +100,7 @@ class _SubTabButton(ReorderableTab):
         self.title_label = QLabel(title)
 
         self.close_btn = QPushButton("×")
+        self.close_btn.setAccessibleName("Cerrar pestaña")
         self.close_btn.setFixedSize(18, 18)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.setStyleSheet(f"""
@@ -132,6 +133,7 @@ class _SubTabButton(ReorderableTab):
         self.is_active = active
         self._sync_text()
         self.update()
+        self._announce_active()
 
     def _sync_text(self) -> None:
         f = QFont(self.title_label.font())
@@ -749,6 +751,7 @@ class TabPanel(ReorderableBar):
             title = self._next_title(title)
         tab.title = title
         tab.title_label.setText(title)
+        tab.setAccessibleName(title)
         tab._sync_text()
 
     def _next_title(self, title: str) -> str:

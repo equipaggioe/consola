@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import cast, override
 
 from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt, Signal, Slot
-from PySide6.QtGui import QKeyEvent, QMouseEvent
+from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -69,7 +69,14 @@ class ActionSearch(QWidget):
 
         self.box = QLineEdit()
         self.box.setPlaceholderText("Buscar acciones…")
+        self.box.setAccessibleName("Buscar acciones")
         self.box.setClearButtonEnabled(True)
+        # Qt's clear action has no text, so its button reaches
+        # assistive technology with no name. The object name is Qt's.
+        clear = self.box.findChild(QAction, "_q_qlineeditclearaction")
+        if clear is None:
+            raise RuntimeError("QLineEdit has no clear action")
+        clear.setText("Borrar el texto")
         self.box.setFixedWidth(self.WIDTH)
         # The same height as a «Configuración del repo» field
         # (`widgets/env_panel.py`): it is a text field like the others,

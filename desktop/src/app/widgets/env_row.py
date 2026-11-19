@@ -90,6 +90,8 @@ class EnvRow(QWidget):
             self.field = QLineEdit(value)
 
         self.label = _ClickToSelectLabel(setting.display, self.field)
+        # The label names the field for assistive technology.
+        self.label.setBuddy(self.field)
         self.label.setFixedWidth(label_width)
         self.label.setToolTip(setting.key)
         self.label.setStyleSheet(

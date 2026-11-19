@@ -4,9 +4,19 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QEvent, QPoint, QPointF, QRectF, Qt, Signal
-from PySide6.QtGui import QColor, QEnterEvent, QMouseEvent, QPainter, QPaintEvent, QPen, QPolygonF
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
+from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, Qt, Signal
+from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleInterface,
+    QColor,
+    QEnterEvent,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPen,
+    QPolygonF,
+)
+from PySide6.QtWidgets import QAccessibleWidget, QHBoxLayout, QLabel, QPushButton, QWidget
 
 from app import theme
 from app.services.palettes import NEUTRAL, Palette
@@ -113,6 +123,7 @@ class _WindowButton(QPushButton):
     """
 
     WIDTH = 46
+    NAMES = {"min": "Minimizar", "max": "Maximizar", "close": "Cerrar"}
     STROKE = 1.6
     GLYPH = 11  # side of the square or the cross, in pixels
 
@@ -120,6 +131,8 @@ class _WindowButton(QPushButton):
         """Build the button of that kind."""
         super().__init__(parent)
         self.kind = kind  # 'min' | 'max' | 'close'
+        # The glyph is painted: the name says it in words.
+        self.setAccessibleName(self.NAMES[kind])
         self.maximized = False
         self.setFixedWidth(self.WIDTH)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -151,6 +164,7 @@ class _WindowButton(QPushButton):
     def set_maximized(self, value: bool) -> None:
         """Set whether the window is maximized."""
         self.maximized = value
+        self.setAccessibleName("Restaurar" if value else self.NAMES["max"])
         self.update()
 
     @override
@@ -307,3 +321,30 @@ class TitleBar(QWidget):
         p = QPainter(self)
         p.fillRect(self.rect(), QColor(self.fill))
         p.end()
+
+
+class _Accessible(QAccessibleWidget):
+    """The diamond as decoration: assistive technology does not see it.
+
+    `CONSOLA`, next to it, already names the brand.
+    """
+
+    def __init__(self, diamond: _Diamond) -> None:
+        """Give the diamond the graphic role."""
+        super().__init__(diamond, QAccessible.Role.Graphic)
+
+    @override
+    def state(self) -> QAccessible.State:
+        state = super().state()
+        # The stubs of PySide6 6.12 declare each state `...` with a
+        # type comment, which Pyrefly does not read.
+        state.invisible = True  # pyrefly: ignore[bad-assignment]
+        return state
+
+
+def _interface(key: str, obj: QObject) -> QAccessibleInterface | None:
+    """Return the interface of `_Diamond`, for `installFactory`."""
+    return _Accessible(obj) if isinstance(obj, _Diamond) else None
+
+
+QAccessible.installFactory(_interface)
