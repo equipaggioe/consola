@@ -1,0 +1,14 @@
+# qt.md, «Proyecto»: services/ is not interface. A nested banned-api
+# replaces the one of pyproject.toml instead of adding to it, so this one
+# repeats it and adds PySide6.QtWidgets.
+extend = "../../../pyproject.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"__feature__".msg = "Qt API keeps its original names"
+"http.client".msg = "HTTP goes through QNetworkAccessManager"
+"httpx".msg = "HTTP goes through QNetworkAccessManager"
+"PySide6.QtNetwork".msg = "HTTP goes in api/"
+"PySide6.QtUiTools".msg = "The interface is built in code"
+"PySide6.QtWidgets".msg = "services/ is not interface"
+"requests".msg = "HTTP goes through QNetworkAccessManager"
+"urllib.request".msg = "HTTP goes through QNetworkAccessManager"

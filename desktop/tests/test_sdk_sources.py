@@ -7,14 +7,15 @@ from typing import Any
 
 import pytest
 
-from app.core import canone, files
-from app.core.catalog import load_catalog
-from app.core.context import TaskContext
-from app.core.envfile import Config
-from app.core.errors import TaskError
-from app.core.projects import Project
-from app.core.registry import registry
-from app.core.tasks import utils
+from app.api import flutter
+from app.services import canone, files
+from app.services.catalog import load_catalog
+from app.services.context import TaskContext
+from app.services.envfile import Config
+from app.services.errors import TaskError
+from app.services.projects import Project
+from app.services.registry import registry
+from app.services.tasks import utils
 
 CONFIG = {
     "CF_API_TOKEN": "token",
@@ -49,13 +50,13 @@ FLUTTER_INDEX = {
 }
 
 
-def serving(text: str) -> Callable[[str], str]:
-    """Return a `_fetch_text` that answers that text."""
+def serving(text: str) -> Callable[..., bytes]:
+    """Return an `http.request` that answers that text."""
 
-    def fetch(url: str) -> str:
-        return text
+    def request(*args: object, **kwargs: object) -> bytes:
+        return text.encode("utf-8")
 
-    return fetch
+    return request
 
 
 def ok(result: Any) -> bytes:
@@ -65,7 +66,7 @@ def ok(result: Any) -> bytes:
 
 def test_the_android_digest_is_the_whole_sha256(monkeypatch: pytest.MonkeyPatch) -> None:
     """Google publishes 64 hex digits, and all of them are read."""
-    monkeypatch.setattr(utils, "_fetch_text", serving(ANDROID_PAGE))
+    monkeypatch.setattr(utils.http, "request", serving(ANDROID_PAGE))
     url, digest = utils._resolve_cmdline_tools(TaskContext("prueba"), "windows")
     assert url.endswith("commandlinetools-win-15859902_latest.zip")
     assert digest == "90ae805d20434428bffcb699c290860f19bb5f66a67e6b330067e3de801fb04a"
@@ -82,15 +83,15 @@ def test_verify_compares_the_sha256_of_the_file(tmp_path: Path) -> None:
 
 def test_flutter_takes_the_release_of_the_stable_channel(monkeypatch: pytest.MonkeyPatch) -> None:
     """The stable release is the one `current_release` names."""
-    monkeypatch.setattr(utils, "_fetch_text", serving(json.dumps(FLUTTER_INDEX)))
+    monkeypatch.setattr(utils.http, "request", serving(json.dumps(FLUTTER_INDEX)))
     url, digest = utils._resolve_flutter_stable(TaskContext("prueba"), "windows")
-    assert url == utils.FLUTTER_RELEASES_URL + "stable/flutter.zip"
+    assert url == flutter.RELEASES_URL + "stable/flutter.zip"
     assert digest == "2" * 64
 
 
 def test_a_flutter_index_with_another_shape_stops(monkeypatch: pytest.MonkeyPatch) -> None:
     """An index that does not bring the channel says so."""
-    monkeypatch.setattr(utils, "_fetch_text", serving('{"releases": []}'))
+    monkeypatch.setattr(utils.http, "request", serving('{"releases": []}'))
     with pytest.raises(TaskError, match="vino distinto"):
         utils._resolve_flutter_stable(TaskContext("prueba"), "windows")
 

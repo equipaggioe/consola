@@ -21,9 +21,9 @@ from typing import Any
 from PySide6.QtCore import Qt, QUrl, Signal
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
+from app import theme
+from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts
-from app.ui import parts
-from app.ui.palettes import NEUTRAL, Palette
 
 try:
     from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -107,11 +107,11 @@ class BrowserView(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        bar = parts.TOOL_BAR.on(self.pal)
+        bar = theme.TOOL_BAR.on(self.pal)
         self._bar.setStyleSheet(f"background: {bar.bg}; border-bottom: 1px solid {bar.border};")
         if self._fallback is not None:
-            self._fallback.setStyleSheet(f"background: {parts.CANVAS.on(self.pal).bg};")
-            button = parts.FILLED_BUTTON.on(self.pal)
+            self._fallback.setStyleSheet(f"background: {theme.CANVAS.on(self.pal).bg};")
+            button = theme.FILLED_BUTTON.on(self.pal)
             self._opener.setStyleSheet(f"""
                 QPushButton {{
                     background: {button.bg}; color: {button.fg};

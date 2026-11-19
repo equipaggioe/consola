@@ -4,7 +4,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 
 ## 1. Claves de `.consola/config.env`
 
-49 claves declaradas en `core/settings.py`, 44 del repo y cinco de la máquina, más una por campo de `Settings` del repo, en el grupo «Credenciales» ([13](13_configuracion_y_persistencia.md) §2). «Exige» significa que alguna acción no puede correr sin ella (su botón queda en ámbar); «usa» que la miran pero corren igual; «—», que no la lee ninguna acción.
+49 claves declaradas en `services/settings.py`, 44 del repo y cinco de la máquina, más una por campo de `Settings` del repo, en el grupo «Credenciales» ([13](13_configuracion_y_persistencia.md) §2). «Exige» significa que alguna acción no puede correr sin ella (su botón queda en ámbar); «usa» que la miran pero corren igual; «—», que no la lee ninguna acción.
 
 | Clave | Grupo | Etiqueta | Tipo | Default | |
 |---|---|---|---|---|---|
@@ -100,7 +100,7 @@ Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Con
 | `favorites/only` | «Solo favoritos», del menú Ver |
 | `ui/hidden_sections` | Secciones ocultas de la columna derecha. Sin nada guardado, «Configuración de la máquina» |
 | `params/machine/<capability_id>` | Parámetros de las acciones `scope='machine'` |
-| `machine/<CLAVE>` | Valores de las claves `scope='machine'` de `core/settings.py` |
+| `machine/<CLAVE>` | Valores de las claves `scope='machine'` de `services/settings.py` |
 
 ## 5. Archivos que Consola escribe
 
@@ -109,7 +109,7 @@ Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Con
 | Ruta | Quién | Qué |
 |---|---|---|
 | `.consola/config.env` | `envfile.save_config` | Regenerado desde el esquema |
-| `.consola/params.json` | `ui/params_store.py` | Parámetros, seguros y pestañas |
+| `.consola/params.json` | `services/params_store.py` | Parámetros, seguros y pestañas |
 | `.consola/.gitignore` | `envfile.ensure_ignored` | Ignora `config.env`, `params.json`, `screenshots/` y `publishable/`; `camera/` se versiona |
 | `releases/<app>/<plataforma>.json` | `build_binary` | Manifiesto de release |
 | `<app>/pyproject.toml` | `build_binary` | Solo si no había manifiesto: se crea en `0.0.0` |
@@ -133,8 +133,8 @@ Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Con
 |---|---|
 | `~/.ssh/<VPS_KEY_NAME>` y su `.pub` | `ensure_local_keypair` |
 | `~/.ssh/known_hosts` | `refresh_known_host` (solo borra la entrada vieja) |
-| `HKCU\Environment` o el perfil del shell | `core/userenv.py`, en un bloque delimitado |
-| `%LOCALAPPDATA%\Consola\cache` o `~/.cache/consola` | `core/cache.py` |
+| `HKCU\Environment` o el perfil del shell | `services/userenv.py`, en un bloque delimitado |
+| `%LOCALAPPDATA%\Consola\cache` o `~/.cache/consola` | `services/cache.py` |
 | `%TEMP%/consola_ssh/` | Sockets de multiplexado y el helper de contraseña |
 
 ## 6. Formato del manifiesto de release
@@ -217,7 +217,7 @@ Archivo INI: `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Con
 
 ## 8. Características y tipos de subproyecto
 
-`core/targets.py` reconoce, hasta dos niveles de profundidad y salteando `node_modules`, `.git`, `.venv`, `build`, `dist`, `.consola`, `__pycache__` y `.dart_tool`, y dentro de una app Flutter también `android`, `ios` y `web`:
+`services/targets.py` reconoce, hasta dos niveles de profundidad y salteando `node_modules`, `.git`, `.venv`, `build`, `dist`, `.consola`, `__pycache__` y `.dart_tool`, y dentro de una app Flutter también `android`, `ios` y `web`:
 
 | Tipo | Marcador |
 |---|---|

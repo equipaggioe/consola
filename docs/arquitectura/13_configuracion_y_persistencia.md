@@ -12,11 +12,11 @@ Tres archivos, y de quién es la decisión decide en cuál cae ([ADR-0064](../ad
 
 `QSettings` es un archivo INI en los dos sistemas, `%APPDATA%\Consola\Consola.ini` en Windows y `~/.config/Consola/Consola.ini` en Linux, y no el registro de Windows: `main.py` fija el formato antes de crear la ventana. Las claves de máquina se editan solo en la sección «Configuración de la máquina» (`ui/machine_panel.py`): el formulario de Configuración del repo no las muestra, y no van a `config.env`. `EnvPanel.values` las suma desde `QSettings`, así que la validación de cada paso las ve. Al guardarlas, `MainWindow._on_machine_saved` vuelve a leerlas en cada repo abierto, sin tocar lo que el repo no guardó.
 
-`.consola/.gitignore` ignora `config.env`, `params.json`, `screenshots/` y `publishable/`; la cámara del repo, en `.consola/camera/`, se versiona ([19](19_imagenes.md) §1). Lo escribe `core/envfile.py::ensure_ignored` cada vez que se escribe en `.consola/`: agrega las líneas que falten, conserva las demás y quita un `*` de antes, que ignoraba también la cámara. Si no puede, el guardado falla: sin él, `config.env` queda listo para commitearse. El `.gitignore` del repo no se toca ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md), [ADR-0087](../adr/0087-la-camara-va-en-consola-camera-y-sus-capturas-en-consola.md)).
+`.consola/.gitignore` ignora `config.env`, `params.json`, `screenshots/` y `publishable/`; la cámara del repo, en `.consola/camera/`, se versiona ([19](19_imagenes.md) §1). Lo escribe `services/envfile.py::ensure_ignored` cada vez que se escribe en `.consola/`: agrega las líneas que falten, conserva las demás y quita un `*` de antes, que ignoraba también la cámara. Si no puede, el guardado falla: sin él, `config.env` queda listo para commitearse. El `.gitignore` del repo no se toca ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md), [ADR-0087](../adr/0087-la-camara-va-en-consola-camera-y-sus-capturas-en-consola.md)).
 
 ## 2. El esquema de claves
 
-`core/settings.py` declara cada clave una sola vez, con dos consumidores: el formulario de Configuración y la validación previa que deja un botón en ámbar.
+`services/settings.py` declara cada clave una sola vez, con dos consumidores: el formulario de Configuración y la validación previa que deja un botón en ámbar.
 
 | Campo | Qué dice |
 |---|---|
@@ -38,9 +38,9 @@ Cada línea de `config.env` es de una de tres fuentes ([ADR-0063](../adr/0063-la
 
 | Fuente | Qué claves | Adónde van |
 |---|---|---|
-| Los campos de `Settings` del repo | Uno por campo de `<SERVER_DIR>/src/app/config.py`, en mayúsculas, salvo `database_url`, `turn_secret` y `valkey_url`, que escribe `install.py` y `credentials.py` rechaza. Los lee `core/fields.py` con `ast` | A `credentials.py` |
+| Los campos de `Settings` del repo | Uno por campo de `<SERVER_DIR>/src/app/config.py`, en mayúsculas, salvo `database_url`, `turn_secret` y `valkey_url`, que escribe `install.py` y `credentials.py` rechaza. Los lee `services/fields.py` con `ast` | A `credentials.py` |
 | Nombre fijo | `RESTIC_PASSWORD`, y `GITHUB_TOKEN` si `PRIVATE` dice que sí | A `credentials.py` |
-| El registro de `core/settings.py` | Los argumentos de `install.py` y las claves propias de Consola | A `install.py`, o las lee Consola |
+| El registro de `services/settings.py` | Los argumentos de `install.py` y las claves propias de Consola | A `install.py`, o las lee Consola |
 
 El formulario muestra las dos primeras en el grupo «Credenciales», junto con `DATABASE_URL`, `VALKEY_URL` y `TURN_SECRET`, que son del registro y no van a `credentials.py`: son la base, el Valkey y el secreto de coturn locales de las credenciales de desarrollo (§9). `VALKEY_URL` y `TURN_SECRET` aparecen solo si `Settings` declara su campo (`needs`). Los campos se leen al abrir el repo; un campo que se llame como una clave del registro corta, y un `config.py` sin la clase `Settings` se avisa arriba del formulario.
 
@@ -62,7 +62,7 @@ Un default fijo tiene un efecto que conviene tener presente: **una clave con def
 
 ## 4. El archivo `config.env`
 
-No hay plantilla: la forma del archivo es el esquema de `core/settings.py` más los campos de `Settings` del repo, y `core/envfile.py::render_config` la escribe. Se **regenera** entero al guardar: encabezado, un bloque por grupo, y un comentario por clave que dice para qué sirve y cuál es su default. Solo se escriben las claves de `scope='repo'` y los campos; cualquier otra que hubiera en el archivo, ajena o de máquina, se borra.
+No hay plantilla: la forma del archivo es el esquema de `services/settings.py` más los campos de `Settings` del repo, y `services/envfile.py::render_config` la escribe. Se **regenera** entero al guardar: encabezado, un bloque por grupo, y un comentario por clave que dice para qué sirve y cuál es su default. Solo se escriben las claves de `scope='repo'` y los campos; cualquier otra que hubiera en el archivo, ajena o de máquina, se borra.
 
 El botón del pie, «Crear archivo» o «Actualizar archivo», escribe lo mismo que «Guardar» y está a la vista mientras el archivo no tenga esa forma (`envfile.is_current`), así que un cambio del esquema lo hace aparecer en cada repo. Ocupa el lugar de «Importar desde archivo…», que solo aparece cuando el archivo ya tiene la forma del esquema: no se importan valores a un archivo que no existe o está desactualizado. El estado del archivo va en la cabecera de la sección: «listo» en gris, y «no existe», «desactualizado», «ilegible» o «no se puede guardar» en color de advertencia, con el detalle al pasar el cursor; el de «desactualizado» nombra las claves que se van a borrar. Guardar e importar se comportan como el botón de una acción: abren la pestaña «Configuración del repo», o la traen al frente, y dejan ahí lo que hicieron: el archivo guardado, las claves que se borraron, las importadas, o por qué no se guardó ([12](12_interfaz.md) §4).
 
@@ -73,9 +73,9 @@ Leerlo nunca toca `os.environ`: una tarea no puede pisarle el entorno a las otra
 
 ## 5. Los repos en pestañas
 
-`QSettings` guarda en `projects/list` la lista de repos abiertos, en orden: ruta y nombre (`ui/project_store.py`). Añadir, quitar y reordenar sobreviven al reinicio. Va aquí y no en un repo porque un repo no puede saber que está en tu barra.
+`QSettings` guarda en `projects/list` la lista de repos abiertos, en orden: ruta y nombre (`services/project_store.py`). Añadir, quitar y reordenar sobreviven al reinicio. Va aquí y no en un repo porque un repo no puede saber que está en tu barra.
 
-El **color no está en esa lista**: es una decisión sobre ese repo, así que vive en su `params.json` bajo `@theme` y viaja con él. Se guarda la clave de la paleta (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)), no un hex, para poder afinar la receta sin repintar a mano lo ya guardado. Un repo sin tema guardado —recién clonado, o abierto antes de que hubiera temas— recibe al cargar el primer tema libre y se le escribe en el acto.
+El **color no está en esa lista**: es una decisión sobre ese repo, así que vive en su `params.json` bajo `@theme` y viaja con él. Se guarda la clave de la paleta (`services/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)), no un hex, para poder afinar la receta sin repintar a mano lo ya guardado. Un repo sin tema guardado —recién clonado, o abierto antes de que hubiera temas— recibe al cargar el primer tema libre y se le escribe en el acto.
 
 La identidad de un repo es su ruta normalizada (`identity`): la misma carpeta escrita con otras barras o con otra caja es un solo repo, y con esa clave se indexan también su espacio de trabajo y su caché de parámetros.
 
@@ -105,7 +105,7 @@ Un archivo roto a mano se trata como si no hubiera nada, y el primer guardado lo
 
 ## 8. Cachés
 
-`core/cache.py` guarda en `%LOCALAPPDATA%\Consola\cache` (o `~/.cache/consola`) lo que es **catálogo** —listas publicadas por una herramienta, que no cambian en una sesión— y nunca lo que es **estado**:
+`services/cache.py` guarda en `%LOCALAPPDATA%\Consola\cache` (o `~/.cache/consola`) lo que es **catálogo** —listas publicadas por una herramienta, que no cambian en una sesión— y nunca lo que es **estado**:
 
 | Entrada | Edad máxima |
 |---|---|
@@ -114,7 +114,7 @@ Un archivo roto a mano se trata como si no hubiera nada, y el primer guardado lo
 | `vps-services-<host>` | 60 s, y la clave lleva el host: dos repos son casi siempre dos VPS |
 | Emuladores vivos | No se cachea nunca |
 
-Una entrada que no existe o que venció se vuelve a pedir. Una que no se puede leer o escribir corta la tarea con `TaskError`, nombrando el archivo (`core/cache.py`). Al terminar una tarea de máquina, `forget_machine_cache()` olvida lo instalado y lo creado.
+Una entrada que no existe o que venció se vuelve a pedir. Una que no se puede leer o escribir corta la tarea con `TaskError`, nombrando el archivo (`services/cache.py`). Al terminar una tarea de máquina, `forget_machine_cache()` olvida lo instalado y lo creado.
 
 ## 9. El `.env` del servidor
 

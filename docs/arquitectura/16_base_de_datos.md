@@ -13,7 +13,7 @@ Cinco botones tienen el eje `local` / `remote`: «Levantar backend», «Correr s
 
 El canal de superusuario existe aparte porque crear un rol, crear una base o borrarlas necesitan permisos que el rol de la aplicación no tiene, y por eso pasa por `psql` y no por el driver.
 
-«Configurar base de datos», «Correr migraciones», «Respaldar base de datos», «Restaurar base de datos», «Habilitar extensiones», «Reiniciar historial de migraciones» y «Borrar base y rol» no tienen el eje: actúan solo sobre la base local. En un VPS de canone la base, sus roles y sus extensiones los crea `install.py`, migra `deploy.py`, respalda la receptora ([ADR-0060](../adr/0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md)) y vacía `database.py`. Sus claves de base las exige la capacidad (`_DB_FIXED` de `core/settings.py`), porque no hay eje que las declare; las del superusuario, `_PG_FIXED`.
+«Configurar base de datos», «Correr migraciones», «Respaldar base de datos», «Restaurar base de datos», «Habilitar extensiones», «Reiniciar historial de migraciones» y «Borrar base y rol» no tienen el eje: actúan solo sobre la base local. En un VPS de canone la base, sus roles y sus extensiones los crea `install.py`, migra `deploy.py`, respalda la receptora ([ADR-0060](../adr/0060-crear-migrar-respaldar-y-restaurar-solo-en-local.md)) y vacía `database.py`. Sus claves de base las exige la capacidad (`_DB_FIXED` de `services/settings.py`), porque no hay eje que las declare; las del superusuario, `_PG_FIXED`.
 
 ## 2. Nunca por la IP pública
 
@@ -31,7 +31,7 @@ En Linux el canal de superusuario local entra por TCP igual que en Windows, así
 
 ## 3. Dónde corre el código del repo
 
-`core/runner.py` corre el código del repo —Alembic, los seeders, las particiones— en esta máquina, con el venv de `<SERVER_DIR>/.venv`, contra la base local. En el VPS ese código lo corren `deploy.py` y `database.py` de canone.
+`services/runner.py` corre el código del repo —Alembic, los seeders, las particiones— en esta máquina, con el venv de `<SERVER_DIR>/.venv`, contra la base local. En el VPS ese código lo corren `deploy.py` y `database.py` de canone.
 
 El programa viaja en la línea de comandos (`-m alembic …`, `-c <fuente>`) y `DATABASE_URL` va por el entorno, nunca escrita a un archivo.
 
@@ -43,7 +43,7 @@ En un repo sin ese `Settings`, `runner.local` usa `runner.here`, que pasa la URL
 
 ## 4. Los payloads
 
-`core/tasks/payloads.py` es la excepción deliberada a «nada se ejecuta como script»: programas Python cortos que viajan por `-c` al intérprete del proyecto, porque necesitan importar `app.` y `seeders.` del repo administrado. Lo único que toman del entorno es el directorio de trabajo —de ahí sale el `sys.path`— y la base; las dos las pone el `Runner`.
+`services/tasks/payloads.py` es la excepción deliberada a «nada se ejecuta como script»: programas Python cortos que viajan por `-c` al intérprete del proyecto, porque necesitan importar `app.` y `seeders.` del repo administrado. Lo único que toman del entorno es el directorio de trabajo —de ahí sale el `sys.path`— y la base; las dos las pone el `Runner`.
 
 El log muestra un resumen y no el argv real: `-c` lleva el programa entero como un solo argumento.
 
@@ -161,4 +161,4 @@ Una tarea viva, como un launcher: sostiene la conexión —y en remoto el túnel
 
 La URL con contraseña que la vista necesita no viaja por la pantalla: la tarea la deja con `ctx.publish` bajo una clave derivada de la URL enmascarada, y se borra sola cuando la tarea termina.
 
-`core/db_models.py` compara la base viva contra los modelos del repo. No parsea archivos: importa `app.models` con el Python del proyecto y devuelve JSON, porque los tipos salen de `type_annotation_map`, de alias `Annotated` y de enums cuyo largo solo se sabe ejecutando. Es lo mismo que compara Alembic.
+`services/db_models.py` compara la base viva contra los modelos del repo. No parsea archivos: importa `app.models` con el Python del proyecto y devuelve JSON, porque los tipos salen de `type_annotation_map`, de alias `Annotated` y de enums cuyo largo solo se sabe ejecutando. Es lo mismo que compara Alembic.

@@ -22,17 +22,17 @@ Cada repo tiene su propio `TabPanel`, indexado por la ruta normalizada de su car
 
 ## 2. El color del repo
 
-Cada repo tiene un **tema** y un **logo**. El tema es una clave (`blue`, `indigo`, `violet`, `pink`, `coral`, `amber`, `green`, `cyan`) y de él sale la paleta entera de su espacio de trabajo (`ui/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú, cada uno con su muestra: un cuadro del tamaño y el radio de una casilla, pintado con el acento del tema, y el del tema elegido lleva la palomita dentro (`project_tabs.swatch`); al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
+Cada repo tiene un **tema** y un **logo**. El tema es una clave (`blue`, `indigo`, `violet`, `pink`, `coral`, `amber`, `green`, `cyan`) y de él sale la paleta entera de su espacio de trabajo (`services/palettes.py`, [ADR-0042](../adr/0042-una-paleta-por-repo.md)). Se elige con el clic derecho sobre la pestaña del repo, donde los ocho colores van sueltos en el menú, cada uno con su muestra: un cuadro del tamaño y el radio de una casilla, pintado con el acento del tema, y el del tema elegido lleva la palomita dentro (`project_tabs.swatch`); al añadir un repo se le da el primer tema libre. El tema se guarda **en el repo** (`.consola/params.json`), así que el color viaja con él a cualquier máquina.
 
 Una paleta es un acento más la escalera de fondos que se deriva de él: el tono del acento a una saturación fija por rol, del 38 % al 55 % en HSL. Teñir **no cambia la luminosidad** del neutro de partida: el color dice de qué repo es la pantalla y la luminosidad dice qué panel se mira.
 
-**La distribución de colores no está definida por el momento.** Qué rol pinta cada parte se ajusta a prueba en `ui/parts.py`, que es la única fuente. Los roles que nombra este documento pueden no estar al día: manda `parts.py`.
+**La distribución de colores no está definida por el momento.** Qué rol pinta cada parte se ajusta a prueba en la sección «The parts of the window» de `theme.py`, que es la única fuente. Los roles que nombra este documento pueden no estar al día: manda `theme.py`.
 
 La saturación es absoluta, no una fracción de la del acento. Si fuera una fracción, un repo con un acento apagado (el verde) quedaría gris y uno con un acento saturado (el azul) no, sin que eso signifique nada.
 
 Los ocho acentos son claros: el acento va **encima** de los fondos —la barra de título, el rombo de la marca, los filetes, el texto de enlace— y tiene que despegarse de ellos.
 
-Los **roles** son los colores entre los que se elige (`Role` en `ui/parts.py`):
+Los **roles** son los colores entre los que se elige (`Role` en `theme.py`):
 
 | Rol | Qué es |
 |---|---|
@@ -45,9 +45,9 @@ Los **roles** son los colores entre los que se elige (`Role` en `ui/parts.py`):
 | `GRAY_BG`, `GRAY_PANEL`, `GRAY_SURFACE`, `GRAY_SURFACE_HOVER`, `GRAY_SURFACE_ALT`, `GRAY_BORDER`, `GRAY_BORDER_LIGHT` | Los mismos escalones sin teñir: los neutros de `ui/theme.py`, iguales en los ocho temas |
 | `TEXT`, `TEXT_LABEL`, `TEXT_DIM`, `TEXT_MUTED` | Los grises del texto, de más claro a más apagado: texto corrido, rótulo de un campo, resúmenes de sección, pistas cortas y rutas |
 
-Las **partes** son las zonas de la ventana: barra de título, fila del menú, menú desplegado, cabecera y cuerpo de sección, campo, pie, barra de estado… Qué rol pinta cada una lo dice **una sola tabla**, `ui/parts.py`: cada parte es un `Look` que da un `Role` a cada ranura que pinta —`bg` (fondo), `fg` (texto), `border` (contorno), `hover` (fondo bajo el cursor o fila elegida) y `focus` (borde con el foco)—. Ningún widget nombra un rol: pide su parte (`parts.SECTION_HEADER.on(pal)`) y lee la ranura, y pedir una ranura que la parte no declara lanza `LookupError`. Para cambiar el tono de una parte se cambia su rol en esa tabla; al escribir `Role.` el editor lista los roles. `tests/test_palettes.py` comprueba que cada parte resuelve en los ocho temas y en `NEUTRAL`, y que su texto se lee sobre su fondo a 3:1 (salvo Ejecutar apagado: WCAG no le pide contraste a un control deshabilitado).
+Las **partes** son las zonas de la ventana: barra de título, fila del menú, menú desplegado, cabecera y cuerpo de sección, campo, pie, barra de estado… Qué rol pinta cada una lo dice **una sola tabla**, `theme.py`: cada parte es un `Look` que da un `Role` a cada ranura que pinta —`bg` (fondo), `fg` (texto), `border` (contorno), `hover` (fondo bajo el cursor o fila elegida) y `focus` (borde con el foco)—. Ningún widget nombra un rol: pide su parte (`theme.SECTION_HEADER.on(pal)`) y lee la ranura, y pedir una ranura que la parte no declara lanza `LookupError`. Para cambiar el tono de una parte se cambia su rol en esa tabla; al escribir `Role.` el editor lista los roles. `tests/test_palettes.py` comprueba que cada parte resuelve en los ocho temas y en `NEUTRAL`, y que su texto se lee sobre su fondo a 3:1 (salvo Ejecutar apagado: WCAG no le pide contraste a un control deshabilitado).
 
-Los roles que nombra el resto de esta sección son los que hoy tiene `ui/parts.py`.
+Los roles que nombra el resto de esta sección son los que hoy tiene `theme.py`.
 
 Una casilla marcada de Parámetros o de Seguridad se rellena con `CHECK`, hoy el acento del repo: el panel repite las reglas de la hoja global (`theme.check_css`) con su paleta, y por estar más cerca de la casilla gana. Deshabilitada va en `TEXT_MUTED`, salvo las de la vista previa (`previewCheck`), que llevan el relleno de `CHECK` porque muestran lo que la corrida va a tomar, no una opción apagada. La casilla sin marcar sigue en los neutros de la hoja global, con el fondo y el borde de un campo (`GRAY_SURFACE_ALT` y `GRAY_BORDER`). El texto de una casilla va en `TEXT_LABEL` y a 13 px, como el rótulo de un campo y lo que se escribe en él, en Parámetros, en Configuración del repo, en Máquina y en Seguridad.
 
@@ -61,9 +61,9 @@ Las pestañas de repo **no seleccionadas** llevan de fondo el acento del repo ac
 
 El menú del clic derecho sobre una pestaña es la ruta y los ocho colores: quitar el repo es la × de la pestaña, y repetirlo en el menú no agregaba un camino, agregaba una lista más larga.
 
-«Roles y partes» no se abre desde la aplicación: es `desktop/scripts/swatches.py`, que se corre aparte desde `desktop/` con `uv run python scripts/swatches.py <tema>`. Solo muestra: una grilla con cada `Role` en los ocho temas (muestra y hex, con el tema dado en negrita) y una fila por parte de `ui/parts.py`, con una muestra «Aa» pintada como la pinta la parte y cada ranura con su rol, en el tema dado. Lo lee del código al abrirse; lo que cambia un color sigue siendo editar `ui/parts.py`.
+«Roles y partes» no se abre desde la aplicación: es `desktop/scripts/swatches.py`, que se corre aparte desde `desktop/` con `uv run python scripts/swatches.py <tema>`. Solo muestra: una grilla con cada `Role` en los ocho temas (muestra y hex, con el tema dado en negrita) y una fila por parte de `theme.py`, con una muestra «Aa» pintada como la pinta la parte y cada ranura con su rol, en el tema dado. Lo lee del código al abrirse; lo que cambia un color sigue siendo editar `theme.py`.
 
-El **logo** es `BRAND_ICON`, el mismo SVG del que salen los íconos de las apps del repo ([19](19_imagenes.md)), leído de su `config.env` (`ui/repo_logo.py`, [ADR-0058](../adr/0058-el-logo-del-repo-en-la-interfaz.md)). Un repo sin `BRAND_ICON` lleva la marca de Equipaggio (`ui/assets/equipaggio.png`); uno cuyo `BRAND_ICON` no existe, no es SVG o Qt no lo lee muestra ⚠, con el error en el tooltip.
+El **logo** es `BRAND_ICON`, el mismo SVG del que salen los íconos de las apps del repo ([19](19_imagenes.md)), leído de su `config.env` (`ui/repo_logo.py`, [ADR-0058](../adr/0058-el-logo-del-repo-en-la-interfaz.md)). Un repo sin `BRAND_ICON` lleva la marca de Equipaggio (`assets/equipaggio.png`); uno cuyo `BRAND_ICON` no existe, no es SVG o Qt no lo lee muestra ⚠, con el error en el tooltip.
 
 | Dónde | Lado |
 |---|---|
@@ -77,7 +77,7 @@ El logo se recorta a lo que dibuja y llena el cuadrado por su lado largo: el mar
 
 Los tres botones de ventana se **pintan** —trazo de 1.6 px en `on_accent`—, no se escriben: como caracteres («─», «□», «✕») eran trazos de un píxel que se perdían contra el acento, y la negrita no engorda un carácter de dibujo de caja. El fondo del hover sale del mismo `on_accent` al 16 %, salvo el de cerrar, que es rojo.
 
-El campo del buscador tiene las medidas de un campo de «Configuración del repo»: borde (`GRAY_BORDER`), alto (28 px), radio, cuerpo de letra (13 px) y foco (`accent`). El fondo es otro: los campos (`FIELD`) van en `GRAY_SURFACE_ALT` y el buscador (`SEARCH_FIELD`), que está en la fila del menú, en `surface_alt`, el color del repo. Los campos de «Parámetros» miden 30 px de alto. La flecha de una lista cerrada de «Parámetros» es un SVG propio (`ui/assets/chevron-down.svg`) dentro del relleno: con el borde estilado, Qt deja encima su caja de la flecha y corta el borde derecho, y estilar `::drop-down` para sacar esa caja borra también la flecha. La lista abierta tiene el ancho del campo y cae alineada bajo él, con el texto de cada entrada a la misma x que el del campo; una entrada más larga que el campo se corta con «…».
+El campo del buscador tiene las medidas de un campo de «Configuración del repo»: borde (`GRAY_BORDER`), alto (28 px), radio, cuerpo de letra (13 px) y foco (`accent`). El fondo es otro: los campos (`FIELD`) van en `GRAY_SURFACE_ALT` y el buscador (`SEARCH_FIELD`), que está en la fila del menú, en `surface_alt`, el color del repo. Los campos de «Parámetros» miden 30 px de alto. La flecha de una lista cerrada de «Parámetros» es un SVG propio (`assets/chevron-down.svg`) dentro del relleno: con el borde estilado, Qt deja encima su caja de la flecha y corta el borde derecho, y estilar `::drop-down` para sacar esa caja borra también la flecha. La lista abierta tiene el ancho del campo y cae alineada bajo él, con el texto de cada entrada a la misma x que el del campo; una entrada más larga que el campo se corta con «…».
 
 Los menús desplegados de la barra y la lista del buscador son del repo abierto: fondo `panel` —por debajo de la fila de la que cuelgan, para que el popup se recorte contra ella—, borde `border_light`, el ítem bajo el cursor en `surface_hover` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `panel` que el popup, para que se lean como una sola pieza. En Ver, la palomita de cada casilla va a 13 px del borde y el texto a 33, en vez de los 5 y 41 que Qt pone por defecto.
 
@@ -91,7 +91,7 @@ Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` rep
 | Buscador | Filtra sobre todas las acciones, con teclado (Ctrl+L lo enfoca; flechas, Enter, Ctrl+Enter). Cada fila trae su filete de favorita, la marca de nivel (`◈` compuesta, `◦` atómica), la de alcance (`⌂` es de la máquina) y un **▶** que corre de una |
 | «Solo favoritos», en el menú Ver | Poda los menús. **No** poda el buscador: buscar es ir por algo puntual, y esconder justo lo que se busca sería un chiste cruel |
 
-Los menús de acciones son los grupos del catálogo, en el orden en que `core/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar. Cada acción va por su nombre, sin el emoji; una destructiva lleva `⚠` al final. Una favorita se marca con el filete de su fila en el buscador o con la estrella del pie, junto a Ejecutar ([§5](#5-la-columna-derecha)).
+Los menús de acciones son los grupos del catálogo, en el orden en que `services/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar. Cada acción va por su nombre, sin el emoji; una destructiva lleva `⚠` al final. Una favorita se marca con el filete de su fila en el buscador o con la estrella del pie, junto a Ejecutar ([§5](#5-la-columna-derecha)).
 
 Después va **Ver**, que tiene «Solo favoritos» y una casilla por sección de la columna derecha: las dos son preferencias de la aplicación, no del repo.
 
@@ -99,9 +99,9 @@ Dentro de un menú **no hay encabezados de sección**: los tramos se cortan con 
 
 Abrir una pestaña no ejecuta nada. Ejecutar es apretar Ejecutar, o el ▶ del buscador, que corre con los parámetros guardados para ese botón en ese repo ([ADR-0032](../adr/0032-abrir-no-es-ejecutar.md)).
 
-El ▶ solo aparece en lo que puede correr ya: `ui/readiness.py` mira exactamente lo que esos parámetros guardados van a correr, así que un paso apagado no reclama sus claves.
+El ▶ solo aparece en lo que puede correr ya: `services/readiness.py` mira exactamente lo que esos parámetros guardados van a correr, así que un paso apagado no reclama sus claves.
 
-El recuento se **pide**, no se hace en el acto: `ui/main_window.py::_refresh_readiness` arranca un temporizador de 200 ms y la pasada corre una sola vez cuando se detiene la ráfaga. Quien lo dispara es, entre otros, cada tecla de un campo de texto —del panel de parámetros y del de configuración—, y la pasada resuelve las 61 acciones contra el repo. Esa pasada comparte además un único recorrido del repo entre todas (`core/targets.py::one_scan`) en vez de recorrerlo una vez por acción; el recorrido se suelta al terminar, así que cada pasada sigue mirando el disco de nuevo.
+El recuento se **pide**, no se hace en el acto: `ui/main_window.py::_refresh_readiness` arranca un temporizador de 200 ms y la pasada corre una sola vez cuando se detiene la ráfaga. Quien lo dispara es, entre otros, cada tecla de un campo de texto —del panel de parámetros y del de configuración—, y la pasada resuelve las 61 acciones contra el repo. Esa pasada comparte además un único recorrido del repo entre todas (`services/targets.py::one_scan`) en vez de recorrerlo una vez por acción; el recorrido se suelta al terminar, así que cada pasada sigue mirando el disco de nuevo.
 
 ## 4. La pestaña de ejecución
 
@@ -119,7 +119,7 @@ Un acordeón de cinco secciones («Acción», «Seguridad», «Parámetros», «
 
 | Sección | Qué muestra |
 |---|---|
-| Acción | La ficha larga del comando: qué hace y qué pasos ejecuta, de `core/command_docs.py`. Sin texto largo, cae en la descripción de una línea más las etiquetas de los pasos |
+| Acción | La ficha larga del comando: qué hace y qué pasos ejecuta, de `services/command_docs.py`. Sin texto largo, cae en la descripción de una línea más las etiquetas de los pasos |
 | Seguridad | Los seis interruptores del seguro del repo ([14](14_seguro_de_destructivos.md)) |
 | Parámetros | Los ejes y los pasos de la acción abierta |
 | Configuración del repo | `.consola/config.env` del repo, **filtrado** a lo que la acción puede llegar a mirar con lo que está marcado ahora. Sin las claves de máquina |

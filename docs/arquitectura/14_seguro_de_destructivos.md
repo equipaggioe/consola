@@ -20,7 +20,7 @@ Un objetivo que no figura en el `params.json` cae en su default: agregar uno nue
 
 ## 3. Qué rompe cada acción
 
-`core/protection.py::RULES` declara, por capacidad, los objetivos fijos (`always`), los que dependen de un eje (`when`) y los valores con los que la acción no destruye nada (`dry_run`).
+`services/protection.py::RULES` declara, por capacidad, los objetivos fijos (`always`), los que dependen de un eje (`when`) y los valores con los que la acción no destruye nada (`dry_run`).
 
 | Acción | Objetivos |
 |---|---|

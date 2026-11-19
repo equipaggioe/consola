@@ -46,13 +46,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core import db_explorer as dbx
-from app.core import db_models as dbm
-from app.core.files import human_size
+from app import theme
+from app.services import db_explorer as dbx
+from app.services import db_models as dbm
+from app.services.db_worker import DbWorker
+from app.services.files import human_size
+from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts, mono
-from app.ui import parts
-from app.ui.db_worker import DbWorker
-from app.ui.palettes import NEUTRAL, Palette
 
 NUMERIC_TYPES = {"int2", "int4", "int8", "numeric", "float4", "float8", "money", "oid"}
 JSON_TYPES = {"json", "jsonb"}
@@ -263,21 +263,21 @@ class DbExplorerView(QWidget):
         and the right header, which do declare one, and the chips
         repaint apart.
         """
-        table = parts.TABLE.on(self.pal)
-        header = parts.TABLE_HEADER.on(self.pal)
-        tab = parts.TABLE_TAB.on(self.pal)
-        field = parts.FIELD.on(self.pal)
-        tree = parts.TABLE_TREE.on(self.pal)
-        bar = parts.TOOL_BAR.on(self.pal)
+        table = theme.TABLE.on(self.pal)
+        header = theme.TABLE_HEADER.on(self.pal)
+        tab = theme.TABLE_TAB.on(self.pal)
+        field = theme.FIELD.on(self.pal)
+        tree = theme.TABLE_TREE.on(self.pal)
+        bar = theme.TOOL_BAR.on(self.pal)
         self.setStyleSheet(f"""
-            QWidget#dbExplorer {{ background: {parts.CANVAS.on(self.pal).bg}; }}
+            QWidget#dbExplorer {{ background: {theme.CANVAS.on(self.pal).bg}; }}
             QTreeWidget, QTableView, QTableWidget {{
                 background: {table.bg}; color: {table.fg};
                 border: none; font-size: {Fonts.SIZE_SM}px;
                 selection-background-color: {table.hover};
                 selection-color: {table.fg};
                 gridline-color: {table.border};
-                alternate-background-color: {parts.TABLE_ALT_ROW.on(self.pal).bg};
+                alternate-background-color: {theme.TABLE_ALT_ROW.on(self.pal).bg};
             }}
             QHeaderView::section {{
                 background: {header.bg}; color: {header.fg};
@@ -455,7 +455,7 @@ class DbExplorerView(QWidget):
         return btn
 
     def _chip_style(self) -> str:
-        chip = parts.CHIP.on(self.pal)
+        chip = theme.CHIP.on(self.pal)
         return f"""
             QPushButton {{
                 background: {chip.bg}; color: {chip.fg};

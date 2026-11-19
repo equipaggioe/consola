@@ -26,20 +26,20 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core import db_explorer, session
-from app.core.envfile import Config
-from app.core.projects import Project
-from app.core.registry import Capability
+from app import theme
+from app.services import db_explorer, session
+from app.services.envfile import Config
+from app.services.palettes import NEUTRAL, Palette
+from app.services.projects import Project
+from app.services.registry import Capability
 from app.theme import Colors, Fonts
-from app.ui import parts
 from app.ui.browser_view import BrowserView, open_external
 from app.ui.console_view import ConsoleView
-from app.ui.palettes import NEUTRAL, Palette
 from app.ui.widgets.led import LedIndicator
 
 
 def _chip_style(pal: Palette) -> str:
-    chip = parts.CHIP.on(pal)
+    chip = theme.CHIP.on(pal)
     return f"""
         QPushButton {{
             background: {chip.bg}; color: {chip.fg};
@@ -208,7 +208,7 @@ class TabView(QWidget):
             self._explorer.set_palette(pal)
 
     def _restyle(self) -> None:
-        header = parts.CONSOLE_HEADER.on(self.pal)
+        header = theme.CONSOLE_HEADER.on(self.pal)
         self.header.setStyleSheet(
             f"QWidget#viewHeader {{ background: {header.bg}; "
             f"border-bottom: 1px solid {header.border}; }}"

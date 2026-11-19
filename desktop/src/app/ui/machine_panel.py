@@ -2,8 +2,8 @@
 
 The only place they edit: the repo's form leaves them out. This section
 shows all of them and saves them where they live, QSettings
-(`ui/params_store.py::machine_env`). It starts hidden: it shows from
-the Ver menu (`ui/section_visibility.py`).
+(`services/params_store.py::machine_env`). It starts hidden: it shows
+from the Ver menu (`services/section_visibility.py`).
 """
 
 from __future__ import annotations
@@ -18,11 +18,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.settings import machine_settings
+from app import theme
+from app.services import params_store
+from app.services.palettes import Palette
+from app.services.settings import machine_settings
 from app.theme import Fonts
-from app.ui import params_store, parts
 from app.ui.env_panel import EnvRow
-from app.ui.palettes import Palette
 
 
 class MachinePanel(QWidget):
@@ -110,9 +111,9 @@ class MachinePanel(QWidget):
 
         The body is `panel` and the footer `surface`.
         """
-        body = parts.SECTION_BODY.on(self.pal)
-        footer = parts.FOOTER.on(self.pal)
-        button = parts.ACCENT_BUTTON.on(self.pal)
+        body = theme.SECTION_BODY.on(self.pal)
+        footer = theme.FOOTER.on(self.pal)
+        button = theme.ACCENT_BUTTON.on(self.pal)
         self.setStyleSheet(f"MachinePanel {{ background: {body.bg}; }}")
         # The same as `EnvPanel._scroll_style`: the viewport shows the
         # panel's background, and the bar's groove gets it by hand.

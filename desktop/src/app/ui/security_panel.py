@@ -1,13 +1,13 @@
 """The repo's guards: one checkbox per target type.
 
-See `core/protection.py`.
+See `services/protection.py`.
 
 **They do not live in `config.env`.** That file holds the data tasks
 need to work: the VPS's IP, the user, the token, the paths. No step ever
 reads a guard: the console looks at them before letting something run
 (`TabPanel._guard_ok`). They belong with the steps left checked in an
 action's panel, so they go to the same file, `.consola/params.json`
-(`ui/params_store.py`).
+(`services/params_store.py`).
 
 Another file has a visible consequence: there is no Save button here.
 Touching a checkbox saves it, as in the parameters panel. The Save
@@ -22,11 +22,11 @@ from typing import Any
 from PySide6.QtCore import Qt, Signal
 from PySide6.QtWidgets import QCheckBox, QFrame, QScrollArea, QVBoxLayout, QWidget
 
-from app.core import protection
-from app.core.projects import Project
+from app import theme
+from app.services import params_store, protection
+from app.services.palettes import NEUTRAL, Palette
+from app.services.projects import Project
 from app.theme import check_css
-from app.ui import params_store, parts
-from app.ui.palettes import NEUTRAL, Palette
 
 
 class SecurityPanel(QWidget):
@@ -96,8 +96,8 @@ class SecurityPanel(QWidget):
         gets its color by hand in this same sheet, which is the closest
         and the one that wins.
         """
-        body = parts.SECTION_BODY.on(self.pal)
-        check = parts.CHECK.on(self.pal)
+        body = theme.SECTION_BODY.on(self.pal)
+        check = theme.CHECK.on(self.pal)
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
@@ -111,7 +111,7 @@ class SecurityPanel(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        self._body.setStyleSheet(f"background: {parts.SECTION_BODY.on(self.pal).bg};")
+        self._body.setStyleSheet(f"background: {theme.SECTION_BODY.on(self.pal).bg};")
         self._scroll.setStyleSheet(self._scroll_style())
 
     def state(self) -> dict[str, Any]:

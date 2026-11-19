@@ -2,8 +2,8 @@
 
 Tinting backgrounds with eight hues moves the contrast of everything on
 top, and warm hues move it the most. This checks it with numbers and not
-by eye: if a recipe in `ui/palettes.py` changes, it fails here before
-the screen.
+by eye: if a recipe in `services/palettes.py` changes, it fails here
+before the screen.
 
 Thresholds are WCAG 2.1's: 4.5:1 for text, 3:1 for large text and
 interface elements. Elevation steps ask for much less, 1.09:1, because
@@ -15,9 +15,10 @@ dark themes, two backgrounds that differ easily are that far apart
 import pytest
 from PySide6.QtGui import QColor
 
+from app import theme
+from app.services import palettes
+from app.services.palettes import Palette
 from app.theme import Colors
-from app.ui import palettes, parts
-from app.ui.palettes import Palette
 
 THEMES = list(palettes.THEMES.values())
 IDS = [p.key for p in THEMES]
@@ -165,10 +166,10 @@ def test_backgrounds_carry_real_color(pal: Palette, role: str) -> None:
 def test_the_menu_bar_is_not_black(pal: Palette) -> None:
     """The menu row's band is light, not dark.
 
-    Above the sections' body and headers (`ui/parts.py`).
+    Above the sections' body and headers (`theme.py`).
     """
-    bar = parts.MENU_BAR.on(pal).bg
-    assert _luminance(bar) > _luminance(parts.SECTION_HEADER.on(pal).bg)
+    bar = theme.MENU_BAR.on(pal).bg
+    assert _luminance(bar) > _luminance(theme.SECTION_HEADER.on(pal).bg)
 
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
@@ -176,10 +177,10 @@ def test_the_selected_tab_reads(pal: Palette) -> None:
     """The selected repo's tab paints in the menu row's band.
 
     The color of the row just below, with the name in the accent
-    (`ui/parts.py`, `ui/project_tabs.py`). 4.5 and not the parts' 3:1:
+    (`theme.py`, `ui/project_tabs.py`). 4.5 and not the parts' 3:1:
     the name is running text.
     """
-    tab = parts.REPO_TAB_SELECTED.on(pal)
+    tab = theme.REPO_TAB_SELECTED.on(pal)
     assert contrast(tab.fg, tab.bg) >= 4.5
 
 
@@ -220,7 +221,7 @@ def test_it_does_not_repeat_while_themes_remain() -> None:
     assert palettes.first_free(used) == next(iter(palettes.THEMES))
 
 
-PARTS = {name: look for name, look in vars(parts).items() if isinstance(look, parts.Look)}
+PARTS = {name: look for name, look in vars(theme).items() if isinstance(look, theme.Look)}
 
 
 @pytest.mark.parametrize("pal", [*THEMES, palettes.NEUTRAL], ids=[*IDS, "neutral"])
@@ -237,7 +238,7 @@ def test_each_part_resolves(pal: Palette, name: str) -> None:
     "name", [n for n, look in PARTS.items() if look.bg and look.fg and n != "RUN_BUTTON_OFF"]
 )
 def test_the_text_of_each_part_reads(pal: Palette, name: str) -> None:
-    """A part's text reads over its own background (`ui/parts.py`).
+    """A part's text reads over its own background (`theme.py`).
 
     3:1, WCAG's floor for interface elements: changing a role in the
     table can drop a part below it, and it has to show here. Ejecutar
@@ -251,4 +252,4 @@ def test_the_text_of_each_part_reads(pal: Palette, name: str) -> None:
 def test_a_slot_not_declared_raises() -> None:
     """Asking for a slot the part does not paint fails."""
     with pytest.raises(LookupError):
-        _ = parts.CANVAS.on(palettes.NEUTRAL).fg
+        _ = theme.CANVAS.on(palettes.NEUTRAL).fg

@@ -27,22 +27,22 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.catalog import applicable_ids
-from app.core.projects import Project
-from app.core.registry import registry
-from app.theme import Colors, Fonts
-from app.ui import (
+from app import theme
+from app.services import (
     favorites,
     palettes,
     params_store,
-    parts,
     project_store,
     readiness,
     section_visibility,
 )
+from app.services.catalog import applicable_ids
+from app.services.palettes import NEUTRAL, Palette
+from app.services.projects import Project
+from app.services.registry import registry
+from app.theme import Colors, Fonts
 from app.ui.action_search import ActionSearch
 from app.ui.menu_bar import ActionMenuBar
-from app.ui.palettes import NEUTRAL, Palette
 from app.ui.project_tabs import ProjectTabBar
 from app.ui.repo_logo import RepoLogo
 from app.ui.tab_panel import TabPanel, WorkspaceStatusBar
@@ -186,9 +186,9 @@ class MainWindow(QMainWindow):
         # workspace. The path is a repo's real identity, the same its
         # parameters and `.consola/config.env` save under.
         self.workspaces: dict[str, TabPanel] = {}
-        # There is no factory list of repos (`core/projects.py`): the
-        # first time Consola opens, and each time the last repo closes,
-        # the stack shows this instead of a TabPanel.
+        # There is no factory list of repos (`services/projects.py`):
+        # the first time Consola opens, and each time the last repo
+        # closes, the stack shows this instead of a TabPanel.
         self.empty_state = self._build_empty_state()
         self.workspace_stack.addWidget(self.empty_state)
 
@@ -424,7 +424,7 @@ class MainWindow(QMainWindow):
         so the content does not shift a pixel on activating. Maximized
         it is not needed.
         """
-        window = parts.WINDOW.on(self.pal)
+        window = theme.WINDOW.on(self.pal)
         if self.isMaximized():
             self.central_widget.setStyleSheet(
                 f"QWidget#centralWidget {{ background: {window.bg}; }}"
@@ -448,7 +448,7 @@ class MainWindow(QMainWindow):
         self.action_menu.set_palette(pal)
         self.action_search.set_palette(pal)
         self.status_bar.set_palette(pal)
-        bar = parts.MENU_BAR.on(pal)
+        bar = theme.MENU_BAR.on(pal)
         self.menu_row.setStyleSheet(
             f"QWidget#menuRow {{ background: {bar.bg}; border-bottom: 1px solid {bar.border}; }}"
         )
@@ -513,9 +513,10 @@ class MainWindow(QMainWindow):
     def closeEvent(self, event: QCloseEvent) -> None:
         """Save what is pending and stop live tasks.
 
-        Parameters write in half-second bursts (`ui/params_store.py`):
-        on closing, pending writes go down, or the last change is lost
-        by checking a box and closing right away.
+        Parameters write in half-second bursts
+        (`services/params_store.py`): on closing, pending writes go
+        down, or the last change is lost by checking a box and closing
+        right away.
 
         It also stops live tasks of all repos: without this an SSH
         tunnel or a backend stayed running without Consola.
@@ -581,8 +582,9 @@ class MainWindow(QMainWindow):
         """Set which actions make sense in the repo just chosen.
 
         It recomputes on changing tab and not at startup: what decides
-        is what is inside THAT repo (`core/catalog.py::applicable_ids`),
-        and two repos on the bar need not match.
+        is what is inside THAT repo
+        (`services/catalog.py::applicable_ids`), and two repos on the
+        bar need not match.
         """
         ids = applicable_ids(project.path)
         self.action_menu.set_applicable(ids)
@@ -591,15 +593,15 @@ class MainWindow(QMainWindow):
     def _refresh_readiness(self) -> None:
         """Recount which actions can run now on the active repo.
 
-        The count lives in `ui/readiness.py`; the ▶ of each search row
-        shows it.
+        The count lives in `services/readiness.py`; the ▶ of each search
+        row shows it.
 
         It is requested, not done: the count walks the repo for all the
         actions and, among others, each keystroke of a text field fires
         it (`ui/params_panel.py::_persist`, `ui/env_panel.py`). Computed
         at once, a burst of typing queued a pass per key and letters
         appeared seconds later. The timer gathers the burst into one
-        pass, as `ui/params_store.py` does with writing to disk.
+        pass, as `services/params_store.py` does with writing to disk.
         """
         self._readiness_timer.start()
 

@@ -17,9 +17,9 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QWidget
 
+from app import theme
+from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts, mono
-from app.ui import parts
-from app.ui.palettes import NEUTRAL, Palette
 
 
 class ConsoleView(QPlainTextEdit):
@@ -50,8 +50,8 @@ class ConsoleView(QPlainTextEdit):
         self._restyle()
 
     def _restyle(self) -> None:
-        console = parts.CONSOLE.on(self.pal)
-        field = parts.FIELD.on(self.pal)
+        console = theme.CONSOLE.on(self.pal)
+        field = theme.FIELD.on(self.pal)
         self.setStyleSheet(f"""
             QPlainTextEdit {{
                 background-color: {console.bg};

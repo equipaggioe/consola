@@ -11,9 +11,9 @@ from pathlib import Path
 import pytest
 from PIL import Image
 
-from app.core import shots
-from app.core.errors import TaskError
-from app.core.shots import Shot
+from app.services import shots
+from app.services.errors import TaskError
+from app.services.shots import Shot
 
 
 @pytest.fixture

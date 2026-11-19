@@ -4,9 +4,9 @@ from pathlib import Path
 
 import pytest
 
-from app.core import envfile
-from app.core.errors import TaskError
-from app.core.settings import Setting
+from app.services import envfile
+from app.services.errors import TaskError
+from app.services.settings import Setting
 
 FIELD = (Setting("HEALTH_TOKEN", "Credenciales", "health_token", secret=True),)
 

@@ -32,24 +32,33 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core import context, protection, sysinfo, toolstatus
-from app.core.catalog import forget_machine_cache
-from app.core.projects import Project
-from app.core.registry import Capability, registry
-from app.core.toolstatus import Tool
+from app import theme
+from app.services import (
+    context,
+    palettes,
+    params_store,
+    protection,
+    section_visibility,
+    sysinfo,
+    toolstatus,
+)
+from app.services.catalog import forget_machine_cache
+from app.services.palettes import Palette
+from app.services.projects import Project
+from app.services.registry import Capability, registry
+from app.services.section_visibility import SECTIONS
+from app.services.task_runner import TaskRunner
+from app.services.toolstatus import Tool
 from app.theme import Colors, Fonts
-from app.ui import palettes, params_store, parts, repo_logo, section_visibility
+from app.ui import repo_logo
 from app.ui.command_info_panel import CommandInfoPanel
 from app.ui.console_view import ConsoleView
 from app.ui.env_panel import EnvPanel
 from app.ui.guard_dialog import BlockedDialog, ReminderDialog
 from app.ui.machine_panel import MachinePanel
-from app.ui.palettes import Palette
 from app.ui.params_panel import ParamsPanel
-from app.ui.section_visibility import SECTIONS
 from app.ui.security_panel import SecurityPanel
 from app.ui.tab_view import TabView
-from app.ui.task_runner import TaskRunner
 from app.ui.widgets import (
     AccordionSection,
     ReorderableBar,
@@ -135,9 +144,9 @@ class SubTabButton(ReorderableTab):
         self.title_label.setFont(f)
         # Active: in bold.
         color = (
-            parts.RUN_TAB_ACTIVE.on(self.pal).fg
+            theme.RUN_TAB_ACTIVE.on(self.pal).fg
             if self.is_active
-            else (Colors.TEXT_LABEL if self._hovered else parts.RUN_TAB.on(self.pal).fg)
+            else (Colors.TEXT_LABEL if self._hovered else theme.RUN_TAB.on(self.pal).fg)
         )
         self.title_label.setStyleSheet(f"background: transparent; color: {color};")
 
@@ -195,13 +204,13 @@ class SubTabButton(ReorderableTab):
         path.lineTo(r.right(), r.bottom() + 1)
 
         if self.is_active:
-            active = parts.RUN_TAB_ACTIVE.on(self.pal)
+            active = theme.RUN_TAB_ACTIVE.on(self.pal)
             p.fillPath(path, QColor(active.bg))
             edge = QColor(active.border)
         else:
             # Its fill stops one row short: the bar's line runs on
             # under it, and only the active one breaks it.
-            tab = parts.RUN_TAB.on(self.pal)
+            tab = theme.RUN_TAB.on(self.pal)
             p.save()
             p.setClipRect(QRectF(self.rect()).adjusted(0, 0, 0, -1))
             p.fillPath(path, QColor(tab.bg))
@@ -248,7 +257,7 @@ class PadlockChip(QLabel):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Closed = safe (the repo's color); open = exposed to a
         # destructive action with no net, and that is red in every repo.
-        color = parts.PADLOCK.on(pal).fg if protected else Colors.ERROR
+        color = theme.PADLOCK.on(pal).fg if protected else Colors.ERROR
         self.setStyleSheet(
             f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
         )
@@ -298,10 +307,10 @@ class WorkspaceStatusBar(QWidget):
 
         # --- the repo ---
         #
-        # The active repo's protection targets (`core/protection.py`),
-        # each with its open or closed padlock, always in view whichever
-        # action is open above (`ADR-0018` §4). A click on any jumps to
-        # the Security section.
+        # The active repo's protection targets
+        # (`services/protection.py`), each with its open or closed
+        # padlock, always in view whichever action is open above
+        # (`ADR-0018` §4). A click on any jumps to the Security section.
         self.security_box = QWidget()
         self.security_box.setStyleSheet("background: transparent;")
         self._security_row = QHBoxLayout(self.security_box)
@@ -346,7 +355,7 @@ class WorkspaceStatusBar(QWidget):
         line = QFrame()
         line.setFrameShape(QFrame.Shape.VLine)
         line.setFixedWidth(1)
-        line.setStyleSheet(f"background: {parts.STATUS_BAR.on(self.pal).border}; border: none;")
+        line.setStyleSheet(f"background: {theme.STATUS_BAR.on(self.pal).border}; border: none;")
         line.setFixedHeight(16)
         return line
 
@@ -438,9 +447,9 @@ class WorkspaceStatusBar(QWidget):
     def set_protection(self, state: dict[str, Any]) -> None:
         """Refresh the padlocks with the state of EACH target.
 
-        From `core/protection.TARGETS`, not only the protected ones: a
-        target with no guard is also a datum, and its open padlock shows
-        at a glance. `state` is `{target_id: bool}`
+        From `services/protection.TARGETS`, not only the protected ones:
+        a target with no guard is also a datum, and its open padlock
+        shows at a glance. `state` is `{target_id: bool}`
         (`ui/security_panel.py`). It is called on changing repo and each
         time a switch is touched.
         """
@@ -469,7 +478,7 @@ class WorkspaceStatusBar(QWidget):
             self.set_protection(self._protection)
 
     def _restyle(self) -> None:
-        bar = parts.STATUS_BAR.on(self.pal)
+        bar = theme.STATUS_BAR.on(self.pal)
         self.setStyleSheet(f"""
             WorkspaceStatusBar {{
                 background: {bar.bg};
@@ -625,7 +634,8 @@ class TabPanel(ReorderableBar):
             self.config_section,
             self.machine_section,
         )
-        # The key each one saves under in `ui/section_visibility.py`.
+        # The key each one saves under in
+        # `services/section_visibility.py`.
         self._section_ids = {
             self.info_section: "accion",
             self.security_section: "seguridad",
@@ -735,8 +745,8 @@ class TabPanel(ReorderableBar):
     def _restore_tabs(self) -> None:
         """Reopen the action tabs left open last time, in their order.
 
-        From `ui/params_store.py`. None runs anything: opening a tab is
-        only that.
+        From `services/params_store.py`. None runs anything: opening a
+        tab is only that.
         """
         self._restoring = True
         try:
@@ -1027,7 +1037,7 @@ class TabPanel(ReorderableBar):
 
         It waits for their clean shutdowns to end (the tunnel, `adb emu
         kill`). What does not get to close in that time the Job Object
-        kills (`core/process.py::bind_to_app`).
+        kills (`services/process.py::bind_to_app`).
         """
         runners = list(self._runners)
         for runner in runners:
@@ -1044,7 +1054,7 @@ class TabPanel(ReorderableBar):
             return
         # Closing the tab stops what was running in it: for the
         # emulator, that is `adb emu kill` and not killing its process
-        # (`core/tasks/emulators.py`). Signals cut first because the
+        # (`services/tasks/emulators.py`). Signals cut first because the
         # console is destroyed in this very method and the task stays
         # alive a few moments more.
         runner = self._busy.pop(tab, None)
@@ -1150,18 +1160,18 @@ class TabPanel(ReorderableBar):
         The runs sub-bar, the console's canvas and the two placeholders.
         Each panel repaints what is inside it.
         """
-        bar = parts.RUN_BAR.on(self.pal)
-        footer = parts.FOOTER.on(self.pal)
-        run = parts.RUN_BUTTON_OFF.on(self.pal)
+        bar = theme.RUN_BAR.on(self.pal)
+        footer = theme.FOOTER.on(self.pal)
+        run = theme.RUN_BUTTON_OFF.on(self.pal)
         self.sub_bar.setStyleSheet(f"""
             QWidget#subBar {{
                 background: {bar.bg};
                 border-bottom: 1px solid {bar.border};
             }}
         """)
-        self.content_area.setStyleSheet(f"background: {parts.CANVAS.on(self.pal).bg};")
+        self.content_area.setStyleSheet(f"background: {theme.CANVAS.on(self.pal).bg};")
         self._params_placeholder.setStyleSheet(
-            f"background: {parts.SECTION_BODY.on(self.pal).bg};"
+            f"background: {theme.SECTION_BODY.on(self.pal).bg};"
         )
         self._footer_placeholder.setStyleSheet(
             f"background: {footer.bg}; border-top: 1px solid {footer.border};"
@@ -1535,7 +1545,7 @@ class TabPanel(ReorderableBar):
     def _guard_ok(
         self, capability: Capability, payload: dict[str, Any], console: ConsoleView
     ) -> bool:
-        """Let pass, warn or block, by `core/protection.decide`.
+        """Let pass, warn or block, by `services/protection.decide`.
 
         What decides is not «it is destructive» but «what it breaks,
         with THESE parameters, and whether that is protected in THIS
@@ -1683,7 +1693,7 @@ class TabPanel(ReorderableBar):
         if view is not None:
             runner.serve_requested.connect(view.set_endpoint)
 
-        # The log book does not exist yet (`core/store.py`,
+        # The log book does not exist yet (`services/store.py`,
         # docs/arquitectura/30_riesgos_y_pendientes.md): until it does,
         # a note is not lost but left marked in the console.
         def on_note(entry: str) -> None:
@@ -1739,7 +1749,8 @@ class TabPanel(ReorderableBar):
         """Answer a task's question, on the interface thread.
 
         Four dialogs, chosen by what the task expects back
-        (`core/context.py::ASK_*`) and not by how the question looks:
+        (`services/context.py::ASK_*`) and not by how the question
+        looks:
 
         - `expect`: an exact text has to be typed (deleting a database,
           overwriting a folder). A text field: the friction is the
@@ -1771,7 +1782,7 @@ class TabPanel(ReorderableBar):
             answer, ok = QInputDialog.getText(self, "Dato requerido", question, mode)
             # Cancelling is not answering empty: for some questions
             # empty means «use the derived value»
-            # (`core/context.py::ASK_CANCELLED`).
+            # (`services/context.py::ASK_CANCELLED`).
             runner.provide_answer(answer if ok else context.ASK_CANCELLED)
             return
 

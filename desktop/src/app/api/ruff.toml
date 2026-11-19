@@ -1,0 +1,12 @@
+# qt.md, «Proyecto»: HTTP goes in api/. A nested banned-api replaces the
+# one of pyproject.toml instead of adding to it, so this one repeats it
+# without PySide6.QtNetwork.
+extend = "../../../pyproject.toml"
+
+[lint.flake8-tidy-imports.banned-api]
+"__feature__".msg = "Qt API keeps its original names"
+"http.client".msg = "HTTP goes through QNetworkAccessManager"
+"httpx".msg = "HTTP goes through QNetworkAccessManager"
+"PySide6.QtUiTools".msg = "The interface is built in code"
+"requests".msg = "HTTP goes through QNetworkAccessManager"
+"urllib.request".msg = "HTTP goes through QNetworkAccessManager"

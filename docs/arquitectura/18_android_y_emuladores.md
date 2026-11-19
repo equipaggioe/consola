@@ -82,7 +82,7 @@ En Linux la aceleración no se instala: se **verifica** y, si falta, se explica 
 
 ## 8. El entorno del usuario
 
-`core/userenv.py` escribe `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_AVD_HOME` y el PATH a nivel **usuario**: un bloque delimitado dentro del perfil del shell en POSIX, `HKCU\Environment` en Windows. Nunca a nivel sistema ([ADR-0029](../adr/0029-entorno-a-nivel-usuario.md)).
+`services/userenv.py` escribe `ANDROID_SDK_ROOT`, `ANDROID_HOME`, `ANDROID_AVD_HOME` y el PATH a nivel **usuario**: un bloque delimitado dentro del perfil del shell en POSIX, `HKCU\Environment` en Windows. Nunca a nivel sistema ([ADR-0029](../adr/0029-entorno-a-nivel-usuario.md)).
 
 - El bloque se reescribe entero cada vez, así que reinstalar no deja exports duplicados ni rutas viejas colgando. Se lee antes de escribir porque el bloque es compartido: si Android lo reescribiera sin mirar, borraría lo que dejó Flutter.
 - `path_drop` descarta las entradas de una instalación anterior, para poder reinstalar en otro directorio.

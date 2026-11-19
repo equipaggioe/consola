@@ -6,8 +6,8 @@ value of the `service` axis names the unit `install.py` installs.
 
 import pytest
 
-from app.core import vps
-from app.core.errors import TaskError
+from app.services import vps
+from app.services.errors import TaskError
 
 
 @pytest.mark.parametrize(

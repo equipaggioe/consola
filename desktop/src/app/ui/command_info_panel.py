@@ -5,11 +5,11 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
-from app.core import command_docs
-from app.core.registry import Capability
+from app import theme
+from app.services import command_docs
+from app.services.palettes import NEUTRAL, Palette
+from app.services.registry import Capability
 from app.theme import Colors, Fonts
-from app.ui import parts
-from app.ui.palettes import NEUTRAL, Palette
 
 
 class _Heading(QLabel):
@@ -27,7 +27,7 @@ class CommandInfoPanel(QWidget):
     It lives in the top section of the right accordion. That section's
     header carries the action's name, set by `TabPanel`, so collapsed it
     still says which one it is. The text comes from
-    `core/command_docs.py` when it exists, and otherwise from the
+    `services/command_docs.py` when it exists, and otherwise from the
     capability's one-line description plus its steps' labels.
 
     Only what the button does and in which order: the sheet has no
@@ -76,7 +76,7 @@ class CommandInfoPanel(QWidget):
         gets its color by hand in this same sheet, which is the closest
         and the one that wins.
         """
-        body = parts.SECTION_BODY.on(self.pal).bg
+        body = theme.SECTION_BODY.on(self.pal).bg
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
@@ -89,7 +89,7 @@ class CommandInfoPanel(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        body = parts.SECTION_BODY.on(self.pal)
+        body = theme.SECTION_BODY.on(self.pal)
         self.setStyleSheet(f"CommandInfoPanel {{ background: {body.bg}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
 

@@ -1,6 +1,6 @@
 """The run of release.yml that a tag fires."""
 
-from app.core.tasks import vps_release
+from app.services.tasks import vps_release
 
 
 def test_the_run_is_found_by_the_path_of_its_workflow() -> None:

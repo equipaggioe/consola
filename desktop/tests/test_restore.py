@@ -2,8 +2,8 @@
 
 from pathlib import Path
 
-from app.core import ssh
-from app.core.tasks.database import _without_extensions
+from app.services import ssh
+from app.services.tasks.database import _without_extensions
 
 
 def test_the_restore_does_not_touch_extensions() -> None:

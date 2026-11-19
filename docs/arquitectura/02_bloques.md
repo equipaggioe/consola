@@ -4,28 +4,28 @@
 
 ```mermaid
 flowchart TD
-    MAIN[main.py] --> CAT[core/catalog.py<br/>declara la forma]
-    MAIN --> BIND[core/tasks/bind_all<br/>le da cuerpo]
+    MAIN[main.py] --> CAT[services/catalog.py<br/>declara la forma]
+    MAIN --> BIND[services/tasks/bind_all<br/>le da cuerpo]
     MAIN --> UI[ui/ · PySide6]
-    UI --> REG[core/registry.py<br/>Registry · Capability · AxisDef · Step]
+    UI --> REG[services/registry.py<br/>Registry · Capability · AxisDef · Step]
     CAT --> REG
     BIND --> REG
-    UI -- "TaskRunner (QThread)" --> T[core/tasks/<br/>niveles 1 y 2]
-    T --> N0[core/ nivel 0<br/>plomería]
+    UI -- "TaskRunner (QThread)" --> T[services/tasks/<br/>niveles 1 y 2]
+    T --> N0[services/ nivel 0<br/>plomería]
     N0 --> EXT([binarios externos<br/>git · ssh · flutter · pnpm · adb · psql])
 ```
 
 | Nivel | Qué es | ¿Botón? | Dónde vive |
 |---|---|---|---|
-| **0 — plomería** | Resuelve una clase de problema y no es un paso del dominio: leer un `.env`, armar un `argv` de SSH, elegir un puerto libre | Nunca | `core/*.py` |
-| **1 — atómicas** | Una responsabilidad, construida sobre el nivel 0. Casi todas son de tres a diez líneas | Sí, si alguien la pide sola | `core/tasks/*.py` |
-| **2 — compuestas** | Encadenan atómicas en un orden fijo. No reimplementan nada: llaman | Sí, además del botón de cada paso | `core/tasks/*.py` |
+| **0 — plomería** | Resuelve una clase de problema y no es un paso del dominio: leer un `.env`, armar un `argv` de SSH, elegir un puerto libre | Nunca | `services/*.py` |
+| **1 — atómicas** | Una responsabilidad, construida sobre el nivel 0. Casi todas son de tres a diez líneas | Sí, si alguien la pide sola | `services/tasks/*.py` |
+| **2 — compuestas** | Encadenan atómicas en un orden fijo. No reimplementan nada: llaman | Sí, además del botón de cada paso | `services/tasks/*.py` |
 
-`api/` guarda los modelos de Pydantic de las respuestas HTTP que se leen (Cloudflare y el índice de Flutter); lo usa `core/tasks/utils.py` y no importa nada de Consola. Toda respuesta HTTP de un tercero se lee con su modelo, y una que no coincide detiene la tarea con `TaskError`.
+`api/` es todo lo que habla HTTP, y no importa nada de Consola fuera de sí mismo. `http.py` lo hace con el único `QNetworkAccessManager`, en el hilo de la interfaz, bloqueando el hilo de la tarea que llama, con reintentos; también descarga los SDK. Cada servicio tiene su módulo, con sus llamadas y los modelos de Pydantic de lo que se lee: `cloudflare.py`, `flutter.py` (el índice de releases), `android_studio.py` (la página de las herramientas de línea de comandos) e `ip.py` (los servicios de la IP pública). Los usa `services/tasks/utils.py`, que convierte sus errores en `TaskError`: una respuesta que no coincide con su modelo detiene la tarea.
 
-La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `core/`, y `core/` no importa ni de `ui/` ni de `core/tasks/`. La excepción es una importación diferida dentro de una función, no de módulo: `core/context.py` pide el registro para traducir el id de un paso a su etiqueta.
+La dirección es estricta: `ui/` importa de `services/` y de `api/`, `services/tasks/` importa de `services/` y de `api/`, y `services/` no importa ni de `ui/` ni de `services/tasks/`. La excepción es una importación diferida dentro de una función, no de módulo: `services/context.py` pide el registro para traducir el id de un paso a su etiqueta. `theme.py` nombra `services/palettes.py` solo en sus anotaciones, porque `palettes.py` importa `theme.py`.
 
-## 2. Qué hay en `core/` (nivel 0)
+## 2. Qué hay en `services/` (nivel 0)
 
 | Módulo | Qué resuelve |
 |---|---|
@@ -35,7 +35,6 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `envfile.py` | `.consola/config.env`: leer, regenerar, y `Config` con acceso tipado y defaults |
 | `settings.py` | El esquema de claves: quién las exige y quién solo las usa |
 | `fields.py` | Los campos de `Settings` del repo administrado, leídos con `ast` |
-| `http.py` | HTTP con el único `QNetworkAccessManager`, en el hilo de la interfaz, bloqueando el hilo de la tarea que llama, con reintentos |
 | `canone.py` | Lo que se le pasa a los programas de canone: opciones de `packages.py` y la lista que devuelve con `--list`, argumentos de `install.py`, líneas de `credentials.py` |
 | `registry.py` | `Registry`, `Capability`, `AxisDef`, `Facet`, `Step`, y el puente a los kwargs |
 | `catalog.py` | La declaración de las 54 capacidades y la resolución de ejes contra el repo o contra una fuente consultada |
@@ -62,7 +61,7 @@ La dirección es estricta: `ui/` importa de `core/`, `core/tasks/` importa de `c
 | `command_docs.py` | El texto largo de cada comando, para la ficha del panel derecho |
 | `projects.py` | El `dataclass Project`. La lista la maneja la interfaz |
 
-## 3. Qué hay en `core/tasks/` (niveles 1 y 2)
+## 3. Qué hay en `services/tasks/` (niveles 1 y 2)
 
 Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza cada stub por su función.
 
@@ -86,20 +85,20 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 
 | Bloque | Archivos | Qué hace |
 |---|---|---|
-| Ventana | `main_window.py`, `title_bar.py`, `project_tabs.py`, `repo_logo.py`, `assets/` | Ventana sin marco, repos como pestañas de nivel 1, acento y logo por repo |
-| Catálogo a la vista | `menu_bar.py`, `action_search.py`, `widgets/action_row.py`, `favorites.py` | El catálogo entero en una barra de menú y un buscador con ▶ |
+| Ventana | `main_window.py`, `title_bar.py`, `project_tabs.py`, `repo_logo.py` | Ventana sin marco, repos como pestañas de nivel 1, acento y logo por repo |
+| Catálogo a la vista | `menu_bar.py`, `action_search.py`, `widgets/action_row.py`, y `services/favorites.py` | El catálogo entero en una barra de menú y un buscador con ▶ |
 | Espacio de trabajo | `tab_panel.py`, `tab_view.py`, `console_view.py`, `browser_view.py` | Pestañas de ejecución de un repo, consola, segunda vista |
 | Panel derecho | `params_panel.py`, `env_panel.py`, `security_panel.py`, `command_info_panel.py`, `widgets/accordion.py` | Parámetros, configuración, seguros y ficha, en un acordeón |
-| Ejecución | `task_runner.py`, `guard_dialog.py` | Corre la capacidad en un hilo y puentea sus canales; los dos avisos del seguro |
-| Explorador | `db_explorer_view.py`, `db_worker.py` | Árbol, datos y estructura, sobre su propio hilo |
-| Persistencia | `params_store.py`, `project_store.py`, `section_visibility.py` | `.consola/params.json` del repo y `QSettings` de la máquina |
-| Apoyo | `theme.py`, `readiness.py`, `widgets/*` | Colores y tipografía, qué puede correr ya, controles propios |
+| Ejecución | `guard_dialog.py`, y `services/task_runner.py` | Corre la capacidad en un hilo y puentea sus canales; los dos avisos del seguro |
+| Explorador | `db_explorer_view.py`, y `services/db_worker.py` | Árbol, datos y estructura, sobre su propio hilo |
+| Persistencia | `services/params_store.py`, `services/project_store.py`, `services/section_visibility.py` | `.consola/params.json` del repo y `QSettings` de la máquina |
+| Apoyo | `theme.py`, `widgets/*`, y `services/readiness.py` | Colores y tipografía, qué puede correr ya, controles propios |
 
 
-## 6. `camera/`
+## 6. `assets/`
 
-El kit de las cámaras de capturas: JS sin dependencias que no corre dentro de Consola, sino dentro del script de cámara de cada repo, que lo recibe en `--kit` ([19](19_imagenes.md) §6, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
+Lo que no es código: la marca de Equipaggio (`equipaggio.png`), la flecha de las listas (`chevron-down.svg`), los presets de las capturas (`shots_presets.json`) y `camera/`, el kit de las cámaras de capturas: JS sin dependencias que no corre dentro de Consola, sino dentro del script de cámara de cada repo, que lo recibe en `--kit` ([19](19_imagenes.md) §6, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 
 ## 7. Arranque
 
-`main.py` hace cinco cosas, en orden: fija el escalado de alta densidad, crea la `QApplication`, llama a `load_catalog()` y a `bind_all()`, aplica el tema y muestra la ventana. El catálogo se arma una sola vez por proceso; lo que depende del repo se resuelve después, cada vez que se dibuja un panel ([10](10_catalogo_de_capacidades.md)).
+`main.py` hace seis cosas, en orden: fija el escalado de alta densidad, crea la `QApplication`, crea el único `QNetworkAccessManager` con `http.start()`, llama a `load_catalog()` y a `bind_all()`, aplica el tema y muestra la ventana. El catálogo se arma una sola vez por proceso; lo que depende del repo se resuelve después, cada vez que se dibuja un panel ([10](10_catalogo_de_capacidades.md)).

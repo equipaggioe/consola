@@ -30,10 +30,12 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.projects import Project
+from app import theme
+from app.services import palettes, params_store, project_store
+from app.services.palettes import Palette
+from app.services.projects import Project
 from app.theme import Colors, Fonts, on_color, tint
-from app.ui import palettes, params_store, parts, project_store, repo_logo
-from app.ui.palettes import Palette
+from app.ui import repo_logo
 from app.ui.widgets import ReorderableBar, ReorderableTab
 
 
@@ -43,7 +45,7 @@ class ProjectTab(ReorderableTab):
     The selected one paints in the menu row's background, with its name
     in its accent: it joins the row below. The others paint in the
     ACTIVE repo's accent, the title bar they rest on, with outline and
-    name in the ink that reads over it (`ui/parts.py`).
+    name in the ink that reads over it (`theme.py`).
     """
 
     clicked = Signal()
@@ -135,9 +137,9 @@ class ProjectTab(ReorderableTab):
         # the ink that reads over the active repo's accent, the
         # background of the bar they rest on.
         color = (
-            parts.REPO_TAB_SELECTED.on(self.pal).fg
+            theme.REPO_TAB_SELECTED.on(self.pal).fg
             if self.is_active
-            else parts.REPO_TAB.on(self.active_pal).fg
+            else theme.REPO_TAB.on(self.active_pal).fg
         )
         self.name_label.setStyleSheet(f"background: transparent; color: {color};")
         self.close_btn.setStyleSheet(f"""
@@ -278,11 +280,11 @@ class ProjectTab(ReorderableTab):
         path.addRoundedRect(r, 7, 7)
 
         if self.is_active:
-            p.fillPath(path, QColor(parts.REPO_TAB_SELECTED.on(self.pal).bg))
+            p.fillPath(path, QColor(theme.REPO_TAB_SELECTED.on(self.pal).bg))
             p.end()
             return
 
-        tab = parts.REPO_TAB.on(self.active_pal)
+        tab = theme.REPO_TAB.on(self.active_pal)
         p.fillPath(path, QColor(tab.bg))
         edge = QColor(tab.border)
         edge.setAlpha(150 if (self._hovered or self.is_dragging) else 90)
@@ -374,7 +376,7 @@ class AddProjectTab(QWidget):
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect()).adjusted(7.5, 5.5, -7.5, -5.5)
 
-        add = parts.ADD_TAB.on(self.pal)
+        add = theme.ADD_TAB.on(self.pal)
         edge = QColor(add.border)
         edge.setAlpha(150 if self._hovered else 90)
         pen = QPen(edge)
@@ -441,7 +443,7 @@ class ProjectTabBar(ReorderableBar):
         """Save the whole list of repos, in order: path and name.
 
         Adding, removing and reordering survive a restart
-        (`ui/project_store.py`).
+        (`services/project_store.py`).
         """
         if self._loading:
             return

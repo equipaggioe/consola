@@ -21,13 +21,13 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core import envfile, fields
-from app.core.errors import TaskError
-from app.core.projects import Project
-from app.core.settings import Setting, settings_by_group
+from app import theme
+from app.services import envfile, fields, palettes, params_store
+from app.services.errors import TaskError
+from app.services.palettes import Palette
+from app.services.projects import Project
+from app.services.settings import Setting, settings_by_group
 from app.theme import Colors, Fonts
-from app.ui import palettes, params_store, parts
-from app.ui.palettes import Palette
 
 
 def _to_lines(value: str) -> str:
@@ -206,8 +206,8 @@ class EnvRow(QWidget):
     def _restyle(self) -> None:
         # Lighter border = key without a value. The same signal, now in
         # the repo's tinted borders.
-        field = parts.FIELD.on(self.pal)
-        border = field.border if self.value() else parts.FIELD_EMPTY.on(self.pal).border
+        field = theme.FIELD.on(self.pal)
+        border = field.border if self.value() else theme.FIELD_EMPTY.on(self.pal).border
         widget = "QPlainTextEdit" if self._is_list else "QLineEdit"
         self.field.setStyleSheet(f"""
             {widget} {{
@@ -227,11 +227,11 @@ class EnvPanel(QWidget):
 
     It is per repo, not per tab: it stays the same while changing
     actions above. It writes the file regenerated from the schema
-    (core/envfile).
+    (services/envfile).
 
     It holds DATA, what tasks need to work, and nothing else. The repo's
     guards went to `ui/security_panel.py`: no task reads them, so they
-    are no datum of this file (`core/settings.py`, at the end).
+    are no datum of this file (`services/settings.py`, at the end).
 
     The machine keys (`Setting.scope='machine'`) are not here: they are
     THIS machine's and not the project's, and they edit in their own
@@ -243,7 +243,7 @@ class EnvPanel(QWidget):
     could not be erased from here.
 
     The «Credenciales» group adds the repo's `Settings` fields
-    (`core/fields.py`), read on opening the panel: a new field in
+    (`services/fields.py`), read on opening the panel: a new field in
     `config.py` appears on reopening the repo.
     """
 
@@ -364,8 +364,8 @@ class EnvPanel(QWidget):
         The body is `panel`, one step above its header, and the footer
         with Save and Reload rises to `surface`, like the other bars.
         """
-        footer = parts.FOOTER.on(self.pal)
-        self.setStyleSheet(f"EnvPanel {{ background: {parts.SECTION_BODY.on(self.pal).bg}; }}")
+        footer = theme.FOOTER.on(self.pal)
+        self.setStyleSheet(f"EnvPanel {{ background: {theme.SECTION_BODY.on(self.pal).bg}; }}")
         self._scroll.setStyleSheet(self._scroll_style())
         self.file_bar.setStyleSheet(
             f"background: {footer.bg}; border-top: 1px solid {footer.border};"
@@ -383,7 +383,7 @@ class EnvPanel(QWidget):
         gets its color by hand in this same sheet, which is the closest
         and the one that wins.
         """
-        body = parts.SECTION_BODY.on(self.pal).bg
+        body = theme.SECTION_BODY.on(self.pal).bg
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
@@ -391,7 +391,7 @@ class EnvPanel(QWidget):
         )
 
     def _restyle_create(self) -> None:
-        button = parts.ACCENT_BUTTON.on(self.pal)
+        button = theme.ACCENT_BUTTON.on(self.pal)
         button_css = f"""
             QPushButton {{
                 background: transparent; border: 1px solid {button.border};
@@ -636,8 +636,9 @@ class EnvPanel(QWidget):
         Save and «Crear/Actualizar archivo» both land here: the file is
         always written whole, with all the schema's keys in its order,
         and the form's values. `save_config` discards the machine keys
-        `values` carries (`core/envfile.render_config`), and the keys
-        the schema no longer declares, which it names after writing.
+        `values` carries (`services/envfile.render_config`), and the
+        keys the schema no longer declares, which it names after
+        writing.
         """
         text = self._read_file()
         if self.read_error:

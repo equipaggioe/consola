@@ -7,10 +7,10 @@ El grupo **Imágenes** produce el material gráfico de las apps de un repo: sus 
 | Parte | Quién | Dónde |
 |---|---|---|
 | El escenario, las rutas del servidor ficticio, entrar sin login, navegar | el script del repo | `.consola/camera/` del repo, versionada; la corre lo que declara `SHOTS_CMD` |
-| Leer el contrato, servidor ficticio, Vite, página, reintentos, emulador | el kit de Consola, que corre dentro de la cámara | `camera/index.mjs` (§6) |
-| Elegir apps, temas, idiomas y emulador; encender el emulador | Consola | `core/tasks/images.py::shoot_screens` |
-| Validar lo que dejó la cámara | Consola | `core/shots.py::collect`, `missing_combinations` |
-| Convertir cada crudo para cada destino y escribir el manifiesto | Consola | `core/shots.py` (`render_*`, `write_manifest`), `core/shots_presets.json` |
+| Leer el contrato, servidor ficticio, Vite, página, reintentos, emulador | el kit de Consola, que corre dentro de la cámara | `assets/camera/index.mjs` (§6) |
+| Elegir apps, temas, idiomas y emulador; encender el emulador | Consola | `services/tasks/images.py::shoot_screens` |
+| Validar lo que dejó la cámara | Consola | `services/shots.py::collect`, `missing_combinations` |
+| Convertir cada crudo para cada destino y escribir el manifiesto | Consola | `services/shots.py` (`render_*`, `write_manifest`), `assets/shots_presets.json` |
 
 La cámara es código del repo porque solo el repo sabe navegar su app ([ADR-0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md)). Los datos salen de un escenario servido por un servidor ficticio, nunca de una base ([ADR-0050](../adr/0050-las-capturas-no-tocan-la-base.md)), y la plomería que comparten todas las cámaras es un kit de Consola ([ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 
@@ -49,7 +49,7 @@ Eje de `render_shots` y de la compuesta: `destinations` (`landing`, `play`, `app
 1. Comprueba que cada app marcada sea una app del repo con pantalla. No mira si hace falta emulador: eso lo decide la cámara (ADR-0052), que corta antes de la primera foto si una app lo necesita y no llegó `--device`.
 2. Borra de `SHOTS_RAW` los crudos de las combinaciones pedidas (`clear_raw`): una pantalla que el script dejó de sacar no sobrevive a la corrida siguiente. Las combinaciones no pedidas no se tocan.
 3. Con un AVD elegido: si ya está encendido, usa su serial; si no, lo enciende en un hilo aparte con un puerto elegido de antemano, espera el arranque, y lo apaga por adb al terminar. De su salida solo pasan al log los avisos y los errores.
-4. Corre `SHOTS_CMD` desde la raíz del repo con los argumentos de §2, `--output` con `SHOTS_RAW` absoluta y `--kit` con la ruta de `camera/index.mjs` (`shots.KIT`). El primer token se resuelve en el PATH; el resto va tal cual. Con un AVD elegido, la carpeta del `adb` del SDK va primera en el PATH de la cámara.
+4. Corre `SHOTS_CMD` desde la raíz del repo con los argumentos de §2, `--output` con `SHOTS_RAW` absoluta y `--kit` con la ruta de `assets/camera/index.mjs` (`shots.KIT`). El primer token se resuelve en el PATH; el resto va tal cual. Con un AVD elegido, la carpeta del `adb` del SDK va primera en el PATH de la cámara.
 5. Lee los crudos de las apps pedidas y corta si un archivo no sigue el nombre, o si alguna combinación app × tema × idioma quedó sin captura.
 
 ## 4. El nombre de los crudos
@@ -62,7 +62,7 @@ Eje de `render_shots` y de la compuesta: `destinations` (`landing`, `play`, `app
 
 ## 5. El revelado
 
-Los presets viven en `core/shots_presets.json`, no en el código: las medidas de cada destino cambian por la tienda, no por Consola.
+Los presets viven en `assets/shots_presets.json`, no en el código: las medidas de cada destino cambian por la tienda, no por Consola.
 
 | Destino | Qué hace | Salida |
 |---|---|---|
@@ -74,7 +74,7 @@ Los presets viven en `core/shots_presets.json`, no en el código: las medidas de
 | `manual` | PNG a resolución nativa | `<SHOTS_DIST>/manual/<idioma>/<app>/<pantalla>.<tema>.png` |
 | `presskit` | Los crudos tal cual, sin comprimir, en un ZIP | `<SHOTS_DIST>/presskit/screenshots.zip` (`<app>/<pantalla>.<tema>.<idioma>.png` dentro) |
 
-`core/shots.py::plan` decide qué sale de cada crudo, con los datos del preset:
+`services/shots.py::plan` decide qué sale de cada crudo, con los datos del preset:
 
 - `kinds`: de qué tipos de app sale el destino. Si ningún crudo es de esos tipos, corta.
 - `limits`: reglas que el crudo tiene que cumplir tal cual. Si uno no las cumple, corta y lo nombra.
@@ -92,7 +92,7 @@ La conversión usa Pillow.
 
 ## 6. El kit de la cámara
 
-`camera/index.mjs`, JS sin dependencias. La cámara lo importa desde la ruta que recibe en `--kit` y le pasa lo que necesite de Playwright.
+`assets/camera/index.mjs`, JS sin dependencias. La cámara lo importa desde la ruta que recibe en `--kit` y le pasa lo que necesite de Playwright.
 
 | Export | Qué hace |
 |---|---|
@@ -109,7 +109,7 @@ La conversión usa Pillow.
 | `android(device)` | `adb` sobre el dispositivo: zona horaria, `root`, reloj fijo y restaurarlo |
 | `flutterDrive({...})` | `flutter drive` para un tema e idioma. A la prueba le pasa `SHOTS_THEME` y `SHOTS_LANGUAGE` por `--dart-define`; al driver, `SHOTS_DIR` y `SHOTS_SUFFIX` en el entorno, para que guarde `<SHOTS_DIR>/<pantalla>.<SHOTS_SUFFIX>.png` |
 
-Las pruebas del kit están en `camera/index.test.mjs` (`node --test`), y `tests/test_camera.py` las corre dentro de pytest.
+Las pruebas del kit están en `assets/camera/index.test.mjs` (`node --test`), y `tests/test_camera.py` las corre dentro de pytest.
 
 ## 7. Los íconos
 
@@ -123,7 +123,7 @@ Las pruebas del kit están en `camera/index.test.mjs` (`node --test`), y `tests/
 
 Las dos últimas se exigen al correr, solo sobre una app que las pide, y faltar abre la configuración en esa clave.
 
-El eje `apps` es consultado contra el repo (`catalog.ICON_APPS`, `core/icons.py::icon_apps`), sin caché. Ofrece las apps con al menos un lugar declarado (`icons.places`):
+El eje `apps` es consultado contra el repo (`catalog.ICON_APPS`, `services/icons.py::icon_apps`), sin caché. Ofrece las apps con al menos un lugar declarado (`icons.places`):
 
 | Tipo | Lugares | Capa |
 |---|---|---|
@@ -146,7 +146,7 @@ Una app se ofrece aunque su declaración esté rota: la corrida dice qué tiene 
 
 Cada archivo se escribe solo si cambia, y el log dice si es nuevo, actualizado o sin cambios. `flutter_launcher_icons` corre siempre en las apps Flutter marcadas: reparte el ícono por plataforma, y Consola no compara esos archivos.
 
-Rasteriza `core/tasks/raster.py` con QtSvg (`QSvgRenderer` sobre un `QImage` con antialiasing), sin aplicación Qt; el `.ico` lo arma Pillow a partir del PNG de 256. El PNG anota siempre la misma resolución (3937 puntos por metro): con la ventana abierta Qt anotaba la del monitor, y el mismo logo salía con otros bytes. QtSvg implementa SVG Tiny 1.2: filtros, máscaras o CSS saldrían distintos que en el navegador.
+Rasteriza `services/tasks/raster.py` con QtSvg (`QSvgRenderer` sobre un `QImage` con antialiasing), sin aplicación Qt; el `.ico` lo arma Pillow a partir del PNG de 256. El PNG anota siempre la misma resolución (3937 puntos por metro): con la ventana abierta Qt anotaba la del monitor, y el mismo logo salía con otros bytes. QtSvg implementa SVG Tiny 1.2: filtros, máscaras o CSS saldrían distintos que en el navegador.
 
 El ejecutable de «Compilar ejecutable» toma el mismo logo: con `BRAND_ICON`, `compile_binary` escribe `build/icon.ico` y lo pasa en `--icon` ([17](17_builds_y_artefactos.md)).
 

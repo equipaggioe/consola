@@ -26,23 +26,23 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core import envfile
-from app.core.catalog import (
+from app import theme
+from app.services import envfile, favorites, palettes, params_store
+from app.services.catalog import (
     PREVIEW_HINTS,
     PREVIEW_TITLES,
     for_project,
     preview_checks,
     queried_values,
 )
-from app.core.envfile import Config
-from app.core.errors import TaskError
-from app.core.projects import Project
-from app.core.registry import AxisDef, Capability, Step, registry
-from app.core.settings import relevant_keys_for, required_keys_for
+from app.services.envfile import Config
+from app.services.errors import TaskError
+from app.services.palettes import Palette
+from app.services.projects import Project
+from app.services.registry import AxisDef, Capability, Step, registry
+from app.services.settings import relevant_keys_for, required_keys_for
 from app.theme import Colors, Fonts, check_css
-from app.ui import favorites, palettes, params_store, parts
 from app.ui.env_panel import EnvPanel
-from app.ui.palettes import Palette
 from app.ui.widgets import FavoriteStar
 
 
@@ -62,10 +62,10 @@ class AxesLoader(QThread):
     """Read in the background the catalogs a capability asks for.
 
     Asking the SDK which devices and system images exist takes seconds
-    to a minute the first time; then it stays cached in `core/cache.py`.
-    Doing it in the interface thread would freeze the window each time
-    the emulator's tab opens, so the panel draws with empty lists and
-    fills when this ends.
+    to a minute the first time; then it stays cached in
+    `services/cache.py`. Doing it in the interface thread would freeze
+    the window each time the emulator's tab opens, so the panel draws
+    with empty lists and fills when this ends.
 
     The same holds even more for the repo's VPS: asking which services
     it has is an SSH round trip against a machine that may be off. So
@@ -89,7 +89,7 @@ class AxesLoader(QThread):
         self._config = config
         # The repo's root: the backups axis asks for it, since its
         # folder can be declared relative to it
-        # (`core/catalog.py::_backup_files`).
+        # (`services/catalog.py::_backup_files`).
         self._root = root
         self._refresh = refresh
 
@@ -148,7 +148,7 @@ _COMBO_MIN_CHARS = 8
 # The arrow of a closed list. Drawn by hand because styling the combo's
 # border leaves the native drop-down box on top of it, cutting the right
 # edge; styling `::drop-down` hides that box and its arrow with it.
-_ARROW = (Path(__file__).with_name("assets") / "chevron-down.svg").as_posix()
+_ARROW = (Path(__file__).resolve().parents[1] / "assets" / "chevron-down.svg").as_posix()
 
 
 class ParamsPanel(QWidget):
@@ -200,8 +200,8 @@ class ParamsPanel(QWidget):
         # axis -> written value; axis -> long list with search; axis ->
         # feature -> its short list. It is the same `pick` axis as
         # above, drawn in several lists trimming each other
-        # (`core/registry.py::Facet`); its value is still the whole id,
-        # so it travels in the payload's same `picks` bucket.
+        # (`services/registry.py::Facet`); its value is still the whole
+        # id, so it travels in the payload's same `picks` bucket.
         self._fields: dict[str, QLineEdit | QPlainTextEdit] = {}
         self._picks: dict[str, QComboBox] = {}
         self._facets: dict[str, dict[str, QComboBox]] = {}
@@ -476,7 +476,7 @@ class ParamsPanel(QWidget):
         gets its color by hand in this same sheet, which is the closest
         and the one that wins.
         """
-        body = parts.SECTION_BODY.on(self.pal).bg
+        body = theme.SECTION_BODY.on(self.pal).bg
         return (
             "QScrollArea, QScrollArea > QWidget > QWidget "
             "{ border: none; background: transparent; }"
@@ -484,8 +484,8 @@ class ParamsPanel(QWidget):
         )
 
     def _combo_style(self) -> str:
-        field = parts.FIELD.on(self.pal)
-        listing = parts.COMBO_LIST.on(self.pal)
+        field = theme.FIELD.on(self.pal)
+        listing = theme.COMBO_LIST.on(self.pal)
         return f"""
             QComboBox {{
                 background: {field.bg}; border: 1px solid {field.border};
@@ -938,7 +938,7 @@ class ParamsPanel(QWidget):
             lay.addWidget(note)
 
     def _field_style(self, multiline: bool) -> str:
-        field = parts.FIELD.on(self.pal)
+        field = theme.FIELD.on(self.pal)
         return f"""
             QLineEdit, QPlainTextEdit {{
                 background: {field.bg}; border: 1px solid {field.border};
@@ -1248,10 +1248,10 @@ class ParamsPanel(QWidget):
         # scrollbar paints apart: its groove is not a sheet background
         # but Qt's palette color, and it stayed gray inside a tinted
         # panel. The checks go here, so they reach every one inside.
-        check = parts.CHECK.on(self.pal)
-        footer = parts.FOOTER.on(self.pal)
+        check = theme.CHECK.on(self.pal)
+        footer = theme.FOOTER.on(self.pal)
         self.setStyleSheet(
-            f"ParamsPanel {{ background: {parts.SECTION_BODY.on(self.pal).bg}; }}"
+            f"ParamsPanel {{ background: {theme.SECTION_BODY.on(self.pal).bg}; }}"
             + check_css(check.bg, check.border)
             + "QCheckBox#previewCheck::indicator:checked:disabled "
             f"{{ background: {check.bg}; border: 1px solid {check.border}; }}"
@@ -1276,7 +1276,7 @@ class ParamsPanel(QWidget):
 
         The only filled button of the footer is Run.
         """
-        button = parts.BUTTON.on(self.pal)
+        button = theme.BUTTON.on(self.pal)
         return f"""
             QPushButton {{
                 background: transparent; border: 1px solid {button.border};
@@ -1419,7 +1419,7 @@ class ParamsPanel(QWidget):
         self._restyle_run()
 
     def _restyle_run(self) -> None:
-        run = (parts.RUN_BUTTON if self.run_btn.isEnabled() else parts.RUN_BUTTON_OFF).on(self.pal)
+        run = (theme.RUN_BUTTON if self.run_btn.isEnabled() else theme.RUN_BUTTON_OFF).on(self.pal)
         self.run_btn.setStyleSheet(f"""
             QPushButton {{
                 background: {run.bg};

@@ -1,1 +1,1 @@
-"""The answers of the HTTP services Consola reads (ADR-0080)."""
+"""What talks HTTP: the one manager and each service (ADR-0089)."""

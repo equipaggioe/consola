@@ -15,12 +15,12 @@ from typing import Any
 import pytest
 from PIL import Image
 
-from app.core import icons
-from app.core.context import TaskContext
-from app.core.envfile import Config
-from app.core.errors import MissingConfig, TaskError
-from app.core.projects import Project
-from app.core.tasks import images, raster
+from app.services import icons
+from app.services.context import TaskContext
+from app.services.envfile import Config
+from app.services.errors import MissingConfig, TaskError
+from app.services.projects import Project
+from app.services.tasks import images, raster
 
 LOGO = (
     '<svg xmlns="http://www.w3.org/2000/svg" width="64" height="64" viewBox="0 0 64 64">'

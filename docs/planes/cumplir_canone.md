@@ -2,8 +2,8 @@
 
 > **Estado (verificado 2026-11-18).** Canone sacó `qt.md` de desarrollo (`461d857` y `e6b3d0b` de
 > canone): ahora rige entera, salvo su sección «Tema», que sigue en desarrollo. Con canone en `main`
-> (`f1a22a4`, que agrega `services/` y los servicios externos de `api/`, ADR-0186 de canone),
-> `verificar.py --repo .` da 0 incumplimientos. En Windows, `ruff format --check`, `ruff check`,
+> (`ff38d25`, que comprueba el árbol, ADR-0188 y ADR-0189 de canone), `verificar.py --repo .` da 1
+> incumplimiento: `ui/`, que falta repartir (§2.2). En Windows, `ruff format --check`, `ruff check`,
 > `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1014 pruebas, con 3 saltadas.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
 > `stack.md`, los tipos, `@override`, los enums con su clase, `IniFormat`, HTTP con un solo
@@ -42,23 +42,28 @@ Rige desde que `qt.md` salió de desarrollo. En este orden: cada etapa deja el r
 su commit. Los conteos salen de buscar en el código (2026-11-17); lo de accesibilidad no se probó con
 la app.
 
-### 2.2 Estructura de `ui/` y `core/`
+### 2.2 Estructura de `ui/`
 
-`qt.md` pide `windows/`, `dialogs/`, `widgets/` y `models/`, con un archivo por clase, `services/`
-para lo que no es interfaz ni HTTP, y `api/` para todo lo que habla HTTP. Hoy `ui/` tiene 43 clases
-de Qt en 28 archivos. El cambio toca 64 líneas de import, 63 líneas de código que citan
-`ui/<archivo>.py` y 23 citas en `docs/arquitectura/`, y renombrar `core/` a `services/` toca 257
-imports en 72 archivos.
+Ya hecho, sin commit: `core/` es `services/`; `api/` tiene `http.py` y un módulo por servicio
+(`cloudflare.py`, `flutter.py`, `android_studio.py` e `ip.py`); `assets/` tiene las imágenes, los
+presets de las capturas y el kit de la cámara; `favorites`, `section_visibility`, `project_store`,
+`params_store`, `readiness`, `task_runner` y `db_worker` están en `services/`; están los dos
+`ruff.toml` de `plantilla/qt/`, y `pyproject.toml` prohíbe `PySide6.QtNetwork` fuera de `api/`.
+`palettes.py` está en `services/`, y `parts.py` es la última sección de `theme.py`, «The parts of
+the window» (pregunta 8).
+`verificar.py` da 1 incumplimiento: `ui/` fuera del árbol.
+
+Falta repartir `ui/`. `qt.md` pide `windows/`, `dialogs/`, `widgets/` y `models/`, y cada módulo de
+las tres últimas declara una sola clase pública, con su nombre en snake_case. Hoy `ui/` tiene 49
+clases en 28 archivos.
 
 | Destino | Qué va |
 |---|---|
 | `windows/` | `MainWindow` y `_EdgeGrip` |
-| `dialogs/` | `guard_dialog.py` |
+| `dialogs/` | `guard_dialog.py`, partido en `GuardDialog`, `BlockedDialog` y `ReminderDialog` |
 | `models/` | `RowsModel`, hoy en `db_explorer_view.py` |
-| `widgets/` | Los demás widgets. `tab_panel.py`, `title_bar.py`, `project_tabs.py`, `env_panel.py` y `params_panel.py` se parten por clase |
-| `services/` | `core/` entero, con `core/tasks/`, salvo `core/http.py`; `favorites`, `section_visibility`, `project_store`, `params_store` y `readiness`; los hilos `task_runner` y `db_worker` |
-| `api/` | `core/http.py`, con la descarga de los SDK. Las llamadas a cada servicio, que hoy están en `core/tasks/utils.py`, van a su `api/<servicio>.py`: Cloudflare (`_cloudflare`) y el índice de Flutter (`_resolve_flutter_stable`), junto a sus modelos, la página de Android Studio (`_fetch_text` sobre `ANDROID_STUDIO_URL`) y la IP pública (`detect_public_ip`) |
-| Junto a `theme.py` | `palettes.py` |
+| `widgets/` | Los demás widgets, un archivo por clase pública. Se parten `tab_panel.py`, `title_bar.py`, `project_tabs.py`, `env_panel.py`, `params_panel.py`, `db_explorer_view.py`, `widgets/accordion.py`, `widgets/action_row.py` y `widgets/tab_reorder.py`, y `widgets/led.py` pasa a `led_indicator.py` y `menu_bar.py` a `action_menu_bar.py` |
+| `services/` | `AxesLoader`, un `QThread` de `params_panel.py`, y `RepoLogo`, que no es un widget |
 
 ### 2.3 Almacenamiento
 
@@ -147,11 +152,13 @@ duda es cómo cumplirla.
 
 | # | Pregunta | Dónde | Decisión |
 |---|---|---|---|
-| 1 | El árbol de `qt.md` no tenía `core/` ni `ui/`. ¿Dónde va el código que no es de Qt? | Canone | En `services/`: lo que no es interfaz ni HTTP. Ya está en `qt.md` y `flet.md` (ADR-0186 de canone). En Consola van ahí `core/` y los módulos sin widget, incluidos los dos `QThread`; `palettes.py` va junto a `theme.py` (§2.2) |
+| 1 | El árbol de `qt.md` no tenía `core/` ni `ui/`. ¿Dónde va el código que no es de Qt? | Canone | En `services/`: lo que no es interfaz ni HTTP. Ya está en `qt.md` y `flet.md` (ADR-0186 de canone). En Consola van ahí `core/` y los módulos sin widget, incluidos los dos `QThread` (§2.2). Dónde va `palettes.py` es la pregunta 8 |
 | 3 | «Un solo `QNetworkAccessManager`» chocaba con el ADR-0079: cada tarea bloqueaba su hilo con su propio manager | Consola | Un solo manager en el hilo principal, y las tareas siguen bloqueando su hilo. Hecho (ADR-0089) |
 | 4 | `api/client.py` y `api/models.py` suponían la API propia de un servidor. Consola habla con Cloudflare y con el índice de Flutter | Canone | `api/` es todo lo que habla HTTP, con `api/<servicio>.py` para cada servicio externo. Con un servicio externo, un campo desconocido se ignora y los que se leen se validan enteros, y «Reintentos» le aplica. Ya está en `qt.md`, `flet.md` y `transversal.md` (ADR-0186 de canone). En Consola: §2.2; los reintentos ya están (ADR-0089) |
 | 5 | ¿Linguist cubre también los mensajes de `core/` y `command_docs.py`? | Consola | Sí, con `QCoreApplication.translate` (§2.8) |
 | 6 | ¿De dónde sale el icono de 1024 px? | Consola | Del rombo de la marca, rasterizado (§2.7) |
+| 7 | El árbol de `qt.md` no tenía lugar para lo que no es código | Canone | En `src/app/assets/`: las imágenes entran en `resources.qrc`, y lo que otro programa lee del disco se queda como archivo (ADR-0189 de canone) |
+| 8 | `palettes.py` y `parts.py` no tenían lugar en el árbol | Consola | `palettes.py` en `services/`, y `parts.py` como sección de `theme.py`, donde se ubican y cambian los colores de cada parte (§2.2) |
 
 ### Abiertas
 

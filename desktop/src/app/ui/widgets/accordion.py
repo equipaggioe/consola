@@ -8,9 +8,9 @@ from PySide6.QtCore import QSize, Qt, Signal
 from PySide6.QtGui import QMouseEvent
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
+from app import theme
+from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts
-from app.ui import parts
-from app.ui.palettes import NEUTRAL, Palette
 
 # `QWIDGETSIZE_MAX`: what Qt understands as «no height limit».
 NO_CAP = 16777215
@@ -70,7 +70,7 @@ class AccordionHeader(QWidget):
         # that separates a section from its neighbor and the label from
         # its content. When both were the same gray, the right column
         # read as one stain.
-        header = parts.SECTION_HEADER.on(self.pal)
+        header = theme.SECTION_HEADER.on(self.pal)
         self.setStyleSheet(f"""
             QWidget#accordionHeader {{
                 background: {header.bg};
@@ -235,7 +235,7 @@ class SectionResizeGrip(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        grip = parts.SECTION_GRIP.on(self.pal)
+        grip = theme.SECTION_GRIP.on(self.pal)
         self.setStyleSheet(f"""
             QWidget#sectionGrip {{
                 background: {grip.bg};

@@ -8,7 +8,7 @@ uv sync
 uv run python -m app.main
 ```
 
-Consola se ejecuta desde el repositorio. Con cada tag, `.github/workflows/release.yml` corre `ci.yml` y construye con `pyside6-deploy` `desktop-linux.bin` y `desktop-windows.exe` en un release que queda en borrador hasta tener su `.sha256`. Hoy falla, porque falta `desktop/pysidedeploy.spec` ([30](30_riesgos_y_pendientes.md)). Puede empaquetarse a sí misma con su botón «Build binario», que deduce `main.py` en la raíz cuando el repo no tiene ninguna app Python que descubrir (`core/tasks/builders.py::resolve_entrypoint`).
+Consola se ejecuta desde el repositorio. Con cada tag, `.github/workflows/release.yml` corre `ci.yml` y construye con `pyside6-deploy` `desktop-linux.bin` y `desktop-windows.exe` en un release que queda en borrador hasta tener su `.sha256`. Hoy falla, porque falta `desktop/pysidedeploy.spec` ([30](30_riesgos_y_pendientes.md)). Puede empaquetarse a sí misma con su botón «Build binario», que deduce `main.py` en la raíz cuando el repo no tiene ninguna app Python que descubrir (`services/tasks/builders.py::resolve_entrypoint`).
 
 ## 2. Hilos y procesos
 
@@ -20,7 +20,7 @@ Consola se ejecuta desde el repositorio. Con cada tag, `.github/workflows/releas
 | Consultas del explorador | `DbWorker`, propio de cada vista | Una consulta lenta no congela el árbol |
 | Sondeo de un endpoint | Hilo suelto que lanza `ctx.serve()` | Quien sirvió sigue derecho a `ctx.run()`, que no vuelve hasta que el proceso muere |
 | Vigilante de fuentes | Hilo suelto de `run_python_app` | Mira las marcas de tiempo cada 0,5 s y mata al hijo cuando cambian |
-| Binarios externos | Subprocesos | `core/process.py`: salida unificada, `stdin` a `DEVNULL`, cancelables |
+| Binarios externos | Subprocesos | `services/process.py`: salida unificada, `stdin` a `DEVNULL`, cancelables |
 
 Varias tareas conviven: cada pestaña de ejecución tiene la suya, y un repo puede tener varias pestañas vivas a la vez (dos emuladores, tres dev servers).
 
@@ -28,7 +28,7 @@ Varias tareas conviven: cada pestaña de ejecución tiene la suya, y un repo pue
 
 `MainWindow.closeEvent` baja a disco los parámetros pendientes (`params_store.flush`) y llama a `TabPanel.shutdown()` de cada repo. Ese apagado cancela cada tarea como lo haría cerrar su pestaña —con sus ganchos limpios, por ejemplo `adb emu kill`— y espera hasta 5 s.
 
-Lo que no alcance a cerrarse lo mata el sistema, solo en Windows: un túnel `ssh -L` entra en un **Job Object** con `KILL_ON_JOB_CLOSE` (`core/host.py::WindowsHost.bind_to_app`) y no sobrevive a la aplicación ni cuando esta se cae. En Linux no hay equivalente todavía: si Consola se cae de golpe, el túnel sigue vivo ([30](30_riesgos_y_pendientes.md)).
+Lo que no alcance a cerrarse lo mata el sistema, solo en Windows: un túnel `ssh -L` entra en un **Job Object** con `KILL_ON_JOB_CLOSE` (`services/host.py::WindowsHost.bind_to_app`) y no sobrevive a la aplicación ni cuando esta se cae. En Linux no hay equivalente todavía: si Consola se cae de golpe, el túnel sigue vivo ([30](30_riesgos_y_pendientes.md)).
 
 ## 4. Dónde queda el estado
 
@@ -38,7 +38,7 @@ Lo que no alcance a cerrarse lo mata el sistema, solo en Windows: un túnel `ssh
 | `<repo>/.consola/params.json` | Parámetros de cada botón, seguros y pestañas abiertas | Todo |
 | `QSettings` (`Consola/Consola`), en `%APPDATA%\Consola\Consola.ini` o `~/.config/Consola/Consola.ini` | Repos abiertos, valores de las claves de máquina, favoritas, secciones ocultas, parámetros de las acciones de máquina | Reinstalar el repo |
 | `%LOCALAPPDATA%\Consola\cache` o `~/.cache/consola` | Catálogos del SDK y servicios del VPS | La sesión; caducan por edad |
-| Memoria (`core/session.py`) | Endpoints publicados, puerto del backend, serial del emulador | Nada: muere con el proceso |
+| Memoria (`services/session.py`) | Endpoints publicados, puerto del backend, serial del emulador | Nada: muere con el proceso |
 
 Detalle de cada formato en [20](20_referencia_datos.md); el reparto entre repo y máquina, en [13](13_configuracion_y_persistencia.md).
 
@@ -63,6 +63,6 @@ Consola nunca escribe a nivel sistema en la máquina local: el PATH y las variab
 | App móvil y builds | Flutter o Flet, y el SDK de Android para emular |
 | Binario | PyInstaller, preferido del venv de la app |
 | Todo lo del VPS | `ssh`/`scp` en el PATH y las claves `VPS_*` cargadas |
-| Base local, respaldo y restauración | Postgres instalado en esta máquina: la versión más nueva bajo `C:\Program Files\PostgreSQL` en Windows o `/usr/lib/postgresql` en Linux (`core/host.py::pg_tool`) |
+| Base local, respaldo y restauración | Postgres instalado en esta máquina: la versión más nueva bajo `C:\Program Files\PostgreSQL` en Windows o `/usr/lib/postgresql` en Linux (`services/host.py::pg_tool`) |
 | Sesión SSH interactiva | Windows Terminal (`wt.exe`) en Windows; `x-terminal-emulator` en Linux |
 | Explorador | `psycopg`; la importación es diferida, así que su ausencia solo rompe ese botón |

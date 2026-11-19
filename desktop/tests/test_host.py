@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from app.core import host, process
-from app.core.errors import TaskError
+from app.services import host, process
+from app.services.errors import TaskError
 
 ROOT = Path(__file__).resolve().parents[1] / "src" / "app"
 
@@ -28,11 +28,11 @@ def test_each_system_implements_everything(cls: type[host.Host]) -> None:
 
 
 def test_nobody_else_asks_about_the_system() -> None:
-    """Only `core/host.py` asks which system this is."""
+    """Only `services/host.py` asks which system this is."""
     pattern = re.compile(r"\bos\.name\b|\bsys\.platform\b|\bplatform\.system\(")
     culprits = []
-    for file in [*ROOT.glob("core/**/*.py"), *ROOT.glob("ui/**/*.py"), ROOT / "main.py"]:
-        if file == ROOT / "core" / "host.py":
+    for file in ROOT.glob("**/*.py"):
+        if file == ROOT / "services" / "host.py":
             continue
         for n, line in enumerate(file.read_text(encoding="utf-8").splitlines(), 1):
             code = line.split("#", 1)[0]

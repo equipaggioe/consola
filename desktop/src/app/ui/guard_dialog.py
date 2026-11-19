@@ -1,4 +1,4 @@
-"""The guard's two notices by target type (`core/protection.py`).
+"""The guard's two notices by target type (`services/protection.py`).
 
 Neither asks to type anything: not a word, not the repo's name.
 
@@ -23,10 +23,12 @@ from __future__ import annotations
 from PySide6.QtCore import Qt
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
-from app.core.projects import Project
-from app.core.protection import Target
+from app import theme
+from app.services import palettes
+from app.services.projects import Project
+from app.services.protection import Target
 from app.theme import Colors, Fonts
-from app.ui import palettes, parts, repo_logo
+from app.ui import repo_logo
 
 
 class _GuardDialog(QDialog):
@@ -47,7 +49,7 @@ class _GuardDialog(QDialog):
         self.pal = palettes.get(project.theme)
         self.setWindowTitle(window_title)
         self.setMinimumWidth(460)
-        dialog = parts.DIALOG.on(self.pal)
+        dialog = theme.DIALOG.on(self.pal)
         self.setStyleSheet(f"QDialog {{ background: {dialog.bg}; }}")
 
         self._lay = QVBoxLayout(self)
@@ -73,7 +75,7 @@ class _GuardDialog(QDialog):
 
     def _repo_card(self) -> QWidget:
         box = QWidget()
-        card = parts.REPO_CARD.on(self.pal)
+        card = theme.REPO_CARD.on(self.pal)
         box.setStyleSheet(
             f"background: {card.bg}; border-left: 3px solid {card.border}; border-radius: 4px;"
         )
@@ -137,7 +139,7 @@ class BlockedDialog(_GuardDialog):
         buttons.addStretch()
         understood = self._button("Entendido")
         understood.setDefault(True)
-        button = parts.FILLED_BUTTON.on(self.pal)
+        button = theme.FILLED_BUTTON.on(self.pal)
         understood.setStyleSheet(f"""
             QPushButton {{
                 background: {button.bg}; color: {button.fg};
@@ -173,7 +175,7 @@ class ReminderDialog(_GuardDialog):
 
         cancel = self._button("Cancelar")
         cancel.setDefault(True)
-        button = parts.BUTTON.on(self.pal)
+        button = theme.BUTTON.on(self.pal)
         cancel.setStyleSheet(f"""
             QPushButton {{
                 background: transparent; border: 1px solid {button.border};

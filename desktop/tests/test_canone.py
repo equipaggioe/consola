@@ -1,8 +1,8 @@
 """What Consola passes to canone's programs.
 
-`core/canone.py` builds the arguments of `install.py` and the lines of
-`credentials.py` without touching the network: it tests against a fake
-repo on disk.
+`services/canone.py` builds the arguments of `install.py` and the lines
+of `credentials.py` without touching the network: it tests against a
+fake repo on disk.
 """
 
 from pathlib import Path
@@ -10,10 +10,10 @@ from typing import Any, cast
 
 import pytest
 
-from app.core import canone, envfile, fields, process, runner
-from app.core.context import TaskContext
-from app.core.envfile import Config
-from app.core.errors import TaskError
+from app.services import canone, envfile, fields, process, runner
+from app.services.context import TaskContext
+from app.services.envfile import Config
+from app.services.errors import TaskError
 
 KEYS = ("ssh-ed25519 AAAA uno", "sk-ssh-ed25519@openssh.com BBBB dos")
 CONFIG_PY = '''

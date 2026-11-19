@@ -6,10 +6,11 @@ from PySide6.QtCore import Signal
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMenuBar, QWidget
 
-from app.core.registry import Capability, registry
+from app import theme
+from app.services import favorites, section_visibility
+from app.services.palettes import NEUTRAL, Palette
+from app.services.registry import Capability, registry
 from app.theme import Colors, Fonts
-from app.ui import favorites, parts, section_visibility
-from app.ui.palettes import NEUTRAL, Palette
 
 # A text marker and not custom paint: a `QMenu` does not allow tinting
 # one item, and this reads just as well without a `QWidgetAction`, which
@@ -50,7 +51,7 @@ class ActionMenuBar(QMenuBar):
         self._favorites: set[str] = favorites.favorite_ids()
         self._only_favorites = favorites.only_favorites()
         # What makes sense in the open repo
-        # (`core/catalog.py::applicable_ids`). None = no repo yet:
+        # (`services/catalog.py::applicable_ids`). None = no repo yet:
         # nothing is filtered.
         self._applicable: set[str] | None = None
 
@@ -83,7 +84,7 @@ class ActionMenuBar(QMenuBar):
         painted is the open menu's title, in the background of
         the popup hanging from it, so they read as one piece.
         """
-        bar = parts.MENU_BAR.on(self.pal)
+        bar = theme.MENU_BAR.on(self.pal)
         return f"""
             QMenuBar {{
                 background: transparent; color: {bar.fg};
@@ -115,8 +116,8 @@ class ActionMenuBar(QMenuBar):
         checks_css = (
             "QMenu::indicator { left: 8px; } QMenu::item { padding-left: 16px; }" if checks else ""
         )
-        menu = parts.MENU.on(self.pal)
-        item = parts.MENU_ITEM.on(self.pal)
+        menu = theme.MENU.on(self.pal)
+        item = theme.MENU_ITEM.on(self.pal)
         return (
             checks_css
             + f"""

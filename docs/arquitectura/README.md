@@ -38,4 +38,4 @@ Consola es **una sola pieza**: una aplicación de escritorio. No hay `00_sistema
 - Un cambio de comportamiento actualiza el documento de su dominio **en el mismo commit**.
 - Un botón nuevo, un eje nuevo o una clave nueva tocan además [10](10_catalogo_de_capacidades.md) y [20](20_referencia_datos.md).
 - Lo que quede sin hacer o sin verificar se anota en [30](30_riesgos_y_pendientes.md), y se borra de ahí en el commit que lo resuelve.
-- El código se cita por archivo y símbolo (`core/vps.py`, `resolve_service`), nunca por número de línea.
+- El código se cita por archivo y símbolo (`services/vps.py`, `resolve_service`), nunca por número de línea.

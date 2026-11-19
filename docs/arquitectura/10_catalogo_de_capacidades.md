@@ -1,10 +1,10 @@
 # 10 · Catálogo de capacidades
 
-Cómo se declara un botón, de qué está hecho y cómo llega lo elegido a la función que corre. Es el documento que toca cualquier cambio en `core/catalog.py` o `core/registry.py`.
+Cómo se declara un botón, de qué está hecho y cómo llega lo elegido a la función que corre. Es el documento que toca cualquier cambio en `services/catalog.py` o `services/registry.py`.
 
 ## 1. Declarar y vincular
 
-`main.py` llama primero a `load_catalog()`, que registra las 64 `Capability` con `stub=True`, y después a `bind_all()`, que recorre los nueve módulos de `core/tasks/` y llama a `Registry.bind(id, func)`. Vincular hace dos cosas: le pone `func` y baja `stub`. Lo que nadie vincule sigue siendo un stub y la interfaz lo simula ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)).
+`main.py` llama primero a `load_catalog()`, que registra las 64 `Capability` con `stub=True`, y después a `bind_all()`, que recorre los nueve módulos de `services/tasks/` y llama a `Registry.bind(id, func)`. Vincular hace dos cosas: le pone `func` y baja `stub`. Lo que nadie vincule sigue siendo un stub y la interfaz lo simula ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)).
 
 Hoy están vinculadas todas. `dev_env` no se vincula: declara `stub=False` a mano porque su cuerpo no es una función, es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
 
@@ -60,7 +60,7 @@ Modificadores que resuelven casos concretos:
 
 Dos familias se declaran vacías y se llenan más tarde, porque el catálogo se arma una sola vez al arrancar y lo que listan cambia ([ADR-0006](../adr/0006-ejes-descubiertos-y-consultados.md)):
 
-- **Descubiertos** (`discover=`): sus valores salen de mirar el repo abierto (`core/targets.py`). Los llena `catalog.for_project(cap, root)` justo antes de dibujar el panel, sobre una **copia** de la capacidad.
+- **Descubiertos** (`discover=`): sus valores salen de mirar el repo abierto (`services/targets.py`). Los llena `catalog.for_project(cap, root)` justo antes de dibujar el panel, sobre una **copia** de la capacidad.
 - **Consultados** (`source=`): salen de preguntarle al SDK (dispositivos, imágenes publicadas, imágenes instaladas, AVD, emuladores vivos) o al VPS del repo (servicios systemd que existen). Los resuelve `catalog.queried_values()` en el hilo de `AxesLoader`, y casi todos se cachean.
 
 `ANDROID_RUNNING` es el único que nunca se cachea: es estado, no catálogo, y una respuesta vieja ofrecería apagar un emulador que ya no existe.
@@ -97,7 +97,7 @@ Un `Step` es una casilla de una compuesta, y su `id` es el nombre del booleano d
 | ¿Este botón existe aquí? | `catalog.applicable_ids(root)` → `Capability.applies_to(features)`. Hoy la única característica es `migrations` |
 | ¿Qué valores tiene su eje? | `catalog.for_project` con `targets.names_of` |
 | ¿Qué pasos quedan? | `Capability.steps_for(features)`, sobre la copia que mira el panel; de esos, el panel oculta los de otro ámbito (`Step.applies`) |
-| ¿Puede correr ya? | `ui/params_panel.py::_blockers` y, sin abrir la pestaña, `ui/readiness.py` |
+| ¿Puede correr ya? | `ui/params_panel.py::_blockers` y, sin abrir la pestaña, `services/readiness.py` |
 
 Un paso que el panel no dibujó no viene marcado en el payload, así que llega a la función en `False`: queda apagado, no «sin decidir».
 
@@ -108,5 +108,5 @@ Un paso que el panel no dibujó no viene marcado en el payload, así que llega a
 3. Un dato que la tarea lee y que no cambia entre dos corridas es configuración, no eje ([ADR-0064](../adr/0064-consola-se-ignora-con-su-propio-gitignore.md)).
 4. Un dato distinto en cada corrida y sin default posible se pregunta al correr con `ctx.ask`, no se guarda.
 5. Una compuesta reusa otra solo si quiere todos sus pasos: la llama y le reenvía sus banderas. Si quiere una parte, esa parte se extrae a una compuesta propia y las dos la usan (`populate_db`). Un parámetro que la externa no reenvía queda en su default: al agregar un eje, se revisa quién lo reenvía.
-6. Si la capacidad es destructiva, hay que declarar qué rompe en `core/protection.py::RULES` ([14](14_seguro_de_destructivos.md)).
-7. Un botón nuevo entra en la tabla de [20](20_referencia_datos.md) y, si merece texto largo, en `core/command_docs.py`.
+6. Si la capacidad es destructiva, hay que declarar qué rompe en `services/protection.py::RULES` ([14](14_seguro_de_destructivos.md)).
+7. Un botón nuevo entra en la tabla de [20](20_referencia_datos.md) y, si merece texto largo, en `services/command_docs.py`.

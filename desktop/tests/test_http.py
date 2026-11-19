@@ -12,7 +12,7 @@ from typing import override
 import pytest
 from pytestqt.qtbot import QtBot
 
-from app.core import http as consola_http
+from app.api import http as consola_http
 
 SIZE = 3_000_000
 

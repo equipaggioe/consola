@@ -7,7 +7,9 @@ import shutil
 import subprocess
 from pathlib import Path
 
-KIT_TESTS = Path(__file__).resolve().parents[1] / "src" / "app" / "camera" / "index.test.mjs"
+KIT_TESTS = (
+    Path(__file__).resolve().parents[1] / "src" / "app" / "assets" / "camera" / "index.test.mjs"
+)
 
 
 def test_the_camera_kit_passes_its_tests() -> None:

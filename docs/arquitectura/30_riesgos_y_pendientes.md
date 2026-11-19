@@ -8,9 +8,9 @@ Solo lo que el propio código declara incompleto.
 
 | Punto | Qué dice el código |
 |---|---|
-| **La bitácora no existe** | `ui/tab_panel.py`: «La bitacora todavia no existe (`core/store.py`)». `ctx.note()` está implementado y hay 18 llamadas repartidas en siete módulos de `core/tasks/`; hasta que exista el almacén, cada nota se imprime en la consola con un `✱` y se pierde al cerrar |
-| **No hay botón de Detener** | `ui/task_runner.py`: «el boton de Detener todavia no existe en la UI, pero cuando exista no debe encontrarse con una tarea dormida». Se detiene cerrando la pestaña, o con «Limpiar» si hay un túnel ([11](11_ejecucion_de_tareas.md) §7) |
-| **`projects/order`** | `ui/project_store.py` declara la clave vieja de `QSettings` y solo la borra en `clear()`. No se lee en ningún lado |
+| **La bitácora no existe** | `ui/tab_panel.py`: «La bitacora todavia no existe (`services/store.py`)». `ctx.note()` está implementado y hay 18 llamadas repartidas en siete módulos de `services/tasks/`; hasta que exista el almacén, cada nota se imprime en la consola con un `✱` y se pierde al cerrar |
+| **No hay botón de Detener** | `services/task_runner.py`: «el boton de Detener todavia no existe en la UI, pero cuando exista no debe encontrarse con una tarea dormida». Se detiene cerrando la pestaña, o con «Limpiar» si hay un túnel ([11](11_ejecucion_de_tareas.md) §7) |
+| **`projects/order`** | `services/project_store.py` declara la clave vieja de `QSettings` y solo la borra en `clear()`. No se lee en ningún lado |
 | **La barra de estado no muestra servicios de fondo** | `WorkspaceStatusBar.add_service` existe y nadie la llama. Un túnel Postgres vivo no aparece ahí |
 
 ## 2. Hallazgos de la verificación
@@ -19,14 +19,14 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 | # | Hallazgo | Evidencia |
 |---|---|---|
-| H1 | **`ctx.progress()` no llega a ninguna parte.** `TaskRunner` crea el `TaskContext` sin `progress_sink`, así que el avance de la descarga del SDK —la única que lo emite, cientos de megas— se descarta en silencio. El docstring de `TaskRunner` lo nombra entre los canales que puentea | `ui/task_runner.py::run`, `core/tasks/utils.py::_download` |
-| H3 | **«Ver logs» no ofrece sus filtros.** `view_logs` acepta `lines`, `since`, `priority` y `grep`, y `vps.journal_command` los arma; el catálogo solo declara `service` y `follow`, así que siempre son 200 líneas sin filtrar | `core/catalog.py`, `core/tasks/vps_server.py::view_logs` |
-| H4 | **«Migrar» no deja escribir el mensaje de la revisión.** `migrate_db(message=...)` existe y no tiene eje: toda revisión autogenerada se llama `auto` | `core/catalog.py`, `core/tasks/database.py::migrate_db` |
-| H8 | **«Levantar backend» con ámbito remoto no llega a la base de un VPS de canone.** Pregunta el puerto con `sudo -n`, que pide contraseña, y entra por TCP con `DB_USER` y `DB_PASSWORD`, cuando los roles de canone entran por `peer` y sin contraseña. Solo lo usa un repo sin el `Settings` de canone | `core/database.py::connect`, `core/vps.py::postgres_port`, `core/tasks/launchers.py::serve_backend` |
-| H10 | **«Control del servicio» no marca error si `sudo` falla en una consulta.** Con `status`, `is-active` e `is-enabled` el código de salida no corta, porque `systemctl` responde distinto de cero cuando la unidad está parada. Con la contraseña equivocada, el log dice `sudo: 2 incorrect password attempts` y la tarea termina bien. Probado el 2026-11-02 | `core/tasks/vps_server.py::systemd_action` |
+| H1 | **`ctx.progress()` no llega a ninguna parte.** `TaskRunner` crea el `TaskContext` sin `progress_sink`, así que el avance de la descarga del SDK —la única que lo emite, cientos de megas— se descarta en silencio. El docstring de `TaskRunner` lo nombra entre los canales que puentea | `services/task_runner.py::run`, `services/tasks/utils.py::_download` |
+| H3 | **«Ver logs» no ofrece sus filtros.** `view_logs` acepta `lines`, `since`, `priority` y `grep`, y `vps.journal_command` los arma; el catálogo solo declara `service` y `follow`, así que siempre son 200 líneas sin filtrar | `services/catalog.py`, `services/tasks/vps_server.py::view_logs` |
+| H4 | **«Migrar» no deja escribir el mensaje de la revisión.** `migrate_db(message=...)` existe y no tiene eje: toda revisión autogenerada se llama `auto` | `services/catalog.py`, `services/tasks/database.py::migrate_db` |
+| H8 | **«Levantar backend» con ámbito remoto no llega a la base de un VPS de canone.** Pregunta el puerto con `sudo -n`, que pide contraseña, y entra por TCP con `DB_USER` y `DB_PASSWORD`, cuando los roles de canone entran por `peer` y sin contraseña. Solo lo usa un repo sin el `Settings` de canone | `services/database.py::connect`, `services/vps.py::postgres_port`, `services/tasks/launchers.py::serve_backend` |
+| H10 | **«Control del servicio» no marca error si `sudo` falla en una consulta.** Con `status`, `is-active` e `is-enabled` el código de salida no corta, porque `systemctl` responde distinto de cero cuando la unidad está parada. Con la contraseña equivocada, el log dice `sudo: 2 incorrect password attempts` y la tarea termina bien. Probado el 2026-11-02 | `services/tasks/vps_server.py::systemd_action` |
 | H11 | **Una versión que no arrancó no se puede volver a desplegar.** Si la salud falla y `current` vuelve a la anterior, su carpeta queda en `releases/`, y pedirla otra vez responde `already exists`: hay que publicar otra. Comprobado el 2026-11-02 con `v0.1.3` de prueba. Canone lo cambió en `main` (ADR-0123 de canone), sin probarlo en un VPS. | `deploy.py` de canone |
-| H9 | **«Generar migración» escribe una revisión vacía si el modelo no cambió.** Su docstring promete `None` y el aviso «El modelo no cambio», pero Alembic genera el archivo igual: corrido el 2026-11-02 contra `equipaggio`, dejó un `upgrade` sin operaciones | `core/tasks/database.py::generate_migration` |
-| H13 | **El avance de cmdline-tools solo llega al terminar.** `dl.google.com` deja el total en `-1` hasta el último aviso, y `_download` descarta los avisos sin total: 1 de 72, medido el 2026-11-04. La descarga de Flutter sí trae el total: 47 avisos en 5 s. No se investigó por qué difieren. Hoy no se ve, por H1 | `core/tasks/utils.py::_download` |
+| H9 | **«Generar migración» escribe una revisión vacía si el modelo no cambió.** Su docstring promete `None` y el aviso «El modelo no cambio», pero Alembic genera el archivo igual: corrido el 2026-11-02 contra `equipaggio`, dejó un `upgrade` sin operaciones | `services/tasks/database.py::generate_migration` |
+| H13 | **El avance de cmdline-tools solo llega al terminar.** `dl.google.com` deja el total en `-1` hasta el último aviso, y `_download` descarta los avisos sin total: 1 de 72, medido el 2026-11-04. La descarga de Flutter sí trae el total: 47 avisos en 5 s. No se investigó por qué difieren. Hoy no se ve, por H1 | `services/tasks/utils.py::_download` |
 
 ## 3. Pendientes abiertos
 
@@ -41,7 +41,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | Lo que pide `qt.md` de canone, que ya no está en desarrollo, y Consola no tiene: `windows/`, `dialogs/`, `widgets/`, `models/` y `services/`, las llamadas a cada servicio externo en `api/`, `setOrganizationDomain` y la geometría de la ventana, `@Slot`, el `locale()` al formatear, `open()` en vez de `exec()`, vistas con modelo en el explorador, los roles y los nombres accesibles, Qt Linguist, `pysidedeploy.spec`, el icono, `resources.qrc` y las variables `RELEASE_DESKTOP_*`. `release.yml` falla en un tag hasta tener el `.spec` | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | La sección «Tema» de canone, sin implementar mientras canone la declare en desarrollo (ADR-0116 de canone) | ADR-0116 de canone | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | «Compilar ejecutable»: empaquetar solo en CI con `pyside6-deploy`, sin PyInstaller, sin subir al VPS, sin número de versión ni manifiesto. Sale el ADR-0024 y cambian el 0025, el 0026 y el punto 4 del 0056 | [0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
-| Bitácora, historial y presets en un SQLite de la máquina (`core/store.py`) | — | — |
+| Bitácora, historial y presets en un SQLite de la máquina (`services/store.py`) | — | — |
 | Que la confirmación escrita de un destructivo sea **el nombre del repo** y no una palabra fija, para que el automatismo no erosione la comprobación | [0018](../adr/0018-seguro-por-repo-y-objetivo.md) | — |
 | Botón de Detener en la pestaña | — | — |
 | Capturas: marcos de dispositivo, y la landing leyendo el manifiesto (del repo) | [0049](../adr/0049-la-camara-de-capturas-es-un-script-del-repo.md) | [capturas.md](../planes/capturas.md) |
@@ -97,13 +97,13 @@ Construido y nunca probado en condiciones reales:
 - **Cambiar `VALKEY_MEMORY` en un VPS ya instalado no se aplica hasta reiniciar Valkey.** «Configurar VPS» corre `install.py`, que escribe el `maxmemory` nuevo y enciende la instancia con `enable --now`, que no reinicia la que ya corre.
 - **`config.env` escribe `TURN_IP=` en un repo sin llamadas.** El formulario no la muestra sin `turn_secret` (`Setting.needs`), pero `envfile.render_config` escribe todas las claves del esquema.
 
-- **Las pruebas cubren la lógica pura.** Lo que Consola ejecuta de verdad (SSH, `subprocess`, el driver de Postgres) no se prueba aquí: son efectos sobre máquinas y repos ajenos. Sigue sin ejercitar parte de esa lógica pura: `AxisDef` y `kwargs_from` (`core/registry.py`), `protection.decide`, `core/targets.py` y `core/versioning.py`.
+- **Las pruebas cubren la lógica pura.** Lo que Consola ejecuta de verdad (SSH, `subprocess`, el driver de Postgres) no se prueba aquí: son efectos sobre máquinas y repos ajenos. Sigue sin ejercitar parte de esa lógica pura: `AxisDef` y `kwargs_from` (`services/registry.py`), `protection.decide`, `services/targets.py` y `services/versioning.py`.
 - **La interfaz asume una sola ventana.** `favorites`, `section_visibility` y `project_store` escriben en `QSettings` global, sin instancia.
 - **`ui/tab_panel.py` tiene 1.815 líneas** y concentra el espacio de trabajo entero: sub-pestañas, acordeón, barra de estado, despacho de la ejecución y los diálogos de las preguntas.
 - **La app móvil solo se ejecuta contra Android.** `run_mobile` busca emuladores Android y `pick_emulator` filtra por `targetPlatform` que empiece con `android`.
 - **En Linux un túnel sobrevive a una caída de Consola.** `PosixHost.bind_to_app` no hace nada; al cerrar normalmente lo apaga `TabPanel.shutdown()`. El camino es `PR_SET_PDEATHSIG` lanzando los túneles desde un hilo que viva lo que la aplicación ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md), «Descartado»).
 - **En Linux el PATH de los SDK va a `~/.bashrc` o `~/.zshrc`**, que solo leen las terminales. Consola abierta desde el menú del escritorio no lo ve hasta que se lanza desde una terminal.
-- **Windows no multiplexa SSH** (`core/host.py::WindowsHost.ssh_multiplex`), así que cada consulta remota paga un handshake nuevo contra un timeout de 30 s. Por eso hay funciones que agrupan preguntas que se contestan juntas (`vps.installed_services`), y no es microoptimización.
+- **Windows no multiplexa SSH** (`services/host.py::WindowsHost.ssh_multiplex`), así que cada consulta remota paga un handshake nuevo contra un timeout de 30 s. Por eso hay funciones que agrupan preguntas que se contestan juntas (`vps.installed_services`), y no es microoptimización.
 
 ## 5. Glosario
 

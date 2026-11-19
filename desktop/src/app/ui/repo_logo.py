@@ -19,11 +19,11 @@ from PySide6.QtGui import QColor, QFont, QIcon, QImage, QPainter, QPaintEvent
 from PySide6.QtSvg import QSvgRenderer
 from PySide6.QtWidgets import QWidget
 
-from app.core import envfile, icons
-from app.core.errors import TaskError
+from app.services import envfile, icons
+from app.services.errors import TaskError
 from app.theme import Colors
 
-EQUIPAGGIO = Path(__file__).with_name("assets") / "equipaggio.png"
+EQUIPAGGIO = Path(__file__).resolve().parents[1] / "assets" / "equipaggio.png"
 
 # The side the logo rasterizes to before cropping: the welcome's, 64 px,
 # at 200 % with a margin.

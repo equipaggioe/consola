@@ -17,10 +17,11 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
-from app.core.registry import registry
+from app import theme
+from app.services import favorites
+from app.services.palettes import NEUTRAL, Palette
+from app.services.registry import registry
 from app.theme import Colors, Fonts
-from app.ui import favorites, parts
-from app.ui.palettes import NEUTRAL, Palette
 from app.ui.widgets import ActionRow
 
 
@@ -89,7 +90,7 @@ class ActionSearch(QWidget):
 
         Same border, height, radius, type size and focus
         (`ui/env_panel.py`); the background is the repo's color and not
-        the other fields' gray (`parts.SEARCH_FIELD`).
+        the other fields' gray (`theme.SEARCH_FIELD`).
         """
         self.pal = pal
         self._restyle_box()
@@ -111,8 +112,8 @@ class ActionSearch(QWidget):
     def set_applicable(self, ids: set[str]) -> None:
         """Set which actions make sense in the open repo.
 
-        They come from `core/catalog.py::applicable_ids`, and apply when
-        filtering, along with the typed text.
+        They come from `services/catalog.py::applicable_ids`, and apply
+        when filtering, along with the typed text.
         """
         self._applicable = set(ids)
         if self.box.text().strip():
@@ -128,7 +129,7 @@ class ActionSearch(QWidget):
             self.box.clear()
 
     def _restyle_box(self) -> None:
-        field = parts.SEARCH_FIELD.on(self.pal)
+        field = theme.SEARCH_FIELD.on(self.pal)
         self.box.setStyleSheet(f"""
             QLineEdit {{
                 background: {field.bg};
@@ -149,7 +150,7 @@ class ActionSearch(QWidget):
         same (`ui/menu_bar.py::_menu_style`): `panel`, two steps below
         the bar.
         """
-        popup = parts.SEARCH_LIST.on(self.pal)
+        popup = theme.SEARCH_LIST.on(self.pal)
         return f"""
             QFrame#actionSearchPopup {{
                 background: {popup.bg};
@@ -159,7 +160,7 @@ class ActionSearch(QWidget):
         """
 
     def _scroll_style(self) -> str:
-        popup = parts.SEARCH_LIST.on(self.pal)
+        popup = theme.SEARCH_LIST.on(self.pal)
         return f"""
             QScrollArea {{ border: none; background: transparent; }}
             QScrollBar:vertical {{ background: {popup.bg}; width: 8px; }}

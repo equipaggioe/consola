@@ -7,9 +7,9 @@ import sys
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import QApplication
 
-from app.core import http
-from app.core.catalog import load_catalog
-from app.core.tasks import bind_all
+from app.api import http
+from app.services.catalog import load_catalog
+from app.services.tasks import bind_all
 from app.theme import apply_theme
 from app.ui.main_window import MainWindow
 
@@ -32,8 +32,8 @@ def main() -> None:
     # The app's one QNetworkAccessManager, in this thread (ADR-0089).
     http.start()
 
-    # The catalog declares each capability's shape; core/tasks gives it
-    # a body.
+    # The catalog declares each capability's shape; services/tasks gives
+    # it a body.
     load_catalog()
     bind_all()
 

@@ -12,12 +12,12 @@ from typing import cast
 
 import pytest
 
-from app.core import canone, ssh
-from app.core import database as db
-from app.core.context import TaskContext
-from app.core.envfile import Config
-from app.core.errors import TaskError
-from app.core.tasks import database, vps_ops, vps_server
+from app.services import canone, ssh
+from app.services import database as db
+from app.services.context import TaskContext
+from app.services.envfile import Config
+from app.services.errors import TaskError
+from app.services.tasks import database, vps_ops, vps_server
 
 
 def _ignore(*args: object, **kwargs: object) -> None:

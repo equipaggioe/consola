@@ -18,7 +18,7 @@ ctx.child(id)                          contexto de un paso interno: misma consol
 ctx.root / path(...)                   la carpeta del repo abierto
 ```
 
-Los cinco `*_sink` son funciones que pone quien corre la tarea. En la aplicación los pone `ui/task_runner.py`; en un test no hace falta ninguno, y entonces `confirm` contesta lo seguro (`not danger`) y `ask` levanta `TaskError` en vez de colgarse ([ADR-0005](../adr/0005-todo-pasa-por-taskcontext.md)).
+Los cinco `*_sink` son funciones que pone quien corre la tarea. En la aplicación los pone `services/task_runner.py`; en un test no hace falta ninguno, y entonces `confirm` contesta lo seguro (`not danger`) y `ask` levanta `TaskError` en vez de colgarse ([ADR-0005](../adr/0005-todo-pasa-por-taskcontext.md)).
 
 ## 2. `TaskRunner`: el puente con la interfaz
 
@@ -32,7 +32,7 @@ Guarda además lo que la función devolvió en `self.result`. Casi ninguna capac
 
 ## 3. Los cuatro diálogos
 
-`ui/tab_panel.py::_answer_task` elige por lo que la tarea espera de vuelta, no por cómo se ve la pregunta (`core/context.py::ASK_*`):
+`ui/tab_panel.py::_answer_task` elige por lo que la tarea espera de vuelta, no por cómo se ve la pregunta (`services/context.py::ASK_*`):
 
 | Caso | Diálogo |
 |---|---|
@@ -45,7 +45,7 @@ La distinción entre cancelar y responder vacío importa: en `create_avd` el vac
 
 ## 4. Procesos externos
 
-`core/process.py` unifica lo que en los scripts eran tres funciones casi iguales:
+`services/process.py` unifica lo que en los scripts eran tres funciones casi iguales:
 
 | Función | Para |
 |---|---|
@@ -59,7 +59,7 @@ Tres detalles que se pagaron caros y están fijados en el código: `stdin` va si
 
 ## 5. Lo que una tarea le deja a otra
 
-`core/session.py` guarda en memoria, por proyecto, lo que una tarea publica: el puerto del backend, la URL con contraseña que necesita el explorador, el serial del último emulador arrancado (ámbito `@machine`). Nada de esto toca disco ([ADR-0009](../adr/0009-estado-de-sesion-en-memoria.md)).
+`services/session.py` guarda en memoria, por proyecto, lo que una tarea publica: el puerto del backend, la URL con contraseña que necesita el explorador, el serial del último emulador arrancado (ámbito `@machine`). Nada de esto toca disco ([ADR-0009](../adr/0009-estado-de-sesion-en-memoria.md)).
 
 Los **endpoints** son la parte que la interfaz mira todo el tiempo:
 
@@ -75,7 +75,7 @@ Hace tres cosas de una vez: publica el endpoint en la sesión, emite la señal q
 
 `ui/tab_panel.py::_run` es el punto único: por aquí pasan el botón Ejecutar y el ▶ del buscador. En orden:
 
-1. **Seguro.** `_guard_ok` clasifica la corrida con `core/protection.decide` ([14](14_seguro_de_destructivos.md)). Está aquí y no en el panel porque este es el único camino común a las dos formas de ejecutar.
+1. **Seguro.** `_guard_ok` clasifica la corrida con `services/protection.decide` ([14](14_seguro_de_destructivos.md)). Está aquí y no en el panel porque este es el único camino común a las dos formas de ejecutar.
 2. **Concurrente.** Si la capacidad es `concurrent`, reparte sus pasos en pestañas y termina; no hay `func` que llamar.
 3. **Sin cuerpo.** Sin `func`, corre la simulación que reporta exactamente lo que correría.
 4. **Reparto.** Si es `live` y tiene `fanout`, una pestaña por valor marcado; el primero se queda en la pestaña desde la que se apretó, solo cambiando de nombre.
