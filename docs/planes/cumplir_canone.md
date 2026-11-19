@@ -44,15 +44,6 @@ Rige desde que `qt.md` salió de desarrollo. En este orden: cada etapa deja el r
 su commit. Los conteos salen de buscar en el código (2026-11-17); lo de accesibilidad no se probó con
 la app.
 
-### 2.3 Almacenamiento
-
-Ya hecho, sin commit: la ventana principal restaura su geometría y su estado al crearse y los guarda
-en `closeEvent()` (`main_window/geometry` y `main_window/state`), salió `projects/order`, y
-`tests/test_settings_ini.py` comprueba que lo guardado vuelve igual desde el INI, en otro proceso.
-
-La organización pasa a ser `Equipaggio`, y el INI, `%APPDATA%/Equipaggio/Consola.ini`. Falta
-`setOrganizationDomain` (pregunta 9).
-
 ### 2.4 PySide6, widgets, diálogos y Model/View
 
 | Pide `qt.md` | Hoy |
@@ -138,12 +129,12 @@ duda es cómo cumplirla.
 | 6 | ¿De dónde sale el icono de 1024 px? | Consola | Del rombo de la marca, rasterizado (§2.7) |
 | 7 | El árbol de `qt.md` no tenía lugar para lo que no es código | Canone | En `src/app/assets/`: las imágenes entran en `resources.qrc`, y lo que otro programa lee del disco se queda como archivo (ADR-0189 de canone) |
 | 8 | `palettes.py` y `parts.py` no tenían lugar en el árbol | Consola | `palettes.py` en `services/`, y `parts.py` como sección de `theme.py`, donde se ubican y cambian los colores de cada parte. Hecho (ADR-0090) |
+| 9 | ¿Qué dominio declara `setOrganizationDomain`? | Canone | Ninguno: `qt.md` ya no lo pide (ADR-0192 de canone). La organización es `Equipaggio` |
 
 ### Abiertas
 
 | # | Pregunta | Dónde | Recomendación |
 |---|---|---|---|
-| 9 | ¿Qué dominio declara `setOrganizationDomain`? Qt lo usa solo en macOS, donde Consola no corre; si falta, deriva uno del nombre de la organización, `equipaggio.com`. La organización ya es `Equipaggio` | Consola | Declarar `equipaggio.com`: es el mismo que Qt deriva solo, así que no cambia nada, y cumple `qt.md` |
 | 2 | `qt.md` pide copiar `tests/test_theme.py` sin editar, pero prueba reglas de «Tema», que sigue en desarrollo. Consola tiene 169 `setStyleSheet` fuera de `theme.py` y no tiene `colors.py`, así que fallaría | Canone | Que `qt.md` diga lo mismo que `flet.md`: «`theme.py` y `tests/test_theme.py` … en desarrollo como esta sección: no se copian», con las filas de Fusion y de la hoja única marcadas como de «Tema». Pendiente por decisión del usuario |
 
 ## 4. Sin verificar
