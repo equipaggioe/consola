@@ -1,0 +1,8 @@
+<!DOCTYPE RCC>
+<RCC version="1.0">
+  <qresource prefix="/">
+    <file>icon.png</file>
+    <file>assets/chevron-down.svg</file>
+    <file>assets/equipaggio.png</file>
+  </qresource>
+</RCC>

@@ -3,7 +3,10 @@
 from pathlib import Path
 
 import pytest
+from PySide6.QtCore import QFile
 
+# The Equipaggio mark is in the compiled resources.
+import app.rc_resources  # noqa: F401
 from app.services import repo_logo
 
 LOGO = (
@@ -28,7 +31,7 @@ def _config(repo: Path, value: str) -> None:
 def test_the_logo_is_brand_icon(repo: Path) -> None:
     """The logo is `BRAND_ICON`."""
     _config(repo, "brand/logomark.svg")
-    assert repo_logo.resolve(str(repo)) == repo_logo.RepoLogo(repo / "brand" / "logomark.svg")
+    assert repo_logo.resolve(str(repo)) == repo_logo.RepoLogo(str(repo / "brand" / "logomark.svg"))
 
 
 @pytest.mark.parametrize("config", [False, True])
@@ -37,7 +40,7 @@ def test_without_a_logo_it_carries_the_equipaggio_mark(repo: Path, config: bool)
     if config:
         _config(repo, "")
     assert repo_logo.resolve(str(repo)) == repo_logo.RepoLogo(repo_logo.EQUIPAGGIO)
-    assert repo_logo.EQUIPAGGIO.is_file()
+    assert QFile.exists(repo_logo.EQUIPAGGIO)
 
 
 @pytest.mark.parametrize(
@@ -63,7 +66,7 @@ def test_the_logo_is_cropped_to_what_is_drawn(repo: Path) -> None:
     from PySide6.QtWidgets import QApplication
 
     QApplication.instance() or QApplication([])
-    image = repo_logo.trimmed(repo / "brand" / "logomark.svg")
+    image = repo_logo.trimmed(str(repo / "brand" / "logomark.svg"))
     side = repo_logo._RASTER * 56 / 64
     assert image.width() == pytest.approx(side, abs=2)
     assert image.height() == pytest.approx(side, abs=2)

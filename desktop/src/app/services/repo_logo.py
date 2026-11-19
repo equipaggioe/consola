@@ -20,7 +20,7 @@ from PySide6.QtSvg import QSvgRenderer
 from app.services import envfile, icons
 from app.services.errors import TaskError
 
-EQUIPAGGIO = Path(__file__).resolve().parents[1] / "assets" / "equipaggio.png"
+EQUIPAGGIO = ":/assets/equipaggio.png"
 
 # The side the logo rasterizes to before cropping: the welcome's, 64 px,
 # at 200 % with a margin.
@@ -34,7 +34,7 @@ _VISIBLE_ALPHA = 8
 class RepoLogo:
     """What gets painted: the image, or the error that prevents it."""
 
-    source: Path | None
+    source: str | None
     error: str = ""
 
 
@@ -49,10 +49,10 @@ def resolve(repo_path: str) -> RepoLogo:
         return RepoLogo(None, str(e))
     if not QSvgRenderer(str(svg)).isValid():
         return RepoLogo(None, f"Qt no pudo leer {svg.name} como SVG.")
-    return RepoLogo(svg)
+    return RepoLogo(str(svg))
 
 
-def trimmed(source: Path) -> QImage:
+def trimmed(source: str) -> QImage:
     """Return the logo rasterized and cropped to what is drawn.
 
     The transparent margin belongs to the logo's design, not to the UI:
@@ -63,7 +63,7 @@ def trimmed(source: Path) -> QImage:
     image = QImage(_RASTER, _RASTER, QImage.Format.Format_ARGB32)
     image.fill(Qt.GlobalColor.transparent)
     painter = QPainter(image)
-    QIcon(str(source)).paint(painter, image.rect())
+    QIcon(source).paint(painter, image.rect())
     painter.end()
     # ARGB32 is BGRA in memory: alpha is each pixel's fourth byte.
     alpha = bytes(image.constBits())[3::4]

@@ -23,19 +23,34 @@ jobs:
     steps:
       - run: gh release create "$GITHUB_REF_NAME" --repo "$GITHUB_REPOSITORY" --draft --generate-notes
 
-  # ADR-0081: Windows and Linux.
+  # transversal.md, «Distribución»: the desktop systems the repository publishes. ci.yml already
+  # failed if a variable is missing. ADR-0081: macOS is not published, and nothing here signs it.
+  systems:
+    needs: ci
+    runs-on: ubuntu-latest
+    outputs:
+      desktop: ${{ steps.desktop.outputs.include }}
+    steps:
+      - id: desktop
+        env:
+          LINUX: ${{ vars.RELEASE_DESKTOP_LINUX }}
+          WINDOWS: ${{ vars.RELEASE_DESKTOP_WINDOWS }}
+          MACOS: ${{ vars.RELEASE_DESKTOP_MACOS }}
+        run: |
+          if [ "$MACOS" = true ]; then echo "ADR-0081: Consola is not published for macOS" >&2; exit 1; fi
+          include='[]'
+          add() { include=$(echo "$include" | jq -c --argjson entry "$1" '. + [$entry]'); }
+          if [ "$LINUX" = true ]; then add '{"os":"ubuntu-latest","ext":"bin","archivo":"desktop-linux.bin"}'; fi
+          if [ "$WINDOWS" = true ]; then add '{"os":"windows-latest","ext":"exe","archivo":"desktop-windows.exe"}'; fi
+          echo "include=$include" >> "$GITHUB_OUTPUT"
+
   desktop:
-    needs: draft
+    needs: [draft, systems]
+    if: needs.systems.outputs.desktop != '[]'
     strategy:
       fail-fast: false
       matrix:
-        include:
-          - os: ubuntu-latest
-            ext: bin
-            archivo: desktop-linux.bin
-          - os: windows-latest
-            ext: exe
-            archivo: desktop-windows.exe
+        include: ${{ fromJSON(needs.systems.outputs.desktop) }}
     runs-on: ${{ matrix.os }}
     permissions:
       contents: write
@@ -53,16 +68,32 @@ jobs:
       - uses: astral-sh/setup-uv@v10.3.3
         with:
           version-file: desktop/pyproject.toml
-      - run: uv sync --locked --group deploy
+      # The app installs after rc_resources.py exists: the installation copies src/app/ as it is,
+      # and Nuitka compiles that copy.
+      - run: uv sync --locked --group deploy --no-install-project
+      # main.py imports the compiled resources: icon.png and the images of assets/.
+      - run: uv run --no-sync pyside6-rcc src/app/resources.qrc -o src/app/rc_resources.py
+      # Installed, not editable: Nuitka finds the package of the distribution in its RECORD.
+      - run: uv sync --locked --group deploy --no-editable
+      # pyside6-deploy finds the Qt modules the app needs with dumpbin, which is not on the PATH:
+      # without it, it only warns and skips them.
+      - if: runner.os == 'Windows'
+        run: |
+          vs=$(cygpath -u "$("/c/Program Files (x86)/Microsoft Visual Studio/Installer/vswhere.exe" -latest -products '*' -requires Microsoft.VisualStudio.Component.VC.Tools.x86.x64 -property installationPath)")
+          dumpbin=$(find "$vs/VC/Tools/MSVC" -path '*/bin/Hostx64/x64/dumpbin.exe' | head -n1)
+          test -n "$dumpbin"
+          cygpath -w "$(dirname "$dumpbin")" >> "$GITHUB_PATH"
       # pyside6-deploy does not create exec_directory on Linux or Windows.
       - run: mkdir -p dist
-      - run: uv run pyside6-deploy -c pysidedeploy.spec --force
+      - run: uv run --no-editable pyside6-deploy -c pysidedeploy.spec --force --no-install
       - run: mv dist/*.${{ matrix.ext }} "${{ matrix.archivo }}"
       - run: gh release upload "$GITHUB_REF_NAME" "${{ matrix.archivo }}"
 
   # One .sha256 for every file of the release: the signature covers them all.
+  # A system the repository does not publish leaves its job skipped, not failed.
   checksums:
     needs: [draft, desktop]
+    if: ${{ !failure() && !cancelled() }}
     runs-on: ubuntu-latest
     permissions:
       contents: write

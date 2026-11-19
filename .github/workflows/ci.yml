@@ -22,7 +22,11 @@ jobs:
         with:
           repository: equipaggioe/canone
           path: .canone
-      - run: python3 .canone/scripts/verificar.py --repo .
+      # transversal.md, «Distribución»: verificar.py checks the RELEASE_ variable of each piece and
+      # platform, so a missing one fails instead of leaving the platform out.
+      - env:
+          VARIABLES: ${{ toJSON(vars) }}
+        run: python3 .canone/scripts/verificar.py --repo . --variables "$VARIABLES"
 
   desktop:
     runs-on: ubuntu-latest
@@ -42,6 +46,8 @@ jobs:
         with:
           version-file: desktop/pyproject.toml
       - run: uv sync --locked
+      # main.py imports the compiled resources: icon.png and the images of assets/.
+      - run: uv run pyside6-rcc src/app/resources.qrc -o src/app/rc_resources.py
       - run: uv run ruff format --check
       - run: uv run ruff check
       - run: uv run pyrefly check

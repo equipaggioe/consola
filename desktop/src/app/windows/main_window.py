@@ -7,13 +7,9 @@ from typing import Any, override
 from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Slot
 from PySide6.QtGui import (
     QCloseEvent,
-    QColor,
-    QFont,
     QIcon,
     QKeySequence,
     QMouseEvent,
-    QPainter,
-    QPixmap,
     QResizeEvent,
     QShortcut,
 )
@@ -57,26 +53,6 @@ _READINESS_MS = 200
 # The window's size and position, and the state of its bars.
 _GEOMETRY_KEY = "main_window/geometry"
 _STATE_KEY = "main_window/state"
-
-
-def _brand_icon() -> QIcon:
-    """Return the brand's diamond (`widgets/title_bar.py`) as an icon.
-
-    So Windows's taskbar and window switcher show it too.
-    """
-    size = 64
-    pixmap = QPixmap(size, size)
-    pixmap.fill(Qt.GlobalColor.transparent)
-    painter = QPainter(pixmap)
-    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-    painter.setRenderHint(QPainter.RenderHint.TextAntialiasing)
-    font = QFont()
-    font.setPixelSize(int(size * 0.8))
-    painter.setFont(font)
-    painter.setPen(QColor(Colors.ACCENT))
-    painter.drawText(pixmap.rect(), Qt.AlignmentFlag.AlignCenter, "◇")
-    painter.end()
-    return QIcon(pixmap)
 
 
 class _EdgeGrip(QWidget):
@@ -123,7 +99,7 @@ class MainWindow(QMainWindow):
         """Build the window and open the saved repos."""
         super().__init__()
         self.setWindowTitle("Consola")
-        self.setWindowIcon(_brand_icon())
+        self.setWindowIcon(QIcon(":/icon.png"))
         self.resize(1500, 950)
         self.setMinimumSize(1000, 650)
         # No system frame: the brand and repo tabs share a row with

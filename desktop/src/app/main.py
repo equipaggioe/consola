@@ -7,6 +7,9 @@ import sys
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import QApplication
 
+# Registers resources.qrc, which pyside6-rcc compiles: icon.png and the
+# images of assets/.
+import app.rc_resources  # noqa: F401
 from app.api import http
 from app.services.catalog import load_catalog
 from app.services.tasks import bind_all

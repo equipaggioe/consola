@@ -11,7 +11,8 @@
 > ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
 > los enums con su clase, `@Slot` en los 69 métodos conectados a una señal, las fechas y los
 > números con el `locale()` del widget, los diálogos con `open()`, el explorador con
-> `QTreeView` y `QTableView` sobre `models/`, la accesibilidad de `qt.md`,
+> `QTreeView` y `QTableView` sobre `models/`, la accesibilidad de `qt.md`, el icono,
+> `resources.qrc`, `pysidedeploy.spec`, el job `desktop` de `release.yml`,
 > `IniFormat`, HTTP con un solo
 > `QNetworkAccessManager` y reintentos
 > ([ADR-0089](../adr/0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)),
@@ -22,8 +23,8 @@
 > ella.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
-> `canone/plataformas/python.md`, `canone/plataformas/qt.md` y este plan, y seguir por el §2.7. Lo
-> que espera una decisión está en el §3, «Abiertas».
+> `canone/plataformas/python.md`, `canone/plataformas/qt.md` y este plan, y seguir por el §2.8. Del
+> §2.7 falta crear las variables en GitHub. Lo que espera una decisión está en el §3, «Abiertas».
 
 ## 1. Cómo se comprueba
 
@@ -72,20 +73,30 @@ idioma de la pantalla, que llega con el §2.8.
 
 ### 2.7 Icono, recursos y empaquetado
 
-- `src/app/icon.png` de 1024 × 1024 px no existe. Sale de rasterizar el rombo de la marca, el que
-  pinta `widgets/title_bar.py::_Diamond` (pregunta 6).
-- `src/app/resources.qrc` no existe. Lleva el icono y las traducciones compiladas. `rc_resources.py`
-  y `*.qm` ya están en `desktop/.gitignore`.
-- `desktop/pysidedeploy.spec` no existe. Sale de `plantilla/qt/`, con `title = Consola`, el `mode` en
-  `onefile` y `packages = Nuitka,imageio`.
-- El job `desktop` de `release.yml` sigue fallando en un tag sin el `.spec`. Contra la plantilla le
-  faltan `--no-editable` en `uv sync` y en `uv run`, `--no-install` en `pyside6-deploy`, el paso que
-  pone el `dumpbin` de MSVC en el `PATH` de Windows y el paso de traducciones del §2.8. Solo se
-  prueba con un tag en GitHub.
-- `transversal.md`, «Distribución», pide las variables de GitHub `RELEASE_DESKTOP_LINUX`,
-  `RELEASE_DESKTOP_MACOS` y `RELEASE_DESKTOP_WINDOWS`. Decidido: `true`, `false` y `true`. El
-  repositorio no tiene ninguna; `ci.yml` le pasa `--variables "$VARIABLES"` a `verificar.py`, con
-  `toJSON(vars)`, y `release.yml` arma la matriz del job `desktop` con ellas, como la plantilla.
+Hecho: `icon.png`, `resources.qrc`, `pysidedeploy.spec`, el job `desktop` de `release.yml` como el
+de la plantilla, con el job `systems`, y `ci.yml` con `--variables`. Está en
+[02](../arquitectura/02_bloques.md), §5, y [03](../arquitectura/03_ejecucion_y_despliegue.md), §1.
+El 2026-11-19 los pasos de Linux armaron en la distro `Testing` un `Consola.bin` que abre la
+ventana; nada corrió en GitHub ni en Windows ([30](../arquitectura/30_riesgos_y_pendientes.md),
+«Sin verificar»).
+
+Falta:
+
+- Crear en GitHub las variables `RELEASE_DESKTOP_LINUX`, `RELEASE_DESKTOP_MACOS` y
+  `RELEASE_DESKTOP_WINDOWS`, con `true`, `false` y `true` (decidido). Hasta entonces el job `canone`
+  de `ci.yml` falla.
+- El paso de traducciones de `ci.yml` y `release.yml`, con el §2.8.
+
+Elegido al implementar, sin confirmar *(propuestas)*:
+
+- El rombo del icono va en el acento (`Colors.ACCENT`), como el icono de ventana que había, sobre
+  fondo transparente. Lo pinta `desktop/scripts/icon.py` con el mismo `_Diamond` de la barra.
+- Con `RELEASE_DESKTOP_MACOS` en `true`, el job `systems` falla en vez de armar una fila de macOS:
+  el ADR-0081 lo deja fuera y el job no tiene los pasos de firma de la plantilla.
+- `shots_presets.json` se queda como archivo, junto al kit de la cámara: no es una imagen, y el
+  ADR-0189 de canone solo pone las imágenes en `resources.qrc`.
+- El job `desktop` de `release.yml` instala la app después de compilar `resources.qrc`, distinto de
+  la plantilla (pregunta 15).
 
 ### 2.8 Qt Linguist
 
@@ -153,6 +164,8 @@ duda es cómo cumplirla.
 | 2 | `qt.md` pide copiar `tests/test_theme.py` sin editar, pero prueba reglas de «Tema», que sigue en desarrollo. Consola tiene 169 `setStyleSheet` fuera de `theme.py` y no tiene `colors.py`, así que fallaría | Canone | Que `qt.md` diga lo mismo que `flet.md`: «`theme.py` y `tests/test_theme.py` … en desarrollo como esta sección: no se copian», con las filas de Fusion y de la hoja única marcadas como de «Tema». Pendiente por decisión del usuario |
 | 13 | Los colores de texto y de borde no llegan al contraste de AA (§2.5), y son de «Tema», que sigue en desarrollo | Canone | Que «Tema» fije roles de texto y de borde que cumplan 4.5:1 y 3:1 contra cada fondo, como ya pide `transversal.md` para `brand/tokens/`; Consola los toma al implementarlo |
 | 14 | `transversal.md` pide 48 × 48 a «cada objetivo táctil». Una app de escritorio se usa con el puntero: no está claro si rige, o si basta el 24 × 24 de AA (WCAG 2.5.8) | Canone | Que diga «objetivo táctil o de puntero» y fije el valor del escritorio |
+| 15 | El job `desktop` de `release.yml` de la plantilla instala la app sin modo editable y después compila `resources.qrc`. La copia instalada no tiene `rc_resources.py`, y Nuitka compila esa copia: el binario de Linux se armó y al abrirse falló con `ModuleNotFoundError: No module named 'app.rc_resources'` (comprobado el 2026-11-19 en la distro `Testing`) | Canone | Que la plantilla instale primero las dependencias (`uv sync --locked --group deploy --no-install-project`), compile las traducciones y `resources.qrc` con `uv run --no-sync`, y solo después instale la app con `--no-editable`, como hace ya Consola |
+| 16 | `qt.md` dice que Nuitka convierte `icon.png` al formato de cada sistema. En Linux, con `mode = onefile`, Nuitka avisa: «Using Linux app specific option '--linux-app-icon' has no effect unless building with '--mode=app' or '--mode=app-dist'» | Canone | Que `qt.md` diga que el icono va en el binario de Windows y en el `.app` de macOS, y que en Linux solo lo usa la ventana |
 
 ## 4. Sin verificar
 

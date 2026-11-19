@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 from dataclasses import replace
-from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import Qt, Signal, Slot
@@ -63,7 +62,7 @@ _COMBO_MIN_CHARS = 8
 # The arrow of a closed list. Drawn by hand because styling the combo's
 # border leaves the native drop-down box on top of it, cutting the right
 # edge; styling `::drop-down` hides that box and its arrow with it.
-_ARROW = (Path(__file__).resolve().parents[1] / "assets" / "chevron-down.svg").as_posix()
+_ARROW = ":/assets/chevron-down.svg"
 
 
 class ParamsPanel(QWidget):
