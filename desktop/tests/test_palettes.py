@@ -87,7 +87,7 @@ def test_the_accent_is_legible_over_the_backgrounds(pal: Palette) -> None:
 
 @pytest.mark.parametrize("pal", THEMES, ids=IDS)
 def test_text_over_the_accent(pal: Palette) -> None:
-    """The title bar paints in the accent (`ui/title_bar.py`)."""
+    """The title bar paints in the accent (`widgets/title_bar.py`)."""
     assert contrast(pal.on_accent, pal.accent) >= 4.5
 
 
@@ -177,8 +177,8 @@ def test_the_selected_tab_reads(pal: Palette) -> None:
     """The selected repo's tab paints in the menu row's band.
 
     The color of the row just below, with the name in the accent
-    (`theme.py`, `ui/project_tabs.py`). 4.5 and not the parts' 3:1:
-    the name is running text.
+    (`theme.py`, `widgets/project_tab_bar.py`). 4.5 and not the parts'
+    3:1: the name is running text.
     """
     tab = theme.REPO_TAB_SELECTED.on(pal)
     assert contrast(tab.fg, tab.bg) >= 4.5
@@ -189,8 +189,8 @@ def test_the_tabs_read_on_the_bar(pal: Palette) -> None:
     """All repo tabs have the active repo's accent as background.
 
     The color of the title bar, and the name, outline and `◇ CONSOLA`
-    mark go on top in `on_accent` (`ui/project_tabs.py`,
-    `ui/title_bar.py`).
+    mark go on top in `on_accent` (`widgets/project_tab_bar.py`,
+    `widgets/title_bar.py`).
     """
     assert contrast(pal.on_accent, pal.accent) >= 4.5
 

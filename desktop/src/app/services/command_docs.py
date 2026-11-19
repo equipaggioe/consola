@@ -14,8 +14,8 @@ what goes over SSH, which binary runs and with which flags. Reading the
 list from top to bottom has to be enough to tell whether a step is
 missing, extra or out of order.
 
-The text draws as plain text (`ui/command_info_panel.py`), so it carries
-no markup: no backticks or tags.
+The text draws as plain text (`widgets/command_info_panel.py`), so it
+carries no markup: no backticks or tags.
 """
 
 from __future__ import annotations

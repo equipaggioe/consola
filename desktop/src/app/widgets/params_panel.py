@@ -4,9 +4,9 @@ from __future__ import annotations
 
 from dataclasses import replace
 from pathlib import Path
-from typing import Any, override
+from typing import Any
 
-from PySide6.QtCore import QObject, Qt, QThread, Signal
+from PySide6.QtCore import Qt, Signal
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -28,25 +28,22 @@ from PySide6.QtWidgets import (
 
 from app import theme
 from app.services import envfile, favorites, palettes, params_store
+from app.services.axes_loader import ERRORS, LIVE, PREVIEW, AxesLoader
 from app.services.catalog import (
     PREVIEW_HINTS,
     PREVIEW_TITLES,
     for_project,
-    preview_checks,
-    queried_values,
 )
-from app.services.envfile import Config
-from app.services.errors import TaskError
 from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.registry import AxisDef, Capability, Step, registry
 from app.services.settings import relevant_keys_for, required_keys_for
 from app.theme import Colors, Fonts, check_css
-from app.ui.env_panel import EnvPanel
-from app.ui.widgets import FavoriteStar
+from app.widgets.env_panel import EnvPanel
+from app.widgets.favorite_star import FavoriteStar
 
 
-class SectionLabel(QLabel):
+class _SectionLabel(QLabel):
     """A section's small label."""
 
     def __init__(self, text: str, parent: QWidget | None = None) -> None:
@@ -57,88 +54,6 @@ class SectionLabel(QLabel):
             f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.2px;"
         )
 
-
-class AxesLoader(QThread):
-    """Read in the background the catalogs a capability asks for.
-
-    Asking the SDK which devices and system images exist takes seconds
-    to a minute the first time; then it stays cached in
-    `services/cache.py`. Doing it in the interface thread would freeze
-    the window each time the emulator's tab opens, so the panel draws
-    with empty lists and fills when this ends.
-
-    The same holds even more for the repo's VPS: asking which services
-    it has is an SSH round trip against a machine that may be off. So
-    the loader receives the project's config, which says which VPS to
-    ask, and not only the capability.
-    """
-
-    ready = Signal(dict)
-
-    def __init__(
-        self,
-        capability: Capability,
-        config: Config,
-        root: str = "",
-        refresh: bool = False,
-        parent: QObject | None = None,
-    ) -> None:
-        """Keep what the query needs."""
-        super().__init__(parent)
-        self._capability = capability
-        self._config = config
-        # The repo's root: the backups axis asks for it, since its
-        # folder can be declared relative to it
-        # (`services/catalog.py::_backup_files`).
-        self._root = root
-        self._refresh = refresh
-
-    @override
-    def run(self) -> None:
-        resolved: dict[str, Any] = {}
-        errors: dict[str, str] = {}
-        for axis in self._capability.axes:
-            if not axis.is_queried:
-                continue
-            try:
-                resolved[axis.name] = queried_values(
-                    axis.source, refresh=self._refresh, config=self._config, root=self._root
-                )
-            except TaskError as exc:
-                # The axis stays empty and the panel says why
-                # (ADR-0076).
-                resolved[axis.name] = ([], {})
-                errors[axis.name] = str(exc)
-        if self._capability.live_state:
-            try:
-                resolved[_LIVE] = queried_values(
-                    self._capability.live_state, config=self._config, root=self._root
-                )
-            except TaskError as exc:
-                no_values: tuple[list[str], dict[str, str]] = ([], {})
-                resolved[_LIVE] = no_values
-                errors[_LIVE] = str(exc)
-        if self._capability.preview:
-            try:
-                resolved[_PREVIEW] = preview_checks(
-                    self._capability.preview, config=self._config, root=self._root
-                )
-            except TaskError as exc:
-                nothing: tuple[list[str], list[str]] = ([], [])
-                resolved[_PREVIEW] = nothing
-                errors[_PREVIEW] = str(exc)
-        resolved[_ERRORS] = errors
-        self.ready.emit(resolved)
-
-
-# The key the inventory of «what is running» travels under in the
-# loader's result. It is not an axis: it is not chosen, it is looked at
-# and stopped.
-_LIVE = "@live"
-# And that of what running will do (`Capability.preview`).
-_PREVIEW = "@preview"
-# And that of the axes whose query failed, each with its reason.
-_ERRORS = "@errors"
 
 # Minimum width of a closed list, in characters. It is not the real
 # width but all the combo requires, so it then stretches with the row
@@ -280,7 +195,7 @@ class ParamsPanel(QWidget):
                 if axis.name not in resolved:
                     continue
                 axis.values, axis.labels = resolved[axis.name]
-                axis.query_error = resolved[_ERRORS].get(axis.name, "")
+                axis.query_error = resolved[ERRORS].get(axis.name, "")
                 if axis.name in self._facets:
                     self._fill_facets(axis)
                 elif axis.name in self._picks:
@@ -289,10 +204,8 @@ class ParamsPanel(QWidget):
                     self._fill_multi(axis)
                 elif axis.name in self._option_layouts:
                     self._fill_options(axis)
-            self._fill_live(resolved.get(_LIVE, ([], {})), resolved[_ERRORS].get(_LIVE, ""))
-            self._fill_preview(
-                resolved.get(_PREVIEW, ([], [])), resolved[_ERRORS].get(_PREVIEW, "")
-            )
+            self._fill_live(resolved.get(LIVE, ([], {})), resolved[ERRORS].get(LIVE, ""))
+            self._fill_preview(resolved.get(PREVIEW, ([], [])), resolved[ERRORS].get(PREVIEW, ""))
         finally:
             self._restoring = False
         self._loading = False
@@ -526,7 +439,7 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
-        lay.addWidget(SectionLabel(axis.display))
+        lay.addWidget(_SectionLabel(axis.display))
 
         self._facets[axis.name] = {}
         for facet in axis.facets:
@@ -645,7 +558,7 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
-        lay.addWidget(SectionLabel("Corriendo ahora"))
+        lay.addWidget(_SectionLabel("Corriendo ahora"))
         self._live_layout = lay
         box.setVisible(False)
         return box
@@ -709,7 +622,7 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
-        lay.addWidget(SectionLabel(PREVIEW_TITLES.get(self.capability.preview, "")))
+        lay.addWidget(_SectionLabel(PREVIEW_TITLES.get(self.capability.preview, "")))
         self._preview_layout = lay
         box.setVisible(False)
         return box
@@ -791,7 +704,7 @@ class ParamsPanel(QWidget):
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
 
-        lay.addWidget(SectionLabel(axis.display))
+        lay.addWidget(_SectionLabel(axis.display))
 
         self._multi_layouts[axis.name] = lay
         self._checks[axis.name] = {}
@@ -810,7 +723,7 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
-        lay.addWidget(SectionLabel("Pasos"))
+        lay.addWidget(_SectionLabel("Pasos"))
 
         for step in self.steps:
             row = QWidget()
@@ -837,7 +750,7 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(9)
-        lay.addWidget(SectionLabel("Opciones"))
+        lay.addWidget(_SectionLabel("Opciones"))
 
         for axis in axes:
             row = QVBoxLayout()
@@ -1291,8 +1204,8 @@ class ParamsPanel(QWidget):
         """Restore the Run button according to the current blockers.
 
         Public for whoever disabled the button from outside while truly
-        running (`ui/tab_panel.py::_run_real`) and needs to return it to
-        the state it should have, not simply enabled.
+        running (`widgets/tab_panel.py::_run_real`) and needs to return
+        it to the state it should have, not simply enabled.
         """
         self._refresh_summary()
 
@@ -1352,7 +1265,7 @@ class ParamsPanel(QWidget):
         """Return why it cannot run without opening the tab.
 
         Public for `quick_run`, which reports it in the console
-        (`ui/tab_panel.py::quick_run`).
+        (`widgets/tab_panel.py::quick_run`).
         """
         return self._blockers()
 

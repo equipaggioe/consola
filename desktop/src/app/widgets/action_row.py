@@ -22,7 +22,7 @@ def _alpha(hex_color: str, alpha: float) -> QColor:
     return c
 
 
-class LevelMark(QLabel):
+class _LevelMark(QLabel):
     """An action's level mark: one step or several chained.
 
     Small on purpose and with no color of its own: the row's color
@@ -52,7 +52,7 @@ class LevelMark(QLabel):
         )
 
 
-class ScopeMark(QLabel):
+class _ScopeMark(QLabel):
     """A reach mark: this action happens to the machine, not the repo.
 
     It only appears on `scope='machine'` actions, such as installing an
@@ -142,8 +142,8 @@ class ActionRow(QWidget):
         layout.addWidget(self.text_label)
         layout.addStretch()
         if machine:
-            layout.addWidget(ScopeMark())
-        layout.addWidget(LevelMark(composite))
+            layout.addWidget(_ScopeMark())
+        layout.addWidget(_LevelMark(composite))
 
         self.run_btn = QPushButton("▶")
         self.run_btn.setFixedSize(26, 26)

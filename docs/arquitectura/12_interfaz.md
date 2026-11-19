@@ -42,7 +42,7 @@ Los **roles** son los colores entre los que se elige (`Role` en `theme.py`):
 | `bg` | El escalón más oscuro |
 | `panel`, `surface`, `surface_hover`, `surface_alt` | Los escalones siguientes, de más oscuro a más claro |
 | `border`, `border_light` | Separadores y marcos |
-| `GRAY_BG`, `GRAY_PANEL`, `GRAY_SURFACE`, `GRAY_SURFACE_HOVER`, `GRAY_SURFACE_ALT`, `GRAY_BORDER`, `GRAY_BORDER_LIGHT` | Los mismos escalones sin teñir: los neutros de `ui/theme.py`, iguales en los ocho temas |
+| `GRAY_BG`, `GRAY_PANEL`, `GRAY_SURFACE`, `GRAY_SURFACE_HOVER`, `GRAY_SURFACE_ALT`, `GRAY_BORDER`, `GRAY_BORDER_LIGHT` | Los mismos escalones sin teñir: los neutros de `theme.py`, iguales en los ocho temas |
 | `TEXT`, `TEXT_LABEL`, `TEXT_DIM`, `TEXT_MUTED` | Los grises del texto, de más claro a más apagado: texto corrido, rótulo de un campo, resúmenes de sección, pistas cortas y rutas |
 
 Las **partes** son las zonas de la ventana: barra de título, fila del menú, menú desplegado, cabecera y cuerpo de sección, campo, pie, barra de estado… Qué rol pinta cada una lo dice **una sola tabla**, `theme.py`: cada parte es un `Look` que da un `Role` a cada ranura que pinta —`bg` (fondo), `fg` (texto), `border` (contorno), `hover` (fondo bajo el cursor o fila elegida) y `focus` (borde con el foco)—. Ningún widget nombra un rol: pide su parte (`theme.SECTION_HEADER.on(pal)`) y lee la ranura, y pedir una ranura que la parte no declara lanza `LookupError`. Para cambiar el tono de una parte se cambia su rol en esa tabla; al escribir `Role.` el editor lista los roles. `tests/test_palettes.py` comprueba que cada parte resuelve en los ocho temas y en `NEUTRAL`, y que su texto se lee sobre su fondo a 3:1 (salvo Ejecutar apagado: WCAG no le pide contraste a un control deshabilitado).
@@ -63,7 +63,7 @@ El menú del clic derecho sobre una pestaña es la ruta y los ocho colores: quit
 
 «Roles y partes» no se abre desde la aplicación: es `desktop/scripts/swatches.py`, que se corre aparte desde `desktop/` con `uv run python scripts/swatches.py <tema>`. Solo muestra: una grilla con cada `Role` en los ocho temas (muestra y hex, con el tema dado en negrita) y una fila por parte de `theme.py`, con una muestra «Aa» pintada como la pinta la parte y cada ranura con su rol, en el tema dado. Lo lee del código al abrirse; lo que cambia un color sigue siendo editar `theme.py`.
 
-El **logo** es `BRAND_ICON`, el mismo SVG del que salen los íconos de las apps del repo ([19](19_imagenes.md)), leído de su `config.env` (`ui/repo_logo.py`, [ADR-0058](../adr/0058-el-logo-del-repo-en-la-interfaz.md)). Un repo sin `BRAND_ICON` lleva la marca de Equipaggio (`assets/equipaggio.png`); uno cuyo `BRAND_ICON` no existe, no es SVG o Qt no lo lee muestra ⚠, con el error en el tooltip.
+El **logo** es `BRAND_ICON`, el mismo SVG del que salen los íconos de las apps del repo ([19](19_imagenes.md)), leído de su `config.env` (`services/repo_logo.py`, [ADR-0058](../adr/0058-el-logo-del-repo-en-la-interfaz.md)). Un repo sin `BRAND_ICON` lleva la marca de Equipaggio (`assets/equipaggio.png`); uno cuyo `BRAND_ICON` no existe, no es SVG o Qt no lo lee muestra ⚠, con el error en el tooltip.
 
 | Dónde | Lado |
 |---|---|
@@ -81,7 +81,7 @@ El campo del buscador tiene las medidas de un campo de «Configuración del repo
 
 Los menús desplegados de la barra y la lista del buscador son del repo abierto: fondo `panel` —por debajo de la fila de la que cuelgan, para que el popup se recorte contra ella—, borde `border_light`, el ítem bajo el cursor en `surface_hover` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `panel` que el popup, para que se lean como una sola pieza. En Ver, la palomita de cada casilla va a 13 px del borde y el texto a 33, en vez de los 5 y 41 que Qt pone por defecto.
 
-Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` repite los neutros pelados de `ui/theme.py`, con la misma escalera y sin teñir.
+Sin ningún repo abierto no hay de quién tomar el tono: la paleta `NEUTRAL` repite los neutros pelados de `theme.py`, con la misma escalera y sin teñir.
 
 ## 3. Encontrar una acción
 
@@ -101,7 +101,7 @@ Abrir una pestaña no ejecuta nada. Ejecutar es apretar Ejecutar, o el ▶ del b
 
 El ▶ solo aparece en lo que puede correr ya: `services/readiness.py` mira exactamente lo que esos parámetros guardados van a correr, así que un paso apagado no reclama sus claves.
 
-El recuento se **pide**, no se hace en el acto: `ui/main_window.py::_refresh_readiness` arranca un temporizador de 200 ms y la pasada corre una sola vez cuando se detiene la ráfaga. Quien lo dispara es, entre otros, cada tecla de un campo de texto —del panel de parámetros y del de configuración—, y la pasada resuelve las 61 acciones contra el repo. Esa pasada comparte además un único recorrido del repo entre todas (`services/targets.py::one_scan`) en vez de recorrerlo una vez por acción; el recorrido se suelta al terminar, así que cada pasada sigue mirando el disco de nuevo.
+El recuento se **pide**, no se hace en el acto: `windows/main_window.py::_refresh_readiness` arranca un temporizador de 200 ms y la pasada corre una sola vez cuando se detiene la ráfaga. Quien lo dispara es, entre otros, cada tecla de un campo de texto —del panel de parámetros y del de configuración—, y la pasada resuelve las 61 acciones contra el repo. Esa pasada comparte además un único recorrido del repo entre todas (`services/targets.py::one_scan`) en vez de recorrerlo una vez por acción; el recorrido se suelta al terminar, así que cada pasada sigue mirando el disco de nuevo.
 
 ## 4. La pestaña de ejecución
 
@@ -111,7 +111,7 @@ Las pestañas de ejecución son de carpeta, como las de repo en la barra de tít
 
 La pestaña **«Configuración del repo»** no es del catálogo: la abren Guardar e importar en esa sección, y guarda lo que hicieron. No tiene parámetros; mostrándola, la sección Configuración enseña el archivo entero, sin filtrar. No se reabre al arrancar (`TabPanel._open_config_tab`).
 
-Las pestañas se reordenan arrastrando (`ui/widgets/tab_reorder.py`) y **se reabren al arrancar**: qué botones quedaron a mano es una decisión sobre ese repo, y va a su `params.json` ([ADR-0033](../adr/0033-que-es-de-la-app-y-que-del-repo.md)). Reabrirlas no corre nada.
+Las pestañas se reordenan arrastrando (`widgets/reorderable_tab.py`) y **se reabren al arrancar**: qué botones quedaron a mano es una decisión sobre ese repo, y va a su `params.json` ([ADR-0033](../adr/0033-que-es-de-la-app-y-que-del-repo.md)). Reabrirlas no corre nada.
 
 ## 5. La columna derecha
 
@@ -123,7 +123,7 @@ Un acordeón de cinco secciones («Acción», «Seguridad», «Parámetros», «
 | Seguridad | Los seis interruptores del seguro del repo ([14](14_seguro_de_destructivos.md)) |
 | Parámetros | Los ejes y los pasos de la acción abierta |
 | Configuración del repo | `.consola/config.env` del repo, **filtrado** a lo que la acción puede llegar a mirar con lo que está marcado ahora. Sin las claves de máquina |
-| Configuración de la máquina | Todas las claves `scope='machine'`, sin filtrar, con Recargar y Guardar (`ui/machine_panel.py`): el único lugar donde se editan. Empieza oculta: se muestra desde el menú Ver. Abierta, se le reserva el alto de todas sus filas |
+| Configuración de la máquina | Todas las claves `scope='machine'`, sin filtrar, con Recargar y Guardar (`widgets/machine_panel.py`): el único lugar donde se editan. Empieza oculta: se muestra desde el menú Ver. Abierta, se le reserva el alto de todas sus filas |
 
 La columna no tiene cabecera propia: empieza por la primera sección visible. La cabecera de cada sección se ve siempre, esté abierta o cerrada. El reparto de alto es automático y se puede forzar arrastrando la barra fina entre dos secciones abiertas, que lleva el color del cuerpo de la sección y se aclara con el hover (`SECTION_GRIP`); doble clic vuelve al automático. El pie con Recargar y Guardar de las dos configuraciones tiene alto fijo: una sección corta achica el formulario, no los botones. Qué secciones se ocultan es preferencia global de la aplicación, no del repo: se elige en el menú Ver o con el clic derecho sobre la cabecera de una sección. Mientras no hay nada guardado, la única oculta es «Configuración de la máquina» (`section_visibility.HIDDEN_BY_DEFAULT`).
 

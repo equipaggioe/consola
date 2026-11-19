@@ -45,7 +45,7 @@ class Setting:
     # The `Settings` field the repo declares when the key applies to it:
     # `TURN_IP` only means something to an app with calls, the one that
     # reads `turn_secret` (ADR-0085). Without it, the form does not show
-    # the key (`ui/env_panel.py`).
+    # the key (`widgets/env_panel.py`).
     needs: str = ""
 
     @property
@@ -488,7 +488,7 @@ GROUP_ORDER = (
 # The repo's guards (`PROTECT_*`) are NOT here and are no `Setting`:
 # they are no datum a task consumes, since no step reads one, but a
 # console decision about this repo, and they live with the others in
-# `.consola/params.json` (`ui/security_panel.py`,
+# `.consola/params.json` (`widgets/security_panel.py`,
 # `services/params_store.py::load_protection`).
 
 

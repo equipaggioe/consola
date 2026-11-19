@@ -2,11 +2,13 @@
 
 > **Estado (verificado 2026-11-18).** Canone sacó `qt.md` de desarrollo (`461d857` y `e6b3d0b` de
 > canone): ahora rige entera, salvo su sección «Tema», que sigue en desarrollo. Con canone en `main`
-> (`ff38d25`, que comprueba el árbol, ADR-0188 y ADR-0189 de canone), `verificar.py --repo .` da 1
-> incumplimiento: `ui/`, que falta repartir (§2.2). En Windows, `ruff format --check`, `ruff check`,
+> (`8856ea4`, que comprueba el árbol, ADR-0188 y ADR-0189 de canone), `verificar.py --repo .` da 0
+> incumplimientos. En Windows, `ruff format --check`, `ruff check`,
 > `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1014 pruebas, con 3 saltadas.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
-> `stack.md`, los tipos, `@override`, los enums con su clase, `IniFormat`, HTTP con un solo
+> `stack.md`, el árbol de `qt.md`
+> ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
+> los enums con su clase, `IniFormat`, HTTP con un solo
 > `QNetworkAccessManager` y reintentos
 > ([ADR-0089](../adr/0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)),
 > `release.yml` ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)) y `api/`
@@ -42,34 +44,11 @@ Rige desde que `qt.md` salió de desarrollo. En este orden: cada etapa deja el r
 su commit. Los conteos salen de buscar en el código (2026-11-17); lo de accesibilidad no se probó con
 la app.
 
-### 2.2 Estructura de `ui/`
-
-Ya hecho, sin commit: `core/` es `services/`; `api/` tiene `http.py` y un módulo por servicio
-(`cloudflare.py`, `flutter.py`, `android_studio.py` e `ip.py`); `assets/` tiene las imágenes, los
-presets de las capturas y el kit de la cámara; `favorites`, `section_visibility`, `project_store`,
-`params_store`, `readiness`, `task_runner` y `db_worker` están en `services/`; están los dos
-`ruff.toml` de `plantilla/qt/`, y `pyproject.toml` prohíbe `PySide6.QtNetwork` fuera de `api/`.
-`palettes.py` está en `services/`, y `parts.py` es la última sección de `theme.py`, «The parts of
-the window» (pregunta 8).
-`verificar.py` da 1 incumplimiento: `ui/` fuera del árbol.
-
-Falta repartir `ui/`. `qt.md` pide `windows/`, `dialogs/`, `widgets/` y `models/`, y cada módulo de
-las tres últimas declara una sola clase pública, con su nombre en snake_case. Hoy `ui/` tiene 49
-clases en 28 archivos.
-
-| Destino | Qué va |
-|---|---|
-| `windows/` | `MainWindow` y `_EdgeGrip` |
-| `dialogs/` | `guard_dialog.py`, partido en `GuardDialog`, `BlockedDialog` y `ReminderDialog` |
-| `models/` | `RowsModel`, hoy en `db_explorer_view.py` |
-| `widgets/` | Los demás widgets, un archivo por clase pública. Se parten `tab_panel.py`, `title_bar.py`, `project_tabs.py`, `env_panel.py`, `params_panel.py`, `db_explorer_view.py`, `widgets/accordion.py`, `widgets/action_row.py` y `widgets/tab_reorder.py`, y `widgets/led.py` pasa a `led_indicator.py` y `menu_bar.py` a `action_menu_bar.py` |
-| `services/` | `AxesLoader`, un `QThread` de `params_panel.py`, y `RepoLogo`, que no es un widget |
-
 ### 2.3 Almacenamiento
 
 - `main.py` ya pone `IniFormat`. Falta `setOrganizationDomain`.
 - La ventana principal no lee su geometría ni su estado al crearse, ni los guarda en `closeEvent()`.
-- `ui/project_store.py` borra `_LEGACY_ORDER_KEY`, una clave vieja: es compatibilidad hacia atrás, y
+- `services/project_store.py` borra `_LEGACY_ORDER_KEY`, una clave vieja: es compatibilidad hacia atrás, y
   sale.
 - **Sin verificar:** un INI devuelve texto. Los favoritos ya tratan `"true"` y una lista de un
   elemento, pero `params_store.py` y `project_store.py` no se probaron con la app.
@@ -79,9 +58,9 @@ clases en 28 archivos.
 | Pide `qt.md` | Hoy |
 |---|---|
 | `@Slot` en todo método conectado a una señal | Ningún `@Slot`; unas 73 conexiones a métodos |
-| Fechas y números con el `locale()` del widget | `ui/console_view.py` (`strftime`), `ui/db_explorer_view.py` (miles con `replace`) y `ui/tab_panel.py` (la RAM) |
-| Un diálogo modal se abre con `open()`, nunca con `exec()` | `ui/tab_panel.py`: `BlockedDialog`, `ReminderDialog` y un `QMessageBox`. También `QFileDialog.getOpenFileName` y `getExistingDirectory`, y dos `QInputDialog.getText`, que corren `exec()` por dentro (lectura propia) |
-| Vista con modelo, sin `QTreeWidget` ni `QTableWidget` | Los dos en `ui/db_explorer_view.py` |
+| Fechas y números con el `locale()` del widget | `widgets/console_view.py` (`strftime`), `widgets/db_explorer_view.py` (miles con `replace`) y `widgets/tab_panel.py` (la RAM) |
+| Un diálogo modal se abre con `open()`, nunca con `exec()` | `widgets/tab_panel.py`: `BlockedDialog`, `ReminderDialog` y un `QMessageBox`. También `QFileDialog.getOpenFileName` y `getExistingDirectory`, y dos `QInputDialog.getText`, que corren `exec()` por dentro (lectura propia) |
+| Vista con modelo, sin `QTreeWidget` ni `QTableWidget` | Los dos en `widgets/db_explorer_view.py` |
 
 ### 2.5 Accesibilidad
 
@@ -95,7 +74,7 @@ clases en 28 archivos.
 ### 2.7 Icono, recursos y empaquetado
 
 - `src/app/icon.png` de 1024 × 1024 px no existe. Sale de rasterizar el rombo de la marca, el que
-  pinta `ui/title_bar.py::Diamond` (pregunta 6).
+  pinta `widgets/title_bar.py::_Diamond` (pregunta 6).
 - `src/app/resources.qrc` no existe. Lleva el icono y las traducciones compiladas. `rc_resources.py`
   y `*.qm` ya están en `desktop/.gitignore`.
 - `desktop/pysidedeploy.spec` no existe. Sale de `plantilla/qt/`, con `title = Consola`, el `mode` en
@@ -118,10 +97,10 @@ Hoy no hay ninguna llamada a `tr` ni a `translate`. Conteo por script, aproximad
 | Llamadas directas de la interfaz (`setText`, `QLabel`…) | 118 |
 | Mensajes de las tareas (`ctx.info`, `TaskError`…) | 416 |
 | Declaraciones de `catalog.py`, `settings.py` y `protection.py` | 499 |
-| `core/command_docs.py` | 854 líneas |
+| `services/command_docs.py` | 854 líneas |
 
-- Decidido (pregunta 5): Linguist cubre también los mensajes de `core/` y `command_docs.py`, con
-  `QCoreApplication.translate`. Lleva un ADR que amplía la excepción de `core/` que no importa Qt.
+- Decidido (pregunta 5): Linguist cubre también los mensajes de `services/` y `command_docs.py`, con
+  `QCoreApplication.translate`, de QtCore, que `services/` ya importa (ADR-0090).
 - Las declaraciones se evalúan al importar, antes de instalar el traductor: necesitan
   `QT_TRANSLATE_NOOP` y traducirse al mostrarse.
 - El idioma que elige el usuario se guarda en `QSettings`, y `main.py` lo aplica con
@@ -152,13 +131,13 @@ duda es cómo cumplirla.
 
 | # | Pregunta | Dónde | Decisión |
 |---|---|---|---|
-| 1 | El árbol de `qt.md` no tenía `core/` ni `ui/`. ¿Dónde va el código que no es de Qt? | Canone | En `services/`: lo que no es interfaz ni HTTP. Ya está en `qt.md` y `flet.md` (ADR-0186 de canone). En Consola van ahí `core/` y los módulos sin widget, incluidos los dos `QThread` (§2.2). Dónde va `palettes.py` es la pregunta 8 |
+| 1 | El árbol de `qt.md` no tenía `core/` ni `ui/`. ¿Dónde va el código que no es de Qt? | Canone | En `services/`: lo que no es interfaz ni HTTP. Ya está en `qt.md` y `flet.md` (ADR-0186 de canone). En Consola van ahí `core/` y los módulos sin widget, incluidos los dos `QThread`. Hecho (ADR-0090) |
 | 3 | «Un solo `QNetworkAccessManager`» chocaba con el ADR-0079: cada tarea bloqueaba su hilo con su propio manager | Consola | Un solo manager en el hilo principal, y las tareas siguen bloqueando su hilo. Hecho (ADR-0089) |
-| 4 | `api/client.py` y `api/models.py` suponían la API propia de un servidor. Consola habla con Cloudflare y con el índice de Flutter | Canone | `api/` es todo lo que habla HTTP, con `api/<servicio>.py` para cada servicio externo. Con un servicio externo, un campo desconocido se ignora y los que se leen se validan enteros, y «Reintentos» le aplica. Ya está en `qt.md`, `flet.md` y `transversal.md` (ADR-0186 de canone). En Consola: §2.2; los reintentos ya están (ADR-0089) |
-| 5 | ¿Linguist cubre también los mensajes de `core/` y `command_docs.py`? | Consola | Sí, con `QCoreApplication.translate` (§2.8) |
+| 4 | `api/client.py` y `api/models.py` suponían la API propia de un servidor. Consola habla con Cloudflare y con el índice de Flutter | Canone | `api/` es todo lo que habla HTTP, con `api/<servicio>.py` para cada servicio externo. Con un servicio externo, un campo desconocido se ignora y los que se leen se validan enteros, y «Reintentos» le aplica. Ya está en `qt.md`, `flet.md` y `transversal.md` (ADR-0186 de canone). En Consola: hecho (ADR-0089 y ADR-0090) |
+| 5 | ¿Linguist cubre también los mensajes de `services/` y `command_docs.py`? | Consola | Sí, con `QCoreApplication.translate` (§2.8) |
 | 6 | ¿De dónde sale el icono de 1024 px? | Consola | Del rombo de la marca, rasterizado (§2.7) |
 | 7 | El árbol de `qt.md` no tenía lugar para lo que no es código | Canone | En `src/app/assets/`: las imágenes entran en `resources.qrc`, y lo que otro programa lee del disco se queda como archivo (ADR-0189 de canone) |
-| 8 | `palettes.py` y `parts.py` no tenían lugar en el árbol | Consola | `palettes.py` en `services/`, y `parts.py` como sección de `theme.py`, donde se ubican y cambian los colores de cada parte (§2.2) |
+| 8 | `palettes.py` y `parts.py` no tenían lugar en el árbol | Consola | `palettes.py` en `services/`, y `parts.py` como sección de `theme.py`, donde se ubican y cambian los colores de cada parte. Hecho (ADR-0090) |
 
 ### Abiertas
 
@@ -168,7 +147,7 @@ duda es cómo cumplirla.
 
 ## 4. Sin verificar
 
-- `core/http.py` y `api/cloudflare.py` contra el servicio real: leer necesita un token y escribir cambia
+- `api/http.py` y `api/cloudflare.py` contra el servicio real: leer necesita un token y escribir cambia
   el DNS. Se probó contra un servidor local y con respuestas simuladas.
 
 ## 5. Al terminar

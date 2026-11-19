@@ -23,7 +23,7 @@ flowchart TD
 
 `api/` es todo lo que habla HTTP, y no importa nada de Consola fuera de sí mismo. `http.py` lo hace con el único `QNetworkAccessManager`, en el hilo de la interfaz, bloqueando el hilo de la tarea que llama, con reintentos; también descarga los SDK. Cada servicio tiene su módulo, con sus llamadas y los modelos de Pydantic de lo que se lee: `cloudflare.py`, `flutter.py` (el índice de releases), `android_studio.py` (la página de las herramientas de línea de comandos) e `ip.py` (los servicios de la IP pública). Los usa `services/tasks/utils.py`, que convierte sus errores en `TaskError`: una respuesta que no coincide con su modelo detiene la tarea.
 
-La dirección es estricta: `ui/` importa de `services/` y de `api/`, `services/tasks/` importa de `services/` y de `api/`, y `services/` no importa ni de `ui/` ni de `services/tasks/`. La excepción es una importación diferida dentro de una función, no de módulo: `services/context.py` pide el registro para traducir el id de un paso a su etiqueta. `theme.py` nombra `services/palettes.py` solo en sus anotaciones, porque `palettes.py` importa `theme.py`.
+La dirección es estricta: la interfaz (`windows/`, `dialogs/`, `widgets/` y `models/`) importa de `services/` y de `api/`, `services/tasks/` importa de `services/` y de `api/`, y `services/` no importa ni de la interfaz ni de `services/tasks/`. La excepción es una importación diferida dentro de una función, no de módulo: `services/context.py` pide el registro para traducir el id de un paso a su etiqueta. `theme.py` nombra `services/palettes.py` solo en sus anotaciones, porque `palettes.py` importa `theme.py`.
 
 ## 2. Qué hay en `services/` (nivel 0)
 
@@ -81,24 +81,25 @@ Un módulo por grupo del catálogo. `bind_all()` recorre los diez y reemplaza ca
 | `utils.py` | Limpieza, Cloudflare, sincronización y los cinco de SDK |
 | `payloads.py` | La excepción deliberada: programas Python que viajan por `-c` al intérprete del proyecto |
 
-## 4. Qué hay en `ui/`
+## 4. La interfaz: `windows/`, `dialogs/`, `widgets/` y `models/`
+
+Cada módulo de `dialogs/`, `widgets/` y `models/` declara una sola clase pública, con su nombre en snake_case; una clase privada que solo la ayuda va con ella (ADR-0188 de canone).
 
 | Bloque | Archivos | Qué hace |
 |---|---|---|
-| Ventana | `main_window.py`, `title_bar.py`, `project_tabs.py`, `repo_logo.py` | Ventana sin marco, repos como pestañas de nivel 1, acento y logo por repo |
-| Catálogo a la vista | `menu_bar.py`, `action_search.py`, `widgets/action_row.py`, y `services/favorites.py` | El catálogo entero en una barra de menú y un buscador con ▶ |
-| Espacio de trabajo | `tab_panel.py`, `tab_view.py`, `console_view.py`, `browser_view.py` | Pestañas de ejecución de un repo, consola, segunda vista |
-| Panel derecho | `params_panel.py`, `env_panel.py`, `security_panel.py`, `command_info_panel.py`, `widgets/accordion.py` | Parámetros, configuración, seguros y ficha, en un acordeón |
-| Ejecución | `guard_dialog.py`, y `services/task_runner.py` | Corre la capacidad en un hilo y puentea sus canales; los dos avisos del seguro |
-| Explorador | `db_explorer_view.py`, y `services/db_worker.py` | Árbol, datos y estructura, sobre su propio hilo |
+| Ventana | `windows/main_window.py`, `widgets/title_bar.py`, `widgets/project_tab_bar.py`, `widgets/project_tab.py`, `widgets/repo_logo_view.py`, y `services/repo_logo.py` | Ventana sin marco, repos como pestañas de nivel 1, acento y logo por repo |
+| Catálogo a la vista | `widgets/action_menu_bar.py`, `widgets/action_search.py`, `widgets/action_row.py`, y `services/favorites.py` | El catálogo entero en una barra de menú y un buscador con ▶ |
+| Espacio de trabajo | `widgets/tab_panel.py`, `widgets/workspace_status_bar.py`, `widgets/tab_view.py`, `widgets/console_view.py`, `widgets/browser_view.py` | Pestañas de ejecución de un repo, su barra de estado, consola, segunda vista |
+| Panel derecho | `widgets/params_panel.py`, `widgets/env_panel.py`, `widgets/env_row.py`, `widgets/security_panel.py`, `widgets/machine_panel.py`, `widgets/command_info_panel.py`, `widgets/accordion_section.py`, `widgets/section_resize_grip.py`, y `services/axes_loader.py` | Parámetros, configuración, seguros y ficha, en un acordeón; los ejes que preguntan sus valores se llenan en un hilo |
+| Ejecución | `dialogs/guard_dialog.py`, `dialogs/blocked_dialog.py`, `dialogs/reminder_dialog.py`, y `services/task_runner.py` | Corre la capacidad en un hilo y puentea sus canales; los dos avisos del seguro y su base |
+| Explorador | `widgets/db_explorer_view.py`, `models/rows_model.py`, y `services/db_worker.py` | Árbol, datos y estructura, sobre su propio hilo |
 | Persistencia | `services/params_store.py`, `services/project_store.py`, `services/section_visibility.py` | `.consola/params.json` del repo y `QSettings` de la máquina |
-| Apoyo | `theme.py`, `widgets/*`, y `services/readiness.py` | Colores y tipografía, qué puede correr ya, controles propios |
+| Apoyo | `theme.py`, `widgets/reorderable_tab.py`, `widgets/reorderable_bar.py`, `widgets/led_indicator.py`, `widgets/favorite_star.py`, `widgets/segmented.py`, y `services/readiness.py` | Colores, tipografía y partes de la ventana, pestañas que se arrastran, controles propios, qué puede correr ya |
 
-
-## 6. `assets/`
+## 5. `assets/`
 
 Lo que no es código: la marca de Equipaggio (`equipaggio.png`), la flecha de las listas (`chevron-down.svg`), los presets de las capturas (`shots_presets.json`) y `camera/`, el kit de las cámaras de capturas: JS sin dependencias que no corre dentro de Consola, sino dentro del script de cámara de cada repo, que lo recibe en `--kit` ([19](19_imagenes.md) §6, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 
-## 7. Arranque
+## 6. Arranque
 
 `main.py` hace seis cosas, en orden: fija el escalado de alta densidad, crea la `QApplication`, crea el único `QNetworkAccessManager` con `http.start()`, llama a `load_catalog()` y a `bind_all()`, aplica el tema y muestra la ventana. El catálogo se arma una sola vez por proceso; lo que depende del repo se resuelve después, cada vez que se dibuja un panel ([10](10_catalogo_de_capacidades.md)).

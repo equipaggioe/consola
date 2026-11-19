@@ -10,7 +10,7 @@ Nada de `services/` importa QtWidgets ni QtNetwork —ruff lo prohíbe con `serv
 - `input()` se reemplazó por `ctx.ask` / `ctx.confirm`, que abren el diálogo que corresponde.
 - `subprocess.run` se reemplazó por `ctx.run` / `ctx.capture`, que transmiten en vivo y atienden la cancelación.
 
-Todo lo que ejecuta algo es una capacidad, aunque lo dispare un ícono de la interfaz: corre por el mismo runner, con el mismo log, los mismos errores y la misma cancelación. Si no tiene sentido como botón, se declara `hidden=True` y declara sus ejes igual. `ui/` no importa `subprocess` ni módulos de herramientas: pide una capacidad por id.
+Todo lo que ejecuta algo es una capacidad, aunque lo dispare un ícono de la interfaz: corre por el mismo runner, con el mismo log, los mismos errores y la misma cancelación. Si no tiene sentido como botón, se declara `hidden=True` y declara sus ejes igual. La interfaz no importa `subprocess` ni módulos de herramientas: pide una capacidad por id.
 
 ## 2. El único `subprocess` es a un binario externo real o a un programa de canone
 

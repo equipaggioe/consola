@@ -18,8 +18,8 @@ Two accesses dominate performance, and both are hot:
 
 - `services/readiness.py::missing_keys` calls `stored_steps` once per
   capability on each repo change (dozens of reads in a row).
-- `ui/params_panel.py::_refresh_summary` calls `save` on each keystroke
-  of a text field.
+- `widgets/params_panel.py::_refresh_summary` calls `save` on each
+  keystroke of a text field.
 
 So the file reads whole ONCE per repo into an in-memory cache, and
 writes gather on a short timer instead of hitting disk per keystroke.
@@ -210,7 +210,7 @@ def load_tabs(repo_path: str) -> list[str]:
 def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
     """Save which action tabs stay open, in order, to reopen them.
 
-    They reopen as they were on the next start (`ui/tab_panel.py`).
+    They reopen as they were on the next start (`widgets/tab_panel.py`).
     """
     key = _norm(repo_path)
     data = _read(repo_path)
@@ -309,8 +309,8 @@ def flush() -> None:
     """Write what is pending to disk.
 
     The timer and the window's closing call it
-    (`ui/main_window.py::closeEvent`), so the last changes are not lost
-    if it closes within the timer's window.
+    (`windows/main_window.py::closeEvent`), so the last changes are not
+    lost if it closes within the timer's window.
     """
     for key in list(_dirty):
         _dirty.discard(key)

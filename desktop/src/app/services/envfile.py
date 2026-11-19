@@ -267,7 +267,7 @@ class Config:
         from its folder's name). Both are what the action will use if
         the field stays empty, so a key with either never counts as
         missing (`missing()`, and with it
-        `ui/params_panel.py::_missing_keys`).
+        `widgets/params_panel.py::_missing_keys`).
         """
         raw = self.values.get(key, "").strip()
         if raw:

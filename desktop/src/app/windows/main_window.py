@@ -40,13 +40,14 @@ from app.services.catalog import applicable_ids
 from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
 from app.services.registry import registry
+from app.services.repo_logo import RepoLogo
 from app.theme import Colors, Fonts
-from app.ui.action_search import ActionSearch
-from app.ui.menu_bar import ActionMenuBar
-from app.ui.project_tabs import ProjectTabBar
-from app.ui.repo_logo import RepoLogo
-from app.ui.tab_panel import TabPanel, WorkspaceStatusBar
-from app.ui.title_bar import TitleBar
+from app.widgets.action_menu_bar import ActionMenuBar
+from app.widgets.action_search import ActionSearch
+from app.widgets.project_tab_bar import ProjectTabBar
+from app.widgets.tab_panel import TabPanel
+from app.widgets.title_bar import TitleBar
+from app.widgets.workspace_status_bar import WorkspaceStatusBar
 
 # How long to wait before recounting which actions are ready. Short: the
 # time a burst of typing takes to stop, and what is recomputed is
@@ -55,7 +56,7 @@ _READINESS_MS = 200
 
 
 def _brand_icon() -> QIcon:
-    """Return the brand's diamond (`ui/title_bar.py`) as a window icon.
+    """Return the brand's diamond (`widgets/title_bar.py`) as an icon.
 
     So Windows's taskbar and window switcher show it too.
     """
@@ -122,8 +123,8 @@ class MainWindow(QMainWindow):
         self.resize(1500, 950)
         self.setMinimumSize(1000, 650)
         # No system frame: the brand and repo tabs share a row with
-        # minimize, maximize and close (`ui/title_bar.py`). The price is
-        # supplying the drag and the edge resizing ourselves:
+        # minimize, maximize and close (`widgets/title_bar.py`). The
+        # price is supplying the drag and the edge resizing ourselves:
         # `_EdgeGrip`, resting on `startSystemMove/Resize` so Windows
         # keeps giving its side snapping.
         self.setWindowFlag(Qt.WindowType.FramelessWindowHint, True)
@@ -252,7 +253,8 @@ class MainWindow(QMainWindow):
     def _build_menu_row(self) -> QWidget:
         """Build the action menus and the search.
 
-        «Solo favoritos» is in the bar's Ver menu (`ui/menu_bar.py`).
+        «Solo favoritos» is in the bar's Ver menu
+        (`widgets/action_menu_bar.py`).
         """
         row = QWidget()
         # A selector by name and not a bare `QWidget`: a sheet without a
@@ -267,7 +269,7 @@ class MainWindow(QMainWindow):
         lay.addWidget(self.action_menu, 1)
 
         # Search: the list of matches falls from this row
-        # (`ui/action_search.py`).
+        # (`widgets/action_search.py`).
         self.action_search = ActionSearch()
         lay.addWidget(self.action_search, 0, Qt.AlignmentFlag.AlignVCenter)
         return row
@@ -598,10 +600,11 @@ class MainWindow(QMainWindow):
 
         It is requested, not done: the count walks the repo for all the
         actions and, among others, each keystroke of a text field fires
-        it (`ui/params_panel.py::_persist`, `ui/env_panel.py`). Computed
-        at once, a burst of typing queued a pass per key and letters
-        appeared seconds later. The timer gathers the burst into one
-        pass, as `services/params_store.py` does with writing to disk.
+        it (`widgets/params_panel.py::_persist`,
+        `widgets/env_panel.py`). Computed at once, a burst of typing
+        queued a pass per key and letters appeared seconds later. The
+        timer gathers the burst into one pass, as
+        `services/params_store.py` does with writing to disk.
         """
         self._readiness_timer.start()
 

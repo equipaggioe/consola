@@ -32,7 +32,7 @@ Guarda además lo que la función devolvió en `self.result`. Casi ninguna capac
 
 ## 3. Los cuatro diálogos
 
-`ui/tab_panel.py::_answer_task` elige por lo que la tarea espera de vuelta, no por cómo se ve la pregunta (`services/context.py::ASK_*`):
+`widgets/tab_panel.py::_answer_task` elige por lo que la tarea espera de vuelta, no por cómo se ve la pregunta (`services/context.py::ASK_*`):
 
 | Caso | Diálogo |
 |---|---|
@@ -73,7 +73,7 @@ Hace tres cosas de una vez: publica el endpoint en la sesión, emite la señal q
 
 ## 6. Cómo corre lo que se apretó
 
-`ui/tab_panel.py::_run` es el punto único: por aquí pasan el botón Ejecutar y el ▶ del buscador. En orden:
+`widgets/tab_panel.py::_run` es el punto único: por aquí pasan el botón Ejecutar y el ▶ del buscador. En orden:
 
 1. **Seguro.** `_guard_ok` clasifica la corrida con `services/protection.decide` ([14](14_seguro_de_destructivos.md)). Está aquí y no en el panel porque este es el único camino común a las dos formas de ejecutar.
 2. **Concurrente.** Si la capacidad es `concurrent`, reparte sus pasos en pestañas y termina; no hay `func` que llamar.

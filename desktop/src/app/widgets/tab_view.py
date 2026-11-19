@@ -33,9 +33,9 @@ from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
 from app.services.registry import Capability
 from app.theme import Colors, Fonts
-from app.ui.browser_view import BrowserView, open_external
-from app.ui.console_view import ConsoleView
-from app.ui.widgets.led import LedIndicator
+from app.widgets.browser_view import BrowserView, open_external
+from app.widgets.console_view import ConsoleView
+from app.widgets.led_indicator import LedIndicator
 
 
 def _chip_style(pal: Palette) -> str:
@@ -57,7 +57,7 @@ CONSOLA = "Consola"
 VIEW_NAMES = {"web": "Navegador", "db": "Explorador"}
 
 if TYPE_CHECKING:
-    from app.ui.db_explorer_view import DbExplorerView
+    from app.widgets.db_explorer_view import DbExplorerView
 
 
 class TabView(QWidget):
@@ -327,7 +327,7 @@ class TabView(QWidget):
         if not url:
             self.console.append_log("La tarea no publicó la conexión.", "error")
             return
-        from app.ui.db_explorer_view import DbExplorerView
+        from app.widgets.db_explorer_view import DbExplorerView
 
         server_root = Path(self.project.path) / Config.for_project(self.project.path).get(
             "SERVER_DIR", "server"

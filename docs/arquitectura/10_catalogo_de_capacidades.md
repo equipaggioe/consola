@@ -97,7 +97,7 @@ Un `Step` es una casilla de una compuesta, y su `id` es el nombre del booleano d
 | ¿Este botón existe aquí? | `catalog.applicable_ids(root)` → `Capability.applies_to(features)`. Hoy la única característica es `migrations` |
 | ¿Qué valores tiene su eje? | `catalog.for_project` con `targets.names_of` |
 | ¿Qué pasos quedan? | `Capability.steps_for(features)`, sobre la copia que mira el panel; de esos, el panel oculta los de otro ámbito (`Step.applies`) |
-| ¿Puede correr ya? | `ui/params_panel.py::_blockers` y, sin abrir la pestaña, `services/readiness.py` |
+| ¿Puede correr ya? | `widgets/params_panel.py::_blockers` y, sin abrir la pestaña, `services/readiness.py` |
 
 Un paso que el panel no dibujó no viene marcado en el payload, así que llega a la función en `False`: queda apagado, no «sin decidir».
 

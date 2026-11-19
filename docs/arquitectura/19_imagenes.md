@@ -40,7 +40,7 @@ Ejes de `shoot_screens` (y del paso `shoot` de la compuesta):
 | `languages` | los que tiene alguna de ellas (`SHOTS_LANGUAGES`) | `--languages` |
 | `avd` | AVD creados, o ninguno. Si una app lo necesita lo dice la cámara (ADR-0052) | `--device` con el serial, solo si se eligió uno |
 
-Los tres primeros salen de preguntarle a la cámara con `--supported` (`tasks/images.py::camera_supported`), con caché de un minuto por repo. Si no contesta, el panel muestra lo que dijo en lugar de las casillas y el botón queda bloqueado. Un eje consultado que está vacío, leyendo o con error, conserva lo elegido la última vez (`ui/params_panel.py::_persist`).
+Los tres primeros salen de preguntarle a la cámara con `--supported` (`tasks/images.py::camera_supported`), con caché de un minuto por repo. Si no contesta, el panel muestra lo que dijo en lugar de las casillas y el botón queda bloqueado. Un eje consultado que está vacío, leyendo o con error, conserva lo elegido la última vez (`widgets/params_panel.py::_persist`).
 
 Eje de `render_shots` y de la compuesta: `destinations` (`landing`, `play`, `appstore`, `manual`, `og`, `social`, `presskit`). Un destino sin preset, o sin ningún crudo de un tipo que le sirva, corta la corrida antes de convertir nada.
 

@@ -11,7 +11,7 @@ from app.api import http
 from app.services.catalog import load_catalog
 from app.services.tasks import bind_all
 from app.theme import apply_theme
-from app.ui.main_window import MainWindow
+from app.windows.main_window import MainWindow
 
 
 def main() -> None:

@@ -35,7 +35,7 @@ def identity(path: str) -> str:
     """Return a repo's stable key: its normalized path.
 
     It is the identity of everything indexed by repo, such as the open
-    workspace (`ui/main_window.py`) and the parameter cache
+    workspace (`windows/main_window.py`) and the parameter cache
     (`services/params_store.py`), because the same folder written with
     reversed slashes, another case or a final separator has to count as
     one repo.

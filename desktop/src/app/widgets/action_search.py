@@ -22,7 +22,7 @@ from app.services import favorites
 from app.services.palettes import NEUTRAL, Palette
 from app.services.registry import registry
 from app.theme import Colors, Fonts
-from app.ui.widgets import ActionRow
+from app.widgets.action_row import ActionRow
 
 
 class ActionSearch(QWidget):
@@ -46,7 +46,7 @@ class ActionSearch(QWidget):
     favorites_changed = Signal(set)
 
     WIDTH = 240
-    # that of a «Configuración del repo» field (`ui/env_panel.py`)
+    # that of a «Configuración del repo» field (`widgets/env_panel.py`)
     FIELD_HEIGHT = 28
     POPUP_WIDTH = 440
     POPUP_MAX_HEIGHT = 460
@@ -72,8 +72,8 @@ class ActionSearch(QWidget):
         self.box.setClearButtonEnabled(True)
         self.box.setFixedWidth(self.WIDTH)
         # The same height as a «Configuración del repo» field
-        # (`ui/env_panel.py`): it is a text field like the others, in
-        # the same window.
+        # (`widgets/env_panel.py`): it is a text field like the others,
+        # in the same window.
         self.box.setFixedHeight(self.FIELD_HEIGHT)
         self.box.textChanged.connect(self._on_text)
         self.box.installEventFilter(self)
@@ -89,8 +89,8 @@ class ActionSearch(QWidget):
         """Repaint the field like a «Configuración del repo» field.
 
         Same border, height, radius, type size and focus
-        (`ui/env_panel.py`); the background is the repo's color and not
-        the other fields' gray (`theme.SEARCH_FIELD`).
+        (`widgets/env_panel.py`); the background is the repo's color and
+        not the other fields' gray (`theme.SEARCH_FIELD`).
         """
         self.pal = pal
         self._restyle_box()
@@ -147,8 +147,8 @@ class ActionSearch(QWidget):
         """Return the list's style, like a group menu's.
 
         The list hangs from the menu row like a group menu, painted the
-        same (`ui/menu_bar.py::_menu_style`): `panel`, two steps below
-        the bar.
+        same (`widgets/action_menu_bar.py::_menu_style`): `panel`, two
+        steps below the bar.
         """
         popup = theme.SEARCH_LIST.on(self.pal)
         return f"""

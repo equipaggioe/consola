@@ -253,6 +253,6 @@ def repo_protections(state: dict[str, Any]) -> list[Target]:
     """Return all the targets this repo protects, regardless of action.
 
     The status bar's indicator summarizes it
-    (`ui/tab_panel.py::WorkspaceStatusBar`).
+    (`widgets/workspace_status_bar.py::WorkspaceStatusBar`).
     """
     return [t for t in TARGETS if is_protected(state, t)]

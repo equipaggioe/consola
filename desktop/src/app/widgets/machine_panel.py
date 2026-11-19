@@ -23,7 +23,7 @@ from app.services import params_store
 from app.services.palettes import Palette
 from app.services.settings import machine_settings
 from app.theme import Fonts
-from app.ui.env_panel import EnvRow
+from app.widgets.env_row import EnvRow
 
 
 class MachinePanel(QWidget):

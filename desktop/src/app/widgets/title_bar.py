@@ -11,10 +11,10 @@ from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QWidget
 from app import theme
 from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts, tint
-from app.ui.project_tabs import ProjectTab
+from app.widgets.project_tab import ProjectTab
 
 
-class Diamond(QWidget):
+class _Diamond(QWidget):
     """The brand's diamond, painted.
 
     As a character (`◇`) it is a one-pixel stroke lost against the
@@ -60,7 +60,7 @@ class Diamond(QWidget):
         p.end()
 
 
-class BrandMark(QWidget):
+class _BrandMark(QWidget):
     """The app's brand: the diamond and `CONSOLA` on the title bar.
 
     The bar is painted in the active repo's color. It opens the bar, to
@@ -78,7 +78,7 @@ class BrandMark(QWidget):
         layout.setContentsMargins(14, 0, 14, 0)
         layout.setSpacing(9)
 
-        self.diamond = Diamond()
+        self.diamond = _Diamond()
         self.title = QLabel("CONSOLA")
         self.title.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
@@ -99,7 +99,7 @@ class BrandMark(QWidget):
         """)
 
 
-class WindowButton(QPushButton):
+class _WindowButton(QPushButton):
     """Minimize, maximize and close, drawn by us.
 
     The window is frameless (`Qt.FramelessWindowHint`) so the repo tabs
@@ -230,15 +230,15 @@ class TitleBar(QWidget):
         layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(0)
 
-        self.brand = BrandMark()
+        self.brand = _BrandMark()
         layout.addWidget(self.brand)
 
         self.tabs = tabs
         layout.addWidget(self.tabs, 1)
 
-        self.min_btn = WindowButton("min")
-        self.max_btn = WindowButton("max")
-        self.close_btn = WindowButton("close")
+        self.min_btn = _WindowButton("min")
+        self.max_btn = _WindowButton("max")
+        self.close_btn = _WindowButton("close")
         for btn in (self.min_btn, self.max_btn, self.close_btn):
             btn.setFixedHeight(self.HEIGHT)
         self.min_btn.clicked.connect(self.minimize_requested.emit)

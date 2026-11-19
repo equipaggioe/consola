@@ -160,7 +160,7 @@ def applicable_ids(root: Path | str | None) -> set[str]:
 # The difference between the two families is who is asked, and with it
 # how long it takes: the SDK is local, the VPS an SSH round trip. So
 # both resolve off the interface thread
-# (`ui/params_panel.py::AxesLoader`) and both are cached.
+# (`services/axes_loader.py::AxesLoader`) and both are cached.
 
 ANDROID_DEVICES = "android_devices"  # device catalog
 ANDROID_IMAGES = "android_images"  # catalog of published machines
@@ -831,8 +831,8 @@ def load_catalog() -> None:
         )
     )
     # The group's concurrent composite. It has no `func` or adapter: its
-    # body is the dispatcher of `ui/tab_panel.py`, because «one tab per
-    # step, all alive at once» means nothing inside `services/`
+    # body is the dispatcher of `widgets/tab_panel.py`, because «one tab
+    # per step, all alive at once» means nothing inside `services/`
     # (ADR-0011). So it declares `stub=False` by hand.
     registry.register(
         Capability(

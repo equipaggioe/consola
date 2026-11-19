@@ -442,7 +442,7 @@ class TaskContext:
         """Note an SSH tunnel of this task.
 
         Clearing the tab stops it if it has a live one
-        (`ui/tab_panel.py::_on_cleared`).
+        (`widgets/tab_panel.py::_on_cleared`).
         """
         self._tunnels.append(tunnel)
 

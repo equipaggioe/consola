@@ -20,7 +20,7 @@ def missing_keys(capability: Capability, env: dict[str, str], repo_path: str) ->
     nothing saved all steps count, which is what would run by default.
 
     The final question goes to a `Config`, like
-    `ui/params_panel.py::_missing_keys`: a key with a fixed default
+    `widgets/params_panel.py::_missing_keys`: a key with a fixed default
     (`SERVER_DIR='server'`) or a dynamic one (`DB_USER` from the repo's
     name) resolves by itself when running. Looking at the field's raw
     text, ▶ marked it as missing while the panel accepted it.

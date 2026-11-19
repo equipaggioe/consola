@@ -8,7 +8,7 @@ Solo lo que el propio código declara incompleto.
 
 | Punto | Qué dice el código |
 |---|---|
-| **La bitácora no existe** | `ui/tab_panel.py`: «La bitacora todavia no existe (`services/store.py`)». `ctx.note()` está implementado y hay 18 llamadas repartidas en siete módulos de `services/tasks/`; hasta que exista el almacén, cada nota se imprime en la consola con un `✱` y se pierde al cerrar |
+| **La bitácora no existe** | `widgets/tab_panel.py`: «La bitacora todavia no existe (`services/store.py`)». `ctx.note()` está implementado y hay 18 llamadas repartidas en siete módulos de `services/tasks/`; hasta que exista el almacén, cada nota se imprime en la consola con un `✱` y se pierde al cerrar |
 | **No hay botón de Detener** | `services/task_runner.py`: «el boton de Detener todavia no existe en la UI, pero cuando exista no debe encontrarse con una tarea dormida». Se detiene cerrando la pestaña, o con «Limpiar» si hay un túnel ([11](11_ejecucion_de_tareas.md) §7) |
 | **`projects/order`** | `services/project_store.py` declara la clave vieja de `QSettings` y solo la borra en `clear()`. No se lee en ningún lado |
 | **La barra de estado no muestra servicios de fondo** | `WorkspaceStatusBar.add_service` existe y nadie la llama. Un túnel Postgres vivo no aparece ahí |
@@ -38,7 +38,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 | Qué | ADR | Plan |
 |---|---|---|
-| Lo que pide `qt.md` de canone, que ya no está en desarrollo, y Consola no tiene: `windows/`, `dialogs/`, `widgets/`, `models/` y `services/`, las llamadas a cada servicio externo en `api/`, `setOrganizationDomain` y la geometría de la ventana, `@Slot`, el `locale()` al formatear, `open()` en vez de `exec()`, vistas con modelo en el explorador, los roles y los nombres accesibles, Qt Linguist, `pysidedeploy.spec`, el icono, `resources.qrc` y las variables `RELEASE_DESKTOP_*`. `release.yml` falla en un tag hasta tener el `.spec` | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
+| Lo que pide `qt.md` de canone, que ya no está en desarrollo, y Consola no tiene: `setOrganizationDomain` y la geometría de la ventana, `@Slot`, el `locale()` al formatear, `open()` en vez de `exec()`, vistas con modelo en el explorador, los roles y los nombres accesibles, Qt Linguist, `pysidedeploy.spec`, el icono, `resources.qrc` y las variables `RELEASE_DESKTOP_*`. `release.yml` falla en un tag hasta tener el `.spec` | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | La sección «Tema» de canone, sin implementar mientras canone la declare en desarrollo (ADR-0116 de canone) | ADR-0116 de canone | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | «Compilar ejecutable»: empaquetar solo en CI con `pyside6-deploy`, sin PyInstaller, sin subir al VPS, sin número de versión ni manifiesto. Sale el ADR-0024 y cambian el 0025, el 0026 y el punto 4 del 0056 | [0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | Bitácora, historial y presets en un SQLite de la máquina (`services/store.py`) | — | — |
@@ -99,7 +99,7 @@ Construido y nunca probado en condiciones reales:
 
 - **Las pruebas cubren la lógica pura.** Lo que Consola ejecuta de verdad (SSH, `subprocess`, el driver de Postgres) no se prueba aquí: son efectos sobre máquinas y repos ajenos. Sigue sin ejercitar parte de esa lógica pura: `AxisDef` y `kwargs_from` (`services/registry.py`), `protection.decide`, `services/targets.py` y `services/versioning.py`.
 - **La interfaz asume una sola ventana.** `favorites`, `section_visibility` y `project_store` escriben en `QSettings` global, sin instancia.
-- **`ui/tab_panel.py` tiene 1.815 líneas** y concentra el espacio de trabajo entero: sub-pestañas, acordeón, barra de estado, despacho de la ejecución y los diálogos de las preguntas.
+- **`widgets/tab_panel.py` tiene 1.815 líneas** y concentra el espacio de trabajo entero: sub-pestañas, acordeón, barra de estado, despacho de la ejecución y los diálogos de las preguntas.
 - **La app móvil solo se ejecuta contra Android.** `run_mobile` busca emuladores Android y `pick_emulator` filtra por `targetPlatform` que empiece con `android`.
 - **En Linux un túnel sobrevive a una caída de Consola.** `PosixHost.bind_to_app` no hace nada; al cerrar normalmente lo apaga `TabPanel.shutdown()`. El camino es `PR_SET_PDEATHSIG` lanzando los túneles desde un hilo que viva lo que la aplicación ([ADR-0048](../adr/0048-las-diferencias-de-sistema-viven-en-host.md), «Descartado»).
 - **En Linux el PATH de los SDK va a `~/.bashrc` o `~/.zshrc`**, que solo leen las terminales. Consola abierta desde el menú del escritorio no lo ve hasta que se lanza desde una terminal.

@@ -23,8 +23,8 @@ class ActionMenuBar(QMenuBar):
 
     No accordion, and it takes no width. A click opens the action's tab
     through the same signal as the search on the same row
-    (`ui/action_search.py`), so `MainWindow` cannot tell where the click
-    came from. Running at once is left to the search's ▶.
+    (`widgets/action_search.py`), so `MainWindow` cannot tell where the
+    click came from. Running at once is left to the search's ▶.
     """
 
     action_requested = Signal(str)  # capability_id: open its tab

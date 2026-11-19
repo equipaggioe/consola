@@ -49,11 +49,11 @@ Un simulacro no dispara nada, y por eso no pregunta nada: pedir confirmación ah
 | `REMIND` | Rompe algo, pero este repo no protege ninguno de esos objetivos | Recordatorio con el repo a la vista: Cancelar o Continuar. Ni palabra escrita ni nombre de repo |
 | `BLOCK` | Toca un objetivo protegido en este repo | No corre. El aviso **no ofrece forma de saltarlo** |
 
-El bloqueo no tiene escape por diseño: el seguro se quita en la sección Seguridad, una vez, con la cabeza fría. Los dos diálogos viven en `ui/guard_dialog.py`, y `BlockedDialog` ni siquiera hereda de algo que tenga botón de aceptar.
+El bloqueo no tiene escape por diseño: el seguro se quita en la sección Seguridad, una vez, con la cabeza fría. Los dos diálogos viven en `dialogs/guard_dialog.py`, y `BlockedDialog` ni siquiera hereda de algo que tenga botón de aceptar.
 
 ## 5. Dónde se aplica y dónde se decide
 
-- **Se aplica** en `ui/tab_panel.py::_run`, que es el único punto por el que pasan las dos formas de ejecutar —el botón Ejecutar y el ▶ del buscador—. Ponerlo en el panel de parámetros dejaría el segundo camino sin red.
+- **Se aplica** en `widgets/tab_panel.py::_run`, que es el único punto por el que pasan las dos formas de ejecutar —el botón Ejecutar y el ▶ del buscador—. Ponerlo en el panel de parámetros dejaría el segundo camino sin red.
 - **Se decide** en la sección Seguridad del panel derecho, no entre los parámetros: un seguro que se quita en el mismo gesto con el que se aprieta Ejecutar se vuelve parte del gesto, y a las dos semanas se quita sin leerlo.
 - **Se ve** en la barra de estado: un candado por objetivo, abierto o cerrado, y un clic salta a la sección. El indicador lee el panel, la misma fuente que consulta el guard, para que no puedan decir cosas distintas.
 

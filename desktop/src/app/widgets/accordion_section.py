@@ -16,7 +16,7 @@ from app.theme import Colors, Fonts
 NO_CAP = 16777215
 
 
-class AccordionHeader(QWidget):
+class _AccordionHeader(QWidget):
     """A section's clickable bar, always visible, open or not.
 
     It is what keeps all sections visible even if only one fits open.
@@ -122,7 +122,7 @@ class AccordionSection(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        self.header = AccordionHeader(title)
+        self.header = _AccordionHeader(title)
         self.header.clicked.connect(self.toggle)
         root.addWidget(self.header)
         root.addWidget(body, 1)
@@ -161,7 +161,7 @@ class AccordionSection(QWidget):
 
     def header_height(self) -> int:
         """Return the height of the header alone."""
-        return AccordionHeader.HEIGHT
+        return _AccordionHeader.HEIGHT
 
     def set_expanded(self, value: bool, announce: bool = True) -> None:
         """Open or close it, and tell the listeners if `announce`."""
@@ -170,8 +170,8 @@ class AccordionSection(QWidget):
         self._expanded = value
         self.body.setVisible(value)
         self.header.chevron.setText("▾" if value else "▸")
-        self.setMinimumHeight(AccordionHeader.HEIGHT)
-        self.setMaximumHeight(NO_CAP if value else AccordionHeader.HEIGHT)
+        self.setMinimumHeight(_AccordionHeader.HEIGHT)
+        self.setMaximumHeight(NO_CAP if value else _AccordionHeader.HEIGHT)
         if announce:
             self.toggled.emit(value)
 
@@ -200,70 +200,3 @@ class AccordionSection(QWidget):
         Whoever set the body repaints it, since each panel has its own.
         """
         self.header.set_palette(pal)
-
-
-class SectionResizeGrip(QWidget):
-    """A thin bar between two open sections of the accordion.
-
-    Dragging it shares the height by hand: what the upper section gains,
-    the rest lose (`TabPanel._resize_section`). A double click returns
-    to the automatic sharing. It shows only when there is something to
-    negotiate with: its section open and at least one open below.
-    """
-
-    pressed = Signal()  # a drag starts: resync with reality
-    # px moved since the last event (+ = grow the upper section)
-    dragged = Signal(int)
-    reset = Signal()
-
-    HEIGHT = 7
-
-    def __init__(self, parent: QWidget | None = None) -> None:
-        """Build the bar."""
-        super().__init__(parent)
-        self.setObjectName("sectionGrip")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-        self.setFixedHeight(self.HEIGHT)
-        self.setCursor(Qt.CursorShape.SplitVCursor)
-        self.pal = NEUTRAL
-        self._restyle()
-        self._last_y: float | None = None
-
-    def set_palette(self, pal: Palette) -> None:
-        """Repaint with the palette of the repo."""
-        self.pal = pal
-        self._restyle()
-
-    def _restyle(self) -> None:
-        grip = theme.SECTION_GRIP.on(self.pal)
-        self.setStyleSheet(f"""
-            QWidget#sectionGrip {{
-                background: {grip.bg};
-                border-bottom: 1px solid {grip.border};
-            }}
-            QWidget#sectionGrip:hover {{ background: {grip.hover}; }}
-        """)
-
-    @override
-    def mousePressEvent(self, event: QMouseEvent) -> None:
-        if event.button() == Qt.MouseButton.LeftButton:
-            self._last_y = event.globalPosition().y()
-            self.pressed.emit()
-
-    @override
-    def mouseMoveEvent(self, event: QMouseEvent) -> None:
-        if self._last_y is None:
-            return
-        y = event.globalPosition().y()
-        delta = int(y - self._last_y)
-        if delta:
-            self._last_y = y
-            self.dragged.emit(delta)
-
-    @override
-    def mouseReleaseEvent(self, event: QMouseEvent) -> None:
-        self._last_y = None
-
-    @override
-    def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
-        self.reset.emit()
