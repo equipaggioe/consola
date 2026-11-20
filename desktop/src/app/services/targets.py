@@ -8,6 +8,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.errors import TaskError
 from app.services.files import read_text
 
@@ -259,12 +261,24 @@ def pick(root: Path, kinds: Sequence[str], name: str = "") -> Target:
         for target in found:
             if target.name == name:
                 return target
-        raise TaskError(f'No hay ningun {label} llamado "{name}" en {root.name}.')
+        raise TaskError(
+            QCoreApplication.translate(
+                "targets", 'No hay ningun {0} llamado "{1}" en {2}.'
+            ).format(label, name, root.name)
+        )
     if not found:
-        raise TaskError(f"{root.name} no tiene ningun subproyecto de tipo {label}.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "targets", "{0} no tiene ningun subproyecto de tipo {1}."
+            ).format(root.name, label)
+        )
     if len(found) > 1:
         choose = ", ".join(t.name for t in found)
-        raise TaskError(f"Hay mas de un {label} en {root.name}: {choose}. Elige uno.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "targets", "Hay mas de un {0} en {1}: {2}. Elige uno."
+            ).format(label, root.name, choose)
+        )
     return found[0]
 
 

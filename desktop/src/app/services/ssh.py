@@ -10,6 +10,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import process
 from app.services.context import TaskContext
 from app.services.envfile import Config
@@ -32,7 +34,9 @@ def resolve_identity(key_name: str) -> Path:
     """Return the private key's path, or stop if it does not exist."""
     path = identity_path(key_name)
     if not path.is_file():
-        raise TaskError(f"No existe la llave privada local: {path}")
+        raise TaskError(
+            QCoreApplication.translate("ssh", "No existe la llave privada local: {0}").format(path)
+        )
     return path
 
 
@@ -239,8 +243,11 @@ def _askpass(ctx: TaskContext, password: str) -> dict[str, str]:
 def _with_password(ctx: TaskContext, argv: list[str], remote: Remote, password: str) -> None:
     if ctx.run(argv, env=_askpass(ctx, password), check=False) != 0:
         raise TaskError(
-            f"Falló como {remote.target} con la contraseña: puede estar mal, el VPS no "
-            "acepta contraseñas o el comando falló (arriba)."
+            QCoreApplication.translate(
+                "ssh",
+                "Falló como {0} con la contraseña: puede estar mal, el VPS no acepta "
+                "contraseñas o el comando falló (arriba).",
+            ).format(remote.target)
         )
 
 
@@ -289,13 +296,18 @@ def upload(
     the new one stays buried a level below.
     """
     if not local.exists():
-        raise TaskError(f"No existe la ruta local: {local}")
+        raise TaskError(
+            QCoreApplication.translate("ssh", "No existe la ruta local: {0}").format(local)
+        )
 
     parent, _, base = remote_path.rpartition("/")
     if local.is_dir() and base != local.name:
         raise TaskError(
-            f"La carpeta local {local.name!r} no coincide con el destino remoto "
-            f"{base!r}: scp -r no renombra, la dejaria en {remote_path}/{local.name}."
+            QCoreApplication.translate(
+                "ssh",
+                "La carpeta local {0!r} no coincide con el destino remoto {1!r}: scp -r "
+                "no renombra, la dejaria en {2}/{3}.",
+            ).format(local.name, base, remote_path, local.name)
         )
     if make_parent and parent:
         ensure_dir(remote, parent)
@@ -386,7 +398,9 @@ def ensure_local_keypair(ctx: TaskContext, key_name: str, *, comment: str = "") 
     """Create `~/.ssh/<key_name>` if missing. Idempotent."""
     private = identity_path(key_name)
     if private.is_file():
-        ctx.info(f"La llave local ya existe: {private}")
+        ctx.info(
+            QCoreApplication.translate("ssh", "La llave local ya existe: {0}").format(private)
+        )
         return private
 
     private.parent.mkdir(parents=True, exist_ok=True)
@@ -405,7 +419,9 @@ def public_key(private: Path) -> str:
     """Return the text of the public key."""
     pub = public_key_path(private)
     if not pub.is_file():
-        raise TaskError(f"No existe la llave publica: {pub}")
+        raise TaskError(
+            QCoreApplication.translate("ssh", "No existe la llave publica: {0}").format(pub)
+        )
     return pub.read_text(encoding="utf-8").strip()
 
 

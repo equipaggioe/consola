@@ -6,7 +6,7 @@ import threading
 from collections.abc import Callable
 from typing import Any, override
 
-from PySide6.QtCore import QObject, QThread, Signal
+from PySide6.QtCore import QCoreApplication, QObject, QThread, Signal
 
 from app.services import params_store
 from app.services.context import TaskContext
@@ -83,7 +83,7 @@ class TaskRunner(QThread):
 
     def _raise_if_cancelled(self) -> None:
         if self._ctx is not None and self._ctx.cancelled:
-            raise Cancelled("Detenido por el usuario.")
+            raise Cancelled(QCoreApplication.translate("TaskRunner", "Detenido por el usuario."))
 
     def provide_answer(self, answer: str) -> None:
         """Give the dialog's answer. The interface thread calls this."""
@@ -129,7 +129,7 @@ class TaskRunner(QThread):
         try:
             self.result = self._func(ctx, **self._kwargs)
         except Cancelled:
-            ctx.warn("Detenido por el usuario.")
+            ctx.warn(QCoreApplication.translate("TaskRunner", "Detenido por el usuario."))
             self._done(False)
             return
         except (TaskError, MissingConfig) as exc:
@@ -137,7 +137,9 @@ class TaskRunner(QThread):
             self._done(False)
             return
         except Exception as exc:  # never let the thread die in silence
-            ctx.error(f"Error inesperado: {exc}")
+            ctx.error(
+                QCoreApplication.translate("TaskRunner", "Error inesperado: {0}").format(exc)
+            )
             self._done(False)
             return
         self._done(True)

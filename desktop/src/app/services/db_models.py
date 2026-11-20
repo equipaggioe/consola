@@ -19,6 +19,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import db_explorer, process
 from app.services.errors import TaskError
 from app.services.host import HOST
@@ -125,7 +127,9 @@ def _python(server_root: Path) -> str:
     found = process.which_any(["python", "python3"])
     if not found:
         raise TaskError(
-            f"No hay venv en {server_root} ni Python en el PATH para leer los modelos."
+            QCoreApplication.translate(
+                "db_models", "No hay venv en {0} ni Python en el PATH para leer los modelos."
+            ).format(server_root)
         )
     return found
 
@@ -133,18 +137,26 @@ def _python(server_root: Path) -> str:
 def read_models(server_root: Path) -> list[ModelTable]:
     """Return the models of the repo, importing them with its Python."""
     if not (server_root / MODELS_DIR).is_dir():
-        raise TaskError(f"No existe {server_root / MODELS_DIR}.")
+        raise TaskError(
+            QCoreApplication.translate("db_models", "No existe {0}.").format(
+                server_root / MODELS_DIR
+            )
+        )
     try:
         out = process.capture([_python(server_root), "-c", _PAYLOAD], cwd=server_root, timeout=60)
     except TaskError as exc:
         # The traceback's last line is what says what was missing.
         lines = [row for row in str(exc).strip().splitlines() if row.strip()]
         raise TaskError(
-            f"No se pudieron importar los modelos: {lines[-1] if lines else exc}"
+            QCoreApplication.translate(
+                "db_models", "No se pudieron importar los modelos: {0}"
+            ).format(lines[-1] if lines else exc)
         ) from exc
     payload = out[out.rfind(_MARK) + len(_MARK) :] if _MARK in out else ""
     if not payload:
-        raise TaskError("Leer los modelos no devolvio nada.")
+        raise TaskError(
+            QCoreApplication.translate("db_models", "Leer los modelos no devolvio nada.")
+        )
     return [
         ModelTable(
             schema=t["schema"] or DEFAULT_SCHEMA,
@@ -179,10 +191,16 @@ class ColumnDiff:
     def text(self) -> str:
         """Return the difference as text."""
         if not self.db:
-            return f"{self.column}: falta en la base ({self.model})"
+            return QCoreApplication.translate("ColumnDiff", "{0}: falta en la base ({1})").format(
+                self.column, self.model
+            )
         if not self.model:
-            return f"{self.column}: sobra en la base ({self.db})"
-        return f"{self.column}: base {self.db} · modelo {self.model}"
+            return QCoreApplication.translate("ColumnDiff", "{0}: sobra en la base ({1})").format(
+                self.column, self.db
+            )
+        return QCoreApplication.translate("ColumnDiff", "{0}: base {1} · modelo {2}").format(
+            self.column, self.db, self.model
+        )
 
 
 @dataclass

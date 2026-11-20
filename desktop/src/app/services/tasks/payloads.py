@@ -16,6 +16,8 @@ own venv can execute.
 
 from __future__ import annotations
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.context import TaskContext
 from app.services.errors import TaskError
 from app.services.runner import Runner
@@ -122,7 +124,9 @@ def run(ctx: TaskContext, runner: Runner, source: str, *args: str) -> int:
     of code hiding the seeder's output.
     """
     if source not in SOURCES:
-        raise TaskError(f"Payload desconocido: {source!r}")
+        raise TaskError(
+            QCoreApplication.translate("payloads", "Payload desconocido: {0!r}").format(source)
+        )
 
     runner.log_command(ctx, " ".join(["-c", f"<{source}>", *args]))
     return runner.run(ctx, "-c", SOURCES[source], *args, echo=False)

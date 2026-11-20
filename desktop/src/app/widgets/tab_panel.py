@@ -5,7 +5,17 @@ from __future__ import annotations
 import time
 from typing import Any, override
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRectF, Qt, QTimer, Signal, Slot
+from PySide6.QtCore import (
+    QCoreApplication,
+    QEvent,
+    QObject,
+    QPoint,
+    QRectF,
+    Qt,
+    QTimer,
+    Signal,
+    Slot,
+)
 from PySide6.QtGui import (
     QColor,
     QEnterEvent,
@@ -47,7 +57,7 @@ from app.services.catalog import forget_machine_cache
 from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.registry import Capability, registry
-from app.services.section_visibility import SECTIONS
+from app.services.section_visibility import title as section_title
 from app.services.task_runner import TaskRunner
 from app.theme import Colors, Fonts
 from app.widgets.accordion_section import AccordionSection
@@ -100,7 +110,9 @@ class _SubTabButton(ReorderableTab):
         self.title_label = QLabel(title)
 
         self.close_btn = QPushButton("×")
-        self.close_btn.setAccessibleName("Cerrar pestaña")
+        self.close_btn.setAccessibleName(
+            QCoreApplication.translate("_SubTabButton", "Cerrar pestaña")
+        )
         self.close_btn.setFixedSize(18, 18)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.setStyleSheet(f"""
@@ -225,17 +237,23 @@ class _SubTabButton(ReorderableTab):
         p.end()
 
 
-# The tab of «Configuración del repo» (`TabPanel._open_config_tab`). It
-# is no catalog action: nothing runs it, so it is not registered; it
-# only gives the tab its name, icon and tooltip.
-CONFIG_TAB = Capability(
-    id="repo_config",
-    name="Configuración del repo",
-    group="",
-    kind="once",
-    icon="⚙️",
-    description="Lo que hicieron los botones de Configuración del repo: guardar e importar.",
-)
+def _config_tab() -> Capability:
+    """Return the tab of «Configuración del repo».
+
+    It is no catalog action: nothing runs it, so it is not registered;
+    it only gives the tab its name, icon and tooltip.
+    """
+    return Capability(
+        id="repo_config",
+        name=QCoreApplication.translate("tab_panel", "Configuración del repo"),
+        group="",
+        kind="once",
+        icon="⚙️",
+        description=QCoreApplication.translate(
+            "tab_panel",
+            "Lo que hicieron los botones de Configuración del repo: guardar e importar.",
+        ),
+    )
 
 
 class TabPanel(ReorderableBar):
@@ -295,7 +313,11 @@ class TabPanel(ReorderableBar):
         self.tabs_layout.setSpacing(2)
         sub_bar_layout.addLayout(self.tabs_layout)
 
-        self.empty_hint = QLabel("sin acciones abiertas — elige una del panel izquierdo")
+        self.empty_hint = QLabel(
+            QCoreApplication.translate(
+                "TabPanel", "sin acciones abiertas — elige una del panel izquierdo"
+            )
+        )
         self.empty_hint.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
         )
@@ -335,26 +357,28 @@ class TabPanel(ReorderableBar):
         # Its header always says «Acción»; folded, that is all that
         # shows.
         self.info_panel = CommandInfoPanel()
-        self.info_section = AccordionSection(SECTIONS["accion"], self.info_panel, expanded=False)
+        self.info_section = AccordionSection(
+            section_title("accion"), self.info_panel, expanded=False
+        )
         # Folded at first: its header already sums up how many targets
         # are protected (`_refresh_security_summary`), so opening it is
         # only to touch the guards, not to find out.
         self.security_section = AccordionSection(
-            SECTIONS["seguridad"], self.security_panel, expanded=False
+            section_title("seguridad"), self.security_panel, expanded=False
         )
         # Open at first and without folding by itself: it is the section
         # used on each run, and opening an action only to have to open
         # this too is one click too many. `_relayout_right` gives it its
         # full natural height.
         self.params_section = AccordionSection(
-            SECTIONS["parametros"], self.params_stack, expanded=True
+            section_title("parametros"), self.params_stack, expanded=True
         )
-        self.config_section = AccordionSection(SECTIONS["configuracion"], self.env_panel)
+        self.config_section = AccordionSection(section_title("configuracion"), self.env_panel)
         # The machine keys: the only place they edit. Last, below the
         # repo's, and hidden until the Ver menu shows it.
         self.machine_panel = MachinePanel(self.pal, self.env_panel.label_width)
         self.machine_panel.saved.connect(self.machine_saved.emit)
-        self.machine_section = AccordionSection(SECTIONS["maquina"], self.machine_panel)
+        self.machine_section = AccordionSection(section_title("maquina"), self.machine_panel)
         # config.env's state goes in the section's label, not on a
         # separate line of its footer.
         self.env_panel.file_status_changed.connect(self._show_file_status)
@@ -553,13 +577,14 @@ class TabPanel(ReorderableBar):
         section shows the whole file, unfiltered. It is not reopened at
         start, since it only holds a log (`_persist_tabs` skips it).
         """
-        tab = _SubTabButton(CONFIG_TAB.name, self.pal)
-        tab.setToolTip(CONFIG_TAB.description)
+        config = _config_tab()
+        tab = _SubTabButton(config.name, self.pal)
+        tab.setToolTip(config.description)
         self.tabs_layout.addWidget(tab)
         self.tabs.append(tab)
-        view = TabView(CONFIG_TAB, self.project, self.content_area)
+        view = TabView(config, self.project, self.content_area)
         view.set_palette(self.pal)
-        view.console.append_log(f"─── {CONFIG_TAB.name} ───", "info")
+        view.console.append_log(f"─── {config.name} ───", "info")
         self.content_area.addWidget(view)
         self._views[tab] = view
         self._consoles[tab] = view.console
@@ -591,7 +616,9 @@ class TabPanel(ReorderableBar):
         )
         self.welcome_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        subtitle = QLabel("Selecciona una accion del panel izquierdo")
+        subtitle = QLabel(
+            QCoreApplication.translate("TabPanel", "Selecciona una accion del panel izquierdo")
+        )
         subtitle.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_BASE}px;"
         )
@@ -617,7 +644,9 @@ class TabPanel(ReorderableBar):
         lay = QVBoxLayout(w)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setContentsMargins(20, 20, 20, 20)
-        hint = QLabel("Los parámetros de la acción\naparecen aquí")
+        hint = QLabel(
+            QCoreApplication.translate("TabPanel", "Los parámetros de la acción\naparecen aquí")
+        )
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hint.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
@@ -636,7 +665,7 @@ class TabPanel(ReorderableBar):
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
         lay.addStretch()
-        btn = QPushButton("Ejecutar")
+        btn = QPushButton(QCoreApplication.translate("TabPanel", "Ejecutar"))
         btn.setFixedHeight(34)
         btn.setEnabled(False)
         self._footer_placeholder_btn = btn
@@ -664,7 +693,12 @@ class TabPanel(ReorderableBar):
             # The search thought it could run: say why not, in the same
             # console where the result would have appeared.
             for reason in panel.blockers():
-                console.append_log(f"no se puede correr: {reason}", "warn")
+                console.append_log(
+                    QCoreApplication.translate("TabPanel", "no se puede correr: {0}").format(
+                        reason
+                    ),
+                    "warn",
+                )
 
     def open_tab(self, capability: Capability, axis_value: str = "") -> ConsoleView:
         """Open or focus an action's tab. **It runs nothing**.
@@ -1157,7 +1191,7 @@ class TabPanel(ReorderableBar):
 
     def _show_sections_menu(self, global_pos: QPoint) -> None:
         menu = QMenu(self)
-        menu.addSection("Secciones visibles")
+        menu.addSection(QCoreApplication.translate("TabPanel", "Secciones visibles"))
         for section in self._all_sections:
             sid = self._section_ids[section]
             item = menu.addAction(section.header.title.text().capitalize())
@@ -1240,7 +1274,11 @@ class TabPanel(ReorderableBar):
         protected = len(protection.repo_protections(state))
         total = len(protection.TARGETS)
         self.security_section.set_summary(
-            f"{protected} de {total} protegidos" if protected else "sin seguros"
+            QCoreApplication.translate("TabPanel", "{0} de {1} protegidos").format(
+                protected, total
+            )
+            if protected
+            else QCoreApplication.translate("TabPanel", "sin seguros")
         )
 
     @Slot(dict)
@@ -1352,11 +1390,13 @@ class TabPanel(ReorderableBar):
             blocked = BlockedDialog(self.project, capability.name, targets, self)
             blocked.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
             blocked.open()
-            which = ", ".join(t.label for t in targets)
+            which = ", ".join(QCoreApplication.translate("protection", t.label) for t in targets)
             console.append_log(
-                f"Bloqueado: {capability.name} toca {which} y este repo lo "
-                f"tiene protegido. El seguro se quita en Configuracion, "
-                f"seccion Seguridad.",
+                QCoreApplication.translate(
+                    "TabPanel",
+                    "Bloqueado: {0} toca {1} y este repo lo tiene protegido. El seguro se "
+                    "quita en Configuracion, seccion Seguridad.",
+                ).format(capability.name, which),
                 "error",
             )
             return
@@ -1369,7 +1409,9 @@ class TabPanel(ReorderableBar):
 
         def on_rejected() -> None:
             console.append_log(
-                f"Cancelado: {capability.name} no llego a correr sobre {self.project.name}.",
+                QCoreApplication.translate(
+                    "TabPanel", "Cancelado: {0} no llego a correr sobre {1}."
+                ).format(capability.name, self.project.name),
                 "warn",
             )
 
@@ -1413,7 +1455,9 @@ class TabPanel(ReorderableBar):
         self._retitle(tab, f"{capability.name} {first}")
         if rest:
             self._consoles[tab].append_log(
-                f"{len(values)} apps marcadas: una pestaña por cada una ({', '.join(values)}).",
+                QCoreApplication.translate(
+                    "TabPanel", "{0} apps marcadas: una pestaña por cada una ({1})."
+                ).format(len(values), ", ".join(values)),
                 "info",
             )
         self._run_real(
@@ -1443,21 +1487,38 @@ class TabPanel(ReorderableBar):
         `sleep`.
         """
         console = self._consoles[tab]
-        console.append_log(f"{capability.name}: cada paso va a su propia pestaña.", "info")
+        console.append_log(
+            QCoreApplication.translate(
+                "TabPanel", "{0}: cada paso va a su propia pestaña."
+            ).format(capability.name),
+            "info",
+        )
         launched = []
         for step_id in payload.get("steps") or []:
             sub_cap = registry.get_capability(step_id)
             if sub_cap is None:
-                console.append_log(f"paso desconocido: {step_id}", "warn")
+                console.append_log(
+                    QCoreApplication.translate("TabPanel", "paso desconocido: {0}").format(
+                        step_id
+                    ),
+                    "warn",
+                )
                 continue
             console.append_log(f"→ {sub_cap.name}", "info")
             self.quick_run(sub_cap)
             launched.append(sub_cap.name)
         self._activate(tab)
         if launched:
-            console.append_log(f"Lanzados: {', '.join(launched)}.", "ok")
+            console.append_log(
+                QCoreApplication.translate("TabPanel", "Lanzados: {0}.").format(
+                    ", ".join(launched)
+                ),
+                "ok",
+            )
         else:
-            console.append_log("Ningún paso marcado.", "warn")
+            console.append_log(
+                QCoreApplication.translate("TabPanel", "Ningún paso marcado."), "warn"
+            )
 
     def _run_real(
         self,
@@ -1506,7 +1567,12 @@ class TabPanel(ReorderableBar):
         runner.ask_requested.connect(on_ask)
 
         def _on_done(ok: bool) -> None:
-            console.append_log("Hecho" if ok else "Terminó con errores", "ok" if ok else "error")
+            console.append_log(
+                QCoreApplication.translate("TabPanel", "Hecho")
+                if ok
+                else QCoreApplication.translate("TabPanel", "Terminó con errores"),
+                "ok" if ok else "error",
+            )
             # The process died: the URL stops being offered as alive and
             # the tab returns to the console, where the reason is.
             if view is not None:
@@ -1571,7 +1637,11 @@ class TabPanel(ReorderableBar):
         if expect or shape in (context.ASK_SECRET, context.ASK_TEXT):
             dialog = QInputDialog(self)
             dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
-            dialog.setWindowTitle("Confirmar" if expect else "Dato requerido")
+            dialog.setWindowTitle(
+                QCoreApplication.translate("TabPanel", "Confirmar")
+                if expect
+                else QCoreApplication.translate("TabPanel", "Dato requerido")
+            )
             dialog.setLabelText(question)
             if not expect and shape == context.ASK_SECRET:
                 dialog.setTextEchoMode(QLineEdit.EchoMode.Password)
@@ -1591,10 +1661,18 @@ class TabPanel(ReorderableBar):
         box = QMessageBox(self)
         box.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         box.setIcon(QMessageBox.Icon.Warning if danger else QMessageBox.Icon.Question)
-        box.setWindowTitle("Confirmar" if danger else "Pregunta")
+        box.setWindowTitle(
+            QCoreApplication.translate("TabPanel", "Confirmar")
+            if danger
+            else QCoreApplication.translate("TabPanel", "Pregunta")
+        )
         box.setText(question)
-        yes = box.addButton("Sí", QMessageBox.ButtonRole.YesRole)
-        no = box.addButton("No", QMessageBox.ButtonRole.NoRole)
+        yes = box.addButton(
+            QCoreApplication.translate("TabPanel", "Sí"), QMessageBox.ButtonRole.YesRole
+        )
+        no = box.addButton(
+            QCoreApplication.translate("TabPanel", "No"), QMessageBox.ButtonRole.NoRole
+        )
         box.setDefaultButton(no)
 
         def on_button(_result: int) -> None:
@@ -1621,14 +1699,31 @@ class TabPanel(ReorderableBar):
         for values in variants.values():
             combos *= max(1, len(values))
         steps = payload["steps"]
-        console.append_log(f"{len(steps)} paso(s) × {combos} variante(s)", "info")
+        console.append_log(
+            QCoreApplication.translate("TabPanel", "{0} paso(s) × {1} variante(s)").format(
+                len(steps), combos
+            ),
+            "info",
+        )
 
         for step_id in steps:
             for _ in range(combos):
                 pass
-            console.append_log(f"paso «{step_id}» — no implementado (stub)", "warn")
+            console.append_log(
+                QCoreApplication.translate(
+                    "TabPanel", "paso «{0}» — no implementado (stub)"
+                ).format(step_id),
+                "warn",
+            )
 
         if payload["missing_env"]:
-            console.append_log(f"faltan claves: {', '.join(payload['missing_env'])}", "error")
+            console.append_log(
+                QCoreApplication.translate("TabPanel", "faltan claves: {0}").format(
+                    ", ".join(payload["missing_env"])
+                ),
+                "error",
+            )
         else:
-            console.append_log("Simulación completada", "ok")
+            console.append_log(
+                QCoreApplication.translate("TabPanel", "Simulación completada"), "ok"
+            )

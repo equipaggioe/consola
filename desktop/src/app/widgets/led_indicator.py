@@ -4,7 +4,14 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import Property, QEasingCurve, QObject, QPropertyAnimation, Qt
+from PySide6.QtCore import (
+    Property,
+    QCoreApplication,
+    QEasingCurve,
+    QObject,
+    QPropertyAnimation,
+    Qt,
+)
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleInterface,
@@ -17,6 +24,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QAccessibleWidget, QWidget
 
+from app.services.language import QT_TRANSLATE_NOOP
 from app.theme import Colors
 
 
@@ -34,11 +42,11 @@ class LedIndicator(QWidget):
     # What each state says to assistive technology, which does not see
     # the color. Whoever places the LED gives it its name.
     WORDS = {
-        "off": "apagado",
-        "on": "encendido",
-        "green": "activo",
-        "amber": "con advertencia",
-        "red": "con error",
+        "off": QT_TRANSLATE_NOOP("LedIndicator", "apagado"),
+        "on": QT_TRANSLATE_NOOP("LedIndicator", "encendido"),
+        "green": QT_TRANSLATE_NOOP("LedIndicator", "activo"),
+        "amber": QT_TRANSLATE_NOOP("LedIndicator", "con advertencia"),
+        "red": QT_TRANSLATE_NOOP("LedIndicator", "con error"),
     }
 
     def __init__(self, parent: QWidget | None = None, size: int = 10) -> None:
@@ -46,7 +54,9 @@ class LedIndicator(QWidget):
         super().__init__(parent)
         self.setFixedSize(size, size)
         self._state = "off"
-        self.setAccessibleDescription(self.WORDS["off"])
+        self.setAccessibleDescription(
+            QCoreApplication.translate("LedIndicator", self.WORDS["off"])
+        )
         self._opacity = 1.0
         self._size = size
 
@@ -61,7 +71,9 @@ class LedIndicator(QWidget):
         """Set the state, and start or stop the pulse."""
         self._state = state
         # Qt sends the change of description to assistive technology.
-        self.setAccessibleDescription(self.WORDS[state])
+        self.setAccessibleDescription(
+            QCoreApplication.translate("LedIndicator", self.WORDS[state])
+        )
         if state == "green":
             if self.animation.state() != QPropertyAnimation.State.Running:
                 self.animation.start()

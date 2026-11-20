@@ -7,6 +7,7 @@ from typing import Any, override
 
 from PySide6.QtCore import (
     QAbstractTableModel,
+    QCoreApplication,
     QModelIndex,
     QObject,
     QPersistentModelIndex,
@@ -67,7 +68,7 @@ class StructureModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.ToolTipRole:
             return value if len(value) > 40 else None
         if role == Qt.ItemDataRole.AccessibleTextRole:
-            return value or "vacío"
+            return value or QCoreApplication.translate("StructureModel", "vacío")
         if role == Qt.ItemDataRole.AccessibleDescriptionRole:
             return self.headers[index.column()]
         if role == Qt.ItemDataRole.FontRole and index.column() == 0:

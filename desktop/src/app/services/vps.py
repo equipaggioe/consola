@@ -5,8 +5,11 @@ from __future__ import annotations
 import re
 from collections.abc import Iterable
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.envfile import Config
 from app.services.errors import TaskError
+from app.services.language import QT_TRANSLATE_NOOP
 from app.services.ssh import Remote, capture, quote, reachable, succeeds
 
 SUDO = "sudo -n"
@@ -27,7 +30,11 @@ def repo_name(config: Config) -> str:
         return url.rstrip("/").rsplit("/", 1)[-1].removesuffix(".git")
     if config.repo_name:
         return config.repo_name
-    raise TaskError("No se puede deducir el nombre del repo: falta GIT_REPO_URL.")
+    raise TaskError(
+        QCoreApplication.translate(
+            "vps", "No se puede deducir el nombre del repo: falta GIT_REPO_URL."
+        )
+    )
 
 
 def deploy_root(config: Config) -> str:
@@ -68,12 +75,12 @@ PACKAGE_SERVICES = ("caddy", "coturn")
 RECEIVER_SERVICE = "backup"
 STARTING_ACTIONS = ("start", "restart")
 SERVICE_LABELS = {
-    MAIN_SERVICE: "Servidor",
+    MAIN_SERVICE: QT_TRANSLATE_NOOP("vps", "Servidor"),
     "valkey": "Valkey",
-    "sweep": "Barrido",
-    "purge": "Purga",
-    "dump": "Volcado",
-    "backup": "Respaldo",
+    "sweep": QT_TRANSLATE_NOOP("vps", "Barrido"),
+    "purge": QT_TRANSLATE_NOOP("vps", "Purga"),
+    "dump": QT_TRANSLATE_NOOP("vps", "Volcado"),
+    "backup": QT_TRANSLATE_NOOP("vps", "Respaldo"),
     "caddy": "Caddy",
     "coturn": "Coturn",
 }
@@ -90,7 +97,10 @@ _TASK = re.compile(r"[a-z][a-z0-9_]{0,30}")
 # its unit is its instance of `<app>-browser@` (ADR-0172 of canone).
 BROWSER = "browser:"
 # Each kind of task, by its axis prefix: its unit and its label.
-_TASK_UNITS = {TASK: ("task", "Tarea"), BROWSER: ("browser", "Tarea con navegador")}
+_TASK_UNITS = {
+    TASK: ("task", QT_TRANSLATE_NOOP("vps", "Tarea")),
+    BROWSER: ("browser", QT_TRANSLATE_NOOP("vps", "Tarea con navegador")),
+}
 
 
 def _fixed_units(app: str) -> dict[str, str]:
@@ -103,12 +113,13 @@ def service_labels(values: Iterable[str]) -> dict[str, str]:
     """Return what the axis shows for each value."""
     pieces = {v: f"Java: {v.removeprefix(JAVA)}" for v in values if v.startswith(JAVA)}
     tasks = {
-        v: f"{label}: {v.removeprefix(prefix)}"
+        v: f"{QCoreApplication.translate('vps', label)}: {v.removeprefix(prefix)}"
         for v in values
         for prefix, (_, label) in _TASK_UNITS.items()
         if v.startswith(prefix)
     }
-    return {**SERVICE_LABELS, **pieces, **tasks}
+    fixed = {v: QCoreApplication.translate("vps", label) for v, label in SERVICE_LABELS.items()}
+    return {**fixed, **pieces, **tasks}
 
 
 def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
@@ -122,7 +133,9 @@ def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
             return f"{app}-{unit}@{task}"
     found = _fixed_units(app)
     if which not in found:
-        raise TaskError(f"Servicio desconocido: {which}")
+        raise TaskError(
+            QCoreApplication.translate("vps", "Servicio desconocido: {0}").format(which)
+        )
     return found[which]
 
 
@@ -143,7 +156,9 @@ def installed_services(remote: Remote, app: str) -> list[str]:
     names = {unit: value for value, unit in _fixed_units(app).items()}
     if not reachable(remote):
         raise TaskError(
-            f"No se entra al VPS como {remote.target}: no se puede preguntar qué servicios tiene."
+            QCoreApplication.translate(
+                "vps", "No se entra al VPS como {0}: no se puede preguntar qué servicios tiene."
+            ).format(remote.target)
         )
     listing = " ".join(quote(n) for n in names)
     pieces = quote(f"{app}-java@*")
@@ -200,7 +215,9 @@ def service_state(remote: Remote, service: str) -> str:
 def systemctl_command(action: str, service: str) -> str:
     """Return a systemd action on a VPS service, without `sudo`."""
     if action not in ALL_ACTIONS:
-        raise TaskError(f"Accion de systemd desconocida: {action}")
+        raise TaskError(
+            QCoreApplication.translate("vps", "Accion de systemd desconocida: {0}").format(action)
+        )
     if action == "daemon-reload":
         return "systemctl daemon-reload"
     return f"systemctl {action} {quote(service)}"
@@ -246,7 +263,11 @@ def postgres_port(remote: Remote) -> int:
     """Return Postgres's real port on the VPS, asking the server."""
     raw = capture(remote, f'{SUDO} -u postgres psql -tAc "SHOW port;"').strip()
     if not raw.isdigit():
-        raise TaskError(f"Respuesta inesperada al pedir el puerto de Postgres: {raw!r}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps", "Respuesta inesperada al pedir el puerto de Postgres: {0!r}"
+            ).format(raw)
+        )
     return int(raw)
 
 
@@ -281,11 +302,19 @@ def server_get(remote: Remote, path: str, token: str = "") -> tuple[str, str]:
 def health(remote: Remote, service: str) -> dict[str, str]:
     """Return a one-glance summary: service, API, disk and memory."""
     return {
-        "acceso": f"ok ({remote.target})",
+        # The keys are also the labels: whoever shows them translates
+        # them.
+        QT_TRANSLATE_NOOP("vps", "acceso"): f"ok ({remote.target})",
         "service": service_state(remote, service),
         "api": server_get(remote, "/api/health")[0],
         "uptime": capture(remote, "uptime -p", check=False),
-        "carga": capture(remote, "uptime | sed 's/.*load average: //'", check=False),
-        "disco": capture(remote, "df -h / | awk 'NR==2 {print $5\" usado de \"$2}'", check=False),
-        "memoria": capture(remote, "free -h | awk 'NR==2 {print $3\" / \"$2}'", check=False),
+        QT_TRANSLATE_NOOP("vps", "carga"): capture(
+            remote, "uptime | sed 's/.*load average: //'", check=False
+        ),
+        QT_TRANSLATE_NOOP("vps", "disco"): capture(
+            remote, "df -h / | awk 'NR==2 {print $5\" usado de \"$2}'", check=False
+        ),
+        QT_TRANSLATE_NOOP("vps", "memoria"): capture(
+            remote, "free -h | awk 'NR==2 {print $3\" / \"$2}'", check=False
+        ),
     }

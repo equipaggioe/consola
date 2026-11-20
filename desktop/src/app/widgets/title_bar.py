@@ -4,7 +4,16 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import (
+    QCoreApplication,
+    QEvent,
+    QObject,
+    QPoint,
+    QPointF,
+    QRectF,
+    Qt,
+    Signal,
+)
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleInterface,
@@ -19,6 +28,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QAccessibleWidget, QHBoxLayout, QLabel, QPushButton, QWidget
 
 from app import theme
+from app.services.language import QT_TRANSLATE_NOOP
 from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts, tint
 from app.widgets.project_tab import ProjectTab
@@ -123,7 +133,11 @@ class _WindowButton(QPushButton):
     """
 
     WIDTH = 46
-    NAMES = {"min": "Minimizar", "max": "Maximizar", "close": "Cerrar"}
+    NAMES = {
+        "min": QT_TRANSLATE_NOOP("_WindowButton", "Minimizar"),
+        "max": QT_TRANSLATE_NOOP("_WindowButton", "Maximizar"),
+        "close": QT_TRANSLATE_NOOP("_WindowButton", "Cerrar"),
+    }
     STROKE = 1.6
     GLYPH = 11  # side of the square or the cross, in pixels
 
@@ -132,7 +146,7 @@ class _WindowButton(QPushButton):
         super().__init__(parent)
         self.kind = kind  # 'min' | 'max' | 'close'
         # The glyph is painted: the name says it in words.
-        self.setAccessibleName(self.NAMES[kind])
+        self.setAccessibleName(QCoreApplication.translate("_WindowButton", self.NAMES[kind]))
         self.maximized = False
         self.setFixedWidth(self.WIDTH)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -164,7 +178,11 @@ class _WindowButton(QPushButton):
     def set_maximized(self, value: bool) -> None:
         """Set whether the window is maximized."""
         self.maximized = value
-        self.setAccessibleName("Restaurar" if value else self.NAMES["max"])
+        self.setAccessibleName(
+            QCoreApplication.translate("_WindowButton", "Restaurar")
+            if value
+            else QCoreApplication.translate("_WindowButton", self.NAMES["max"])
+        )
         self.update()
 
     @override
@@ -277,7 +295,11 @@ class TitleBar(QWidget):
     def set_maximized(self, value: bool) -> None:
         """Set whether the window is maximized."""
         self.max_btn.set_maximized(value)
-        self.max_btn.setToolTip("Restaurar" if value else "Maximizar")
+        self.max_btn.setToolTip(
+            QCoreApplication.translate("TitleBar", "Restaurar")
+            if value
+            else QCoreApplication.translate("TitleBar", "Maximizar")
+        )
 
     # --- dragging the window ---
     @override

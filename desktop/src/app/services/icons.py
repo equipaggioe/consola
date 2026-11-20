@@ -24,6 +24,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import targets
 from app.services.errors import MissingConfig, TaskError
 from app.services.files import read_text
@@ -178,7 +180,11 @@ def _flutter_places(target: targets.Target) -> list[Place]:
         return []
     dependencies = yaml_section(pubspec, "dev_dependencies") or {}
     if SECTION not in dependencies:
-        raise TaskError(f"{target.name}: falta {SECTION} en dev_dependencies del pubspec.yaml.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "icons", "{0}: falta {1} en dev_dependencies del pubspec.yaml."
+            ).format(target.name, SECTION)
+        )
     found_places = []
     for key, value in section.items():
         if key in LOGO_KEYS and value:
@@ -187,11 +193,17 @@ def _flutter_places(target: targets.Target) -> list[Place]:
             found_places.append(Place(target.path / value, FOREGROUND, RASTER_SIZE))
         elif _IMAGE_VALUE.search(value):
             raise TaskError(
-                f"{target.name}: el pubspec pide una imagen en {key} y Consola "
-                "no sabe qué dibujo va ahí."
+                QCoreApplication.translate(
+                    "icons",
+                    "{0}: el pubspec pide una imagen en {1} y Consola no sabe qué dibujo va ahí.",
+                ).format(target.name, key)
             )
     if not any(p.layer == LOGO for p in found_places):
-        raise TaskError(f"{target.name}: la sección {SECTION} no declara image_path.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "icons", "{0}: la sección {1} no declara image_path."
+            ).format(target.name, SECTION)
+        )
     return _merge(target.name, found_places)
 
 
@@ -215,7 +227,14 @@ def _link_places(target: targets.Target) -> list[Place]:
             imported = re.search(rf'import\s+{re.escape(href)}\s+from\s+[\'"]([^\'"]+)[\'"]', text)
             if imported and imported.group(1).startswith("$lib/"):
                 path = target.path / "src" / "lib" / imported.group(1)[len("$lib/") :]
-                found_places.append(_place(target, path, size, f"el <link> de {href}"))
+                found_places.append(
+                    _place(
+                        target,
+                        path,
+                        size,
+                        QCoreApplication.translate("icons", "el <link> de {0}").format(href),
+                    )
+                )
     for text in _html(target):
         found_places += [
             _static_place(target, href, size)
@@ -264,7 +283,11 @@ def _static_dir(target: targets.Target) -> Path:
 def _static_path(target: targets.Target, href: str) -> Path:
     """Return the `static/` or `public/` file an app's `href` serves."""
     if _external(href):
-        raise TaskError(f"{target.name}: el ícono apunta fuera de la app: {href}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "icons", "{0}: el ícono apunta fuera de la app: {1}"
+            ).format(target.name, href)
+        )
     return _static_dir(target) / re.sub(r"^%sveltekit\.assets%", "", href).lstrip("/")
 
 
@@ -285,15 +308,26 @@ def _place(target: targets.Target, path: Path, size: str, source: str) -> Place:
         side = _SIZE.fullmatch(size.strip())
         if not side:
             raise TaskError(
-                f'{target.name}: {source} es un PNG sin sizes="NxN": no se sabe '
-                "de qué tamaño generarlo."
+                QCoreApplication.translate(
+                    "icons",
+                    '{0}: {1} es un PNG sin sizes="NxN": no se sabe de qué tamaño generarlo.',
+                ).format(target.name, source)
             )
         if side.group(1) != side.group(2):
-            raise TaskError(f"{target.name}: {source} no es cuadrado ({size}), y el logo sí.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "icons", "{0}: {1} no es cuadrado ({2}), y el logo sí."
+                ).format(target.name, source, size)
+            )
         return Place(path, LOGO, int(side.group(1)))
     raise TaskError(
-        f"{target.name}: {source} es {suffix or 'un archivo sin extensión'}, "
-        "y Consola solo genera .svg, .png e .ico."
+        QCoreApplication.translate(
+            "icons", "{0}: {1} es {2}, y Consola solo genera .svg, .png e .ico."
+        ).format(
+            target.name,
+            source,
+            suffix or QCoreApplication.translate("icons", "un archivo sin extensión"),
+        )
     )
 
 
@@ -312,11 +346,19 @@ def _manifest_places(target: targets.Target) -> list[Place]:
                 continue
             manifest = _static_path(target, href)
             if not manifest.is_file():
-                raise TaskError(f"{target.name}: no existe el manifest {href}.")
+                raise TaskError(
+                    QCoreApplication.translate("icons", "{0}: no existe el manifest {1}.").format(
+                        target.name, href
+                    )
+                )
             try:
                 data = json.loads(read_text(manifest))
             except ValueError as error:
-                raise TaskError(f"{target.name}: {manifest.name} no es JSON: {error}") from None
+                raise TaskError(
+                    QCoreApplication.translate("icons", "{0}: {1} no es JSON: {2}").format(
+                        target.name, manifest.name, error
+                    )
+                ) from None
             found_places += [
                 _manifest_place(target, manifest, icon) for icon in data.get("icons", [])
             ]
@@ -326,9 +368,17 @@ def _manifest_places(target: targets.Target) -> list[Place]:
 def _manifest_place(target: targets.Target, manifest: Path, icon: dict[str, Any]) -> Place:
     src, size = icon.get("src", ""), icon.get("sizes", "")
     if not src:
-        raise TaskError(f"{target.name}: un ícono de {manifest.name} no tiene src.")
+        raise TaskError(
+            QCoreApplication.translate("icons", "{0}: un ícono de {1} no tiene src.").format(
+                target.name, manifest.name
+            )
+        )
     if _external(src):
-        raise TaskError(f"{target.name}: el ícono apunta fuera de la app: {src}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "icons", "{0}: el ícono apunta fuera de la app: {1}"
+            ).format(target.name, src)
+        )
     path = _static_path(target, src) if src.startswith("/") else manifest.parent / src
     place = _place(target, path, size, src)
     # Android crops the maskable and `any` shows whole: the same drawing
@@ -336,8 +386,11 @@ def _manifest_place(target: targets.Target, manifest: Path, icon: dict[str, Any]
     purpose = icon.get("purpose", "any").split()
     if purpose not in (["any"], ["maskable"]):
         raise TaskError(
-            f'{target.name}: {src} tiene purpose "{" ".join(purpose)}", y '
-            'Consola genera "any" o "maskable", cada uno en su archivo.'
+            QCoreApplication.translate(
+                "icons",
+                '{0}: {1} tiene purpose "{2}", y Consola genera "any" o "maskable", cada '
+                "uno en su archivo.",
+            ).format(target.name, src, " ".join(purpose))
         )
     return Place(place.path, MASKABLE if purpose == ["maskable"] else LOGO, place.size)
 
@@ -352,9 +405,12 @@ def _no_generated_manifest(target: targets.Target) -> None:
         text = read_text(config)
         if _PWA_PLUGIN.search(text) and not _MANIFEST_OFF.search(text):
             raise TaskError(
-                f"{target.name}: el plugin de PWA de {config.name} genera el "
-                "manifest. Va en un archivo de static/ enlazado con <link "
-                'rel="manifest">, y el plugin con manifest: false.'
+                QCoreApplication.translate(
+                    "icons",
+                    "{0}: el plugin de PWA de {1} genera el manifest. Va en un archivo de "
+                    'static/ enlazado con <link rel="manifest">, y el plugin con manifest: '
+                    "false.",
+                ).format(target.name, config.name)
             )
 
 
@@ -365,13 +421,15 @@ def _merge(app: str, found_places: list[Place]) -> list[Place]:
         previous = by_path.setdefault(place.path, place)
         if previous.size != place.size:
             raise TaskError(
-                f"{app}: {place.path.name} se declara de dos tamaños: "
-                f"{previous.size} y {place.size}."
+                QCoreApplication.translate(
+                    "icons", "{0}: {1} se declara de dos tamaños: {2} y {3}."
+                ).format(app, place.path.name, previous.size, place.size)
             )
         if previous.layer != place.layer:
             raise TaskError(
-                f"{app}: {place.path.name} lleva dos capas distintas: "
-                f"{', '.join(sorted({previous.layer, place.layer}))}."
+                QCoreApplication.translate(
+                    "icons", "{0}: {1} lleva dos capas distintas: {2}."
+                ).format(app, place.path.name, ", ".join(sorted({previous.layer, place.layer})))
             )
     return list(by_path.values())
 
@@ -402,9 +460,13 @@ def brand_file(root: Path, value: str, key: str) -> Path:
     """Return a config SVG, relative to the repo's root."""
     path = root / value
     if path.suffix.lower() != ".svg":
-        raise TaskError(f"{key} tiene que ser un SVG: {value}")
+        raise TaskError(
+            QCoreApplication.translate("icons", "{0} tiene que ser un SVG: {1}").format(key, value)
+        )
     if not path.is_file():
-        raise TaskError(f"No existe {key}: {path}")
+        raise TaskError(
+            QCoreApplication.translate("icons", "No existe {0}: {1}").format(key, path)
+        )
     return path
 
 
@@ -417,7 +479,9 @@ def plan(root: Path, name: str, layers: dict[str, Path]) -> IconJob:
     target = targets.pick(root, ICON_KINDS, name)
     found_places = places(target)
     if not found_places:
-        raise TaskError(f"{name} no declara dónde va su ícono.")
+        raise TaskError(
+            QCoreApplication.translate("icons", "{0} no declara dónde va su ícono.").format(name)
+        )
     missing = sorted({LAYER_KEYS[p.layer] for p in found_places if p.layer not in layers})
     if missing:
         raise MissingConfig(missing)

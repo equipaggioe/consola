@@ -15,7 +15,7 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
     QHBoxLayout,
@@ -29,6 +29,7 @@ from PySide6.QtWidgets import (
 from app import theme
 from app.services import db_explorer, session
 from app.services.envfile import Config
+from app.services.language import QT_TRANSLATE_NOOP
 from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
 from app.services.registry import Capability
@@ -51,10 +52,14 @@ def _chip_style(pal: Palette) -> str:
     """
 
 
-CONSOLA = "Consola"
+# The console of the tab, the word and not the app's name.
+CONSOLA = QT_TRANSLATE_NOOP("tab_view", "Consola")
 # The label of the chip leading to the second view, by
 # `Capability.view`.
-VIEW_NAMES = {"web": "Navegador", "db": "Explorador"}
+VIEW_NAMES = {
+    "web": QT_TRANSLATE_NOOP("tab_view", "Navegador"),
+    "db": QT_TRANSLATE_NOOP("tab_view", "Explorador"),
+}
 
 if TYPE_CHECKING:
     from app.widgets.db_explorer_view import DbExplorerView
@@ -112,10 +117,10 @@ class TabView(QWidget):
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(12, 0, 8, 0)
         lay.setSpacing(8)
-        self.header_title = QLabel(CONSOLA.upper())
+        self.header_title = QLabel(QCoreApplication.translate("tab_view", CONSOLA).upper())
 
         self.led = LedIndicator(bar, size=9)
-        self.led.setAccessibleName("Estado del endpoint")
+        self.led.setAccessibleName(QCoreApplication.translate("TabView", "Estado del endpoint"))
         self.state_label = QLabel("")
         self.state_label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
@@ -128,13 +133,23 @@ class TabView(QWidget):
             f"font-family: {Fonts.MONO}; font-size: {Fonts.SIZE_XS}px;"
         )
 
-        self.copy_btn = self._chip("Copiar", "Copiar la URL al portapapeles", self._copy_url)
-        self.external_btn = self._chip(
-            "Abrir ↗", "Abrir en el navegador del sistema", lambda: open_external(self._url)
+        self.copy_btn = self._chip(
+            QCoreApplication.translate("TabView", "Copiar"),
+            QCoreApplication.translate("TabView", "Copiar la URL al portapapeles"),
+            self._copy_url,
         )
-        second = VIEW_NAMES.get(self.capability.view, "")
+        self.external_btn = self._chip(
+            QCoreApplication.translate("TabView", "Abrir ↗"),
+            QCoreApplication.translate("TabView", "Abrir en el navegador del sistema"),
+            lambda: open_external(self._url),
+        )
+        second = QCoreApplication.translate("tab_view", VIEW_NAMES.get(self.capability.view, ""))
         self.view_btn = self._chip(
-            second, f"Ver {second.lower()} en esta pestaña", self._toggle_view
+            second,
+            QCoreApplication.translate("TabView", "Ver {0} en esta pestaña").format(
+                second.lower()
+            ),
+            self._toggle_view,
         )
         self.view_btn.setVisible(False)
 
@@ -259,9 +274,9 @@ class TabView(QWidget):
 
     def _set_state(self, state: str, label: str = "") -> None:
         texts = {
-            session.STARTING: ("amber", "arrancando"),
-            session.READY: ("green", "listo"),
-            session.DOWN: ("red", "caído"),
+            session.STARTING: ("amber", QCoreApplication.translate("TabView", "arrancando")),
+            session.READY: ("green", QCoreApplication.translate("TabView", "listo")),
+            session.DOWN: ("red", QCoreApplication.translate("TabView", "caído")),
         }
         led, text = texts.get(state, ("off", state))
         self.led.set_state(led)
@@ -274,7 +289,9 @@ class TabView(QWidget):
     @Slot()
     def _copy_url(self) -> None:
         QGuiApplication.clipboard().setText(self._url)
-        self.console.append_log(f"URL copiada: {self._url}", "ok")
+        self.console.append_log(
+            QCoreApplication.translate("TabView", "URL copiada: {0}").format(self._url), "ok"
+        )
 
     # --- views ---
     @Slot()
@@ -290,8 +307,10 @@ class TabView(QWidget):
     def show_console(self) -> None:
         """Show the console."""
         self.stack.setCurrentWidget(self.console)
-        self.view_btn.setText(VIEW_NAMES.get(self.capability.view, ""))
-        self.header_title.setText(CONSOLA.upper())
+        self.view_btn.setText(
+            QCoreApplication.translate("tab_view", VIEW_NAMES.get(self.capability.view, ""))
+        )
+        self.header_title.setText(QCoreApplication.translate("tab_view", CONSOLA).upper())
 
     def show_browser(self) -> None:
         """Create the browser the first time it is needed.
@@ -307,16 +326,18 @@ class TabView(QWidget):
         elif self._browser.url != self._url:
             self._browser.load(self._url)
         self.stack.setCurrentWidget(self._browser)
-        self.view_btn.setText(CONSOLA)
-        self.header_title.setText(VIEW_NAMES["web"].upper())
+        self.view_btn.setText(QCoreApplication.translate("tab_view", CONSOLA))
+        self.header_title.setText(
+            QCoreApplication.translate("tab_view", VIEW_NAMES["web"]).upper()
+        )
 
     def show_explorer(self) -> None:
         """Show the explorer."""
         if self._explorer is None:
             return
         self.stack.setCurrentWidget(self._explorer)
-        self.view_btn.setText(CONSOLA)
-        self.header_title.setText(VIEW_NAMES["db"].upper())
+        self.view_btn.setText(QCoreApplication.translate("tab_view", CONSOLA))
+        self.header_title.setText(QCoreApplication.translate("tab_view", VIEW_NAMES["db"]).upper())
 
     # --- database explorer ---
     def _start_explorer(self, safe_url: str) -> None:
@@ -330,7 +351,9 @@ class TabView(QWidget):
             return
         url = session.read(self.project.name, db_explorer.session_key(safe_url))
         if not url:
-            self.console.append_log("La tarea no publicó la conexión.", "error")
+            self.console.append_log(
+                QCoreApplication.translate("TabView", "La tarea no publicó la conexión."), "error"
+            )
             return
         from app.widgets.db_explorer_view import DbExplorerView
 

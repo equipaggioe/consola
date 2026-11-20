@@ -7,10 +7,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.context import TaskContext
 from app.services.errors import TaskError
 from app.services.files import read_text
 from app.services.host import HOST
+from app.services.language import QT_TRANSLATE_NOOP
 from app.services.process import resolve_executable
 
 FLUTTER = "flutter"
@@ -43,9 +46,11 @@ class BuildPlatform:
         return self.flutter_out if kind == FLUTTER else self.flet_out
 
 
+# Their labels read in the catalog's platforms axis, which translates
+# them.
 BUILD_PLATFORMS: dict[str, BuildPlatform] = {
     "apk": BuildPlatform(
-        "APK",
+        QT_TRANSLATE_NOOP("catalog", "APK"),
         "apk",
         "apk",
         "build/app/outputs/flutter-apk/app-release.apk",
@@ -53,16 +58,18 @@ BUILD_PLATFORMS: dict[str, BuildPlatform] = {
         suffix=".apk",
     ),
     "aab": BuildPlatform(
-        "AAB",
+        QT_TRANSLATE_NOOP("catalog", "AAB"),
         "appbundle",
         "aab",
         "build/app/outputs/bundle/release/app-release.aab",
         "build/aab/*.aab",
         suffix=".aab",
     ),
-    "web": BuildPlatform("Web", "web", "web", "build/web", "build/web"),
+    "web": BuildPlatform(
+        QT_TRANSLATE_NOOP("catalog", "Web"), "web", "web", "build/web", "build/web"
+    ),
     "windows": BuildPlatform(
-        "Windows",
+        QT_TRANSLATE_NOOP("catalog", "Windows"),
         "windows",
         "windows",
         "build/windows/*/runner/Release",
@@ -70,10 +77,15 @@ BUILD_PLATFORMS: dict[str, BuildPlatform] = {
         host="Windows",
     ),
     "linux": BuildPlatform(
-        "Linux", "linux", "linux", "build/linux/*/release/bundle", "build/linux", host="Linux"
+        QT_TRANSLATE_NOOP("catalog", "Linux"),
+        "linux",
+        "linux",
+        "build/linux/*/release/bundle",
+        "build/linux",
+        host="Linux",
     ),
     "macos": BuildPlatform(
-        "macOS",
+        QT_TRANSLATE_NOOP("catalog", "macOS"),
         "macos",
         "macos",
         "build/macos/Build/Products/Release/*.app",
@@ -85,7 +97,13 @@ BUILD_PLATFORMS: dict[str, BuildPlatform] = {
     # configured in Xcode, Flet from `[tool.flet.ios]` in its
     # `pyproject.toml`.
     "ipa": BuildPlatform(
-        "iOS", "ipa", "ipa", "build/ios/ipa/*.ipa", "build/ipa/*.ipa", suffix=".ipa", host="Darwin"
+        QT_TRANSLATE_NOOP("catalog", "iOS"),
+        "ipa",
+        "ipa",
+        "build/ios/ipa/*.ipa",
+        "build/ipa/*.ipa",
+        suffix=".ipa",
+        host="Darwin",
     ),
 }
 
@@ -105,8 +123,10 @@ def flutter_cmd(override: str = "") -> list[str]:
     return resolve_executable(
         ["flutter", "flutter.bat", "flutter.cmd", "flutter.exe"],
         override=override,
-        label="Flutter",
-        hint="Instala el SDK Flutter con su capacidad, o agrega flutter al PATH.",
+        label=QCoreApplication.translate("toolchain", "Flutter"),
+        hint=QCoreApplication.translate(
+            "toolchain", "Instala el SDK Flutter con su capacidad, o agrega flutter al PATH."
+        ),
     )
 
 
@@ -114,8 +134,10 @@ def dart_cmd() -> list[str]:
     """Return the SDK's `dart`, in the same folder as `flutter`."""
     return resolve_executable(
         ["dart", "dart.bat", "dart.exe"],
-        label="Dart",
-        hint="Instala el SDK Flutter con su capacidad, o agrega flutter al PATH.",
+        label=QCoreApplication.translate("toolchain", "Dart"),
+        hint=QCoreApplication.translate(
+            "toolchain", "Instala el SDK Flutter con su capacidad, o agrega flutter al PATH."
+        ),
     )
 
 
@@ -124,14 +146,17 @@ def flet_cmd(override: str = "") -> list[str]:
     return resolve_executable(
         ["flet", "flet.bat", "flet.cmd", "flet.exe"],
         override=override,
-        label="Flet",
-        hint="Instala flet en el venv del proyecto.",
+        label=QCoreApplication.translate("toolchain", "Flet"),
+        hint=QCoreApplication.translate("toolchain", "Instala flet en el venv del proyecto."),
     )
 
 
 def python_cmd() -> list[str]:
     """Return the argv prefix for Python."""
-    return resolve_executable(["python", "python3", "python.exe"], label="Python")
+    return resolve_executable(
+        ["python", "python3", "python.exe"],
+        label=QCoreApplication.translate("toolchain", "Python"),
+    )
 
 
 def pnpm_cmd(override: str = "") -> list[str]:
@@ -140,7 +165,7 @@ def pnpm_cmd(override: str = "") -> list[str]:
         ["pnpm", "pnpm.cmd", "pnpm.exe"],
         override=override,
         label="pnpm",
-        hint="Instálalo con corepack enable pnpm.",
+        hint=QCoreApplication.translate("toolchain", "Instálalo con corepack enable pnpm."),
     )
 
 
@@ -163,8 +188,11 @@ def pyinstaller_cmd(app_dir: Path | None = None, override: str = "") -> list[str
         ["pyinstaller", "pyinstaller.exe", "pyinstaller.cmd"],
         override=override,
         label="PyInstaller",
-        hint="Instalalo en el venv de la app (pip install pyinstaller) o "
-        "escribe su ruta en PYINSTALLER_BIN.",
+        hint=QCoreApplication.translate(
+            "toolchain",
+            "Instalalo en el venv de la app (pip install pyinstaller) o escribe su "
+            "ruta en PYINSTALLER_BIN.",
+        ),
     )
 
 
@@ -183,7 +211,9 @@ def app_cmd(kind: str) -> list[str]:
         return flutter_cmd()
     if kind == FLET:
         return flet_cmd()
-    raise TaskError(f"Tipo de app desconocido: {kind!r}")
+    raise TaskError(
+        QCoreApplication.translate("toolchain", "Tipo de app desconocido: {0!r}").format(kind)
+    )
 
 
 def venv_python(venv_dir: Path) -> Path:
@@ -195,7 +225,11 @@ def venv_python(venv_dir: Path) -> Path:
     """
     exe = HOST.venv_python(venv_dir)
     if not exe.is_file():
-        raise TaskError(f"No existe el Python del venv: {exe}")
+        raise TaskError(
+            QCoreApplication.translate("toolchain", "No existe el Python del venv: {0}").format(
+                exe
+            )
+        )
     return exe
 
 
@@ -211,8 +245,10 @@ def app_python(app_dir: Path, repo_root: Path) -> list[str]:
             return [str(exe)]
     return resolve_executable(
         ["python", "python3", "python.exe"],
-        label="Python",
-        hint=f"Crea el venv de {app_dir.name} o agrega Python al PATH.",
+        label=QCoreApplication.translate("toolchain", "Python"),
+        hint=QCoreApplication.translate(
+            "toolchain", "Crea el venv de {0} o agrega Python al PATH."
+        ).format(app_dir.name),
     )
 
 
@@ -227,14 +263,21 @@ def detect_app_kind(project_dir: Path) -> str:
 
     if pubspec.is_file() and pyproject.is_file():
         raise TaskError(
-            f"{project_dir.name} tiene pubspec.yaml y pyproject.toml a la vez: "
-            "no se puede deducir el framework."
+            QCoreApplication.translate(
+                "toolchain",
+                "{0} tiene pubspec.yaml y pyproject.toml a la vez: no se puede deducir "
+                "el framework.",
+            ).format(project_dir.name)
         )
     if pubspec.is_file():
         return FLUTTER
     if pyproject.is_file() and "flet" in read_text(pyproject).lower():
         return FLET
-    raise TaskError(f"{project_dir.name} no parece un proyecto Flutter ni Flet.")
+    raise TaskError(
+        QCoreApplication.translate(
+            "toolchain", "{0} no parece un proyecto Flutter ni Flet."
+        ).format(project_dir.name)
+    )
 
 
 def devices(ctx: TaskContext, project_dir: Path) -> list[dict[str, Any]]:
@@ -248,7 +291,11 @@ def devices(ctx: TaskContext, project_dir: Path) -> list[dict[str, Any]]:
     try:
         decoded = json.loads(output)
     except json.JSONDecodeError as exc:
-        raise TaskError("Respuesta invalida de `flutter devices --machine`.") from exc
+        raise TaskError(
+            QCoreApplication.translate(
+                "toolchain", "Respuesta invalida de `flutter devices --machine`."
+            )
+        ) from exc
     return [d for d in decoded if isinstance(d, dict)] if isinstance(decoded, list) else []
 
 

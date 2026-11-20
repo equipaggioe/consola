@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from typing import override
 
-from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPointF, QRectF, Qt, Signal, Slot
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleActionInterface,
@@ -51,8 +51,8 @@ class _AddProjectTab(QWidget):
         self.setStyleSheet("_AddProjectTab { background: transparent; }")
         self.pal = palettes.NEUTRAL
         self._hovered = False
-        self.setToolTip("Añadir repositorio")
-        self.setAccessibleName("Añadir repositorio")
+        self.setToolTip(QCoreApplication.translate("_AddProjectTab", "Añadir repositorio"))
+        self.setAccessibleName(QCoreApplication.translate("_AddProjectTab", "Añadir repositorio"))
 
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
@@ -270,7 +270,9 @@ class ProjectTabBar(ReorderableBar):
     @Slot()
     def _pick_repo(self) -> None:
         # Open the folder dialog: `open_path` takes what it chooses.
-        dialog = QFileDialog(self, "Elegir carpeta del repositorio")
+        dialog = QFileDialog(
+            self, QCoreApplication.translate("ProjectTabBar", "Elegir carpeta del repositorio")
+        )
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.setFileMode(QFileDialog.FileMode.Directory)
         dialog.setOption(QFileDialog.Option.ShowDirsOnly)

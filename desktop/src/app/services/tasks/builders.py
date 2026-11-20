@@ -17,7 +17,7 @@ from collections.abc import Sequence
 from datetime import datetime, timezone
 from pathlib import Path
 
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QCoreApplication, QLocale
 
 from app.services import canone, files, icons, ssh, targets, toolchain, versioning, vps
 from app.services.context import TaskContext
@@ -74,11 +74,13 @@ def upload_artifact(
     and do not need it.
     """
     if not local.exists():
-        raise TaskError(f"No existe el artefacto: {local}")
+        raise TaskError(
+            QCoreApplication.translate("builders", "No existe el artefacto: {0}").format(local)
+        )
     rel = remote_rel or local.relative_to(ctx.root).as_posix()
     remote = ssh.resolve_remote(ctx.config)
     destination = ssh.upload(ctx, remote, local, vps.remote_path(ctx.config, rel), chmod=chmod)
-    ctx.ok(f"Subido: {destination}")
+    ctx.ok(QCoreApplication.translate("builders", "Subido: {0}").format(destination))
     return destination
 
 
@@ -129,7 +131,9 @@ def compile_flutter(ctx: TaskContext, directory: str = "", platform_id: str = "a
     output = _newest(app.path, pattern)
     if output is None:
         raise TaskError(
-            f"El build {destination.label} termino pero no aparecio nada en {pattern}."
+            QCoreApplication.translate(
+                "builders", "El build {0} termino pero no aparecio nada en {1}."
+            ).format(destination.label, pattern)
         )
     output = _deliver(ctx, app.path, platform_id, output)
     ctx.ok(f"{destination.label}: {output} ({files.human_size(files.size_of(output), QLocale())})")
@@ -207,7 +211,11 @@ def _release_manifest(
 
     destination = ctx.root / RELEASES_DIR / app / f"{platform_id}.json"
     files.write_text(destination, json.dumps(data, indent=2, ensure_ascii=False) + "\n")
-    ctx.ok(f"Release {app}/{platform_id}: {data['version']}")
+    ctx.ok(
+        QCoreApplication.translate("builders", "Release {0}/{1}: {2}").format(
+            app, platform_id, data["version"]
+        )
+    )
     return destination
 
 
@@ -236,7 +244,11 @@ def compile_spa(ctx: TaskContext, directory: str = "") -> Path:
     spa = _target(ctx, targets.SPA_VITE, directory)
     ctx.run([*toolchain.pnpm_cmd(), "run", "build"], cwd=spa.path)
     output = _spa_output(spa)
-    ctx.ok(f"Build de {spa.name}: {output} ({files.human_size(files.size_of(output), QLocale())})")
+    ctx.ok(
+        QCoreApplication.translate("builders", "Build de {0}: {1} ({2})").format(
+            spa.name, output, files.human_size(files.size_of(output), QLocale())
+        )
+    )
     return output
 
 
@@ -251,7 +263,11 @@ def _spa_output(spa: targets.Target) -> Path:
         output = spa.path / candidate
         if output.is_dir():
             return output
-    raise TaskError(f"{spa.name} no tiene carpeta dist/ ni build/.")
+    raise TaskError(
+        QCoreApplication.translate("builders", "{0} no tiene carpeta dist/ ni build/.").format(
+            spa.name
+        )
+    )
 
 
 # `sv create` lays out the skeleton, with TypeScript, Prettier, ESLint
@@ -317,17 +333,26 @@ def create_spa(ctx: TaskContext) -> Path:
     is the run's only datum and differs each time, so it has nowhere to
     be saved (`services/catalog.py`, on registering `create_spa`).
     """
-    name = ctx.ask("¿Cómo se va a llamar la carpeta de la SPA?").strip()
+    name = ctx.ask(
+        QCoreApplication.translate("builders", "¿Cómo se va a llamar la carpeta de la SPA?")
+    ).strip()
     if not name:
-        raise TaskError("Cancelado: no se eligio un nombre de carpeta.")
+        raise TaskError(
+            QCoreApplication.translate("builders", "Cancelado: no se eligio un nombre de carpeta.")
+        )
     if not _SPA_NAME.fullmatch(name):
         raise TaskError(
-            "El nombre de la carpeta va en minusculas, sin espacios "
-            '(letras, numeros, ".", "_" o "-").'
+            QCoreApplication.translate(
+                "builders",
+                "El nombre de la carpeta va en minusculas, sin espacios (letras, "
+                'numeros, ".", "_" o "-").',
+            )
         )
     destination = ctx.path(name)
     if destination.exists():
-        raise TaskError(f"Ya existe {destination}.")
+        raise TaskError(
+            QCoreApplication.translate("builders", "Ya existe {0}.").format(destination)
+        )
     template = canone.spa_template(ctx.config)
     pnpm = toolchain.pnpm_cmd()
 
@@ -365,8 +390,8 @@ def create_spa(ctx: TaskContext) -> Path:
     ctx.run([*pnpm, "exec", "prettier", "--write", "."], cwd=destination)
     _generate_colors(ctx, template.parent)
 
-    ctx.ok(f"SPA creada en {destination}")
-    ctx.note(f"Nueva SPA {name}")
+    ctx.ok(QCoreApplication.translate("builders", "SPA creada en {0}").format(destination))
+    ctx.note(QCoreApplication.translate("builders", "Nueva SPA {0}").format(name))
     return destination
 
 
@@ -401,15 +426,22 @@ def resolve_entrypoint(ctx: TaskContext, entrypoint: str = "") -> Path:
     if entrypoint:
         source = ctx.path(entrypoint)
         if not source.is_file():
-            raise TaskError(f"No existe el punto de entrada: {source}")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "builders", "No existe el punto de entrada: {0}"
+                ).format(source)
+            )
         return source
 
     apps = targets.by_kind(ctx.root, targets.PYTHON_APP)
     if len(apps) > 1:
         choose = ", ".join(a.name for a in apps)
         raise TaskError(
-            f"Hay mas de una app Python en {ctx.root.name}: {choose}. "
-            "Escribe el punto de entrada de la que quieras empaquetar."
+            QCoreApplication.translate(
+                "builders",
+                "Hay mas de una app Python en {0}: {1}. Escribe el punto de entrada de "
+                "la que quieras empaquetar.",
+            ).format(ctx.root.name, choose)
         )
 
     base = apps[0].path if apps else ctx.root
@@ -418,8 +450,9 @@ def resolve_entrypoint(ctx: TaskContext, entrypoint: str = "") -> Path:
         if source.is_file():
             return source
     raise TaskError(
-        f"No se encontro un punto de entrada en {base.name} "
-        f"({', '.join(_ENTRYPOINTS)}). Escribe cual es."
+        QCoreApplication.translate(
+            "builders", "No se encontro un punto de entrada en {0} ({1}). Escribe cual es."
+        ).format(base.name, ", ".join(_ENTRYPOINTS))
     )
 
 
@@ -456,7 +489,11 @@ def _ensure_manifest(ctx: TaskContext, app_dir: Path) -> Path:
     name = re.sub(r"[^0-9A-Za-z._-]+", "-", app_dir.name).strip("-").lower() or "python-app"
     manifest = app_dir / "pyproject.toml"
     files.write_text(manifest, f'[project]\nname = "{name}"\nversion = "0.0.0"\n')
-    ctx.warn(f"{app_dir.name} no tenia manifiesto: se creo {manifest.name} en 0.0.0.")
+    ctx.warn(
+        QCoreApplication.translate(
+            "builders", "{0} no tenia manifiesto: se creo {1} en 0.0.0."
+        ).format(app_dir.name, manifest.name)
+    )
     return manifest
 
 
@@ -541,8 +578,16 @@ def compile_binary(
 
     artifact = _binary_output(app_dir, label, onefile)
     if not artifact.exists():
-        raise TaskError(f"PyInstaller no dejo el binario esperado en {artifact}.")
-    ctx.ok(f"Binario: {artifact} ({files.human_size(files.size_of(artifact), QLocale())})")
+        raise TaskError(
+            QCoreApplication.translate(
+                "builders", "PyInstaller no dejo el binario esperado en {0}."
+            ).format(artifact)
+        )
+    ctx.ok(
+        QCoreApplication.translate("builders", "Binario: {0} ({1})").format(
+            artifact, files.human_size(files.size_of(artifact), QLocale())
+        )
+    )
     return artifact
 
 
@@ -556,11 +601,15 @@ def checksum_artifact(ctx: TaskContext, artifact: Path) -> Path:
     if artifact.is_dir():
         # With `--onefile` off there is no file to sign but a whole
         # tree; a hash per file is not what anyone will verify by hand.
-        raise TaskError("El checksum solo aplica al empaquetado en un archivo.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "builders", "El checksum solo aplica al empaquetado en un archivo."
+            )
+        )
     fingerprint = files.digest(artifact)
     destination = artifact.with_name(f"{artifact.name}.sha256")
     files.write_text(destination, f"{fingerprint}  {artifact.name}\n")
-    ctx.ok(f"SHA-256: {fingerprint}")
+    ctx.ok(QCoreApplication.translate("builders", "SHA-256: {0}").format(fingerprint))
     return destination
 
 
@@ -575,7 +624,12 @@ def _maybe_checksum(ctx: TaskContext, artifact: Path) -> Path | None:
     checkbox.
     """
     if artifact.is_dir():
-        ctx.warn("Checksum omitido: el empaquetado en carpeta no es un archivo que firmar.")
+        ctx.warn(
+            QCoreApplication.translate(
+                "builders",
+                "Checksum omitido: el empaquetado en carpeta no es un archivo que firmar.",
+            )
+        )
         return None
     return checksum_artifact(ctx, artifact)
 
@@ -625,7 +679,7 @@ def build_flutter(
     for target_platform in platforms:
         ctx.raise_if_cancelled()
         outputs.append(compile_flutter(ctx, app.name, target_platform))
-    ctx.note(f"Build {app.name} ({names})")
+    ctx.note(QCoreApplication.translate("builders", "Build {0} ({1})").format(app.name, names))
     return outputs
 
 
@@ -646,10 +700,14 @@ def build_vite(ctx: TaskContext, directories: Sequence[str] = ()) -> list[Path]:
     for index, spa in enumerate(chosen, start=1):
         ctx.raise_if_cancelled()
         if len(chosen) > 1:
-            ctx.step(f"{spa.name} ({index} de {len(chosen)})")
+            ctx.step(
+                QCoreApplication.translate("builders", "{0} ({1} de {2})").format(
+                    spa.name, index, len(chosen)
+                )
+            )
         install_node_modules(ctx, spa.name)
         outputs.append(compile_spa(ctx, spa.name))
-        ctx.note(f"Build Vite {spa.name}")
+        ctx.note(QCoreApplication.translate("builders", "Build Vite {0}").format(spa.name))
     return outputs
 
 
@@ -683,20 +741,35 @@ def build_binary(
 
     if not build:
         if not upload:
-            raise TaskError("Sin compilar y sin subir no queda nada por hacer.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "builders", "Sin compilar y sin subir no queda nada por hacer."
+                )
+            )
         if bump:
             ctx.warn(
-                "Bump ignorado: el binario que hay en disco se empaqueto con la "
-                "version que ya tiene el manifiesto, y subirla cambiada lo "
-                "anunciaria como otra cosa."
+                QCoreApplication.translate(
+                    "builders",
+                    "Bump ignorado: el binario que hay en disco se empaqueto con la version "
+                    "que ya tiene el manifiesto, y subirla cambiada lo anunciaria como otra "
+                    "cosa.",
+                )
             )
         artifact = _binary_output(app_dir, _binary_label(app_dir, source, name), onefile)
         if not artifact.exists():
-            raise TaskError(f"No hay ningun binario compilado en {artifact}.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "builders", "No hay ningun binario compilado en {0}."
+                ).format(artifact)
+            )
         signature = _maybe_checksum(ctx, artifact) if checksum else None
         ctx.step("upload")
         _publish_binary(ctx, app_dir.name, artifact, manifest, signature)
-        ctx.note(f"Re-subida binario {artifact.name} {versioning.read_version(manifest)}")
+        ctx.note(
+            QCoreApplication.translate("builders", "Re-subida binario {0} {1}").format(
+                artifact.name, versioning.read_version(manifest)
+            )
+        )
         return artifact
 
     with files.reversible(manifest):
@@ -715,7 +788,11 @@ def build_binary(
         ctx.step("upload")
         _publish_binary(ctx, app_dir.name, artifact, manifest, signature)
 
-    ctx.note(f"Build binario {artifact.name} {versioning.read_version(manifest)}")
+    ctx.note(
+        QCoreApplication.translate("builders", "Build binario {0} {1}").format(
+            artifact.name, versioning.read_version(manifest)
+        )
+    )
     return artifact
 
 

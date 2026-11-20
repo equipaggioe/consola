@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import canone, ssh, vps
 from app.services.context import TaskContext
 from app.services.errors import TaskError
@@ -38,10 +40,15 @@ def health_check(ctx: TaskContext) -> dict[str, str]:
     service = vps.resolve_service(canone.origin(ctx.root)[1])
     summary = vps.health(entry.remote, service)
     for key, value in summary.items():
-        ctx.info(f"{key}: {value or '(sin datos)'}")
+        label = QCoreApplication.translate("vps", key)
+        ctx.info(f"{label}: {value or QCoreApplication.translate('vps_ops', '(sin datos)')}")
     entry.run(ctx, vps.journal_command(service, lines=10, priority="err"))
     if summary["api"] != HEALTHY:
-        raise TaskError(f"GET /api/health respondió {summary['api'] or 'nada'}, no {HEALTHY}.")
+        raise TaskError(
+            QCoreApplication.translate("vps_ops", "GET /api/health respondió {0}, no {1}.").format(
+                summary["api"] or QCoreApplication.translate("vps_ops", "nada"), HEALTHY
+            )
+        )
     return summary
 
 
@@ -54,7 +61,11 @@ def view_events(ctx: TaskContext) -> dict[str, str]:
     ctx.guard(token)
     state, body = vps.server_get(_remote(ctx), "/api/health/events", token)
     if state != "200":
-        raise TaskError(f"GET /api/health/events respondió {state or 'nada'}.")
+        raise TaskError(
+            QCoreApplication.translate("vps_ops", "GET /api/health/events respondió {0}.").format(
+                state or "nada"
+            )
+        )
     summary = canone.events_summary(json.loads(body))
     for key, value in summary.items():
         ctx.info(f"{key}: {value}")
@@ -64,7 +75,9 @@ def view_events(ctx: TaskContext) -> dict[str, str]:
 def run_command(ctx: TaskContext, command: str = "") -> int:
     """Run any command on the VPS, with live output."""
     if not command.strip():
-        raise TaskError("No hay ningun comando para correr.")
+        raise TaskError(
+            QCoreApplication.translate("vps_ops", "No hay ningun comando para correr.")
+        )
     return ssh.run(ctx, _remote(ctx), command, check=False)
 
 
@@ -80,10 +93,14 @@ def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bo
     key_name = ctx.config.require("VPS_KEY_NAME")
     private = ssh.identity_path(key_name)
     if not private.is_file():
-        raise TaskError(f"No existe la llave local: {private}")
+        raise TaskError(
+            QCoreApplication.translate("vps_ops", "No existe la llave local: {0}").format(private)
+        )
     publishes = ssh.public_key(private)
 
-    ctx.warn(f"Se va a revocar: {publishes[:60]}...")
+    ctx.warn(
+        QCoreApplication.translate("vps_ops", "Se va a revocar: {0}...").format(publishes[:60])
+    )
     if remote_side:
         key = ssh.quote(publishes)
         try:
@@ -100,17 +117,24 @@ def revoke_ssh_key(ctx: TaskContext, *, remote_side: bool = True, local_side: bo
             )
         except TaskError as exc:
             raise TaskError(
-                "No se sacó la llave del VPS: no se pudo entrar, no está en "
-                "authorized_keys o es la última. La llave local sigue ahí."
+                QCoreApplication.translate(
+                    "vps_ops",
+                    "No se sacó la llave del VPS: no se pudo entrar, no está en "
+                    "authorized_keys o es la última. La llave local sigue ahí.",
+                )
             ) from exc
-        ctx.ok("Llave sacada del VPS.")
+        ctx.ok(QCoreApplication.translate("vps_ops", "Llave sacada del VPS."))
 
     if local_side:
         from app.services import files
 
         files.remove(private)
         files.remove(ssh.public_key_path(private))
-        ctx.ok(f"Par de llaves local borrado: {private}")
+        ctx.ok(
+            QCoreApplication.translate("vps_ops", "Par de llaves local borrado: {0}").format(
+                private
+            )
+        )
 
 
 def bind_all() -> None:

@@ -18,7 +18,7 @@ import webbrowser
 from collections.abc import Callable
 from typing import Any
 
-from PySide6.QtCore import Qt, QUrl, Signal, Slot
+from PySide6.QtCore import QCoreApplication, Qt, QUrl, Signal, Slot
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app import theme
@@ -79,9 +79,15 @@ class BrowserView(QWidget):
         lay.setContentsMargins(8, 0, 8, 0)
         lay.setSpacing(4)
 
-        self.back_btn = self._tool("‹", "Atrás", self._go_back)
-        self.fwd_btn = self._tool("›", "Adelante", self._go_forward)
-        self.reload_btn = self._tool("↻", "Recargar", self.reload)
+        self.back_btn = self._tool(
+            "‹", QCoreApplication.translate("BrowserView", "Atrás"), self._go_back
+        )
+        self.fwd_btn = self._tool(
+            "›", QCoreApplication.translate("BrowserView", "Adelante"), self._go_forward
+        )
+        self.reload_btn = self._tool(
+            "↻", QCoreApplication.translate("BrowserView", "Recargar"), self.reload
+        )
 
         self.url_label = QLabel(self._url)
         self.url_label.setStyleSheet(
@@ -90,7 +96,9 @@ class BrowserView(QWidget):
         )
 
         self.external_btn = self._tool(
-            "↗", "Abrir en el navegador del sistema", lambda: open_external(self._url)
+            "↗",
+            QCoreApplication.translate("BrowserView", "Abrir en el navegador del sistema"),
+            lambda: open_external(self._url),
         )
 
         lay.addWidget(self.back_btn)
@@ -146,15 +154,20 @@ class BrowserView(QWidget):
         lay.setSpacing(10)
 
         text = QLabel(
-            "Esta instalación de PySide6 no trae QtWebEngine.\n"
-            "Instala «PySide6-Addons» para ver la página aquí dentro."
+            QCoreApplication.translate(
+                "BrowserView",
+                "Esta instalación de PySide6 no trae QtWebEngine.\nInstala "
+                "«PySide6-Addons» para ver la página aquí dentro.",
+            )
         )
         text.setAlignment(Qt.AlignmentFlag.AlignCenter)
         text.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;"
         )
 
-        opener = QPushButton("Abrir en el navegador del sistema")
+        opener = QPushButton(
+            QCoreApplication.translate("BrowserView", "Abrir en el navegador del sistema")
+        )
         opener.setCursor(Qt.CursorShape.PointingHandCursor)
         self._opener = opener
         opener.clicked.connect(lambda: open_external(self._url))

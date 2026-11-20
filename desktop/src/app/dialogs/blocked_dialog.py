@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QWidget
 
 from app import theme
@@ -22,17 +23,28 @@ class BlockedDialog(GuardDialog):
         self, project: Project, action: str, targets: list[Target], parent: QWidget | None = None
     ) -> None:
         """Build the notice."""
-        which = join_words([t.label for t in targets])
+        which = join_words([QCoreApplication.translate("protection", t.label) for t in targets])
         super().__init__(
             project,
-            "Accion bloqueada",
-            f"{action} toca {which}, y este repositorio lo tiene protegido.",
-            "El seguro se quita en Configuracion, seccion Seguridad: por tipo "
-            "de objetivo y solo para este repositorio.",
+            QCoreApplication.translate("BlockedDialog", "Accion bloqueada"),
+            QCoreApplication.translate(
+                "BlockedDialog", "{0} toca {1}, y este repositorio lo tiene protegido."
+            ).format(action, which),
+            QCoreApplication.translate(
+                "BlockedDialog",
+                "El seguro se quita en Configuracion, seccion Seguridad: por tipo de "
+                "objetivo y solo para este repositorio.",
+            ),
             parent,
         )
 
-        reasons = QLabel("\n".join(f"•  {t.setting_label} — {t.why}" for t in targets))
+        reasons = QLabel(
+            "\n".join(
+                f"•  {QCoreApplication.translate('protection', t.setting_label)} — "
+                f"{QCoreApplication.translate('protection', t.why)}"
+                for t in targets
+            )
+        )
         reasons.setWordWrap(True)
         reasons.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
@@ -41,7 +53,7 @@ class BlockedDialog(GuardDialog):
 
         buttons = QHBoxLayout()
         buttons.addStretch()
-        understood = self._button("Entendido")
+        understood = self._button(QCoreApplication.translate("BlockedDialog", "Entendido"))
         understood.setDefault(True)
         button = theme.FILLED_BUTTON.on(self.pal)
         understood.setStyleSheet(f"""

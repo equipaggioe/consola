@@ -8,6 +8,8 @@ machine. Both need root: `sudo` asks for the account's password
 
 from __future__ import annotations
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import canone, vps
 from app.services.context import TaskContext
 from app.services.errors import TaskError
@@ -26,11 +28,19 @@ def systemd_action(
     with another constant (ADR-0023).
     """
     if service == vps.RECEIVER_SERVICE and action in vps.STARTING_ACTIONS:
-        raise TaskError("El respaldo lo pide la receptora: no se arranca desde aquí.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_server", "El respaldo lo pide la receptora: no se arranca desde aquí."
+            )
+        )
     entry = access(ctx)
     unit = vps.resolve_service(canone.origin(ctx.root)[1], service)
     if vps.service_state(entry.remote, unit) == "missing" and action not in ("daemon-reload",):
-        raise TaskError(f"El servicio {unit} no existe todavia en el VPS.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_server", "El servicio {0} no existe todavia en el VPS."
+            ).format(unit)
+        )
     return entry.run(
         ctx,
         vps.systemctl_command(action, unit),

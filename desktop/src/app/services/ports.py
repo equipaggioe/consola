@@ -7,6 +7,8 @@ import threading
 import time
 from urllib.parse import urlsplit
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.errors import TaskError
 
 
@@ -36,12 +38,16 @@ def resolve_port(preferred: int, *, search: bool = True, label: str = "puerto") 
     if is_free(preferred):
         return preferred
     if not search:
-        raise TaskError(f"El {label} {preferred} esta ocupado.")
+        raise TaskError(
+            QCoreApplication.translate("ports", "El {0} {1} esta ocupado.").format(
+                label, preferred
+            )
+        )
 
     for port in range(preferred + 1, 65536):
         if is_free(port):
             return port
-    raise TaskError("No quedan puertos libres.")
+    raise TaskError(QCoreApplication.translate("ports", "No quedan puertos libres."))
 
 
 def is_serving(port: int, *, host: str = "127.0.0.1", timeout: float = 0.4) -> bool:

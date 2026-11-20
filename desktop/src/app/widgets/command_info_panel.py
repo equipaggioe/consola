@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from app import theme
@@ -107,7 +107,12 @@ class CommandInfoPanel(QWidget):
         self._clear()
         if capability is None:
             self._lay.addWidget(
-                self._muted("Abre una acción para ver de qué se trata y qué pasos ejecuta.")
+                self._muted(
+                    QCoreApplication.translate(
+                        "CommandInfoPanel",
+                        "Abre una acción para ver de qué se trata y qué pasos ejecuta.",
+                    )
+                )
             )
             return
 
@@ -115,13 +120,18 @@ class CommandInfoPanel(QWidget):
         summary = (
             doc.summary
             if doc
-            else (capability.description or "Esta acción todavía no tiene una descripción larga.")
+            else (
+                capability.description
+                or QCoreApplication.translate(
+                    "CommandInfoPanel", "Esta acción todavía no tiene una descripción larga."
+                )
+            )
         )
         self._lay.addWidget(self._body(summary))
 
         steps = doc.steps if doc else [s.label for s in capability.steps]
         if steps:
-            self._lay.addWidget(_Heading("Pasos"))
+            self._lay.addWidget(_Heading(QCoreApplication.translate("CommandInfoPanel", "Pasos")))
             for i, text in enumerate(steps, 1):
                 self._lay.addWidget(self._step(i, text))
 

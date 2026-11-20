@@ -10,6 +10,8 @@ from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.errors import Cancelled, TaskError
 from app.services.host import HOST
 
@@ -50,13 +52,21 @@ def resolve_executable(
     if override and override.strip():
         path = Path(override.strip()).expanduser()
         if not path.is_file():
-            raise TaskError(f"La ruta configurada de {label} no existe: {path}")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "process", "La ruta configurada de {0} no existe: {1}"
+                ).format(label, path)
+            )
         return as_argv(str(path))
 
     found = which_any(names)
     if not found:
         extra = f" {hint}" if hint else ""
-        raise TaskError(f"No se encontro {label} en el PATH.{extra}")
+        raise TaskError(
+            QCoreApplication.translate("process", "No se encontro {0} en el PATH.{1}").format(
+                label, extra
+            )
+        )
     return as_argv(found)
 
 
@@ -130,7 +140,7 @@ def stream(
         for raw in proc.stdout:
             if cancel is not None and cancel.is_set():
                 kill_tree(proc)
-                raise Cancelled("Detenido por el usuario.")
+                raise Cancelled(QCoreApplication.translate("process", "Detenido por el usuario."))
             line = raw.rstrip("\r\n")
             if line:
                 on_line(line)
@@ -180,7 +190,7 @@ def converse(
         while True:
             if cancel is not None and cancel.is_set():
                 kill_tree(proc)
-                raise Cancelled("Detenido por el usuario.")
+                raise Cancelled(QCoreApplication.translate("process", "Detenido por el usuario."))
             block = os.read(fd, 4096)
             if not block:
                 break
@@ -246,13 +256,25 @@ def capture(
             **HOST.run_options(),
         )
     except FileNotFoundError as exc:
-        raise TaskError(f"No se encontro el ejecutable: {argv[0]}") from exc
+        raise TaskError(
+            QCoreApplication.translate("process", "No se encontro el ejecutable: {0}").format(
+                argv[0]
+            )
+        ) from exc
     except subprocess.TimeoutExpired as exc:
-        raise TaskError(f"El comando excedio {timeout}s: {format_argv(argv)}") from exc
+        raise TaskError(
+            QCoreApplication.translate("process", "El comando excedio {0}s: {1}").format(
+                timeout, format_argv(argv)
+            )
+        ) from exc
 
     if check and result.returncode != 0:
         detail = (result.stderr or result.stdout or "").strip()
-        raise TaskError(f"Fallo ({result.returncode}): {format_argv(argv)}\n{detail}")
+        raise TaskError(
+            QCoreApplication.translate("process", "Fallo ({0}): {1}\n{2}").format(
+                result.returncode, format_argv(argv), detail
+            )
+        )
     return (result.stdout or "").strip()
 
 
@@ -276,9 +298,17 @@ def feed(argv: Argv, *, stdin_text: str, timeout: float | None = None) -> str:
             **HOST.run_options(),
         )
     except FileNotFoundError as exc:
-        raise TaskError(f"No se encontro el ejecutable: {argv[0]}") from exc
+        raise TaskError(
+            QCoreApplication.translate("process", "No se encontro el ejecutable: {0}").format(
+                argv[0]
+            )
+        ) from exc
     except subprocess.TimeoutExpired as exc:
-        raise TaskError(f"El comando excedio {timeout}s: {format_argv(argv)}") from exc
+        raise TaskError(
+            QCoreApplication.translate("process", "El comando excedio {0}s: {1}").format(
+                timeout, format_argv(argv)
+            )
+        ) from exc
     return ((result.stdout or "") + (result.stderr or "")).strip()
 
 

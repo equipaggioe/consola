@@ -8,7 +8,7 @@ from the Ver menu (`services/section_visibility.py`).
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -67,11 +67,17 @@ class MachinePanel(QWidget):
         bar.setContentsMargins(16, 8, 16, 8)
         bar.setSpacing(8)
         bar.addStretch(1)
-        self.reload_btn = QPushButton("Recargar")
-        self.reload_btn.setToolTip("Descarta los cambios sin guardar")
+        self.reload_btn = QPushButton(QCoreApplication.translate("MachinePanel", "Recargar"))
+        self.reload_btn.setToolTip(
+            QCoreApplication.translate("MachinePanel", "Descarta los cambios sin guardar")
+        )
         self.reload_btn.clicked.connect(self.reload)
-        self.save_btn = QPushButton("Guardar")
-        self.save_btn.setToolTip("Guarda las claves de esta máquina, para todos los repos")
+        self.save_btn = QPushButton(QCoreApplication.translate("MachinePanel", "Guardar"))
+        self.save_btn.setToolTip(
+            QCoreApplication.translate(
+                "MachinePanel", "Guarda las claves de esta máquina, para todos los repos"
+            )
+        )
         self.save_btn.clicked.connect(self.save)
         for button in (self.reload_btn, self.save_btn):
             button.setCursor(Qt.CursorShape.PointingHandCursor)

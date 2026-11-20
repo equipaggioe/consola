@@ -6,12 +6,13 @@ from dataclasses import replace
 from datetime import UTC, datetime
 from pathlib import Path
 
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QCoreApplication, QDateTime, QLocale
 
 from app.services import android, cache, canone, files, icons, shots, ssh, targets, toolchain, vps
 from app.services.envfile import Config
 from app.services.errors import TaskError
 from app.services.host import HOST
+from app.services.language import QT_TRANSLATE_NOOP
 from app.services.registry import AxisDef, Capability, Facet, Step, registry
 
 _VPS_KEYS = {"VPS_IP", "VPS_USER", "VPS_KEY_NAME", "VPS_DEPLOY_DIR"}
@@ -25,14 +26,17 @@ _VPS_KEYS = {"VPS_IP", "VPS_USER", "VPS_KEY_NAME", "VPS_DEPLOY_DIR"}
 # only the variants existing for it, and the saved value is still the
 # whole package.
 _IMAGE_FACETS = (
-    Facet("api", "Versión", 1),
-    Facet("variant", "Variante", 2),
-    Facet("abi", "Arquitectura", 3),
+    Facet("api", QT_TRANSLATE_NOOP("catalog", "Versión"), 1),
+    Facet("variant", QT_TRANSLATE_NOOP("catalog", "Variante"), 2),
+    Facet("abi", QT_TRANSLATE_NOOP("catalog", "Arquitectura"), 3),
 )
 
 # The 'local'/'remote' axis repeats alike on a dozen buttons: one table
 # of labels so the panel does not show raw lower-case values.
-_SCOPE_LABELS = {"local": "Local", "remote": "Remoto"}
+_SCOPE_LABELS = {
+    "local": QT_TRANSLATE_NOOP("catalog", "Local"),
+    "remote": QT_TRANSLATE_NOOP("catalog", "Remoto"),
+}
 
 # Locally, every button with this axis connects to the database
 # (`db.credentials`): user, database and password. On the VPS it enters
@@ -66,7 +70,12 @@ def _scope_axis() -> AxisDef:
 # pressing.
 def _service_axis() -> AxisDef:
     return AxisDef(
-        "service", [], "scope", label="Servicio", default=vps.MAIN_SERVICE, source=VPS_SERVICES
+        "service",
+        [],
+        "scope",
+        label=QT_TRANSLATE_NOOP("catalog", "Servicio"),
+        default=vps.MAIN_SERVICE,
+        source=VPS_SERVICES,
     )
 
 
@@ -79,8 +88,11 @@ def _host_axis() -> AxisDef:
         "host",
         ["0.0.0.0", "127.0.0.1"],
         "scope",
-        label="Escucha en",
-        labels={"0.0.0.0": "Toda la red", "127.0.0.1": "Solo esta máquina"},
+        label=QT_TRANSLATE_NOOP("catalog", "Escucha en"),
+        labels={
+            "0.0.0.0": QT_TRANSLATE_NOOP("catalog", "Toda la red"),
+            "127.0.0.1": QT_TRANSLATE_NOOP("catalog", "Solo esta máquina"),
+        },
     )
 
 
@@ -184,9 +196,11 @@ ICON_APPS = "icon_apps"
 # the packages canone's `packages.py` installs for this repo
 PACKAGES = "packages"
 # the title each preview goes under in the panel, and what decides it
-PREVIEW_TITLES = {PACKAGES: "Paquetes"}
+PREVIEW_TITLES = {PACKAGES: QT_TRANSLATE_NOOP("catalog", "Paquetes")}
 PREVIEW_HINTS = {
-    PACKAGES: "Lo deciden DB_EXTENSIONS y LOGS, y coturn si Settings declara turn_secret"
+    PACKAGES: QT_TRANSLATE_NOOP(
+        "catalog", "Lo deciden DB_EXTENSIONS y LOGS, y coturn si Settings declara turn_secret"
+    )
 }
 
 # What is installed and created changes while Consola is open, so they
@@ -207,7 +221,9 @@ def preview_checks(
     """
     if source == PACKAGES:
         return canone.installable(config), canone.packages(Path(root), config)
-    raise TaskError(f"Vista previa desconocida: {source}")
+    raise TaskError(
+        QCoreApplication.translate("catalog", "Vista previa desconocida: {0}").format(source)
+    )
 
 
 def queried_values(
@@ -255,7 +271,9 @@ def queried_values(
         # would offer stopping an emulator that no longer exists.
         alive = android.running(sdk)
         return list(alive), {s: f"{n or '?'}  ({s})" for s, n in alive.items()}
-    raise TaskError(f"Fuente desconocida: {source}")
+    raise TaskError(
+        QCoreApplication.translate("catalog", "Fuente desconocida: {0}").format(source)
+    )
 
 
 def _image_labels(images: list[android.Image]) -> dict[str, str]:
@@ -377,12 +395,19 @@ def _shots_axis(
         refresh=refresh,
     )
     axis = _SHOTS_AXES[source]
-    labels = SHOT_THEME_LABELS if axis == "themes" else {}
+    labels = (
+        {
+            value: QCoreApplication.translate("catalog", label)
+            for value, label in SHOT_THEME_LABELS.items()
+        }
+        if axis == "themes"
+        else {}
+    )
     return shots.supported_values(declared, axis), labels
 
 
 def _backup_label(path: Path) -> str:
-    """Return `2026-09-23 14:30  ·  12,4 MB` for a backup.
+    """Return `23/9/26 14:30  ·  12,4 MB` for a backup, in the locale.
 
     The real value is the file's name, which carries the stamp stuck on
     and unseparated: unreadable in a list.
@@ -396,7 +421,9 @@ def _backup_label(path: Path) -> str:
         )
     except ValueError:
         return path.name
-    return f"{when:%Y-%m-%d %H:%M}  ·  {files.human_size(files.size_of(path), QLocale())}"
+    locale = QLocale()
+    stamp = locale.toString(QDateTime(when), QLocale.FormatType.ShortFormat)
+    return f"{stamp}  ·  {files.human_size(files.size_of(path), locale)}"
 
 
 def forget_machine_cache() -> None:
@@ -425,10 +452,17 @@ ANDROID_PACKAGE_AXES = [
         ["platform-tools", "emulator", "build-tools", "platform"],
         "checks",
         select="many",
-        label="Componentes",
+        label=QT_TRANSLATE_NOOP("catalog", "Componentes"),
     ),
-    AxisDef("api_level", [API_LEVEL_DEFAULT], "field", label="API level"),
-    AxisDef("build_tools", [BUILD_TOOLS_DEFAULT], "field", label="Build-tools"),
+    AxisDef(
+        "api_level", [API_LEVEL_DEFAULT], "field", label=QT_TRANSLATE_NOOP("catalog", "API level")
+    ),
+    AxisDef(
+        "build_tools",
+        [BUILD_TOOLS_DEFAULT],
+        "field",
+        label=QT_TRANSLATE_NOOP("catalog", "Build-tools"),
+    ),
 ]
 
 # The axes of 'clean_artifacts'. Values are the keys
@@ -436,17 +470,17 @@ ANDROID_PACKAGE_AXES = [
 # apart, in `labels`: that is the naming contract (ADR-0003).
 FAMILY_AXIS_VALUES = ["python", "gradle", "flutter", "crash"]
 FAMILY_AXIS_LABELS = {
-    "python": "Python",
-    "gradle": "Gradle/Android",
-    "flutter": "Flutter",
-    "crash": "Volcados de crash",
+    "python": QT_TRANSLATE_NOOP("catalog", "Python"),
+    "gradle": QT_TRANSLATE_NOOP("catalog", "Gradle/Android"),
+    "flutter": QT_TRANSLATE_NOOP("catalog", "Flutter"),
+    "crash": QT_TRANSLATE_NOOP("catalog", "Volcados de crash"),
 }
 HEAVY_AXIS_VALUES = ["node_modules", "venv", "build", "dart_tool"]
 HEAVY_AXIS_LABELS = {
-    "node_modules": "node_modules",
-    "venv": ".venv",
-    "build": "build/dist",
-    "dart_tool": ".dart_tool",
+    "node_modules": QT_TRANSLATE_NOOP("catalog", "node_modules"),
+    "venv": QT_TRANSLATE_NOOP("catalog", ".venv"),
+    "build": QT_TRANSLATE_NOOP("catalog", "build/dist"),
+    "dart_tool": QT_TRANSLATE_NOOP("catalog", ".dart_tool"),
 }
 
 # Only the executable bumps the manifest's version (ADR-0059). They show
@@ -455,7 +489,13 @@ SEMVER_MODES = ["major", "minor", "patch", "none"]
 
 
 def _semver_axis() -> AxisDef:
-    return AxisDef("bump_mode", SEMVER_MODES, "scope", label="Bump", default="patch")
+    return AxisDef(
+        "bump_mode",
+        SEMVER_MODES,
+        "scope",
+        label=QT_TRANSLATE_NOOP("catalog", "Bump"),
+        default="patch",
+    )
 
 
 # Only those this machine can compile: offering Windows on Linux would
@@ -468,7 +508,7 @@ def _platforms_axis() -> AxisDef:
         toolchain.host_platforms(),
         "checks",
         select="many",
-        label="Plataformas",
+        label=QT_TRANSLATE_NOOP("catalog", "Plataformas"),
         defaults={"apk"},
         labels={k: p.label for k, p in toolchain.BUILD_PLATFORMS.items()},
         uses_env={k: {toolchain.out_key(k)} for k in toolchain.BUILD_PLATFORMS},
@@ -481,10 +521,15 @@ def _platforms_axis() -> AxisDef:
 # looked into, and the hash is all that lets one check that what was
 # downloaded is what was published.
 BUILD_BINARY_STEPS = [
-    Step("bump", "Subir número de versión"),
-    Step("build", "Compilar binario"),
-    Step("checksum", "Calcular checksum"),
-    Step("upload", "Subir al VPS", default=False, requires_env=_VPS_KEYS),
+    Step("bump", QT_TRANSLATE_NOOP("catalog", "Subir número de versión")),
+    Step("build", QT_TRANSLATE_NOOP("catalog", "Compilar binario")),
+    Step("checksum", QT_TRANSLATE_NOOP("catalog", "Calcular checksum")),
+    Step(
+        "upload",
+        QT_TRANSLATE_NOOP("catalog", "Subir al VPS"),
+        default=False,
+        requires_env=_VPS_KEYS,
+    ),
 ]
 
 # The eight steps of `database.bootstrap_db` are its eight booleans: it
@@ -506,14 +551,18 @@ BUILD_BINARY_STEPS = [
 # composite «Base de datos» does not say whether it creates or deletes.
 # The noun names the object; the checkbox has to name the act.
 BOOTSTRAP_DB_STEPS = [
-    Step("role", "Crear rol de la aplicación"),
-    Step("database", "Crear base de datos"),
-    Step("privileges", "Otorgar permisos al rol"),
-    Step("extensions", "Habilitar extensiones", default=False),
-    Step("migrate", "Ejecutar migraciones", requires_repo=targets.MIGRATIONS),
-    Step("partitions", "Crear particiones"),
-    Step("seeders", "Cargar seeders"),
-    Step("mock_seeders", "Cargar datos mock", default=False),
+    Step("role", QT_TRANSLATE_NOOP("catalog", "Crear rol de la aplicación")),
+    Step("database", QT_TRANSLATE_NOOP("catalog", "Crear base de datos")),
+    Step("privileges", QT_TRANSLATE_NOOP("catalog", "Otorgar permisos al rol")),
+    Step("extensions", QT_TRANSLATE_NOOP("catalog", "Habilitar extensiones"), default=False),
+    Step(
+        "migrate",
+        QT_TRANSLATE_NOOP("catalog", "Ejecutar migraciones"),
+        requires_repo=targets.MIGRATIONS,
+    ),
+    Step("partitions", QT_TRANSLATE_NOOP("catalog", "Crear particiones")),
+    Step("seeders", QT_TRANSLATE_NOOP("catalog", "Cargar seeders")),
+    Step("mock_seeders", QT_TRANSLATE_NOOP("catalog", "Cargar datos mock"), default=False),
 ]
 
 
@@ -529,12 +578,22 @@ BOOTSTRAP_DB_STEPS = [
 _LOCAL = frozenset({"local"})
 _REMOTE = frozenset({"remote"})
 REBUILD_DB_STEPS = [
-    Step("drop", "Borrar tablas", requires_env=_PG_KEYS, scopes=_LOCAL),
-    Step("empty", "Vaciar la base y los archivos subidos", scopes=_REMOTE),
-    Step("migrate", "Ejecutar migraciones", requires_repo=targets.MIGRATIONS),
-    Step("partitions", "Crear particiones", scopes=_LOCAL),
-    Step("seeders", "Cargar seeders"),
-    Step("mock_seeders", "Cargar datos mock"),
+    Step(
+        "drop", QT_TRANSLATE_NOOP("catalog", "Borrar tablas"), requires_env=_PG_KEYS, scopes=_LOCAL
+    ),
+    Step(
+        "empty",
+        QT_TRANSLATE_NOOP("catalog", "Vaciar la base y los archivos subidos"),
+        scopes=_REMOTE,
+    ),
+    Step(
+        "migrate",
+        QT_TRANSLATE_NOOP("catalog", "Ejecutar migraciones"),
+        requires_repo=targets.MIGRATIONS,
+    ),
+    Step("partitions", QT_TRANSLATE_NOOP("catalog", "Crear particiones"), scopes=_LOCAL),
+    Step("seeders", QT_TRANSLATE_NOOP("catalog", "Cargar seeders")),
+    Step("mock_seeders", QT_TRANSLATE_NOOP("catalog", "Cargar datos mock")),
 ]
 
 
@@ -543,9 +602,9 @@ REBUILD_DB_STEPS = [
 # against the live database, and over a database with tables the
 # «initial» comes out empty.
 REINIT_MIGRATIONS_STEPS = [
-    Step("drop", "Borrar tablas"),
-    Step("reset", "Borrar migraciones"),
-    Step("generate", "Generar migración inicial"),
+    Step("drop", QT_TRANSLATE_NOOP("catalog", "Borrar tablas")),
+    Step("reset", QT_TRANSLATE_NOOP("catalog", "Borrar migraciones")),
+    Step("generate", QT_TRANSLATE_NOOP("catalog", "Generar migración inicial")),
 ]
 
 
@@ -553,8 +612,8 @@ REINIT_MIGRATIONS_STEPS = [
 # look at before applying, or bringing a late database up to date
 # without autogenerating.
 MIGRATE_DB_STEPS = [
-    Step("generate", "Generar migración"),
-    Step("apply", "Ejecutar migraciones"),
+    Step("generate", QT_TRANSLATE_NOOP("catalog", "Generar migración")),
+    Step("apply", QT_TRANSLATE_NOOP("catalog", "Ejecutar migraciones")),
 ]
 
 
@@ -563,25 +622,33 @@ MIGRATE_DB_STEPS = [
 # `credentials.py` needs. Refreshing the fingerprint starts unchecked:
 # it is needed only after reinstalling the VPS.
 BOOTSTRAP_VPS_STEPS = [
-    Step("known_host", "Refrescar known_hosts", default=False),
-    Step("key", "Poner la llave"),
-    Step("software", "Instalar paquetes y uv"),
-    Step("swap", "Crear swap"),
+    Step("known_host", QT_TRANSLATE_NOOP("catalog", "Refrescar known_hosts"), default=False),
+    Step("key", QT_TRANSLATE_NOOP("catalog", "Poner la llave")),
+    Step("software", QT_TRANSLATE_NOOP("catalog", "Instalar paquetes y uv")),
+    Step("swap", QT_TRANSLATE_NOOP("catalog", "Crear swap")),
     Step(
         "infra",
-        "Instalar infraestructura",
+        QT_TRANSLATE_NOOP("catalog", "Instalar infraestructura"),
         requires_env={"DOMAIN", "OFFLINE_KEY"},
     ),
-    Step("credentials", "Cargar credenciales", requires_env={"RESTIC_PASSWORD"}),
-    Step("deploy", "Desplegar el último release"),
+    Step(
+        "credentials",
+        QT_TRANSLATE_NOOP("catalog", "Cargar credenciales"),
+        requires_env={"RESTIC_PASSWORD"},
+    ),
+    Step("deploy", QT_TRANSLATE_NOOP("catalog", "Desplegar el último release")),
 ]
 
 # Tag, `release.yml`, signature, `deploy.py`. Keys go per step: creating
 # the tag does not reach the VPS, and signing only asks for the key.
 PUBLISH_RELEASE_STEPS = [
-    Step("tag", "Crear tag"),
-    Step("sign", "Firmar release", requires_env={"VPS_KEY_NAME"}),
-    Step("deploy", "Desplegar", requires_env=_VPS_KEYS - {"VPS_DEPLOY_DIR"}),
+    Step("tag", QT_TRANSLATE_NOOP("catalog", "Crear tag")),
+    Step("sign", QT_TRANSLATE_NOOP("catalog", "Firmar release"), requires_env={"VPS_KEY_NAME"}),
+    Step(
+        "deploy",
+        QT_TRANSLATE_NOOP("catalog", "Desplegar"),
+        requires_env=_VPS_KEYS - {"VPS_DEPLOY_DIR"},
+    ),
 ]
 
 
@@ -598,33 +665,33 @@ PUBLISH_RELEASE_STEPS = [
 # local one is the case of revoking access of a machine no longer at
 # hand.
 REVOKE_SSH_STEPS = [
-    Step("remote_side", "Borrar clave del VPS"),
-    Step("local_side", "Borrar clave de esta máquina"),
+    Step("remote_side", QT_TRANSLATE_NOOP("catalog", "Borrar clave del VPS")),
+    Step("local_side", QT_TRANSLATE_NOOP("catalog", "Borrar clave de esta máquina")),
 ]
 
 # The three steps of `utils.install_android_sdk`, one boolean each
 # (ADR-0003).
 INSTALL_ANDROID_SDK_STEPS = [
-    Step("tools", "Instalar herramientas de línea de comandos"),
-    Step("packages", "Instalar paquetes del SDK"),
-    Step("hypervisor", "Instalar aceleración del emulador"),
+    Step("tools", QT_TRANSLATE_NOOP("catalog", "Instalar herramientas de línea de comandos")),
+    Step("packages", QT_TRANSLATE_NOOP("catalog", "Instalar paquetes del SDK")),
+    Step("hypervisor", QT_TRANSLATE_NOOP("catalog", "Instalar aceleración del emulador")),
 ]
 
 # Deleting the database and leaving the role is what is wanted before a
 # bootstrap: other databases on the same server use the role.
 TEARDOWN_DB_STEPS = [
-    Step("database", "Borrar base de datos"),
-    Step("role", "Borrar rol de la aplicación"),
+    Step("database", QT_TRANSLATE_NOOP("catalog", "Borrar base de datos")),
+    Step("role", QT_TRANSLATE_NOOP("catalog", "Borrar rol de la aplicación")),
 ]
 
 SHOT_DESTINATION_LABELS = {
-    "landing": "Landing",
-    "play": "Google Play",
-    "appstore": "App Store",
-    "manual": "Manual",
-    "og": "Open Graph",
-    "social": "Redes sociales",
-    "presskit": "Press kit",
+    "landing": QT_TRANSLATE_NOOP("catalog", "Landing"),
+    "play": QT_TRANSLATE_NOOP("catalog", "Google Play"),
+    "appstore": QT_TRANSLATE_NOOP("catalog", "App Store"),
+    "manual": QT_TRANSLATE_NOOP("catalog", "Manual"),
+    "og": QT_TRANSLATE_NOOP("catalog", "Open Graph"),
+    "social": QT_TRANSLATE_NOOP("catalog", "Redes sociales"),
+    "presskit": QT_TRANSLATE_NOOP("catalog", "Press kit"),
 }
 
 
@@ -634,13 +701,16 @@ def _shot_destinations_axis() -> AxisDef:
         list(SHOT_DESTINATION_LABELS),
         "checks",
         select="many",
-        label="Destinos",
+        label=QT_TRANSLATE_NOOP("catalog", "Destinos"),
         defaults={"landing"},
         labels=SHOT_DESTINATION_LABELS,
     )
 
 
-SHOT_THEME_LABELS = {"light": "Claro", "dark": "Oscuro"}
+SHOT_THEME_LABELS = {
+    "light": QT_TRANSLATE_NOOP("catalog", "Claro"),
+    "dark": QT_TRANSLATE_NOOP("catalog", "Oscuro"),
+}
 
 
 # What Consola passes the repo's camera as arguments (`--apps`,
@@ -650,9 +720,30 @@ SHOT_THEME_LABELS = {"light": "Claro", "dark": "Oscuro"}
 # chosen: they are its own.
 def _shot_camera_axes() -> list[AxisDef]:
     return [
-        AxisDef("apps", [], "checks", select="many", label="Apps", source=SHOTS_APPS),
-        AxisDef("themes", [], "checks", select="many", label="Temas", source=SHOTS_THEMES),
-        AxisDef("languages", [], "checks", select="many", label="Idiomas", source=SHOTS_LANGUAGES),
+        AxisDef(
+            "apps",
+            [],
+            "checks",
+            select="many",
+            label=QT_TRANSLATE_NOOP("catalog", "Apps"),
+            source=SHOTS_APPS,
+        ),
+        AxisDef(
+            "themes",
+            [],
+            "checks",
+            select="many",
+            label=QT_TRANSLATE_NOOP("catalog", "Temas"),
+            source=SHOTS_THEMES,
+        ),
+        AxisDef(
+            "languages",
+            [],
+            "checks",
+            select="many",
+            label=QT_TRANSLATE_NOOP("catalog", "Idiomas"),
+            source=SHOTS_LANGUAGES,
+        ),
         # Consola chooses and starts the emulator, not the script
         # (ADR-0049): a created AVD is chosen, and if not alive it comes
         # up before running the camera. The camera knows whether an app
@@ -662,23 +753,23 @@ def _shot_camera_axes() -> list[AxisDef]:
             "avd",
             [],
             "pick",
-            label="Emulador",
+            label=QT_TRANSLATE_NOOP("catalog", "Emulador"),
             source=ANDROID_AVDS,
             allow_empty=True,
-            labels={"": "Ninguno"},
+            labels={"": QT_TRANSLATE_NOOP("catalog", "Ninguno")},
         ),
     ]
 
 
 SCREENSHOTS_STEPS = [
-    Step("shoot", "Sacar capturas", requires_env={"SHOTS_CMD"}),
-    Step("render", "Revelar capturas"),
+    Step("shoot", QT_TRANSLATE_NOOP("catalog", "Sacar capturas"), requires_env={"SHOTS_CMD"}),
+    Step("render", QT_TRANSLATE_NOOP("catalog", "Revelar capturas")),
 ]
 
 DEV_ENV_STEPS = [
-    Step("backend", "Backend", optional=False),
-    Step("serve_vite", "SPA"),
-    Step("run_python", "App de escritorio", default=False),
+    Step("backend", QT_TRANSLATE_NOOP("catalog", "Backend"), optional=False),
+    Step("serve_vite", QT_TRANSLATE_NOOP("catalog", "SPA")),
+    Step("run_python", QT_TRANSLATE_NOOP("catalog", "App de escritorio"), default=False),
 ]
 
 
@@ -706,22 +797,36 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="backend",
-            name="Levantar backend",
-            group="Ejecutar",
+            name=QT_TRANSLATE_NOOP("catalog", "Levantar backend"),
+            group=QT_TRANSLATE_NOOP("catalog", "Ejecutar"),
             kind="live",
             icon="▶",
             view="web",
-            description="Levanta el servidor FastAPI del repo, local o contra el VPS.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Levanta el servidor FastAPI del repo, local o contra el VPS."
+            ),
             # The server is discovered like SPAs: the folder whose
             # startup module creates `FastAPI(`, called `server/` or
             # `backend/`. The port is only the preferred one, since
             # `services/ports.py` looks for the next free, so it can
             # stay as is without fear of clashing with another tab.
             axes=[
-                AxisDef("target", [], "scope", label="Servidor", discover=(targets.FASTAPI,)),
+                AxisDef(
+                    "target",
+                    [],
+                    "scope",
+                    label=QT_TRANSLATE_NOOP("catalog", "Servidor"),
+                    discover=(targets.FASTAPI,),
+                ),
                 _scope_axis(),
                 _host_axis(),
-                AxisDef("preferred_port", ["8000"], "field", label="Puerto", cast="int"),
+                AxisDef(
+                    "preferred_port",
+                    ["8000"],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Puerto"),
+                    cast="int",
+                ),
                 # No reload is the mode for trying what will run on the
                 # VPS: `--reload` changes how the app starts and hides
                 # errors that only happen once.
@@ -729,9 +834,12 @@ def load_catalog() -> None:
                     "reload",
                     ["reload", "no_reload"],
                     "scope",
-                    label="Al cambiar el código",
+                    label=QT_TRANSLATE_NOOP("catalog", "Al cambiar el código"),
                     truthy="reload",
-                    labels={"reload": "Con recarga", "no_reload": "Sin recarga"},
+                    labels={
+                        "reload": QT_TRANSLATE_NOOP("catalog", "Con recarga"),
+                        "no_reload": QT_TRANSLATE_NOOP("catalog", "Sin recarga"),
+                    },
                 ),
             ],
             stub=True,
@@ -744,25 +852,33 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="serve_vite",
-            name="Levantar SPA con Vite",
-            group="Ejecutar",
+            name=QT_TRANSLATE_NOOP("catalog", "Levantar SPA con Vite"),
+            group=QT_TRANSLATE_NOOP("catalog", "Ejecutar"),
             kind="live",
             icon="🌐",
             view="web",
             fanout="target",
-            description="Arranca el dev server de Vite para las apps elegidas.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Arranca el dev server de Vite para las apps elegidas."
+            ),
             axes=[
                 AxisDef(
                     "target",
                     [],
                     "checks",
                     select="many",
-                    label="Apps",
+                    label=QT_TRANSLATE_NOOP("catalog", "Apps"),
                     discover=(targets.SPA_VITE,),
                 ),
                 # The preferred port, not the final one: with two SPAs
                 # checked the second tab takes the next free by itself.
-                AxisDef("preferred_port", ["5173"], "field", label="Puerto", cast="int"),
+                AxisDef(
+                    "preferred_port",
+                    ["5173"],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Puerto"),
+                    cast="int",
+                ),
             ],
             stub=True,
         )
@@ -774,11 +890,13 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="run_mobile",
-            name="Levantar app móvil",
-            group="Ejecutar",
+            name=QT_TRANSLATE_NOOP("catalog", "Levantar app móvil"),
+            group=QT_TRANSLATE_NOOP("catalog", "Ejecutar"),
             kind="live",
             icon="📲",
-            description="Corre la app móvil en el emulador o dispositivo conectado.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Corre la app móvil en el emulador o dispositivo conectado."
+            ),
             # `device` admits empty and starts empty: the function
             # already chooses by itself, the emulator this session
             # launched or else the first to answer, and it only has to
@@ -786,15 +904,21 @@ def load_catalog() -> None:
             # leave the button amber right when there is none, when the
             # useful message is the function's.
             axes=[
-                AxisDef("target", [], "scope", label="App móvil", discover=targets.MOBILE_APP),
+                AxisDef(
+                    "target",
+                    [],
+                    "scope",
+                    label=QT_TRANSLATE_NOOP("catalog", "App móvil"),
+                    discover=targets.MOBILE_APP,
+                ),
                 AxisDef(
                     "device",
                     [],
                     "pick",
-                    label="Emulador",
+                    label=QT_TRANSLATE_NOOP("catalog", "Emulador"),
                     source=ANDROID_RUNNING,
                     allow_empty=True,
-                    labels={"": "El que esté corriendo"},
+                    labels={"": QT_TRANSLATE_NOOP("catalog", "El que esté corriendo")},
                 ),
             ],
             stub=True,
@@ -806,19 +930,21 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="run_python",
-            name="Levantar app de escritorio",
-            group="Ejecutar",
+            name=QT_TRANSLATE_NOOP("catalog", "Levantar app de escritorio"),
+            group=QT_TRANSLATE_NOOP("catalog", "Ejecutar"),
             kind="live",
             icon="🐍",
             fanout="target",
-            description="Arranca las apps Python elegidas, con recarga al cambiar sus fuentes.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Arranca las apps Python elegidas, con recarga al cambiar sus fuentes."
+            ),
             axes=[
                 AxisDef(
                     "target",
                     [],
                     "checks",
                     select="many",
-                    label="Apps",
+                    label=QT_TRANSLATE_NOOP("catalog", "Apps"),
                     discover=targets.DESKTOP_APP,
                 )
             ],
@@ -826,8 +952,10 @@ def load_catalog() -> None:
             # not `scope`'s segment, which is for «one of these two»,
             # not «yes or no».
             steps=[
-                Step("watch", "Relanzar al detectar cambios"),
-                Step("auto_login", "Auto-login de dev", default=False),
+                Step("watch", QT_TRANSLATE_NOOP("catalog", "Relanzar al detectar cambios")),
+                Step(
+                    "auto_login", QT_TRANSLATE_NOOP("catalog", "Auto-login de dev"), default=False
+                ),
             ],
             stub=True,
         )
@@ -839,14 +967,16 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="dev_env",
-            name="Levantar todo el entorno",
+            name=QT_TRANSLATE_NOOP("catalog", "Levantar todo el entorno"),
             cut=True,
-            group="Ejecutar",
+            group=QT_TRANSLATE_NOOP("catalog", "Ejecutar"),
             kind="live",
             icon="🧪",
             level="C",
             concurrent=True,
-            description="Levanta backend, SPA y apps Python a la vez, cada uno en su pestaña.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Levanta backend, SPA y apps Python a la vez, cada uno en su pestaña."
+            ),
             steps=DEV_ENV_STEPS,
             composed_of=["backend", "serve_vite", "run_python"],
             stub=False,
@@ -865,11 +995,13 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="create_spa",
-            name="Crear SPA SvelteKit",
-            group="Compilar",
+            name=QT_TRANSLATE_NOOP("catalog", "Crear SPA SvelteKit"),
+            group=QT_TRANSLATE_NOOP("catalog", "Compilar"),
             kind="once",
             icon="✨",
-            description="Crea en el repo una SPA en blanco con SvelteKit, runes y UnoCSS.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Crea en el repo una SPA en blanco con SvelteKit, runes y UnoCSS."
+            ),
             stub=True,
         )
     )
@@ -881,14 +1013,23 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="build_flutter",
-            name="Compilar app Flutter",
-            group="Compilar",
+            name=QT_TRANSLATE_NOOP("catalog", "Compilar app Flutter"),
+            group=QT_TRANSLATE_NOOP("catalog", "Compilar"),
             kind="once",
             icon="📦",
-            description="Compila la app Flutter o Flet para las plataformas marcadas: APK, web, "
-            "escritorio o iOS.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Compila la app Flutter o Flet para las plataformas marcadas: APK, web, "
+                "escritorio o iOS.",
+            ),
             axes=[
-                AxisDef("directory", [], "scope", label="App", discover=targets.MOBILE_APP),
+                AxisDef(
+                    "directory",
+                    [],
+                    "scope",
+                    label=QT_TRANSLATE_NOOP("catalog", "App"),
+                    discover=targets.MOBILE_APP,
+                ),
                 _platforms_axis(),
             ],
             stub=True,
@@ -897,18 +1038,20 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="build_vite",
-            name="Compilar SPA",
-            group="Compilar",
+            name=QT_TRANSLATE_NOOP("catalog", "Compilar SPA"),
+            group=QT_TRANSLATE_NOOP("catalog", "Compilar"),
             kind="once",
             icon="🏗️",
-            description="Deja compiladas las SPA del repo, listas para que el proxy las sirva.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Deja compiladas las SPA del repo, listas para que el proxy las sirva."
+            ),
             axes=[
                 AxisDef(
                     "directories",
                     [],
                     "checks",
                     select="many",
-                    label="Apps",
+                    label=QT_TRANSLATE_NOOP("catalog", "Apps"),
                     discover=(targets.SPA_VITE,),
                 )
             ],
@@ -925,15 +1068,27 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="build_binary",
-            name="Compilar ejecutable",
-            group="Compilar",
+            name=QT_TRANSLATE_NOOP("catalog", "Compilar ejecutable"),
+            group=QT_TRANSLATE_NOOP("catalog", "Compilar"),
             kind="once",
             icon="⚡",
-            description="Empaqueta una app Python del repo como ejecutable descargable.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Empaqueta una app Python del repo como ejecutable descargable."
+            ),
             composed_of=["bump_version", "upload_to_vps"],
             axes=[
-                AxisDef("entrypoint", [""], "field", label="Punto de entrada"),
-                AxisDef("name", [""], "field", label="Nombre del ejecutable"),
+                AxisDef(
+                    "entrypoint",
+                    [""],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Punto de entrada"),
+                ),
+                AxisDef(
+                    "name",
+                    [""],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Nombre del ejecutable"),
+                ),
                 # PyInstaller's two decisions changing *what* gets
                 # delivered: a loose file or a folder, and with or
                 # without a console behind.
@@ -941,17 +1096,23 @@ def load_catalog() -> None:
                     "onefile",
                     ["single_file", "folder"],
                     "scope",
-                    label="Empaquetado",
+                    label=QT_TRANSLATE_NOOP("catalog", "Empaquetado"),
                     truthy="single_file",
-                    labels={"single_file": "Un archivo", "folder": "Carpeta"},
+                    labels={
+                        "single_file": QT_TRANSLATE_NOOP("catalog", "Un archivo"),
+                        "folder": QT_TRANSLATE_NOOP("catalog", "Carpeta"),
+                    },
                 ),
                 AxisDef(
                     "windowed",
                     ["console", "window"],
                     "scope",
-                    label="Al ejecutarse",
+                    label=QT_TRANSLATE_NOOP("catalog", "Al ejecutarse"),
                     truthy="window",
-                    labels={"console": "Consola", "window": "Ventana"},
+                    labels={
+                        "console": QT_TRANSLATE_NOOP("catalog", "Consola"),
+                        "window": QT_TRANSLATE_NOOP("catalog", "Ventana"),
+                    },
                 ),
                 _semver_axis(),
             ],
@@ -962,11 +1123,11 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="bump_version",
-            name="Subir número de versión",
-            group="Compilar",
+            name=QT_TRANSLATE_NOOP("catalog", "Subir número de versión"),
+            group=QT_TRANSLATE_NOOP("catalog", "Compilar"),
             kind="once",
             icon="🏷️",
-            description="Sube el número de versión del repo.",
+            description=QT_TRANSLATE_NOOP("catalog", "Sube el número de versión del repo."),
             hidden=True,
             stub=True,
         )
@@ -974,18 +1135,20 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="clean_artifacts",
-            name="Borrar artefactos de build",
-            group="Compilar",
+            name=QT_TRANSLATE_NOOP("catalog", "Borrar artefactos de build"),
+            group=QT_TRANSLATE_NOOP("catalog", "Compilar"),
             kind="destructive",
             icon="🧹",
-            description="Borra cachés y basura de build del repo; en simulacro solo los lista.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Borra cachés y basura de build del repo; en simulacro solo los lista."
+            ),
             axes=[
                 AxisDef(
                     "families",
                     FAMILY_AXIS_VALUES,
                     "checks",
                     select="many",
-                    label="Qué borrar",
+                    label=QT_TRANSLATE_NOOP("catalog", "Qué borrar"),
                     labels=FAMILY_AXIS_LABELS,
                 ),
                 AxisDef(
@@ -993,7 +1156,7 @@ def load_catalog() -> None:
                     HEAVY_AXIS_VALUES,
                     "checks",
                     select="many",
-                    label="Pesados",
+                    label=QT_TRANSLATE_NOOP("catalog", "Pesados"),
                     labels=HEAVY_AXIS_LABELS,
                     checked_by_default=False,
                     allow_empty=True,
@@ -1002,9 +1165,12 @@ def load_catalog() -> None:
                     "apply",
                     ["dry_run", "delete"],
                     "scope",
-                    label="Modo",
+                    label=QT_TRANSLATE_NOOP("catalog", "Modo"),
                     truthy="delete",
-                    labels={"dry_run": "Simulacro", "delete": "Borrar"},
+                    labels={
+                        "dry_run": QT_TRANSLATE_NOOP("catalog", "Simulacro"),
+                        "delete": QT_TRANSLATE_NOOP("catalog", "Borrar"),
+                    },
                 ),
             ],
             stub=True,
@@ -1021,12 +1187,23 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="generate_icons",
-            name="Generar íconos",
-            group="Imágenes",
+            name=QT_TRANSLATE_NOOP("catalog", "Generar íconos"),
+            group=QT_TRANSLATE_NOOP("catalog", "Imágenes"),
             kind="once",
             icon="🎨",
-            description="Genera los íconos de las apps a partir del logo del repo.",
-            axes=[AxisDef("apps", [], "checks", select="many", label="Apps", source=ICON_APPS)],
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Genera los íconos de las apps a partir del logo del repo."
+            ),
+            axes=[
+                AxisDef(
+                    "apps",
+                    [],
+                    "checks",
+                    select="many",
+                    label=QT_TRANSLATE_NOOP("catalog", "Apps"),
+                    source=ICON_APPS,
+                )
+            ],
             stub=True,
         )
     )
@@ -1041,12 +1218,14 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="shoot_screens",
-            name="Sacar capturas",
+            name=QT_TRANSLATE_NOOP("catalog", "Sacar capturas"),
             cut=True,
-            group="Imágenes",
+            group=QT_TRANSLATE_NOOP("catalog", "Imágenes"),
             kind="once",
             icon="📷",
-            description="Corre la cámara del repo, que deja las capturas crudas de sus apps.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Corre la cámara del repo, que deja las capturas crudas de sus apps."
+            ),
             axes=_shot_camera_axes(),
             stub=True,
         )
@@ -1058,11 +1237,14 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="render_shots",
-            name="Revelar capturas",
-            group="Imágenes",
+            name=QT_TRANSLATE_NOOP("catalog", "Revelar capturas"),
+            group=QT_TRANSLATE_NOOP("catalog", "Imágenes"),
             kind="once",
             icon="🎞️",
-            description="Convierte las capturas crudas a las medidas y formatos de cada destino.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Convierte las capturas crudas a las medidas y formatos de cada destino.",
+            ),
             axes=[_shot_destinations_axis()],
             stub=True,
         )
@@ -1073,14 +1255,16 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="screenshots",
-            name="Capturar y publicar",
+            name=QT_TRANSLATE_NOOP("catalog", "Capturar y publicar"),
             cut=True,
-            group="Imágenes",
+            group=QT_TRANSLATE_NOOP("catalog", "Imágenes"),
             kind="once",
             icon="📸",
             level="C",
-            description="Saca las capturas de las apps del repo y las deja listas en cada "
-            "destino.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Saca las capturas de las apps del repo y las deja listas en cada destino.",
+            ),
             composed_of=["shoot_screens", "render_shots"],
             axes=[*_shot_camera_axes(), _shot_destinations_axis()],
             steps=SCREENSHOTS_STEPS,
@@ -1105,17 +1289,27 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="clone_repo",
-            name="Clonar repositorio de GitHub",
-            group="Repositorio",
+            name=QT_TRANSLATE_NOOP("catalog", "Clonar repositorio de GitHub"),
+            group=QT_TRANSLATE_NOOP("catalog", "Repositorio"),
             kind="once",
             icon="📥",
             scope="machine",
             opens_repo=True,
-            description="Clona un repositorio de GitHub y lo abre como pestaña.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Clona un repositorio de GitHub y lo abre como pestaña."
+            ),
             axes=[
-                AxisDef("url", [""], "field", label="URL del repositorio", required=True),
-                AxisDef("dest", [""], "field", label="Carpeta destino"),
-                AxisDef("branch", [""], "field", label="Rama"),
+                AxisDef(
+                    "url",
+                    [""],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "URL del repositorio"),
+                    required=True,
+                ),
+                AxisDef(
+                    "dest", [""], "field", label=QT_TRANSLATE_NOOP("catalog", "Carpeta destino")
+                ),
+                AxisDef("branch", [""], "field", label=QT_TRANSLATE_NOOP("catalog", "Rama")),
             ],
             stub=True,
         )
@@ -1123,22 +1317,39 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="sync_common_files",
-            name="Copiar archivos comunes a otros repos",
-            group="Repositorio",
+            name=QT_TRANSLATE_NOOP("catalog", "Copiar archivos comunes a otros repos"),
+            group=QT_TRANSLATE_NOOP("catalog", "Repositorio"),
             kind="destructive",
             icon="🔄",
-            description="Copia los archivos compartidos a los otros repos; en simulacro solo "
-            "compara.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Copia los archivos compartidos a los otros repos; en simulacro solo compara.",
+            ),
             axes=[
-                AxisDef("targets", [""], "field", label="Repos destino", multiline=True),
-                AxisDef("paths", [""], "field", label="Archivos a copiar", multiline=True),
+                AxisDef(
+                    "targets",
+                    [""],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Repos destino"),
+                    multiline=True,
+                ),
+                AxisDef(
+                    "paths",
+                    [""],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Archivos a copiar"),
+                    multiline=True,
+                ),
                 AxisDef(
                     "apply",
                     ["dry_run", "apply"],
                     "scope",
-                    label="Modo",
+                    label=QT_TRANSLATE_NOOP("catalog", "Modo"),
                     truthy="apply",
-                    labels={"dry_run": "Simulacro", "apply": "Aplicar"},
+                    labels={
+                        "dry_run": QT_TRANSLATE_NOOP("catalog", "Simulacro"),
+                        "apply": QT_TRANSLATE_NOOP("catalog", "Aplicar"),
+                    },
                 ),
             ],
             stub=True,
@@ -1150,34 +1361,41 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="git_force_push",
-            name="Force push",
+            name=QT_TRANSLATE_NOOP("catalog", "Force push"),
             cut=True,
-            group="Repositorio",
+            group=QT_TRANSLATE_NOOP("catalog", "Repositorio"),
             kind="destructive",
             icon="⏫",
-            description="Empuja a origin con --force la rama de esta máquina, aunque haya "
-            "divergido.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Empuja a origin con --force la rama de esta máquina, aunque haya divergido.",
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="git_force_reset",
-            name="Force reset",
-            group="Repositorio",
+            name=QT_TRANSLATE_NOOP("catalog", "Force reset"),
+            group=QT_TRANSLATE_NOOP("catalog", "Repositorio"),
             kind="destructive",
             icon="⏬",
-            description="Descarta los commits y los cambios de esta máquina para dejarla igual "
-            "a origin.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Descarta los commits y los cambios de esta máquina para dejarla igual a origin.",
+            ),
             axes=[
                 AxisDef(
                     "discard_changes",
                     ["ask", "discard"],
                     "scope",
-                    label="Si hay cambios sin commitear",
+                    label=QT_TRANSLATE_NOOP("catalog", "Si hay cambios sin commitear"),
                     truthy="discard",
                     danger={"discard"},
-                    labels={"ask": "Preguntar", "discard": "Descartar"},
+                    labels={
+                        "ask": QT_TRANSLATE_NOOP("catalog", "Preguntar"),
+                        "discard": QT_TRANSLATE_NOOP("catalog", "Descartar"),
+                    },
                 )
             ],
             stub=True,
@@ -1193,12 +1411,14 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="bootstrap_db",
-            name="Configurar base de datos",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Configurar base de datos"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="once",
             icon="🏗️",
-            description="Deja la base local usable desde cero: creada, migrada y con sus datos "
-            "mínimos.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Deja la base local usable desde cero: creada, migrada y con sus datos mínimos.",
+            ),
             steps=BOOTSTRAP_DB_STEPS,
             stub=True,
         )
@@ -1206,23 +1426,27 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="enable_extensions",
-            name="Habilitar extensiones",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Habilitar extensiones"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="once",
             icon="🧩",
-            description="Crea en la base local las extensiones de Postgres que declara el repo.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Crea en la base local las extensiones de Postgres que declara el repo."
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="migrate_db",
-            name="Correr migraciones",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Correr migraciones"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="once",
             icon="📐",
             requires_repo=targets.MIGRATIONS,
-            description="Genera la migración pendiente y la aplica en la base local.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Genera la migración pendiente y la aplica en la base local."
+            ),
             steps=MIGRATE_DB_STEPS,
             stub=True,
         )
@@ -1232,12 +1456,14 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="run_seeders",
-            name="Correr seeders",
+            name=QT_TRANSLATE_NOOP("catalog", "Correr seeders"),
             cut=True,
-            group="Base de datos",
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="once",
             icon="🌱",
-            description="Carga los datos mínimos que la app necesita para arrancar.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Carga los datos mínimos que la app necesita para arrancar."
+            ),
             axes=[_scope_axis()],
             stub=True,
         )
@@ -1245,11 +1471,13 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="run_mock_seeders",
-            name="Correr mock seeders",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Correr mock seeders"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="once",
             icon="🎭",
-            description="Carga datos de prueba encima de los datos base.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Carga datos de prueba encima de los datos base."
+            ),
             axes=[_scope_axis()],
             stub=True,
         )
@@ -1261,13 +1489,15 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="explore_db",
-            name="Explorar datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Explorar datos"),
             cut=True,
-            group="Base de datos",
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="live",
             view="db",
             icon="🗂️",
-            description="Navega esquemas, tablas y datos de la base, en solo lectura.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Navega esquemas, tablas y datos de la base, en solo lectura."
+            ),
             axes=[_scope_axis()],
             stub=True,
         )
@@ -1278,22 +1508,26 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="ssh_tunnel",
-            name="Abrir túnel a Postgres",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Abrir túnel a Postgres"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="background",
             icon="🔗",
-            description="Abre un túnel SSH al Postgres del VPS para leerlo en local.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Abre un túnel SSH al Postgres del VPS para leerlo en local."
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="backup_db",
-            name="Respaldar base de datos",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Respaldar base de datos"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="once",
             icon="💾",
-            description="Vuelca la base local a un archivo y rota los respaldos viejos.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Vuelca la base local a un archivo y rota los respaldos viejos."
+            ),
             stub=True,
         )
     )
@@ -1304,23 +1538,35 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="restore_db",
-            name="Restaurar base de datos",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Restaurar base de datos"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="destructive",
             icon="♻️",
-            description="Carga un respaldo sobre la base local, reemplazando lo que haya.",
-            axes=[AxisDef("dump", [], "pick", label="Respaldo", source=BACKUP_FILES)],
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Carga un respaldo sobre la base local, reemplazando lo que haya."
+            ),
+            axes=[
+                AxisDef(
+                    "dump",
+                    [],
+                    "pick",
+                    label=QT_TRANSLATE_NOOP("catalog", "Respaldo"),
+                    source=BACKUP_FILES,
+                )
+            ],
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="rebuild_db",
-            name="Reconstruir base",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Reconstruir base"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="destructive",
             icon="🔁",
-            description="Vacía la base y vuelve a llenarla: migraciones y seeders.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Vacía la base y vuelve a llenarla: migraciones y seeders."
+            ),
             axes=[_scope_axis()],
             steps=REBUILD_DB_STEPS,
             stub=True,
@@ -1329,13 +1575,16 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="reinit_migrations",
-            name="Reiniciar historial de migraciones",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Reiniciar historial de migraciones"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="destructive",
             icon="🧨",
             requires_repo=targets.MIGRATIONS,
-            description="Reinicia el historial de migraciones: deja una sola inicial con los "
-            "modelos de hoy.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Reinicia el historial de migraciones: deja una sola inicial con los "
+                "modelos de hoy.",
+            ),
             steps=REINIT_MIGRATIONS_STEPS,
             stub=True,
         )
@@ -1343,11 +1592,13 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="teardown_db",
-            name="Borrar base y rol",
-            group="Base de datos",
+            name=QT_TRANSLATE_NOOP("catalog", "Borrar base y rol"),
+            group=QT_TRANSLATE_NOOP("catalog", "Base de datos"),
             kind="destructive",
             icon="💥",
-            description="Borra la base local de la aplicación y su rol.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Borra la base local de la aplicación y su rol."
+            ),
             steps=TEARDOWN_DB_STEPS,
             stub=True,
         )
@@ -1365,11 +1616,13 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="systemd_action",
-            name="Control del servicio",
-            group="Despliegue",
+            name=QT_TRANSLATE_NOOP("catalog", "Control del servicio"),
+            group=QT_TRANSLATE_NOOP("catalog", "Despliegue"),
             kind="once",
             icon="⚙️",
-            description="Manda una acción al servicio systemd elegido en el VPS.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Manda una acción al servicio systemd elegido en el VPS."
+            ),
             axes=[
                 _service_axis(),
                 AxisDef(
@@ -1386,7 +1639,7 @@ def load_catalog() -> None:
                         "is-enabled",
                     ],
                     "buttons",
-                    label="Acción",
+                    label=QT_TRANSLATE_NOOP("catalog", "Acción"),
                     default="status",
                     danger={"stop"},
                 ),
@@ -1398,20 +1651,25 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="view_logs",
-            name="Ver logs del servicio",
-            group="Despliegue",
+            name=QT_TRANSLATE_NOOP("catalog", "Ver logs del servicio"),
+            group=QT_TRANSLATE_NOOP("catalog", "Despliegue"),
             kind="live",
             icon="📋",
-            description="Muestra el journal del servicio elegido, de una o siguiéndolo en vivo.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Muestra el journal del servicio elegido, de una o siguiéndolo en vivo."
+            ),
             axes=[
                 _service_axis(),
                 AxisDef(
                     "follow",
                     ["follow", "once"],
                     "scope",
-                    label="Modo",
+                    label=QT_TRANSLATE_NOOP("catalog", "Modo"),
                     truthy="follow",
-                    labels={"follow": "Seguir en vivo", "once": "De una"},
+                    labels={
+                        "follow": QT_TRANSLATE_NOOP("catalog", "Seguir en vivo"),
+                        "once": QT_TRANSLATE_NOOP("catalog", "De una"),
+                    },
                 ),
             ],
             stub=True,
@@ -1422,20 +1680,26 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="publish_release",
-            name="Publicar versión",
-            group="Despliegue",
+            name=QT_TRANSLATE_NOOP("catalog", "Publicar versión"),
+            group=QT_TRANSLATE_NOOP("catalog", "Despliegue"),
             kind="once",
             icon="🏷️",
-            description="Crea el tag siguiente, espera a release.yml, firma el release y lo "
-            "despliega.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Crea el tag siguiente, espera a release.yml, firma el release y lo despliega.",
+            ),
             axes=[
                 AxisDef(
                     "part",
                     list(canone.PARTS),
                     "scope",
-                    label="Sube",
+                    label=QT_TRANSLATE_NOOP("catalog", "Sube"),
                     default="patch",
-                    labels={"major": "Major", "minor": "Minor", "patch": "Patch"},
+                    labels={
+                        "major": QT_TRANSLATE_NOOP("catalog", "Major"),
+                        "minor": QT_TRANSLATE_NOOP("catalog", "Minor"),
+                        "patch": QT_TRANSLATE_NOOP("catalog", "Patch"),
+                    },
                 )
             ],
             steps=PUBLISH_RELEASE_STEPS,
@@ -1445,23 +1709,31 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="deploy_version",
-            name="Desplegar versión",
-            group="Despliegue",
+            name=QT_TRANSLATE_NOOP("catalog", "Desplegar versión"),
+            group=QT_TRANSLATE_NOOP("catalog", "Despliegue"),
             kind="once",
             icon="🚢",
-            description="Instala en el VPS un release ya firmado.",
-            axes=[AxisDef("version", [], "pick", label="Versión", source=RELEASES)],
+            description=QT_TRANSLATE_NOOP("catalog", "Instala en el VPS un release ya firmado."),
+            axes=[
+                AxisDef(
+                    "version",
+                    [],
+                    "pick",
+                    label=QT_TRANSLATE_NOOP("catalog", "Versión"),
+                    source=RELEASES,
+                )
+            ],
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="upload_to_vps",
-            name="Subir artefacto al VPS",
-            group="Despliegue",
+            name=QT_TRANSLATE_NOOP("catalog", "Subir artefacto al VPS"),
+            group=QT_TRANSLATE_NOOP("catalog", "Despliegue"),
             kind="once",
             icon="📤",
-            description="Copia el artefacto compilado al VPS.",
+            description=QT_TRANSLATE_NOOP("catalog", "Copia el artefacto compilado al VPS."),
             hidden=True,
             stub=True,
         )
@@ -1474,12 +1746,15 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="bootstrap_vps",
-            name="Configurar VPS",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Configurar VPS"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="once",
             icon="🚀",
-            description="Deja el VPS listo con los programas de canone: paquetes, swap, "
-            "install.py, credenciales y el último release.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Deja el VPS listo con los programas de canone: paquetes, swap, "
+                "install.py, credenciales y el último release.",
+            ),
             preview=PACKAGES,
             steps=BOOTSTRAP_VPS_STEPS,
             stub=True,
@@ -1488,12 +1763,14 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="install_software",
-            name="Instalar paquetes base",
+            name=QT_TRANSLATE_NOOP("catalog", "Instalar paquetes base"),
             cut=True,
-            group="VPS",
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="once",
             icon="📦",
-            description="Instala en el VPS los paquetes que pide canone para este repo, y uv.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Instala en el VPS los paquetes que pide canone para este repo, y uv."
+            ),
             preview=PACKAGES,
             stub=True,
         )
@@ -1501,51 +1778,58 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="load_credentials",
-            name="Cargar credenciales",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Cargar credenciales"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="once",
             icon="🔐",
-            description="Pasa las credenciales de config.env a credentials.py de canone.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Pasa las credenciales de config.env a credentials.py de canone."
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="refresh_known_host",
-            name="Refrescar known_hosts",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Refrescar known_hosts"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="once",
             icon="🔄",
-            description="Borra del known_hosts de esta máquina la huella vieja del VPS.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Borra del known_hosts de esta máquina la huella vieja del VPS."
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="update_cloudflare",
-            name="Actualizar Cloudflare",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Actualizar Cloudflare"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="once",
             icon="☁️",
-            description="Apunta el host de cada pieza web de la app a la IP del VPS, a la "
-            "pública de esta máquina o a otra escrita, sin el proxy de Cloudflare.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Apunta el host de cada pieza web de la app a la IP del VPS, a la "
+                "pública de esta máquina o a otra escrita, sin el proxy de Cloudflare.",
+            ),
             axes=[
                 AxisDef(
                     "ip_mode",
                     ["vps", "detect", "static"],
                     "scope",
-                    label="IP",
+                    label=QT_TRANSLATE_NOOP("catalog", "IP"),
                     default="vps",
                     labels={
-                        "vps": "La del VPS",
-                        "detect": "La pública de esta máquina",
-                        "static": "Otra",
+                        "vps": QT_TRANSLATE_NOOP("catalog", "La del VPS"),
+                        "detect": QT_TRANSLATE_NOOP("catalog", "La pública de esta máquina"),
+                        "static": QT_TRANSLATE_NOOP("catalog", "Otra"),
                     },
                     requires_env={"vps": {"VPS_IP"}},
                 ),
                 # Read only with «Otra»: `update_cloudflare` stops if
                 # that is chosen and it is empty.
-                AxisDef("custom_ip", [""], "field", label="Otra IP"),
+                AxisDef("custom_ip", [""], "field", label=QT_TRANSLATE_NOOP("catalog", "Otra IP")),
             ],
             stub=True,
         )
@@ -1553,57 +1837,70 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="health_check",
-            name="Health check",
+            name=QT_TRANSLATE_NOOP("catalog", "Health check"),
             cut=True,
-            group="VPS",
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="once",
             icon="❤️",
-            description="Comprueba que el VPS responde y el servicio está arriba.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Comprueba que el VPS responde y el servicio está arriba."
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="view_events",
-            name="Ver eventos",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Ver eventos"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="once",
             icon="📊",
-            description="Muestra los últimos eventos, el último respaldo y el disco del servidor.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Muestra los últimos eventos, el último respaldo y el disco del servidor.",
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="run_command",
-            name="Ejecutar comando",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Ejecutar comando"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="once",
             icon="💻",
-            description="Corre un comando suelto en el VPS y trae su salida.",
-            axes=[AxisDef("command", [""], "field", label="Comando")],
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Corre un comando suelto en el VPS y trae su salida."
+            ),
+            axes=[
+                AxisDef("command", [""], "field", label=QT_TRANSLATE_NOOP("catalog", "Comando"))
+            ],
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="ssh_login",
-            name="Abrir sesión SSH",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Abrir sesión SSH"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="interactive",
             icon="🔑",
-            description="Abre una sesión SSH interactiva contra el VPS del repo.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Abre una sesión SSH interactiva contra el VPS del repo."
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="revoke_ssh",
-            name="Quitar acceso SSH",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Quitar acceso SSH"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="destructive",
             icon="🔓",
-            description="Quita del VPS la clave pública con la que entra esta máquina.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Quita del VPS la clave pública con la que entra esta máquina."
+            ),
             steps=REVOKE_SSH_STEPS,
             stub=True,
         )
@@ -1613,32 +1910,38 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="clean_vps",
-            name="Vaciar VPS",
-            group="VPS",
+            name=QT_TRANSLATE_NOOP("catalog", "Vaciar VPS"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
             kind="destructive",
             icon="🧨",
-            description="Deshace en el VPS lo que instaló canone: la base, la app o la máquina, "
-            "salvo los paquetes; en simulacro solo lo lista.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Deshace en el VPS lo que instaló canone: la base, la app o la máquina, "
+                "salvo los paquetes; en simulacro solo lo lista.",
+            ),
             axes=[
                 AxisDef(
                     "level",
                     ["database", "app", "machine"],
                     "scope",
-                    label="Nivel",
+                    label=QT_TRANSLATE_NOOP("catalog", "Nivel"),
                     default="database",
                     labels={
-                        "database": "La base",
-                        "app": "La app",
-                        "machine": "La máquina",
+                        "database": QT_TRANSLATE_NOOP("catalog", "La base"),
+                        "app": QT_TRANSLATE_NOOP("catalog", "La app"),
+                        "machine": QT_TRANSLATE_NOOP("catalog", "La máquina"),
                     },
                 ),
                 AxisDef(
                     "apply",
                     ["dry_run", "delete"],
                     "scope",
-                    label="Modo",
+                    label=QT_TRANSLATE_NOOP("catalog", "Modo"),
                     truthy="delete",
-                    labels={"dry_run": "Simulacro", "delete": "Borrar"},
+                    labels={
+                        "dry_run": QT_TRANSLATE_NOOP("catalog", "Simulacro"),
+                        "delete": QT_TRANSLATE_NOOP("catalog", "Borrar"),
+                    },
                 ),
             ],
             stub=True,
@@ -1655,19 +1958,21 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="install_system_image",
-            name="Instalar imagen de sistema",
-            group="Emuladores",
+            name=QT_TRANSLATE_NOOP("catalog", "Instalar imagen de sistema"),
+            group=QT_TRANSLATE_NOOP("catalog", "Emuladores"),
             kind="once",
             icon="💿",
             scope="machine",
-            description="Descarga del SDK la máquina virtual (system image) que va a correr el "
-            "AVD.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Descarga del SDK la máquina virtual (system image) que va a correr el AVD.",
+            ),
             axes=[
                 AxisDef(
                     "image",
                     [],
                     "pick",
-                    label="Máquina virtual",
+                    label=QT_TRANSLATE_NOOP("catalog", "Máquina virtual"),
                     source=ANDROID_IMAGES,
                     facets=_IMAGE_FACETS,
                 )
@@ -1678,14 +1983,22 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="create_avd",
-            name="Crear AVD",
-            group="Emuladores",
+            name=QT_TRANSLATE_NOOP("catalog", "Crear AVD"),
+            group=QT_TRANSLATE_NOOP("catalog", "Emuladores"),
             kind="once",
             icon="🧱",
             scope="machine",
-            description="Crea el dispositivo virtual eligiéndolo del catálogo del SDK.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Crea el dispositivo virtual eligiéndolo del catálogo del SDK."
+            ),
             axes=[
-                AxisDef("device", [], "pick", label="Dispositivo", source=ANDROID_DEVICES),
+                AxisDef(
+                    "device",
+                    [],
+                    "pick",
+                    label=QT_TRANSLATE_NOOP("catalog", "Dispositivo"),
+                    source=ANDROID_DEVICES,
+                ),
                 # No `facets`, unlike «Instalar máquina»: here the list
                 # is what is downloaded, almost always one or two.
                 # Splitting two entries in three lists saves no reading
@@ -1696,7 +2009,7 @@ def load_catalog() -> None:
                     "image",
                     [],
                     "pick",
-                    label="Máquina virtual (instaladas)",
+                    label=QT_TRANSLATE_NOOP("catalog", "Máquina virtual (instaladas)"),
                     source=ANDROID_IMAGES_INSTALLED,
                 ),
             ],
@@ -1706,22 +2019,33 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="launch_emulator",
-            name="Abrir emulador",
-            group="Emuladores",
+            name=QT_TRANSLATE_NOOP("catalog", "Abrir emulador"),
+            group=QT_TRANSLATE_NOOP("catalog", "Emuladores"),
             kind="live",
             icon="📲",
             scope="machine",
-            description="Arranca uno de los AVD ya creados y sigue su salida.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Arranca uno de los AVD ya creados y sigue su salida."
+            ),
             axes=[
-                AxisDef("avd", [], "pick", label="AVD", source=ANDROID_AVDS),
+                AxisDef(
+                    "avd",
+                    [],
+                    "pick",
+                    label=QT_TRANSLATE_NOOP("catalog", "AVD"),
+                    source=ANDROID_AVDS,
+                ),
                 AxisDef(
                     "wipe",
                     ["normal", "wipe_data"],
                     "scope",
-                    label="Arranque",
+                    label=QT_TRANSLATE_NOOP("catalog", "Arranque"),
                     truthy="wipe_data",
                     danger={"wipe_data"},
-                    labels={"normal": "Normal", "wipe_data": "Borrar datos"},
+                    labels={
+                        "normal": QT_TRANSLATE_NOOP("catalog", "Normal"),
+                        "wipe_data": QT_TRANSLATE_NOOP("catalog", "Borrar datos"),
+                    },
                 ),
                 # The three flags truly written. A yes or no choice,
                 # which is exactly a checkbox. The flag's name IS the
@@ -1734,11 +2058,17 @@ def load_catalog() -> None:
                     select="many",
                     checked_by_default=False,
                     allow_empty=True,
-                    label="Opciones de arranque",
+                    label=QT_TRANSLATE_NOOP("catalog", "Opciones de arranque"),
                     labels={
-                        "-no-snapshot-load": "Arranque en frío (ignora el snapshot)",
-                        "-no-snapshot-save": "No guardar el snapshot al cerrar",
-                        "-no-window": "Sin ventana (headless, solo adb)",
+                        "-no-snapshot-load": QT_TRANSLATE_NOOP(
+                            "catalog", "Arranque en frío (ignora el snapshot)"
+                        ),
+                        "-no-snapshot-save": QT_TRANSLATE_NOOP(
+                            "catalog", "No guardar el snapshot al cerrar"
+                        ),
+                        "-no-window": QT_TRANSLATE_NOOP(
+                            "catalog", "Sin ventana (headless, solo adb)"
+                        ),
                     },
                 ),
                 # Rendering is exclusive, not a checkbox: asking for
@@ -1747,8 +2077,11 @@ def load_catalog() -> None:
                     "gpu",
                     ["host", "software"],
                     "scope",
-                    label="GPU",
-                    labels={"host": "Host (GPU real)", "software": "Software (swiftshader)"},
+                    label=QT_TRANSLATE_NOOP("catalog", "GPU"),
+                    labels={
+                        "host": QT_TRANSLATE_NOOP("catalog", "Host (GPU real)"),
+                        "software": QT_TRANSLATE_NOOP("catalog", "Software (swiftshader)"),
+                    },
                 ),
                 # What is left of the command line, for a flag not above
                 # (`-memory 4096`, `-http-proxy ...`). It adds to the
@@ -1757,7 +2090,12 @@ def load_catalog() -> None:
                 # replacing them. One line because it is a command line:
                 # it splits in tokens as a shell would, and `-memory
                 # 4096` is two.
-                AxisDef("flags", [""], "field", label="Flags extra del emulador"),
+                AxisDef(
+                    "flags",
+                    [""],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Flags extra del emulador"),
+                ),
             ],
             live_state=ANDROID_RUNNING,
             stub=True,
@@ -1773,17 +2111,25 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="stop_emulator",
-            name="Apagar emulador",
-            group="Emuladores",
+            name=QT_TRANSLATE_NOOP("catalog", "Apagar emulador"),
+            group=QT_TRANSLATE_NOOP("catalog", "Emuladores"),
             kind="once",
             icon="⏹",
             scope="machine",
-            description="Apaga por adb el emulador indicado.",
+            description=QT_TRANSLATE_NOOP("catalog", "Apaga por adb el emulador indicado."),
             # No panel draws for this capability, but the axis is
             # declared anyway: it is the only way the serial the ✕
             # passes reaches the function. The declaration is the
             # contract, whether or not anyone drew it.
-            axes=[AxisDef("serial", [], "pick", label="Emulador", source=ANDROID_RUNNING)],
+            axes=[
+                AxisDef(
+                    "serial",
+                    [],
+                    "pick",
+                    label=QT_TRANSLATE_NOOP("catalog", "Emulador"),
+                    source=ANDROID_RUNNING,
+                )
+            ],
             hidden=True,
             stub=True,
         )
@@ -1794,20 +2140,22 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="purge_emulators",
-            name="Borrar AVDs e imágenes",
-            group="Emuladores",
+            name=QT_TRANSLATE_NOOP("catalog", "Borrar AVDs e imágenes"),
+            group=QT_TRANSLATE_NOOP("catalog", "Emuladores"),
             kind="destructive",
             icon="🗑️",
             scope="machine",
-            description="Borra AVD y máquinas virtuales; en simulacro solo los lista con su "
-            "tamaño.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Borra AVD y máquinas virtuales; en simulacro solo los lista con su tamaño.",
+            ),
             axes=[
                 AxisDef(
                     "avds",
                     [],
                     "checks",
                     select="many",
-                    label="AVD",
+                    label=QT_TRANSLATE_NOOP("catalog", "AVD"),
                     source=ANDROID_AVDS,
                     checked_by_default=False,
                     allow_empty=True,
@@ -1817,7 +2165,7 @@ def load_catalog() -> None:
                     [],
                     "checks",
                     select="many",
-                    label="Máquinas virtuales",
+                    label=QT_TRANSLATE_NOOP("catalog", "Máquinas virtuales"),
                     source=ANDROID_IMAGES_INSTALLED,
                     checked_by_default=False,
                     allow_empty=True,
@@ -1826,9 +2174,12 @@ def load_catalog() -> None:
                     "apply",
                     ["dry_run", "delete"],
                     "scope",
-                    label="Modo",
+                    label=QT_TRANSLATE_NOOP("catalog", "Modo"),
                     truthy="delete",
-                    labels={"dry_run": "Simulacro", "delete": "Borrar"},
+                    labels={
+                        "dry_run": QT_TRANSLATE_NOOP("catalog", "Simulacro"),
+                        "delete": QT_TRANSLATE_NOOP("catalog", "Borrar"),
+                    },
                 ),
             ],
             stub=True,
@@ -1839,19 +2190,26 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="install_android_sdk",
-            name="Instalar SDK de Android",
-            group="SDKs",
+            name=QT_TRANSLATE_NOOP("catalog", "Instalar SDK de Android"),
+            group=QT_TRANSLATE_NOOP("catalog", "SDKs"),
             kind="once",
             icon="🤖",
             scope="machine",
-            description="Deja esta máquina lista para compilar y emular Android.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Deja esta máquina lista para compilar y emular Android."
+            ),
             composed_of=[
                 "install_android_tools",
                 "install_android_packages",
                 "install_android_hypervisor",
             ],
             axes=[
-                AxisDef("install_dir", [ANDROID_DIR_DEFAULT], "field", label="Directorio"),
+                AxisDef(
+                    "install_dir",
+                    [ANDROID_DIR_DEFAULT],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Directorio"),
+                ),
                 *ANDROID_PACKAGE_AXES,
             ],
             steps=INSTALL_ANDROID_SDK_STEPS,
@@ -1866,27 +2224,38 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="install_android_tools",
-            name="Instalar command-line tools",
+            name=QT_TRANSLATE_NOOP("catalog", "Instalar command-line tools"),
             cut=True,
-            group="SDKs",
+            group=QT_TRANSLATE_NOOP("catalog", "SDKs"),
             kind="once",
             icon="🧰",
             scope="machine",
-            description="Descarga las command-line tools del SDK y las deja en el entorno del "
-            "usuario.",
-            axes=[AxisDef("install_dir", [ANDROID_DIR_DEFAULT], "field", label="Directorio")],
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Descarga las command-line tools del SDK y las deja en el entorno del usuario.",
+            ),
+            axes=[
+                AxisDef(
+                    "install_dir",
+                    [ANDROID_DIR_DEFAULT],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Directorio"),
+                )
+            ],
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="install_android_packages",
-            name="Instalar paquetes del SDK",
-            group="SDKs",
+            name=QT_TRANSLATE_NOOP("catalog", "Instalar paquetes del SDK"),
+            group=QT_TRANSLATE_NOOP("catalog", "SDKs"),
             kind="once",
             icon="📦",
             scope="machine",
-            description="Acepta las licencias e instala en el SDK los paquetes que falten.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Acepta las licencias e instala en el SDK los paquetes que falten."
+            ),
             axes=list(ANDROID_PACKAGE_AXES),
             stub=True,
         )
@@ -1894,27 +2263,69 @@ def load_catalog() -> None:
     registry.register(
         Capability(
             id="install_android_hypervisor",
-            name="Instalar aceleración del emulador",
-            group="SDKs",
+            name=QT_TRANSLATE_NOOP("catalog", "Instalar aceleración del emulador"),
+            group=QT_TRANSLATE_NOOP("catalog", "SDKs"),
             kind="once",
             icon="⚡",
             scope="machine",
-            description="Verifica la virtualización que el emulador necesita, y en Windows "
-            "instala el driver.",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Verifica la virtualización que el emulador necesita, y en Windows "
+                "instala el driver.",
+            ),
             stub=True,
         )
     )
     registry.register(
         Capability(
             id="install_flutter_sdk",
-            name="Instalar SDK de Flutter",
+            name=QT_TRANSLATE_NOOP("catalog", "Instalar SDK de Flutter"),
             cut=True,
-            group="SDKs",
+            group=QT_TRANSLATE_NOOP("catalog", "SDKs"),
             kind="once",
             icon="🦋",
             scope="machine",
-            description="Descarga el canal stable de Flutter y lo deja en el entorno del usuario.",
-            axes=[AxisDef("install_dir", [FLUTTER_DIR_DEFAULT], "field", label="Directorio")],
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Descarga el canal stable de Flutter y lo deja en el entorno del usuario.",
+            ),
+            axes=[
+                AxisDef(
+                    "install_dir",
+                    [FLUTTER_DIR_DEFAULT],
+                    "field",
+                    label=QT_TRANSLATE_NOOP("catalog", "Directorio"),
+                )
+            ],
             stub=True,
         )
+    )
+    # The declarations above keep their source texts: they also build on
+    # import, before the translator exists.
+    for cap in registry.get_all():
+        registry.register(_translated(cap))
+
+
+def _translated(cap: Capability) -> Capability:
+    """Return the capability with its texts in the interface language.
+
+    `group` stays as declared: it keys `GROUP_ICONS` and the order of
+    the menu, which translates it when showing it.
+    """
+
+    def text(source: str) -> str:
+        return QCoreApplication.translate("catalog", source)
+
+    axes = [
+        replace(
+            axis,
+            label=text(axis.label),
+            labels={value: text(label) for value, label in axis.labels.items()},
+            facets=tuple(replace(facet, label=text(facet.label)) for facet in axis.facets),
+        )
+        for axis in cap.axes
+    ]
+    steps = [replace(step, label=text(step.label)) for step in cap.steps]
+    return replace(
+        cap, name=text(cap.name), description=text(cap.description), axes=axes, steps=steps
     )

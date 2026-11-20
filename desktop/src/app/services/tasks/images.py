@@ -19,6 +19,8 @@ from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import android, catalog, icons, process, shots, targets, toolchain
 from app.services.context import Level, TaskContext
 from app.services.envfile import Config
@@ -36,7 +38,7 @@ def generate_icons(ctx: TaskContext, apps: Sequence[str] = ()) -> None:
     """Leave the logo and its layers as each checked app's icon."""
     ctx.require_config("BRAND_ICON")
     if not apps:
-        raise TaskError("Marca al menos una app.")
+        raise TaskError(QCoreApplication.translate("images", "Marca al menos una app."))
     layers = {
         layer: icons.brand_file(ctx.root, ctx.config.get(key), key)
         for layer, key in icons.LAYER_KEYS.items()
@@ -54,7 +56,7 @@ def generate_icons(ctx: TaskContext, apps: Sequence[str] = ()) -> None:
             _write(ctx, place.path, _render(source, place))
         if work.is_flutter:
             ctx.run([*dart, "run", icons.SECTION], cwd=work.path)
-        ctx.ok(f"{work.app}: ícono listo.")
+        ctx.ok(QCoreApplication.translate("images", "{0}: ícono listo.").format(work.app))
 
 
 def _render(svg: Path, place: icons.Place) -> bytes:
@@ -77,7 +79,7 @@ def _write(ctx: TaskContext, destination: Path, content: bytes) -> None:
     """
     name = destination.relative_to(ctx.root).as_posix()
     if destination.is_file() and destination.read_bytes() == content:
-        ctx.info(f"  sin cambios: {name}")
+        ctx.info(QCoreApplication.translate("images", "  sin cambios: {0}").format(name))
         return
     state = "actualizado" if destination.exists() else "nuevo"
     destination.parent.mkdir(parents=True, exist_ok=True)
@@ -89,11 +91,16 @@ def camera_command(config: Config) -> list[str]:
     """Return `SHOTS_CMD` ready to run, with its executable located."""
     if not config.get("SHOTS_CMD"):
         raise TaskError(
-            "Falta SHOTS_CMD en la configuración: es el comando de la cámara del repo."
+            QCoreApplication.translate(
+                "images",
+                "Falta SHOTS_CMD en la configuración: es el comando de la cámara del repo.",
+            )
         )
     command = shlex.split(config.get("SHOTS_CMD"))
     executable = process.resolve_executable(
-        [command[0]], label=command[0], hint="Revisa SHOTS_CMD."
+        [command[0]],
+        label=command[0],
+        hint=QCoreApplication.translate("images", "Revisa SHOTS_CMD."),
     )
     return [*executable, *command[1:]]
 
@@ -112,7 +119,11 @@ def camera_supported(root: Path, config: Config) -> dict[str, dict[str, Any]]:
         # `capture`'s message starts with the whole command line; what
         # matters is what the camera said.
         detail = str(exc).split("\n", 1)[-1].strip()
-        raise TaskError(f"La cámara no dijo qué sabe capturar: {detail}") from exc
+        raise TaskError(
+            QCoreApplication.translate(
+                "images", "La cámara no dijo qué sabe capturar: {0}"
+            ).format(detail)
+        ) from exc
     return shots.parse_supported(output)
 
 
@@ -126,7 +137,9 @@ def shoot_screens(
     """Run the repo's camera and check it left what was asked."""
     ctx.require_config("SHOTS_CMD")
     if not (apps and themes and languages):
-        raise TaskError("Marca al menos una app, un tema y un idioma.")
+        raise TaskError(
+            QCoreApplication.translate("images", "Marca al menos una app, un tema y un idioma.")
+        )
 
     for name in apps:
         targets.pick(ctx.root, shots.SHOT_KINDS, name)
@@ -134,7 +147,11 @@ def shoot_screens(
     raw = shots.resolve_dir(ctx.root, ctx.config.get("SHOTS_RAW"))
     deleted = shots.clear_raw(raw, apps, themes, languages)
     if deleted:
-        ctx.info(f"Se borraron {deleted} capturas de la corrida anterior.")
+        ctx.info(
+            QCoreApplication.translate(
+                "images", "Se borraron {0} capturas de la corrida anterior."
+            ).format(deleted)
+        )
 
     command = camera_command(ctx.config)
     # ADR-0052: the camera knows whether an app needs an emulator, not
@@ -165,8 +182,11 @@ def shoot_screens(
     taken = shots.collect(ctx.root, raw, apps)
     missing = shots.missing_combinations(taken, apps, themes, languages)
     if missing:
-        raise TaskError("La cámara terminó sin capturas para: " + "; ".join(missing))
-    ctx.ok(f"{len(taken)} capturas en {raw}")
+        raise TaskError(
+            QCoreApplication.translate("images", "La cámara terminó sin capturas para: ")
+            + "; ".join(missing)
+        )
+    ctx.ok(QCoreApplication.translate("images", "{0} capturas en {1}").format(len(taken), raw))
     return raw
 
 
@@ -179,14 +199,20 @@ def _emulator(ctx: TaskContext, avd: str) -> tuple[str, bool]:
     sdk = android.resolve_sdk()
     for serial, name in android.running(sdk).items():
         if name == avd:
-            ctx.info(f"{avd} ya está encendido: {serial}")
+            ctx.info(
+                QCoreApplication.translate("images", "{0} ya está encendido: {1}").format(
+                    avd, serial
+                )
+            )
             return serial, False
     if avd not in android.list_avds(sdk):
-        raise TaskError(f'No existe el AVD "{avd}".')
+        raise TaskError(
+            QCoreApplication.translate("images", 'No existe el AVD "{0}".').format(avd)
+        )
 
     port = android.free_port(sdk)
     serial = f"emulator-{port}"
-    ctx.info(f"Encendiendo {avd} como {serial}.")
+    ctx.info(QCoreApplication.translate("images", "Encendiendo {0} como {1}.").format(avd, serial))
     # The emulator's output is no use to someone watching screenshots:
     # only its warnings and errors pass. It shares cancellation with
     # this run.
@@ -202,7 +228,7 @@ def _emulator(ctx: TaskContext, avd: str) -> tuple[str, bool]:
         kwargs={"port": port},
     ).start()
     android.wait_for_boot(ctx, sdk, serial=serial)
-    ctx.ok(f"{avd} listo.")
+    ctx.ok(QCoreApplication.translate("images", "{0} listo.").format(avd))
     return serial, True
 
 
@@ -220,18 +246,24 @@ def _run_quietly(func: Callable[..., object], *args: object, **kwargs: Any) -> N
 def render_shots(ctx: TaskContext, destinations: Sequence[str] = (LANDING,)) -> None:
     """Convert the raw shots for each destination, with its manifest."""
     if not destinations:
-        raise TaskError("Marca al menos un destino.")
+        raise TaskError(QCoreApplication.translate("images", "Marca al menos un destino."))
     presets = shots.load_presets()
     without_preset = [d for d in destinations if d not in presets]
     if without_preset:
         raise TaskError(
-            f"No hay preset para: {', '.join(without_preset)} ({shots.PRESETS_FILE.name})."
+            QCoreApplication.translate("images", "No hay preset para: {0} ({1}).").format(
+                ", ".join(without_preset), shots.PRESETS_FILE.name
+            )
         )
 
     raw = shots.resolve_dir(ctx.root, ctx.config.get("SHOTS_RAW"))
     raws = shots.collect(ctx.root, raw)
     if not raws:
-        raise TaskError(f"No hay capturas en {raw}. Sácalas primero.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "images", "No hay capturas en {0}. Sácalas primero."
+            ).format(raw)
+        )
 
     # All is planned before converting anything: a destination the raw
     # shots do not suit stops the run instead of leaving it half done,
@@ -239,7 +271,11 @@ def render_shots(ctx: TaskContext, destinations: Sequence[str] = (LANDING,)) -> 
     jobs = {d: shots.plan(_label(d), presets[d], raws) for d in destinations}
     for destination, work in jobs.items():
         output = _out_dir(ctx, destination)
-        ctx.info(f"{_label(destination)}: {_files(len(work))} en {output}")
+        ctx.info(
+            QCoreApplication.translate("images", "{0}: {1} en {2}").format(
+                _label(destination), _files(len(work)), output
+            )
+        )
         if presets[destination].get("archive"):
             derived = shots.render_archive([shot for shot, _ in work], output, destination)
         else:
@@ -254,9 +290,9 @@ def render_shots(ctx: TaskContext, destinations: Sequence[str] = (LANDING,)) -> 
                 )
         changes = shots.write_manifest(output, destination, derived)
         for title, items in (
-            ("Cambiaron", changes.changed),
-            ("Nuevas", changes.added),
-            ("Ya no están", changes.removed),
+            (QCoreApplication.translate("images", "Cambiaron"), changes.changed),
+            (QCoreApplication.translate("images", "Nuevas"), changes.added),
+            (QCoreApplication.translate("images", "Ya no están"), changes.removed),
         ):
             if items:
                 ctx.info(f"{title}: {', '.join(items)}")
@@ -264,11 +300,15 @@ def render_shots(ctx: TaskContext, destinations: Sequence[str] = (LANDING,)) -> 
 
 
 def _files(n: int) -> str:
-    return f"{n} archivo" if n == 1 else f"{n} archivos"
+    return (
+        QCoreApplication.translate("images", "{0} archivo").format(n)
+        if n == 1
+        else QCoreApplication.translate("images", "{0} archivos").format(n)
+    )
 
 
 def _label(destination: str) -> str:
-    return catalog.SHOT_DESTINATION_LABELS[destination]
+    return QCoreApplication.translate("catalog", catalog.SHOT_DESTINATION_LABELS[destination])
 
 
 def _out_dir(ctx: TaskContext, destination: str) -> Path:

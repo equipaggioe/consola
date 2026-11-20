@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import cast, override
 
-from PySide6.QtCore import QEvent, QObject, QPoint, QRect, Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QRect, Qt, Signal, Slot
 from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
@@ -68,15 +68,15 @@ class ActionSearch(QWidget):
         lay.setSpacing(0)
 
         self.box = QLineEdit()
-        self.box.setPlaceholderText("Buscar acciones…")
-        self.box.setAccessibleName("Buscar acciones")
+        self.box.setPlaceholderText(QCoreApplication.translate("ActionSearch", "Buscar acciones…"))
+        self.box.setAccessibleName(QCoreApplication.translate("ActionSearch", "Buscar acciones"))
         self.box.setClearButtonEnabled(True)
         # Qt's clear action has no text, so its button reaches
         # assistive technology with no name. The object name is Qt's.
         clear = self.box.findChild(QAction, "_q_qlineeditclearaction")
         if clear is None:
             raise RuntimeError("QLineEdit has no clear action")
-        clear.setText("Borrar el texto")
+        clear.setText(QCoreApplication.translate("ActionSearch", "Borrar el texto"))
         self.box.setFixedWidth(self.WIDTH)
         # The same height as a «Configuración del repo» field
         # (`widgets/env_panel.py`): it is a text field like the others,
@@ -214,7 +214,9 @@ class ActionSearch(QWidget):
 
         marked = favorites.favorite_ids()
         for group, capabilities in registry.get_groups().items():
-            header = QLabel(f"{registry.get_group_icon(group)}  {group.upper()}".strip())
+            # The group is a key: the catalog declares it untranslated.
+            title = QCoreApplication.translate("catalog", group).upper()
+            header = QLabel(f"{registry.get_group_icon(group)}  {title}".strip())
             header.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_MUTED}; "
                 f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; padding: 8px 10px 3px 10px;"
@@ -242,7 +244,7 @@ class ActionSearch(QWidget):
             self._headers.append((header, rows))
             self._rows.extend(rows)
 
-        self._empty = QLabel("Sin resultados")
+        self._empty = QLabel(QCoreApplication.translate("ActionSearch", "Sin resultados"))
         self._empty.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; "
             f"font-size: {Fonts.SIZE_SM}px; padding: 12px;"

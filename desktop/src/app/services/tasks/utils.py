@@ -16,7 +16,7 @@ from pathlib import Path
 from typing import Any
 
 from pydantic import ValidationError
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QCoreApplication, QLocale
 
 from app.api import android_studio, cloudflare, flutter, http, ip
 from app.services import android, canone, files, userenv
@@ -134,23 +134,31 @@ def clean_artifacts(
     """Delete the listed artifacts. On a dry run it only shows them."""
     found = find_artifacts(ctx, families, heavy)
     if not found:
-        ctx.ok("No hay artefactos para limpiar.")
+        ctx.ok(QCoreApplication.translate("utils", "No hay artefactos para limpiar."))
         return []
 
     total = sum(files.size_of(p) for p in found)
     for path in found[:40]:
         ctx.info(f"  {path.relative_to(ctx.root)}")
     if len(found) > 40:
-        ctx.info(f"  ... y {len(found) - 40} mas")
-    ctx.warn(f"{len(found)} elemento(s), {files.human_size(total, QLocale())}.")
+        ctx.info(QCoreApplication.translate("utils", "  ... y {0} mas").format(len(found) - 40))
+    ctx.warn(
+        QCoreApplication.translate("utils", "{0} elemento(s), {1}.").format(
+            len(found), files.human_size(total, QLocale())
+        )
+    )
 
     if not apply:
-        ctx.info("Simulacro: no se borro nada.")
+        ctx.info(QCoreApplication.translate("utils", "Simulacro: no se borro nada."))
         return found
 
     for path in found:
         files.remove(path)
-    ctx.ok(f"Liberados {files.human_size(total, QLocale())}.")
+    ctx.ok(
+        QCoreApplication.translate("utils", "Liberados {0}.").format(
+            files.human_size(total, QLocale())
+        )
+    )
     return found
 
 
@@ -170,7 +178,11 @@ def compare_common_files(
     for destination in targets:
         root = Path(destination)
         if not root.is_dir():
-            ctx.warn(f"No existe el repo destino: {destination}")
+            ctx.warn(
+                QCoreApplication.translate("utils", "No existe el repo destino: {0}").format(
+                    destination
+                )
+            )
             continue
         for rel in rel_paths:
             source = ctx.path(rel)
@@ -191,18 +203,18 @@ def sync_common_files(
     It no longer includes `scripts/` (ADR-0059).
     """
     if not targets:
-        raise TaskError("No hay repos destino seleccionados.")
+        raise TaskError(QCoreApplication.translate("utils", "No hay repos destino seleccionados."))
 
     differences = [row for row in compare_common_files(ctx, targets, paths) if row[2] != "SAME"]
     if not differences:
-        ctx.ok("Todos los repos destino ya estan al dia.")
+        ctx.ok(QCoreApplication.translate("utils", "Todos los repos destino ya estan al dia."))
         return []
 
     for root, rel, state in differences:
         ctx.info(f"  [{state}] {root.name}/{rel}")
 
     if not apply:
-        ctx.info("Simulacro: no se copio nada.")
+        ctx.info(QCoreApplication.translate("utils", "Simulacro: no se copio nada."))
         return differences
 
     for root, rel, _ in differences:
@@ -219,8 +231,12 @@ def detect_public_ip(ctx: TaskContext) -> str:
     try:
         address = ip.public()
     except OSError as exc:
-        raise TaskError(f"No se pudo detectar la IP publica: {exc}") from exc
-    ctx.info(f"IP publica detectada: {address}")
+        raise TaskError(
+            QCoreApplication.translate("utils", "No se pudo detectar la IP publica: {0}").format(
+                exc
+            )
+        ) from exc
+    ctx.info(QCoreApplication.translate("utils", "IP publica detectada: {0}").format(address))
     return address
 
 
@@ -232,11 +248,23 @@ def _cloudflare[A: cloudflare.Answer](
     try:
         return cloudflare.call(token, method, path, shape, body)
     except cloudflare.RejectedError as exc:
-        raise TaskError(f"Cloudflare rechazo la peticion: {exc.errors}") from exc
+        raise TaskError(
+            QCoreApplication.translate("utils", "Cloudflare rechazo la peticion: {0}").format(
+                exc.errors
+            )
+        ) from exc
     except OSError as exc:
-        raise TaskError(f"No se pudo hablar con Cloudflare: {exc}") from exc
+        raise TaskError(
+            QCoreApplication.translate("utils", "No se pudo hablar con Cloudflare: {0}").format(
+                exc
+            )
+        ) from exc
     except ValidationError as exc:
-        raise TaskError(f"Cloudflare respondio algo inesperado: {exc}") from exc
+        raise TaskError(
+            QCoreApplication.translate(
+                "utils", "Cloudflare respondio algo inesperado: {0}"
+            ).format(exc)
+        ) from exc
 
 
 def update_cloudflare(
@@ -256,7 +284,11 @@ def update_cloudflare(
     elif ip_mode == "static":
         ip = custom_ip.strip()
         if not ip:
-            raise TaskError("Elegiste «Otra» y el campo «Otra IP» está vacío.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "utils", "Elegiste «Otra» y el campo «Otra IP» está vacío."
+                )
+            )
     else:
         ip = ctx.config.require("VPS_IP")
 
@@ -264,7 +296,11 @@ def update_cloudflare(
     domain = ctx.config.require("CF_DOMAIN_NAME")
     zones = _cloudflare(ctx, "GET", f"/zones?name={domain}", cloudflare.Zones).result
     if not zones:
-        raise TaskError(f"Cloudflare no conoce el dominio {domain}.")
+        raise TaskError(
+            QCoreApplication.translate("utils", "Cloudflare no conoce el dominio {0}.").format(
+                domain
+            )
+        )
     zone = zones[0].id
     for name in names:
         _point(ctx, zone, name, ip, ttl)
@@ -279,16 +315,22 @@ def _point(ctx: TaskContext, zone: str, name: str, ip: str, ttl: int) -> None:
     ).result
     if not records:
         _cloudflare(ctx, "POST", f"/zones/{zone}/dns_records", cloudflare.Answer, body)
-        ctx.ok(f"{name}: creado -> {ip}")
-        ctx.note(f"DNS {name} apuntado a {ip}.")
+        ctx.ok(QCoreApplication.translate("utils", "{0}: creado -> {1}").format(name, ip))
+        ctx.note(QCoreApplication.translate("utils", "DNS {0} apuntado a {1}.").format(name, ip))
         return
     current = records[0]
     if current.content == ip and not current.proxied:
-        ctx.ok(f"{name} ya apunta a {ip}, sin proxy.")
+        ctx.ok(
+            QCoreApplication.translate("utils", "{0} ya apunta a {1}, sin proxy.").format(name, ip)
+        )
         return
     _cloudflare(ctx, "PUT", f"/zones/{zone}/dns_records/{current.id}", cloudflare.Answer, body)
-    ctx.ok(f"{name}: {current.content} -> {ip}, sin proxy")
-    ctx.note(f"DNS {name} apuntado a {ip}.")
+    ctx.ok(
+        QCoreApplication.translate("utils", "{0}: {1} -> {2}, sin proxy").format(
+            name, current.content, ip
+        )
+    )
+    ctx.note(QCoreApplication.translate("utils", "DNS {0} apuntado a {1}.").format(name, ip))
 
 
 # --- SDKs: common plumbing ---
@@ -306,7 +348,7 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
     A bare `urlretrieve` left the interface mute during the SDK's
     hundreds of megabytes, with no way to stop it midway.
     """
-    ctx.info(f"Descargando {url}")
+    ctx.info(QCoreApplication.translate("utils", "Descargando {0}").format(url))
     destination.parent.mkdir(parents=True, exist_ok=True)
 
     def progress(done: int, total: int) -> None:
@@ -314,14 +356,18 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
             ctx.progress(
                 done,
                 total,
-                f"{files.human_size(done, QLocale())} de {files.human_size(total, QLocale())}",
+                QCoreApplication.translate("utils", "{0} de {1}").format(
+                    files.human_size(done, QLocale()), files.human_size(total, QLocale())
+                ),
             )
 
     try:
         with destination.open("wb") as target:
 
             def restart() -> None:
-                ctx.info("Se cortó la descarga: empieza de nuevo")
+                ctx.info(
+                    QCoreApplication.translate("utils", "Se cortó la descarga: empieza de nuevo")
+                )
                 target.seek(0)
                 target.truncate()
 
@@ -333,10 +379,16 @@ def _download(ctx: TaskContext, url: str, destination: Path) -> Path:
                 should_stop=lambda: ctx.cancelled,
             )
     except OSError as exc:
-        raise TaskError(f"Fallo la descarga: {exc}") from exc
+        raise TaskError(
+            QCoreApplication.translate("utils", "Fallo la descarga: {0}").format(exc)
+        ) from exc
     ctx.raise_if_cancelled()
 
-    ctx.ok(f"Descargado: {files.human_size(files.size_of(destination), QLocale())}")
+    ctx.ok(
+        QCoreApplication.translate("utils", "Descargado: {0}").format(
+            files.human_size(files.size_of(destination), QLocale())
+        )
+    )
     return destination
 
 
@@ -348,10 +400,13 @@ def _verify(ctx: TaskContext, archive: Path, expected: str) -> None:
     current = files.digest(archive)
     if current.lower() != expected.lower():
         raise TaskError(
-            "SHA-256 no coincide: el archivo llego incompleto o alterado.\n"
-            f"  esperado: {expected}\n  obtenido: {current}"
+            QCoreApplication.translate(
+                "utils",
+                "SHA-256 no coincide: el archivo llego incompleto o alterado.\n  "
+                "esperado: {0}\n  obtenido: {1}",
+            ).format(expected, current)
         )
-    ctx.ok("SHA-256 verificado.")
+    ctx.ok(QCoreApplication.translate("utils", "SHA-256 verificado."))
 
 
 # --- Android SDK ---
@@ -373,8 +428,11 @@ def _ensure_java(ctx: TaskContext) -> None:
     if which_any(["java", "java.exe"]):
         return
     raise TaskError(
-        "No se encontro Java en el PATH y sdkmanager no corre sin el. "
-        "Instala un JDK 17 o superior (en Debian/Ubuntu: apt install openjdk-17-jdk)."
+        QCoreApplication.translate(
+            "utils",
+            "No se encontro Java en el PATH y sdkmanager no corre sin el. Instala un "
+            "JDK 17 o superior (en Debian/Ubuntu: apt install openjdk-17-jdk).",
+        )
     )
 
 
@@ -388,15 +446,22 @@ def _resolve_cmdline_tools(ctx: TaskContext, os_key: str) -> tuple[str, str]:
     try:
         html = android_studio.page()
     except OSError as exc:
-        raise TaskError(f"No se pudo consultar {android_studio.PAGE}: {exc}") from exc
+        raise TaskError(
+            QCoreApplication.translate("utils", "No se pudo consultar {0}: {1}").format(
+                android_studio.PAGE, exc
+            )
+        ) from exc
     pattern = rf"commandlinetools-{'win' if os_key == 'windows' else os_key}-\d+_latest\.zip"
 
     names = list(dict.fromkeys(re.findall(pattern, html)))
     if len(names) != 1:
         raise TaskError(
-            "No se pudo identificar el zip de cmdline-tools en la pagina de Android Studio "
-            f"({len(names)} coincidencias para {os_key}). Puede que Google haya cambiado la "
-            f"pagina."
+            QCoreApplication.translate(
+                "utils",
+                "No se pudo identificar el zip de cmdline-tools en la pagina de Android "
+                "Studio ({0} coincidencias para {1}). Puede que Google haya cambiado la "
+                "pagina.",
+            ).format(len(names), os_key)
         )
 
     filename = names[0]
@@ -404,14 +469,18 @@ def _resolve_cmdline_tools(ctx: TaskContext, os_key: str) -> tuple[str, str]:
         re.escape(filename) + r"[\s\S]{0,300}?([0-9a-f]{64})", html, re.IGNORECASE
     )
     if not fingerprint:
-        raise TaskError(f"La pagina de Android Studio no publica el SHA-256 de {filename}.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "utils", "La pagina de Android Studio no publica el SHA-256 de {0}."
+            ).format(filename)
+        )
 
-    ctx.info(f"Version publicada: {filename}")
+    ctx.info(QCoreApplication.translate("utils", "Version publicada: {0}").format(filename))
     return android_studio.REPOSITORY + filename, fingerprint.group(1).lower()
 
 
 def _extract_cmdline_tools(ctx: TaskContext, archive: Path, latest: Path) -> None:
-    ctx.info(f"Descomprimiendo en {latest}")
+    ctx.info(QCoreApplication.translate("utils", "Descomprimiendo en {0}").format(latest))
     files.extract_zip(archive, latest)
 
     # The zip hangs everything from `cmdline-tools/`, but sdkmanager
@@ -435,7 +504,11 @@ def install_android_tools(ctx: TaskContext, install_dir: str = "") -> Path:
     """
     os_key = HOST.sdk_key
     if os_key not in ("windows", "linux"):
-        raise TaskError(f"Google no publica cmdline-tools para este sistema: {os_key}.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "utils", "Google no publica cmdline-tools para este sistema: {0}."
+            ).format(os_key)
+        )
     _ensure_java(ctx)
 
     root = _android_root(install_dir)
@@ -443,7 +516,11 @@ def install_android_tools(ctx: TaskContext, install_dir: str = "") -> Path:
     sdkmanager = latest / "bin" / HOST.script_name("sdkmanager")
 
     if sdkmanager.is_file():
-        ctx.ok(f"Las cmdline-tools ya estaban en {latest}.")
+        ctx.ok(
+            QCoreApplication.translate("utils", "Las cmdline-tools ya estaban en {0}.").format(
+                latest
+            )
+        )
     else:
         url, sha256 = _resolve_cmdline_tools(ctx, os_key)
         with tempfile.TemporaryDirectory(prefix="consola_cmdline_tools_") as temporary:
@@ -451,8 +528,14 @@ def install_android_tools(ctx: TaskContext, install_dir: str = "") -> Path:
             _verify(ctx, archive, sha256)
             _extract_cmdline_tools(ctx, archive, latest)
         if not sdkmanager.is_file():
-            raise TaskError(f"No aparecio sdkmanager despues de descomprimir: {sdkmanager}")
-        ctx.ok(f"cmdline-tools instaladas en {latest}.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "utils", "No aparecio sdkmanager despues de descomprimir: {0}"
+                ).format(sdkmanager)
+            )
+        ctx.ok(
+            QCoreApplication.translate("utils", "cmdline-tools instaladas en {0}.").format(latest)
+        )
 
     avd = root / "avd"
     avd.mkdir(parents=True, exist_ok=True)
@@ -483,14 +566,14 @@ def _sdkmanager(ctx: TaskContext) -> tuple[list[str], Path]:
 
 
 def _accept_licenses(ctx: TaskContext, sdkmanager: list[str], root: Path) -> None:
-    ctx.info("Aceptando las licencias del SDK...")
+    ctx.info(QCoreApplication.translate("utils", "Aceptando las licencias del SDK..."))
     argv = [*sdkmanager, f"--sdk_root={root}", "--licenses"]
     ctx.log(format_argv(argv), Level.CMD)
     output = feed(argv, stdin_text="y\n" * 200, timeout=300)
     for line in output.splitlines():
         if line.strip():
             ctx.info(line.strip())
-    ctx.ok("Licencias aceptadas.")
+    ctx.ok(QCoreApplication.translate("utils", "Licencias aceptadas."))
 
 
 def _installed_packages(ctx: TaskContext, sdkmanager: list[str], root: Path) -> set[str]:
@@ -514,7 +597,9 @@ def install_android_packages(
     """
     chosen = list(ANDROID_COMPONENTS if components is None else components)
     if not chosen:
-        raise TaskError("No se eligio ningun componente para instalar.")
+        raise TaskError(
+            QCoreApplication.translate("utils", "No se eligio ningun componente para instalar.")
+        )
 
     api = (api_level or API_LEVEL_DEFAULT).strip()
     tools = (build_tools or BUILD_TOOLS_DEFAULT).strip()
@@ -533,13 +618,17 @@ def install_android_packages(
     installed = _installed_packages(ctx, sdkmanager, root)
     missing = [p for p in packages if p not in installed]
     if not missing:
-        ctx.ok(f"Los {len(packages)} paquete(s) pedidos ya estaban instalados.")
+        ctx.ok(
+            QCoreApplication.translate(
+                "utils", "Los {0} paquete(s) pedidos ya estaban instalados."
+            ).format(len(packages))
+        )
         return []
 
     for package in missing:
-        ctx.info(f"  falta: {package}")
+        ctx.info(QCoreApplication.translate("utils", "  falta: {0}").format(package))
     ctx.run([*sdkmanager, f"--sdk_root={root}", *missing])
-    ctx.ok(f"{len(missing)} paquete(s) instalados.")
+    ctx.ok(QCoreApplication.translate("utils", "{0} paquete(s) instalados.").format(len(missing)))
     return missing
 
 
@@ -560,13 +649,21 @@ def _install_hypervisor_driver(ctx: TaskContext) -> bool:
     """Install the kernel driver that accelerates on Windows."""
     try:
         ctx.capture(["sc", "query", "gvm"], timeout=30)
-        ctx.ok("El Hypervisor Driver ya esta instalado (servicio gvm).")
+        ctx.ok(
+            QCoreApplication.translate(
+                "utils", "El Hypervisor Driver ya esta instalado (servicio gvm)."
+            )
+        )
         return True
     except TaskError:
         pass
 
     sdkmanager, root = _sdkmanager(ctx)
-    ctx.info("Descargando el Google Android Emulator Hypervisor Driver...")
+    ctx.info(
+        QCoreApplication.translate(
+            "utils", "Descargando el Google Android Emulator Hypervisor Driver..."
+        )
+    )
     ctx.run(
         [*sdkmanager, f"--sdk_root={root}", "extras;google;Android_Emulator_Hypervisor_Driver"]
     )
@@ -575,9 +672,17 @@ def _install_hypervisor_driver(ctx: TaskContext) -> bool:
         root / "extras" / "google" / "Android_Emulator_Hypervisor_Driver" / "silent_install.bat"
     )
     if not installer.is_file():
-        raise TaskError(f"No aparecio el instalador del driver: {installer}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "utils", "No aparecio el instalador del driver: {0}"
+            ).format(installer)
+        )
 
-    ctx.warn("El driver necesita permisos de administrador: acepta el aviso de Windows.")
+    ctx.warn(
+        QCoreApplication.translate(
+            "utils", "El driver necesita permisos de administrador: acepta el aviso de Windows."
+        )
+    )
     _run_elevated(ctx, installer)
     return True
 
@@ -592,18 +697,33 @@ def _check_kvm(ctx: TaskContext) -> bool:
     device = Path("/dev/kvm")
     if not device.exists():
         raise TaskError(
-            "No existe /dev/kvm: sin el, el emulador corre por software y es inusable.\n"
-            "Revisa que la virtualizacion (VT-x o AMD-V) este activa en la BIOS y que el "
-            "modulo kvm_intel o kvm_amd este cargado."
+            QCoreApplication.translate(
+                "utils",
+                "No existe /dev/kvm: sin el, el emulador corre por software y es "
+                "inusable.\nRevisa que la virtualizacion (VT-x o AMD-V) este activa en la "
+                "BIOS y que el modulo kvm_intel o kvm_amd este cargado.",
+            )
         )
     if os.access(device, os.R_OK | os.W_OK):
-        ctx.ok("/dev/kvm accesible: la aceleracion por hardware esta disponible.")
+        ctx.ok(
+            QCoreApplication.translate(
+                "utils", "/dev/kvm accesible: la aceleracion por hardware esta disponible."
+            )
+        )
         return True
 
     user = os.environ.get("USER") or getpass.getuser()
-    ctx.warn("/dev/kvm existe pero este usuario no tiene permiso para usarlo.")
-    ctx.warn(f"Corre:  sudo usermod -aG kvm {user}")
-    ctx.warn("Y vuelve a iniciar sesion para que el grupo tome efecto.")
+    ctx.warn(
+        QCoreApplication.translate(
+            "utils", "/dev/kvm existe pero este usuario no tiene permiso para usarlo."
+        )
+    )
+    ctx.warn(QCoreApplication.translate("utils", "Corre:  sudo usermod -aG kvm {0}").format(user))
+    ctx.warn(
+        QCoreApplication.translate(
+            "utils", "Y vuelve a iniciar sesion para que el grupo tome efecto."
+        )
+    )
     return False
 
 
@@ -625,10 +745,17 @@ def _run_elevated(ctx: TaskContext, program: Path) -> None:
     )
     if code <= 32:
         raise TaskError(
-            f"No se pudo lanzar el instalador con permisos de administrador (codigo {code}). "
-            "Si rechazaste el aviso de Windows, vuelve a intentarlo."
+            QCoreApplication.translate(
+                "utils",
+                "No se pudo lanzar el instalador con permisos de administrador (codigo "
+                "{0}). Si rechazaste el aviso de Windows, vuelve a intentarlo.",
+            ).format(code)
         )
-    ctx.info("El instalador quedo corriendo en una ventana aparte; espera a que termine.")
+    ctx.info(
+        QCoreApplication.translate(
+            "utils", "El instalador quedo corriendo en una ventana aparte; espera a que termine."
+        )
+    )
 
 
 def install_android_sdk(
@@ -665,7 +792,7 @@ def install_android_sdk(
         ctx.step("hypervisor")
         install_android_hypervisor(ctx.child("install_android_hypervisor"))
 
-    ctx.ok(f"SDK de Android listo en {root}.")
+    ctx.ok(QCoreApplication.translate("utils", "SDK de Android listo en {0}.").format(root))
     return root
 
 
@@ -685,42 +812,66 @@ def _is_flutter_path(entry: str) -> bool:
 def _ensure_git(ctx: TaskContext) -> None:
     if which_any(["git", "git.exe"]):
         return
-    raise TaskError("No se encontro Git en el PATH, y Flutter lo necesita para actualizarse.")
+    raise TaskError(
+        QCoreApplication.translate(
+            "utils", "No se encontro Git en el PATH, y Flutter lo necesita para actualizarse."
+        )
+    )
 
 
 def _resolve_flutter_stable(ctx: TaskContext, os_key: str) -> tuple[str, str]:
     """Return the stable channel's URL and SHA-256, from its index."""
     filename = FLUTTER_RELEASES_JSON.get(os_key)
     if not filename:
-        raise TaskError(f"Flutter no publica releases para este sistema: {os_key}.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "utils", "Flutter no publica releases para este sistema: {0}."
+            ).format(os_key)
+        )
 
     try:
         index = flutter.index(filename)
     except OSError as exc:
-        raise TaskError(f"No se pudo consultar {flutter.RELEASES_URL + filename}: {exc}") from exc
+        raise TaskError(
+            QCoreApplication.translate("utils", "No se pudo consultar {0}: {1}").format(
+                flutter.RELEASES_URL + filename, exc
+            )
+        ) from exc
     except ValidationError as exc:
-        raise TaskError(f"El indice de releases de Flutter vino distinto: {exc}") from exc
+        raise TaskError(
+            QCoreApplication.translate(
+                "utils", "El indice de releases de Flutter vino distinto: {0}"
+            ).format(exc)
+        ) from exc
 
     mark = index.current_release.stable
     release = next((r for r in index.releases if r.hash == mark), None)
     if release is None:
-        raise TaskError("El indice de Flutter no identifica el release del canal stable.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "utils", "El indice de Flutter no identifica el release del canal stable."
+            )
+        )
 
-    ctx.info(f"Version publicada: {release.version}")
+    ctx.info(QCoreApplication.translate("utils", "Version publicada: {0}").format(release.version))
     return flutter.RELEASES_URL + release.archive, release.sha256.lower()
 
 
 def _extract_flutter(ctx: TaskContext, archive: Path, home: Path) -> None:
     """Extract the SDK, with its own `flutter/` folder at the root."""
     destination = home.parent
-    ctx.info(f"Descomprimiendo en {home}")
+    ctx.info(QCoreApplication.translate("utils", "Descomprimiendo en {0}").format(home))
     destination.mkdir(parents=True, exist_ok=True)
     files.extract(archive, destination)
 
     extracted = destination / "flutter"
     if extracted != home:
         if home.exists():
-            raise TaskError(f"Ya existe {home}: muevelo o elige otro directorio.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "utils", "Ya existe {0}: muevelo o elige otro directorio."
+                ).format(home)
+            )
         extracted.rename(home)
 
 
@@ -737,7 +888,9 @@ def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
     flutter = home / "bin" / HOST.script_name("flutter")
 
     if flutter.is_file():
-        ctx.ok(f"Flutter ya estaba instalado en {home}.")
+        ctx.ok(
+            QCoreApplication.translate("utils", "Flutter ya estaba instalado en {0}.").format(home)
+        )
     else:
         url, sha256 = _resolve_flutter_stable(ctx, os_key)
         with tempfile.TemporaryDirectory(prefix="consola_flutter_") as temporary:
@@ -745,8 +898,12 @@ def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
             _verify(ctx, archive, sha256)
             _extract_flutter(ctx, archive, home)
         if not flutter.is_file():
-            raise TaskError(f"No aparecio flutter despues de descomprimir: {flutter}")
-        ctx.ok(f"Flutter instalado en {home}.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "utils", "No aparecio flutter despues de descomprimir: {0}"
+                ).format(flutter)
+            )
+        ctx.ok(QCoreApplication.translate("utils", "Flutter instalado en {0}.").format(home))
 
     userenv.configure(
         ctx,
@@ -755,9 +912,13 @@ def install_flutter_sdk(ctx: TaskContext, install_dir: str = "") -> Path:
         path_drop=_is_flutter_path,
     )
 
-    ctx.info("Verificando la instalacion...")
+    ctx.info(QCoreApplication.translate("utils", "Verificando la instalacion..."))
     ctx.run([*as_argv(str(flutter)), "--version"], check=False)
-    ctx.info("flutter doctor: los avisos que siguen no son errores de la instalacion.")
+    ctx.info(
+        QCoreApplication.translate(
+            "utils", "flutter doctor: los avisos que siguen no son errores de la instalacion."
+        )
+    )
     ctx.run([*as_argv(str(flutter)), "doctor"], check=False)
     return home
 

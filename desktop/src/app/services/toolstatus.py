@@ -17,6 +17,8 @@ import os
 from dataclasses import dataclass
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import android
 from app.services.errors import TaskError
 from app.services.host import HOST
@@ -40,7 +42,11 @@ class Tool:
     @property
     def detail(self) -> str:
         """Return the path or the hint, for the tooltip."""
-        return self.path if self.found else (self.hint or "No encontrado.")
+        return (
+            self.path
+            if self.found
+            else (self.hint or QCoreApplication.translate("Tool", "No encontrado."))
+        )
 
 
 def _binary(name: str) -> list[str]:
@@ -68,16 +74,21 @@ def _under(home: str, *parts: str) -> str:
 def _java() -> Tool:
     path = _under("JAVA_HOME", "bin", "java") or (which_any(_binary("java")) or "")
     return Tool(
-        "java", "Java", path, hint="Instala un JDK 17 o superior: sdkmanager no corre sin el."
+        "java",
+        QCoreApplication.translate("toolstatus", "Java"),
+        path,
+        hint=QCoreApplication.translate(
+            "toolstatus", "Instala un JDK 17 o superior: sdkmanager no corre sin el."
+        ),
     )
 
 
 def _git() -> Tool:
     return Tool(
         "git",
-        "Git",
+        QCoreApplication.translate("toolstatus", "Git"),
         which_any(_binary("git")) or "",
-        hint="Flutter necesita Git para actualizarse.",
+        hint=QCoreApplication.translate("toolstatus", "Flutter necesita Git para actualizarse."),
     )
 
 
@@ -87,13 +98,23 @@ def _android() -> Tool:
     except TaskError:
         path = ""
     return Tool(
-        "android", "SDK Android", path, hint='Corre "Herramientas Android" para instalarlo.'
+        "android",
+        QCoreApplication.translate("toolstatus", "SDK Android"),
+        path,
+        hint=QCoreApplication.translate(
+            "toolstatus", 'Corre "Herramientas Android" para instalarlo.'
+        ),
     )
 
 
 def _flutter() -> Tool:
     path = _under("FLUTTER_HOME", "bin", "flutter") or (which_any(_binary("flutter")) or "")
-    return Tool("flutter", "Flutter", path, hint='Corre "SDK Flutter" para instalarlo.')
+    return Tool(
+        "flutter",
+        QCoreApplication.translate("toolstatus", "Flutter"),
+        path,
+        hint=QCoreApplication.translate("toolstatus", 'Corre "SDK Flutter" para instalarlo.'),
+    )
 
 
 def detect() -> list[Tool]:

@@ -4,6 +4,10 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 
+from PySide6.QtCore import QCoreApplication
+
+from app.services.language import QT_TRANSLATE_NOOP
+
 
 @dataclass(frozen=True)
 class Setting:
@@ -51,7 +55,12 @@ class Setting:
     @property
     def display(self) -> str:
         """Return how the key reads in the form."""
-        return self.label or self.key
+        return QCoreApplication.translate("settings", self.label) if self.label else self.key
+
+    @property
+    def hint(self) -> str:
+        """Return `default_hint` in the interface language."""
+        return QCoreApplication.translate("settings", self.default_hint)
 
 
 # VPS keys any operation reaching the server needs.
@@ -100,49 +109,68 @@ SETTINGS: tuple[Setting, ...] = (
     # `run_mobile` falls back on this session's backend URL if empty.
     Setting(
         "API_URL",
-        "Server",
-        "URL publica de la API",
+        QT_TRANSLATE_NOOP("settings", "Server"),
+        QT_TRANSLATE_NOOP("settings", "URL publica de la API"),
         required_by=("build_flutter",),
         used_by=("backend", "run_mobile"),
     ),
     # --- Cloudflare ---
     Setting(
-        "CF_API_TOKEN", "Cloudflare", "API token", secret=True, required_by=("update_cloudflare",)
+        "CF_API_TOKEN",
+        QT_TRANSLATE_NOOP("settings", "Cloudflare"),
+        QT_TRANSLATE_NOOP("settings", "API token"),
+        secret=True,
+        required_by=("update_cloudflare",),
     ),
-    Setting("CF_DOMAIN_NAME", "Cloudflare", "Dominio", required_by=("update_cloudflare",)),
+    Setting(
+        "CF_DOMAIN_NAME",
+        QT_TRANSLATE_NOOP("settings", "Cloudflare"),
+        QT_TRANSLATE_NOOP("settings", "Dominio"),
+        required_by=("update_cloudflare",),
+    ),
     # --- VPS ---
     # «Refrescar known_hosts» only forgets this host in known_hosts:
     # it needs the IP, not the account nor the key.
     Setting(
         "VPS_IP",
-        "VPS",
-        "IP del servidor",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "IP del servidor"),
         required_by=(*_VPS_REACH, "refresh_known_host"),
         used_by=_VPS_STEPS,
     ),
     Setting(
         "ROOT_USER",
-        "VPS",
-        "Usuario root",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "Usuario root"),
         default="root",
         required_by=("install_software", "bootstrap_vps"),
     ),
     # The password of the provider, for the first entry only: «Poner la
     # llave» enters with it once and leaves the key. Empty, it is asked.
     # After `install.py` root no longer enters.
-    Setting("ROOT_PASSWORD", "VPS", "Contraseña de root", secret=True, used_by=("bootstrap_vps",)),
+    Setting(
+        "ROOT_PASSWORD",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "Contraseña de root"),
+        secret=True,
+        used_by=("bootstrap_vps",),
+    ),
     # The account that administers the VPS: the `--admin` of
     # `install.py`. No default, because canone does not let it be named
     # like the app (ADR-0087 of canone).
     Setting(
-        "VPS_USER", "VPS", "Usuario de despliegue", required_by=_VPS_REACH, used_by=_VPS_STEPS
+        "VPS_USER",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "Usuario de despliegue"),
+        required_by=_VPS_REACH,
+        used_by=_VPS_STEPS,
     ),
     # That account's password, which `sudo` asks for. Empty, Consola
     # asks once per session and keeps it only in memory.
     Setting(
         "SUDO_PASSWORD",
-        "VPS",
-        "Contraseña de sudo",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "Contraseña de sudo"),
         secret=True,
         used_by=(
             "install_software",
@@ -160,21 +188,35 @@ SETTINGS: tuple[Setting, ...] = (
         ),
     ),
     Setting(
-        "VPS_KEY_NAME", "VPS", "Nombre de la llave SSH", required_by=_VPS_REACH, used_by=_VPS_STEPS
+        "VPS_KEY_NAME",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "Nombre de la llave SSH"),
+        required_by=_VPS_REACH,
+        used_by=_VPS_STEPS,
     ),
-    Setting("VPS_DEPLOY_DIR", "VPS", "Directorio de despliegue", required_by=("upload_to_vps",)),
+    Setting(
+        "VPS_DEPLOY_DIR",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "Directorio de despliegue"),
+        required_by=("upload_to_vps",),
+    ),
     # The arguments of `install.py` that change between deployments
     # (ADR-0063). The domain is the landing's; the other pieces hang
     # from it (`app.<domain>`, `panel.<domain>`).
-    Setting("DOMAIN", "VPS", "Dominio", used_by=("bootstrap_vps",)),
+    Setting(
+        "DOMAIN",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "Dominio"),
+        used_by=("bootstrap_vps",),
+    ),
     # Its Valkey's `maxmemory`, like `256mb`. It wins: empty,
     # «Configurar VPS» computes it with `VALKEY_PERCENT` of the VPS's
     # memory (ADR-0086).
     Setting(
         "VALKEY_MEMORY",
-        "VPS",
-        "Memoria de Valkey",
-        default_hint="el % de RAM de abajo, al configurar",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "Memoria de Valkey"),
+        default_hint=QT_TRANSLATE_NOOP("settings", "el % de RAM de abajo, al configurar"),
         used_by=("bootstrap_vps",),
     ),
     # Only for computing `VALKEY_MEMORY` when it is empty. Valkey fixes
@@ -182,18 +224,29 @@ SETTINGS: tuple[Setting, ...] = (
     # an eighth leaves a quarter at most while it saves its `.rdb`,
     # which may double it.
     Setting(
-        "VALKEY_PERCENT", "VPS", "% de RAM para Valkey", default="12.5", used_by=("bootstrap_vps",)
+        "VALKEY_PERCENT",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "% de RAM para Valkey"),
+        default="12.5",
+        used_by=("bootstrap_vps",),
     ),
     # `--turn-ip`: the public IPv4, when the interface only has a
     # private one. `--turn` is no key: it goes when the repo's Settings
     # declares `turn_secret` (`canone.calls`, ADR-0085).
     Setting(
-        "TURN_IP", "VPS", "IP pública para TURN", used_by=("bootstrap_vps",), needs="turn_secret"
+        "TURN_IP",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "IP pública para TURN"),
+        used_by=("bootstrap_vps",),
+        needs="turn_secret",
     ),
     # `--logs-ip`: the address Equipaggio gave this machine. The
     # destination and key are Equipaggio's, and go in the Machine group.
     Setting(
-        "LOGS_IP", "VPS", "IP del túnel de logs", used_by=("bootstrap_vps", "install_software")
+        "LOGS_IP",
+        QT_TRANSLATE_NOOP("settings", "VPS"),
+        QT_TRANSLATE_NOOP("settings", "IP del túnel de logs"),
+        used_by=("bootstrap_vps", "install_software"),
     ),
     # --- Database ---
     #
@@ -203,10 +256,24 @@ SETTINGS: tuple[Setting, ...] = (
     #
     # Empty, the role is the deployment user itself
     # (`Config._dynamic_default`).
-    Setting("DB_USER", "Base de datos", "Rol de la base", required_by=_DB_FIXED),
-    Setting("DB_NAME", "Base de datos", "Base de datos", required_by=_DB_FIXED),
     Setting(
-        "DB_PASSWORD", "Base de datos", "Password de la base", secret=True, required_by=_DB_FIXED
+        "DB_USER",
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        QT_TRANSLATE_NOOP("settings", "Rol de la base"),
+        required_by=_DB_FIXED,
+    ),
+    Setting(
+        "DB_NAME",
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        required_by=_DB_FIXED,
+    ),
+    Setting(
+        "DB_PASSWORD",
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        QT_TRANSLATE_NOOP("settings", "Password de la base"),
+        secret=True,
+        required_by=_DB_FIXED,
     ),
     # Where `backup_db` dumps fall and where `restore_db` reads them
     # from. Relative resolves against the repo's root; absolute is used
@@ -220,8 +287,8 @@ SETTINGS: tuple[Setting, ...] = (
     # appear in these two buttons' filtered settings panel.
     Setting(
         "BACKUP_DIR",
-        "Base de datos",
-        "Carpeta de respaldos",
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        QT_TRANSLATE_NOOP("settings", "Carpeta de respaldos"),
         default=".backups",
         used_by=("backup_db", "restore_db"),
     ),
@@ -231,22 +298,22 @@ SETTINGS: tuple[Setting, ...] = (
     # change between two presses of the button.
     Setting(
         "BACKUP_KEEP",
-        "Base de datos",
-        "Respaldos a conservar",
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        QT_TRANSLATE_NOOP("settings", "Respaldos a conservar"),
         default="7",
         used_by=("backup_db",),
     ),
     Setting(
         "PG_SUPERUSER",
-        "Base de datos",
-        "Superusuario Postgres",
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        QT_TRANSLATE_NOOP("settings", "Superusuario Postgres"),
         default="postgres",
         required_by=_PG_FIXED,
     ),
     Setting(
         "PG_PASSWORD",
-        "Base de datos",
-        "Password del superusuario",
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        QT_TRANSLATE_NOOP("settings", "Password del superusuario"),
         secret=True,
         required_by=_PG_FIXED,
     ),
@@ -262,8 +329,8 @@ SETTINGS: tuple[Setting, ...] = (
     # every VPS (ADR-0071).
     Setting(
         "DB_EXTENSIONS",
-        "Base de datos",
-        "Extensiones de Postgres",
+        QT_TRANSLATE_NOOP("settings", "Base de datos"),
+        QT_TRANSLATE_NOOP("settings", "Extensiones de Postgres"),
         kind="list",
         # Also the VPS's: PostGIS's package (`canone.packages`) and
         # `--extension` of `install.py` come from here.
@@ -272,10 +339,20 @@ SETTINGS: tuple[Setting, ...] = (
     # --- GitHub ---
     #
     # The repo's name on the VPS comes from it (`vps.repo_name`).
-    Setting("GIT_REPO_URL", "GitHub", "URL del repositorio", used_by=("upload_to_vps",)),
+    Setting(
+        "GIT_REPO_URL",
+        QT_TRANSLATE_NOOP("settings", "GitHub"),
+        QT_TRANSLATE_NOOP("settings", "URL del repositorio"),
+        used_by=("upload_to_vps",),
+    ),
     # `--private`: the VPS downloads the release with a token. `si` or
     # `no`.
-    Setting("PRIVATE", "GitHub", "Repo privado", used_by=("bootstrap_vps", "load_credentials")),
+    Setting(
+        "PRIVATE",
+        QT_TRANSLATE_NOOP("settings", "GitHub"),
+        QT_TRANSLATE_NOOP("settings", "Repo privado"),
+        used_by=("bootstrap_vps", "load_credentials"),
+    ),
     # --- Credentials ---
     #
     # The two `credentials.py` receives with a fixed name, besides the
@@ -287,8 +364,8 @@ SETTINGS: tuple[Setting, ...] = (
     # it.
     Setting(
         "DATABASE_URL",
-        "Credenciales",
-        "Base de desarrollo",
+        QT_TRANSLATE_NOOP("settings", "Credenciales"),
+        QT_TRANSLATE_NOOP("settings", "Base de desarrollo"),
         secret=True,
         used_by=("backend", "migrate_db"),
     ),
@@ -297,8 +374,8 @@ SETTINGS: tuple[Setting, ...] = (
     # socket of its instance, and `credentials.py` refuses it.
     Setting(
         "VALKEY_URL",
-        "Credenciales",
-        "Valkey de desarrollo",
+        QT_TRANSLATE_NOOP("settings", "Credenciales"),
+        QT_TRANSLATE_NOOP("settings", "Valkey de desarrollo"),
         secret=True,
         used_by=("backend",),
         needs="valkey_url",
@@ -307,16 +384,16 @@ SETTINGS: tuple[Setting, ...] = (
     # `install.py` generates it once (ADR-0085).
     Setting(
         "TURN_SECRET",
-        "Credenciales",
-        "Secreto TURN de desarrollo",
+        QT_TRANSLATE_NOOP("settings", "Credenciales"),
+        QT_TRANSLATE_NOOP("settings", "Secreto TURN de desarrollo"),
         secret=True,
         used_by=("backend",),
         needs="turn_secret",
     ),
     Setting(
         "RESTIC_PASSWORD",
-        "Credenciales",
-        "Contraseña de restic",
+        QT_TRANSLATE_NOOP("settings", "Credenciales"),
+        QT_TRANSLATE_NOOP("settings", "Contraseña de restic"),
         secret=True,
         required_by=("load_credentials",),
     ),
@@ -324,16 +401,16 @@ SETTINGS: tuple[Setting, ...] = (
     # with.
     Setting(
         "GITHUB_TOKEN",
-        "Credenciales",
-        "Token de GitHub",
+        QT_TRANSLATE_NOOP("settings", "Credenciales"),
+        QT_TRANSLATE_NOOP("settings", "Token de GitHub"),
         secret=True,
         used_by=("load_credentials",),
     ),
     # --- Server ---
     Setting(
         "SERVER_DIR",
-        "Server",
-        "Carpeta del server",
+        QT_TRANSLATE_NOOP("settings", "Server"),
+        QT_TRANSLATE_NOOP("settings", "Carpeta del server"),
         default="server",
         used_by=("load_credentials",),
     ),
@@ -345,15 +422,54 @@ SETTINGS: tuple[Setting, ...] = (
     # platform's checkbox claims them (`AxisDef.uses_env` of the
     # catalog), and only those of the checked platforms show.
     *(
-        Setting(f"BUILD_OUT_{key}", "Builds", f"Carpeta del build {name}", default_hint=default)
-        for key, name, default in (
-            ("APK", "APK", "build/app/outputs/flutter-apk · en Flet: build/apk"),
-            ("AAB", "AAB", "build/app/outputs/bundle/release · en Flet: build/aab"),
-            ("WEB", "web", "build/web"),
-            ("WINDOWS", "Windows", "build/windows/x64/runner/Release · en Flet: build/windows"),
-            ("LINUX", "Linux", "build/linux/x64/release/bundle · en Flet: build/linux"),
-            ("MACOS", "macOS", "build/macos/Build/Products/Release · en Flet: build/macos"),
-            ("IPA", "iOS", "build/ios/ipa · en Flet: build/ipa"),
+        Setting(
+            f"BUILD_OUT_{key}",
+            QT_TRANSLATE_NOOP("settings", "Builds"),
+            label,
+            default_hint=default,
+        )
+        for key, label, default in (
+            (
+                "APK",
+                QT_TRANSLATE_NOOP("settings", "Carpeta del build APK"),
+                QT_TRANSLATE_NOOP(
+                    "settings", "build/app/outputs/flutter-apk · en Flet: build/apk"
+                ),
+            ),
+            (
+                "AAB",
+                QT_TRANSLATE_NOOP("settings", "Carpeta del build AAB"),
+                QT_TRANSLATE_NOOP(
+                    "settings", "build/app/outputs/bundle/release · en Flet: build/aab"
+                ),
+            ),
+            ("WEB", QT_TRANSLATE_NOOP("settings", "Carpeta del build web"), "build/web"),
+            (
+                "WINDOWS",
+                QT_TRANSLATE_NOOP("settings", "Carpeta del build Windows"),
+                QT_TRANSLATE_NOOP(
+                    "settings", "build/windows/x64/runner/Release · en Flet: build/windows"
+                ),
+            ),
+            (
+                "LINUX",
+                QT_TRANSLATE_NOOP("settings", "Carpeta del build Linux"),
+                QT_TRANSLATE_NOOP(
+                    "settings", "build/linux/x64/release/bundle · en Flet: build/linux"
+                ),
+            ),
+            (
+                "MACOS",
+                QT_TRANSLATE_NOOP("settings", "Carpeta del build macOS"),
+                QT_TRANSLATE_NOOP(
+                    "settings", "build/macos/Build/Products/Release · en Flet: build/macos"
+                ),
+            ),
+            (
+                "IPA",
+                QT_TRANSLATE_NOOP("settings", "Carpeta del build iOS"),
+                QT_TRANSLATE_NOOP("settings", "build/ios/ipa · en Flet: build/ipa"),
+            ),
         )
     ),
     # --- Brand ---
@@ -364,8 +480,8 @@ SETTINGS: tuple[Setting, ...] = (
     # (ADR-0056).
     Setting(
         "BRAND_ICON",
-        "Marca",
-        "Logo (SVG)",
+        QT_TRANSLATE_NOOP("settings", "Marca"),
+        QT_TRANSLATE_NOOP("settings", "Logo (SVG)"),
         required_by=("generate_icons",),
         used_by=("build_binary",),
     ),
@@ -374,13 +490,19 @@ SETTINGS: tuple[Setting, ...] = (
     # pubspec declares `adaptive_icon_foreground` asks for it, and there
     # missing is an error.
     Setting(
-        "BRAND_ICON_FOREGROUND", "Marca", "Capa frontal Android (SVG)", used_by=("generate_icons",)
+        "BRAND_ICON_FOREGROUND",
+        QT_TRANSLATE_NOOP("settings", "Marca"),
+        QT_TRANSLATE_NOOP("settings", "Capa frontal Android (SVG)"),
+        used_by=("generate_icons",),
     ),
     # A PWA's maskable icon: a full-bleed background and the logo inside
     # the central 80 % circle, which Android does not crop. Only the SPA
     # whose manifest declares a `maskable` icon asks for it.
     Setting(
-        "BRAND_ICON_MASKABLE", "Marca", "Ícono maskable de PWA (SVG)", used_by=("generate_icons",)
+        "BRAND_ICON_MASKABLE",
+        QT_TRANSLATE_NOOP("settings", "Marca"),
+        QT_TRANSLATE_NOOP("settings", "Ícono maskable de PWA (SVG)"),
+        used_by=("generate_icons",),
     ),
     # --- Screenshots ---
     #
@@ -390,18 +512,23 @@ SETTINGS: tuple[Setting, ...] = (
     # Consola's kit, so it goes in .consola/camera/, versioned, and what
     # it generates in .consola/screenshots/ and .consola/publishable/,
     # which .consola/.gitignore ignores (ADR-0087).
-    Setting("SHOTS_CMD", "Capturas", "Comando para capturas", required_by=("shoot_screens",)),
+    Setting(
+        "SHOTS_CMD",
+        QT_TRANSLATE_NOOP("settings", "Capturas"),
+        QT_TRANSLATE_NOOP("settings", "Comando para capturas"),
+        required_by=("shoot_screens",),
+    ),
     Setting(
         "SHOTS_RAW",
-        "Capturas",
-        "Carpeta de capturas crudas",
+        QT_TRANSLATE_NOOP("settings", "Capturas"),
+        QT_TRANSLATE_NOOP("settings", "Carpeta de capturas crudas"),
         default=".consola/screenshots",
         used_by=("shoot_screens", "render_shots", "screenshots"),
     ),
     Setting(
         "SHOTS_PUBLISH",
-        "Capturas",
-        "Carpeta de la landing",
+        QT_TRANSLATE_NOOP("settings", "Capturas"),
+        QT_TRANSLATE_NOOP("settings", "Carpeta de la landing"),
         default="landing/static/screenshots",
         used_by=("render_shots", "screenshots"),
     ),
@@ -410,8 +537,8 @@ SETTINGS: tuple[Setting, ...] = (
     # are deliverables, not the site's.
     Setting(
         "SHOTS_DIST",
-        "Capturas",
-        "Carpeta de los demás destinos",
+        QT_TRANSLATE_NOOP("settings", "Capturas"),
+        QT_TRANSLATE_NOOP("settings", "Carpeta de los demás destinos"),
         default=".consola/publishable",
         used_by=("render_shots", "screenshots"),
     ),
@@ -428,9 +555,9 @@ SETTINGS: tuple[Setting, ...] = (
     # chances to disagree.
     Setting(
         "PYINSTALLER_BIN",
-        "Máquina",
-        "Ruta de PyInstaller",
-        default_hint="venv de la app, si no el PATH",
+        QT_TRANSLATE_NOOP("settings", "Máquina"),
+        QT_TRANSLATE_NOOP("settings", "Ruta de PyInstaller"),
+        default_hint=QT_TRANSLATE_NOOP("settings", "venv de la app, si no el PATH"),
         scope="machine",
         used_by=("build_binary",),
     ),
@@ -439,8 +566,8 @@ SETTINGS: tuple[Setting, ...] = (
     # `--signer` of `install.py`. It is one for all VPSs.
     Setting(
         "OFFLINE_KEY",
-        "Máquina",
-        "Llave pública guardada fuera",
+        QT_TRANSLATE_NOOP("settings", "Máquina"),
+        QT_TRANSLATE_NOOP("settings", "Llave pública guardada fuera"),
         scope="machine",
         used_by=("bootstrap_vps",),
     ),
@@ -448,8 +575,8 @@ SETTINGS: tuple[Setting, ...] = (
     # come from its `plantilla/infra/` (ADR-0059).
     Setting(
         "CANONE_DIR",
-        "Máquina",
-        "Carpeta de canone",
+        QT_TRANSLATE_NOOP("settings", "Máquina"),
+        QT_TRANSLATE_NOOP("settings", "Carpeta de canone"),
         scope="machine",
         required_by=(
             "install_software",
@@ -464,25 +591,31 @@ SETTINGS: tuple[Setting, ...] = (
     # journal.
     Setting(
         "LOGS",
-        "Máquina",
-        "Destino de logs",
+        QT_TRANSLATE_NOOP("settings", "Máquina"),
+        QT_TRANSLATE_NOOP("settings", "Destino de logs"),
         scope="machine",
         used_by=("bootstrap_vps", "install_software"),
     ),
-    Setting("LOGS_KEY", "Máquina", "Llave de logs", scope="machine", used_by=("bootstrap_vps",)),
+    Setting(
+        "LOGS_KEY",
+        QT_TRANSLATE_NOOP("settings", "Máquina"),
+        QT_TRANSLATE_NOOP("settings", "Llave de logs"),
+        scope="machine",
+        used_by=("bootstrap_vps",),
+    ),
 )
 
 GROUP_ORDER = (
-    "Server",
-    "Cloudflare",
-    "VPS",
-    "Base de datos",
-    "GitHub",
-    "Credenciales",
-    "Builds",
-    "Marca",
-    "Capturas",
-    "Máquina",
+    QT_TRANSLATE_NOOP("settings", "Server"),
+    QT_TRANSLATE_NOOP("settings", "Cloudflare"),
+    QT_TRANSLATE_NOOP("settings", "VPS"),
+    QT_TRANSLATE_NOOP("settings", "Base de datos"),
+    QT_TRANSLATE_NOOP("settings", "GitHub"),
+    QT_TRANSLATE_NOOP("settings", "Credenciales"),
+    QT_TRANSLATE_NOOP("settings", "Builds"),
+    QT_TRANSLATE_NOOP("settings", "Marca"),
+    QT_TRANSLATE_NOOP("settings", "Capturas"),
+    QT_TRANSLATE_NOOP("settings", "Máquina"),
 )
 
 # The repo's guards (`PROTECT_*`) are NOT here and are no `Setting`:

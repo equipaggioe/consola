@@ -13,7 +13,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from PySide6.QtCore import QRect, Qt
+from PySide6.QtCore import QCoreApplication, QRect, Qt
 from PySide6.QtGui import QIcon, QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 
@@ -48,7 +48,12 @@ def resolve(repo_path: str) -> RepoLogo:
     except TaskError as e:
         return RepoLogo(None, str(e))
     if not QSvgRenderer(str(svg)).isValid():
-        return RepoLogo(None, f"Qt no pudo leer {svg.name} como SVG.")
+        return RepoLogo(
+            None,
+            QCoreApplication.translate("repo_logo", "Qt no pudo leer {0} como SVG.").format(
+                svg.name
+            ),
+        )
     return RepoLogo(str(svg))
 
 

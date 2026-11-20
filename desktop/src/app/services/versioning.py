@@ -6,6 +6,8 @@ import json
 import re
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.errors import TaskError
 from app.services.files import read_text, write_text
 
@@ -41,8 +43,11 @@ def _parse_mode(mode: str) -> tuple[str, bool]:
         base = "none"
     if base not in SEMVER_PARTS or any(p not in ("build",) for p in pieces[1:]):
         raise TaskError(
-            f"Modo de bump invalido: {mode!r}. Usa {' | '.join(MODES)}, "
-            f'combinando "build" con los demas (p. ej. patch+build).'
+            QCoreApplication.translate(
+                "versioning",
+                'Modo de bump invalido: {0!r}. Usa {1}, combinando "build" con los demas '
+                "(p. ej. patch+build).",
+            ).format(mode, " | ".join(MODES))
         )
     return base, con_build
 
@@ -66,7 +71,11 @@ def bump(version: str, mode: str) -> str:
 
     match = _SEMVER.match(version.strip())
     if not match:
-        raise TaskError(f"La version no tiene formato SemVer: {version!r}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "versioning", "La version no tiene formato SemVer: {0!r}"
+            ).format(version)
+        )
 
     major, minor, patch, build = match.groups()
     major, minor = int(major), int(minor)
@@ -78,12 +87,19 @@ def bump(version: str, mode: str) -> str:
         minor, patch = minor + 1, (0 if patch is not None else None)
     elif base == "patch":
         if patch is None:
-            raise TaskError(f"{version!r} no tiene componente de parche para incrementar.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "versioning", "{0!r} no tiene componente de parche para incrementar."
+                ).format(version)
+            )
         patch += 1
 
     if con_build and build is None:
         raise TaskError(
-            f'{version!r} no tiene build number (+N): "+build" solo aplica a pubspec.yaml.'
+            QCoreApplication.translate(
+                "versioning",
+                '{0!r} no tiene build number (+N): "+build" solo aplica a pubspec.yaml.',
+            ).format(version)
         )
 
     new = f"{major}.{minor}" if patch is None else f"{major}.{minor}.{patch}"
@@ -98,7 +114,11 @@ def find_manifest(project_dir: Path) -> Path:
         candidate = project_dir / name
         if candidate.is_file():
             return candidate
-    raise TaskError(f"No hay manifiesto de version en {project_dir}.")
+    raise TaskError(
+        QCoreApplication.translate("versioning", "No hay manifiesto de version en {0}.").format(
+            project_dir
+        )
+    )
 
 
 def read_version(manifest: Path) -> str:
@@ -114,7 +134,11 @@ def read_version(manifest: Path) -> str:
         version = match.group(2) if match else ""
 
     if not version:
-        raise TaskError(f"No se encontro la version en {manifest.name}.")
+        raise TaskError(
+            QCoreApplication.translate("versioning", "No se encontro la version en {0}.").format(
+                manifest.name
+            )
+        )
     return version
 
 
@@ -135,5 +159,9 @@ def write_version(manifest: Path, version: str) -> None:
         new, done = _PYPROJECT.subn(lambda m: f"{m.group(1)}{version}{m.group(3)}", text, count=1)
 
     if not done:
-        raise TaskError(f"No se pudo reescribir la version en {manifest.name}.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "versioning", "No se pudo reescribir la version en {0}."
+            ).format(manifest.name)
+        )
     write_text(manifest, new)

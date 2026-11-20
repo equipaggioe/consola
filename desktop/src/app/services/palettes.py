@@ -35,6 +35,7 @@ from dataclasses import dataclass
 
 from PySide6.QtGui import QColor
 
+from app.services.language import QT_TRANSLATE_NOOP
 from app.theme import Colors, on_color, tint
 
 
@@ -156,14 +157,14 @@ def build(key: str, label: str, accent: str) -> Palette:
 THEMES: dict[str, Palette] = {
     p.key: p
     for p in (
-        build("blue", "Azul", "#58a6ff"),
-        build("indigo", "Índigo", "#8fa0f0"),
-        build("violet", "Violeta", "#bc8cff"),
-        build("pink", "Rosa", "#dd8fb4"),
-        build("coral", "Coral", "#e0907f"),
-        build("amber", "Ámbar", "#d4ae6a"),
-        build("green", "Verde", "#7cc48a"),
-        build("cyan", "Cian", "#6dbecb"),
+        build("blue", QT_TRANSLATE_NOOP("palettes", "Azul"), "#58a6ff"),
+        build("indigo", QT_TRANSLATE_NOOP("palettes", "Índigo"), "#8fa0f0"),
+        build("violet", QT_TRANSLATE_NOOP("palettes", "Violeta"), "#bc8cff"),
+        build("pink", QT_TRANSLATE_NOOP("palettes", "Rosa"), "#dd8fb4"),
+        build("coral", QT_TRANSLATE_NOOP("palettes", "Coral"), "#e0907f"),
+        build("amber", QT_TRANSLATE_NOOP("palettes", "Ámbar"), "#d4ae6a"),
+        build("green", QT_TRANSLATE_NOOP("palettes", "Verde"), "#7cc48a"),
+        build("cyan", QT_TRANSLATE_NOOP("palettes", "Cian"), "#6dbecb"),
     )
 }
 

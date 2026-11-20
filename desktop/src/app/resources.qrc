@@ -4,5 +4,7 @@
     <file>icon.png</file>
     <file>assets/chevron-down.svg</file>
     <file>assets/equipaggio.png</file>
+    <file>translations/es.qm</file>
+    <file>translations/qtbase_es.qm</file>
   </qresource>
 </RCC>

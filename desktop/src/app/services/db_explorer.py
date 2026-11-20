@@ -18,9 +18,10 @@ from typing import Any
 import psycopg
 from psycopg import Connection, sql
 from psycopg.sql import SQL, Composed
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QCoreApplication, QLocale
 
 from app.services.errors import TaskError
+from app.services.language import QT_TRANSLATE_NOOP
 
 STATEMENT_TIMEOUT_MS = 15000
 PAGE_SIZE = 200
@@ -45,11 +46,11 @@ def session_key(safe_url: str) -> str:
 
 
 KIND_LABELS = {
-    "r": "tabla",
-    "p": "tabla particionada",
-    "v": "vista",
-    "m": "vista materializada",
-    "f": "tabla foránea",
+    "r": QT_TRANSLATE_NOOP("db_explorer", "tabla"),
+    "p": QT_TRANSLATE_NOOP("db_explorer", "tabla particionada"),
+    "v": QT_TRANSLATE_NOOP("db_explorer", "vista"),
+    "m": QT_TRANSLATE_NOOP("db_explorer", "vista materializada"),
+    "f": QT_TRANSLATE_NOOP("db_explorer", "tabla foránea"),
 }
 
 
@@ -89,7 +90,7 @@ class Relation:
     @property
     def kind_label(self) -> str:
         """Return the readable kind."""
-        return KIND_LABELS.get(self.kind, self.kind)
+        return QCoreApplication.translate("db_explorer", KIND_LABELS.get(self.kind, self.kind))
 
 
 @dataclass
@@ -195,7 +196,11 @@ def open_readonly(url: str) -> Connection:
     try:
         return psycopg.connect(url, options=options, connect_timeout=10, autocommit=True)
     except psycopg.OperationalError as exc:
-        raise TaskError(f"No se pudo conectar: {_first_line(exc)}") from exc
+        raise TaskError(
+            QCoreApplication.translate("db_explorer", "No se pudo conectar: {0}").format(
+                _first_line(exc)
+            )
+        ) from exc
 
 
 def _first_line(exc: Exception) -> str:
@@ -212,7 +217,9 @@ def server_info(conn: Connection) -> ServerInfo:
         "pg_database_size(current_database()), inet_server_port()"
     ).fetchone()
     if row is None:
-        raise TaskError("El servidor no devolvió sus datos.")
+        raise TaskError(
+            QCoreApplication.translate("db_explorer", "El servidor no devolvió sus datos.")
+        )
     return ServerInfo(
         version=row[0], database=row[1], user=row[2], size_bytes=row[3] or 0, port=row[4] or 0
     )
@@ -344,7 +351,11 @@ def describe(conn: Connection, relation: Relation) -> TableDetail:
     """Return the structure of a table."""
     found = conn.execute(_OID, (relation.schema, relation.name)).fetchone()
     if found is None:
-        raise TaskError(f"{relation.qualified} ya no existe.")
+        raise TaskError(
+            QCoreApplication.translate("db_explorer", "{0} ya no existe.").format(
+                relation.qualified
+            )
+        )
     oid = found[0]
 
     columns = [
@@ -476,7 +487,9 @@ def count_exact(conn: Connection, relation: Relation, where: Filter | None = Non
     ) + _where(where)
     row = conn.execute(query).fetchone()
     if row is None:
-        raise TaskError("El servidor no devolvió el conteo.")
+        raise TaskError(
+            QCoreApplication.translate("db_explorer", "El servidor no devolvió el conteo.")
+        )
     return row[0]
 
 

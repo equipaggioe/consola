@@ -15,6 +15,8 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.context import TaskContext
 from app.services.errors import TaskError
 from app.services.process import which_any
@@ -23,19 +25,27 @@ from app.services.registry import registry
 
 def _git_or_fail() -> None:
     if not which_any(["git", "git.exe"]):
-        raise TaskError("No se encontro Git en el PATH.")
+        raise TaskError(QCoreApplication.translate("git", "No se encontro Git en el PATH."))
 
 
 def _ensure_git(ctx: TaskContext) -> None:
     _git_or_fail()
     if not ctx.path(".git").exists():
-        raise TaskError(f"La carpeta abierta no es un repositorio git: {ctx.root}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "git", "La carpeta abierta no es un repositorio git: {0}"
+            ).format(ctx.root)
+        )
 
 
 def _current_branch(ctx: TaskContext) -> str:
     branch = ctx.capture(["git", "rev-parse", "--abbrev-ref", "HEAD"])
     if branch == "HEAD":
-        raise TaskError("El repo local esta en HEAD desacoplado: no hay rama que forzar.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "git", "El repo local esta en HEAD desacoplado: no hay rama que forzar."
+            )
+        )
     return branch
 
 
@@ -51,7 +61,11 @@ def force_push(ctx: TaskContext) -> str:
     ctx.run(["git", "fetch", "--quiet"], check=False, echo=False)
     ctx.run(["git", "push", "--force", "origin", branch])
     revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"])
-    ctx.ok(f"origin/{branch} ahora es {revision}, igual que esta maquina.")
+    ctx.ok(
+        QCoreApplication.translate(
+            "git", "origin/{0} ahora es {1}, igual que esta maquina."
+        ).format(branch, revision)
+    )
     return revision
 
 
@@ -67,14 +81,26 @@ def force_reset(ctx: TaskContext, discard_changes: bool = False) -> str:
     branch = _current_branch(ctx)
     dirty = ctx.capture(["git", "status", "--porcelain"])
     if dirty and not discard_changes:
-        ctx.warn("Esta maquina tiene cambios sin commitear:\n" + dirty)
-        if not ctx.confirm("Descartar esos cambios y resetear igual?", danger=True):
-            raise TaskError("Reset cancelado: hay cambios sin commitear.")
+        ctx.warn(
+            QCoreApplication.translate("git", "Esta maquina tiene cambios sin commitear:\n")
+            + dirty
+        )
+        if not ctx.confirm(
+            QCoreApplication.translate("git", "Descartar esos cambios y resetear igual?"),
+            danger=True,
+        ):
+            raise TaskError(
+                QCoreApplication.translate("git", "Reset cancelado: hay cambios sin commitear.")
+            )
     ctx.run(["git", "fetch", "origin", branch])
     ctx.run(["git", "reset", "--hard", f"origin/{branch}"])
     ctx.run(["git", "clean", "-fd"])
     revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"])
-    ctx.ok(f"{branch} ahora es {revision}, igual que origin.")
+    ctx.ok(
+        QCoreApplication.translate("git", "{0} ahora es {1}, igual que origin.").format(
+            branch, revision
+        )
+    )
     return revision
 
 
@@ -93,7 +119,11 @@ def repo_folder_name(url: str) -> str:
         clean = clean[:-4]
     name = clean.rsplit("/", 1)[-1].rsplit(os.sep, 1)[-1].rsplit(":", 1)[-1]
     if not name:
-        raise TaskError(f"No se entiende que repositorio clonar de: {url}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "git", "No se entiende que repositorio clonar de: {0}"
+            ).format(url)
+        )
     return name
 
 
@@ -111,7 +141,9 @@ def clone_repo(ctx: TaskContext, url: str = "", dest: str = "", branch: str = ""
     cloning but mixing two repos.
     """
     if not url.strip():
-        raise TaskError("Falta la URL del repositorio a clonar.")
+        raise TaskError(
+            QCoreApplication.translate("git", "Falta la URL del repositorio a clonar.")
+        )
     _git_or_fail()
 
     if dest.strip():
@@ -119,11 +151,19 @@ def clone_repo(ctx: TaskContext, url: str = "", dest: str = "", branch: str = ""
     elif ctx.project is not None:
         folder = ctx.root.parent
     else:
-        raise TaskError("Indica la carpeta destino: no hay ningun repo abierto del que deducirla.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "git", "Indica la carpeta destino: no hay ningun repo abierto del que deducirla."
+            )
+        )
 
     destination = folder / repo_folder_name(url)
     if destination.exists():
-        raise TaskError(f"Ya existe {destination}. Elige otra carpeta destino o borra esa.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "git", "Ya existe {0}. Elige otra carpeta destino o borra esa."
+            ).format(destination)
+        )
     folder.mkdir(parents=True, exist_ok=True)
 
     argv = ["git", "clone"]
@@ -132,7 +172,11 @@ def clone_repo(ctx: TaskContext, url: str = "", dest: str = "", branch: str = ""
     argv += [url.strip(), str(destination)]
     ctx.run(argv, cwd=str(folder))
     revision = ctx.capture(["git", "rev-parse", "--short", "HEAD"], cwd=str(destination))
-    ctx.ok(f"{destination.name} clonado en {destination} ({revision}).")
+    ctx.ok(
+        QCoreApplication.translate("git", "{0} clonado en {1} ({2}).").format(
+            destination.name, destination, revision
+        )
+    )
     return destination
 
 

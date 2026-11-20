@@ -15,7 +15,7 @@ import tempfile
 from datetime import UTC, datetime
 from pathlib import Path
 
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QCoreApplication, QLocale
 
 from app.services import canone, db_explorer, envfile, files, runner
 from app.services import database as db
@@ -47,7 +47,7 @@ def create_role(ctx: TaskContext) -> str:
         ),
     )
     admin.execute(ctx, f"ALTER ROLE {ident} WITH PASSWORD {db.quote_literal(password)};")
-    ctx.ok(f"Rol listo: {user}")
+    ctx.ok(QCoreApplication.translate("database", "Rol listo: {0}").format(user))
     return user
 
 
@@ -61,11 +61,11 @@ def create_database(ctx: TaskContext) -> str:
         ctx, f"SELECT 1 FROM pg_database WHERE datname = {db.quote_literal(name)};"
     )
     if exists:
-        ctx.info(f"La base {name} ya existe.")
+        ctx.info(QCoreApplication.translate("database", "La base {0} ya existe.").format(name))
         admin.execute(ctx, f"ALTER DATABASE {ident} OWNER TO {owner};")
     else:
         admin.execute(ctx, f"CREATE DATABASE {ident} OWNER {owner};")
-        ctx.ok(f"Base creada: {name}")
+        ctx.ok(QCoreApplication.translate("database", "Base creada: {0}").format(name))
     return name
 
 
@@ -76,7 +76,11 @@ def grant_privileges(ctx: TaskContext) -> None:
     ident, owner = db.quote_ident(name), db.quote_ident(user)
     admin.execute(ctx, f"GRANT ALL PRIVILEGES ON DATABASE {ident} TO {owner};")
     admin.execute(ctx, f"GRANT ALL ON SCHEMA public TO {owner};", database=name)
-    ctx.ok(f"Permisos otorgados a {user} sobre {name}.")
+    ctx.ok(
+        QCoreApplication.translate("database", "Permisos otorgados a {0} sobre {1}.").format(
+            user, name
+        )
+    )
 
 
 def enable_extensions(ctx: TaskContext) -> list[str]:
@@ -115,7 +119,11 @@ def enable_extensions(ctx: TaskContext) -> list[str]:
         if not (e.lower() in views or views.add(e.lower()))
     ]
     if not requested:
-        ctx.info("DB_EXTENSIONS esta vacia: no hay nada que habilitar.")
+        ctx.info(
+            QCoreApplication.translate(
+                "database", "DB_EXTENSIONS esta vacia: no hay nada que habilitar."
+            )
+        )
         return []
 
     admin = db.resolve_admin(ctx)
@@ -129,13 +137,18 @@ def enable_extensions(ctx: TaskContext) -> list[str]:
         )
         if not available:
             raise TaskError(
-                f"La extensión {extension} no está instalada en el sistema: "
-                "instala su paquete o quítala de DB_EXTENSIONS."
+                QCoreApplication.translate(
+                    "database",
+                    "La extensión {0} no está instalada en el sistema: instala su paquete o "
+                    "quítala de DB_EXTENSIONS.",
+                ).format(extension)
             )
         admin.execute(
             ctx, f"CREATE EXTENSION IF NOT EXISTS {db.quote_ident(extension)};", database=name
         )
-        ctx.ok(f"Extension habilitada: {extension}")
+        ctx.ok(
+            QCoreApplication.translate("database", "Extension habilitada: {0}").format(extension)
+        )
         enabled.append(extension)
     return enabled
 
@@ -159,13 +172,17 @@ def drop_tables(ctx: TaskContext) -> list[str]:
     )
 
     if not tables:
-        ctx.info("No hay tablas para borrar.")
+        ctx.info(QCoreApplication.translate("database", "No hay tablas para borrar."))
         return []
 
-    ctx.warn(f"Se van a borrar {len(tables)} tabla(s) de {name}.")
+    ctx.warn(
+        QCoreApplication.translate("database", "Se van a borrar {0} tabla(s) de {1}.").format(
+            len(tables), name
+        )
+    )
     sql = " ".join(f"DROP TABLE IF EXISTS {db.quote_ident(t)} CASCADE;" for t in tables)
     admin.execute(ctx, sql, database=name)
-    ctx.ok(f"{len(tables)} tabla(s) eliminadas.")
+    ctx.ok(QCoreApplication.translate("database", "{0} tabla(s) eliminadas.").format(len(tables)))
     return tables
 
 
@@ -184,7 +201,7 @@ def drop_database(ctx: TaskContext) -> str:
         ),
     )
     admin.execute(ctx, f"DROP DATABASE IF EXISTS {db.quote_ident(name)};")
-    ctx.ok(f"Base eliminada: {name}")
+    ctx.ok(QCoreApplication.translate("database", "Base eliminada: {0}").format(name))
     return name
 
 
@@ -193,7 +210,7 @@ def drop_role(ctx: TaskContext) -> str:
     admin = db.resolve_admin(ctx)
     user, _, _ = db.credentials(ctx.config)
     admin.execute(ctx, f"DROP ROLE IF EXISTS {db.quote_ident(user)};")
-    ctx.ok(f"Rol eliminado: {user}")
+    ctx.ok(QCoreApplication.translate("database", "Rol eliminado: {0}").format(user))
     return user
 
 
@@ -212,8 +229,12 @@ def reset_migrations(ctx: TaskContext) -> int:
     files = sorted(versions.glob("*.py"))
     for file in files:
         file.unlink()
-        ctx.info(f"Migracion eliminada: {file.name}")
-    ctx.ok(f"{len(files)} migracion(es) eliminadas.")
+        ctx.info(
+            QCoreApplication.translate("database", "Migracion eliminada: {0}").format(file.name)
+        )
+    ctx.ok(
+        QCoreApplication.translate("database", "{0} migracion(es) eliminadas.").format(len(files))
+    )
     return len(files)
 
 
@@ -228,17 +249,25 @@ def generate_migration(ctx: TaskContext, message: str = "auto") -> Path | None:
 
     new = {p.name for p in versions.glob("*.py")} - before
     if not new:
-        ctx.warn("El modelo no cambio: no se genero ninguna migracion.")
+        ctx.warn(
+            QCoreApplication.translate(
+                "database", "El modelo no cambio: no se genero ninguna migracion."
+            )
+        )
         return None
     generated = versions / new.pop()
-    ctx.ok(f"Migracion generada: {generated.name}")
+    ctx.ok(
+        QCoreApplication.translate("database", "Migracion generada: {0}").format(generated.name)
+    )
     return generated
 
 
 def apply_migrations(ctx: TaskContext, revision: str = "head") -> None:
     """Bring the local database up to date with the revisions."""
     runner.local(ctx).run(ctx, "-m", "alembic", "upgrade", revision)
-    ctx.ok(f"Migraciones aplicadas hasta {revision}.")
+    ctx.ok(
+        QCoreApplication.translate("database", "Migraciones aplicadas hasta {0}.").format(revision)
+    )
 
 
 def ensure_partitions(ctx: TaskContext) -> None:
@@ -286,7 +315,11 @@ def _database_py(ctx: TaskContext, command: str) -> None:
     _, app = canone.origin(ctx.root)
     entry = vps_setup.admin(ctx)
     entry.run(ctx, canone.database_command(app, command))
-    ctx.ok(f"database.py {command}: listo en {entry.remote.host}.")
+    ctx.ok(
+        QCoreApplication.translate("database", "database.py {0}: listo en {1}.").format(
+            command, entry.remote.host
+        )
+    )
 
 
 def _in_development(ctx: TaskContext) -> None:
@@ -297,8 +330,11 @@ def _in_development(ctx: TaskContext) -> None:
     """
     if canone.state(ctx.root) != canone.DEVELOPMENT:
         raise TaskError(
-            "El README dice «Estado: en producción»: Consola no vacía la base del VPS "
-            "ni le carga datos de prueba."
+            QCoreApplication.translate(
+                "database",
+                "El README dice «Estado: en producción»: Consola no vacía la base del "
+                "VPS ni le carga datos de prueba.",
+            )
         )
 
 
@@ -309,7 +345,9 @@ def empty_vps_database(ctx: TaskContext) -> None:
     `install.py` creates it: empty and without migrations.
     """
     _in_development(ctx)
-    ctx.warn("Se borran la base del VPS y los archivos subidos.")
+    ctx.warn(
+        QCoreApplication.translate("database", "Se borran la base del VPS y los archivos subidos.")
+    )
     _database_py(ctx, "empty")
 
 
@@ -363,9 +401,17 @@ def backup_keep(ctx: TaskContext) -> int:
     try:
         keep = int(raw)
     except ValueError:
-        raise TaskError(f"BACKUP_KEEP tiene que ser un numero entero, y dice {raw!r}.") from None
+        raise TaskError(
+            QCoreApplication.translate(
+                "database", "BACKUP_KEEP tiene que ser un numero entero, y dice {0!r}."
+            ).format(raw)
+        ) from None
     if keep < 1:
-        raise TaskError(f"BACKUP_KEEP tiene que ser 1 o mas, y dice {keep}.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "database", "BACKUP_KEEP tiene que ser 1 o mas, y dice {0}."
+            ).format(keep)
+        )
     return keep
 
 
@@ -405,16 +451,26 @@ def backup_database(ctx: TaskContext) -> Path:
 
     with db.connect(ctx, db.LOCAL) as conn:
         _check_version(ctx, conn, tool)
-        ctx.info(f"Volcando {name} en {destination.name}...")
+        ctx.info(
+            QCoreApplication.translate("database", "Volcando {0} en {1}...").format(
+                name, destination.name
+            )
+        )
         ctx.run(
             [*_pg_argv(tool, conn, user), "-Fc", "-f", str(destination), name],
             env={"PGPASSWORD": password},
         )
 
     size = files.human_size(files.size_of(destination), QLocale())
-    ctx.ok(f"Backup guardado: {destination} ({size})")
+    ctx.ok(
+        QCoreApplication.translate("database", "Backup guardado: {0} ({1})").format(
+            destination, size
+        )
+    )
     rotate_backups(ctx)
-    ctx.note(f"Backup de {name}: {destination.name}")
+    ctx.note(
+        QCoreApplication.translate("database", "Backup de {0}: {1}").format(name, destination.name)
+    )
     return destination
 
 
@@ -426,7 +482,7 @@ def rotate_backups(ctx: TaskContext) -> list[Path]:
     spare = list_backups(ctx.config, ctx.root)[backup_keep(ctx) :]
     for old in spare:
         files.remove(old)
-        ctx.info(f"Backup rotado: {old.name}")
+        ctx.info(QCoreApplication.translate("database", "Backup rotado: {0}").format(old.name))
     return spare
 
 
@@ -455,10 +511,14 @@ def restore_database(ctx: TaskContext, dump: str = "") -> Path:
     stops with «must be owner of extension».
     """
     if not dump:
-        raise TaskError("No se eligio ningun respaldo para restaurar.")
+        raise TaskError(
+            QCoreApplication.translate("database", "No se eligio ningun respaldo para restaurar.")
+        )
     file = backup_dir(ctx.config, ctx.root) / dump
     if not file.is_file():
-        raise TaskError(f"No existe el respaldo: {file}")
+        raise TaskError(
+            QCoreApplication.translate("database", "No existe el respaldo: {0}").format(file)
+        )
 
     user, password, name = db.credentials(ctx.config)
     ctx.guard(password)
@@ -466,7 +526,11 @@ def restore_database(ctx: TaskContext, dump: str = "") -> Path:
 
     with db.connect(ctx, db.LOCAL) as conn:
         _check_version(ctx, conn, tool)
-        ctx.warn(f"Restaurando {file.name} sobre {name}: se reemplaza lo que haya.")
+        ctx.warn(
+            QCoreApplication.translate(
+                "database", "Restaurando {0} sobre {1}: se reemplaza lo que haya."
+            ).format(file.name, name)
+        )
         content = ctx.capture([str(tool), "-l", str(file)])
         with tempfile.TemporaryDirectory() as folder:
             items = Path(folder) / "lista"
@@ -487,8 +551,14 @@ def restore_database(ctx: TaskContext, dump: str = "") -> Path:
                 env={"PGPASSWORD": password},
             )
 
-    ctx.ok(f"Base {name} restaurada desde {file.name}.")
-    ctx.note(f"Restauracion de {name}: {file.name}")
+    ctx.ok(
+        QCoreApplication.translate("database", "Base {0} restaurada desde {1}.").format(
+            name, file.name
+        )
+    )
+    ctx.note(
+        QCoreApplication.translate("database", "Restauracion de {0}: {1}").format(name, file.name)
+    )
     return file
 
 
@@ -501,8 +571,9 @@ def open_db_tunnel(ctx: TaskContext) -> Tunnel:
     _, app = canone.origin(ctx.root)
     tunnel = db.vps_tunnel(ctx)
     ctx.ok(
-        f"Tunel abierto en {tunnel.endpoint}: entra como {db.reader(app)}, sin contraseña, "
-        f"a la base {app}."
+        QCoreApplication.translate(
+            "database", "Tunel abierto en {0}: entra como {1}, sin contraseña, a la base {2}."
+        ).format(tunnel.endpoint, db.reader(app), app)
     )
     return tunnel
 
@@ -523,24 +594,45 @@ def explore_db(ctx: TaskContext, scope: str = db.LOCAL) -> None:
             info = db_explorer.server_info(probe)
             relations = db_explorer.list_relations(probe)
 
-        ctx.ok(f"Conectado a {info.database} como {info.user} (solo lectura).")
-        ctx.info(f"Servidor: {info.version.split(' on ')[0]}")
-        ctx.info(f"Tamaño de la base: {files.human_size(info.size_bytes, QLocale())}")
+        ctx.ok(
+            QCoreApplication.translate(
+                "database", "Conectado a {0} como {1} (solo lectura)."
+            ).format(info.database, info.user)
+        )
+        ctx.info(
+            QCoreApplication.translate("database", "Servidor: {0}").format(
+                info.version.split(" on ")[0]
+            )
+        )
+        ctx.info(
+            QCoreApplication.translate("database", "Tamaño de la base: {0}").format(
+                files.human_size(info.size_bytes, QLocale())
+            )
+        )
         tables = [r for r in relations if r.kind in "rpf" and not r.parent]
         ctx.info(
-            f"{len(tables)} tabla(s), {len(relations) - len(tables)} vista(s) o partición(es):"
+            QCoreApplication.translate(
+                "database", "{0} tabla(s), {1} vista(s) o partición(es):"
+            ).format(len(tables), len(relations) - len(tables))
         )
         for rel in tables:
             ctx.info(
-                f"  {rel.qualified}  ~{db_explorer.human_count(rel.estimate, QLocale())} filas"
-                f"  {files.human_size(rel.size_bytes, QLocale())}"
+                QCoreApplication.translate("database", "  {0}  ~{1} filas  {2}").format(
+                    rel.qualified,
+                    db_explorer.human_count(rel.estimate, QLocale()),
+                    files.human_size(rel.size_bytes, QLocale()),
+                )
             )
 
         ctx.publish(db_explorer.session_key(conn.safe_url), conn.url)
         ctx.serve(conn.safe_url, key=f"explore_db:{scope}", label=info.database, web=False)
         while not ctx.wait_cancelled(1.0):
             if conn.tunnel is not None and not conn.tunnel.alive:
-                raise TaskError("El túnel SSH se cerró: vuelve a conectar.")
+                raise TaskError(
+                    QCoreApplication.translate(
+                        "database", "El túnel SSH se cerró: vuelve a conectar."
+                    )
+                )
         ctx.raise_if_cancelled()
 
 
@@ -628,7 +720,7 @@ def bootstrap_db(
         seeders=seeders,
         mock_seeders=mock_seeders,
     )
-    ctx.note("Bootstrap de la base local completado.")
+    ctx.note(QCoreApplication.translate("database", "Bootstrap de la base local completado."))
 
 
 def rebuild_db(
@@ -672,7 +764,11 @@ def rebuild_db(
             seeders=seeders,
             mock_seeders=mock_seeders,
         )
-        ctx.note(f"Reconstruccion de {name} (local) completada.")
+        ctx.note(
+            QCoreApplication.translate(
+                "database", "Reconstruccion de {0} (local) completada."
+            ).format(name)
+        )
         return
     if empty:
         ctx.step("empty")
@@ -686,7 +782,9 @@ def rebuild_db(
     if mock_seeders:
         ctx.step("mock_seeders")
         run_mock_seeders(ctx, db.REMOTE)
-    ctx.note("Reconstruccion de la base del VPS completada.")
+    ctx.note(
+        QCoreApplication.translate("database", "Reconstruccion de la base del VPS completada.")
+    )
 
 
 def reinit_migrations(
@@ -719,7 +817,11 @@ def reinit_migrations(
     if generate:
         ctx.step("generate")
         generate_migration(ctx, message="initial_migration")
-    ctx.note(f"Historial de migraciones reiniciado; {name} quedo vacia.")
+    ctx.note(
+        QCoreApplication.translate(
+            "database", "Historial de migraciones reiniciado; {0} quedo vacia."
+        ).format(name)
+    )
 
 
 def teardown_db(ctx: TaskContext, *, database: bool = True, role: bool = True) -> None:
@@ -735,7 +837,7 @@ def teardown_db(ctx: TaskContext, *, database: bool = True, role: bool = True) -
     if role:
         ctx.step("role")
         drop_role(ctx)
-    ctx.note(f"Teardown de {name}.")
+    ctx.note(QCoreApplication.translate("database", "Teardown de {0}.").format(name))
 
 
 def migrate_db(

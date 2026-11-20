@@ -5,15 +5,19 @@
 ```
 cd desktop
 uv sync
+uv run pyside6-lrelease src/app/translations/es.ts -qm src/app/translations/es.qm
+uv run python -c "import shutil; from PySide6.QtCore import QLibraryInfo as L; shutil.copy(f'{L.path(L.LibraryPath.TranslationsPath)}/qtbase_es.qm', 'src/app/translations')"
 uv run pyside6-rcc src/app/resources.qrc -o src/app/rc_resources.py
 uv run python -m app.main
 ```
 
-Consola se ejecuta desde el repositorio. `rc_resources.py` se genera y no va en git: `main.py` lo importa, así que sin él no arranca, y se vuelve a generar cuando cambia una imagen de `resources.qrc` ([02](02_bloques.md) §5).
+Consola se ejecuta desde el repositorio. Los `.qm` y `rc_resources.py` se generan y no van en git, como en el job `desktop` de `ci.yml`. `main.py` importa `rc_resources.py`, así que sin él no arranca, y se vuelven a generar cuando cambia una imagen de `resources.qrc` o una traducción ([02](02_bloques.md) §5).
+
+Los textos se extraen a `translations/es.ts` con `uv run pyside6-lupdate -extensions py src/app -ts src/app/translations/es.ts`, sin `rc_resources.py`: con él, `pyside6-lupdate` 6.12.0 termina con un fallo de acceso a memoria. `tests/test_language.py` falla si un texto del catálogo no está en `es.ts` ([04](04_conceptos_transversales.md) §10).
 
 Con cada tag, `.github/workflows/release.yml` corre `ci.yml`, crea el release en borrador y construye con `pyside6-deploy`, desde `desktop/pysidedeploy.spec`, un binario por cada sistema cuya variable de GitHub vale `true`: `desktop-linux.bin` con `RELEASE_DESKTOP_LINUX` y `desktop-windows.exe` con `RELEASE_DESKTOP_WINDOWS`. Con `RELEASE_DESKTOP_MACOS` en `true`, el job `systems` falla: Consola no se publica para macOS ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)). El job `canone` de `ci.yml` le pasa las variables a `verificar.py`, que falla si falta alguna. El release se publica cuando tiene su `.sha256`.
 
-El job `desktop` instala primero las dependencias, después compila `resources.qrc` y al final instala la app, sin modo editable: Nuitka compila la copia instalada, y una instalada antes de compilar los recursos no tiene `rc_resources.py`. El binario lleva aparte `assets/shots_presets.json` y `assets/camera/index.mjs`, que se leen del disco. Lo que falta probar está en [30](30_riesgos_y_pendientes.md).
+El job `desktop` instala primero las dependencias, después compila las traducciones y `resources.qrc`, y al final instala la app, sin modo editable: Nuitka compila la copia instalada, y una instalada antes de compilar los recursos no tiene `rc_resources.py`. El binario lleva aparte `assets/shots_presets.json` y `assets/camera/index.mjs`, que se leen del disco. Lo que falta probar está en [30](30_riesgos_y_pendientes.md).
 
 Puede empaquetarse a sí misma con su botón «Build binario», que deduce `main.py` en la raíz cuando el repo no tiene ninguna app Python que descubrir (`services/tasks/builders.py::resolve_entrypoint`).
 

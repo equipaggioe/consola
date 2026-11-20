@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from app.theme import Colors, Fonts, tint
@@ -26,7 +26,7 @@ class FavoriteStar(QPushButton):
         super().__init__(parent)
         self.accent = accent
         self._favorite = False
-        self.setAccessibleName("Favorita")
+        self.setAccessibleName(QCoreApplication.translate("FavoriteStar", "Favorita"))
         self.setFixedSize(26, 26)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
@@ -56,7 +56,11 @@ class FavoriteStar(QPushButton):
     def _restyle(self) -> None:
         self.setText(self.FULL if self._favorite else self.EMPTY)
         color = self.accent if self._favorite else Colors.TEXT_MUTED
-        tip = "Quitar de favoritas" if self._favorite else "Marcar como favorita"
+        tip = (
+            QCoreApplication.translate("FavoriteStar", "Quitar de favoritas")
+            if self._favorite
+            else QCoreApplication.translate("FavoriteStar", "Marcar como favorita")
+        )
         self.setToolTip(tip)
         # A new tooltip does not reach assistive technology; a new
         # description does.

@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import QCoreApplication
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 
 from app import theme
@@ -18,20 +19,25 @@ class ReminderDialog(GuardDialog):
         self, project: Project, action: str, targets: list[Target], parent: QWidget | None = None
     ) -> None:
         """Build the notice."""
-        which = join_words([t.label for t in targets])
+        which = join_words([QCoreApplication.translate("protection", t.label) for t in targets])
         super().__init__(
             project,
-            "Confirmar accion",
-            f"{action} va a destruir {which}.",
-            "Este objetivo no esta protegido en este repositorio. Se protege "
-            "en Configuracion, seccion Seguridad.",
+            QCoreApplication.translate("ReminderDialog", "Confirmar accion"),
+            QCoreApplication.translate("ReminderDialog", "{0} va a destruir {1}.").format(
+                action, which
+            ),
+            QCoreApplication.translate(
+                "ReminderDialog",
+                "Este objetivo no esta protegido en este repositorio. Se protege en "
+                "Configuracion, seccion Seguridad.",
+            ),
             parent,
         )
 
         buttons = QHBoxLayout()
         buttons.addStretch()
 
-        cancel = self._button("Cancelar")
+        cancel = self._button(QCoreApplication.translate("ReminderDialog", "Cancelar"))
         cancel.setDefault(True)
         button = theme.BUTTON.on(self.pal)
         cancel.setStyleSheet(f"""
@@ -44,7 +50,7 @@ class ReminderDialog(GuardDialog):
         """)
         cancel.clicked.connect(self.reject)
 
-        proceed = self._button("Continuar")
+        proceed = self._button(QCoreApplication.translate("ReminderDialog", "Continuar"))
         # Never the default button: one Enter too many destroys nothing.
         proceed.setAutoDefault(False)
         proceed.setDefault(False)

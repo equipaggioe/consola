@@ -19,6 +19,8 @@ from collections.abc import Callable, Iterable, Mapping
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.context import TaskContext
 from app.services.host import HOST
 
@@ -97,9 +99,17 @@ def _configure_posix(
     for name, value in variables.items():
         ctx.ok(f"{name} = {value}")
     if removed:
-        ctx.info(f"Se quitaron {removed} ruta(s) anteriores del PATH.")
-    ctx.ok(f"Perfil actualizado: {profile}")
-    ctx.info("Abre una terminal nueva para que el PATH se actualice ahi.")
+        ctx.info(
+            QCoreApplication.translate(
+                "userenv", "Se quitaron {0} ruta(s) anteriores del PATH."
+            ).format(removed)
+        )
+    ctx.ok(QCoreApplication.translate("userenv", "Perfil actualizado: {0}").format(profile))
+    ctx.info(
+        QCoreApplication.translate(
+            "userenv", "Abre una terminal nueva para que el PATH se actualice ahi."
+        )
+    )
 
 
 def read_block(profile: Path) -> tuple[dict[str, str], list[str]]:
@@ -181,10 +191,16 @@ def _configure_windows(
             # exceeds that.
             winreg.SetValueEx(key, "Path", 0, kind or winreg.REG_EXPAND_SZ, ";".join(kept))
             if removed:
-                ctx.info(f"Se quitaron {removed} ruta(s) anteriores del PATH de usuario.")
-            ctx.ok("PATH de usuario actualizado.")
+                ctx.info(
+                    QCoreApplication.translate(
+                        "userenv", "Se quitaron {0} ruta(s) anteriores del PATH de usuario."
+                    ).format(removed)
+                )
+            ctx.ok(QCoreApplication.translate("userenv", "PATH de usuario actualizado."))
         else:
-            ctx.ok("El PATH de usuario ya estaba configurado.")
+            ctx.ok(
+                QCoreApplication.translate("userenv", "El PATH de usuario ya estaba configurado.")
+            )
 
     _broadcast_change()
     _warn_system_path(ctx, path_drop)
@@ -226,10 +242,18 @@ def _warn_system_path(ctx: TaskContext, path_drop: PathFilter | None) -> None:
     stale = [e for e in current.split(";") if e.strip() and path_drop(e)]
     if not stale:
         return
-    ctx.warn("El PATH del sistema todavia tiene rutas anteriores, y tienen prioridad:")
+    ctx.warn(
+        QCoreApplication.translate(
+            "userenv", "El PATH del sistema todavia tiene rutas anteriores, y tienen prioridad:"
+        )
+    )
     for entry in stale:
         ctx.warn(f"  {entry}")
-    ctx.warn("Quitalas desde Variables de entorno del sistema (requiere administrador).")
+    ctx.warn(
+        QCoreApplication.translate(
+            "userenv", "Quitalas desde Variables de entorno del sistema (requiere administrador)."
+        )
+    )
 
 
 def _broadcast_change() -> None:

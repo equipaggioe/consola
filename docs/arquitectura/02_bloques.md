@@ -100,7 +100,7 @@ Cada módulo de `dialogs/`, `widgets/` y `models/` declara una sola clase públi
 
 Lo que no es código: la marca de Equipaggio (`equipaggio.png`), la flecha de las listas (`chevron-down.svg`), los presets de las capturas (`shots_presets.json`) y `camera/`, el kit de las cámaras de capturas: JS sin dependencias que no corre dentro de Consola, sino dentro del script de cámara de cada repo, que lo recibe en `--kit` ([19](19_imagenes.md) §6, [ADR-0051](../adr/0051-el-kit-de-la-camara-viaja-en-un-argumento.md)).
 
-Las dos imágenes entran en `resources.qrc` con el icono de la app, y el código las nombra por su ruta de recurso (`:/assets/equipaggio.png`, `:/assets/chevron-down.svg`). Los presets y el kit se leen del disco, el kit desde Node, y el binario los lleva como archivos con `--include-data-files` de `pysidedeploy.spec` (ADR-0189 de canone).
+Las dos imágenes entran en `resources.qrc` con el icono de la app y las traducciones compiladas, `translations/es.qm` y el `qtbase_es.qm` de Qt, y el código las nombra por su ruta de recurso (`:/assets/equipaggio.png`, `:/assets/chevron-down.svg`). Los presets y el kit se leen del disco, el kit desde Node, y el binario los lleva como archivos con `--include-data-files` de `pysidedeploy.spec` (ADR-0189 de canone).
 
 El icono de la app es `icon.png`, de 1024 × 1024 px: el rombo de la barra de título (`widgets/title_bar.py::_Diamond`) en el acento, sobre fondo transparente. Lo pinta `desktop/scripts/icon.py` con el mismo widget, así el icono no copia su geometría. La ventana lo usa con `setWindowIcon`, y Nuitka lo convierte al formato de cada sistema.
 
@@ -108,4 +108,4 @@ El icono de la app es `icon.png`, de 1024 × 1024 px: el rombo de la barra de t�
 
 ## 6. Arranque
 
-`main.py` registra los recursos compilados al importar `rc_resources`, y después hace seis cosas, en orden: fija el escalado de alta densidad, crea la `QApplication`, crea el único `QNetworkAccessManager` con `http.start()`, llama a `load_catalog()` y a `bind_all()`, aplica el tema y muestra la ventana. El catálogo se arma una sola vez por proceso; lo que depende del repo se resuelve después, cada vez que se dibuja un panel ([10](10_catalogo_de_capacidades.md)).
+`main.py` registra los recursos compilados al importar `rc_resources`, y después hace siete cosas, en orden: fija el escalado de alta densidad, crea la `QApplication`, aplica el idioma con `language.install()` ([04](04_conceptos_transversales.md) §10), crea el único `QNetworkAccessManager` con `http.start()`, llama a `load_catalog()` y a `bind_all()`, aplica el tema y muestra la ventana. El catálogo se arma una sola vez por proceso; lo que depende del repo se resuelve después, cada vez que se dibuja un panel ([10](10_catalogo_de_capacidades.md)).

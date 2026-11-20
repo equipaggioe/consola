@@ -6,6 +6,8 @@ import re
 from dataclasses import dataclass, field
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import canone, ports, ssh, vps
 from app.services.context import TaskContext
 from app.services.envfile import Config, read_value
@@ -116,7 +118,11 @@ def connect(ctx: TaskContext, scope: str = LOCAL) -> Connection:
     `127.0.0.1` through the SSH tunnel (ADR-0016).
     """
     if scope not in SCOPES:
-        raise TaskError(f"Ambito invalido: {scope!r}. Usa {' | '.join(SCOPES)}.")
+        raise TaskError(
+            QCoreApplication.translate("database", "Ambito invalido: {0!r}. Usa {1}.").format(
+                scope, " | ".join(SCOPES)
+            )
+        )
 
     user, password, name = credentials(ctx.config)
     ctx.guard(password)
@@ -126,17 +132,31 @@ def connect(ctx: TaskContext, scope: str = LOCAL) -> Connection:
         url = build_url(
             user=user, password=password, host="127.0.0.1", port=resolved_port, name=name
         )
-        ctx.info(f"Base de datos LOCAL: {mask_url(url)}")
+        ctx.info(
+            QCoreApplication.translate("database", "Base de datos LOCAL: {0}").format(
+                mask_url(url)
+            )
+        )
         return Connection(url, LOCAL, port=resolved_port)
 
     remote = ssh.resolve_remote(ctx.config)
     ssh_remote = vps.postgres_port(remote)
-    local = ports.resolve_port(ssh_remote, label="puerto del tunel")
+    local = ports.resolve_port(
+        ssh_remote, label=QCoreApplication.translate("database", "puerto del tunel")
+    )
 
-    ctx.warn(f"Base de datos REMOTA del VPS: los cambios afectan a {remote.host}.")
+    ctx.warn(
+        QCoreApplication.translate(
+            "database", "Base de datos REMOTA del VPS: los cambios afectan a {0}."
+        ).format(remote.host)
+    )
     tunnel = ssh.open_tunnel(remote, local_port=local, destination=f"127.0.0.1:{ssh_remote}")
     ctx.hold_tunnel(tunnel)
-    ctx.info(f"Tunel SSH abierto: {tunnel.endpoint} -> {remote.host}:{ssh_remote}")
+    ctx.info(
+        QCoreApplication.translate("database", "Tunel SSH abierto: {0} -> {1}:{2}").format(
+            tunnel.endpoint, remote.host, ssh_remote
+        )
+    )
 
     url = build_url(user=user, password=password, host="127.0.0.1", port=local, name=name)
     return Connection(url, REMOTE, tunnel, port=local)
@@ -156,10 +176,16 @@ def vps_tunnel(ctx: TaskContext) -> ssh.Tunnel:
     `<app>_read`: it reads, and changes nothing.
     """
     remote = ssh.resolve_remote(ctx.config)
-    local = ports.resolve_port(TUNNEL_PORT, label="puerto del tunel")
+    local = ports.resolve_port(
+        TUNNEL_PORT, label=QCoreApplication.translate("database", "puerto del tunel")
+    )
     tunnel = ssh.open_tunnel(remote, local_port=local, destination=VPS_SOCKET)
     ctx.hold_tunnel(tunnel)
-    ctx.info(f"Tunel SSH abierto: {tunnel.endpoint} -> {remote.host}:{VPS_SOCKET}")
+    ctx.info(
+        QCoreApplication.translate("database", "Tunel SSH abierto: {0} -> {1}:{2}").format(
+            tunnel.endpoint, remote.host, VPS_SOCKET
+        )
+    )
     return tunnel
 
 
@@ -185,7 +211,11 @@ def quote_ident(value: str) -> str:
     malicious name rewrites it.
     """
     if not value or not all(c.isalnum() or c in "_-" for c in value):
-        raise TaskError(f"Identificador SQL invalido: {value!r}")
+        raise TaskError(
+            QCoreApplication.translate("database", "Identificador SQL invalido: {0!r}").format(
+                value
+            )
+        )
     escaped = value.replace('"', '""')
     return f'"{escaped}"'
 
@@ -251,7 +281,11 @@ def major_of(version: str) -> int:
     """
     match = _VERSION_MAJOR.search(version)
     if not match:
-        raise TaskError(f"No se pudo leer la version de Postgres: {version!r}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "database", "No se pudo leer la version de Postgres: {0!r}"
+            ).format(version)
+        )
     return int(match.group(1))
 
 
@@ -266,9 +300,12 @@ def check_tool_version(ctx: TaskContext, tool: Path, client: str, server: str) -
     if major_of(client) >= major_of(server):
         return
     raise TaskError(
-        f"{tool.name} es de PostgreSQL {major_of(client)} y el servidor es {major_of(server)}: "
-        f"las herramientas cliente no leen un servidor mas nuevo. "
-        f"Instala PostgreSQL {major_of(server)} o posterior en esta maquina ({tool})."
+        QCoreApplication.translate(
+            "database",
+            "{0} es de PostgreSQL {1} y el servidor es {2}: las herramientas cliente "
+            "no leen un servidor mas nuevo. Instala PostgreSQL {3} o posterior en "
+            "esta maquina ({4}).",
+        ).format(tool.name, major_of(client), major_of(server), major_of(server), tool)
     )
 
 

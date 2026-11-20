@@ -20,7 +20,7 @@ from __future__ import annotations
 
 import shlex
 
-from PySide6.QtCore import QLocale
+from PySide6.QtCore import QCoreApplication, QLocale
 
 from app.services import android, cache, files, session
 from app.services.context import TaskContext
@@ -44,10 +44,12 @@ def install_system_image(ctx: TaskContext, image: str = "") -> str:
     it happens once and then serves every AVD using it.
     """
     if not image:
-        raise TaskError("Elige que maquina virtual instalar.")
+        raise TaskError(
+            QCoreApplication.translate("emulators", "Elige que maquina virtual instalar.")
+        )
     sdk = android.resolve_sdk()
     spec = android.parse_image(image)
-    ctx.info(f"Maquina: {spec.label}")
+    ctx.info(QCoreApplication.translate("emulators", "Maquina: {0}").format(spec.label))
     android.ensure_image(ctx, sdk, image)
     cache.forget("android-installed")
     return image
@@ -65,21 +67,28 @@ def create_avd(ctx: TaskContext, device: str = "", image: str = "") -> str:
     exists, when it matters.
     """
     if not device:
-        raise TaskError("Elige un dispositivo del catalogo.")
+        raise TaskError(
+            QCoreApplication.translate("emulators", "Elige un dispositivo del catalogo.")
+        )
     if not image:
         raise TaskError(
-            "Elige una maquina virtual instalada. Si no hay ninguna, "
-            'instalala primero con "Instalar maquina".'
+            QCoreApplication.translate(
+                "emulators",
+                "Elige una maquina virtual instalada. Si no hay ninguna, instalala "
+                'primero con "Instalar maquina".',
+            )
         )
 
     derived = android.suggest_avd_name(device, image)
-    name = ctx.ask(f"Nombre del AVD (vacío = {derived})")
+    name = ctx.ask(
+        QCoreApplication.translate("emulators", "Nombre del AVD (vacío = {0})").format(derived)
+    )
 
     sdk = android.resolve_sdk()
     spec = android.AvdSpec(name.strip() or derived, device, image)
     created = android.ensure_avd(ctx, sdk, spec)
     cache.forget("android-avds")
-    ctx.ok(f"AVD listo: {created}")
+    ctx.ok(QCoreApplication.translate("emulators", "AVD listo: {0}").format(created))
     return created
 
 
@@ -116,18 +125,27 @@ def launch_emulator(
     it splits as a shell would.
     """
     if not avd:
-        raise TaskError('Elige un AVD. Si no hay ninguno, crealo con "Crear AVD".')
+        raise TaskError(
+            QCoreApplication.translate(
+                "emulators", 'Elige un AVD. Si no hay ninguno, crealo con "Crear AVD".'
+            )
+        )
 
     sdk = android.resolve_sdk()
     if avd not in android.list_avds(sdk):
-        raise TaskError(f'No existe el AVD "{avd}".')
+        raise TaskError(
+            QCoreApplication.translate("emulators", 'No existe el AVD "{0}".').format(avd)
+        )
 
     alive = android.running(sdk)
     duplicate = avd in alive.values()
     if duplicate:
         ctx.info(
-            f'"{avd}" ya esta corriendo: esta copia arranca en solo lectura '
-            "(no guarda cambios en el disco del AVD)."
+            QCoreApplication.translate(
+                "emulators",
+                '"{0}" ya esta corriendo: esta copia arranca en solo lectura (no guarda '
+                "cambios en el disco del AVD).",
+            ).format(avd)
         )
 
     # `-gpu` always goes, because the axis does not offer «let the
@@ -141,7 +159,9 @@ def launch_emulator(
 
     console_port = android.free_port(sdk)
     serial = f"emulator-{console_port}"
-    ctx.info(f"Arrancando {avd} como {serial}.")
+    ctx.info(
+        QCoreApplication.translate("emulators", "Arrancando {0} como {1}.").format(avd, serial)
+    )
 
     session.publish(session.MACHINE, EMULATOR_SERIAL, serial)
     ctx.on_cancel(lambda: android.stop_quiet(sdk, serial))
@@ -158,7 +178,7 @@ def launch_emulator(
     finally:
         if session.read(session.MACHINE, EMULATOR_SERIAL) == serial:
             session.forget(session.MACHINE, EMULATOR_SERIAL)
-        ctx.info(f"{serial} se cerro.")
+        ctx.info(QCoreApplication.translate("emulators", "{0} se cerro.").format(serial))
     return serial
 
 
@@ -171,7 +191,7 @@ def await_emulator(ctx: TaskContext, timeout: float = 180.0, serial: str = "") -
     explaining why.
     """
     found = android.wait_for_boot(ctx, android.resolve_sdk(), timeout=timeout, serial=serial)
-    ctx.ok(f"Emulador listo: {found}")
+    ctx.ok(QCoreApplication.translate("emulators", "Emulador listo: {0}").format(found))
     return found
 
 
@@ -185,7 +205,7 @@ def stop_emulator(ctx: TaskContext, serial: str = "") -> None:
     sdk = android.resolve_sdk()
     targets = [serial] if serial else android.list_devices(sdk)
     if not targets:
-        ctx.info("No hay ningun emulador corriendo.")
+        ctx.info(QCoreApplication.translate("emulators", "No hay ningun emulador corriendo."))
         return
     for one in targets:
         android.stop(ctx, sdk, one)
@@ -209,41 +229,59 @@ def purge_emulators(
     avds = list(avds or [])
     images = list(images or [])
     if not avds and not images:
-        ctx.info("No hay nada marcado para borrar.")
+        ctx.info(QCoreApplication.translate("emulators", "No hay nada marcado para borrar."))
         return {"avds": [], "images": []}
 
     if avds:
-        ctx.warn(f"AVD a borrar ({len(avds)}):")
+        ctx.warn(QCoreApplication.translate("emulators", "AVD a borrar ({0}):").format(len(avds)))
         for name in avds:
             path = android.avd_home() / f"{name}.avd"
             weight = files.human_size(files.size_of(path), QLocale()) if path.exists() else "?"
             ctx.info(f"  {name}  ({weight})")
     if images:
-        ctx.warn(f"Maquinas virtuales a desinstalar ({len(images)}):")
+        ctx.warn(
+            QCoreApplication.translate(
+                "emulators", "Maquinas virtuales a desinstalar ({0}):"
+            ).format(len(images))
+        )
         for package in images:
             ctx.info(f"  {android.parse_image(package).label}")
 
     if not apply:
-        ctx.info('Simulacro: no se borro nada. Marca "borrar" para confirmar.')
+        ctx.info(
+            QCoreApplication.translate(
+                "emulators", 'Simulacro: no se borro nada. Marca "borrar" para confirmar.'
+            )
+        )
         return {"avds": avds, "images": images}
 
     total = len(avds) + len(images)
     if not ctx.confirm(
-        f"Escribe BORRAR para eliminar {total} elemento(s).", danger=True, expect="BORRAR"
+        QCoreApplication.translate(
+            "emulators", "Escribe BORRAR para eliminar {0} elemento(s)."
+        ).format(total),
+        danger=True,
+        expect="BORRAR",
     ):
-        ctx.warn("Cancelado: no se borro nada.")
+        ctx.warn(QCoreApplication.translate("emulators", "Cancelado: no se borro nada."))
         return {"avds": [], "images": []}
 
     for name in avds:
         android.remove_avd(ctx, sdk, name)
-        ctx.ok(f"AVD eliminado: {name}")
+        ctx.ok(QCoreApplication.translate("emulators", "AVD eliminado: {0}").format(name))
     for package in images:
         android.remove_image(ctx, sdk, package)
-        ctx.ok(f"Maquina desinstalada: {package}")
+        ctx.ok(
+            QCoreApplication.translate("emulators", "Maquina desinstalada: {0}").format(package)
+        )
 
     cache.forget("android-avds")
     cache.forget("android-installed")
-    ctx.note(f"Limpieza de emuladores: {len(avds)} AVD, {len(images)} maquina(s).")
+    ctx.note(
+        QCoreApplication.translate(
+            "emulators", "Limpieza de emuladores: {0} AVD, {1} maquina(s)."
+        ).format(len(avds), len(images))
+    )
     return {"avds": avds, "images": images}
 
 

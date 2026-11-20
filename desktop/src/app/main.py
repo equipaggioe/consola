@@ -7,10 +7,11 @@ import sys
 from PySide6.QtCore import QSettings, Qt
 from PySide6.QtWidgets import QApplication
 
-# Registers resources.qrc, which pyside6-rcc compiles: icon.png and the
-# images of assets/.
+# Registers resources.qrc, which pyside6-rcc compiles: icon.png, the
+# images of assets/ and the translations.
 import app.rc_resources  # noqa: F401
 from app.api import http
+from app.services import language
 from app.services.catalog import load_catalog
 from app.services.tasks import bind_all
 from app.theme import apply_theme
@@ -32,6 +33,8 @@ def main() -> None:
     # `%APPDATA%/Equipaggio/Consola.ini` or in
     # `~/.config/Equipaggio/Consola.ini`.
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    # Before any widget or declaration reads its texts.
+    language.install(app)
     # The app's one QNetworkAccessManager, in this thread (ADR-0089).
     http.start()
 

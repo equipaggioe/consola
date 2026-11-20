@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any, override
 
-from PySide6.QtCore import QEvent, QSettings, Qt, QTimer, Slot
+from PySide6.QtCore import QCoreApplication, QEvent, QSettings, Qt, QTimer, Slot
 from PySide6.QtGui import (
     QCloseEvent,
     QIcon,
@@ -278,18 +278,22 @@ class MainWindow(QMainWindow):
         diamond.setStyleSheet(f"color: {Colors.ACCENT}; font-size: 54px;")
         diamond.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        title = QLabel("SIN REPOSITORIOS ABIERTOS")
+        title = QLabel(QCoreApplication.translate("MainWindow", "SIN REPOSITORIOS ABIERTOS"))
         title.setStyleSheet(
             f"color: {Colors.TEXT}; font-size: {Fonts.SIZE_XXL}px; "
             f"font-weight: 300; letter-spacing: 6px;"
         )
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        subtitle = QLabel("Añade la carpeta de un proyecto para empezar")
+        subtitle = QLabel(
+            QCoreApplication.translate(
+                "MainWindow", "Añade la carpeta de un proyecto para empezar"
+            )
+        )
         subtitle.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_BASE}px;")
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
-        add_btn = QPushButton("+  Añadir repositorio")
+        add_btn = QPushButton(QCoreApplication.translate("MainWindow", "+  Añadir repositorio"))
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.setFixedHeight(38)
         add_btn.setStyleSheet(f"""
@@ -564,7 +568,9 @@ class MainWindow(QMainWindow):
         self._refresh_readiness()
         self._apply_palette(palettes.get(project.theme))
         self._refresh_protection(workspace)
-        self.setWindowTitle(f"Consola — {project.name}")
+        self.setWindowTitle(
+            QCoreApplication.translate("MainWindow", "Consola — {0}").format(project.name)
+        )
 
     def _refresh_protection(self, workspace: TabPanel) -> None:
         """Show what THAT workspace's repo protects right now.

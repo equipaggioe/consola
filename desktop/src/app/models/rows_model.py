@@ -7,6 +7,7 @@ from typing import Any, override
 
 from PySide6.QtCore import (
     QAbstractTableModel,
+    QCoreApplication,
     QLocale,
     QModelIndex,
     QObject,
@@ -111,7 +112,9 @@ class RowsModel(QAbstractTableModel):
             if col.comment:
                 parts.append(col.comment)
             parts.append(
-                f"<span style='color:{Colors.TEXT_MUTED};'>Clic para ordenar en el servidor</span>"
+                QCoreApplication.translate(
+                    "RowsModel", "<span style='color:{0};'>Clic para ordenar en el servidor</span>"
+                ).format(Colors.TEXT_MUTED)
             )
             return "<br>".join(parts)
         return None
@@ -129,7 +132,9 @@ class RowsModel(QAbstractTableModel):
             if value is None:
                 return "NULL"
             if col.base_type == dbx.BYTEA:
-                return f"‹bytea {human_size(int(value), self.locale)}›"
+                return QCoreApplication.translate("RowsModel", "‹bytea {0}›").format(
+                    human_size(int(value), self.locale)
+                )
             text = value if len(value) <= dbx.CELL_CHARS else value[: dbx.CELL_CHARS] + "…"
             return text.replace("\r\n", " ⏎ ").replace("\n", " ⏎ ")
         if role == Qt.ItemDataRole.ToolTipRole:
@@ -143,17 +148,27 @@ class RowsModel(QAbstractTableModel):
             if len(value) > 60 or "\n" in value:
                 return value if len(value) <= dbx.CELL_CHARS else value[: dbx.CELL_CHARS] + "…"
             if col.fk:
-                return f"Doble clic para ir a {col.fk.ref_table}"
+                return QCoreApplication.translate("RowsModel", "Doble clic para ir a {0}").format(
+                    col.fk.ref_table
+                )
             return None
         if role == Qt.ItemDataRole.AccessibleTextRole:
             if value is None:
-                return "nulo"
+                return QCoreApplication.translate("RowsModel", "nulo")
             if col.base_type == dbx.BYTEA:
-                return f"bytea de {human_size(int(value), self.locale)}"
+                return QCoreApplication.translate("RowsModel", "bytea de {0}").format(
+                    human_size(int(value), self.locale)
+                )
             return value if len(value) <= dbx.CELL_CHARS else value[: dbx.CELL_CHARS]
         if role == Qt.ItemDataRole.AccessibleDescriptionRole:
             about = f"{col.name}, {col.type}"
-            return f"{about}, lleva a {col.fk.ref_table}" if col.fk else about
+            return (
+                QCoreApplication.translate("RowsModel", "{0}, lleva a {1}").format(
+                    about, col.fk.ref_table
+                )
+                if col.fk
+                else about
+            )
         if role == Qt.ItemDataRole.ForegroundRole:
             if value is None or col.base_type == dbx.BYTEA:
                 return QColor(Colors.TEXT_MUTED)

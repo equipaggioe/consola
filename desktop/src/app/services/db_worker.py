@@ -126,11 +126,17 @@ class DbWorker(QThread):
             return db_explorer.count_exact(conn, **kwargs)
         if kind == "models":
             return self._compare(conn)
-        raise TaskError(f"Pedido desconocido: {kind}")
+        raise TaskError(
+            QCoreApplication.translate("DbWorker", "Pedido desconocido: {0}").format(kind)
+        )
 
     def _compare(self, conn: Connection) -> db_models.Comparison:
         if self._server_root is None:
-            raise TaskError("La pestaña no tiene repo: no hay modelos con qué comparar.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "DbWorker", "La pestaña no tiene repo: no hay modelos con qué comparar."
+                )
+            )
         signature = db_models.signature(self._server_root)
         if self._models is None or self._models[0] != signature:
             self._models = (signature, db_models.read_models(self._server_root))
@@ -147,10 +153,14 @@ def _message(exc: Exception) -> str:
     first = text.splitlines()[0]
     lowered = first.lower()
     if "permission denied" in lowered:
-        return f"Sin permiso para el rol de la app: {first}"
+        return QCoreApplication.translate(
+            "db_worker", "Sin permiso para el rol de la app: {0}"
+        ).format(first)
     if "canceling statement due to statement timeout" in lowered:
         seconds = db_explorer.STATEMENT_TIMEOUT_MS // 1000
-        return f"La consulta tardó más de {seconds} s y se canceló."
+        return QCoreApplication.translate(
+            "db_worker", "La consulta tardó más de {0} s y se canceló."
+        ).format(seconds)
     return first
 
 

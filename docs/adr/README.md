@@ -98,3 +98,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0088](0088-actualizar-cloudflare-apunta-cada-host-de-la-app-sin-proxy.md) | «Actualizar Cloudflare» apunta el host de cada pieza web de la app, sin el proxy |
 | [0089](0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md) | HTTP va por un solo manager, en el hilo de la interfaz, y reintenta |
 | [0090](0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md) | El código sigue el árbol de `qt.md` de canone |
+| [0091](0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md) | Los textos de la interfaz se escriben en español y Qt Linguist los traduce |

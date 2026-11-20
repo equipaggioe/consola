@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QEvent, QPointF, QRectF, QSize, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -87,7 +87,9 @@ class ProjectTab(ReorderableTab):
         self.name_label.setAlignment(Qt.AlignmentFlag.AlignVCenter | Qt.AlignmentFlag.AlignLeft)
 
         self.close_btn = QPushButton("×")
-        self.close_btn.setAccessibleName(f"Cerrar {project.name}")
+        self.close_btn.setAccessibleName(
+            QCoreApplication.translate("ProjectTab", "Cerrar {0}").format(project.name)
+        )
         self.close_btn.setFixedSize(20, 20)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.clicked.connect(self.close_requested.emit)
@@ -258,7 +260,9 @@ class ProjectTab(ReorderableTab):
         ratio = self.devicePixelRatioF()
         for key, pal in palettes.THEMES.items():
             action = QAction(
-                swatch(pal.accent, chosen=key == self.project.theme, ratio=ratio), pal.label, self
+                swatch(pal.accent, chosen=key == self.project.theme, ratio=ratio),
+                QCoreApplication.translate("palettes", pal.label),
+                self,
             )
             action.triggered.connect(lambda _=False, k=key: self.set_theme(k))
             menu.addAction(action)

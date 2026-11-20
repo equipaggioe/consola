@@ -46,8 +46,15 @@ jobs:
         with:
           version-file: desktop/pyproject.toml
       - run: uv sync --locked
-      # main.py imports the compiled resources: icon.png and the images of assets/.
-      - run: uv run pyside6-rcc src/app/resources.qrc -o src/app/rc_resources.py
+      # Nuitka ships the translations of Qt only with QtWebEngine: qtbase_<locale>.qm goes into
+      # resources.qrc with the translations of the app. main.py imports the compiled resources.
+      - run: |
+          for ts in src/app/translations/*.ts; do
+            locale=$(basename "$ts" .ts)
+            uv run pyside6-lrelease "$ts" -qm "src/app/translations/$locale.qm"
+            uv run python -c "import shutil, sys; from PySide6.QtCore import QLibraryInfo as L; name = sys.argv[1].replace('-', '_'); shutil.copy(f'{L.path(L.LibraryPath.TranslationsPath)}/qtbase_{name}.qm', 'src/app/translations')" "$locale"
+          done
+          uv run pyside6-rcc src/app/resources.qrc -o src/app/rc_resources.py
       - run: uv run ruff format --check
       - run: uv run ruff check
       - run: uv run pyrefly check

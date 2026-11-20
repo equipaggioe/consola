@@ -25,6 +25,8 @@ from abc import ABC, abstractmethod
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.errors import TaskError
 
 # `<version>` is the folder name of each Postgres install on both
@@ -357,7 +359,9 @@ class WindowsHost(Host):
             if candidate.is_file():
                 return candidate
         raise TaskError(
-            f"No se encontro {name}.exe en {self.PG_ROOT}: instala PostgreSQL en esta maquina."
+            QCoreApplication.translate(
+                "WindowsHost", "No se encontro {0}.exe en {1}: instala PostgreSQL en esta maquina."
+            ).format(name, self.PG_ROOT)
         )
 
     def pg_port(self) -> int:
@@ -495,9 +499,11 @@ class PosixHost(Host):
         terminal = shutil.which(self.TERMINAL)
         if not terminal:
             raise TaskError(
-                f"No se encontro {self.TERMINAL}: instala una terminal "
-                "(gnome-terminal, konsole, xterm) o configura la alternativa "
-                f"con update-alternatives --config {self.TERMINAL}."
+                QCoreApplication.translate(
+                    "PosixHost",
+                    "No se encontro {0}: instala una terminal (gnome-terminal, konsole, "
+                    "xterm) o configura la alternativa con update-alternatives --config {1}.",
+                ).format(self.TERMINAL, self.TERMINAL)
             )
         return [terminal, "-e", *argv]
 
@@ -508,8 +514,11 @@ class PosixHost(Host):
             if candidate.is_file():
                 return candidate
         raise TaskError(
-            f"No se encontro {name} en {self.PG_ROOT}: "
-            "instala PostgreSQL en esta maquina (apt install postgresql)."
+            QCoreApplication.translate(
+                "PosixHost",
+                "No se encontro {0} en {1}: instala PostgreSQL en esta maquina (apt "
+                "install postgresql).",
+            ).format(name, self.PG_ROOT)
         )
 
     def pg_port(self) -> int:

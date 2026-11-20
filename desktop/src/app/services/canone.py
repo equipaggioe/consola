@@ -17,6 +17,8 @@ from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import envfile, fields, process, toolchain
 from app.services.envfile import Config
 from app.services.errors import TaskError
@@ -62,7 +64,10 @@ def infra_dir(config: Config) -> Path:
     folder = Path(config.require("CANONE_DIR")) / "plantilla" / "infra"
     if not (folder / "install.py").is_file():
         raise TaskError(
-            f"No hay install.py en {folder}: CANONE_DIR tiene que ser la carpeta de canone."
+            QCoreApplication.translate(
+                "canone",
+                "No hay install.py en {0}: CANONE_DIR tiene que ser la carpeta de canone.",
+            ).format(folder)
         )
     return folder
 
@@ -75,7 +80,10 @@ def spa_template(config: Config) -> Path:
     folder = Path(config.require("CANONE_DIR")) / "plantilla" / "sveltekit"
     if not (folder / "vite.config.ts").is_file():
         raise TaskError(
-            f"No hay vite.config.ts en {folder}: CANONE_DIR tiene que ser la carpeta de canone."
+            QCoreApplication.translate(
+                "canone",
+                "No hay vite.config.ts en {0}: CANONE_DIR tiene que ser la carpeta de canone.",
+            ).format(folder)
         )
     return folder
 
@@ -89,7 +97,9 @@ def origin(root: Path) -> tuple[str, str]:
     url = process.capture(["git", "remote", "get-url", "origin"], cwd=root)
     found = _GITHUB.search(url.strip())
     if found is None:
-        raise TaskError(f"origin no es un repo de GitHub: {url}")
+        raise TaskError(
+            QCoreApplication.translate("canone", "origin no es un repo de GitHub: {0}").format(url)
+        )
     return found.group(1), found.group(2)
 
 
@@ -105,8 +115,11 @@ def state(root: Path) -> str:
     found = _STATE.search(readme.read_text(encoding="utf-8")) if readme.is_file() else None
     if found is None:
         raise TaskError(
-            f"{readme} no declara su estado: falta una línea «Estado: en desarrollo» "
-            "o «Estado: en producción»."
+            QCoreApplication.translate(
+                "canone",
+                "{0} no declara su estado: falta una línea «Estado: en desarrollo» o "
+                "«Estado: en producción».",
+            ).format(readme)
         )
     return found.group(1)
 
@@ -114,7 +127,11 @@ def state(root: Path) -> str:
 def database_command(app: str, command: str) -> str:
     """Return `database.py` with a command; `install.py` installs it."""
     if command not in DATABASE_COMMANDS:
-        raise TaskError(f"database.py no tiene el comando {command!r}.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "database.py no tiene el comando {0!r}.").format(
+                command
+            )
+        )
     return f"/usr/local/sbin/{app}-database {command}"
 
 
@@ -170,7 +187,11 @@ def _listed(config: Config, options: list[str]) -> list[str]:
     """Return what `packages.py --list` prints with those options."""
     program = infra_dir(config) / "packages.py"
     if not program.is_file():
-        raise TaskError(f"No hay packages.py en {program.parent}: actualiza la copia de canone.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "canone", "No hay packages.py en {0}: actualiza la copia de canone."
+            ).format(program.parent)
+        )
     argv = [*toolchain.python_cmd(), str(program), "--list", *options]
     return process.capture(argv, timeout=30).split()
 
@@ -217,15 +238,23 @@ def valkey_memory(meminfo: str, percent: str) -> str:
     """
     found = re.search(r"^MemTotal:\s+(\d+) kB$", meminfo, re.M)
     if found is None:
-        raise TaskError("/proc/meminfo del VPS no trae MemTotal.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "/proc/meminfo del VPS no trae MemTotal.")
+        )
     try:
         share = float(percent)
     except ValueError:
         raise TaskError(
-            f"VALKEY_PERCENT tiene que ser un número, como 12.5: {percent!r}."
+            QCoreApplication.translate(
+                "canone", "VALKEY_PERCENT tiene que ser un número, como 12.5: {0!r}."
+            ).format(percent)
         ) from None
     if not 0 < share <= 100:
-        raise TaskError(f"VALKEY_PERCENT va de 0 a 100: {percent}.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "VALKEY_PERCENT va de 0 a 100: {0}.").format(
+                percent
+            )
+        )
     return f"{max(1, int(int(found.group(1)) * share / 100 / 1024))}mb"
 
 
@@ -250,7 +279,11 @@ def _dictionary(path: Path, name: str) -> ast.Dict | None:
 def _tasks_file(server: Path) -> Path:
     path = server / TASKS
     if not path.is_file():
-        raise TaskError(f"No hay {path}: el servidor no trae las tareas de canone.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "canone", "No hay {0}: el servidor no trae las tareas de canone."
+            ).format(path)
+        )
     return path
 
 
@@ -263,7 +296,11 @@ def tasks(server: Path) -> list[str]:
     path = _tasks_file(server)
     found = _dictionary(path, "TASKS")
     if found is None:
-        raise TaskError(f"{path} no declara el diccionario TASKS.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "{0} no declara el diccionario TASKS.").format(
+                path
+            )
+        )
     return [
         k.value for k in found.keys if isinstance(k, ast.Constant) and isinstance(k.value, str)
     ]
@@ -291,7 +328,9 @@ def browsers(server: Path) -> list[tuple[str, str]]:
     both = {task for task, _ in timers(server)} & {task for task, _ in found}
     if both:
         raise TaskError(
-            f"{server / TASKS}: {', '.join(sorted(both))} está en TIMERS y en BROWSER_TIMERS."
+            QCoreApplication.translate(
+                "canone", "{0}: {1} está en TIMERS y en BROWSER_TIMERS."
+            ).format(server / TASKS, ", ".join(sorted(both)))
         )
     return found
 
@@ -306,13 +345,23 @@ def _calendars(server: Path, name: str) -> list[tuple[str, str]]:
     pairs = []
     for key, value in zip(found.keys, found.values, strict=True):
         if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
-            raise TaskError(f"{path}: cada tarea de {name} es un texto.")
+            raise TaskError(
+                QCoreApplication.translate("canone", "{0}: cada tarea de {1} es un texto.").format(
+                    path, name
+                )
+            )
         if not (isinstance(value, ast.Constant) and isinstance(value.value, str) and value.value):
             raise TaskError(
-                f"{path}: el calendario de {key.value} en {name} es un texto, como minutely."
+                QCoreApplication.translate(
+                    "canone", "{0}: el calendario de {1} en {2} es un texto, como minutely."
+                ).format(path, key.value, name)
             )
         if key.value not in declared:
-            raise TaskError(f"{path}: {key.value} está en {name} y no en TASKS.")
+            raise TaskError(
+                QCoreApplication.translate("canone", "{0}: {1} está en {2} y no en TASKS.").format(
+                    path, key.value, name
+                )
+            )
         pairs.append((key.value, value.value))
     return pairs
 
@@ -339,7 +388,11 @@ def hosts(root: Path, config: Config) -> list[str]:
     domain = config.require("DOMAIN")
     found = [f"{_HOST[piece]}{domain}" for piece in SURFACES if (root / piece).is_dir()]
     if not found:
-        raise TaskError(f"{root} no tiene {', '.join(SURFACES)}: ningún host apunta al VPS.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "canone", "{0} no tiene {1}: ningún host apunta al VPS."
+            ).format(root, ", ".join(SURFACES))
+        )
     return found
 
 
@@ -352,7 +405,11 @@ def _logs(config: Config) -> tuple[str, str, str] | None:
     if not (logs or key or ip):
         return None
     if not (logs and key and ip):
-        raise TaskError("LOGS, LOGS_KEY y LOGS_IP van los tres juntos o ninguno.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "canone", "LOGS, LOGS_KEY y LOGS_IP van los tres juntos o ninguno."
+            )
+        )
     return logs, key, ip
 
 
@@ -411,8 +468,10 @@ def install_args(
             args += ["--turn-ip", config.get("TURN_IP")]
     elif config.get("TURN_IP"):
         raise TaskError(
-            f"TURN_IP sin {fields.TURN} en Settings: --turn-ip necesita --turn. "
-            "Bórrala de config.env."
+            QCoreApplication.translate(
+                "canone",
+                "TURN_IP sin {0} en Settings: --turn-ip necesita --turn. Bórrala de config.env.",
+            ).format(fields.TURN)
         )
     logs = _logs(config)
     if logs is not None:
@@ -427,7 +486,11 @@ def next_tag(tags: list[str], part: str) -> str:
     `v0.0.0`.
     """
     if part not in PARTS:
-        raise TaskError(f"No se sube {part!r}: es una de {', '.join(PARTS)}.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "No se sube {0!r}: es una de {1}.").format(
+                part, ", ".join(PARTS)
+            )
+        )
     versions = [tuple(map(int, m.groups())) for m in map(_TAG.fullmatch, tags) if m]
     major, minor, patch = max(versions, default=(0, 0, 0))
     if part == "major":
@@ -462,11 +525,14 @@ def signed(app: str, releases: list[dict[str, Any]]) -> list[dict[str, Any]]:
 def events_summary(events: dict[str, Any]) -> dict[str, str]:
     """Return `GET /api/health/events` with the log's names."""
     free, total = events["diskFreeBytes"] / 10**9, events["diskTotalBytes"] / 10**9
+    none = QCoreApplication.translate("canone", "ninguno")
     return {
-        "último evento": events["lastEventAt"] or "ninguno",
-        "último crítico": events["lastCriticalAt"] or "ninguno",
-        "último respaldo": events["lastBackupAt"] or "ninguno",
-        "disco libre": f"{free:.1f} GB de {total:.1f} GB",
+        QCoreApplication.translate("canone", "último evento"): events["lastEventAt"] or none,
+        QCoreApplication.translate("canone", "último crítico"): events["lastCriticalAt"] or none,
+        QCoreApplication.translate("canone", "último respaldo"): events["lastBackupAt"] or none,
+        QCoreApplication.translate("canone", "disco libre"): QCoreApplication.translate(
+            "canone", "{0:.1f} GB de {1:.1f} GB"
+        ).format(free, total),
     }
 
 
@@ -476,7 +542,9 @@ def deploy_command(app: str, tag: str) -> str:
     ADR-0106 of canone.
     """
     if not _TAG.fullmatch(tag):
-        raise TaskError(f"{tag!r} no es un tag como v1.4.0.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "{0!r} no es un tag como v1.4.0.").format(tag)
+        )
     return f"/usr/local/sbin/{app}-deploy {tag}"
 
 
@@ -487,7 +555,11 @@ def owner_url(url: str) -> str:
     """
     parts = urlsplit(url)
     if not parts.username:
-        raise TaskError("DATABASE_URL no nombra su rol: hace falta para entrar como el dueño.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "canone", "DATABASE_URL no nombra su rol: hace falta para entrar como el dueño."
+            )
+        )
     owner = parts.netloc.replace(parts.username, f"{parts.username}_owner", 1)
     return urlunsplit(parts._replace(netloc=owner))
 
@@ -503,7 +575,11 @@ def credential_files(server: Path, config: Config, *, owner: bool = False) -> di
     declared_fields = fields.settings_fields(server)
     missing = [field.upper() for field in declared_fields if not config.get(field.upper())]
     if missing:
-        raise TaskError(f"Faltan en config.env: {', '.join(missing)}.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "Faltan en config.env: {0}.").format(
+                ", ".join(missing)
+            )
+        )
     files = {f"app_{field}": config.get(field.upper()) for field in declared_fields}
     if owner:
         files["app_database_url"] = owner_url(config.require("DATABASE_URL"))
@@ -522,13 +598,20 @@ def credential_lines(root: Path, config: Config) -> str:
     server = root / config.get("SERVER_DIR")
     declared_fields = fields.field_settings(server)
     if not declared_fields:
-        raise TaskError(f"No hay campos de Settings en {server / fields.CONFIG}.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "No hay campos de Settings en {0}.").format(
+                server / fields.CONFIG
+            )
+        )
     known = {s.key for s in declared_fields}
     foreign = sorted(k for k in config.values if k not in known and get_setting(k) is None)
     if foreign:
         raise TaskError(
-            "Estas claves de config.env no son de Consola ni campos de Settings: "
-            f"{', '.join(foreign)}. Bórralas antes de cargar las credenciales."
+            QCoreApplication.translate(
+                "canone",
+                "Estas claves de config.env no son de Consola ni campos de Settings: "
+                "{0}. Bórralas antes de cargar las credenciales.",
+            ).format(", ".join(foreign))
         )
     pairs = [(s.label, s.key) for s in declared_fields]
     pairs.append(("restic_password", "RESTIC_PASSWORD"))
@@ -536,8 +619,16 @@ def credential_lines(root: Path, config: Config) -> str:
         pairs.append(("github_token", "GITHUB_TOKEN"))
     missing = [key for _, key in pairs if not config.get(key)]
     if missing:
-        raise TaskError(f"Faltan en config.env: {', '.join(missing)}.")
+        raise TaskError(
+            QCoreApplication.translate("canone", "Faltan en config.env: {0}.").format(
+                ", ".join(missing)
+            )
+        )
     for field, key in pairs:
         if "\n" in config.get(key):
-            raise TaskError(f"{key} tiene un salto de linea: credentials.py lee una por linea.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "canone", "{0} tiene un salto de linea: credentials.py lee una por linea."
+                ).format(key)
+            )
     return "".join(f"{field}={config.get(key)}\n" for field, key in pairs)

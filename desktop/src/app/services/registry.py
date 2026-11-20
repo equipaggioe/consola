@@ -6,6 +6,8 @@ from collections.abc import Callable, Collection, Iterable
 from dataclasses import dataclass, field
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 
 @dataclass(frozen=True)
 class Facet:
@@ -267,22 +269,22 @@ class AxisDef:
         máquina» would send one to the wrong side.
         """
         if self.source.startswith("vps"):
-            return "en este VPS"
+            return QCoreApplication.translate("AxisDef", "en este VPS")
         # Backups are on this machine, but saying so would send one to
         # the SDK: what has to be looked at is the folder BACKUP_DIR
         # declares, which need not even be inside the repo.
         if self.source.startswith("backup"):
-            return "en la carpeta de respaldos"
+            return QCoreApplication.translate("AxisDef", "en la carpeta de respaldos")
         if self.source.startswith("shots"):
-            return "en la cámara del repo"
+            return QCoreApplication.translate("AxisDef", "en la cámara del repo")
         # Apps are in the repo, but not all: only those that say where
         # their icon goes. «En este repo» would send one to look for an
         # app that is there.
         if self.source.startswith("icon"):
-            return "con ícono a cargo de Consola"
+            return QCoreApplication.translate("AxisDef", "con ícono a cargo de Consola")
         if self.source.startswith("releases"):
-            return "firmado en GitHub"
-        return "en esta máquina"
+            return QCoreApplication.translate("AxisDef", "firmado en GitHub")
+        return QCoreApplication.translate("AxisDef", "en esta máquina")
 
     @property
     def is_discovered(self) -> bool:
@@ -461,7 +463,11 @@ class Capability:
     @property
     def level_label(self) -> str:
         """Return the level's label."""
-        return "Compuesta" if self.is_composite else "Atómica"
+        return (
+            QCoreApplication.translate("Capability", "Compuesta")
+            if self.is_composite
+            else QCoreApplication.translate("Capability", "Atómica")
+        )
 
     def kwargs_from(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Return the function's kwargs from what the panel checked.

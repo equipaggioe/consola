@@ -11,19 +11,26 @@ from __future__ import annotations
 
 from typing import cast
 
-from PySide6.QtCore import QSettings
+from PySide6.QtCore import QCoreApplication, QSettings
+
+from app.services.language import QT_TRANSLATE_NOOP
 
 _HIDDEN_KEY = "ui/hidden_sections"
 
 # Each section's id, what it saves under, and its title, in the column's
 # order. The Ver menu (`widgets/action_menu_bar.py`) lists them too.
 SECTIONS = {
-    "accion": "Acción",
-    "seguridad": "Seguridad",
-    "parametros": "Parámetros",
-    "configuracion": "Configuración del repo",
-    "maquina": "Configuración de la máquina",
+    "accion": QT_TRANSLATE_NOOP("section_visibility", "Acción"),
+    "seguridad": QT_TRANSLATE_NOOP("section_visibility", "Seguridad"),
+    "parametros": QT_TRANSLATE_NOOP("section_visibility", "Parámetros"),
+    "configuracion": QT_TRANSLATE_NOOP("section_visibility", "Configuración del repo"),
+    "maquina": QT_TRANSLATE_NOOP("section_visibility", "Configuración de la máquina"),
 }
+
+
+def title(section_id: str) -> str:
+    """Return a section's title in the interface language."""
+    return QCoreApplication.translate("section_visibility", SECTIONS[section_id])
 
 
 # Hidden until the Ver menu shows them, while nothing is saved.

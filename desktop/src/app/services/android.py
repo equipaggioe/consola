@@ -9,10 +9,13 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import cache, ports
 from app.services.context import TaskContext
 from app.services.errors import TaskError
 from app.services.host import HOST
+from app.services.language import QT_TRANSLATE_NOOP
 from app.services.process import capture, which_any
 
 _TOOLS = {
@@ -47,7 +50,11 @@ class Sdk:
         """Return the path of a tool of the SDK."""
         subpath = _TOOLS.get(name)
         if subpath is None:
-            raise TaskError(f"Herramienta desconocida del SDK: {name}")
+            raise TaskError(
+                QCoreApplication.translate("Sdk", "Herramienta desconocida del SDK: {0}").format(
+                    name
+                )
+            )
 
         names = HOST.executable_names(name)
 
@@ -56,16 +63,20 @@ class Sdk:
                 if candidate.is_file():
                     return str(candidate)
             raise TaskError(
-                f'No se encontro "{name}" dentro del SDK ({self.root}). '
-                f"Esperado en: {self.root.joinpath(*subpath)}"
+                QCoreApplication.translate(
+                    "Sdk", 'No se encontro "{0}" dentro del SDK ({1}). Esperado en: {2}'
+                ).format(name, self.root, self.root.joinpath(*subpath))
             )
 
         found = which_any(names)
         if found:
             return found
         raise TaskError(
-            f'No se encontro "{name}". Define ANDROID_SDK_ROOT o instala el SDK '
-            "con la capacidad SDK Android."
+            QCoreApplication.translate(
+                "Sdk",
+                'No se encontro "{0}". Define ANDROID_SDK_ROOT o instala el SDK con la '
+                "capacidad SDK Android.",
+            ).format(name)
         )
 
     @property
@@ -185,7 +196,7 @@ class Image:
         """Return how it reads when choosing."""
         if not self.api:
             return self.package
-        return f"Android {self.api}  |  {VARIANTS.get(self.variant, self.variant)}  |  {self.abi}"
+        return f"Android {self.api}  |  {variant_label(self.variant)}  |  {self.abi}"
 
     @property
     def order(self) -> tuple[Any, ...]:
@@ -226,15 +237,15 @@ class AvdSpec:
 # as is: the SDK's catalog gains variants with each version, and a raw
 # label beats hiding the option.
 VARIANTS = {
-    "default": "Android puro",
+    "default": QT_TRANSLATE_NOOP("android", "Android puro"),
     "google_apis": "Google APIs",
     "google_apis_playstore": "Google APIs + Play Store",
     "android-tv": "Android TV",
     "google-tv": "Google TV",
     "android-wear": "Wear OS",
     "android-automotive": "Automotive",
-    "aosp_atd": "AOSP ATD (liviana)",
-    "google_atd": "Google ATD (liviana)",
+    "aosp_atd": QT_TRANSLATE_NOOP("android", "AOSP ATD (liviana)"),
+    "google_atd": QT_TRANSLATE_NOOP("android", "Google ATD (liviana)"),
 }
 
 # How each architecture reads. The raw id does not say the one thing to
@@ -242,10 +253,15 @@ VARIANTS = {
 # emulated, and so slowly.
 ABIS = {
     "x86_64": "x86_64 (Intel / AMD)",
-    "x86": "x86 (32 bits, en desuso)",
+    "x86": QT_TRANSLATE_NOOP("android", "x86 (32 bits, en desuso)"),
     "arm64-v8a": "arm64-v8a (ARM, Apple Silicon)",
-    "armeabi-v7a": "armeabi-v7a (ARM 32 bits)",
+    "armeabi-v7a": QT_TRANSLATE_NOOP("android", "armeabi-v7a (ARM 32 bits)"),
 }
+
+
+def variant_label(variant: str) -> str:
+    """Return how a system image variant reads."""
+    return QCoreApplication.translate("android", VARIANTS.get(variant, variant))
 
 
 def facet_labels(images: list[Image]) -> dict[str, str]:
@@ -263,9 +279,11 @@ def facet_labels(images: list[Image]) -> dict[str, str]:
         if image.api:
             labels[f"android-{image.api}"] = f"Android {image.api}"
         if image.variant:
-            labels[image.variant] = VARIANTS.get(image.variant, image.variant)
+            labels[image.variant] = variant_label(image.variant)
         if image.abi:
-            labels[image.abi] = ABIS.get(image.abi, image.abi)
+            labels[image.abi] = QCoreApplication.translate(
+                "android", ABIS.get(image.abi, image.abi)
+            )
     return labels
 
 
@@ -438,7 +456,9 @@ def free_port(sdk: Sdk) -> int:
     for port in PORT_RANGE:
         if str(port) not in busy and ports.is_free(port, host="127.0.0.1"):
             return port
-    raise TaskError("No quedan puertos de emulador libres (5554-5584).")
+    raise TaskError(
+        QCoreApplication.translate("android", "No quedan puertos de emulador libres (5554-5584).")
+    )
 
 
 # --- life cycle ---
@@ -447,9 +467,11 @@ def free_port(sdk: Sdk) -> int:
 def ensure_image(ctx: TaskContext, sdk: Sdk, image: str) -> None:
     """Download the system image if it is missing."""
     if image in list_images(sdk):
-        ctx.ok(f"System image ya instalada: {image}")
+        ctx.ok(
+            QCoreApplication.translate("android", "System image ya instalada: {0}").format(image)
+        )
         return
-    ctx.info(f"Instalando system image: {image}")
+    ctx.info(QCoreApplication.translate("android", "Instalando system image: {0}").format(image))
     ctx.run([sdk.tool("sdkmanager"), image])
 
 
@@ -460,14 +482,22 @@ def ensure_avd(ctx: TaskContext, sdk: Sdk, spec: AvdSpec) -> str:
     one has to type on the touch screen.
     """
     if spec.name in list_avds(sdk):
-        ctx.info(f'El AVD "{spec.name}" ya existe.')
+        ctx.info(
+            QCoreApplication.translate("android", 'El AVD "{0}" ya existe.').format(spec.name)
+        )
     else:
         if spec.image not in list_images(sdk):
             raise TaskError(
-                f"La maquina {spec.image} no esta instalada. "
-                'Instalala primero con "Instalar maquina".'
+                QCoreApplication.translate(
+                    "android",
+                    'La maquina {0} no esta instalada. Instalala primero con "Instalar maquina".',
+                ).format(spec.image)
             )
-        ctx.info(f'Creando AVD "{spec.name}" ({spec.device}).')
+        ctx.info(
+            QCoreApplication.translate("android", 'Creando AVD "{0}" ({1}).').format(
+                spec.name, spec.device
+            )
+        )
         ctx.run(
             [
                 sdk.tool("avdmanager"),
@@ -488,7 +518,11 @@ def ensure_avd(ctx: TaskContext, sdk: Sdk, spec: AvdSpec) -> str:
 def _enable_hw_keyboard(ctx: TaskContext, avd_name: str) -> None:
     config = avd_home() / f"{avd_name}.avd" / "config.ini"
     if not config.is_file():
-        ctx.warn(f'No se encontro config.ini del AVD "{avd_name}".')
+        ctx.warn(
+            QCoreApplication.translate(
+                "android", 'No se encontro config.ini del AVD "{0}".'
+            ).format(avd_name)
+        )
         return
 
     lines = config.read_text(encoding="utf-8").splitlines()
@@ -541,7 +575,11 @@ def wait_for_boot(ctx: TaskContext, sdk: Sdk, *, timeout: float = 180.0, serial:
             if ready.strip() == "1":
                 return found
         time.sleep(2)
-    raise TaskError(f"Ningun emulador termino de arrancar en {timeout:.0f}s.")
+    raise TaskError(
+        QCoreApplication.translate(
+            "android", "Ningun emulador termino de arrancar en {0:.0f}s."
+        ).format(timeout)
+    )
 
 
 def stop(ctx: TaskContext, sdk: Sdk, serial: str) -> None:
@@ -550,7 +588,7 @@ def stop(ctx: TaskContext, sdk: Sdk, serial: str) -> None:
     Killing its launcher is not enough.
     """
     ctx.run([sdk.adb, "-s", serial, "emu", "kill"], check=False)
-    ctx.ok(f"Emulador {serial} detenido.")
+    ctx.ok(QCoreApplication.translate("android", "Emulador {0} detenido.").format(serial))
 
 
 def stop_quiet(sdk: Sdk, serial: str) -> None:

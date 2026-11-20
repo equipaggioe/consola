@@ -11,6 +11,8 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import canone, fields
 from app.services import database as db
 from app.services.context import Level, TaskContext
@@ -28,7 +30,11 @@ def server_root(ctx: TaskContext) -> Path:
     """Return the server's folder inside the open repo."""
     root = ctx.root / ctx.config.get("SERVER_DIR", "server")
     if not root.is_dir():
-        raise TaskError(f"No existe la carpeta del servidor: {root}")
+        raise TaskError(
+            QCoreApplication.translate("runner", "No existe la carpeta del servidor: {0}").format(
+                root
+            )
+        )
     return root
 
 
@@ -85,8 +91,10 @@ def write_credentials(ctx: TaskContext, server: Path, folder: str, files: dict[s
         ctx.capture(["git", "check-ignore", "-q", f"{credentials_folder}/"], cwd=server)
     except TaskError as exc:
         raise TaskError(
-            f"git no ignora {credentials_folder}: agrégala a .gitignore antes de escribir "
-            f"credenciales ahí."
+            QCoreApplication.translate(
+                "runner",
+                "git no ignora {0}: agrégala a .gitignore antes de escribir credenciales ahí.",
+            ).format(credentials_folder)
         ) from exc
     credentials_folder.mkdir(parents=True, exist_ok=True)
     for old in credentials_folder.glob("app_*"):
@@ -109,7 +117,11 @@ def local(ctx: TaskContext) -> Runner:
     credentials_folder = write_credentials(
         ctx, root, MIGRATE_CREDENTIALS, canone.credential_files(root, ctx.config, owner=True)
     )
-    ctx.info(f"Base de datos LOCAL, como el dueño del esquema: {credentials_folder}")
+    ctx.info(
+        QCoreApplication.translate(
+            "runner", "Base de datos LOCAL, como el dueño del esquema: {0}"
+        ).format(credentials_folder)
+    )
     return Runner(
         str(venv_python(root / ".venv")), str(root), "", credentials=str(credentials_folder)
     )

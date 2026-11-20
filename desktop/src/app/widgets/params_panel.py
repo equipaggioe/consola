@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import replace
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
 from PySide6.QtGui import QIntValidator
 from PySide6.QtWidgets import (
     QButtonGroup,
@@ -481,9 +481,11 @@ class ParamsPanel(QWidget):
                 combo.addItem(axis.text_of(value), value)
             if not options:
                 combo.addItem(
-                    "leyendo el catálogo…"
+                    QCoreApplication.translate("ParamsPanel", "leyendo el catálogo…")
                     if self._loading
-                    else f"no hay ninguna {axis.query_place}",
+                    else QCoreApplication.translate("ParamsPanel", "no hay ninguna {0}").format(
+                        axis.query_place
+                    ),
                     "",
                 )
             index = combo.findData(resolved.get(facet.name, ""))
@@ -503,14 +505,20 @@ class ParamsPanel(QWidget):
             # function decide». It is no more a value of the catalog, so
             # it goes here and not in `values`: the machine's catalog
             # overwrites that on each refresh.
-            combo.addItem(axis.text_of("") or "automático", "")
+            combo.addItem(
+                axis.text_of("") or QCoreApplication.translate("ParamsPanel", "automático"), ""
+            )
         for value in axis.values:
             combo.addItem(axis.text_of(value), value)
         if not axis.values:
             line = combo.lineEdit()
             assert line is not None
             line.setPlaceholderText(
-                "leyendo el catálogo…" if self._loading else f"no hay ninguno {axis.query_place}"
+                QCoreApplication.translate("ParamsPanel", "leyendo el catálogo…")
+                if self._loading
+                else QCoreApplication.translate("ParamsPanel", "no hay ninguno {0}").format(
+                    axis.query_place
+                )
             )
         index = combo.findData(previous)
         combo.setCurrentIndex(index if index >= 0 else 0)
@@ -536,7 +544,9 @@ class ParamsPanel(QWidget):
             check.stateChanged.connect(self._refresh_summary)
             self._checks[axis.name][value] = check
             lay.addWidget(check)
-        text = axis.query_error or f"no hay ninguno {axis.query_place}"
+        text = axis.query_error or QCoreApplication.translate(
+            "ParamsPanel", "no hay ninguno {0}"
+        ).format(axis.query_place)
         # The camera's axes fail together with the same message: the
         # first says it and the others stay empty.
         repeated = any(n.text() == text for n in self._empty_notes.values())
@@ -560,7 +570,7 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
-        lay.addWidget(_SectionLabel("Corriendo ahora"))
+        lay.addWidget(_SectionLabel(QCoreApplication.translate("ParamsPanel", "Corriendo ahora")))
         self._live_layout = lay
         box.setVisible(False)
         return box
@@ -592,8 +602,12 @@ class ParamsPanel(QWidget):
             stop = QPushButton("✕")
             stop.setFixedSize(20, 20)
             stop.setCursor(Qt.CursorShape.PointingHandCursor)
-            stop.setToolTip("Apagar")
-            stop.setAccessibleName(f"Apagar {labels.get(value, value)}")
+            stop.setToolTip(QCoreApplication.translate("ParamsPanel", "Apagar"))
+            stop.setAccessibleName(
+                QCoreApplication.translate("ParamsPanel", "Apagar {0}").format(
+                    labels.get(value, value)
+                )
+            )
             stop.setStyleSheet(f"""
                 QPushButton {{ background: transparent; border: none;
                                color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px; }}
@@ -625,7 +639,8 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
-        lay.addWidget(_SectionLabel(PREVIEW_TITLES.get(self.capability.preview, "")))
+        title = PREVIEW_TITLES.get(self.capability.preview, "")
+        lay.addWidget(_SectionLabel(QCoreApplication.translate("catalog", title)))
         self._preview_layout = lay
         box.setVisible(False)
         return box
@@ -651,7 +666,8 @@ class ParamsPanel(QWidget):
             # Marked like an enabled check (`_restyle`): it shows what
             # the run will take, not a choice that is off.
             check.setObjectName("previewCheck")
-            check.setToolTip(PREVIEW_HINTS.get(self.capability.preview, ""))
+            hint = PREVIEW_HINTS.get(self.capability.preview, "")
+            check.setToolTip(QCoreApplication.translate("catalog", hint))
             self._preview_layout.addWidget(check)
         if error:
             reason = QLabel(error)
@@ -726,7 +742,7 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
-        lay.addWidget(_SectionLabel("Pasos"))
+        lay.addWidget(_SectionLabel(QCoreApplication.translate("ParamsPanel", "Pasos")))
 
         for step in self.steps:
             row = QWidget()
@@ -753,7 +769,7 @@ class ParamsPanel(QWidget):
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(9)
-        lay.addWidget(_SectionLabel("Opciones"))
+        lay.addWidget(_SectionLabel(QCoreApplication.translate("ParamsPanel", "Opciones")))
 
         for axis in axes:
             row = QVBoxLayout()
@@ -835,7 +851,9 @@ class ParamsPanel(QWidget):
                     # enabled, not gray, so it reads as a live choice,
                     # not a dead one.
                     check.setChecked(True)
-                    check.setToolTip("Única opción disponible")
+                    check.setToolTip(
+                        QCoreApplication.translate("ParamsPanel", "Única opción disponible")
+                    )
             check.toggled.connect(self._refresh_summary)
             self._options[axis.name][value] = check
             lay.addWidget(check)
@@ -844,7 +862,11 @@ class ParamsPanel(QWidget):
             # The same text as an empty long list's watermark: the gap
             # has to say why it is empty, not stay mute.
             note = QLabel(
-                "leyendo el catálogo…" if self._loading else f"no hay ninguno {axis.query_place}"
+                QCoreApplication.translate("ParamsPanel", "leyendo el catálogo…")
+                if self._loading
+                else QCoreApplication.translate("ParamsPanel", "no hay ninguno {0}").format(
+                    axis.query_place
+                )
             )
             note.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_MUTED}; "
@@ -880,10 +902,14 @@ class ParamsPanel(QWidget):
         lay.setSpacing(8)
 
         # At left, away from Run: emptying the log runs nothing.
-        clear_btn = QPushButton("Limpiar")
+        clear_btn = QPushButton(QCoreApplication.translate("ParamsPanel", "Limpiar"))
         clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         clear_btn.setFixedHeight(34)
-        clear_btn.setToolTip("Vaciar el log de esta pestaña y cerrar sus túneles SSH")
+        clear_btn.setToolTip(
+            QCoreApplication.translate(
+                "ParamsPanel", "Vaciar el log de esta pestaña y cerrar sus túneles SSH"
+            )
+        )
         clear_btn.clicked.connect(self.clear_requested.emit)
         self.clear_btn = clear_btn
         lay.addWidget(clear_btn)
@@ -898,14 +924,18 @@ class ParamsPanel(QWidget):
 
         self.dry_btn: QPushButton | None = None
         if self._dry_run_axis is not None:
-            self.dry_btn = QPushButton("Simulacro")
+            self.dry_btn = QPushButton(QCoreApplication.translate("ParamsPanel", "Simulacro"))
             self.dry_btn.setCursor(Qt.CursorShape.PointingHandCursor)
             self.dry_btn.setFixedHeight(34)
-            self.dry_btn.setToolTip("Corre sin tocar nada: solo muestra qué haría")
+            self.dry_btn.setToolTip(
+                QCoreApplication.translate(
+                    "ParamsPanel", "Corre sin tocar nada: solo muestra qué haría"
+                )
+            )
             self.dry_btn.clicked.connect(lambda: self._emit_execute(dry_run=True))
             lay.addWidget(self.dry_btn)
 
-        self.run_btn = QPushButton("Ejecutar")
+        self.run_btn = QPushButton(QCoreApplication.translate("ParamsPanel", "Ejecutar"))
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_btn.setFixedHeight(34)
         self.run_btn.clicked.connect(self._emit_execute)
@@ -1280,7 +1310,7 @@ class ParamsPanel(QWidget):
         # choose»: the repo does not have that. It says so, and does not
         # also ask to choose from an empty list.
         if self._loading:
-            return ["leyendo el catálogo…"]
+            return [QCoreApplication.translate("ParamsPanel", "leyendo el catálogo…")]
         vacios = {a.name for a in self.capability.axes if a.is_discovered and not a.values}
         for axis in self.capability.axes:
             if axis.name not in vacios:
@@ -1291,29 +1321,55 @@ class ParamsPanel(QWidget):
                 if axis.query_error not in reasons:
                     reasons.append(axis.query_error)
                 continue
-            donde = axis.query_place if axis.is_queried else "en este repo"
+            donde = (
+                axis.query_place
+                if axis.is_queried
+                else QCoreApplication.translate("ParamsPanel", "en este repo")
+            )
             # An optional axis that also admits being empty (the two
             # lists of «Liberar disco») does not block: having no
             # created AVDs does not prevent deleting an image.
             if axis.allow_empty:
                 continue
-            reasons.append(f"no hay {axis.display.lower()} {donde}")
+            reasons.append(
+                QCoreApplication.translate("ParamsPanel", "no hay {0} {1}").format(
+                    axis.display.lower(), donde
+                )
+            )
         for axis in self.capability.field_axes:
             if axis.required and not self.field_value(axis.name).strip():
-                reasons.append(f"escribe {axis.display.lower()}")
+                reasons.append(
+                    QCoreApplication.translate("ParamsPanel", "escribe {0}").format(
+                        axis.display.lower()
+                    )
+                )
         for axis in self.capability.pick_axes:
             if axis.values and not axis.allow_empty and not self.pick_value(axis.name):
-                reasons.append(f"elige {axis.display.lower()}")
+                reasons.append(
+                    QCoreApplication.translate("ParamsPanel", "elige {0}").format(
+                        axis.display.lower()
+                    )
+                )
         for axis in self.capability.multi_axes:
             if axis.name in vacios:
                 continue
             if not axis.allow_empty and not self.selection(axis.name):
-                reasons.append(f"selecciona al menos un valor en {axis.display.lower()}")
+                reasons.append(
+                    QCoreApplication.translate(
+                        "ParamsPanel", "selecciona al menos un valor en {0}"
+                    ).format(axis.display.lower())
+                )
         if not self.active_steps():
-            reasons.append("selecciona al menos un paso")
+            reasons.append(
+                QCoreApplication.translate("ParamsPanel", "selecciona al menos un paso")
+            )
         missing = self._missing_keys()
         if missing:
-            reasons.append(f"faltan claves de configuración: {', '.join(missing)}")
+            reasons.append(
+                QCoreApplication.translate(
+                    "ParamsPanel", "faltan claves de configuración: {0}"
+                ).format(", ".join(missing))
+            )
         return reasons
 
     @Slot()
@@ -1332,7 +1388,9 @@ class ParamsPanel(QWidget):
             self.dry_btn.setToolTip(
                 blockers[0].capitalize()
                 if blockers
-                else "Corre sin tocar nada: solo muestra qué haría"
+                else QCoreApplication.translate(
+                    "ParamsPanel", "Corre sin tocar nada: solo muestra qué haría"
+                )
             )
         self._restyle_run()
 

@@ -11,7 +11,7 @@ import io
 from pathlib import Path
 
 from PIL import Image
-from PySide6.QtCore import QBuffer, QIODevice, Qt
+from PySide6.QtCore import QBuffer, QCoreApplication, QIODevice, Qt
 from PySide6.QtGui import QImage, QPainter
 from PySide6.QtSvg import QSvgRenderer
 
@@ -36,13 +36,17 @@ def svg_to_png(svg: Path, side: int) -> bytes:
     """
     renderer = QSvgRenderer(str(svg))
     if not renderer.isValid():
-        raise TaskError(f"Qt no pudo leer {svg.name} como SVG.")
+        raise TaskError(
+            QCoreApplication.translate("raster", "Qt no pudo leer {0} como SVG.").format(svg.name)
+        )
     box = renderer.viewBoxF()
     # Qt stretches the viewBox to fill the image: a non-square one comes
     # out distorted.
     if abs(box.width() - box.height()) > 1e-6:
         raise TaskError(
-            f"{svg.name} no es cuadrado: su viewBox mide {box.width():g}×{box.height():g}."
+            QCoreApplication.translate(
+                "raster", "{0} no es cuadrado: su viewBox mide {1:g}×{2:g}."
+            ).format(svg.name, box.width(), box.height())
         )
     image = QImage(side, side, QImage.Format.Format_ARGB32)
     image.fill(Qt.GlobalColor.transparent)

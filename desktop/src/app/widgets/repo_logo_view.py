@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QObject, QRectF, QSize, Qt
+from PySide6.QtCore import QCoreApplication, QObject, QRectF, QSize, Qt
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleInterface,
@@ -41,7 +41,11 @@ class RepoLogoView(QWidget):
         self.setToolTip(logo.error)
         # The ⚠ in place of the logo says something only to the eye:
         # its name and the error say it in words.
-        self.setAccessibleName("Logo no válido" if logo.error else "Logo del repositorio")
+        self.setAccessibleName(
+            QCoreApplication.translate("RepoLogoView", "Logo no válido")
+            if logo.error
+            else QCoreApplication.translate("RepoLogoView", "Logo del repositorio")
+        )
         self.setAccessibleDescription(logo.error)
         self.update()
 

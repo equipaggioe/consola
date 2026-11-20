@@ -14,6 +14,8 @@ import tempfile
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import canone, process, ssh
 from app.services.context import TaskContext
 from app.services.errors import TaskError
@@ -33,8 +35,8 @@ _APPEARS = 12
 def _gh() -> list[str]:
     return process.resolve_executable(
         HOST.executable_names("gh"),
-        label="GitHub CLI (gh)",
-        hint="Instálalo y corre gh auth login.",
+        label=QCoreApplication.translate("vps_release", "GitHub CLI (gh)"),
+        hint=QCoreApplication.translate("vps_release", "Instálalo y corre gh auth login."),
     )
 
 
@@ -65,7 +67,11 @@ def _latest(ctx: TaskContext) -> dict[str, Any]:
             ctx.capture([*_gh(), "api", f"repos/{repo}/releases/latest"], timeout=30.0)
         )
     except TaskError as exc:
-        raise TaskError(f"{repo} no tiene releases publicados: corre «Publicar versión».") from exc
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_release", "{0} no tiene releases publicados: corre «Publicar versión»."
+            ).format(repo)
+        ) from exc
 
 
 # --- atomic ---
@@ -81,15 +87,27 @@ def _pushed(ctx: TaskContext) -> None:
     branch = _current_branch(ctx)
     dirty = ctx.capture(["git", "status", "--porcelain"])
     if dirty:
-        raise TaskError(f"Hay cambios sin commitear, y el tag no los lleva:\n{dirty}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_release", "Hay cambios sin commitear, y el tag no los lleva:\n{0}"
+            ).format(dirty)
+        )
     ctx.run(["git", "fetch", "origin"], echo=False)
     upstream = ctx.capture(
         ["git", "rev-parse", "--abbrev-ref", "--symbolic-full-name", "@{u}"], check=False
     )
     if not upstream:
-        raise TaskError(f"{branch} no tiene rama en origin: empújala primero.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_release", "{0} no tiene rama en origin: empújala primero."
+            ).format(branch)
+        )
     if ctx.capture(["git", "rev-list", "--count", f"{upstream}..HEAD"]) != "0":
-        raise TaskError(f"{branch} tiene commits que {upstream} no tiene: empújalos primero.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_release", "{0} tiene commits que {1} no tiene: empújalos primero."
+            ).format(branch, upstream)
+        )
 
 
 def release_run(answer: dict[str, Any]) -> str:
@@ -122,7 +140,9 @@ def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
         ctx.wait_cancelled(5)
         ctx.raise_if_cancelled()
     raise TaskError(
-        f"GitHub no creó la corrida de {WORKFLOW} para {tag}: ¿tiene el repo {WORKFLOW_PATH}?"
+        QCoreApplication.translate(
+            "vps_release", "GitHub no creó la corrida de {0} para {1}: ¿tiene el repo {2}?"
+        ).format(WORKFLOW, tag, WORKFLOW_PATH)
     )
 
 
@@ -130,7 +150,11 @@ def _watch(ctx: TaskContext, repo: str, tag: str) -> None:
     """Wait for `release.yml`, and stop if it does not end well."""
     gh = _gh()
     run = _run_id(ctx, gh, repo, tag)
-    ctx.info(f"{WORKFLOW} corre en https://github.com/{repo}/actions/runs/{run}")
+    ctx.info(
+        QCoreApplication.translate(
+            "vps_release", "{0} corre en https://github.com/{1}/actions/runs/{2}"
+        ).format(WORKFLOW, repo, run)
+    )
     seen = ""
     while True:
         state = json.loads(
@@ -148,7 +172,11 @@ def _watch(ctx: TaskContext, repo: str, tag: str) -> None:
         ctx.raise_if_cancelled()
     if state["conclusion"] != "success":
         ctx.run([*gh, "run", "view", run, "--repo", repo, "--log-failed"], check=False)
-        raise TaskError(f"{WORKFLOW} terminó en {state['conclusion']}: {tag} no se publicó.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_release", "{0} terminó en {1}: {2} no se publicó."
+            ).format(WORKFLOW, state["conclusion"], tag)
+        )
 
 
 def create_tag(ctx: TaskContext, part: str = "patch") -> str:
@@ -165,7 +193,7 @@ def create_tag(ctx: TaskContext, part: str = "patch") -> str:
     ctx.run(["git", "tag", "-a", tag, "-m", tag])
     ctx.run(["git", "push", "origin", f"refs/tags/{tag}"])
     _watch(ctx, repo, tag)
-    ctx.ok(f"{tag} publicado.")
+    ctx.ok(QCoreApplication.translate("vps_release", "{0} publicado.").format(tag))
     return tag
 
 
@@ -187,10 +215,16 @@ def sign_release(ctx: TaskContext, tag: str) -> None:
     names = {a["name"] for a in release["assets"]}
     total, signature = canone.checksum(app, tag), canone.signature(app, tag)
     if signature in names:
-        ctx.ok(f"{tag} ya tiene {signature}.")
+        ctx.ok(
+            QCoreApplication.translate("vps_release", "{0} ya tiene {1}.").format(tag, signature)
+        )
         return
     if release["isDraft"] or total not in names:
-        raise TaskError(f"El release {tag} no tiene {total}: {WORKFLOW} no terminó.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_release", "El release {0} no tiene {1}: {2} no terminó."
+            ).format(tag, total, WORKFLOW)
+        )
     with tempfile.TemporaryDirectory() as folder:
         ctx.run(
             [*gh, "release", "download", tag, "--repo", repo, "--pattern", total, "--dir", folder]
@@ -208,7 +242,7 @@ def sign_release(ctx: TaskContext, tag: str) -> None:
             ]
         )
         ctx.run([*gh, "release", "upload", tag, str(Path(folder) / signature), "--repo", repo])
-    ctx.ok(f"{tag} firmado.")
+    ctx.ok(QCoreApplication.translate("vps_release", "{0} firmado.").format(tag))
 
 
 def deploy_release(ctx: TaskContext, tag: str) -> None:
@@ -225,7 +259,11 @@ def deploy_release(ctx: TaskContext, tag: str) -> None:
 
 def _deploy(ctx: TaskContext, entry: Access, app: str, tag: str) -> None:
     entry.run(ctx, canone.deploy_command(app, tag))
-    ctx.ok(f"{tag} desplegado en {entry.remote.host}.")
+    ctx.ok(
+        QCoreApplication.translate("vps_release", "{0} desplegado en {1}.").format(
+            tag, entry.remote.host
+        )
+    )
 
 
 def deploy_latest(ctx: TaskContext) -> str:
@@ -240,15 +278,18 @@ def deploy_latest(ctx: TaskContext) -> str:
     tag = last["tag_name"]
     if not canone.signed(app, [last]):
         raise TaskError(
-            f"El último release, {tag}, no tiene {canone.signature(app, tag)}: "
-            "fírmalo con «Publicar versión» sin «Crear tag»."
+            QCoreApplication.translate(
+                "vps_release",
+                "El último release, {0}, no tiene {1}: fírmalo con «Publicar versión» "
+                "sin «Crear tag».",
+            ).format(tag, canone.signature(app, tag))
         )
     entry = admin(ctx)
     current = ssh.capture(
         entry.remote, f"readlink {ssh.quote(f'/srv/{app}/current')}", check=False
     )
     if current.rpartition("/")[2] == tag:
-        ctx.ok(f"{tag} ya está desplegado.")
+        ctx.ok(QCoreApplication.translate("vps_release", "{0} ya está desplegado.").format(tag))
         return tag
     _deploy(ctx, entry, app, tag)
     return tag
@@ -281,7 +322,7 @@ def publish_release(
     if deploy:
         ctx.step("deploy")
         deploy_release(ctx, version)
-    ctx.note(f"{version} publicado.")
+    ctx.note(QCoreApplication.translate("vps_release", "{0} publicado.").format(version))
     return version
 
 
@@ -292,7 +333,9 @@ def deploy_version(ctx: TaskContext, version: str = "") -> None:
     `/srv/<app>/releases/`, where the newest five stay.
     """
     if not version:
-        raise TaskError("Elige la versión que se despliega.")
+        raise TaskError(
+            QCoreApplication.translate("vps_release", "Elige la versión que se despliega.")
+        )
     deploy_release(ctx, version)
 
 

@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import override
 
-from PySide6.QtCore import QDateTime, QLocale, Qt, QTimer, Slot
+from PySide6.QtCore import QCoreApplication, QDateTime, QLocale, Qt, QTimer, Slot
 from PySide6.QtGui import (
     QAction,
     QColor,
@@ -35,7 +35,7 @@ class ConsoleView(QPlainTextEdit):
         """Build the read-only view."""
         super().__init__(parent)
         self.setReadOnly(True)
-        self.setAccessibleName("Consola")
+        self.setAccessibleName(QCoreApplication.translate("ConsoleView", "Consola"))
         self.pal = NEUTRAL
         font = mono(QFont())
         font.setPixelSize(Fonts.SIZE_MONO)
@@ -50,8 +50,10 @@ class ConsoleView(QPlainTextEdit):
         # match and Shift+Enter to the previous one, both wrapping
         # around, and Escape closes it.
         self.search_bar = QLineEdit(self)
-        self.search_bar.setPlaceholderText("Buscar…")
-        self.search_bar.setAccessibleName("Buscar en la consola")
+        self.search_bar.setPlaceholderText(QCoreApplication.translate("ConsoleView", "Buscar…"))
+        self.search_bar.setAccessibleName(
+            QCoreApplication.translate("ConsoleView", "Buscar en la consola")
+        )
         self.search_bar.hide()
         self.search_bar.textChanged.connect(self._find_typed)
         self.search_bar.returnPressed.connect(self._find_next)
@@ -170,9 +172,17 @@ class ConsoleView(QPlainTextEdit):
     def write_stub_message(self, capability_name: str) -> None:
         """Say that the capability has no body yet."""
         self.append_log(f"─── {capability_name} ───", "info")
-        self.append_log("Esta capacidad aún no está implementada.", "info")
-        self.append_log("El esqueleto de UI está funcionando correctamente.", "info")
-        self.append_log("Stub ejecutado", "ok")
+        self.append_log(
+            QCoreApplication.translate("ConsoleView", "Esta capacidad aún no está implementada."),
+            "info",
+        )
+        self.append_log(
+            QCoreApplication.translate(
+                "ConsoleView", "El esqueleto de UI está funcionando correctamente."
+            ),
+            "info",
+        )
+        self.append_log(QCoreApplication.translate("ConsoleView", "Stub ejecutado"), "ok")
 
     @Slot()
     def _toggle_cursor(self) -> None:
@@ -241,17 +251,19 @@ class ConsoleView(QPlainTextEdit):
         self._missing = not found
         # The red says it to the eye; the description, to assistive
         # technology.
-        self.search_bar.setAccessibleDescription("" if found else "Sin resultados")
+        self.search_bar.setAccessibleDescription(
+            "" if found else QCoreApplication.translate("ConsoleView", "Sin resultados")
+        )
         self._restyle()
 
     @override
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         menu = QMenu(self)
-        copy_action = QAction("Copy", self)
+        copy_action = QAction(QCoreApplication.translate("ConsoleView", "Copy"), self)
         copy_action.triggered.connect(self.copy)
-        select_all_action = QAction("Select All", self)
+        select_all_action = QAction(QCoreApplication.translate("ConsoleView", "Select All"), self)
         select_all_action.triggered.connect(self.selectAll)
-        clear_action = QAction("Clear", self)
+        clear_action = QAction(QCoreApplication.translate("ConsoleView", "Clear"), self)
         clear_action.triggered.connect(self.clear_console)
 
         menu.addAction(copy_action)

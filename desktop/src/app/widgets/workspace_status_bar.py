@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt, QTimer, Signal, Slot
+from PySide6.QtCore import QCoreApplication, Qt, QTimer, Signal, Slot
 from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
@@ -47,11 +47,21 @@ class _PadlockChip(QPushButton):
             f"QPushButton {{ background: transparent; border: none; padding: 0; "
             f"color: {color}; font-size: {Fonts.SIZE_XS}px; }}"
         )
-        state = "protegido" if protected else "sin proteger"
-        self.setToolTip(f"{label}: {state}. Clic para administrar en Configuración → Seguridad.")
+        state = (
+            QCoreApplication.translate("_PadlockChip", "protegido")
+            if protected
+            else QCoreApplication.translate("_PadlockChip", "sin proteger")
+        )
+        self.setToolTip(
+            QCoreApplication.translate(
+                "_PadlockChip", "{0}: {1}. Clic para administrar en Configuración → Seguridad."
+            ).format(label, state)
+        )
         # The padlock says its state only to the eye.
         self.setAccessibleName(f"{label}: {state}")
-        self.setAccessibleDescription("Abre la sección Seguridad")
+        self.setAccessibleDescription(
+            QCoreApplication.translate("_PadlockChip", "Abre la sección Seguridad")
+        )
 
 
 class WorkspaceStatusBar(QWidget):
@@ -177,7 +187,9 @@ class WorkspaceStatusBar(QWidget):
         available, total = ram
         locale = self.locale()
         free, size = locale.toString(available, "f", 1), locale.toString(total, "f", 1)
-        self.ram_label.setText(f"RAM {free}/{size} GB")
+        self.ram_label.setText(
+            QCoreApplication.translate("WorkspaceStatusBar", "RAM {0}/{1} GB").format(free, size)
+        )
         threshold = total * 0.15
         color = Colors.TEXT_DIM if available > threshold else Colors.WARNING
         self.ram_label.setStyleSheet(
@@ -248,7 +260,12 @@ class WorkspaceStatusBar(QWidget):
         self.security_box.setVisible(True)
         for target in protection.TARGETS:
             protected = protection.is_protected(state, target)
-            chip = _PadlockChip(target.chip, target.label, protected, self.pal)
+            chip = _PadlockChip(
+                QCoreApplication.translate("protection", target.chip),
+                QCoreApplication.translate("protection", target.label),
+                protected,
+                self.pal,
+            )
             chip.clicked.connect(self.security_clicked)
             self._security_row.addWidget(chip)
         self._restyle()

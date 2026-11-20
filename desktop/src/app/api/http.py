@@ -14,7 +14,7 @@ import time
 from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 
-from PySide6.QtCore import QByteArray, QObject, QThread, QUrl, Signal, Slot
+from PySide6.QtCore import QByteArray, QLocale, QObject, QThread, QUrl, Signal, Slot
 from PySide6.QtNetwork import QNetworkAccessManager, QNetworkReply, QNetworkRequest
 
 # How often a waiting call checks whether it was asked to stop.
@@ -186,6 +186,8 @@ def _transfer(
     network = _caller_network()
     target = QNetworkRequest(QUrl(url))
     target.setTransferTimeout(int(timeout * 1000))
+    # transversal.md of canone, «Idiomas»: the interface language.
+    target.setRawHeader(b"Accept-Language", QLocale().bcp47Name().encode("ascii"))
     for name, value in (headers or {}).items():
         target.setRawHeader(name.encode("utf-8"), value.encode("utf-8"))
     stop = should_stop or _never

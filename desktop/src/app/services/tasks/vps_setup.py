@@ -18,6 +18,8 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import canone, session, ssh
 from app.services.context import TaskContext
 from app.services.errors import TaskError
@@ -79,9 +81,16 @@ def _sudo_password(ctx: TaskContext) -> str:
     written = ctx.config.get(SUDO_KEY) or session.read(ctx.project_name, SUDO_KEY)
     if not written:
         user = ctx.config.require("VPS_USER")
-        written = ctx.ask(f"Contraseña de {user} (la de sudo)", secret=True)
+        written = ctx.ask(
+            QCoreApplication.translate("vps_setup", "Contraseña de {0} (la de sudo)").format(user),
+            secret=True,
+        )
         if not written:
-            raise TaskError("Sin la contraseña de sudo no se puede administrar el VPS.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "vps_setup", "Sin la contraseña de sudo no se puede administrar el VPS."
+                )
+            )
         session.publish(ctx.project_name, SUDO_KEY, written)
     ctx.guard(written)
     return written
@@ -98,11 +107,16 @@ def access(ctx: TaskContext) -> Access:
         return Access(admin, _sudo_password(ctx))
     root = admin.as_user(ctx.config.get("ROOT_USER"))
     if ssh.reachable(root):
-        ctx.info(f"{admin.target} todavía no entra: se usa {root.target}.")
+        ctx.info(
+            QCoreApplication.translate("vps_setup", "{0} todavía no entra: se usa {1}.").format(
+                admin.target, root.target
+            )
+        )
         return Access(root)
     raise TaskError(
-        f"No se entra al VPS ni como {admin.target} ni como {root.target} "
-        f"con la llave {ctx.config.get('VPS_KEY_NAME')}."
+        QCoreApplication.translate(
+            "vps_setup", "No se entra al VPS ni como {0} ni como {1} con la llave {2}."
+        ).format(admin.target, root.target, ctx.config.get("VPS_KEY_NAME"))
     )
 
 
@@ -115,8 +129,11 @@ def admin(ctx: TaskContext) -> Access:
     entry = access(ctx)
     if entry.is_root:
         raise TaskError(
-            "La cuenta que administra todavía no existe: corre «Configurar VPS» "
-            "con «Instalar infraestructura» primero."
+            QCoreApplication.translate(
+                "vps_setup",
+                "La cuenta que administra todavía no existe: corre «Configurar VPS» con "
+                "«Instalar infraestructura» primero.",
+            )
         )
     return entry
 
@@ -171,13 +188,20 @@ def install_key(ctx: TaskContext) -> None:
     admin_remote = ssh.resolve_remote(ctx.config)
     root = admin_remote.as_user(ctx.config.get("ROOT_USER"))
     if ssh.reachable(admin_remote) or ssh.reachable(root):
-        ctx.ok("La llave ya entra al VPS.")
+        ctx.ok(QCoreApplication.translate("vps_setup", "La llave ya entra al VPS."))
         return
     password = ctx.config.get(ROOT_PASSWORD_KEY) or ctx.ask(
-        f"Contraseña de {root.target} (la del proveedor)", secret=True
+        QCoreApplication.translate("vps_setup", "Contraseña de {0} (la del proveedor)").format(
+            root.target
+        ),
+        secret=True,
     )
     if not password:
-        raise TaskError("Sin la contraseña de root no se puede poner la llave en el VPS.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_setup", "Sin la contraseña de root no se puede poner la llave en el VPS."
+            )
+        )
     # canone's `authorize.py` writes the key, not Consola (ADR-0084).
     script = f"/tmp/consola-{AUTHORIZE}"
     ssh.upload_with_password(ctx, root, canone.infra_dir(ctx.config) / AUTHORIZE, script, password)
@@ -189,8 +213,16 @@ def install_key(ctx: TaskContext) -> None:
         password,
     )
     if not ssh.reachable(root):
-        raise TaskError(f"La llave quedó en {root.target}, pero no entra con ella.")
-    ctx.ok(f"La llave {private.name} entra como {root.target}.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_setup", "La llave quedó en {0}, pero no entra con ella."
+            ).format(root.target)
+        )
+    ctx.ok(
+        QCoreApplication.translate("vps_setup", "La llave {0} entra como {1}.").format(
+            private.name, root.target
+        )
+    )
 
 
 def install_software(ctx: TaskContext) -> list[str]:
@@ -205,7 +237,11 @@ def install_software(ctx: TaskContext) -> list[str]:
     """
     entry = access(ctx)
     packages = canone.packages(ctx.root, ctx.config)
-    ctx.info(f"Paquetes de canone para este repo: {', '.join(packages)}")
+    ctx.info(
+        QCoreApplication.translate("vps_setup", "Paquetes de canone para este repo: {0}").format(
+            ", ".join(packages)
+        )
+    )
     destination = _upload(ctx, entry)
     options = " ".join(ssh.quote(a) for a in canone.package_args(ctx.root, ctx.config))
     try:
@@ -214,7 +250,11 @@ def install_software(ctx: TaskContext) -> list[str]:
         entry.run(ctx, f"python3 {destination}/uv.py")
     finally:
         _cleanup(ctx, entry)
-    ctx.ok(f"Paquetes y uv listos: {', '.join(packages)}")
+    ctx.ok(
+        QCoreApplication.translate("vps_setup", "Paquetes y uv listos: {0}").format(
+            ", ".join(packages)
+        )
+    )
     return packages
 
 
@@ -245,7 +285,11 @@ def _valkey_memory(ctx: TaskContext, entry: Access) -> str:
     percent = ctx.config.get("VALKEY_PERCENT")
     meminfo = ssh.capture(entry.remote, "cat /proc/meminfo")
     memory = canone.valkey_memory(meminfo, percent)
-    ctx.info(f"Memoria de Valkey: {memory}, el {percent} % de la RAM del VPS.")
+    ctx.info(
+        QCoreApplication.translate(
+            "vps_setup", "Memoria de Valkey: {0}, el {1} % de la RAM del VPS."
+        ).format(memory, percent)
+    )
     return memory
 
 
@@ -265,8 +309,11 @@ def install_infra(ctx: TaskContext) -> None:
     outside = ctx.config.require("OFFLINE_KEY").strip()
     if outside.split()[:2] == key.split()[:2]:
         raise TaskError(
-            "OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, "
-            "guardada fuera de esta máquina."
+            QCoreApplication.translate(
+                "vps_setup",
+                "OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, "
+                "guardada fuera de esta máquina.",
+            )
         )
     entry = access(ctx)
     memory = _valkey_memory(ctx, entry)
@@ -286,7 +333,11 @@ def install_infra(ctx: TaskContext) -> None:
         # `install.py` leaves root without entry: the remaining account
         # cleans up.
         _cleanup(ctx, access(ctx))
-    ctx.ok(f"{app} instalado en {entry.remote.host}.")
+    ctx.ok(
+        QCoreApplication.translate("vps_setup", "{0} instalado en {1}.").format(
+            app, entry.remote.host
+        )
+    )
 
 
 def load_credentials(ctx: TaskContext) -> None:
@@ -308,7 +359,11 @@ def load_credentials(ctx: TaskContext) -> None:
         entry.run(ctx, f"python3 {destination}/credentials.py {ssh.quote(app)}", text=lines)
     finally:
         _cleanup(ctx, entry)
-    ctx.ok(f"{len(lines.splitlines())} credenciales cargadas.")
+    ctx.ok(
+        QCoreApplication.translate("vps_setup", "{0} credenciales cargadas.").format(
+            len(lines.splitlines())
+        )
+    )
 
 
 # --- undo ---
@@ -329,8 +384,12 @@ def clean_vps(ctx: TaskContext, level: str = "database", apply: bool = False) ->
     finally:
         _cleanup(ctx, entry)
     if apply:
-        ctx.ok(f"VPS vaciado: {level}.")
-        ctx.note(f"VPS {ctx.config.require('VPS_IP')} vaciado: {level}.")
+        ctx.ok(QCoreApplication.translate("vps_setup", "VPS vaciado: {0}.").format(level))
+        ctx.note(
+            QCoreApplication.translate("vps_setup", "VPS {0} vaciado: {1}.").format(
+                ctx.config.require("VPS_IP"), level
+            )
+        )
 
 
 # --- composite ---
@@ -379,7 +438,11 @@ def bootstrap_vps(
     if deploy:
         ctx.step("deploy")
         deploy_latest(ctx)
-    ctx.note(f"VPS {ctx.config.require('VPS_IP')} configurado.")
+    ctx.note(
+        QCoreApplication.translate("vps_setup", "VPS {0} configurado.").format(
+            ctx.config.require("VPS_IP")
+        )
+    )
 
 
 def bind_all() -> None:

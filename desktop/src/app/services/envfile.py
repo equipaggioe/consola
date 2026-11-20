@@ -5,6 +5,8 @@ from __future__ import annotations
 import os
 from collections.abc import Iterable
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.errors import MissingConfig, TaskError
 from app.services.settings import (
     GROUP_ORDER,
@@ -93,7 +95,9 @@ def config_text(repo_path: str) -> str | None:
     except FileNotFoundError:
         return None
     except (OSError, UnicodeDecodeError) as error:
-        raise TaskError(f"No se puede leer {path}: {error}") from error
+        raise TaskError(
+            QCoreApplication.translate("envfile", "No se puede leer {0}: {1}").format(path, error)
+        ) from error
 
 
 # Generic description of the dynamic default, for the template file,
@@ -109,7 +113,9 @@ def describe(setting: Setting) -> str:
     """Return a key's comment line: what it is for and what is expected.
 
     It makes a freshly created file with all the schema's keys and no
-    values readable: without it, it would be a bare list of names.
+    values readable: without it, it would be a bare list of names. It
+    goes in the base language, whatever the interface's: the file
+    belongs to the repo and does not change with the machine.
     """
     bits = []
     if setting.label and setting.label != setting.key:
@@ -311,7 +317,11 @@ class Config:
                 return default
             raise MissingConfig([key])
         if not raw.isdigit() or not 1 <= int(raw) <= 65535:
-            raise TaskError(f"{key} no es un puerto valido: {raw}")
+            raise TaskError(
+                QCoreApplication.translate("Config", "{0} no es un puerto valido: {1}").format(
+                    key, raw
+                )
+            )
         return int(raw)
 
     def flag(self, key: str, default: bool = False) -> bool:
@@ -323,7 +333,9 @@ class Config:
             return True
         if raw in _FALSE:
             return False
-        raise TaskError(f"{key} no es un booleano: {raw}")
+        raise TaskError(
+            QCoreApplication.translate("Config", "{0} no es un booleano: {1}").format(key, raw)
+        )
 
     def rel_path(self, key: str, root: str) -> str:
         """Return a key's path, resolved on `root`."""

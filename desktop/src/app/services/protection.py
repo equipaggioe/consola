@@ -43,6 +43,8 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Any
 
+from app.services.language import QT_TRANSLATE_NOOP
+
 
 @dataclass(frozen=True)
 class Target:
@@ -60,44 +62,51 @@ class Target:
 TARGETS: tuple[Target, ...] = (
     Target(
         "vps",
-        "el VPS",
-        "VPS",
-        "Proteger el VPS",
+        QT_TRANSLATE_NOOP("protection", "el VPS"),
+        QT_TRANSLATE_NOOP("protection", "VPS"),
+        QT_TRANSLATE_NOOP("protection", "Proteger el VPS"),
         True,
-        "alcanza a una maquina remota y no hay deshacer",
+        QT_TRANSLATE_NOOP("protection", "alcanza a una maquina remota y no hay deshacer"),
     ),
     Target(
         "db",
-        "la base de datos",
-        "BD",
-        "Proteger la base de datos",
+        QT_TRANSLATE_NOOP("protection", "la base de datos"),
+        QT_TRANSLATE_NOOP("protection", "BD"),
+        QT_TRANSLATE_NOOP("protection", "Proteger la base de datos"),
         True,
-        "los datos borrados no vuelven sin un backup",
+        QT_TRANSLATE_NOOP("protection", "los datos borrados no vuelven sin un backup"),
     ),
     Target(
         "other_repos",
-        "otros repositorios",
-        "otros repos",
-        "Proteger otros repos",
+        QT_TRANSLATE_NOOP("protection", "otros repositorios"),
+        QT_TRANSLATE_NOOP("protection", "otros repos"),
+        QT_TRANSLATE_NOOP("protection", "Proteger otros repos"),
         True,
-        "escribe fuera de este repo, en carpetas que no estas mirando",
+        QT_TRANSLATE_NOOP(
+            "protection", "escribe fuera de este repo, en carpetas que no estas mirando"
+        ),
     ),
     Target(
         "local",
-        "archivos de este repo",
-        "local",
-        "Proteger archivos locales",
+        QT_TRANSLATE_NOOP("protection", "archivos de este repo"),
+        QT_TRANSLATE_NOOP("protection", "local"),
+        QT_TRANSLATE_NOOP("protection", "Proteger archivos locales"),
         False,
-        "apagado por defecto: un artefacto borrado se rehace con un build",
+        QT_TRANSLATE_NOOP(
+            "protection", "apagado por defecto: un artefacto borrado se rehace con un build"
+        ),
     ),
     Target(
         "origin",
-        "origin en GitHub",
-        "origin",
-        "Proteger origin (GitHub)",
+        QT_TRANSLATE_NOOP("protection", "origin en GitHub"),
+        QT_TRANSLATE_NOOP("protection", "origin"),
+        QT_TRANSLATE_NOOP("protection", "Proteger origin (GitHub)"),
         False,
-        "apagado por defecto: reescribe el historial que ven quienes clonaron o "
-        "hicieron fork de este repo, pero no toca esta maquina ni el VPS",
+        QT_TRANSLATE_NOOP(
+            "protection",
+            "apagado por defecto: reescribe el historial que ven quienes clonaron o "
+            "hicieron fork de este repo, pero no toca esta maquina ni el VPS",
+        ),
     ),
 )
 

@@ -53,6 +53,18 @@ La regla completa, con sus casos límite, está en [13](13_configuracion_y_persi
 
 ## 9. Idioma y forma del código
 
-- El código, los comentarios y los mensajes están en español. Los identificadores del dominio conservan el nombre técnico (`remote`, `scope`, `payload`).
+- El código y los comentarios están en inglés, y los textos de la interfaz, en español ([10](#10-los-textos-de-la-interfaz-pasan-por-qt-linguist)).
 - Los comentarios explican **por qué** una decisión es como es, no qué hace la línea siguiente; los que cargan una decisión citan su ADR.
 - Los nombres de archivo y de símbolo se citan tal cual; nunca números de línea.
+
+## 10. Los textos de la interfaz pasan por Qt Linguist
+
+Cada texto que ve el usuario se traduce con `QCoreApplication.translate(contexto, texto)`, y el texto fuente es el español, el idioma base ([ADR-0091](../adr/0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md)). `translations/es.ts` los junta.
+
+- El contexto es la clase donde está el texto o, fuera de una clase, el módulo.
+- Los valores van como `{0}`, `{1}` y entran con `.format()` después de traducir. Un f-string arma el texto antes de buscarlo, y la búsqueda falla.
+- Lo que se arma al importar se marca con `QT_TRANSLATE_NOOP` de `services/language.py` y se traduce donde se muestra: `Setting.display` y `Setting.hint`, `command_docs.get`, `section_visibility.title`, las etiquetas de `protection.TARGETS`, de `vps.SERVICE_LABELS` y de `android.VARIANTS`. El catálogo marca todas sus declaraciones y `load_catalog()` las traduce al terminar (`catalog.py::_translated`).
+- El grupo de una capacidad y el de una clave de configuración son también claves: ordenan el menú y el formulario, y nombran el icono del grupo. Se guardan sin traducir, y el menú, el buscador y el formulario los traducen al mostrarlos.
+- No se traducen los comentarios que `envfile.py` escribe en `config.env`, porque el archivo es del repo, ni los mensajes en inglés de los errores de programación (`RuntimeError`, `OSError`).
+- Un plural se elige en el código con dos textos: con `%n` hace falta una traducción que elija la forma, y el idioma base no la tiene.
+- El idioma lo aplica `language.install()` en `main.py`, antes de crear un widget o el catálogo: es el primero de `QLocale.system().uiLanguages()` que tiene traducción, o el base. Fija el `QLocale` por defecto, que formatea fechas y números, e instala el traductor de Consola y el de Qt (`qtbase_<locale>.qm`). `api/http.py` manda ese idioma en `Accept-Language`.

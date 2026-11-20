@@ -71,8 +71,15 @@ jobs:
       # The app installs after rc_resources.py exists: the installation copies src/app/ as it is,
       # and Nuitka compiles that copy.
       - run: uv sync --locked --group deploy --no-install-project
-      # main.py imports the compiled resources: icon.png and the images of assets/.
-      - run: uv run --no-sync pyside6-rcc src/app/resources.qrc -o src/app/rc_resources.py
+      # Nuitka ships the translations of Qt only with QtWebEngine: qtbase_<locale>.qm goes into
+      # resources.qrc with the translations of the app. main.py imports the compiled resources.
+      - run: |
+          for ts in src/app/translations/*.ts; do
+            locale=$(basename "$ts" .ts)
+            uv run --no-sync pyside6-lrelease "$ts" -qm "src/app/translations/$locale.qm"
+            uv run --no-sync python -c "import shutil, sys; from PySide6.QtCore import QLibraryInfo as L; name = sys.argv[1].replace('-', '_'); shutil.copy(f'{L.path(L.LibraryPath.TranslationsPath)}/qtbase_{name}.qm', 'src/app/translations')" "$locale"
+          done
+          uv run --no-sync pyside6-rcc src/app/resources.qrc -o src/app/rc_resources.py
       # Installed, not editable: Nuitka finds the package of the distribution in its RECORD.
       - run: uv sync --locked --group deploy --no-editable
       # pyside6-deploy finds the Qt modules the app needs with dumpbin, which is not on the PATH:

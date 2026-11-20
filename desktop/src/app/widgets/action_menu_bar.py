@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import Signal, Slot
+from PySide6.QtCore import QCoreApplication, Signal, Slot
 from PySide6.QtGui import QAction
 from PySide6.QtWidgets import QMenu, QMenuBar, QWidget
 
@@ -163,7 +163,8 @@ class ActionMenuBar(QMenuBar):
         is the first thing that pushes the last ones into overflow.
         """
         for group, capabilities in registry.get_groups().items():
-            menu = self._add_menu(group)
+            # The group is a key: the catalog declares it untranslated.
+            menu = self._add_menu(QCoreApplication.translate("catalog", group))
             menu.setToolTipsVisible(True)
             blocks: list[tuple[QAction | None, list[str]]] = []
             destructive = False
@@ -199,9 +200,11 @@ class ActionMenuBar(QMenuBar):
         every tab. The checks are read again on opening the menu, since
         a section also hides from its header's right click.
         """
-        menu = self._add_menu("Ver", checks=True)
+        menu = self._add_menu(QCoreApplication.translate("ActionMenuBar", "Ver"), checks=True)
         self._view_menu = menu
-        self._only_favorites_action = QAction("Solo favoritos", self)
+        self._only_favorites_action = QAction(
+            QCoreApplication.translate("ActionMenuBar", "Solo favoritos"), self
+        )
         self._only_favorites_action.setCheckable(True)
         self._only_favorites_action.setChecked(self._only_favorites)
         self._only_favorites_action.toggled.connect(self.only_favorites_toggled.emit)
@@ -209,8 +212,8 @@ class ActionMenuBar(QMenuBar):
 
         menu.addSeparator()
         self._section_actions: dict[str, QAction] = {}
-        for section_id, title in section_visibility.SECTIONS.items():
-            action = QAction(title, self)
+        for section_id in section_visibility.SECTIONS:
+            action = QAction(section_visibility.title(section_id), self)
             action.setCheckable(True)
 
             def on_section(visible: bool, s: str = section_id) -> None:
@@ -310,12 +313,20 @@ def _tooltip(cap: Capability) -> str:
     entry is used.
     """
     composite = bool(cap.composed_of or len(cap.steps) > 1)
-    level = "Compuesta · encadena varias atómicas" if composite else "Atómica · un solo paso"
+    level = (
+        QCoreApplication.translate("action_menu_bar", "Compuesta · encadena varias atómicas")
+        if composite
+        else QCoreApplication.translate("action_menu_bar", "Atómica · un solo paso")
+    )
     if cap.is_machine_wide:
-        level += " · de la máquina, no del repo"
+        level += QCoreApplication.translate("action_menu_bar", " · de la máquina, no del repo")
     lines = [f"<b>{cap.name}</b>"]
     if cap.description:
         lines.append(cap.description)
     lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>{level}</span>")
-    lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>Clic para abrir</span>")
+    lines.append(
+        QCoreApplication.translate(
+            "action_menu_bar", "<span style='color:{0};'>Clic para abrir</span>"
+        ).format(Colors.TEXT_MUTED)
+    )
     return "<br>".join(lines)

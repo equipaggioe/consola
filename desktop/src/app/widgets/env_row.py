@@ -111,7 +111,7 @@ class EnvRow(QWidget):
         # reminder of what goes in the field; in the same gray and place
         # as the next row's default, it read as if something were
         # loaded.
-        self.field.setPlaceholderText(default_display or setting.default_hint)
+        self.field.setPlaceholderText(default_display or setting.hint)
         self.field.textChanged.connect(self._on_text)
 
         lay.addWidget(self.label)
@@ -127,7 +127,7 @@ class EnvRow(QWidget):
         `DOMAIN`'s changes with what is written in other keys, so it
         does not stay fixed since the row was built.
         """
-        self.field.setPlaceholderText(default_display or self.setting.default_hint)
+        self.field.setPlaceholderText(default_display or self.setting.hint)
 
     @property
     def _is_list(self) -> bool:

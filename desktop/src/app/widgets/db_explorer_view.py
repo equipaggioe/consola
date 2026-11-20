@@ -19,6 +19,7 @@ from pathlib import Path
 from typing import Any
 
 from PySide6.QtCore import (
+    QCoreApplication,
     QModelIndex,
     Qt,
     Slot,
@@ -173,15 +174,19 @@ class DbExplorerView(QWidget):
         ll.setContentsMargins(8, 8, 8, 8)
         ll.setSpacing(6)
         self.filter_box = QLineEdit()
-        self.filter_box.setPlaceholderText("Filtrar tablas…")
-        self.filter_box.setAccessibleName("Filtrar tablas")
+        self.filter_box.setPlaceholderText(
+            QCoreApplication.translate("DbExplorerView", "Filtrar tablas…")
+        )
+        self.filter_box.setAccessibleName(
+            QCoreApplication.translate("DbExplorerView", "Filtrar tablas")
+        )
         self.filter_box.setClearButtonEnabled(True)
         # Qt's clear action has no text, so its button reaches
         # assistive technology with no name. The object name is Qt's.
         clear = self.filter_box.findChild(QAction, "_q_qlineeditclearaction")
         if clear is None:
             raise RuntimeError("QLineEdit has no clear action")
-        clear.setText("Borrar el texto")
+        clear.setText(QCoreApplication.translate("DbExplorerView", "Borrar el texto"))
         self.filter_box.textChanged.connect(self._apply_tree_filter)
 
         self.models_label = QLabel("")
@@ -190,7 +195,9 @@ class DbExplorerView(QWidget):
         self.models_label.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
         )
-        self.models_label.setText("Comparando con los modelos…")
+        self.models_label.setText(
+            QCoreApplication.translate("DbExplorerView", "Comparando con los modelos…")
+        )
 
         self.tables = TablesModel(self.locale(), self)
         # While the tree is rebuilt, setting its current row is not the
@@ -225,7 +232,7 @@ class DbExplorerView(QWidget):
         hl.setSpacing(4)
         top = QHBoxLayout()
         top.setSpacing(8)
-        self.title = QLabel("Elige una tabla")
+        self.title = QLabel(QCoreApplication.translate("DbExplorerView", "Elige una tabla"))
         self.title.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT}; font-size: {Fonts.SIZE_BASE}px; "
             f"font-weight: 600;"
@@ -237,7 +244,11 @@ class DbExplorerView(QWidget):
         # A long name gets cut; it takes no width from the tree.
         for label in (self.title, self.subtitle):
             label.setMinimumWidth(1)
-        self.count_btn = self._chip("Contar", "Contar las filas exactas (COUNT(*))", self._count)
+        self.count_btn = self._chip(
+            QCoreApplication.translate("DbExplorerView", "Contar"),
+            QCoreApplication.translate("DbExplorerView", "Contar las filas exactas (COUNT(*))"),
+            self._count,
+        )
         self.count_btn.setEnabled(False)
         top.addWidget(self.title)
         top.addWidget(self.subtitle)
@@ -277,11 +288,15 @@ class DbExplorerView(QWidget):
         self.table.horizontalHeader().sectionClicked.connect(self._on_sort)
         self.table.horizontalHeader().setHighlightSections(False)
         self.table.doubleClicked.connect(self._on_cell_double_clicked)
-        self.tabs.addTab(self.table, "Datos")
+        self.tabs.addTab(self.table, QCoreApplication.translate("DbExplorerView", "Datos"))
 
-        self.columns_pane = self._add_pane("Columnas")
-        self.indexes_pane = self._add_pane("Índices")
-        self.constraints_pane = self._add_pane("Constraints")
+        self.columns_pane = self._add_pane(
+            QCoreApplication.translate("DbExplorerView", "Columnas")
+        )
+        self.indexes_pane = self._add_pane(QCoreApplication.translate("DbExplorerView", "Índices"))
+        self.constraints_pane = self._add_pane(
+            QCoreApplication.translate("DbExplorerView", "Constraints")
+        )
         rl.addWidget(self.tabs, 1)
         splitter.addWidget(right)
 
@@ -363,8 +378,18 @@ class DbExplorerView(QWidget):
                 self._fit_columns()
                 # An empty grid with its headers looked like a table
                 # that did not load: it says it has no rows.
-                criteria = " con este filtro" if self._trail and self._trail[-1][1] else ""
-                self._show_status("" if payload.rows else f"La tabla no tiene filas{criteria}.")
+                criteria = (
+                    QCoreApplication.translate("DbExplorerView", " con este filtro")
+                    if self._trail and self._trail[-1][1]
+                    else ""
+                )
+                self._show_status(
+                    ""
+                    if payload.rows
+                    else QCoreApplication.translate(
+                        "DbExplorerView", "La tabla no tiene filas{0}."
+                    ).format(criteria)
+                )
             else:
                 self._show_status("")
         elif kind == "count":
@@ -417,7 +442,9 @@ class DbExplorerView(QWidget):
     def _update_models_label(self) -> None:
         c = self._comparison
         if c is None:
-            text = self._models_error or "Comparando con los modelos…"
+            text = self._models_error or QCoreApplication.translate(
+                "DbExplorerView", "Comparando con los modelos…"
+            )
             color = Colors.WARNING if self._models_error else Colors.TEXT_MUTED
             self.models_label.setText(
                 f"<span style='color:{color};'>{html.escape(text, quote=False)}</span>"
@@ -426,25 +453,32 @@ class DbExplorerView(QWidget):
             return
         parts = []
         for status, text in (
-            (dbm.MISSING, "faltan en la base"),
-            (dbm.CHANGED, "difieren"),
-            (dbm.UNMODELED, "sin modelo"),
+            (dbm.MISSING, QCoreApplication.translate("DbExplorerView", "faltan en la base")),
+            (dbm.CHANGED, QCoreApplication.translate("DbExplorerView", "difieren")),
+            (dbm.UNMODELED, QCoreApplication.translate("DbExplorerView", "sin modelo")),
         ):
             n = c.count(status)
             if n:
                 mark, color = TablesModel.MARKS[status]
                 parts.append(f"<span style='color:{color};'>{mark}{n} {text}</span>")
         if parts:
-            self.models_label.setText(f"{len(c.models)} modelos: " + " · ".join(parts))
+            self.models_label.setText(
+                QCoreApplication.translate("DbExplorerView", "{0} modelos: ").format(len(c.models))
+                + " · ".join(parts)
+            )
         else:
             self.models_label.setText(
-                f"<span style='color:{Colors.SUCCESS};'>"
-                f"✓ Al día con los {len(c.models)} modelos</span>"
+                QCoreApplication.translate(
+                    "DbExplorerView",
+                    "<span style='color:{0};'>✓ Al día con los {1} modelos</span>",
+                ).format(Colors.SUCCESS, len(c.models))
             )
         self.models_label.setToolTip(
-            "✕ en los modelos, no en la base (falta migrar)\n"
-            "≠ columnas o tipos distintos de su modelo\n"
-            "+ en la base, sin modelo que la declare"
+            QCoreApplication.translate(
+                "DbExplorerView",
+                "✕ en los modelos, no en la base (falta migrar)\n≠ columnas o tipos "
+                "distintos de su modelo\n+ en la base, sin modelo que la declare",
+            )
         )
 
     def _status_of(self, qualified: str) -> dbm.TableStatus | None:
@@ -556,7 +590,7 @@ class DbExplorerView(QWidget):
         self._clear_structure()
         self._update_header()
         self._rebuild_trail()
-        self._show_status("Cargando…")
+        self._show_status(QCoreApplication.translate("DbExplorerView", "Cargando…"))
         self._send("describe", relation=rel)
 
     def _open_missing(self, model: dbm.ModelTable) -> None:
@@ -576,7 +610,12 @@ class DbExplorerView(QWidget):
         self._rebuild_trail()
         self._update_header()
         self._fill_model_structure(model)
-        self._show_status("Esta tabla está en los modelos pero no en la base: falta migrar.")
+        self._show_status(
+            QCoreApplication.translate(
+                "DbExplorerView",
+                "Esta tabla está en los modelos pero no en la base: falta migrar.",
+            )
+        )
         self.tabs.setCurrentIndex(1)
 
     def _show_detail(self, detail: dbx.TableDetail, *, keep_rows: bool) -> None:
@@ -647,12 +686,14 @@ class DbExplorerView(QWidget):
         if self._missing is not None:
             self.title.setText(self._missing.qualified)
             self.subtitle.setText(
-                f"falta en la base  ·  modelo en app/models/{self._missing.source}"
+                QCoreApplication.translate(
+                    "DbExplorerView", "falta en la base  ·  modelo en app/models/{0}"
+                ).format(self._missing.source)
             )
             self.count_btn.setEnabled(False)
             return
         if not self._trail:
-            self.title.setText("Elige una tabla")
+            self.title.setText(QCoreApplication.translate("DbExplorerView", "Elige una tabla"))
             self.subtitle.setText("")
             self.count_btn.setEnabled(False)
             return
@@ -660,11 +701,22 @@ class DbExplorerView(QWidget):
         self.title.setText(rel.qualified)
         parts = [rel.kind_label]
         if self._exact is not None:
-            rows = "fila" if self._exact == 1 else "filas"
+            rows = (
+                QCoreApplication.translate("DbExplorerView", "fila")
+                if self._exact == 1
+                else QCoreApplication.translate("DbExplorerView", "filas")
+            )
             exact = self.locale().toString(self._exact)
-            parts.append(f"{exact} {rows}" + (" con el filtro" if where else ""))
+            parts.append(
+                f"{exact} {rows}"
+                + (QCoreApplication.translate("DbExplorerView", " con el filtro") if where else "")
+            )
         elif rel.kind != "v":
-            parts.append(f"~{dbx.human_count(rel.estimate, self.locale())} filas")
+            parts.append(
+                QCoreApplication.translate("DbExplorerView", "~{0} filas").format(
+                    dbx.human_count(rel.estimate, self.locale())
+                )
+            )
         if rel.kind != "v":
             parts.append(human_size(rel.size_bytes, self.locale()))
         self.subtitle.setText("  ·  ".join(parts))
@@ -686,7 +738,12 @@ class DbExplorerView(QWidget):
     def _follow(self, schema: str, table: str, where: dbx.Filter) -> None:
         target = next((r for r in self._relations if r.schema == schema and r.name == table), None)
         if target is None:
-            self._show_status(f"{schema}.{table} no está en el catálogo leído.", error=True)
+            self._show_status(
+                QCoreApplication.translate(
+                    "DbExplorerView", "{0}.{1} no está en el catálogo leído."
+                ).format(schema, table),
+                error=True,
+            )
             return
         self._open(target, where, reset_trail=False)
 
@@ -746,32 +803,53 @@ class DbExplorerView(QWidget):
         if status is not None and status.status == dbm.CHANGED:
             self._section(
                 cols,
-                "Diferencias con el modelo",
-                ["Columna", "En la base", "En el modelo"],
-                [[d.column, d.db or "— falta", d.model or "— sobra"] for d in status.diffs],
+                QCoreApplication.translate("DbExplorerView", "Diferencias con el modelo"),
+                [
+                    QCoreApplication.translate("DbExplorerView", "Columna"),
+                    QCoreApplication.translate("DbExplorerView", "En la base"),
+                    QCoreApplication.translate("DbExplorerView", "En el modelo"),
+                ],
+                [
+                    [
+                        d.column,
+                        d.db or QCoreApplication.translate("DbExplorerView", "— falta"),
+                        d.model or QCoreApplication.translate("DbExplorerView", "— sobra"),
+                    ]
+                    for d in status.diffs
+                ],
                 title_color=Colors.WARNING,
             )
         elif status is not None and status.status == dbm.UNMODELED:
             self._note(
-                cols, "Ningún modelo de app/models declara esta tabla.", Colors.ACCENT_PURPLE
+                cols,
+                QCoreApplication.translate(
+                    "DbExplorerView", "Ningún modelo de app/models declara esta tabla."
+                ),
+                Colors.ACCENT_PURPLE,
             )
         elif status is not None and status.status == dbm.OK and status.model:
             self._note(
-                cols, f"Igual a su modelo: app/models/{status.model.source}", Colors.SUCCESS
+                cols,
+                QCoreApplication.translate(
+                    "DbExplorerView", "Igual a su modelo: app/models/{0}"
+                ).format(status.model.source),
+                Colors.SUCCESS,
             )
         col_rows = []
         for col in detail.columns:
-            key = "🔑 PK" if col.pk else ""
+            key = QCoreApplication.translate("DbExplorerView", "🔑 PK") if col.pk else ""
             if col.fk:
                 key = (key + "  " if key else "") + f"↗ {col.fk.ref_table}.{col.fk.ref_columns[0]}"
             extra = {"a": "identity always", "d": "identity"}.get(col.identity, "")
             if col.generated:
-                extra = "generada"
+                extra = QCoreApplication.translate("DbExplorerView", "generada")
             col_rows.append(
                 [
                     col.name,
                     col.type,
-                    "" if col.nullable else "NOT NULL",
+                    ""
+                    if col.nullable
+                    else QCoreApplication.translate("DbExplorerView", "NOT NULL"),
                     col.default or extra,
                     key,
                     col.comment or "",
@@ -779,26 +857,40 @@ class DbExplorerView(QWidget):
             )
         self._section(
             cols,
-            "Columnas",
-            ["Nombre", "Tipo", "Nulo", "Default", "Llave", "Comentario"],
+            QCoreApplication.translate("DbExplorerView", "Columnas"),
+            [
+                QCoreApplication.translate("DbExplorerView", "Nombre"),
+                QCoreApplication.translate("DbExplorerView", "Tipo"),
+                QCoreApplication.translate("DbExplorerView", "Nulo"),
+                QCoreApplication.translate("DbExplorerView", "Default"),
+                QCoreApplication.translate("DbExplorerView", "Llave"),
+                QCoreApplication.translate("DbExplorerView", "Comentario"),
+            ],
             col_rows,
         )
 
         if detail.indexes:
             self._section(
                 self.indexes_pane,
-                "Índices",
-                ["Nombre", "Definición"],
+                QCoreApplication.translate("DbExplorerView", "Índices"),
+                [
+                    QCoreApplication.translate("DbExplorerView", "Nombre"),
+                    QCoreApplication.translate("DbExplorerView", "Definición"),
+                ],
                 [[ix.name, ix.definition] for ix in detail.indexes],
             )
         else:
-            self._note(self.indexes_pane, "La tabla no tiene índices.", Colors.TEXT_MUTED)
+            self._note(
+                self.indexes_pane,
+                QCoreApplication.translate("DbExplorerView", "La tabla no tiene índices."),
+                Colors.TEXT_MUTED,
+            )
 
         # «Referenciada por» are other tables' FKs to this one:
         # constraints too, seen from the other side.
         kinds = {
-            "p": "PRIMARY KEY",
-            "f": "FOREIGN KEY",
+            "p": QCoreApplication.translate("DbExplorerView", "PRIMARY KEY"),
+            "f": QCoreApplication.translate("DbExplorerView", "FOREIGN KEY"),
             "u": "UNIQUE",
             "c": "CHECK",
             "x": "EXCLUDE",
@@ -806,12 +898,20 @@ class DbExplorerView(QWidget):
         if detail.constraints:
             self._section(
                 self.constraints_pane,
-                "Constraints",
-                ["Nombre", "Tipo", "Definición"],
+                QCoreApplication.translate("DbExplorerView", "Constraints"),
+                [
+                    QCoreApplication.translate("DbExplorerView", "Nombre"),
+                    QCoreApplication.translate("DbExplorerView", "Tipo"),
+                    QCoreApplication.translate("DbExplorerView", "Definición"),
+                ],
                 [[c.name, kinds.get(c.kind, c.kind), c.definition] for c in detail.constraints],
             )
         else:
-            self._note(self.constraints_pane, "La tabla no tiene constraints.", Colors.TEXT_MUTED)
+            self._note(
+                self.constraints_pane,
+                QCoreApplication.translate("DbExplorerView", "La tabla no tiene constraints."),
+                Colors.TEXT_MUTED,
+            )
         if detail.incoming:
             rows = [
                 [
@@ -824,11 +924,18 @@ class DbExplorerView(QWidget):
             ]
             table = self._section(
                 self.constraints_pane,
-                "Referenciada por",
-                ["Tabla", "Columnas", "→ de esta tabla", "Constraint"],
+                QCoreApplication.translate("DbExplorerView", "Referenciada por"),
+                [
+                    QCoreApplication.translate("DbExplorerView", "Tabla"),
+                    QCoreApplication.translate("DbExplorerView", "Columnas"),
+                    QCoreApplication.translate("DbExplorerView", "→ de esta tabla"),
+                    QCoreApplication.translate("DbExplorerView", "Constraint"),
+                ],
                 rows,
             )
-            table.setToolTip("Doble clic para abrir esa tabla")
+            table.setToolTip(
+                QCoreApplication.translate("DbExplorerView", "Doble clic para abrir esa tabla")
+            )
 
             def follow_incoming(
                 index: QModelIndex, fks: list[dbx.ForeignKey] = detail.incoming
@@ -844,25 +951,38 @@ class DbExplorerView(QWidget):
         self._clear_structure()
         self._note(
             self.columns_pane,
-            f"Declarada en app/models/{model.source}. Todavía no existe en la base.",
+            QCoreApplication.translate(
+                "DbExplorerView", "Declarada en app/models/{0}. Todavía no existe en la base."
+            ).format(model.source),
             Colors.ERROR,
         )
         self._section(
             self.columns_pane,
-            "Columnas del modelo",
-            ["Nombre", "Tipo", "Nulo", "Llave"],
+            QCoreApplication.translate("DbExplorerView", "Columnas del modelo"),
+            [
+                QCoreApplication.translate("DbExplorerView", "Nombre"),
+                QCoreApplication.translate("DbExplorerView", "Tipo"),
+                QCoreApplication.translate("DbExplorerView", "Nulo"),
+                QCoreApplication.translate("DbExplorerView", "Llave"),
+            ],
             [
                 [
                     c.name,
                     dbm.normalize_type(c.type),
-                    "" if c.nullable else "NOT NULL",
-                    "🔑 PK" if c.pk else "",
+                    "" if c.nullable else QCoreApplication.translate("DbExplorerView", "NOT NULL"),
+                    QCoreApplication.translate("DbExplorerView", "🔑 PK") if c.pk else "",
                 ]
                 for c in model.columns
             ],
         )
         for pane in (self.indexes_pane, self.constraints_pane):
-            self._note(pane, "La tabla todavía no existe en la base.", Colors.ERROR)
+            self._note(
+                pane,
+                QCoreApplication.translate(
+                    "DbExplorerView", "La tabla todavía no existe en la base."
+                ),
+                Colors.ERROR,
+            )
         for pane in self._panes():
             pane.addStretch()
 

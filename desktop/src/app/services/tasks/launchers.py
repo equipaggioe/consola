@@ -19,6 +19,8 @@ from __future__ import annotations
 import threading
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import canone, envfile, fields, ports, runner, session, ssh, targets, toolchain
 from app.services import database as db
 from app.services.context import TaskContext
@@ -46,9 +48,13 @@ def resolve_server_port(ctx: TaskContext, preferred: int = 8000, search: bool = 
     Not a button: nobody asks to choose a port and nothing else. It is
     plumbing of `serve_backend`, which is one (ADR-0008).
     """
-    port = ports.resolve_port(preferred, search=search, label="puerto del backend")
+    port = ports.resolve_port(
+        preferred,
+        search=search,
+        label=QCoreApplication.translate("launchers", "puerto del backend"),
+    )
     session.publish(ctx.project_name, SERVER_PORT, port)
-    ctx.info(f"Puerto del backend: {port}")
+    ctx.info(QCoreApplication.translate("launchers", "Puerto del backend: {0}").format(port))
     return port
 
 
@@ -67,13 +73,20 @@ def backend_url(ctx: TaskContext, *, wait: float = 0.0, required: bool = True) -
     endpoint = ctx.endpoint(BACKEND, wait=wait)
     if endpoint is not None:
         if endpoint.state == session.DOWN and required:
-            raise TaskError(f"El backend no llego a responder en {endpoint.url}.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "launchers", "El backend no llego a responder en {0}."
+                ).format(endpoint.url)
+            )
         return endpoint.url
     if not required:
         return ""
     raise TaskError(
-        "El backend todavia no arranco en esta sesion: "
-        'levantalo primero, o usa "Entorno de desarrollo".'
+        QCoreApplication.translate(
+            "launchers",
+            "El backend todavia no arranco en esta sesion: levantalo primero, o usa "
+            '"Entorno de desarrollo".',
+        )
     )
 
 
@@ -87,7 +100,9 @@ def resolve_tls(ctx: TaskContext, server: Path) -> tuple[Path, Path] | None:
     key = server / "certs" / "key.pem"
     if cert.is_file() and key.is_file():
         return cert, key
-    ctx.warn("TLS deshabilitado: faltan los certificados.")
+    ctx.warn(
+        QCoreApplication.translate("launchers", "TLS deshabilitado: faltan los certificados.")
+    )
     return None
 
 
@@ -127,8 +142,16 @@ def serve_backend(
     schema = "https" if tls else "http"
 
     def start(environment: dict[str, str]) -> None:
-        ctx.info(f"Backend {app} escuchando en {host}:{port}")
-        ctx.serve(f"{schema}://localhost:{port}", key=BACKEND, label="Backend")
+        ctx.info(
+            QCoreApplication.translate("launchers", "Backend {0} escuchando en {1}:{2}").format(
+                app, host, port
+            )
+        )
+        ctx.serve(
+            f"{schema}://localhost:{port}",
+            key=BACKEND,
+            label=QCoreApplication.translate("launchers", "Backend"),
+        )
         try:
             ctx.run(argv, cwd=server, env=environment, check=False)
         finally:
@@ -139,7 +162,11 @@ def serve_backend(
             start({"DATABASE_URL": conn.url})
         return
     if scope != db.LOCAL:
-        raise TaskError("Un repo de canone levanta su backend solo contra la base local.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "launchers", "Un repo de canone levanta su backend solo contra la base local."
+            )
+        )
     folder = runner.write_credentials(
         ctx, server, runner.CREDENTIALS, canone.credential_files(server, ctx.config)
     )
@@ -162,7 +189,10 @@ def serve_spa(
     (ADR-0010).
     """
     spa = targets.pick(ctx.root, (targets.SPA_VITE,), target)
-    port = ports.resolve_port(preferred_port, label=f"puerto de {spa.name}")
+    port = ports.resolve_port(
+        preferred_port,
+        label=QCoreApplication.translate("launchers", "puerto de {0}").format(spa.name),
+    )
 
     # No backend is no error: the SPA starts with what its .env has.
     # With a backend starting in another tab, it waits: the order the
@@ -170,9 +200,14 @@ def serve_spa(
     # where to connect.
     api = backend_url(ctx, wait=wait_backend, required=False)
     if api:
-        ctx.info(f"Backend detectado: {api}")
+        ctx.info(QCoreApplication.translate("launchers", "Backend detectado: {0}").format(api))
     else:
-        ctx.warn("El backend no esta corriendo: la SPA va a usar su propia configuracion.")
+        ctx.warn(
+            QCoreApplication.translate(
+                "launchers",
+                "El backend no esta corriendo: la SPA va a usar su propia configuracion.",
+            )
+        )
 
     ctx.serve(f"http://localhost:{port}", key=f"spa:{spa.name}", label=spa.name)
     # pnpm hands the options after the script to it: a `--` would reach
@@ -204,10 +239,16 @@ def run_mobile(ctx: TaskContext, target: str = "", device: str = "") -> None:
         or toolchain.pick_emulator(toolchain.devices(ctx, app.path))
     )
     if not serial:
-        raise TaskError("No hay ningun emulador Android corriendo. Arranca uno primero.")
+        raise TaskError(
+            QCoreApplication.translate(
+                "launchers", "No hay ningun emulador Android corriendo. Arranca uno primero."
+            )
+        )
 
     api = ctx.config.get("API_URL") or backend_url(ctx, wait=BACKEND_WAIT)
-    ctx.info(f"{kind} en {serial} contra {api}")
+    ctx.info(
+        QCoreApplication.translate("launchers", "{0} en {1} contra {2}").format(kind, serial, api)
+    )
 
     if kind == toolchain.FLUTTER:
         argv = [*toolchain.flutter_cmd(), "run", "-d", serial, f"--dart-define=API_BASE_URL={api}"]
@@ -240,7 +281,9 @@ def run_python_app(
     entry = targets.python_entrypoint(app.path)
     if entry is None:
         raise TaskError(
-            f"{app.name} no tiene punto de entrada ({', '.join(targets.PYTHON_ENTRYPOINTS)})."
+            QCoreApplication.translate("launchers", "{0} no tiene punto de entrada ({1}).").format(
+                app.name, ", ".join(targets.PYTHON_ENTRYPOINTS)
+            )
         )
     source = entry.parent
     interpreter = toolchain.app_python(app.path, ctx.root)
@@ -252,17 +295,17 @@ def run_python_app(
     api = backend_url(ctx, wait=wait_backend, required=False)
     if api:
         environment["SERVER_URL"] = api
-        ctx.info(f"Backend detectado: {api}")
+        ctx.info(QCoreApplication.translate("launchers", "Backend detectado: {0}").format(api))
     if auto_login:
         environment["TERMINAL_DEV_AUTO_LOGIN"] = "true"
 
     if not watch:
-        ctx.info(f"Lanzando {app.name}...")
+        ctx.info(QCoreApplication.translate("launchers", "Lanzando {0}...").format(app.name))
         ctx.run([*interpreter, entry.name], cwd=source, env=environment or None, check=False)
         return
 
     while not ctx.cancelled:
-        ctx.info(f"Lanzando {app.name}...")
+        ctx.info(QCoreApplication.translate("launchers", "Lanzando {0}...").format(app.name))
         # The watcher runs next to the process and kills it as soon as a
         # source changes: `ctx.run` returns and the next round
         # relaunches it. If the process ends by itself with no changes,
@@ -284,9 +327,13 @@ def run_python_app(
         if ctx.cancelled:
             return
         if not change.is_set():
-            ctx.info(f"{app.name} termino con codigo {code}.")
+            ctx.info(
+                QCoreApplication.translate("launchers", "{0} termino con codigo {1}.").format(
+                    app.name, code
+                )
+            )
             return
-        ctx.info("Cambios detectados: reiniciando.")
+        ctx.info(QCoreApplication.translate("launchers", "Cambios detectados: reiniciando."))
 
 
 # How often sources are checked. Half a second goes unnoticed when
@@ -334,7 +381,11 @@ def open_ssh_session(ctx: TaskContext) -> None:
     """
     remote = ssh.resolve_remote(ctx.config)
     ctx.detach(ssh.terminal_argv(remote))
-    ctx.ok(f"Sesion SSH abierta en una terminal externa: {remote.target}")
+    ctx.ok(
+        QCoreApplication.translate(
+            "launchers", "Sesion SSH abierta en una terminal externa: {0}"
+        ).format(remote.target)
+    )
 
 
 def bind_all() -> None:

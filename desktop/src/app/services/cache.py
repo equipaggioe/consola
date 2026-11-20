@@ -22,6 +22,8 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.errors import TaskError
 from app.services.host import HOST
 
@@ -49,7 +51,11 @@ def read(name: str, *, max_age: float) -> Any | None:
     except FileNotFoundError:
         return None
     except (OSError, ValueError, KeyError) as exc:
-        raise TaskError(f"No se puede leer la caché {path}: bórrala. ({exc})") from exc
+        raise TaskError(
+            QCoreApplication.translate(
+                "cache", "No se puede leer la caché {0}: bórrala. ({1})"
+            ).format(path, exc)
+        ) from exc
 
 
 def write(name: str, value: Any) -> None:
@@ -59,7 +65,11 @@ def write(name: str, value: Any) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
         path.write_text(json.dumps({"saved": time.time(), "value": value}), encoding="utf-8")
     except OSError as exc:
-        raise TaskError(f"No se puede escribir la caché {path}: {exc}") from exc
+        raise TaskError(
+            QCoreApplication.translate("cache", "No se puede escribir la caché {0}: {1}").format(
+                path, exc
+            )
+        ) from exc
 
 
 def forget(name: str) -> None:

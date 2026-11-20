@@ -9,6 +9,8 @@ from dataclasses import dataclass, field
 from pathlib import Path
 from typing import TYPE_CHECKING
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import ports, process, session
 from app.services.envfile import Config
 from app.services.errors import Cancelled, MissingConfig, TaskError
@@ -90,14 +92,14 @@ class TaskContext:
     def root(self) -> Path:
         """Return the project's root, or stop if none is open."""
         if self.project is None:
-            raise TaskError("No hay proyecto abierto.")
+            raise TaskError(QCoreApplication.translate("TaskContext", "No hay proyecto abierto."))
         return Path(self.project.path)
 
     @property
     def project_name(self) -> str:
         """Return the project's name, or stop if none is open."""
         if self.project is None:
-            raise TaskError("No hay proyecto abierto.")
+            raise TaskError(QCoreApplication.translate("TaskContext", "No hay proyecto abierto."))
         return self.project.name
 
     def path(self, *parts: str) -> Path:
@@ -194,7 +196,11 @@ class TaskContext:
             stdin_text=stdin_text,
         )
         if check and code != 0:
-            raise TaskError(f"El comando termino con codigo {code}.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "TaskContext", "El comando termino con codigo {0}."
+                ).format(code)
+            )
         return code
 
     def converse(
@@ -216,7 +222,11 @@ class TaskContext:
             register=self._children.append,
         )
         if check and code != 0:
-            raise TaskError(f"El comando termino con codigo {code}.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "TaskContext", "El comando termino con codigo {0}."
+                ).format(code)
+            )
         return code
 
     def capture(
@@ -273,7 +283,12 @@ class TaskContext:
         if project:
             session.publish_endpoint(project, endpoint)
         self._served.append((project, endpoint_key))
-        self.log(f"Disponible en {url} (arrancando...)", Level.INFO)
+        self.log(
+            QCoreApplication.translate("TaskContext", "Disponible en {0} (arrancando...)").format(
+                url
+            ),
+            Level.INFO,
+        )
         self._emit_serve(endpoint)
         if wait > 0:
             threading.Thread(
@@ -297,9 +312,16 @@ class TaskContext:
             session.mark_endpoint(project, endpoint.key, state)
         endpoint.state = state
         if ready:
-            self.log(f"Listo: {endpoint.url}", Level.OK)
+            self.log(
+                QCoreApplication.translate("TaskContext", "Listo: {0}").format(endpoint.url),
+                Level.OK,
+            )
         else:
-            self.warn(f"{endpoint.url} no contesto despues de {int(timeout)}s.")
+            self.warn(
+                QCoreApplication.translate(
+                    "TaskContext", "{0} no contesto despues de {1}s."
+                ).format(endpoint.url, int(timeout))
+            )
         self._emit_serve(endpoint)
 
     def _emit_serve(self, endpoint: Endpoint) -> None:
@@ -356,10 +378,18 @@ class TaskContext:
         Closing the dialog cancels.
         """
         if self.ask_sink is None:
-            raise TaskError(f"Hace falta un dato que nadie puede responder: {prompt}")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "TaskContext", "Hace falta un dato que nadie puede responder: {0}"
+                ).format(prompt)
+            )
         answer = self.ask_sink(prompt, ASK_SECRET if secret else ASK_TEXT, False, "")
         if answer == ASK_CANCELLED:
-            raise Cancelled("Cancelado: no se dio el dato que la accion pedia.")
+            raise Cancelled(
+                QCoreApplication.translate(
+                    "TaskContext", "Cancelado: no se dio el dato que la accion pedia."
+                )
+            )
         if secret:
             self.guard(answer)
         return answer
@@ -462,7 +492,7 @@ class TaskContext:
     def raise_if_cancelled(self) -> None:
         """Raise `Cancelled` if the task was stopped."""
         if self._cancel.is_set():
-            raise Cancelled("Detenido por el usuario.")
+            raise Cancelled(QCoreApplication.translate("TaskContext", "Detenido por el usuario."))
 
     def child(self, capability_id: str) -> "TaskContext":
         """Return a context for an inner step.

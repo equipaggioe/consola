@@ -13,6 +13,8 @@ from __future__ import annotations
 import ast
 from pathlib import Path
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services.errors import TaskError
 from app.services.settings import Setting, get_setting
 
@@ -44,7 +46,9 @@ def settings_fields(server: Path) -> list[str]:
                 for line in node.body
                 if isinstance(line, ast.AnnAssign) and isinstance(line.target, ast.Name)
             ]
-    raise TaskError(f"{path} no declara la clase Settings.")
+    raise TaskError(
+        QCoreApplication.translate("fields", "{0} no declara la clase Settings.").format(path)
+    )
 
 
 def field_settings(server: Path) -> tuple[Setting, ...]:
@@ -59,6 +63,10 @@ def field_settings(server: Path) -> tuple[Setting, ...]:
             continue
         key = field.upper()
         if get_setting(key) is not None:
-            raise TaskError(f"El campo {field} de Settings choca con la clave {key} de Consola.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "fields", "El campo {0} de Settings choca con la clave {1} de Consola."
+                ).format(field, key)
+            )
         keys.append(Setting(key, GROUP, field, secret=True))
     return tuple(keys)

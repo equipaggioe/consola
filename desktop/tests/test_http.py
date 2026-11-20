@@ -10,6 +10,7 @@ from concurrent.futures import ThreadPoolExecutor
 from typing import override
 
 import pytest
+from PySide6.QtCore import QLocale
 from pytestqt.qtbot import QtBot
 
 from app.api import http as consola_http
@@ -35,6 +36,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
         first = self.calls[self.path] == 1
         if self.path == "/text":
             self._answer(200, f"ua={self.headers['User-Agent']}".encode())
+        elif self.path == "/language":
+            self._answer(200, str(self.headers["Accept-Language"]).encode())
         elif self.path == "/large":
             self._answer(200, b"x" * SIZE)
         elif self.path == "/unavailable":
@@ -108,6 +111,12 @@ def test_a_get_returns_the_body_and_sends_the_headers(qtbot: QtBot, server: str)
         qtbot, lambda: consola_http.request(f"{server}/text", headers={"User-Agent": "consola"})
     )
     assert body == b"ua=consola"
+
+
+def test_a_request_sends_the_interface_language(qtbot: QtBot, server: str) -> None:
+    """A request sends the interface language in `Accept-Language`."""
+    body = _in_task(qtbot, lambda: consola_http.request(f"{server}/language"))
+    assert body.decode() == QLocale().bcp47Name()
 
 
 def test_a_post_sends_its_body_and_headers(qtbot: QtBot, server: str) -> None:

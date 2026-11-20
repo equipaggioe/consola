@@ -20,7 +20,7 @@ full path: what gets taken for granted when one mistakes the tab.
 
 from __future__ import annotations
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app import theme
@@ -108,7 +108,9 @@ class GuardDialog(QDialog):
 
 
 def join_words(things: list[str]) -> str:
-    """Join the names in Spanish: «a, b y c»."""
+    """Join the names as a list reads: «a, b y c»."""
     if len(things) <= 1:
-        return things[0] if things else "algo"
-    return ", ".join(things[:-1]) + " y " + things[-1]
+        return things[0] if things else QCoreApplication.translate("guard_dialog", "algo")
+    return QCoreApplication.translate("guard_dialog", "{0} y {1}").format(
+        ", ".join(things[:-1]), things[-1]
+    )

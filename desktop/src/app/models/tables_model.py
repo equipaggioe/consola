@@ -8,6 +8,7 @@ from typing import Any, overload, override
 
 from PySide6.QtCore import (
     QAbstractItemModel,
+    QCoreApplication,
     QLocale,
     QModelIndex,
     QObject,
@@ -19,6 +20,7 @@ from PySide6.QtGui import QColor, QFont
 from app.services import db_explorer as dbx
 from app.services import db_models as dbm
 from app.services.files import human_size
+from app.services.language import QT_TRANSLATE_NOOP
 from app.theme import Colors
 
 type Entry = dbx.Relation | dbm.ModelTable
@@ -27,12 +29,16 @@ _GLYPHS = {"v": "◇ ", "m": "◈ ", "f": "⇢ "}
 # Each state against the models in words, for assistive technology:
 # the marks and colors say it only to the eye.
 _STATES = {
-    dbm.MISSING: "falta en la base",
-    dbm.CHANGED: "difiere de su modelo",
-    dbm.UNMODELED: "sin modelo",
+    dbm.MISSING: QT_TRANSLATE_NOOP("tables_model", "falta en la base"),
+    dbm.CHANGED: QT_TRANSLATE_NOOP("tables_model", "difiere de su modelo"),
+    dbm.UNMODELED: QT_TRANSLATE_NOOP("tables_model", "sin modelo"),
 }
-_GROUPS = {"schema": "esquema", "folder": "carpeta de modelos", "unmodeled": "tablas sin modelo"}
-_HEADERS = ("Tabla", "Filas")
+_GROUPS = {
+    "schema": QT_TRANSLATE_NOOP("tables_model", "esquema"),
+    "folder": QT_TRANSLATE_NOOP("tables_model", "carpeta de modelos"),
+    "unmodeled": QT_TRANSLATE_NOOP("tables_model", "tablas sin modelo"),
+}
+_HEADERS = (QT_TRANSLATE_NOOP("tables_model", "Tabla"), QT_TRANSLATE_NOOP("tables_model", "Filas"))
 
 
 @dataclass(eq=False)
@@ -147,7 +153,7 @@ class TablesModel(QAbstractItemModel):
         self, section: int, orientation: Qt.Orientation, role: int = Qt.ItemDataRole.DisplayRole
     ) -> Any:
         if orientation == Qt.Orientation.Horizontal and role == Qt.ItemDataRole.DisplayRole:
-            return _HEADERS[section]
+            return QCoreApplication.translate("tables_model", _HEADERS[section])
         return None
 
     @override
@@ -192,7 +198,13 @@ class TablesModel(QAbstractItemModel):
             return self._relation_tip(rel, status)
         if role == Qt.ItemDataRole.AccessibleTextRole:
             if column == 1:
-                return "" if rel.kind == "v" else f"unas {self._count(rel)} filas"
+                return (
+                    ""
+                    if rel.kind == "v"
+                    else QCoreApplication.translate("TablesModel", "unas {0} filas").format(
+                        self._count(rel)
+                    )
+                )
             schema = node.show_schema and rel.schema != dbm.DEFAULT_SCHEMA
             return rel.qualified if schema else rel.name
         if role == Qt.ItemDataRole.AccessibleDescriptionRole:
@@ -207,11 +219,17 @@ class TablesModel(QAbstractItemModel):
         # The relation in words: kind, partitions, state and access.
         about = [rel.kind_label]
         if node.partitions:
-            about.append(f"{node.partitions} particiones")
+            about.append(
+                QCoreApplication.translate("TablesModel", "{0} particiones").format(
+                    node.partitions
+                )
+            )
         if node.status is not None and node.status.status in _STATES:
-            about.append(_STATES[node.status.status])
+            about.append(QCoreApplication.translate("tables_model", _STATES[node.status.status]))
         if not rel.readable:
-            about.append("el rol de la app no tiene SELECT")
+            about.append(
+                QCoreApplication.translate("TablesModel", "el rol de la app no tiene SELECT")
+            )
         return ", ".join(about)
 
     def _relation_tip(self, rel: dbx.Relation, status: dbm.TableStatus | None) -> str:
@@ -220,27 +238,46 @@ class TablesModel(QAbstractItemModel):
         tip = [f"<b>{rel.qualified}</b> · {rel.kind_label}"]
         if rel.kind not in ("v",):
             size = human_size(rel.size_bytes, self.locale)
-            tip.append(f"~{self._count(rel)} filas · {size}")
+            tip.append(
+                QCoreApplication.translate("TablesModel", "~{0} filas · {1}").format(
+                    self._count(rel), size
+                )
+            )
         if rel.comment:
             tip.append(html.escape(rel.comment, quote=False))
         if status is not None and status.model is not None:
-            tip.append(f"Modelo: app/models/{status.model.source}")
+            tip.append(
+                QCoreApplication.translate("TablesModel", "Modelo: app/models/{0}").format(
+                    status.model.source
+                )
+            )
         if not rel.readable:
             tip.append(
-                f"<span style='color:{Colors.WARNING};'>El rol de la app no tiene SELECT</span>"
+                QCoreApplication.translate(
+                    "TablesModel",
+                    "<span style='color:{0};'>El rol de la app no tiene SELECT</span>",
+                ).format(Colors.WARNING)
             )
         if status is not None and status.status == dbm.CHANGED:
             lines = [html.escape(d.text, quote=False) for d in status.diffs[:12]]
             if len(status.diffs) > 12:
-                lines.append(f"… y {len(status.diffs) - 12} más")
+                lines.append(
+                    QCoreApplication.translate("TablesModel", "… y {0} más").format(
+                        len(status.diffs) - 12
+                    )
+                )
             tip.append(
-                f"<span style='color:{Colors.WARNING};'>Difiere de su modelo:</span><br>"
+                QCoreApplication.translate(
+                    "TablesModel", "<span style='color:{0};'>Difiere de su modelo:</span><br>"
+                ).format(Colors.WARNING)
                 + "<br>".join(lines)
             )
         elif status is not None and status.status == dbm.UNMODELED:
             tip.append(
-                f"<span style='color:{Colors.ACCENT_PURPLE};'>"
-                "Ningún modelo declara esta tabla</span>"
+                QCoreApplication.translate(
+                    "TablesModel",
+                    "<span style='color:{0};'>Ningún modelo declara esta tabla</span>",
+                ).format(Colors.ACCENT_PURPLE)
             )
         return "<br>".join(tip)
 
@@ -329,7 +366,9 @@ class _Builder:
         if not self.by_models:
             return self._group(f"schema:{schema}", schema, self.root)
         if model is None:
-            return self._group("unmodeled", "sin modelo", self.root)
+            return self._group(
+                "unmodeled", QCoreApplication.translate("_Builder", "sin modelo"), self.root
+            )
         node, path = None, ""
         for part in filter(None, model.folder.split("/")):
             path = f"{path}/{part}" if path else part
@@ -352,7 +391,7 @@ def _group_data(node: _Node, column: int, role: int) -> Any:
     if role == Qt.ItemDataRole.AccessibleTextRole:
         return node.label
     if role == Qt.ItemDataRole.AccessibleDescriptionRole:
-        return _GROUPS[node.group.split(":")[0]]
+        return QCoreApplication.translate("tables_model", _GROUPS[node.group.split(":")[0]])
     return None
 
 
@@ -360,19 +399,25 @@ def _missing_data(model: dbm.ModelTable, column: int, role: int) -> Any:
     """Return what a missing model's row shows: name and «falta»."""
     mark, color = TablesModel.MARKS[dbm.MISSING]
     if role == Qt.ItemDataRole.DisplayRole:
-        return "falta" if column == 1 else f"{mark}{model.name}"
+        return (
+            QCoreApplication.translate("tables_model", "falta")
+            if column == 1
+            else f"{mark}{model.name}"
+        )
     if role == Qt.ItemDataRole.ForegroundRole:
         return QColor(color)
     if role == Qt.ItemDataRole.TextAlignmentRole and column == 1:
         return int(Qt.AlignmentFlag.AlignRight)
     if role == Qt.ItemDataRole.AccessibleTextRole:
-        return "falta" if column == 1 else model.name
+        return QCoreApplication.translate("tables_model", "falta") if column == 1 else model.name
     if role == Qt.ItemDataRole.AccessibleDescriptionRole:
-        return f"{_STATES[dbm.MISSING]}: está en app/models/{model.source}"
-    if role == Qt.ItemDataRole.ToolTipRole and column == 0:
-        return (
-            f"<b>{model.qualified}</b><br>Modelo: app/models/{model.source}<br>"
-            f"<span style='color:{color};'>Está en los modelos y no en la base: "
-            "falta migrar</span>"
+        return QCoreApplication.translate("tables_model", "{0}: está en app/models/{1}").format(
+            QCoreApplication.translate("tables_model", _STATES[dbm.MISSING]), model.source
         )
+    if role == Qt.ItemDataRole.ToolTipRole and column == 0:
+        return QCoreApplication.translate(
+            "tables_model",
+            "<b>{0}</b><br>Modelo: app/models/{1}<br><span style='color:{2};'>Está "
+            "en los modelos y no en la base: falta migrar</span>",
+        ).format(model.qualified, model.source, color)
     return None

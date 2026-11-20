@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QEvent, QObject, QPointF, QRectF, Qt, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPointF, QRectF, Qt, Signal
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleActionInterface,
@@ -59,9 +59,11 @@ class _LevelMark(QLabel):
         self.setFixedWidth(12)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self.setToolTip(
-            "Compuesta: encadena varias acciones atómicas"
+            QCoreApplication.translate(
+                "_LevelMark", "Compuesta: encadena varias acciones atómicas"
+            )
             if composite
-            else "Atómica: un solo paso, idempotente"
+            else QCoreApplication.translate("_LevelMark", "Atómica: un solo paso, idempotente")
         )
         color = Colors.TEXT_DIM if composite else Colors.TEXT_MUTED
         self.setStyleSheet(
@@ -86,7 +88,11 @@ class _ScopeMark(QLabel):
         self.setText(self.GLYPH)
         self.setFixedWidth(12)
         self.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.setToolTip("De la máquina: no depende del repositorio abierto")
+        self.setToolTip(
+            QCoreApplication.translate(
+                "_ScopeMark", "De la máquina: no depende del repositorio abierto"
+            )
+        )
         self.setStyleSheet(
             f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
         )
@@ -166,7 +172,7 @@ class ActionRow(QWidget):
         layout.addWidget(_LevelMark(composite))
 
         self.run_btn = QPushButton("▶")
-        self.run_btn.setAccessibleName("Ejecutar")
+        self.run_btn.setAccessibleName(QCoreApplication.translate("ActionRow", "Ejecutar"))
         self.run_btn.setFixedSize(26, 26)
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_btn.clicked.connect(lambda: self.run_requested.emit(self.capability_id))
@@ -178,30 +184,39 @@ class ActionRow(QWidget):
     def _tooltip(self, label: str) -> str:
         """Name, what it does, its level and how the row is used."""
         level = (
-            "Compuesta · encadena varias atómicas" if self.composite else "Atómica · un solo paso"
+            QCoreApplication.translate("ActionRow", "Compuesta · encadena varias atómicas")
+            if self.composite
+            else QCoreApplication.translate("ActionRow", "Atómica · un solo paso")
         )
         if self.machine:
-            level += " · de la máquina, no del repo"
+            level += QCoreApplication.translate("ActionRow", " · de la máquina, no del repo")
         lines = [f"<b>{label}</b>"]
         if self.description:
             lines.append(self.description)
         lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>{level}</span>")
         lines.append(
-            f"<span style='color:{Colors.TEXT_MUTED};'>"
-            "Clic para abrir · clic en el filete para marcar favorita</span>"
+            QCoreApplication.translate(
+                "ActionRow",
+                "<span style='color:{0};'>Clic para abrir · clic en el filete para "
+                "marcar favorita</span>",
+            ).format(Colors.TEXT_MUTED)
         )
         return "<br>".join(lines)
 
     def _describe(self) -> None:
         """Say in words what the stripe and the marks say to the eye."""
         about = [self.description.rstrip(".")] if self.description else []
-        about.append("compuesta" if self.composite else "atómica")
+        about.append(
+            QCoreApplication.translate("ActionRow", "compuesta")
+            if self.composite
+            else QCoreApplication.translate("ActionRow", "atómica")
+        )
         if self.machine:
-            about.append("de la máquina")
+            about.append(QCoreApplication.translate("ActionRow", "de la máquina"))
         if self.danger:
-            about.append("destructiva")
+            about.append(QCoreApplication.translate("ActionRow", "destructiva"))
         if self.favorite:
-            about.append("favorita")
+            about.append(QCoreApplication.translate("ActionRow", "favorita"))
         self.setAccessibleDescription(", ".join(about))
 
     def matches(self, needle: str) -> bool:
@@ -235,9 +250,13 @@ class ActionRow(QWidget):
     def _restyle_run(self) -> None:
         self.run_btn.setEnabled(self._ready)
         self.run_btn.setToolTip(
-            "Correr con los parámetros guardados de este repo"
+            QCoreApplication.translate(
+                "ActionRow", "Correr con los parámetros guardados de este repo"
+            )
             if self._ready
-            else "Faltan claves de configuración para correr sin abrir la pestaña"
+            else QCoreApplication.translate(
+                "ActionRow", "Faltan claves de configuración para correr sin abrir la pestaña"
+            )
         )
         color = self.accent if self._ready else Colors.TEXT_MUTED
         self.run_btn.setStyleSheet(f"""

@@ -19,7 +19,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from PySide6.QtCore import Qt, Signal
+from PySide6.QtCore import QCoreApplication, Qt, Signal
 from PySide6.QtWidgets import QCheckBox, QFrame, QScrollArea, QVBoxLayout, QWidget
 
 from app import theme
@@ -70,10 +70,10 @@ class SecurityPanel(QWidget):
             # The explanation lives in the tooltip, not in text
             # alongside: the checkbox's label already says what it
             # protects.
-            check = QCheckBox(target.setting_label)
+            check = QCheckBox(QCoreApplication.translate("protection", target.setting_label))
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.setChecked(self._state[target.id])
-            check.setToolTip(target.why)
+            check.setToolTip(QCoreApplication.translate("protection", target.why))
 
             def on_toggled(checked: bool, tid: str = target.id) -> None:
                 self._toggle(tid, checked)

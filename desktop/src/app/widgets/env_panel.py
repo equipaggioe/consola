@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 from pathlib import Path
 
-from PySide6.QtCore import Qt, Signal, Slot
+from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
 from PySide6.QtGui import QFont, QFontMetrics
 from PySide6.QtWidgets import (
     QFileDialog,
@@ -135,25 +135,34 @@ class EnvPanel(QWidget):
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(8)
 
-        self.import_btn = QPushButton("Importar desde archivo…")
+        self.import_btn = QPushButton(
+            QCoreApplication.translate("EnvPanel", "Importar desde archivo…")
+        )
         self.import_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.import_btn.clicked.connect(self.browse_import)
 
-        self.create_btn = QPushButton("Crear archivo")
+        self.create_btn = QPushButton(QCoreApplication.translate("EnvPanel", "Crear archivo"))
         self.create_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.create_btn.clicked.connect(self.save)
 
-        self.reload_btn = QPushButton("Recargar")
+        self.reload_btn = QPushButton(QCoreApplication.translate("EnvPanel", "Recargar"))
         self.reload_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.reload_btn.setToolTip(
-            "Descarta los cambios sin guardar, relee el archivo\n"
-            "y vuelve a consultar los catálogos de los parámetros"
+            QCoreApplication.translate(
+                "EnvPanel",
+                "Descarta los cambios sin guardar, relee el archivo\ny vuelve a consultar "
+                "los catálogos de los parámetros",
+            )
         )
         self.reload_btn.clicked.connect(self.reload)
 
-        self.save_btn = QPushButton("Guardar")
+        self.save_btn = QPushButton(QCoreApplication.translate("EnvPanel", "Guardar"))
         self.save_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.save_btn.setToolTip("Escribe .consola/config.env con los valores actuales")
+        self.save_btn.setToolTip(
+            QCoreApplication.translate(
+                "EnvPanel", "Escribe .consola/config.env con los valores actuales"
+            )
+        )
         self.save_btn.clicked.connect(self.save)
 
         lay.addWidget(self.import_btn)
@@ -265,7 +274,8 @@ class EnvPanel(QWidget):
             block = QVBoxLayout(block_widget)
             block.setContentsMargins(0, 0, 0, 0)
             block.setSpacing(6)
-            header = QLabel(group.upper())
+            # The group is a key: settings.py declares it untranslated.
+            header = QLabel(QCoreApplication.translate("settings", group).upper())
             header.setStyleSheet(
                 f"background: transparent; color: {Colors.TEXT_MUTED}; "
                 f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.2px;"
@@ -368,30 +378,40 @@ class EnvPanel(QWidget):
         blocked = bool(self.read_error or self.fields_error)
         current = text is not None and not blocked and envfile.is_current(text, self.fields)
         if self.read_error:
-            state, detail = "ilegible", self.read_error
+            state, detail = QCoreApplication.translate("EnvPanel", "ilegible"), self.read_error
         elif text is None:
-            state = "no existe"
-            detail = (
-                f"No hay {rel} todavía. Pulsa «Crear archivo» para generarlo con todas las claves."
-            )
+            state = QCoreApplication.translate("EnvPanel", "no existe")
+            detail = QCoreApplication.translate(
+                "EnvPanel",
+                "No hay {0} todavía. Pulsa «Crear archivo» para generarlo con todas las claves.",
+            ).format(rel)
         elif current:
-            state, detail = "listo", ""
+            state, detail = QCoreApplication.translate("EnvPanel", "listo"), ""
         else:
-            state = "desactualizado"
+            state = QCoreApplication.translate("EnvPanel", "desactualizado")
             detail = self._outdated_notice(rel, envfile.parse_env(text))
         if self.fields_error:
-            state = "no se puede guardar"
-            detail = f"No se escribe {rel} mientras config.py tenga el error de arriba."
+            state = QCoreApplication.translate("EnvPanel", "no se puede guardar")
+            detail = QCoreApplication.translate(
+                "EnvPanel", "No se escribe {0} mientras config.py tenga el error de arriba."
+            ).format(rel)
 
         self.file_status = f"{rel} — {state}"
         self.file_detail = detail
         self.file_warn = bool(detail)
         self.file_status_changed.emit()
 
-        self.create_btn.setText("Crear archivo" if text is None else "Actualizar archivo")
+        self.create_btn.setText(
+            QCoreApplication.translate("EnvPanel", "Crear archivo")
+            if text is None
+            else QCoreApplication.translate("EnvPanel", "Actualizar archivo")
+        )
         self.create_btn.setToolTip(
-            "Escribe el archivo con todas las claves del esquema, en su orden y con sus "
-            "comentarios, conservando los valores"
+            QCoreApplication.translate(
+                "EnvPanel",
+                "Escribe el archivo con todas las claves del esquema, en su orden y con "
+                "sus comentarios, conservando los valores",
+            )
         )
         # The two share the slot: importing fills the form of a file
         # that already has the schema's form, so until it has it the
@@ -399,14 +419,22 @@ class EnvPanel(QWidget):
         self.create_btn.setVisible(not current and not blocked)
         self.save_btn.setEnabled(not blocked)
         self.import_btn.setVisible(current)
-        self.import_btn.setToolTip("Importa claves conocidas desde otro archivo .env")
+        self.import_btn.setToolTip(
+            QCoreApplication.translate(
+                "EnvPanel", "Importa claves conocidas desde otro archivo .env"
+            )
+        )
 
     def _outdated_notice(self, rel: str, saved: dict[str, str]) -> str:
         """Say the file is outdated, and what writing it erases."""
-        notice = f"{rel} no tiene la forma actual del esquema."
+        notice = QCoreApplication.translate(
+            "EnvPanel", "{0} no tiene la forma actual del esquema."
+        ).format(rel)
         removed = envfile.removed_keys(saved, self.fields)
         if removed:
-            notice += f" Al escribirlo se borran: {', '.join(removed)}."
+            notice += QCoreApplication.translate(
+                "EnvPanel", " Al escribirlo se borran: {0}."
+            ).format(", ".join(removed))
         return notice
 
     @Slot()
@@ -419,9 +447,11 @@ class EnvPanel(QWidget):
         """
         dialog = QFileDialog(
             self,
-            "Importar variables desde…",
+            QCoreApplication.translate("EnvPanel", "Importar variables desde…"),
             self.project.path,
-            "Archivos .env (*.env);;Todos los archivos (*)",
+            QCoreApplication.translate(
+                "EnvPanel", "Archivos .env (*.env);;Todos los archivos (*)"
+            ),
         )
         dialog.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
         dialog.setFileMode(QFileDialog.FileMode.ExistingFile)
@@ -433,15 +463,22 @@ class EnvPanel(QWidget):
         """Fill the empty fields with the known keys of that file."""
         imported = envfile.import_from(path)
         if not imported:
-            self.notice.emit(f"{os.path.basename(path)} no tiene claves reconocidas.", "warn")
+            self.notice.emit(
+                QCoreApplication.translate("EnvPanel", "{0} no tiene claves reconocidas.").format(
+                    os.path.basename(path)
+                ),
+                "warn",
+            )
             return
         for key, value in imported.items():
             row = self.rows.get(key)
             if row is not None and not row.value():
                 row.set_value(value)
         self.notice.emit(
-            f"Se importaron {len(imported)} claves de {os.path.basename(path)}. "
-            f"Revisa y guarda para escribir el archivo.",
+            QCoreApplication.translate(
+                "EnvPanel",
+                "Se importaron {0} claves de {1}. Revisa y guarda para escribir el archivo.",
+            ).format(len(imported), os.path.basename(path)),
             "info",
         )
 
@@ -459,14 +496,24 @@ class EnvPanel(QWidget):
         text = self._read_file()
         if self.read_error:
             self._sync_file_bar(text)
-            self.notice.emit(f"No se guardó: {self.read_error}", "error")
+            self.notice.emit(
+                QCoreApplication.translate("EnvPanel", "No se guardó: {0}").format(
+                    self.read_error
+                ),
+                "error",
+            )
             return
         removed = envfile.removed_keys(envfile.parse_env(text or ""), self.fields)
         path = envfile.save_config(self.project.path, self.values(), self.fields)
         self._sync_file_bar(self._read_file())
-        self.notice.emit(f"Guardado {path}", "ok")
+        self.notice.emit(QCoreApplication.translate("EnvPanel", "Guardado {0}").format(path), "ok")
         if removed:
-            self.notice.emit(f"Se borraron de config.env: {', '.join(removed)}.", "warn")
+            self.notice.emit(
+                QCoreApplication.translate("EnvPanel", "Se borraron de config.env: {0}.").format(
+                    ", ".join(removed)
+                ),
+                "warn",
+            )
         self.saved.emit(self.values())
         self.values_changed.emit(self.values())
 

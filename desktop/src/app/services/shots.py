@@ -18,6 +18,8 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from PySide6.QtCore import QCoreApplication
+
 from app.services import targets
 from app.services.errors import TaskError
 
@@ -101,9 +103,13 @@ def parse_supported(text: str) -> dict[str, dict[str, Any]]:
     try:
         declared = json.loads(text)
     except json.JSONDecodeError as exc:
-        raise TaskError(f"La cámara no contestó JSON a --supported: {text[:200]!r}") from exc
+        raise TaskError(
+            QCoreApplication.translate(
+                "shots", "La cámara no contestó JSON a --supported: {0!r}"
+            ).format(text[:200])
+        ) from exc
     if not isinstance(declared, dict) or not declared:
-        raise TaskError("La cámara no declara ninguna app.")
+        raise TaskError(QCoreApplication.translate("shots", "La cámara no declara ninguna app."))
     for app, spec in declared.items():
         themes = spec.get("themes") if isinstance(spec, dict) else None
         languages = spec.get("languages") if isinstance(spec, dict) else None
@@ -113,11 +119,17 @@ def parse_supported(text: str) -> dict[str, dict[str, Any]]:
             or not languages
             or not isinstance(languages, list)
         ):
-            raise TaskError(f"La cámara declara {app} sin temas o sin idiomas.")
+            raise TaskError(
+                QCoreApplication.translate(
+                    "shots", "La cámara declara {0} sin temas o sin idiomas."
+                ).format(app)
+            )
         foreign = [t for t in themes if t not in THEMES]
         if foreign:
             raise TaskError(
-                f"La cámara declara para {app} temas fuera del contrato: {', '.join(foreign)}."
+                QCoreApplication.translate(
+                    "shots", "La cámara declara para {0} temas fuera del contrato: {1}."
+                ).format(app, ", ".join(foreign))
             )
     return declared
 
@@ -164,7 +176,11 @@ def collect(root: Path, raw: Path, apps: Iterable[str] | None = None) -> list[Sh
     landing with a mix of runs.
     """
     if not raw.is_dir():
-        raise TaskError(f"No existe la carpeta de capturas crudas: {raw}")
+        raise TaskError(
+            QCoreApplication.translate(
+                "shots", "No existe la carpeta de capturas crudas: {0}"
+            ).format(raw)
+        )
     kinds = {t.name: t.kind for t in targets.by_kinds(root, SHOT_KINDS)}
     folders = (
         [raw / a for a in apps]
@@ -176,17 +192,30 @@ def collect(root: Path, raw: Path, apps: Iterable[str] | None = None) -> list[Sh
     for folder in folders:
         if folder.name not in kinds:
             raise TaskError(
-                f"{folder} no corresponde a ninguna app del repo "
-                f"({', '.join(sorted(kinds)) or 'no hay ninguna'})."
+                QCoreApplication.translate(
+                    "shots", "{0} no corresponde a ninguna app del repo ({1})."
+                ).format(
+                    folder,
+                    ", ".join(sorted(kinds))
+                    or QCoreApplication.translate("shots", "no hay ninguna"),
+                )
             )
         if not folder.is_dir():
             continue
         for file in sorted(folder.iterdir()):
             name = _RAW_NAME.match(file.name)
             if not file.is_file() or name is None:
-                raise TaskError(f"{file} no sigue el nombre <pantalla>.<tema>.<idioma>.png.")
+                raise TaskError(
+                    QCoreApplication.translate(
+                        "shots", "{0} no sigue el nombre <pantalla>.<tema>.<idioma>.png."
+                    ).format(file)
+                )
             if name["theme"] not in THEMES:
-                raise TaskError(f'{file}: el tema "{name["theme"]}" no es {" ni ".join(THEMES)}.')
+                raise TaskError(
+                    QCoreApplication.translate("shots", '{0}: el tema "{1}" no es {2}.').format(
+                        file, name["theme"], " ni ".join(THEMES)
+                    )
+                )
             shots.append(
                 Shot(
                     app=folder.name,
@@ -230,7 +259,9 @@ def render_landing(shot: Shot, preset: dict[str, Any], out_dir: Path) -> "Derive
     widths = preset["max_width"]
     if shot.kind not in widths:
         raise TaskError(
-            f"El preset de la landing no tiene ancho para {shot.kind} ({PRESETS_FILE.name})."
+            QCoreApplication.translate(
+                "shots", "El preset de la landing no tiene ancho para {0} ({1})."
+            ).format(shot.kind, PRESETS_FILE.name)
         )
     target = out_dir / shot.app / f"{shot.stem}.webp"
     target.parent.mkdir(parents=True, exist_ok=True)
@@ -287,8 +318,9 @@ def plan(
     own = [s for s in raws if not kinds or s.kind in kinds]
     if not own:
         raise TaskError(
-            f"{destination}: ninguna captura es de un tipo que le sirva "
-            f"({', '.join(kinds or ())})."
+            QCoreApplication.translate(
+                "shots", "{0}: ninguna captura es de un tipo que le sirva ({1})."
+            ).format(destination, ", ".join(kinds or ()))
         )
     if "sizes" not in preset and "limits" not in preset:
         return [(s, None) for s in own]
@@ -314,15 +346,19 @@ def plan(
         if not fit:
             sizes = ", ".join(f"{m['width']}×{m['height']}" for m in preset["sizes"])
             outside.append(
-                f"{shot.app}/{shot.stem} ({width}×{height}) no llega a {sizes} "
-                f"recortando como mucho {preset['max_crop']:.0%}"
+                QCoreApplication.translate(
+                    "shots", "{0}/{1} ({2}×{3}) no llega a {4} recortando como mucho {5:.0%}"
+                ).format(shot.app, shot.stem, width, height, sizes, preset["max_crop"])
             )
         pairs.extend((shot, m) for m in fit)
     if outside:
         raise TaskError(
-            f"{destination}: capturas que no sirven tal como se sacaron. "
-            "Sácalas con un dispositivo de otra proporción o desmarca el "
-            "destino.\n  " + "\n  ".join(outside)
+            QCoreApplication.translate(
+                "shots",
+                "{0}: capturas que no sirven tal como se sacaron. Sácalas con un "
+                "dispositivo de otra proporción o desmarca el destino.\n  ",
+            ).format(destination)
+            + "\n  ".join(outside)
         )
     return pairs
 
@@ -330,11 +366,17 @@ def plan(
 def _outside_limits(width: int, height: int, limits: dict[str, Any]) -> str:
     short, length = sorted((width, height))
     if short < limits["min_side"]:
-        return f"el lado corto es menor que {limits['min_side']} px"
+        return QCoreApplication.translate("shots", "el lado corto es menor que {0} px").format(
+            limits["min_side"]
+        )
     if length > limits["max_side"]:
-        return f"el lado largo pasa de {limits['max_side']} px"
+        return QCoreApplication.translate("shots", "el lado largo pasa de {0} px").format(
+            limits["max_side"]
+        )
     if length > short * limits["max_ratio"]:
-        return f"la proporción {length / short:.2f}:1 pasa de {limits['max_ratio']}:1"
+        return QCoreApplication.translate("shots", "la proporción {0:.2f}:1 pasa de {1}:1").format(
+            length / short, limits["max_ratio"]
+        )
     return ""
 
 
