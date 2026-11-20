@@ -51,6 +51,11 @@ def test_the_language_is_the_first_with_a_translation(preferred: list[str], chos
     assert language.resolve(preferred, ["es"]) == chosen
 
 
+def test_the_saved_choice_goes_before_the_system() -> None:
+    """The saved choice goes first: it wins if it has a translation."""
+    assert language.resolve(["pt", "es-AR"], ["es", "pt"]) == "pt"
+
+
 def test_a_longer_tag_wins_over_its_prefix() -> None:
     """`pt-BR` finds `pt-BR` before `pt`."""
     assert language.resolve(["pt-BR"], ["pt", "pt-BR"]) == "pt-BR"

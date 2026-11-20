@@ -135,18 +135,18 @@ def test_stopping_a_task_does_not_kill_consola() -> None:
     The child used to share Consola's group, and `killpg` killed it:
     with that fault, this test does not fail but kills pytest whole.
     """
-    proc = process.spawn(["sleep", "30"])
-    process.kill_tree(proc, grace=2)
-    assert proc.poll() is not None
+    with process.spawn(["sleep", "30"]) as proc:
+        process.kill_tree(proc, grace=2)
+        assert proc.poll() is not None
 
 
 @posix_only
 def test_stopping_also_kills_the_grandchildren() -> None:
     """Stopping also kills the grandchildren."""
-    proc = process.spawn(["sh", "-c", "sleep 30 & echo $!; wait"])
-    assert proc.stdout is not None
-    grandchild = int(proc.stdout.readline())
-    process.kill_tree(proc, grace=2)
+    with process.spawn(["sh", "-c", "sleep 30 & echo $!; wait"]) as proc:
+        assert proc.stdout is not None
+        grandchild = int(proc.stdout.readline())
+        process.kill_tree(proc, grace=2)
 
     limit = time.monotonic() + 5
     while time.monotonic() < limit:
@@ -170,7 +170,7 @@ def test_the_short_query_does_not_change_session() -> None:
 
 def test_spawn_starts_on_this_system() -> None:
     """`spawn` starts on this system."""
-    proc = process.spawn([sys.executable, "-c", 'print("ok")'])
-    assert proc.stdout is not None
-    assert proc.stdout.readline().strip() == "ok"
-    assert proc.wait(timeout=10) == 0
+    with process.spawn([sys.executable, "-c", 'print("ok")']) as proc:
+        assert proc.stdout is not None
+        assert proc.stdout.readline().strip() == "ok"
+        assert proc.wait(timeout=10) == 0

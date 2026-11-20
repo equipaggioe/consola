@@ -20,6 +20,7 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 from typing import Any, cast
 
 from PySide6.QtCore import QSettings
@@ -67,7 +68,7 @@ def _from_dict(d: dict[str, Any]) -> Project | None:
         return None
     if not path or path == ".":
         return None
-    return Project(str(d.get("name") or os.path.basename(path)), path, "")
+    return Project(str(d.get("name") or Path(path).name), path, "")
 
 
 def _resolve_themes(projects: list[Project]) -> list[Project]:

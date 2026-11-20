@@ -31,6 +31,7 @@ from __future__ import annotations
 import json
 import os
 import tempfile
+from pathlib import Path
 from typing import Any, cast
 
 from PySide6.QtCore import QSettings, QTimer
@@ -71,7 +72,7 @@ def _norm(repo_path: str) -> str:
 
 
 def _file(repo_norm: str) -> str:
-    return os.path.join(repo_norm, CONSOLA_DIR, _FILE_NAME)
+    return str(Path(repo_norm) / CONSOLA_DIR / _FILE_NAME)
 
 
 def _is_machine(capability_id: str) -> bool:
@@ -140,7 +141,7 @@ def _read(repo_path: str) -> dict[str, Any]:
 
     data: dict[str, Any] = {}
     try:
-        with open(_file(key), "r", encoding="utf-8") as fh:
+        with Path(_file(key)).open(encoding="utf-8") as fh:
             loaded = json.load(fh)
         if isinstance(loaded, dict):
             data = {k: v for k, v in loaded.items() if isinstance(v, dict)}
@@ -321,22 +322,22 @@ def _write(repo_norm: str, data: dict[str, Any]) -> None:
     """Write atomically: build it alongside and rename over.
 
     It is ONE file per repo, not a key per button: a cut mid-write would
-    take all the repo's parameters, not one. `os.replace` is atomic on
+    take all the repo's parameters, not one. `Path.replace` is atomic on
     one volume, on Windows too.
     """
-    path = _file(repo_norm)
-    folder = os.path.dirname(path)
+    path = Path(_file(repo_norm))
+    folder = path.parent
     try:
-        os.makedirs(folder, exist_ok=True)
+        folder.mkdir(parents=True, exist_ok=True)
         fd, tmp = tempfile.mkstemp(dir=folder, prefix=".params-", suffix=".tmp")
         try:
             with os.fdopen(fd, "w", encoding="utf-8", newline="\n") as fh:
                 json.dump(data, fh, ensure_ascii=False, indent=2, sort_keys=True)
                 fh.write("\n")
-            os.replace(tmp, path)
+            Path(tmp).replace(path)
         except BaseException:
             try:
-                os.unlink(tmp)
+                Path(tmp).unlink()
             except OSError:
                 pass
             raise

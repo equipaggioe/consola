@@ -41,12 +41,15 @@ target-version = "py313"
 
 [tool.ruff.lint]
 select = [
-  "ASYNC2", "B012", "B904", "D", "DTZ", "E", "F", "G00", "I", "INP", "N", "PGH004", "PT",
-  "PYI050", "PYI057", "PYI061", "RET501", "RET502", "RET503", "RUF006", "RUF036", "S306", "S323",
-  "S324", "S501", "S503", "S612", "T20", "TID251", "TID252", "UP006", "UP007", "UP009", "UP013",
-  "UP019", "UP035", "UP040", "UP045", "UP046", "W",
+  "ASYNC2", "B012", "B904", "D", "DTZ", "E401", "E402", "E501", "E711", "E712", "E713", "E714",
+  "E721", "E731", "E741", "E742", "E743", "E902", "F", "G00", "I", "INP", "N801", "N802", "N803",
+  "N804", "N805", "N806", "N807", "N815", "N816", "N999", "PGH004", "PT", "PTH", "PYI050",
+  "PYI057", "PYI061", "RET501", "RET502", "RET503", "RUF006", "RUF036", "S306", "S323", "S324",
+  "S501", "S503", "S602", "S605", "S612", "T20", "TID251", "TID252", "UP006", "UP007", "UP009",
+  "UP013", "UP019", "UP031", "UP032", "UP035", "UP040", "UP045", "UP046", "W291", "W293", "W505",
+  "W605",
 ]
-ignore = ["E722", "N811", "N812", "N813", "N814", "N817", "N818"]
+ignore = ["D412", "D414", "PTH201", "PTH210"]
 
 [tool.ruff.lint.pycodestyle]
 max-doc-length = 72
@@ -72,12 +75,13 @@ project-includes = ["src", "tests"]
 enabled-ignores = ["pyrefly"]
 
 [tool.pyrefly.errors]
+deprecated = "error"
 unannotated-return = "error"
 
 [tool.pytest.ini_options]
 addopts = ["--import-mode=importlib"]
 strict = true
-filterwarnings = ["error::EncodingWarning"]
+filterwarnings = ["error"]
 testpaths = ["tests"]
 
 [tool.deptry]

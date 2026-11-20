@@ -7,7 +7,7 @@ import hashlib
 import shutil
 import tarfile
 import zipfile
-from collections.abc import Iterable, Iterator
+from collections.abc import Generator, Iterable
 from contextlib import contextmanager
 from pathlib import Path
 
@@ -17,7 +17,7 @@ from app.services.host import HOST
 
 
 @contextmanager
-def reversible(path: Path) -> Iterator[None]:
+def reversible(path: Path) -> Generator[None]:
     """Leave the file as it was if the block fails or is cancelled.
 
     It is the version bump's rollback: if the build dies after touching

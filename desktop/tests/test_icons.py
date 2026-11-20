@@ -395,7 +395,8 @@ def test_the_run_writes_only_what_changes(repo: Path) -> None:
     )
     images.generate_icons(ctx, ["panel", "pwa"])
     assert (repo / "panel" / "src/lib/assets/favicon.svg").read_text(encoding="utf-8") == LOGO
-    assert Image.open(repo / "pwa" / "static/icons/icon-192.png").size == (192, 192)
+    with Image.open(repo / "pwa" / "static/icons/icon-192.png") as icon:
+        assert icon.size == (192, 192)
     assert "  actualizado: panel/src/lib/assets/favicon.svg" in messages
     assert "  nuevo: pwa/static/icons/icon-512.png" in messages
     images.generate_icons(ctx, ["panel"])

@@ -238,12 +238,12 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
 <context>
     <name>Config</name>
     <message>
-        <location filename="../services/envfile.py" line="321"/>
+        <location filename="../services/envfile.py" line="317"/>
         <source>{0} no es un puerto valido: {1}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/envfile.py" line="337"/>
+        <location filename="../services/envfile.py" line="333"/>
         <source>{0} no es un booleano: {1}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -623,129 +623,129 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
 <context>
     <name>EnvPanel</name>
     <message>
-        <location filename="../widgets/env_panel.py" line="139"/>
+        <location filename="../widgets/env_panel.py" line="138"/>
         <source>Importar desde archivo…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="144"/>
-        <location filename="../widgets/env_panel.py" line="405"/>
+        <location filename="../widgets/env_panel.py" line="143"/>
+        <location filename="../widgets/env_panel.py" line="404"/>
         <source>Crear archivo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="148"/>
+        <location filename="../widgets/env_panel.py" line="147"/>
         <source>Recargar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="151"/>
+        <location filename="../widgets/env_panel.py" line="150"/>
         <source>Descarta los cambios sin guardar, relee el archivo
 y vuelve a consultar los catálogos de los parámetros</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="159"/>
+        <location filename="../widgets/env_panel.py" line="158"/>
         <source>Guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="162"/>
+        <location filename="../widgets/env_panel.py" line="161"/>
         <source>Escribe .consola/config.env con los valores actuales</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="381"/>
+        <location filename="../widgets/env_panel.py" line="380"/>
         <source>ilegible</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="383"/>
+        <location filename="../widgets/env_panel.py" line="382"/>
         <source>no existe</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="384"/>
+        <location filename="../widgets/env_panel.py" line="383"/>
         <source>No hay {0} todavía. Pulsa «Crear archivo» para generarlo con todas las claves.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="389"/>
+        <location filename="../widgets/env_panel.py" line="388"/>
         <source>listo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="391"/>
+        <location filename="../widgets/env_panel.py" line="390"/>
         <source>desactualizado</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="394"/>
+        <location filename="../widgets/env_panel.py" line="393"/>
         <source>no se puede guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="395"/>
+        <location filename="../widgets/env_panel.py" line="394"/>
         <source>No se escribe {0} mientras config.py tenga el error de arriba.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="407"/>
+        <location filename="../widgets/env_panel.py" line="406"/>
         <source>Actualizar archivo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="410"/>
+        <location filename="../widgets/env_panel.py" line="409"/>
         <source>Escribe el archivo con todas las claves del esquema, en su orden y con sus comentarios, conservando los valores</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="423"/>
+        <location filename="../widgets/env_panel.py" line="422"/>
         <source>Importa claves conocidas desde otro archivo .env</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="430"/>
+        <location filename="../widgets/env_panel.py" line="429"/>
         <source>{0} no tiene la forma actual del esquema.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="435"/>
+        <location filename="../widgets/env_panel.py" line="434"/>
         <source> Al escribirlo se borran: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="450"/>
+        <location filename="../widgets/env_panel.py" line="449"/>
         <source>Importar variables desde…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="452"/>
+        <location filename="../widgets/env_panel.py" line="451"/>
         <source>Archivos .env (*.env);;Todos los archivos (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="467"/>
+        <location filename="../widgets/env_panel.py" line="466"/>
         <source>{0} no tiene claves reconocidas.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="478"/>
+        <location filename="../widgets/env_panel.py" line="477"/>
         <source>Se importaron {0} claves de {1}. Revisa y guarda para escribir el archivo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="500"/>
+        <location filename="../widgets/env_panel.py" line="499"/>
         <source>No se guardó: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="509"/>
+        <location filename="../widgets/env_panel.py" line="508"/>
         <source>Guardado {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="512"/>
+        <location filename="../widgets/env_panel.py" line="511"/>
         <source>Se borraron de config.env: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5565,7 +5565,7 @@ aparecen aquí</source>
 <context>
     <name>envfile</name>
     <message>
-        <location filename="../services/envfile.py" line="99"/>
+        <location filename="../services/envfile.py" line="98"/>
         <source>No se puede leer {0}: {1}</source>
         <translation type="unfinished"></translation>
     </message>

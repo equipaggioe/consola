@@ -1,7 +1,9 @@
 # ADR-0091 · Los textos de la interfaz se escriben en español y Qt Linguist los traduce
 
 - **Estado:** Aceptada. El usuario confirmó los puntos 1, 2 y 3 (2026-11-19). Los puntos 4 a 9 son
-  *(propuesta)*: se eligieron al implementar
+  *(propuesta)*: se eligieron al implementar. Los puntos 4, 5 y 6 y la extracción sin
+  `rc_resources.py` los reemplaza el ADR-0197 de canone, que los lleva a `qt.md` y hace canónico
+  `services/language.py`
 - **Fecha:** 2026-11-19
 - **Alcance:** `desktop/src/app/`
 

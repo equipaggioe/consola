@@ -2,10 +2,11 @@
 
 > **Estado (verificado 2026-11-19).** Canone sacó `qt.md` de desarrollo (`461d857` y `e6b3d0b` de
 > canone): ahora rige entera, salvo su sección «Tema», que sigue en desarrollo. Con canone en `main`
-> (`8856ea4`, que comprueba el árbol, ADR-0188 y ADR-0189 de canone), `verificar.py --repo .` da 0
-> incumplimientos con las tres variables `RELEASE_DESKTOP_*`. En Windows, `ruff format --check`,
-> `ruff check`, `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1027 pruebas, con 3
-> saltadas. En Linux (distro `Testing`), los pasos del job `desktop` de `ci.yml` dan 0 y pasan 1030.
+> (`3a67191`, con las reglas de `python.md` del ADR-0196 y el `language.py` canónico del ADR-0197
+> de canone), `verificar.py --repo .` da 0 incumplimientos con las tres variables
+> `RELEASE_DESKTOP_*`. En Windows, `ruff format --check`,
+> `ruff check`, `pyrefly check` en las dos plataformas y `deptry` dan 0, y pasan 1028 pruebas, con 3
+> saltadas. En Linux (distro `Testing`), los pasos del job `desktop` de `ci.yml` dan 0 y pasan 1031.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
 > `stack.md`, el árbol de `qt.md`
 > ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
@@ -24,9 +25,9 @@
 > ella.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
-> `canone/plataformas/python.md`, `canone/plataformas/qt.md` y este plan. Falta crear las variables
-> de GitHub (§2.7), el selector de idioma con el segundo idioma (§2.8) y lo que espera una decisión:
-> el nivel AA (§2.5) y el §3, «Abiertas». Lo que canone tendría que cambiar está en el §4.
+> `canone/plataformas/python.md`, `canone/plataformas/qt.md` y este plan. Falta el selector de
+> idioma, que llega con el segundo idioma (§2.8), la prueba de `release.yml` con un tag (§4) y lo
+> que espera una decisión: el nivel AA (§2.5) y el §3, «Abiertas».
 
 ## 1. Cómo se comprueba
 
@@ -85,12 +86,8 @@ El 2026-11-19 los pasos de Linux armaron en la distro `Testing` un `Consola.bin`
 ventana; nada corrió en GitHub ni en Windows ([30](../arquitectura/30_riesgos_y_pendientes.md),
 «Sin verificar»).
 
-Falta:
-
-- Crear en GitHub las variables `RELEASE_DESKTOP_LINUX`, `RELEASE_DESKTOP_MACOS` y
-  `RELEASE_DESKTOP_WINDOWS`, con `true`, `false` y `true` (decidido). Hasta entonces el job `canone`
-  de `ci.yml` falla.
-- El paso de traducciones de `ci.yml` y `release.yml`, con el §2.8.
+Las variables `RELEASE_DESKTOP_LINUX`, `RELEASE_DESKTOP_MACOS` y `RELEASE_DESKTOP_WINDOWS` están
+creadas en GitHub con `true`, `false` y `true` (2026-11-19).
 
 Elegido al implementar, sin confirmar *(propuestas)*:
 
@@ -100,8 +97,6 @@ Elegido al implementar, sin confirmar *(propuestas)*:
   el ADR-0081 lo deja fuera y el job no tiene los pasos de firma de la plantilla.
 - `shots_presets.json` se queda como archivo, junto al kit de la cámara: no es una imagen, y el
   ADR-0189 de canone solo pone las imágenes en `resources.qrc`.
-- El job `desktop` de `release.yml` instala la app después de compilar `resources.qrc`, distinto de
-  la plantilla (§4, punto 1).
 
 ### 2.8 Qt Linguist
 
@@ -159,46 +154,13 @@ duda es cómo cumplirla.
 | 13 | Los colores de texto y de borde no llegan al contraste de AA (§2.5), y son de «Tema», que sigue en desarrollo | Canone | Que «Tema» fije roles de texto y de borde que cumplan 4.5:1 y 3:1 contra cada fondo, como ya pide `transversal.md` para `brand/tokens/`; Consola los toma al implementarlo |
 | 14 | `transversal.md` pide 48 × 48 a «cada objetivo táctil». Una app de escritorio se usa con el puntero: no está claro si rige, o si basta el 24 × 24 de AA (WCAG 2.5.8) | Canone | Que diga «objetivo táctil o de puntero» y fije el valor del escritorio |
 
-## 4. Cambios que le hacen falta a canone
-
-Comprobados al implementar el §2.7 y el §2.8. Consola ya los rodea; canone los arregla para todo
-repositorio con Qt.
-
-1. **El orden del job `desktop` de `plantilla/.github/workflows/release.yml`.** Instala la app con
-   `--no-editable` y después compila las traducciones y `resources.qrc`. Nuitka compila la copia
-   instalada, que no tiene `rc_resources.py`: el binario de Linux se armó y al abrirse falló con
-   `ModuleNotFoundError: No module named 'app.rc_resources'` (distro `Testing`, 2026-11-19).
-   Cambio: `uv sync --locked --group deploy --no-install-project`, el paso de traducciones y
-   `pyside6-rcc` con `uv run --no-sync`, y después `uv sync --locked --group deploy --no-editable`,
-   como el `release.yml` de Consola.
-2. **El icono en Linux, en «Entrega» de `qt.md`.** Dice que Nuitka convierte `icon.png` al formato
-   de cada sistema, pero con `mode = onefile` avisa que `--linux-app-icon` no tiene efecto fuera de
-   `--mode=app`. Cambio: decir que el icono va en el `.exe` de Windows y en el `.app` de macOS, y
-   que en Linux solo lo pone la ventana con `setWindowIcon`.
-3. **La extracción de textos, en «Idiomas» de `qt.md`.** `pyside6-lupdate -extensions py src/app`
-   6.12.0 termina con un fallo de acceso a memoria si existe `src/app/rc_resources.py`, que está en
-   ese árbol. Cambio: extraer sin `rc_resources.py`, por ejemplo borrándolo antes, y decirlo.
-4. **Cómo se marca lo que se arma al importar, en «Idiomas» de `qt.md`.** Una declaración
-   evaluada al importar necesita `QT_TRANSLATE_NOOP`, y en los stubs de PySide6 6.12.0 devuelve
-   `object`: Pyrefly strict rechaza usarlo como `str`. Cambio: un `QT_TRANSLATE_NOOP(context: str,
-   text: str) -> str` propio en la plantilla, como el de `services/language.py` de Consola;
-   `pyside6-lupdate` lo reconoce por el nombre.
-5. **El texto fuente, en «Idiomas» de `qt.md`.** No dice en qué idioma va. Cambio: «el texto
-   fuente es el del idioma base», como `app_es.arb` en Flutter.
-6. **`self.tr()`, en «Idiomas» de `qt.md`.** En PySide6 busca con el nombre de la clase del
-   objeto: un método heredado no encuentra el texto que lupdate guardó con la clase donde está
-   escrito. Cambio: los textos van con `QCoreApplication.translate("<contexto>", ...)`, y un valor
-   entra con `.format()` después de traducir, nunca en un f-string.
-7. **El idioma sin traducción, en «Idiomas» de `qt.md`.** Dice «hasta que elige, es el de
-   `QLocale.system()`», pero no qué pasa si el sistema está en un idioma que la app no trae.
-   Cambio: el primero de `QLocale.system().uiLanguages()` con traducción, o el base, como el
-   `supported_locales` de `flet.md`.
-
-## 5. Sin verificar
+## 4. Sin verificar
 
 - `api/http.py` y `api/cloudflare.py` contra el servicio real: leer necesita un token y escribir cambia
   el DNS. Se probó contra un servidor local y con respuestas simuladas.
+- `release.yml` con un tag: nunca corrió en GitHub. Sus pasos de Linux armaron en la distro `Testing`
+  un binario que abre la ventana; en Windows no se armó ([30](../arquitectura/30_riesgos_y_pendientes.md)).
 
-## 6. Al terminar
+## 5. Al terminar
 
 Las decisiones pasan a ADR, el resultado a `arquitectura/`, sale la fila del 30 y se borra este plan.

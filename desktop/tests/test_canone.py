@@ -364,7 +364,7 @@ def test_a_foreign_key_stops_before_sending(tmp_path: Path) -> None:
     """A key in no source stops before sending."""
     root, _ = repo(tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r")
     # Written by hand: Consola's save writes no key without a source.
-    with open(envfile.config_path(str(root)), "a", encoding="utf-8") as fh:
+    with Path(envfile.config_path(str(root))).open("a", encoding="utf-8") as fh:
         fh.write("SECRET_FILES=viejo\n")
     config = Config.for_project(str(root))
     with pytest.raises(TaskError) as error:
@@ -375,7 +375,7 @@ def test_a_foreign_key_stops_before_sending(tmp_path: Path) -> None:
 def test_the_config_it_receives_is_checked_not_the_file(tmp_path: Path) -> None:
     """The foreign keys are those of the config the task runs with."""
     root, config = repo(tmp_path, HEALTH_TOKEN="h", PAGE_TOKEN_KEY="p", RESTIC_PASSWORD="r")
-    with open(envfile.config_path(str(root)), "a", encoding="utf-8") as fh:
+    with Path(envfile.config_path(str(root))).open("a", encoding="utf-8") as fh:
         fh.write("SECRET_FILES=viejo\n")
     assert "SECRET_FILES" not in canone.credential_lines(root, config)
     built = Config({**config.values, "SECRET_FILES": "viejo"})

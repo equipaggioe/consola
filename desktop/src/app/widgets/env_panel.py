@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import os
 from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
@@ -374,7 +373,7 @@ class EnvPanel(QWidget):
         then would leave blank what could not be read, or erase the
         credentials.
         """
-        rel = os.path.join(envfile.CONSOLA_DIR, envfile.CONFIG_NAME).replace(os.sep, "/")
+        rel = f"{envfile.CONSOLA_DIR}/{envfile.CONFIG_NAME}"
         blocked = bool(self.read_error or self.fields_error)
         current = text is not None and not blocked and envfile.is_current(text, self.fields)
         if self.read_error:
@@ -465,7 +464,7 @@ class EnvPanel(QWidget):
         if not imported:
             self.notice.emit(
                 QCoreApplication.translate("EnvPanel", "{0} no tiene claves reconocidas.").format(
-                    os.path.basename(path)
+                    Path(path).name
                 ),
                 "warn",
             )
@@ -478,7 +477,7 @@ class EnvPanel(QWidget):
             QCoreApplication.translate(
                 "EnvPanel",
                 "Se importaron {0} claves de {1}. Revisa y guarda para escribir el archivo.",
-            ).format(len(imported), os.path.basename(path)),
+            ).format(len(imported), Path(path).name),
             "info",
         )
 

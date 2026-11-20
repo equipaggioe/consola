@@ -1,19 +1,20 @@
 """The language of the interface.
 
-The texts are written in Spanish, the base language, and Qt Linguist
-translates them with `translations/<tag>.qm`, compiled into the
-resources with Qt's own `qtbase_<tag>.qm`. The user does not choose
-yet: the language is the first of the system's that has a translation,
-or the base one.
+The texts are written in the base language, and Qt Linguist translates
+them with `translations/<tag>.qm`, compiled into the resources with
+Qt's own `qtbase_<tag>.qm`. The language is the one the user chose,
+saved under `KEY`; until then, the first of the system's that has a
+translation, or the base one.
 """
 
 from __future__ import annotations
 
 from collections.abc import Sequence
 
-from PySide6.QtCore import QCoreApplication, QDir, QLocale, QTranslator
+from PySide6.QtCore import QCoreApplication, QDir, QLocale, QSettings, QTranslator
 
 BASE = "es"
+KEY = "language"
 TRANSLATIONS = ":/translations"
 
 
@@ -57,7 +58,9 @@ def install(app: QCoreApplication) -> str:
     The default `QLocale` formats dates and numbers in it, and two
     translators, the app's and Qt's, translate the texts.
     """
-    tag = resolve(QLocale.system().uiLanguages(), offered())
+    chosen = str(QSettings().value(KEY, ""))
+    preferred = [chosen] if chosen else []
+    tag = resolve([*preferred, *QLocale.system().uiLanguages()], offered())
     QLocale.setDefault(QLocale(tag))
     for name in (tag, f"qtbase_{tag.replace('-', '_')}"):
         translator = QTranslator(app)

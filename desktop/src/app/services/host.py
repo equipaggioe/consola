@@ -545,7 +545,7 @@ class PosixHost(Host):
     def memory(self) -> tuple[int, int] | None:
         """Return RAM from `/proc/meminfo`."""
         try:
-            with open("/proc/meminfo") as f:
+            with Path("/proc/meminfo").open(encoding="utf-8") as f:
                 data: dict[str, int] = {}
                 for line in f:
                     key, _, rest = line.partition(":")

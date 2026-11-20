@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import os
+from pathlib import Path
 from typing import override
 
 from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPointF, QRectF, Qt, Signal, Slot
@@ -296,7 +296,7 @@ class ProjectTabBar(ReorderableBar):
             self.select_tab(already)
             return
         clean = project_store.display_path(path)
-        name = os.path.basename(clean) or clean
+        name = Path(clean).name or clean
         theme = palettes.first_free(t.project.theme for t in self.tabs)
         # Color saves in the repo from the first moment, not on changing
         # it: opening it on another machine has to give the same color.

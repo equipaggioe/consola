@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable, Iterator, Sequence
+from collections.abc import Callable, Generator, Iterator, Sequence
 from contextlib import contextmanager
 from dataclasses import dataclass
 from pathlib import Path
@@ -161,7 +161,7 @@ _pass: dict[tuple[str, str], Any] | None = None
 
 
 @contextmanager
-def one_scan() -> Iterator[None]:
+def one_scan() -> Generator[None]:
     """Walk the repo once per question inside this block.
 
     And not once per asker. Nesting it does not open a new pass.

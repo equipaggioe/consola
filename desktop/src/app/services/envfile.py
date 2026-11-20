@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import os
 from collections.abc import Iterable
+from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 
@@ -24,7 +25,7 @@ HEADER = "# .consola/config.env - generado/editado por Consola, no a mano\n"
 
 def config_path(repo_path: str) -> str:
     """Return the path of the repo's `config.env`."""
-    return os.path.join(repo_path, CONSOLA_DIR, CONFIG_NAME)
+    return str(Path(repo_path) / CONSOLA_DIR / CONFIG_NAME)
 
 
 def split_list(value: str) -> list[str]:
@@ -40,7 +41,7 @@ def split_list(value: str) -> list[str]:
 
 def repo_name_of(repo_path: str) -> str:
     """Return the repo's folder, the default `DB_USER` and `DB_NAME`."""
-    return os.path.basename(os.path.normpath(repo_path))
+    return Path(os.path.normpath(repo_path)).name
 
 
 def parse_env(text: str) -> dict[str, str]:
@@ -66,8 +67,7 @@ def parse_env(text: str) -> dict[str, str]:
 def load_env(path: str) -> dict[str, str]:
     """Return the keys and values of an env file."""
     try:
-        with open(path, "r", encoding="utf-8") as fh:
-            return parse_env(fh.read())
+        return parse_env(Path(path).read_text(encoding="utf-8"))
     except (OSError, UnicodeDecodeError):
         return {}
 
@@ -79,7 +79,7 @@ def load_config(repo_path: str) -> dict[str, str]:
 
 def has_config(repo_path: str) -> bool:
     """Return whether the repo has a `config.env`."""
-    return os.path.isfile(config_path(repo_path))
+    return Path(config_path(repo_path)).is_file()
 
 
 def config_text(repo_path: str) -> str | None:
@@ -90,8 +90,7 @@ def config_text(repo_path: str) -> str | None:
     """
     path = config_path(repo_path)
     try:
-        with open(path, "r", encoding="utf-8") as fh:
-            return fh.read()
+        return Path(path).read_text(encoding="utf-8")
     except FileNotFoundError:
         return None
     except (OSError, UnicodeDecodeError) as error:
@@ -172,9 +171,8 @@ def save_config(repo_path: str, values: dict[str, str], fields: tuple[Setting, .
     It creates the folder if needed.
     """
     path = config_path(repo_path)
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(render_config(values, fields))
+    Path(path).parent.mkdir(parents=True, exist_ok=True)
+    Path(path).write_text(render_config(values, fields), encoding="utf-8", newline="\n")
     ensure_ignored(repo_path)
     return path
 
@@ -200,19 +198,17 @@ def ensure_ignored(repo_path: str) -> None:
     Public because `services/params_store.py` also writes `params.json`
     there and needs the same guarantee.
     """
-    path = os.path.join(repo_path, CONSOLA_DIR, ".gitignore")
+    path = Path(repo_path) / CONSOLA_DIR / ".gitignore"
     current = ""
-    if os.path.isfile(path):
-        with open(path, "r", encoding="utf-8") as fh:
-            current = fh.read()
+    if path.is_file():
+        current = path.read_text(encoding="utf-8")
     lines = [line for line in current.splitlines() if line.strip() != "*"]
     lines += [entry for entry in IGNORED if entry not in lines]
     wanted = "".join(f"{line}\n" for line in lines)
     if current == wanted:
         return
-    os.makedirs(os.path.dirname(path), exist_ok=True)
-    with open(path, "w", encoding="utf-8", newline="\n") as fh:
-        fh.write(wanted)
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(wanted, encoding="utf-8", newline="\n")
 
 
 def import_from(path: str) -> dict[str, str]:
@@ -339,7 +335,7 @@ class Config:
 
     def rel_path(self, key: str, root: str) -> str:
         """Return a key's path, resolved on `root`."""
-        return os.path.normpath(os.path.join(root, self.require(key)))
+        return os.path.normpath(Path(root) / self.require(key))
 
     def missing(self, *keys: str) -> list[str]:
         """Return which of those keys have no value."""
