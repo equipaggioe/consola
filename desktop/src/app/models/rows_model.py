@@ -47,6 +47,19 @@ class RowsModel(QAbstractTableModel):
         self.loading = False
         self.order_by: str | None = None
         self.descending = False
+        # The color of a foreign key: the accent of the repo, which the
+        # view gives on painting (`set_accent`).
+        self.accent = Colors.PRIMARY
+
+    def set_accent(self, accent: str) -> None:
+        """Paint the foreign keys in the accent of the repo."""
+        self.accent = accent
+        if self.rows:
+            self.dataChanged.emit(
+                self.index(0, 0),
+                self.index(len(self.rows) - 1, self.columnCount() - 1),
+                [Qt.ItemDataRole.ForegroundRole],
+            )
 
     def reset(self, detail: dbx.TableDetail | None) -> None:
         """Start over with another table."""
@@ -173,7 +186,7 @@ class RowsModel(QAbstractTableModel):
             if value is None or col.base_type == dbx.BYTEA:
                 return QBrush(Colors.ON_SURFACE_VARIANT)
             if col.fk:
-                return QBrush(Colors.PRIMARY)
+                return QBrush(self.accent)
             return None
         if role == Qt.ItemDataRole.FontRole:
             if value is None:

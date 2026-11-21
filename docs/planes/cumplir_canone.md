@@ -30,10 +30,9 @@
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
 > `canone/plataformas/python.md`, `canone/plataformas/qt.md`, «Tema» y «Accesibilidad» de
-> `canone/plataformas/transversal.md` y este plan. Falta volver a medir el nivel AA después de
-> «Tema» (§2.5 y §2.10), el selector de idioma, que llega con el segundo idioma (§2.8), la prueba de
-> `release.yml` con un tag (§4) y lo que espera una decisión: el nivel AA (§2.5) y el §3,
-> «Abiertas».
+> `canone/plataformas/transversal.md` y este plan. Falta el selector de idioma, que llega con el
+> segundo idioma (§2.8), la prueba de `release.yml` con un tag (§4) y lo que espera una decisión:
+> las filas del nivel AA que quedan en el §2.5 y el §3, «Abiertas».
 
 ## 1. Cómo se comprueba
 
@@ -70,16 +69,17 @@ Hecho: lo que pide la sección «Accesibilidad» de `qt.md`, también los atajos
 [12](../arquitectura/12_interfaz.md), §10.
 
 Medido el 2026-11-19 con un script sobre la ventana abierta sin pantalla, con un repo y cuatro
-pestañas de acción: 39 controles visibles. **El nivel AA no se cumple.** Lo que falla pide decisiones
-de diseño:
+pestañas de acción, y vuelto a medir el 2026-11-21, después de «Tema» (§2.10), con un script que
+recorre la ventana con Tab: 1.4.3, 1.4.11, 2.5.8 y 2.4.7. **El nivel AA no se cumple.** Lo que falla
+pide decisiones de diseño:
 
 | Criterio | Qué falla | Decisión que pide |
 |---|---|---|
-| 1.4.3, contraste del texto | `TEXT_MUTED` (#6b7484) da de 2,5 a 4,0 contra los cinco fondos neutros; `ERROR` da 3,6 a 4,4 sobre `SURFACE`, `SURFACE_ALT` y `CHROME`. `RUN_BUTTON_OFF` da 2,54, pero es un componente inactivo y está exento | Resuelto en los roles (etapa 1 del §2.10): `TEXT_MUTED` y `TEXT_DIM` van en `onSurfaceVariant` (`#9aa4b2`, 4,75:1 o más) y `error` es `#ff7b72` (4,75:1 o más), y `tokens.py --check` lo comprueba. Se vuelve a medir con la app al cerrar el §2.10 |
-| 1.4.11, contraste de lo que no es texto | `BORDER` da de 1,3 a 2,0 y `BORDER_LIGHT`, de 1,7 a 2,6 contra los fondos: el borde de un campo no llega a 3:1 | En la etapa 1 del §2.10, `outline` es `#7a8392` (3,13:1 o más contra cada superficie), y las hojas de estilo de los campos, los botones con borde, las casillas y las pestañas ya lo usan. En la etapa 2, `Style` dibuja en él el marco de los campos. Se vuelve a medir al cerrar el §2.10 |
-| 2.5.8, objetivo de 24 × 24 | 16 controles: los `×` de las pestañas (18 × 18), el `✕` de apagar (20 × 20), el botón de borrar de los campos (22 × 18), los cinco candados (12 de alto), los chips de 22 de alto y dos casillas de 17 de alto | Los tamaños, que van en `theme.py`, y si el 48 × 48 de `transversal.md` rige en el escritorio (pregunta 14) |
+| 1.4.3, contraste del texto | Nada, medido el 2026-11-21: los textos de los 132 controles visibles dan 4,5:1 o más contra su fondo. Los roles de texto los comprueba `tokens.py --check` | — |
+| 1.4.11, contraste de lo que no es texto | Nada: el contorno de los campos, las listas, las casillas y los botones con borde es `outline` (`#7a8392`), que da 3,13:1 o más contra cada superficie (`tokens.py --check`) | — |
+| 2.5.8, objetivo de 24 × 24 | 9 controles, medido el 2026-11-21: los cuatro `×` de las pestañas de acción (18 × 18), el `×` de la pestaña del repo (20 × 20), el botón de borrar del buscador (22 × 18), el `»` de la barra de menú (12 × 25) y dos casillas de 18 de alto. Los botones con texto ya miden 24 de alto como mínimo (`Metrics.TARGET`), los candados incluidos | Los tamaños, que van en `theme.py`, y si el 48 × 48 de `transversal.md` rige en el escritorio (pregunta 14) |
 | 2.1.1, todo con el teclado | 11 controles no reciben el foco: las pestañas de acción (con Ctrl+PgDown y Ctrl+PgUp), las de repo (con Ctrl+Tab y Ctrl+1 a 9), el «+» (con Ctrl+T), la estrella de favorita, los tres botones de la ventana y el botón de borrar de los campos | Si cada pestaña y cada botón de glifo reciben el foco, o bastan los atajos |
-| 2.4.7, foco visible | 26 controles cambian de foco sin cambiar de aspecto: los botones y las casillas que tienen hoja de estilo propia | Se vuelve a medir al cerrar el §2.10: `Style` dibuja el foco de campos y paneles en 2 px de `primary`, y el de botones y casillas queda en manos de Fusion, sin probar en Consola |
+| 2.4.7, foco visible | Nada, medido el 2026-11-21 recorriendo con Tab los 27 controles que reciben el foco: todos cambian de aspecto. `Style` dibuja el foco del teclado en 2 px de `Highlight` en campos, listas, casillas y botones | — |
 | 2.2.2, lo que se mueve | El cursor de la consola parpadea sin fin, y el LED verde pulsa mientras un servicio está vivo; ninguno se puede detener | Si se quitan o se pueden pausar |
 | 1.4.4, texto al 200 % | Los 70 controles con texto visibles fijan su tamaño en píxeles (la fuente de la app, de 15 px, en `theme.apply`, y las hojas de estilo): al duplicar la fuente de la app no crece ninguno, así que no siguen el tamaño de texto del sistema. Solo la escala de pantalla los agranda, y al 200 % el tamaño mínimo de la ventana, 1000 × 650, pide 2000 × 1300 px: no entra en una pantalla de 1920 × 1080 | Si la fuente sigue la del sistema. Los tamaños van en `theme.py` |
 | 2.4.3, orden del foco | Tab recorre los 38 controles que reciben el foco y vuelve al buscador, pero no en el orden de lectura: buscador → panel de configuración (abajo a la derecha) → los `×` de las pestañas de acción (arriba) → consola → pasos (arriba a la derecha) → Limpiar → `×` del repo (arriba a la izquierda) → candados (abajo) | El orden que se quiere. Depende de la fila 2.1.1: si las pestañas reciben el foco, entran en él |
@@ -150,13 +150,8 @@ Está en [12](../arquitectura/12_interfaz.md), §2, y en los ADR
 [0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md). Cambiar
 de pestaña de repo con ocho abiertos, sin pantalla, bajó de 0,78 s a 0,06 s.
 
-Falta:
-
-- Volver a medir el §2.5 con la app: el foco visible (2.4.7) y los contrastes.
-- `desktop/scripts/swatches.py`, que se corre aparte y no es parte de la app, sigue con hojas de
-  estilo.
-- El color de las claves foráneas de `models/rows_model.py` es el acento del tema sin repo: un
-  modelo no tiene la paleta de su espacio de trabajo.
+`desktop/scripts/swatches.py` tampoco tiene hojas de estilo, y las claves foráneas del explorador
+toman el acento del repo. El §2.5 se volvió a medir después.
 
 ## 3. Preguntas
 

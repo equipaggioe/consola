@@ -38,7 +38,6 @@ class _PadlockChip(QPushButton):
     ) -> None:
         """Build the chip."""
         super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
-        self.setFlat(True)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Closed = safe (the repo's color); open = exposed to a
         # destructive action with no net, and that is red in every repo.

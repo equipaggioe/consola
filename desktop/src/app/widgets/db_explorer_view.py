@@ -127,6 +127,7 @@ class DbExplorerView(QWidget):
         colors.setColor(QPalette.ColorRole.Accent, theme.TABLE_TAB.on(self.pal).border)
         self.setPalette(colors)
         self.setAutoFillBackground(True)
+        self.model.set_accent(self.pal.accent)
         theme.TABLE_TREE.on(self.pal).band(self._tree_side, "right")
         theme.TOOL_BAR.on(self.pal).band(self._head, "bottom")
         theme.FIELD.on(self.pal).dress(self.filter_box, fill=False)

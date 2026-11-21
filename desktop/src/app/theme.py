@@ -175,6 +175,8 @@ class Metrics:
     TOOL_TIP_MARGIN = Spacing.SM
     MENU_ITEM = 32
     BUTTON_PADDING = 12
+    # The smallest side of a button with text, WCAG 2.5.8.
+    TARGET = 24
     FIELD = 28
     # The width of the chevron of a closed list.
     CHEVRON = 10
@@ -343,6 +345,7 @@ class Style(QProxyStyle):
         found = self.baseStyle().sizeFromContents(kind, option, size, widget)
         if kind == QStyle.ContentsType.CT_PushButton:
             found.setWidth(size.width() + 2 * Metrics.BUTTON_PADDING)
+            found.setHeight(max(found.height(), Metrics.TARGET))
         if kind == QStyle.ContentsType.CT_MenuBarItem:
             return QSize(
                 size.width() + 2 * Metrics.MENU_BAR_ITEM[0],
@@ -394,6 +397,13 @@ class Style(QProxyStyle):
         }
         if metric in sizes:
             return sizes[metric]
+        if (
+            metric == QStyle.PixelMetric.PM_DefaultFrameWidth
+            and widget is not None
+            and widget.property(EDGES)
+        ):
+            # A band draws its lines over its content.
+            return 0
         return super().pixelMetric(metric, option, widget)
 
     @override

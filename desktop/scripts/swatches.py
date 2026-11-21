@@ -13,11 +13,14 @@ from __future__ import annotations
 
 import argparse
 import sys
+from typing import override
 
-from PySide6.QtCore import Qt
+from PySide6.QtCore import QRectF, Qt
+from PySide6.QtGui import QBrush, QFont, QPainter, QPaintEvent, QPalette
 from PySide6.QtWidgets import (
     QApplication,
     QDialog,
+    QFrame,
     QGridLayout,
     QHBoxLayout,
     QLabel,
@@ -32,23 +35,35 @@ from app.services.palettes import Palette
 from app.theme import Fonts, Layer, Look, Role
 
 
-def _square(color: str, side: int = 16) -> QLabel:
+class _Square(QWidget):
+    """A box filled with a color, framed in the outline of the theme."""
+
+    def __init__(self, color: str, side: int) -> None:
+        """Build the box, with its hex in the tooltip."""
+        super().__init__()
+        self.color = color
+        self.setFixedSize(side, side)
+        self.setToolTip(color)
+
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(self.palette().color(QPalette.ColorRole.Dark))
+        p.setBrush(QBrush(self.color))
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(0.5, 0.5, -0.5, -0.5), 3, 3)
+        p.end()
+
+
+def _square(color: str, side: int = 16) -> QWidget:
     """Return a box filled with `color`, its hex in the tooltip."""
-    box = QLabel()
-    box.setFixedSize(side, side)
-    box.setToolTip(color)
-    box.setStyleSheet(
-        f"background: {color}; border: 1px solid rgba(255, 255, 255, 0.25); border-radius: 3px;"
-    )
-    return box
+    return _Square(color, side)
 
 
 def _text(text: str, color: str, size: int = Fonts.SIZE_XS, bold: bool = False) -> QLabel:
     label = QLabel(text)
-    label.setStyleSheet(
-        f"background: transparent; color: {color}; font-size: {size}px;"
-        f"font-weight: {700 if bold else 400};"
-    )
+    label.setFont(theme.font(size, QFont.Weight.Bold if bold else QFont.Weight.Normal))
+    theme.ink(label, color)
     return label
 
 
@@ -69,10 +84,9 @@ class SwatchesDialog(QDialog):
         self.setWindowTitle(f"Roles y partes · {pal.label}")
         self.resize(1040, 760)
         dialog = theme.DIALOG.on(pal)
-        self.setStyleSheet(f"QDialog {{ background: {dialog.bg}; }}")
+        dialog.dress(self)
 
         content = QWidget()
-        content.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(content)
         lay.setContentsMargins(20, 16, 20, 20)
         lay.setSpacing(10)
@@ -86,7 +100,7 @@ class SwatchesDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(content)
-        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.addWidget(scroll)
@@ -145,19 +159,19 @@ class SwatchesDialog(QDialog):
     def _sample(self, look: Look) -> QLabel:
         """Return «Aa» painted as the part paints.
 
-        A slot the part does not declare is left out: with no `bg` it
-        shows the dialog's background, as the part shows what is behind.
+        With its palette, as the widgets take it: a slot the part does
+        not declare is left out, and with no `bg` it shows the dialog's
+        background, as the part shows what is behind.
         """
-        paint = look.on(self.pal)
-        slots = look.slots()
-        css = "border-radius: 4px; padding: 3px 10px;"
-        css += f"background: {paint.bg};" if "bg" in slots else "background: transparent;"
-        css += f"color: {paint.fg};" if "fg" in slots else "color: transparent;"
-        css += f"border: 1px solid {paint.border};" if "border" in slots else "border: none;"
         sample = QLabel("Aa")
         sample.setFixedSize(64, 26)
         sample.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        sample.setStyleSheet(css + f"font-size: {Fonts.SIZE_SM}px; font-weight: 600;")
+        sample.setFont(theme.font(Fonts.SIZE_SM, QFont.Weight.DemiBold))
+        look.on(self.pal).dress(sample)
+        if "fg" not in look.slots():
+            theme.ink(sample, "transparent")
+        if "border" in look.slots():
+            sample.setFrameShape(QFrame.Shape.StyledPanel)
         return sample
 
 
