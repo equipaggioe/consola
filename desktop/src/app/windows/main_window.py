@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from collections.abc import Iterator
 from typing import Any, override
 
 from PySide6.QtCore import QCoreApplication, QEvent, QSettings, Qt, QTimer, Slot
@@ -18,6 +19,7 @@ from PySide6.QtGui import (
     QShortcut,
 )
 from PySide6.QtWidgets import (
+    QApplication,
     QFrame,
     QHBoxLayout,
     QLabel,
@@ -48,6 +50,7 @@ from app.widgets.action_search import ActionSearch
 from app.widgets.project_tab_bar import ProjectTabBar
 from app.widgets.tab_panel import TabPanel
 from app.widgets.title_bar import TitleBar
+from app.widgets.window_menu import WindowMenu
 from app.widgets.workspace_status_bar import WorkspaceStatusBar
 
 # How long to wait before recounting which actions are ready. Short: the
@@ -122,6 +125,47 @@ class _WindowFrame(QWidget):
         p.end()
 
 
+def _lines(widgets: list[QWidget]) -> list[QWidget]:
+    """Return siblings as one reads them: by lines, then rightward.
+
+    A line gathers the siblings whose middle falls within the height of
+    its first one: a short button centered beside a tall field reads
+    with it, and a column of sections goes one below the other.
+    """
+    ordered: list[QWidget] = []
+    pending = sorted(widgets, key=lambda w: (w.y(), w.x()))
+    while pending:
+        first, rest = pending[0], pending[1:]
+        top, bottom = first.y(), first.y() + first.height()
+        line = [first, *(w for w in rest if top <= w.y() + w.height() // 2 < bottom)]
+        ordered += sorted(line, key=lambda w: (w.x(), w.y()))
+        pending = [w for w in rest if w not in line]
+    return ordered
+
+
+def _reading(widget: QWidget) -> Iterator[QWidget]:
+    """Yield the visible descendants of `widget` in reading order.
+
+    Each one before its children: a band of the window, then what is in
+    it.
+    """
+    children = [
+        c
+        for c in widget.children()
+        if isinstance(c, QWidget) and c.isVisible() and not c.isWindow()
+    ]
+    for child in _lines(children):
+        yield child
+        yield from _reading(child)
+
+
+def _proxied(widget: QWidget) -> QWidget:
+    """Return the widget that takes the focus given to `widget`."""
+    while (proxy := widget.focusProxy()) is not None:
+        widget = proxy
+    return widget
+
+
 class MainWindow(QMainWindow):
     """The main window: repos (level 1) › runs (level 2) › views."""
 
@@ -131,7 +175,6 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("Consola")
         self.setWindowIcon(QIcon(":/icon.png"))
         self.resize(1500, 950)
-        self.setMinimumSize(1000, 650)
         # No system frame: the brand and repo tabs share a row with
         # minimize, maximize and close (`widgets/title_bar.py`). The
         # price is supplying the drag and the edge resizing ourselves:
@@ -179,6 +222,11 @@ class MainWindow(QMainWindow):
         self.title_bar.minimize_requested.connect(self.showMinimized)
         self.title_bar.maximize_requested.connect(self._toggle_maximized)
         self.title_bar.close_requested.connect(self.close)
+        # The menu that moves and resizes the window with the keys: the
+        # window has no system frame, and the system menu Qt shows on
+        # Alt+Space does not move it.
+        self.window_menu = WindowMenu(self)
+        self.title_bar.menu_requested.connect(self.window_menu.open)
         self.main_layout.addWidget(self.title_bar)
 
         # --- Level 2: menu bar and search ---
@@ -254,6 +302,31 @@ class MainWindow(QMainWindow):
 
         self._install_shortcuts()
         self._restore_layout()
+
+    @override
+    def focusNextPrevChild(self, next: bool) -> bool:
+        """Move the focus of Tab as one reads: by bands, then by lines.
+
+        Qt's focus chain follows the order of creation, and the panels
+        and tabs are built in another order than they are shown: Tab
+        jumped from the search to the right column, to the tabs and
+        back. Qt has the window decide where the focus of its children
+        goes, here (WCAG 2.4.3).
+        """
+        current = QApplication.focusWidget()
+        order: list[QWidget] = []
+        for widget in _reading(self):
+            tabbable = widget.isEnabled() and bool(widget.focusPolicy() & Qt.FocusPolicy.TabFocus)
+            target = _proxied(widget)
+            if (tabbable or widget is current) and target not in order:
+                order.append(target)
+        if not order:
+            return False
+        index = order.index(current) if current in order else -1
+        step = 1 if next else -1
+        reason = Qt.FocusReason.TabFocusReason if next else Qt.FocusReason.BacktabFocusReason
+        order[(index + step) % len(order)].setFocus(reason)
+        return True
 
     def _restore_layout(self) -> None:
         # The size, position and state of the last close. The first time

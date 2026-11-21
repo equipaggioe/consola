@@ -32,7 +32,7 @@ from app import theme
 from app.services import palettes, params_store, repo_logo
 from app.services.palettes import Palette
 from app.services.projects import Project
-from app.theme import Colors, Fonts, tint
+from app.theme import Colors, Fonts, Metrics, tint
 from app.widgets.reorderable_tab import ReorderableTab
 from app.widgets.repo_logo_view import RepoLogoView
 
@@ -89,7 +89,7 @@ class ProjectTab(ReorderableTab):
         self.close_btn.setAccessibleName(
             QCoreApplication.translate("ProjectTab", "Cerrar {0}").format(project.name)
         )
-        self.close_btn.setFixedSize(20, 20)
+        self.close_btn.setFixedSize(Metrics.TARGET, Metrics.TARGET)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.clicked.connect(self.close_requested.emit)
 
@@ -222,6 +222,8 @@ class ProjectTab(ReorderableTab):
     def contextMenuEvent(self, event: QContextMenuEvent) -> None:
         """Show the path and the colors, with no level in between.
 
+        The menu key opens it too, with the focus on the tab.
+
         The eight themes go loose in the menu and not in a submenu: a
         submenu would be an extra step to reach them. Below them, «Roles
         y partes» shows what each color is made of. Removing the repo is
@@ -268,7 +270,10 @@ class ProjectTab(ReorderableTab):
         path.addRoundedRect(r, 7, 7)
 
         if self.is_active:
-            p.fillPath(path, QBrush(theme.REPO_TAB_SELECTED.on(self.pal).bg))
+            selected = theme.REPO_TAB_SELECTED.on(self.pal)
+            p.fillPath(path, QBrush(selected.bg))
+            if self.hasFocus():
+                theme.ring(p, r, selected.fg, 7)
             p.end()
             return
 
@@ -283,6 +288,8 @@ class ProjectTab(ReorderableTab):
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawPath(path)
+        if self.hasFocus():
+            theme.ring(p, r, tab.fg, 7)
         p.end()
 
 

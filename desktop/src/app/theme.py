@@ -10,8 +10,9 @@ from enum import Enum
 from typing import TYPE_CHECKING, cast, override
 
 from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt
-from PySide6.QtGui import QColor, QFont, QPainter, QPalette, QPen
+from PySide6.QtGui import QColor, QFont, QIcon, QPainter, QPalette, QPen, QPixmap
 from PySide6.QtWidgets import (
+    QAbstractScrollArea,
     QApplication,
     QFrame,
     QProxyStyle,
@@ -48,6 +49,9 @@ VARIANT = "variant"
 HOVER_INK = "hoverInk"
 # A button whose part has an outline (`Paint.dress`).
 OUTLINED = "outlined"
+# A scroll area with no frame that shows the focus of the keyboard
+# (`focus_frame`).
+FOCUS_FRAME = "focusFrame"
 
 # The values of the property "variant" of a button.
 VARIANTS = ("primary", "danger")
@@ -169,7 +173,8 @@ class Metrics:
 
     SCROLL_BAR = 8
     SCROLL_HANDLE_MIN = 24
-    SPLITTER = 1
+    # A splitter is a line, but what one grabs measures `TARGET`.
+    SPLITTER = 24
     CHECK_BOX = 15
     CHECK_SPACING = 9
     TOOL_TIP_MARGIN = Spacing.SM
@@ -177,12 +182,19 @@ class Metrics:
     BUTTON_PADDING = 12
     # The smallest side of a button with text, WCAG 2.5.8.
     TARGET = 24
+    # The width of the focus of the keyboard.
+    FOCUS = 2
+    # What a grip or a splitter moves with each arrow key.
+    KEY_STEP = 16
     FIELD = 28
     # The width of the chevron of a closed list.
     CHEVRON = 10
     # The side and the top padding of the menu bar, and of each title.
     MENU_BAR = (2, 3)
     MENU_BAR_ITEM = (13, 5)
+    # The side of the icon of a field, such as its clear button: Qt
+    # makes the button 6 px wider and 2 px taller, `TARGET` high.
+    FIELD_ICON = TARGET - 2
 
 
 class Style(QProxyStyle):
@@ -205,6 +217,19 @@ class Style(QProxyStyle):
         widget: QWidget | None = None,
     ) -> None:
         """Draw frames in the outline and check boxes in the palette."""
+        if (
+            element == QStyle.PrimitiveElement.PE_Frame
+            and widget is not None
+            and widget.property(FOCUS_FRAME)
+        ):
+            if has(option, QStyle.StateFlag.State_HasFocus):
+                colors = cast(QPalette, option.palette)
+                ring(
+                    painter,
+                    QRectF(cast(QRect, option.rect)),
+                    colors.color(QPalette.ColorRole.Highlight),
+                )
+            return
         if element == QStyle.PrimitiveElement.PE_Frame and widget is not None:
             sides = widget.property(EDGES)
             if sides:
@@ -293,7 +318,14 @@ class Style(QProxyStyle):
             )
             option.palette = shown  # pyrefly: ignore[bad-assignment]
         if element == QStyle.ControlElement.CE_Splitter:
-            painter.fillRect(cast(QRect, option.rect), colors.color(QPalette.ColorRole.Mid))
+            # A line in the middle of what one grabs, in the outline: it
+            # is what shows of the handle (WCAG 1.4.11).
+            rect = cast(QRect, option.rect)
+            if rect.width() > rect.height():
+                line = QRect(rect.left(), rect.center().y(), rect.width(), 1)
+            else:
+                line = QRect(rect.center().x(), rect.top(), 1, rect.height())
+            painter.fillRect(line, colors.color(QPalette.ColorRole.Dark))
             return
         if element == QStyle.ControlElement.CE_HeaderSection:
             header_section(option, painter)
@@ -351,6 +383,8 @@ class Style(QProxyStyle):
                 size.width() + 2 * Metrics.MENU_BAR_ITEM[0],
                 size.height() + 2 * Metrics.MENU_BAR_ITEM[1],
             )
+        if kind == QStyle.ContentsType.CT_CheckBox:
+            found.setHeight(max(found.height(), Metrics.TARGET))
         if kind in (QStyle.ContentsType.CT_LineEdit, QStyle.ContentsType.CT_ComboBox):
             found.setHeight(max(found.height(), Metrics.FIELD))
         if (
@@ -394,6 +428,8 @@ class Style(QProxyStyle):
             QStyle.PixelMetric.PM_ToolTipLabelFrameWidth: Metrics.TOOL_TIP_MARGIN,
             QStyle.PixelMetric.PM_MenuBarVMargin: Metrics.MENU_BAR[1],
             QStyle.PixelMetric.PM_MenuBarHMargin: Metrics.MENU_BAR[0],
+            QStyle.PixelMetric.PM_LineEditIconSize: Metrics.FIELD_ICON,
+            QStyle.PixelMetric.PM_ToolBarExtensionExtent: Metrics.TARGET,
         }
         if metric in sizes:
             return sizes[metric]
@@ -404,7 +440,31 @@ class Style(QProxyStyle):
         ):
             # A band draws its lines over its content.
             return 0
+        if (
+            metric == QStyle.PixelMetric.PM_DefaultFrameWidth
+            and widget is not None
+            and widget.property(FOCUS_FRAME)
+        ):
+            return Metrics.FOCUS
         return super().pixelMetric(metric, option, widget)
+
+    @override
+    def standardIcon(
+        self,
+        standardIcon: QStyle.StandardPixmap,
+        option: QStyleOption | None = None,
+        widget: QWidget | None = None,
+    ) -> QIcon:
+        """Draw the «»» of a menu bar in the text of its palette.
+
+        Fusion's is dark and does not show on a dark band (WCAG 1.4.11).
+        """
+        if (
+            standardIcon == QStyle.StandardPixmap.SP_ToolBarHorizontalExtensionButton
+            and widget is not None
+        ):
+            return chevrons(widget.palette().color(QPalette.ColorRole.ButtonText))
+        return super().standardIcon(standardIcon, option, widget)
 
     @override
     def styleHint(
@@ -420,6 +480,27 @@ class Style(QProxyStyle):
             mid = cast(QPalette, option.palette).color(QPalette.ColorRole.Mid)
             return mid.rgb() - (1 << 32)
         return super().styleHint(hint, option, widget, returnData)
+
+
+def chevrons(color: QColor) -> QIcon:
+    """Return «»» drawn in two strokes of `color`."""
+    side, ratio = Metrics.CHEVRON + 4, 2
+    pixmap = QPixmap(side * ratio, side * ratio)
+    pixmap.setDevicePixelRatio(ratio)
+    pixmap.fill(Qt.GlobalColor.transparent)
+    painter = QPainter(pixmap)
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(color, 1.6)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    painter.setPen(pen)
+    middle = side / 2
+    for left in (3.0, 7.5):
+        painter.drawPolyline(
+            [QPointF(left, middle - 3.5), QPointF(left + 3.5, middle), QPointF(left, middle + 3.5)]
+        )
+    painter.end()
+    return QIcon(pixmap)
 
 
 def has(option: QStyleOption, flag: QStyle.StateFlag) -> bool:
@@ -762,13 +843,16 @@ def glyph(button: QPushButton, color: str, hover: str, ink: str | None = None) -
 
     No fill and no outline: the glyph in `color`, on `hover` under the
     cursor and, with `ink`, in that color there, and the disabled one in
-    the theme's disabled text.
+    the theme's disabled text. The focus of the keyboard goes in
+    `color` too: the glyph reads over its background, and the accent
+    may be that background, as on the title bar.
     """
     colors = QPalette(button.palette())
     none = Qt.GlobalColor.transparent
     for role in (QPalette.ColorRole.Button, QPalette.ColorRole.Dark, QPalette.ColorRole.Window):
         colors.setColor(role, none)
     colors.setColor(QPalette.ColorRole.Midlight, hover)
+    colors.setColor(QPalette.ColorRole.Highlight, color)
     for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
         colors.setColor(group, QPalette.ColorRole.ButtonText, color)
     if ink is not None:
@@ -776,6 +860,33 @@ def glyph(button: QPushButton, color: str, hover: str, ink: str | None = None) -
     button.setProperty(HOVER_INK, ink is not None)
     button.setPalette(colors)
     button.setAutoFillBackground(False)
+
+
+def focus_frame(area: QAbstractScrollArea) -> None:
+    """Give a scroll area no frame but the focus of the keyboard.
+
+    `Style` draws it in 2 px of Highlight while the area has the focus,
+    and nothing without it (WCAG 2.4.7).
+    """
+    area.setFrameShape(QFrame.Shape.StyledPanel)
+    area.setProperty(FOCUS_FRAME, True)
+
+
+def ring(painter: QPainter, rect: QRectF, color: QColor | str, radius: float = Radius.SM) -> None:
+    """Draw the focus of the keyboard on a widget that paints itself.
+
+    `Metrics.FOCUS` px inside `rect`, as `Style` draws it on a field or
+    a button.
+    """
+    inset = Metrics.FOCUS / 2
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    pen = QPen(color)
+    pen.setWidth(Metrics.FOCUS)
+    painter.setPen(pen)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.drawRoundedRect(rect.adjusted(inset, inset, -inset, -inset), radius, radius)
+    painter.restore()
 
 
 def font(size: int, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
@@ -1097,9 +1208,11 @@ TABLE_TAB = Look(fg=Role.ON_SURFACE, border=Role.PRIMARY)
 SECTION_BODY = Look(bg=Role.SURFACE_CONTAINER_LOW)
 # The bar to drag between two open sections: the body's color, so it
 # only shows on hover.
+# Its line is what shows of a handle: `outline`, which reads at 3:1
+# (WCAG 1.4.11).
 SECTION_GRIP = Look(
     bg=SECTION_BODY.bg,
-    border=Role.OUTLINE_VARIANT,
+    border=Role.OUTLINE,
     hover=Layer(Role.ON_SURFACE, Role.SURFACE_CONTAINER_LOW),
 )
 # The bottom strip of a panel: Limpiar · Ejecutar, Guardar · Recargar.

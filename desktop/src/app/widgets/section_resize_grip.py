@@ -4,12 +4,22 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent, QPalette
-from PySide6.QtWidgets import QWidget
+from PySide6.QtCore import QCoreApplication, QObject, QRectF, Qt, Signal
+from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleInterface,
+    QFocusEvent,
+    QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPalette,
+)
+from PySide6.QtWidgets import QAccessibleWidget, QWidget
 
 from app import theme
 from app.services.palettes import NEUTRAL, Palette
+from app.theme import Metrics
 
 
 class SectionResizeGrip(QWidget):
@@ -19,6 +29,9 @@ class SectionResizeGrip(QWidget):
     the rest lose (`TabPanel._resize_section`). A double click returns
     to the automatic sharing. It shows only when there is something to
     negotiate with: its section open and at least one open below.
+
+    With the keyboard, Tab reaches it, the up and down arrows move it
+    `Metrics.KEY_STEP` px and Enter does what the double click does.
     """
 
     pressed = Signal()  # a drag starts: resync with reality
@@ -26,7 +39,9 @@ class SectionResizeGrip(QWidget):
     dragged = Signal(int)
     reset = Signal()
 
-    HEIGHT = 7
+    # What one grabs measures the target of WCAG 2.5.8; what shows is a
+    # line in its middle.
+    HEIGHT = Metrics.TARGET
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the bar."""
@@ -35,6 +50,13 @@ class SectionResizeGrip(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.SplitVCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setAccessibleDescription(
+            QCoreApplication.translate(
+                "SectionResizeGrip",
+                "Las flechas arriba y abajo cambian el alto; Enter vuelve al reparto automático",
+            )
+        )
         self.pal = NEUTRAL
         self._restyle()
         self._last_y: float | None = None
@@ -50,13 +72,36 @@ class SectionResizeGrip(QWidget):
 
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
-        """Paint the body's color, or the hover's, and a line below."""
+        """Paint the body's color, or the hover's, and a line across."""
         colors = self.palette()
         p = QPainter(self)
         fill = QPalette.ColorRole.Midlight if self.underMouse() else QPalette.ColorRole.Window
         p.fillRect(self.rect(), colors.color(fill))
-        p.fillRect(0, self.height() - 1, self.width(), 1, colors.color(QPalette.ColorRole.Dark))
+        p.fillRect(0, self.height() // 2, self.width(), 1, colors.color(QPalette.ColorRole.Dark))
+        if self.hasFocus():
+            theme.ring(p, QRectF(self.rect()), colors.color(QPalette.ColorRole.Highlight), 0)
         p.end()
+
+    @override
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        steps = {Qt.Key.Key_Up: -Metrics.KEY_STEP, Qt.Key.Key_Down: Metrics.KEY_STEP}
+        if event.key() in steps:
+            self.pressed.emit()
+            self.dragged.emit(steps[Qt.Key(event.key())])
+        elif event.key() in (Qt.Key.Key_Return, Qt.Key.Key_Enter):
+            self.reset.emit()
+        else:
+            super().keyPressEvent(event)
+
+    @override
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusInEvent(event)
+
+    @override
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusOutEvent(event)
 
     @override
     def mousePressEvent(self, event: QMouseEvent) -> None:
@@ -81,3 +126,19 @@ class SectionResizeGrip(QWidget):
     @override
     def mouseDoubleClickEvent(self, event: QMouseEvent) -> None:
         self.reset.emit()
+
+
+class _Accessible(QAccessibleWidget):
+    """The grip as what it is: a handle that resizes."""
+
+    def __init__(self, grip: SectionResizeGrip) -> None:
+        """Give the grip the grip role."""
+        super().__init__(grip, QAccessible.Role.Grip)
+
+
+def _interface(key: str, obj: QObject) -> QAccessibleInterface | None:
+    """Return the interface of a grip, for `installFactory`."""
+    return _Accessible(obj) if isinstance(obj, SectionResizeGrip) else None
+
+
+QAccessible.installFactory(_interface)

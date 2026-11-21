@@ -22,6 +22,7 @@ from PySide6.QtGui import (
 from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QWidget
 
 from app import theme
+from app.services import motion
 from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts, Spacing, mono
 
@@ -30,13 +31,17 @@ _ZONE = re.compile(r"\s*\(?t+\)?")
 
 
 class ConsoleView(QPlainTextEdit):
-    """Console like a terminal: colored levels and a blinking cursor."""
+    """Console like a terminal: colored levels and a blinking cursor.
+
+    The cursor blinks only while «Animaciones» of the Ver menu is on
+    (`services/motion.py`); off, there is none.
+    """
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the read-only view."""
         super().__init__(parent)
         self.setReadOnly(True)
-        self.setFrameShape(QPlainTextEdit.Shape.NoFrame)
+        theme.focus_frame(self)
         self.setViewportMargins(Spacing.MD, Spacing.MD - 2, Spacing.MD, Spacing.MD - 2)
         self.setAccessibleName(QCoreApplication.translate("ConsoleView", "Consola"))
         self.pal = NEUTRAL
@@ -46,8 +51,10 @@ class ConsoleView(QPlainTextEdit):
 
         self.cursor_visible = False
         self.cursor_timer = QTimer(self)
+        self.cursor_timer.setInterval(600)
         self.cursor_timer.timeout.connect(self._toggle_cursor)
-        self.cursor_timer.start(600)
+        motion.notifier.changed.connect(self._blink)
+        self._blink()
 
         # Ctrl+F opens it; it finds as one types, Enter goes to the next
         # match and Shift+Enter to the previous one, both wrapping
@@ -177,6 +184,16 @@ class ConsoleView(QPlainTextEdit):
             "info",
         )
         self.append_log(QCoreApplication.translate("ConsoleView", "Stub ejecutado"), "ok")
+
+    @Slot()
+    def _blink(self) -> None:
+        """Blink if things may move, or take the cursor out."""
+        if motion.animated():
+            self.cursor_timer.start()
+            return
+        self.cursor_timer.stop()
+        if self.cursor_visible:
+            self._toggle_cursor()
 
     @Slot()
     def _toggle_cursor(self) -> None:

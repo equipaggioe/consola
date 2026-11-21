@@ -30,7 +30,8 @@ class FavoriteStar(QPushButton):
         self.setAccessibleName(QCoreApplication.translate("FavoriteStar", "Favorita"))
         self.setFixedSize(26, 26)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # Tab reaches it; a click does not take the focus.
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.clicked.connect(self._on_clicked)
         self._restyle()
 

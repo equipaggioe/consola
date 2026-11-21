@@ -11,6 +11,8 @@ from PySide6.QtGui import (
     QAccessibleActionInterface,
     QAccessibleInterface,
     QEnterEvent,
+    QFocusEvent,
+    QKeyEvent,
     QMouseEvent,
     QPainter,
     QPainterPath,
@@ -31,6 +33,7 @@ from app.services.projects import Project
 from app.theme import tint
 from app.widgets.project_tab import ProjectTab
 from app.widgets.reorderable_bar import ReorderableBar
+from app.widgets.reorderable_tab import pressed
 
 
 class _AddProjectTab(QWidget):
@@ -38,7 +41,7 @@ class _AddProjectTab(QWidget):
 
     It carries the `on_accent` outline over the active repo's bar, the
     same as an unselected tab: it is one more tab, the one with no repo
-    yet.
+    yet. Tab reaches it, and Space or Enter presses it, like Ctrl+T.
     """
 
     clicked = Signal()
@@ -52,6 +55,7 @@ class _AddProjectTab(QWidget):
         self._hovered = False
         self.setToolTip(QCoreApplication.translate("_AddProjectTab", "Añadir repositorio"))
         self.setAccessibleName(QCoreApplication.translate("_AddProjectTab", "Añadir repositorio"))
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
 
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
@@ -77,6 +81,23 @@ class _AddProjectTab(QWidget):
         super().mousePressEvent(event)
 
     @override
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if pressed(event):
+            self.clicked.emit()
+            return
+        super().keyPressEvent(event)
+
+    @override
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusInEvent(event)
+
+    @override
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusOutEvent(event)
+
+    @override
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
@@ -98,6 +119,8 @@ class _AddProjectTab(QWidget):
         c = r.center()
         p.drawLine(QPointF(c.x() - 6, c.y()), QPointF(c.x() + 6, c.y()))
         p.drawLine(QPointF(c.x(), c.y() - 6), QPointF(c.x(), c.y() + 6))
+        if self.hasFocus():
+            theme.ring(p, r, add.fg, 6)
         p.end()
 
 

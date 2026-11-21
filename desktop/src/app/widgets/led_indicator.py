@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import override
 
 from PySide6.QtCore import (
-    Property,
     QCoreApplication,
     QEasingCurve,
     QObject,
-    QPropertyAnimation,
     Qt,
+    QVariantAnimation,
+    Slot,
 )
 from PySide6.QtGui import (
     QAccessible,
@@ -23,6 +23,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import QAccessibleWidget, QWidget
 
+from app.services import motion
 from app.services.language import QT_TRANSLATE_NOOP
 from app.theme import Colors
 
@@ -35,6 +36,10 @@ class LedIndicator(QWidget):
     tool, uses 'on': the same green without animation. Without that
     difference each status bar indicator would leave an animation
     looping forever, and it would lie about what it reports.
+
+    The pulse stops with «Animaciones» in the Ver menu
+    (`services/motion.py`): the LED stays lit, and its state is still in
+    its description.
     """
 
     STEADY = ("off", "on", "amber", "red")
@@ -59,12 +64,18 @@ class LedIndicator(QWidget):
         self._opacity = 1.0
         self._size = size
 
-        self.animation = QPropertyAnimation(self, b"glow_opacity", self)
+        # A `QVariantAnimation` and not a `QPropertyAnimation`: that one
+        # needs a `Property` on the class, and in PySide6 6.12 a
+        # `Property` is not collected at shutdown (`ResourceWarning`
+        # under `PYTHONDEVMODE`).
+        self.animation = QVariantAnimation(self)
         self.animation.setDuration(2000)
         self.animation.setStartValue(0.4)
         self.animation.setEndValue(1.0)
         self.animation.setEasingCurve(QEasingCurve.Type.InOutSine)
         self.animation.setLoopCount(-1)
+        self.animation.valueChanged.connect(self._glow)
+        motion.notifier.changed.connect(self._pulse)
 
     def set_state(self, state: str) -> None:
         """Set the state, and start or stop the pulse."""
@@ -73,24 +84,24 @@ class LedIndicator(QWidget):
         self.setAccessibleDescription(
             QCoreApplication.translate("LedIndicator", self.WORDS[state])
         )
-        if state == "green":
-            if self.animation.state() != QPropertyAnimation.State.Running:
+        self._pulse()
+
+    @Slot()
+    def _pulse(self) -> None:
+        """Pulse if green and things may move; else stay lit."""
+        if self._state == "green" and motion.animated():
+            if self.animation.state() != QVariantAnimation.State.Running:
                 self.animation.start()
         else:
             self.animation.stop()
             self._opacity = 1.0
         self.update()
 
-    def get_glow_opacity(self) -> float:
-        """Return the glow opacity, for the animation."""
-        return self._opacity
-
-    def set_glow_opacity(self, value: float) -> None:
-        """Set the glow opacity, for the animation."""
+    @Slot(object)
+    def _glow(self, value: float) -> None:
+        """Set the glow opacity, a step of the pulse."""
         self._opacity = value
         self.update()
-
-    glow_opacity = Property(float, get_glow_opacity, set_glow_opacity)
 
     @override
     def paintEvent(self, event: QPaintEvent) -> None:

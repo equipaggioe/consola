@@ -34,7 +34,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPushButton,
     QScrollArea,
-    QSplitter,
     QTableView,
     QTabWidget,
     QTreeView,
@@ -51,7 +50,8 @@ from app.services import db_models as dbm
 from app.services.db_worker import DbWorker
 from app.services.files import human_size
 from app.services.palettes import NEUTRAL, Palette
-from app.theme import Colors, Fonts, Spacing
+from app.theme import Colors, Fonts, Metrics, Spacing
+from app.widgets.splitter import Splitter
 
 # --- view ---
 
@@ -139,9 +139,11 @@ class DbExplorerView(QWidget):
     def _build(self) -> None:
         root = QHBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
-        splitter = QSplitter(Qt.Orientation.Horizontal)
+        splitter = Splitter(
+            Qt.Orientation.Horizontal,
+            QCoreApplication.translate("DbExplorerView", "Ancho del árbol"),
+        )
         splitter.setChildrenCollapsible(False)
-        splitter.setHandleWidth(3)
         root.addWidget(splitter)
 
         # Left: filter, grouping, summary against the models, and tree.
@@ -284,7 +286,7 @@ class DbExplorerView(QWidget):
         layout.setSpacing(4)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        theme.focus_frame(scroll)
         scroll.setWidget(body)
         self.tabs.addTab(scroll, title)
         return layout
@@ -293,7 +295,7 @@ class DbExplorerView(QWidget):
         btn = QPushButton(text)
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setFixedHeight(22)
+        btn.setFixedHeight(Metrics.TARGET)
         btn.setFont(theme.font(Fonts.SIZE_XS))
         self._chips.append(btn)
         btn.clicked.connect(slot)

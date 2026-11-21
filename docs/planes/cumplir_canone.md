@@ -2,11 +2,11 @@
 
 > **Estado (verificado 2026-11-21).** Canone sacó `qt.md` de desarrollo (`461d857` y `e6b3d0b` de
 > canone), y después la sección «Tema» de `transversal.md` y de cada cliente (`e03dedd`, ADR-0198 y
-> ADR-0201 de canone): ahora `qt.md` rige entera. Con canone en `main` (`6372094`),
-> `verificar.py --repo .` da 0 con las tres variables `RELEASE_DESKTOP_*`. En Windows,
-> `ruff format --check`, `ruff check`, `pyrefly check` en las dos plataformas, `deptry` y
-> `pip-audit` dan 0, y pasan 850 pruebas, con 3 saltadas. En Linux (distro `Testing`), los pasos del
-> job `desktop` de `ci.yml` dan 0 y pasan 853.
+> ADR-0201 de canone): ahora `qt.md` rige entera. Con canone en `main` (`0f2ea6b`, que trae el
+> `tokens.py` del ADR-0211, ya copiado), `verificar.py --repo .` da 0 con las tres variables
+> `RELEASE_DESKTOP_*`. En Windows, `ruff format --check`, `ruff check`, `pyrefly check` en las dos
+> plataformas, `deptry` y `pip-audit` dan 0, y pasan 859 pruebas, con 3 saltadas. En Linux (distro
+> `Testing`, 2026-11-21) los pasos del job `desktop` de `ci.yml` dan 0 y pasan 862.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
 > `stack.md`, el árbol de `qt.md`
 > ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
@@ -22,7 +22,10 @@
 > ([ADR-0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md)), `IniFormat`, HTTP con un solo
 > `QNetworkAccessManager` y reintentos
 > ([ADR-0089](../adr/0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)),
-> `release.yml` ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)) y `api/`
+> `release.yml` ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)), las filas
+> 2.1.1, 2.4.3, 2.2.2, 1.4.4, 4.1.3, 2.4.7, 1.4.11 y 2.5.8 (24 × 24) del nivel AA
+> ([ADR-0095](../adr/0095-tab-sigue-el-orden-de-lectura-ver-detiene-lo-que-se-mueve-y-los-cambios-se-anuncian.md))
+> y `api/`
 > ([ADR-0080](../adr/0080-las-respuestas-http-se-leen-con-modelos-en-api.md)). El objetivo sale del
 > [ADR-0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md); lo
 > que hay está en [arquitectura](../arquitectura/README.md), y si este plan no coincide con ella, manda
@@ -31,8 +34,8 @@
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
 > `canone/plataformas/python.md`, `canone/plataformas/qt.md`, «Tema» y «Accesibilidad» de
 > `canone/plataformas/transversal.md` y este plan. Falta el selector de idioma, que llega con el
-> segundo idioma (§2.8), la prueba de `release.yml` con un tag (§4) y lo que espera una decisión:
-> las filas del nivel AA que quedan en el §2.5 y el §3, «Abiertas».
+> segundo idioma (§2.8), la prueba de `release.yml` con un tag (§4), el 48 × 48 del §2.5, que espera
+> la pregunta 14, el §3, «Abiertas», y la confirmación del ADR-0095, que está como *Propuesta*.
 
 ## 1. Cómo se comprueba
 
@@ -49,6 +52,9 @@ uv export --locked --no-emit-project --format requirements.txt -o "${TMPDIR:-/tm
 uv run pip-audit --disable-pip --require-hashes -r "${TMPDIR:-/tmp}/req.txt"
 QT_QPA_PLATFORM=offscreen PYTHONDEVMODE=1 PYTHONWARNDEFAULTENCODING=1 uv run pytest
 ```
+
+La accesibilidad se mide desde `desktop/` con `uv run python scripts/aa.py`
+([12](../arquitectura/12_interfaz.md), §10).
 
 Desde la raíz: `python ../canone/scripts/verificar.py --repo . --variables '{"RELEASE_DESKTOP_LINUX":
 "true", "RELEASE_DESKTOP_MACOS": "false", "RELEASE_DESKTOP_WINDOWS": "true"}'`, como `ci.yml` con
@@ -68,28 +74,28 @@ la app.
 Hecho: lo que pide la sección «Accesibilidad» de `qt.md`, también los atajos (pregunta 10). Está en
 [12](../arquitectura/12_interfaz.md), §10.
 
-Medido el 2026-11-19 con un script sobre la ventana abierta sin pantalla, con un repo y cuatro
-pestañas de acción, y vuelto a medir el 2026-11-21, después de «Tema» (§2.10), con un script que
-recorre la ventana con Tab: 1.4.3, 1.4.11, 2.5.8 y 2.4.7. **El nivel AA no se cumple.** Lo que falla
-pide decisiones de diseño:
+Medido el 2026-11-21 con `desktop/scripts/aa.py`, sin pantalla, en Windows y en Linux (distro
+`Testing`), con un repo y cuatro pestañas de acción
+([ADR-0095](../adr/0095-tab-sigue-el-orden-de-lectura-ver-detiene-lo-que-se-mueve-y-los-cambios-se-anuncian.md),
+*Propuesta*). Lo que el script no ve se probó en Windows con teclas reales enviadas desde otro
+proceso y con un cliente de UI Automation:
 
 | Criterio | Qué falla | Decisión que pide |
 |---|---|---|
-| 1.4.3, contraste del texto | Nada, medido el 2026-11-21: los textos de los 132 controles visibles dan 4,5:1 o más contra su fondo. Los roles de texto los comprueba `tokens.py --check` | — |
-| 1.4.11, contraste de lo que no es texto | Nada: el contorno de los campos, las listas, las casillas y los botones con borde es `outline` (`#7a8392`), que da 3,13:1 o más contra cada superficie (`tokens.py --check`) | — |
-| 2.5.8, objetivo de 24 × 24 | 9 controles, medido el 2026-11-21: los cuatro `×` de las pestañas de acción (18 × 18), el `×` de la pestaña del repo (20 × 20), el botón de borrar del buscador (22 × 18), el `»` de la barra de menú (12 × 25) y dos casillas de 18 de alto. Los botones con texto ya miden 24 de alto como mínimo (`Metrics.TARGET`), los candados incluidos | Los tamaños, que van en `theme.py`, y si el 48 × 48 de `transversal.md` rige en el escritorio (pregunta 14) |
-| 2.1.1, todo con el teclado | 11 controles no reciben el foco: las pestañas de acción (con Ctrl+PgDown y Ctrl+PgUp), las de repo (con Ctrl+Tab y Ctrl+1 a 9), el «+» (con Ctrl+T), la estrella de favorita, los tres botones de la ventana y el botón de borrar de los campos | Si cada pestaña y cada botón de glifo reciben el foco, o bastan los atajos |
-| 2.4.7, foco visible | Nada, medido el 2026-11-21 recorriendo con Tab los 27 controles que reciben el foco: todos cambian de aspecto. `Style` dibuja el foco del teclado en 2 px de `Highlight` en campos, listas, casillas y botones | — |
-| 2.2.2, lo que se mueve | El cursor de la consola parpadea sin fin, y el LED verde pulsa mientras un servicio está vivo; ninguno se puede detener | Si se quitan o se pueden pausar |
-| 1.4.4, texto al 200 % | Los 70 controles con texto visibles fijan su tamaño en píxeles (la fuente de la app, de 15 px, en `theme.apply`, y las hojas de estilo): al duplicar la fuente de la app no crece ninguno, así que no siguen el tamaño de texto del sistema. Solo la escala de pantalla los agranda, y al 200 % el tamaño mínimo de la ventana, 1000 × 650, pide 2000 × 1300 px: no entra en una pantalla de 1920 × 1080 | Si la fuente sigue la del sistema. Los tamaños van en `theme.py` |
-| 2.4.3, orden del foco | Tab recorre los 38 controles que reciben el foco y vuelve al buscador, pero no en el orden de lectura: buscador → panel de configuración (abajo a la derecha) → los `×` de las pestañas de acción (arriba) → consola → pasos (arriba a la derecha) → Limpiar → `×` del repo (arriba a la izquierda) → candados (abajo) | El orden que se quiere. Depende de la fila 2.1.1: si las pestañas reciben el foco, entran en él |
-| 4.1.3, mensajes de estado | Ningún widget manda `QAccessibleAnnouncementEvent`: un cambio de estado cambia el nombre o la descripción de un widget, que un lector anuncia solo si tiene el foco. Se ven sin foco el LED y el estado de una vista («Estado del endpoint»), los servicios y la RAM de la barra de estado, y el error de una tarea en la consola. Buscado en el código; sin probar con un lector | Qué mensajes se anuncian |
+| 1.4.3, contraste del texto | Nada | — |
+| 1.4.11, contraste de lo que no es texto | Nada: el `»` de la barra de menú, los glifos de los botones y las líneas de la barra entre secciones y del separador dan 3:1 o más | — |
+| 2.5.8, objetivo de 24 × 24 | Nada a 1400 × 860 ni a 960 × 500 | Si el 48 × 48 de `transversal.md` rige en el escritorio (pregunta 14) |
+| 2.1.1, todo con el teclado | Nada: todo lo que responde al ratón recibe el foco, y la marca abre el menú que mueve y redimensiona la ventana. Bajo Wayland, «Mover» no hace nada | — |
+| 2.1.2, sin trampas | Nada: Tab sale de los 55 controles | — |
+| 2.4.3, orden del foco | Nada: Tab recorre los 55 controles por bandas y por líneas | — |
+| 2.4.7, foco visible | Nada: la consola y las áreas con desplazamiento muestran el foco | — |
+| 2.2.2, lo que se mueve | Nada: el cursor, el pulso del LED y la RAM se detienen u ocultan desde Ver | — |
+| 1.4.4, texto al 200 % | Nada a 960 × 500 px de Qt, con la escala de pantalla del sistema, también con las fuentes de Linux. El «Tamaño del texto» de Windows no agranda la app | — |
+| 4.1.3, mensajes de estado | Nada: un cliente de UI Automation recibe las notificaciones. Sin escuchar un lector concreto (NVDA o Narrador) | — |
 
-Medido el 2026-11-20 con otro script sobre la ventana sin pantalla, con un repo y cuatro pestañas
-de acción: las tres filas de arriba. En la misma medición se arreglaron dos fallos que no pedían
-decisión: Tab no salía de un campo de varias líneas (`EnvRow` y `ParamsPanel`) y los cuatro `×` de
-las pestañas de acción se llamaban «Cerrar pestaña», sin decir cuál
-([12](../arquitectura/12_interfaz.md), §10).
+Las mediciones del 2026-11-19 al 2026-11-21 anteriores a `aa.py` corrieron sin pantalla y sin las
+fuentes del sistema: cada texto medía el doble de ancho, así que los tamaños de entonces no valen.
+Los colores, sí.
 
 Falta medir el idioma de la pantalla (3.1.1), que llega con el §2.8.
 
@@ -158,7 +164,7 @@ toman el acento del repo. El §2.5 se volvió a medir después.
 «Dónde» dice quién lo resuelve: canone, cuando la duda es qué pide una página, y Consola cuando la
 duda es cómo cumplirla.
 
-### Decididas (2026-11-18 a 2026-11-20)
+### Decididas (2026-11-18 a 2026-11-21)
 
 | # | Pregunta | Dónde | Decisión |
 |---|---|---|---|
@@ -179,12 +185,14 @@ duda es cómo cumplirla.
 | 16 | Los roles de Consola no son los de Material: dos escaleras de fondos (teñida y gris), cuatro grises de texto, cuatro bordes y colores de estado (`SUCCESS`, `WARNING`, los LED) que el `ColorScheme` no tiene. `tokens.py` falla con un rol de más y `test_theme.py` con un literal fuera de `colors.py` | Consola, y canone los estados | Consola adopta los 46 roles de Material, sin nombres propios, y conserva el aspecto de hoy (comparado en capturas con fondos grises y con un tinte leve). Los cinco fondos grises van en `surface*`, iguales en los ocho temas; `CHROME`, la banda teñida de las cabeceras y la pestaña de acción activa, en `primaryContainer`; `SURFACE_ALT`, la de la fila del menú, la pestaña del repo y el buscador, en `secondaryContainer`. Los menús desplegados y las pestañas de acción inactivas (`PANEL`) pasan a gris, y `ACCENT_PURPLE` va en `tertiary`. `SUCCESS` y `WARNING` no se agregan en Consola: se pide a canone que adopte los *custom colors* de Material, que `material-color-utilities` define en `theme_utils.ts` (`CustomColor`, con la familia `color`, `onColor`, `colorContainer` y `onColorContainer` en cada modo), como regla para todo producto que muestre estados. Canone los adoptó (ADR-0209). Hecho (ADR-0093). Aceptado el 2026-11-21, con el detalle de los puntos 7 a 13 del ADR-0093: el texto en `onSurface` y `onSurfaceVariant`, lo inactivo al 38 % que genera `colors.py`, los cuatro bordes en `outline` y `outlineVariant`, el hover como capa de estado y no como rol, y los LED en los colores de estado. |
 | 17 | ¿Consola tiene solo el modo oscuro o los dos? | Consola | Solo el oscuro, como hoy. `colors.resolver.json` tiene solo `dark` en `mode`, la app lo usa siempre, y `theme.py` no tiene la elección del modo ni la clave `mode` |
 | 18 | ¿Cómo se ven las 39 partes sin hoja de estilo? | Consola | Cada espacio de trabajo aplica la `palette()` de su tema, y cada parte (`Look`) da su fondo y su texto como una `QPalette` que su widget aplica con `setPalette()`; los hijos la heredan. Lo que una paleta no expresa, como los bordes y el foco, lo dibuja `Style`, y los botones con relleno de acento usan la propiedad `variant` en `primary`, como pide `qt.md`. La tabla de partes de `theme.py` sigue siendo el único lugar donde se cambia un tono |
+| 19 | La ventana no tiene marco del sistema, y moverla o redimensionarla era solo con el ratón (§2.5, 2.1.1). ¿Entra en «toda función se puede usar con el teclado»? | Consola | Sí: el usuario pidió resolverlo el 2026-11-21. La marca abre un menú de la ventana con Mover y Tamaño (ADR-0095, *Propuesta*). Hecho |
 
 ### Abiertas
 
 | # | Pregunta | Dónde | Recomendación |
 |---|---|---|---|
 | 14 | `transversal.md` pide 48 × 48 a «cada objetivo táctil». Una app de escritorio se usa con el puntero: no está claro si rige, o si basta el 24 × 24 de AA (WCAG 2.5.8) | Canone | Que diga «objetivo táctil o de puntero» y fije el valor del escritorio |
+| 20 | `desktop/scripts/aa.py` mide lo que pide «Accesibilidad» de `transversal.md`, y casi todo es de Qt y no de Consola. ¿Lo da canone? | Canone | Sí: la parte de Qt como archivo canónico de `plantilla/qt/`, y cada repo con un módulo chico propio. Anotado en `canone/pendientes/medicion-de-accesibilidad.md` (2026-11-21) |
 
 ## 4. Sin verificar
 

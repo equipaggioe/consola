@@ -15,6 +15,7 @@ from PySide6.QtWidgets import (
 
 from app import theme
 from app.services import (
+    motion,
     protection,
     sysinfo,
     toolstatus,
@@ -116,14 +117,17 @@ class WorkspaceStatusBar(QFrame):
         layout.addWidget(self._sep_ram)
 
         # Available RAM: unlike the SDKs, it changes all the time and
-        # not only after an install, so it has its own timer.
+        # not only after an install, so it has its own timer. It hides
+        # with «RAM disponible» of the Ver menu: what refreshes by
+        # itself can be hidden (`services/motion.py`).
         self.ram_label = QLabel()
         self.ram_label.setFont(theme.font(Fonts.SIZE_XS))
         layout.addWidget(self.ram_label)
         self._ram_timer = QTimer(self)
+        self._ram_timer.setInterval(5000)
         self._ram_timer.timeout.connect(self.refresh_ram)
-        self._ram_timer.start(5000)
-        self.refresh_ram()
+        motion.notifier.changed.connect(self._show_ram)
+        self._show_ram()
 
         self._restyle()
 
@@ -158,6 +162,17 @@ class WorkspaceStatusBar(QFrame):
             theme.ink(
                 label, Colors.ON_SURFACE_VARIANT if tool.found else Colors.ON_SURFACE_VARIANT
             )
+
+    @Slot()
+    def _show_ram(self) -> None:
+        """Show the RAM and refresh it, or hide it and stop asking."""
+        if motion.ram_shown():
+            self.refresh_ram()
+            self._ram_timer.start()
+            return
+        self._ram_timer.stop()
+        self.ram_label.setVisible(False)
+        self._sep_ram.setVisible(False)
 
     @Slot()
     def refresh_ram(self) -> None:

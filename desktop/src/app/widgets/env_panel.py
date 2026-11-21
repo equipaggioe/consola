@@ -204,7 +204,7 @@ class EnvPanel(QWidget):
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        theme.focus_frame(scroll)
 
         content = QWidget()
         self._content = content  # `content_height` measures it

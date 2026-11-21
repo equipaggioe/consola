@@ -4,13 +4,25 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QSize, Qt, Signal, Slot
-from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent, QPalette
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
+from PySide6.QtCore import QObject, QRectF, QSize, Qt, Signal, Slot
+from PySide6.QtGui import (
+    QAccessible,
+    QAccessibleActionInterface,
+    QAccessibleInterface,
+    QAccessibleStateChangeEvent,
+    QFocusEvent,
+    QKeyEvent,
+    QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPalette,
+)
+from PySide6.QtWidgets import QAccessibleWidget, QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from app import theme
 from app.services.palettes import NEUTRAL, Palette
 from app.theme import Fonts
+from app.widgets.reorderable_tab import pressed
 
 # `QWIDGETSIZE_MAX`: what Qt understands as «no height limit».
 NO_CAP = 16777215
@@ -20,6 +32,9 @@ class _AccordionHeader(QWidget):
     """A section's clickable bar, always visible, open or not.
 
     It is what keeps all sections visible even if only one fits open.
+    Tab reaches it and Space or Enter folds or unfolds it, as a click;
+    the menu key opens the menu of its right click. To assistive
+    technology it is a button that says whether its section is open.
     """
 
     clicked = Signal()
@@ -33,7 +48,10 @@ class _AccordionHeader(QWidget):
         self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setAccessibleName(title)
         self.pal = NEUTRAL
+        self.expanded = True
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(9, 0, 12, 0)
@@ -82,7 +100,26 @@ class _AccordionHeader(QWidget):
         fill = QPalette.ColorRole.Midlight if self.underMouse() else QPalette.ColorRole.Window
         p.fillRect(self.rect(), colors.color(fill))
         p.fillRect(0, self.height() - 1, self.width(), 1, colors.color(QPalette.ColorRole.Dark))
+        if self.hasFocus():
+            theme.ring(p, QRectF(self.rect()), colors.color(QPalette.ColorRole.Highlight))
         p.end()
+
+    @override
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if pressed(event):
+            self.clicked.emit()
+            return
+        super().keyPressEvent(event)
+
+    @override
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusInEvent(event)
+
+    @override
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusOutEvent(event)
 
     @override
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
@@ -167,7 +204,14 @@ class AccordionSection(QWidget):
             return
         self._expanded = value
         self.body.setVisible(value)
+        self.header.expanded = value
         self.header.chevron.setText("▾" if value else "▸")
+        changed = QAccessible.State()
+        # The stubs of PySide6 6.12 declare each state `...` with a
+        # type comment, which Pyrefly does not read.
+        changed.expanded = True  # pyrefly: ignore[bad-assignment]
+        changed.collapsed = True  # pyrefly: ignore[bad-assignment]
+        QAccessible.updateAccessibility(QAccessibleStateChangeEvent(self.header, changed))
         self.setMinimumHeight(_AccordionHeader.HEIGHT)
         self.setMaximumHeight(NO_CAP if value else _AccordionHeader.HEIGHT)
         if announce:
@@ -197,3 +241,41 @@ class AccordionSection(QWidget):
         Whoever set the body repaints it, since each panel has its own.
         """
         self.header.set_palette(pal)
+
+
+class _Accessible(QAccessibleWidget):
+    """A header as a button that opens and closes its section."""
+
+    def __init__(self, header: _AccordionHeader) -> None:
+        """Give the header the button role."""
+        super().__init__(header, QAccessible.Role.Button)
+        self.header = header
+
+    @override
+    def state(self) -> QAccessible.State:
+        state = super().state()
+        # The stubs of PySide6 6.12 declare each state `...` with a
+        # type comment, which Pyrefly does not read.
+        state.expandable = True  # pyrefly: ignore[bad-assignment]
+        state.expanded = self.header.expanded  # pyrefly: ignore[bad-assignment]
+        state.collapsed = not self.header.expanded  # pyrefly: ignore[bad-assignment]
+        return state
+
+    @override
+    def actionNames(self) -> list[str]:
+        return [QAccessibleActionInterface.pressAction(), *super().actionNames()]
+
+    @override
+    def doAction(self, actionName: str) -> None:
+        if actionName == QAccessibleActionInterface.pressAction():
+            self.header.clicked.emit()
+        else:
+            super().doAction(actionName)
+
+
+def _interface(key: str, obj: QObject) -> QAccessibleInterface | None:
+    """Return the interface of a header, for `installFactory`."""
+    return _Accessible(obj) if isinstance(obj, _AccordionHeader) else None
+
+
+QAccessible.installFactory(_interface)

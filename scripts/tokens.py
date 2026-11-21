@@ -184,6 +184,13 @@ def only(value: dict[str, object], allowed: set[str], where: str) -> None:
         raise TokenError(f"{where}: unsupported {', '.join(extra)}")
 
 
+def strings(value: dict[str, object], keys: set[str], where: str) -> None:
+    """Fail on one of these keys when its value is not a string."""
+    for key in sorted(keys & set(value)):
+        if not isinstance(value[key], str):
+            raise TokenError(f"{where}: {key} is not a string")
+
+
 def sources(value: object, folder: Path, sets: dict[str, list[Path]], where: str) -> list[Path]:
     """Return the token files that a list of sources names, in order."""
     if not isinstance(value, list):
@@ -212,6 +219,7 @@ def contexts(modifiers: dict[str, object], name: str, allowed: set[str]) -> dict
     where = f"modifiers.{name}"
     body = mapping(modifiers.get(name), where)
     only(body, allowed, where)
+    strings(body, {"description", "default"}, where)
     found = mapping(body.get("contexts"), f"{where}.contexts")
     if not found:
         raise TokenError(f"{where} has no contexts")
@@ -226,6 +234,7 @@ def order(resolver: Path) -> tuple[str, Files]:
         {"$schema", "name", "version", "description", "sets", "modifiers", "resolutionOrder"},
         resolver.name,
     )
+    strings(root, {"$schema", "name", "description"}, resolver.name)
     if root.get("version") != "2025.10":
         raise TokenError(f"{resolver.name}: version is not 2025.10")
     folder = resolver.parent
@@ -233,6 +242,7 @@ def order(resolver: Path) -> tuple[str, Files]:
     for name, value in mapping(root.get("sets", {}), "sets").items():
         body = mapping(value, f"sets.{name}")
         only(body, {"sources", "description"}, f"sets.{name}")
+        strings(body, {"description"}, f"sets.{name}")
         sets[name] = sources(body.get("sources"), folder, {}, f"sets.{name}.sources")
     modifiers = mapping(root.get("modifiers"), "modifiers")
     if sorted(modifiers) != ["mode", "theme"]:
@@ -303,6 +313,7 @@ def merge(target: dict[str, object], source: dict[str, object]) -> None:
 def tokens(group: dict[str, object], path: str, kind: object) -> dict[str, object]:
     """Flatten a group into {path: $value}, checking names and types."""
     only(group, {"$type", "$description"} | {k for k in group if not k.startswith("$")}, path)
+    strings(group, {"$description"}, path)
     kind = group.get("$type", kind)
     found: dict[str, object] = {}
     for key, value in group.items():
@@ -314,7 +325,10 @@ def tokens(group: dict[str, object], path: str, kind: object) -> dict[str, objec
         node = mapping(value, where)
         if "$value" in node:
             only(node, {"$value", "$type", "$description"}, where)
-            if node.get("$type", kind) != "color":
+            strings(node, {"$description"}, where)
+            # An alias without $type takes the type it points to.
+            alias = isinstance(node["$value"], str) and "$type" not in node
+            if not alias and node.get("$type", kind) != "color":
                 raise TokenError(f"{where} is not of $type color")
             found[where] = node["$value"]
         else:

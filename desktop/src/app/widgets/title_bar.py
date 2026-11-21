@@ -16,9 +16,12 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import (
     QAccessible,
+    QAccessibleActionInterface,
     QAccessibleInterface,
     QEnterEvent,
+    QFocusEvent,
     QFont,
+    QKeyEvent,
     QMouseEvent,
     QPainter,
     QPaintEvent,
@@ -32,6 +35,7 @@ from app.services.language import QT_TRANSLATE_NOOP
 from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts, tint
 from app.widgets.project_tab import ProjectTab
+from app.widgets.reorderable_tab import pressed
 
 
 class _Diamond(QWidget):
@@ -89,11 +93,26 @@ class _BrandMark(QWidget):
 
     With no plate to separate it, weight holds it up: the diamond has
     its own stroke and the name goes in print black.
+
+    It is where Windows puts the icon that opens the menu of a window,
+    and it opens Consola's (`WindowMenu`): Tab reaches it and Space or
+    Enter presses it. The mouse goes on to the bar, which drags the
+    window.
     """
+
+    pressed = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the brand."""
         super().__init__(parent)
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        self.setAccessibleName(QCoreApplication.translate("_BrandMark", "Menú de la ventana"))
+        self.setAccessibleDescription(
+            QCoreApplication.translate(
+                "_BrandMark", "Mover, cambiar el tamaño, minimizar, maximizar o cerrar"
+            )
+        )
+        self._ring = Colors.ON_PRIMARY
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 14, 0)
         layout.setSpacing(9)
@@ -109,11 +128,37 @@ class _BrandMark(QWidget):
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
         bar = theme.TITLE_BAR.on(pal)
+        self._ring = bar.fg
         self.diamond.set_color(bar.fg)
         bar.dress(self.title, fill=False)
         title = theme.font(Fonts.SIZE_SM, QFont.Weight.Black)
         title.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 3)
         self.title.setFont(title)
+        self.update()
+
+    @override
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        if pressed(event):
+            self.pressed.emit()
+            return
+        super().keyPressEvent(event)
+
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
+        if self.hasFocus():
+            p = QPainter(self)
+            theme.ring(p, QRectF(self.rect()).adjusted(2, 4, -2, -4), self._ring)
+            p.end()
+
+    @override
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusInEvent(event)
+
+    @override
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusOutEvent(event)
 
 
 class _WindowButton(QPushButton):
@@ -146,7 +191,8 @@ class _WindowButton(QPushButton):
         self.setAccessibleName(QCoreApplication.translate("_WindowButton", self.NAMES[kind]))
         self.maximized = False
         self.setFixedWidth(self.WIDTH)
-        self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        # Tab reaches them; a click does not take the focus.
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
         self.setCursor(Qt.CursorShape.ArrowCursor)
         self._fg = Colors.ON_SURFACE_VARIANT
         self.set_foreground(Colors.ON_SURFACE_VARIANT)
@@ -237,6 +283,8 @@ class TitleBar(QWidget):
     minimize_requested = Signal()
     maximize_requested = Signal()
     close_requested = Signal()
+    # the brand was pressed: the menu of the window
+    menu_requested = Signal()
 
     def __init__(self, tabs: QWidget, parent: QWidget | None = None) -> None:
         """Build the row."""
@@ -252,6 +300,7 @@ class TitleBar(QWidget):
         layout.setSpacing(0)
 
         self.brand = _BrandMark()
+        self.brand.pressed.connect(self.menu_requested.emit)
         layout.addWidget(self.brand)
 
         self.tabs = tabs
@@ -353,9 +402,31 @@ class _Accessible(QAccessibleWidget):
         return state
 
 
+class _BrandAccessible(QAccessibleWidget):
+    """The brand as the button that opens the menu of the window."""
+
+    def __init__(self, brand: _BrandMark) -> None:
+        """Give the brand the button role."""
+        super().__init__(brand, QAccessible.Role.Button)
+        self.brand = brand
+
+    @override
+    def actionNames(self) -> list[str]:
+        return [QAccessibleActionInterface.pressAction(), *super().actionNames()]
+
+    @override
+    def doAction(self, actionName: str) -> None:
+        if actionName == QAccessibleActionInterface.pressAction():
+            self.brand.pressed.emit()
+        else:
+            super().doAction(actionName)
+
+
 def _interface(key: str, obj: QObject) -> QAccessibleInterface | None:
-    """Return the interface of `_Diamond`, for `installFactory`."""
-    return _Accessible(obj) if isinstance(obj, _Diamond) else None
+    """Return the interface of the diamond or the brand."""
+    if isinstance(obj, _Diamond):
+        return _Accessible(obj)
+    return _BrandAccessible(obj) if isinstance(obj, _BrandMark) else None
 
 
 QAccessible.installFactory(_interface)

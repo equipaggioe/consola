@@ -4,75 +4,85 @@
 <context>
     <name>ActionMenuBar</name>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="203"/>
+        <location filename="../widgets/action_menu_bar.py" line="152"/>
         <source>Ver</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="206"/>
+        <location filename="../widgets/action_menu_bar.py" line="155"/>
         <source>Solo favoritos</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/action_menu_bar.py" line="177"/>
+        <source>Animaciones</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/action_menu_bar.py" line="184"/>
+        <source>RAM disponible</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
 <context>
     <name>ActionRow</name>
     <message>
-        <location filename="../widgets/action_row.py" line="175"/>
+        <location filename="../widgets/action_row.py" line="162"/>
         <source>Ejecutar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="187"/>
+        <location filename="../widgets/action_row.py" line="174"/>
         <source>Compuesta · encadena varias atómicas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="189"/>
+        <location filename="../widgets/action_row.py" line="176"/>
         <source>Atómica · un solo paso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="192"/>
+        <location filename="../widgets/action_row.py" line="179"/>
         <source> · de la máquina, no del repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="198"/>
+        <location filename="../widgets/action_row.py" line="185"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;Clic para abrir · clic en el filete para marcar favorita&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="210"/>
+        <location filename="../widgets/action_row.py" line="197"/>
         <source>compuesta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="212"/>
+        <location filename="../widgets/action_row.py" line="199"/>
         <source>atómica</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="215"/>
+        <location filename="../widgets/action_row.py" line="202"/>
         <source>de la máquina</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="217"/>
+        <location filename="../widgets/action_row.py" line="204"/>
         <source>destructiva</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="219"/>
+        <location filename="../widgets/action_row.py" line="206"/>
         <source>favorita</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="253"/>
+        <location filename="../widgets/action_row.py" line="240"/>
         <source>Correr con los parámetros guardados de este repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="257"/>
+        <location filename="../widgets/action_row.py" line="244"/>
         <source>Faltan claves de configuración para correr sin abrir la pestaña</source>
         <translation type="unfinished"></translation>
     </message>
@@ -95,7 +105,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_search.py" line="247"/>
+        <location filename="../widgets/action_search.py" line="211"/>
         <source>Sin resultados</source>
         <translation type="unfinished"></translation>
     </message>
@@ -151,7 +161,7 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/blocked_dialog.py" line="56"/>
+        <location filename="../dialogs/blocked_dialog.py" line="55"/>
         <source>Entendido</source>
         <translation type="unfinished"></translation>
     </message>
@@ -174,13 +184,13 @@
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/browser_view.py" line="100"/>
-        <location filename="../widgets/browser_view.py" line="169"/>
+        <location filename="../widgets/browser_view.py" line="97"/>
+        <location filename="../widgets/browser_view.py" line="152"/>
         <source>Abrir en el navegador del sistema</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/browser_view.py" line="157"/>
+        <location filename="../widgets/browser_view.py" line="141"/>
         <source>Esta instalación de PySide6 no trae QtWebEngine.
 Instala «PySide6-Addons» para ver la página aquí dentro.</source>
         <translation type="unfinished"></translation>
@@ -220,17 +230,17 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
 <context>
     <name>CommandInfoPanel</name>
     <message>
-        <location filename="../widgets/command_info_panel.py" line="111"/>
+        <location filename="../widgets/command_info_panel.py" line="90"/>
         <source>Abre una acción para ver de qué se trata y qué pasos ejecuta.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/command_info_panel.py" line="125"/>
+        <location filename="../widgets/command_info_panel.py" line="104"/>
         <source>Esta acción todavía no tiene una descripción larga.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/command_info_panel.py" line="134"/>
+        <location filename="../widgets/command_info_panel.py" line="113"/>
         <source>Pasos</source>
         <translation type="unfinished"></translation>
     </message>
@@ -251,52 +261,52 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
 <context>
     <name>ConsoleView</name>
     <message>
-        <location filename="../widgets/console_view.py" line="38"/>
+        <location filename="../widgets/console_view.py" line="46"/>
         <source>Consola</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="53"/>
+        <location filename="../widgets/console_view.py" line="63"/>
         <source>Buscar…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="55"/>
+        <location filename="../widgets/console_view.py" line="65"/>
         <source>Buscar en la consola</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="176"/>
+        <location filename="../widgets/console_view.py" line="177"/>
         <source>Esta capacidad aún no está implementada.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="180"/>
+        <location filename="../widgets/console_view.py" line="181"/>
         <source>El esqueleto de UI está funcionando correctamente.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="185"/>
+        <location filename="../widgets/console_view.py" line="186"/>
         <source>Stub ejecutado</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="255"/>
+        <location filename="../widgets/console_view.py" line="266"/>
         <source>Sin resultados</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="262"/>
+        <location filename="../widgets/console_view.py" line="273"/>
         <source>Copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="264"/>
+        <location filename="../widgets/console_view.py" line="275"/>
         <source>Select All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="266"/>
+        <location filename="../widgets/console_view.py" line="277"/>
         <source>Clear</source>
         <translation type="unfinished"></translation>
     </message>
@@ -304,305 +314,310 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
 <context>
     <name>DbExplorerView</name>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="178"/>
+        <location filename="../widgets/db_explorer_view.py" line="144"/>
+        <source>Ancho del árbol</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/db_explorer_view.py" line="161"/>
         <source>Filtrar tablas…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="181"/>
+        <location filename="../widgets/db_explorer_view.py" line="164"/>
         <source>Filtrar tablas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="189"/>
+        <location filename="../widgets/db_explorer_view.py" line="172"/>
         <source>Borrar el texto</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="199"/>
-        <location filename="../widgets/db_explorer_view.py" line="445"/>
+        <location filename="../widgets/db_explorer_view.py" line="180"/>
+        <location filename="../widgets/db_explorer_view.py" line="409"/>
         <source>Comparando con los modelos…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="235"/>
-        <location filename="../widgets/db_explorer_view.py" line="696"/>
+        <location filename="../widgets/db_explorer_view.py" line="216"/>
+        <location filename="../widgets/db_explorer_view.py" line="660"/>
         <source>Elige una tabla</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="248"/>
+        <location filename="../widgets/db_explorer_view.py" line="224"/>
         <source>Contar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="249"/>
+        <location filename="../widgets/db_explorer_view.py" line="225"/>
         <source>Contar las filas exactas (COUNT(*))</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="291"/>
+        <location filename="../widgets/db_explorer_view.py" line="266"/>
         <source>Datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="294"/>
-        <location filename="../widgets/db_explorer_view.py" line="860"/>
-        <location filename="../widgets/db_explorer_view.py" line="930"/>
+        <location filename="../widgets/db_explorer_view.py" line="269"/>
+        <location filename="../widgets/db_explorer_view.py" line="827"/>
+        <location filename="../widgets/db_explorer_view.py" line="897"/>
         <source>Columnas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="296"/>
-        <location filename="../widgets/db_explorer_view.py" line="875"/>
+        <location filename="../widgets/db_explorer_view.py" line="271"/>
+        <location filename="../widgets/db_explorer_view.py" line="842"/>
         <source>Índices</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="298"/>
-        <location filename="../widgets/db_explorer_view.py" line="901"/>
+        <location filename="../widgets/db_explorer_view.py" line="273"/>
+        <location filename="../widgets/db_explorer_view.py" line="868"/>
         <source>Constraints</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="382"/>
+        <location filename="../widgets/db_explorer_view.py" line="347"/>
         <source> con este filtro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="389"/>
+        <location filename="../widgets/db_explorer_view.py" line="354"/>
         <source>La tabla no tiene filas{0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="456"/>
+        <location filename="../widgets/db_explorer_view.py" line="420"/>
         <source>faltan en la base</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="457"/>
+        <location filename="../widgets/db_explorer_view.py" line="421"/>
         <source>difieren</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="458"/>
+        <location filename="../widgets/db_explorer_view.py" line="422"/>
         <source>sin modelo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="466"/>
+        <location filename="../widgets/db_explorer_view.py" line="430"/>
         <source>{0} modelos: </source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="471"/>
+        <location filename="../widgets/db_explorer_view.py" line="435"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;✓ Al día con los {1} modelos&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="477"/>
+        <location filename="../widgets/db_explorer_view.py" line="441"/>
         <source>✕ en los modelos, no en la base (falta migrar)
 ≠ columnas o tipos distintos de su modelo
 + en la base, sin modelo que la declare</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="593"/>
+        <location filename="../widgets/db_explorer_view.py" line="557"/>
         <source>Cargando…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="614"/>
+        <location filename="../widgets/db_explorer_view.py" line="578"/>
         <source>Esta tabla está en los modelos pero no en la base: falta migrar.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="689"/>
+        <location filename="../widgets/db_explorer_view.py" line="653"/>
         <source>falta en la base  ·  modelo en app/models/{0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="705"/>
+        <location filename="../widgets/db_explorer_view.py" line="669"/>
         <source>fila</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="707"/>
+        <location filename="../widgets/db_explorer_view.py" line="671"/>
         <source>filas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="712"/>
+        <location filename="../widgets/db_explorer_view.py" line="676"/>
         <source> con el filtro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="716"/>
+        <location filename="../widgets/db_explorer_view.py" line="680"/>
         <source>~{0} filas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="742"/>
+        <location filename="../widgets/db_explorer_view.py" line="706"/>
         <source>{0}.{1} no está en el catálogo leído.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="806"/>
+        <location filename="../widgets/db_explorer_view.py" line="773"/>
         <source>Diferencias con el modelo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="808"/>
+        <location filename="../widgets/db_explorer_view.py" line="775"/>
         <source>Columna</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="809"/>
+        <location filename="../widgets/db_explorer_view.py" line="776"/>
         <source>En la base</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="810"/>
+        <location filename="../widgets/db_explorer_view.py" line="777"/>
         <source>En el modelo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="815"/>
+        <location filename="../widgets/db_explorer_view.py" line="782"/>
         <source>— falta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="816"/>
+        <location filename="../widgets/db_explorer_view.py" line="783"/>
         <source>— sobra</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="825"/>
+        <location filename="../widgets/db_explorer_view.py" line="792"/>
         <source>Ningún modelo de app/models declara esta tabla.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="833"/>
+        <location filename="../widgets/db_explorer_view.py" line="800"/>
         <source>Igual a su modelo: app/models/{0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="840"/>
-        <location filename="../widgets/db_explorer_view.py" line="973"/>
+        <location filename="../widgets/db_explorer_view.py" line="807"/>
+        <location filename="../widgets/db_explorer_view.py" line="940"/>
         <source>🔑 PK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="845"/>
+        <location filename="../widgets/db_explorer_view.py" line="812"/>
         <source>generada</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="852"/>
-        <location filename="../widgets/db_explorer_view.py" line="972"/>
+        <location filename="../widgets/db_explorer_view.py" line="819"/>
+        <location filename="../widgets/db_explorer_view.py" line="939"/>
         <source>NOT NULL</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="862"/>
-        <location filename="../widgets/db_explorer_view.py" line="877"/>
-        <location filename="../widgets/db_explorer_view.py" line="903"/>
-        <location filename="../widgets/db_explorer_view.py" line="963"/>
+        <location filename="../widgets/db_explorer_view.py" line="829"/>
+        <location filename="../widgets/db_explorer_view.py" line="844"/>
+        <location filename="../widgets/db_explorer_view.py" line="870"/>
+        <location filename="../widgets/db_explorer_view.py" line="930"/>
         <source>Nombre</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="863"/>
-        <location filename="../widgets/db_explorer_view.py" line="904"/>
-        <location filename="../widgets/db_explorer_view.py" line="964"/>
+        <location filename="../widgets/db_explorer_view.py" line="830"/>
+        <location filename="../widgets/db_explorer_view.py" line="871"/>
+        <location filename="../widgets/db_explorer_view.py" line="931"/>
         <source>Tipo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="864"/>
-        <location filename="../widgets/db_explorer_view.py" line="965"/>
+        <location filename="../widgets/db_explorer_view.py" line="831"/>
+        <location filename="../widgets/db_explorer_view.py" line="932"/>
         <source>Nulo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="865"/>
+        <location filename="../widgets/db_explorer_view.py" line="832"/>
         <source>Default</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="866"/>
-        <location filename="../widgets/db_explorer_view.py" line="966"/>
+        <location filename="../widgets/db_explorer_view.py" line="833"/>
+        <location filename="../widgets/db_explorer_view.py" line="933"/>
         <source>Llave</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="867"/>
+        <location filename="../widgets/db_explorer_view.py" line="834"/>
         <source>Comentario</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="878"/>
-        <location filename="../widgets/db_explorer_view.py" line="905"/>
+        <location filename="../widgets/db_explorer_view.py" line="845"/>
+        <location filename="../widgets/db_explorer_view.py" line="872"/>
         <source>Definición</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="885"/>
+        <location filename="../widgets/db_explorer_view.py" line="852"/>
         <source>La tabla no tiene índices.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="892"/>
+        <location filename="../widgets/db_explorer_view.py" line="859"/>
         <source>PRIMARY KEY</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="893"/>
+        <location filename="../widgets/db_explorer_view.py" line="860"/>
         <source>FOREIGN KEY</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="912"/>
+        <location filename="../widgets/db_explorer_view.py" line="879"/>
         <source>La tabla no tiene constraints.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="927"/>
+        <location filename="../widgets/db_explorer_view.py" line="894"/>
         <source>Referenciada por</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="929"/>
+        <location filename="../widgets/db_explorer_view.py" line="896"/>
         <source>Tabla</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="931"/>
+        <location filename="../widgets/db_explorer_view.py" line="898"/>
         <source>→ de esta tabla</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="932"/>
+        <location filename="../widgets/db_explorer_view.py" line="899"/>
         <source>Constraint</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="937"/>
+        <location filename="../widgets/db_explorer_view.py" line="904"/>
         <source>Doble clic para abrir esa tabla</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="954"/>
+        <location filename="../widgets/db_explorer_view.py" line="921"/>
         <source>Declarada en app/models/{0}. Todavía no existe en la base.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="961"/>
+        <location filename="../widgets/db_explorer_view.py" line="928"/>
         <source>Columnas del modelo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="981"/>
+        <location filename="../widgets/db_explorer_view.py" line="948"/>
         <source>La tabla todavía no existe en la base.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -623,129 +638,129 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
 <context>
     <name>EnvPanel</name>
     <message>
-        <location filename="../widgets/env_panel.py" line="138"/>
+        <location filename="../widgets/env_panel.py" line="133"/>
         <source>Importar desde archivo…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="143"/>
-        <location filename="../widgets/env_panel.py" line="404"/>
+        <location filename="../widgets/env_panel.py" line="138"/>
+        <location filename="../widgets/env_panel.py" line="363"/>
         <source>Crear archivo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="147"/>
+        <location filename="../widgets/env_panel.py" line="142"/>
         <source>Recargar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="150"/>
+        <location filename="../widgets/env_panel.py" line="145"/>
         <source>Descarta los cambios sin guardar, relee el archivo
 y vuelve a consultar los catálogos de los parámetros</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="158"/>
+        <location filename="../widgets/env_panel.py" line="153"/>
         <source>Guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="161"/>
+        <location filename="../widgets/env_panel.py" line="156"/>
         <source>Escribe .consola/config.env con los valores actuales</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="380"/>
+        <location filename="../widgets/env_panel.py" line="339"/>
         <source>ilegible</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="382"/>
+        <location filename="../widgets/env_panel.py" line="341"/>
         <source>no existe</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="383"/>
+        <location filename="../widgets/env_panel.py" line="342"/>
         <source>No hay {0} todavía. Pulsa «Crear archivo» para generarlo con todas las claves.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="388"/>
+        <location filename="../widgets/env_panel.py" line="347"/>
         <source>listo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="390"/>
+        <location filename="../widgets/env_panel.py" line="349"/>
         <source>desactualizado</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="393"/>
+        <location filename="../widgets/env_panel.py" line="352"/>
         <source>no se puede guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="394"/>
+        <location filename="../widgets/env_panel.py" line="353"/>
         <source>No se escribe {0} mientras config.py tenga el error de arriba.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="406"/>
+        <location filename="../widgets/env_panel.py" line="365"/>
         <source>Actualizar archivo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="409"/>
+        <location filename="../widgets/env_panel.py" line="368"/>
         <source>Escribe el archivo con todas las claves del esquema, en su orden y con sus comentarios, conservando los valores</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="422"/>
+        <location filename="../widgets/env_panel.py" line="381"/>
         <source>Importa claves conocidas desde otro archivo .env</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="429"/>
+        <location filename="../widgets/env_panel.py" line="388"/>
         <source>{0} no tiene la forma actual del esquema.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="434"/>
+        <location filename="../widgets/env_panel.py" line="393"/>
         <source> Al escribirlo se borran: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="449"/>
+        <location filename="../widgets/env_panel.py" line="408"/>
         <source>Importar variables desde…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="451"/>
+        <location filename="../widgets/env_panel.py" line="410"/>
         <source>Archivos .env (*.env);;Todos los archivos (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="466"/>
+        <location filename="../widgets/env_panel.py" line="425"/>
         <source>{0} no tiene claves reconocidas.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="477"/>
+        <location filename="../widgets/env_panel.py" line="436"/>
         <source>Se importaron {0} claves de {1}. Revisa y guarda para escribir el archivo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="499"/>
+        <location filename="../widgets/env_panel.py" line="458"/>
         <source>No se guardó: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="508"/>
+        <location filename="../widgets/env_panel.py" line="467"/>
         <source>Guardado {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="511"/>
+        <location filename="../widgets/env_panel.py" line="470"/>
         <source>Se borraron de config.env: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -753,17 +768,17 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>FavoriteStar</name>
     <message>
-        <location filename="../widgets/favorite_star.py" line="29"/>
+        <location filename="../widgets/favorite_star.py" line="30"/>
         <source>Favorita</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/favorite_star.py" line="60"/>
+        <location filename="../widgets/favorite_star.py" line="62"/>
         <source>Quitar de favoritas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/favorite_star.py" line="62"/>
+        <location filename="../widgets/favorite_star.py" line="64"/>
         <source>Marcar como favorita</source>
         <translation type="unfinished"></translation>
     </message>
@@ -771,27 +786,27 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>LedIndicator</name>
     <message>
-        <location filename="../widgets/led_indicator.py" line="45"/>
+        <location filename="../widgets/led_indicator.py" line="49"/>
         <source>apagado</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/led_indicator.py" line="46"/>
+        <location filename="../widgets/led_indicator.py" line="50"/>
         <source>encendido</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/led_indicator.py" line="47"/>
+        <location filename="../widgets/led_indicator.py" line="51"/>
         <source>activo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/led_indicator.py" line="48"/>
+        <location filename="../widgets/led_indicator.py" line="52"/>
         <source>con advertencia</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/led_indicator.py" line="49"/>
+        <location filename="../widgets/led_indicator.py" line="53"/>
         <source>con error</source>
         <translation type="unfinished"></translation>
     </message>
@@ -799,22 +814,22 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>MachinePanel</name>
     <message>
-        <location filename="../widgets/machine_panel.py" line="70"/>
+        <location filename="../widgets/machine_panel.py" line="68"/>
         <source>Recargar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="72"/>
+        <location filename="../widgets/machine_panel.py" line="70"/>
         <source>Descarta los cambios sin guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="75"/>
+        <location filename="../widgets/machine_panel.py" line="73"/>
         <source>Guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="77"/>
+        <location filename="../widgets/machine_panel.py" line="75"/>
         <source>Guarda las claves de esta máquina, para todos los repos</source>
         <translation type="unfinished"></translation>
     </message>
@@ -822,22 +837,22 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>MainWindow</name>
     <message>
-        <location filename="../windows/main_window.py" line="281"/>
+        <location filename="../windows/main_window.py" line="376"/>
         <source>SIN REPOSITORIOS ABIERTOS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../windows/main_window.py" line="289"/>
+        <location filename="../windows/main_window.py" line="383"/>
         <source>Añade la carpeta de un proyecto para empezar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../windows/main_window.py" line="296"/>
+        <location filename="../windows/main_window.py" line="390"/>
         <source>+  Añadir repositorio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../windows/main_window.py" line="572"/>
+        <location filename="../windows/main_window.py" line="651"/>
         <source>Consola — {0}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -853,118 +868,118 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>ParamsPanel</name>
     <message>
-        <location filename="../widgets/params_panel.py" line="484"/>
-        <location filename="../widgets/params_panel.py" line="517"/>
-        <location filename="../widgets/params_panel.py" line="869"/>
-        <location filename="../widgets/params_panel.py" line="1317"/>
+        <location filename="../widgets/params_panel.py" line="425"/>
+        <location filename="../widgets/params_panel.py" line="458"/>
+        <location filename="../widgets/params_panel.py" line="795"/>
+        <location filename="../widgets/params_panel.py" line="1211"/>
         <source>leyendo el catálogo…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="486"/>
+        <location filename="../widgets/params_panel.py" line="427"/>
         <source>no hay ninguna {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="509"/>
+        <location filename="../widgets/params_panel.py" line="450"/>
         <source>automático</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="519"/>
-        <location filename="../widgets/params_panel.py" line="547"/>
-        <location filename="../widgets/params_panel.py" line="871"/>
+        <location filename="../widgets/params_panel.py" line="460"/>
+        <location filename="../widgets/params_panel.py" line="488"/>
+        <location filename="../widgets/params_panel.py" line="797"/>
         <source>no hay ninguno {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="573"/>
+        <location filename="../widgets/params_panel.py" line="511"/>
         <source>Corriendo ahora</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="605"/>
+        <location filename="../widgets/params_panel.py" line="539"/>
         <source>Apagar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="607"/>
+        <location filename="../widgets/params_panel.py" line="541"/>
         <source>Apagar {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="749"/>
+        <location filename="../widgets/params_panel.py" line="681"/>
         <source>Pasos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="776"/>
+        <location filename="../widgets/params_panel.py" line="706"/>
         <source>Opciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="859"/>
+        <location filename="../widgets/params_panel.py" line="785"/>
         <source>Única opción disponible</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="909"/>
+        <location filename="../widgets/params_panel.py" line="827"/>
         <source>Limpiar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="913"/>
+        <location filename="../widgets/params_panel.py" line="831"/>
         <source>Vaciar el log de esta pestaña y cerrar sus túneles SSH</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="931"/>
+        <location filename="../widgets/params_panel.py" line="849"/>
         <source>Simulacro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="935"/>
-        <location filename="../widgets/params_panel.py" line="1395"/>
+        <location filename="../widgets/params_panel.py" line="853"/>
+        <location filename="../widgets/params_panel.py" line="1289"/>
         <source>Corre sin tocar nada: solo muestra qué haría</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="942"/>
+        <location filename="../widgets/params_panel.py" line="860"/>
         <source>Ejecutar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1331"/>
+        <location filename="../widgets/params_panel.py" line="1225"/>
         <source>en este repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1339"/>
+        <location filename="../widgets/params_panel.py" line="1233"/>
         <source>no hay {0} {1}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1346"/>
+        <location filename="../widgets/params_panel.py" line="1240"/>
         <source>escribe {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1353"/>
+        <location filename="../widgets/params_panel.py" line="1247"/>
         <source>elige {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1362"/>
+        <location filename="../widgets/params_panel.py" line="1256"/>
         <source>selecciona al menos un valor en {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1368"/>
+        <location filename="../widgets/params_panel.py" line="1262"/>
         <source>selecciona al menos un paso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1373"/>
+        <location filename="../widgets/params_panel.py" line="1267"/>
         <source>faltan claves de configuración: {0}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -985,7 +1000,7 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>ProjectTab</name>
     <message>
-        <location filename="../widgets/project_tab.py" line="91"/>
+        <location filename="../widgets/project_tab.py" line="90"/>
         <source>Cerrar {0}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -993,7 +1008,7 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>ProjectTabBar</name>
     <message>
-        <location filename="../widgets/project_tab_bar.py" line="274"/>
+        <location filename="../widgets/project_tab_bar.py" line="292"/>
         <source>Elegir carpeta del repositorio</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1001,27 +1016,27 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>ReminderDialog</name>
     <message>
-        <location filename="../dialogs/reminder_dialog.py" line="25"/>
+        <location filename="../dialogs/reminder_dialog.py" line="26"/>
         <source>Confirmar accion</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/reminder_dialog.py" line="26"/>
+        <location filename="../dialogs/reminder_dialog.py" line="27"/>
         <source>{0} va a destruir {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/reminder_dialog.py" line="29"/>
+        <location filename="../dialogs/reminder_dialog.py" line="30"/>
         <source>Este objetivo no esta protegido en este repositorio. Se protege en Configuracion, seccion Seguridad.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/reminder_dialog.py" line="40"/>
+        <location filename="../dialogs/reminder_dialog.py" line="41"/>
         <source>Cancelar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/reminder_dialog.py" line="53"/>
+        <location filename="../dialogs/reminder_dialog.py" line="46"/>
         <source>Continuar</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1042,32 +1057,32 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>RowsModel</name>
     <message>
-        <location filename="../models/rows_model.py" line="115"/>
+        <location filename="../models/rows_model.py" line="128"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;Clic para ordenar en el servidor&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="135"/>
+        <location filename="../models/rows_model.py" line="148"/>
         <source>‹bytea {0}›</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="151"/>
+        <location filename="../models/rows_model.py" line="164"/>
         <source>Doble clic para ir a {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="157"/>
+        <location filename="../models/rows_model.py" line="170"/>
         <source>nulo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="159"/>
+        <location filename="../models/rows_model.py" line="172"/>
         <source>bytea de {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="166"/>
+        <location filename="../models/rows_model.py" line="179"/>
         <source>{0}, lleva a {1}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1091,6 +1106,22 @@ y vuelve a consultar los catálogos de los parámetros</source>
     </message>
 </context>
 <context>
+    <name>SectionResizeGrip</name>
+    <message>
+        <location filename="../widgets/section_resize_grip.py" line="55"/>
+        <source>Las flechas arriba y abajo cambian el alto; Enter vuelve al reparto automático</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>Splitter</name>
+    <message>
+        <location filename="../widgets/splitter.py" line="43"/>
+        <source>Las flechas mueven el separador</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
     <name>StructureModel</name>
     <message>
         <location filename="../models/structure_model.py" line="71"/>
@@ -1101,134 +1132,159 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>TabPanel</name>
     <message>
-        <location filename="../widgets/tab_panel.py" line="324"/>
+        <location filename="../widgets/tab_panel.py" line="371"/>
         <source>sin acciones abiertas — elige una del panel izquierdo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="627"/>
+        <location filename="../widgets/tab_panel.py" line="498"/>
+        <source>Alto de {0}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_panel.py" line="537"/>
+        <source>Ancho de la columna derecha</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_panel.py" line="682"/>
         <source>Selecciona una accion del panel izquierdo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="655"/>
+        <location filename="../widgets/tab_panel.py" line="710"/>
         <source>Los parámetros de la acción
 aparecen aquí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="675"/>
+        <location filename="../widgets/tab_panel.py" line="729"/>
         <source>Ejecutar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="704"/>
+        <location filename="../widgets/tab_panel.py" line="759"/>
         <source>no se puede correr: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1198"/>
+        <location filename="../widgets/tab_panel.py" line="1236"/>
         <source>Secciones visibles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1281"/>
+        <location filename="../widgets/tab_panel.py" line="1319"/>
         <source>{0} de {1} protegidos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1285"/>
+        <location filename="../widgets/tab_panel.py" line="1323"/>
         <source>sin seguros</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1399"/>
+        <location filename="../widgets/tab_panel.py" line="1437"/>
         <source>Bloqueado: {0} toca {1} y este repo lo tiene protegido. El seguro se quita en Configuracion, seccion Seguridad.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1416"/>
+        <location filename="../widgets/tab_panel.py" line="1454"/>
         <source>Cancelado: {0} no llego a correr sobre {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1462"/>
+        <location filename="../widgets/tab_panel.py" line="1500"/>
         <source>{0} apps marcadas: una pestaña por cada una ({1}).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1495"/>
+        <location filename="../widgets/tab_panel.py" line="1533"/>
         <source>{0}: cada paso va a su propia pestaña.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1505"/>
+        <location filename="../widgets/tab_panel.py" line="1543"/>
         <source>paso desconocido: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1517"/>
+        <location filename="../widgets/tab_panel.py" line="1555"/>
         <source>Lanzados: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1524"/>
+        <location filename="../widgets/tab_panel.py" line="1562"/>
         <source>Ningún paso marcado.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1575"/>
+        <location filename="../widgets/tab_panel.py" line="1585"/>
+        <source>Ejecutando {0}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_panel.py" line="1619"/>
         <source>Hecho</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1577"/>
+        <location filename="../widgets/tab_panel.py" line="1621"/>
         <source>Terminó con errores</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1645"/>
-        <location filename="../widgets/tab_panel.py" line="1669"/>
+        <location filename="../widgets/tab_panel.py" line="1625"/>
+        <source>{0}: hecho</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_panel.py" line="1627"/>
+        <source>{0}: terminó con errores</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_panel.py" line="1695"/>
+        <location filename="../widgets/tab_panel.py" line="1719"/>
         <source>Confirmar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1647"/>
+        <location filename="../widgets/tab_panel.py" line="1697"/>
         <source>Dato requerido</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1671"/>
+        <location filename="../widgets/tab_panel.py" line="1721"/>
         <source>Pregunta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1675"/>
+        <location filename="../widgets/tab_panel.py" line="1725"/>
         <source>Sí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1678"/>
+        <location filename="../widgets/tab_panel.py" line="1728"/>
         <source>No</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1707"/>
+        <location filename="../widgets/tab_panel.py" line="1757"/>
         <source>{0} paso(s) × {1} variante(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1717"/>
+        <location filename="../widgets/tab_panel.py" line="1767"/>
         <source>paso «{0}» — no implementado (stub)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1725"/>
+        <location filename="../widgets/tab_panel.py" line="1774"/>
         <source>faltan claves: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1732"/>
+        <location filename="../widgets/tab_panel.py" line="1779"/>
         <source>Simulación completada</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1236,57 +1292,57 @@ aparecen aquí</source>
 <context>
     <name>TabView</name>
     <message>
-        <location filename="../widgets/tab_view.py" line="123"/>
+        <location filename="../widgets/tab_view.py" line="110"/>
         <source>Estado del endpoint</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="137"/>
+        <location filename="../widgets/tab_view.py" line="119"/>
         <source>Copiar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="138"/>
+        <location filename="../widgets/tab_view.py" line="120"/>
         <source>Copiar la URL al portapapeles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="142"/>
+        <location filename="../widgets/tab_view.py" line="124"/>
         <source>Abrir ↗</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="143"/>
+        <location filename="../widgets/tab_view.py" line="125"/>
         <source>Abrir en el navegador del sistema</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="149"/>
+        <location filename="../widgets/tab_view.py" line="131"/>
         <source>Ver {0} en esta pestaña</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="277"/>
+        <location filename="../widgets/tab_view.py" line="253"/>
         <source>arrancando</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="278"/>
+        <location filename="../widgets/tab_view.py" line="254"/>
         <source>listo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="279"/>
+        <location filename="../widgets/tab_view.py" line="255"/>
         <source>caído</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="293"/>
+        <location filename="../widgets/tab_view.py" line="272"/>
         <source>URL copiada: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="355"/>
+        <location filename="../widgets/tab_view.py" line="334"/>
         <source>La tarea no publicó la conexión.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1401,12 +1457,12 @@ aparecen aquí</source>
 <context>
     <name>TitleBar</name>
     <message>
-        <location filename="../widgets/title_bar.py" line="299"/>
+        <location filename="../widgets/title_bar.py" line="337"/>
         <source>Restaurar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/title_bar.py" line="301"/>
+        <location filename="../widgets/title_bar.py" line="339"/>
         <source>Maximizar</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1416,6 +1472,49 @@ aparecen aquí</source>
     <message>
         <location filename="../services/toolstatus.py" line="48"/>
         <source>No encontrado.</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>WindowMenu</name>
+    <message>
+        <location filename="../widgets/window_menu.py" line="34"/>
+        <source>Restaurar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/window_menu.py" line="35"/>
+        <source>Mover</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/window_menu.py" line="36"/>
+        <source>Tamaño</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/window_menu.py" line="37"/>
+        <source>Minimizar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/window_menu.py" line="38"/>
+        <source>Maximizar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/window_menu.py" line="46"/>
+        <source>Cerrar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/window_menu.py" line="67"/>
+        <source>Mover: las flechas mueven la ventana, Enter termina, Escape cancela</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/window_menu.py" line="76"/>
+        <source>Tamaño: las flechas mueven la esquina de abajo a la derecha, Enter termina, Escape cancela</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1430,7 +1529,7 @@ aparecen aquí</source>
 <context>
     <name>WorkspaceStatusBar</name>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="191"/>
+        <location filename="../widgets/workspace_status_bar.py" line="193"/>
         <source>RAM {0}/{1} GB</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1438,9 +1537,22 @@ aparecen aquí</source>
 <context>
     <name>_AddProjectTab</name>
     <message>
-        <location filename="../widgets/project_tab_bar.py" line="54"/>
-        <location filename="../widgets/project_tab_bar.py" line="55"/>
+        <location filename="../widgets/project_tab_bar.py" line="56"/>
+        <location filename="../widgets/project_tab_bar.py" line="57"/>
         <source>Añadir repositorio</source>
+        <translation type="unfinished"></translation>
+    </message>
+</context>
+<context>
+    <name>_BrandMark</name>
+    <message>
+        <location filename="../widgets/title_bar.py" line="109"/>
+        <source>Menú de la ventana</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/title_bar.py" line="111"/>
+        <source>Mover, cambiar el tamaño, minimizar, maximizar o cerrar</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -1455,12 +1567,12 @@ aparecen aquí</source>
 <context>
     <name>_LevelMark</name>
     <message>
-        <location filename="../widgets/action_row.py" line="62"/>
+        <location filename="../widgets/action_row.py" line="51"/>
         <source>Compuesta: encadena varias acciones atómicas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_row.py" line="66"/>
+        <location filename="../widgets/action_row.py" line="55"/>
         <source>Atómica: un solo paso, idempotente</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1468,22 +1580,22 @@ aparecen aquí</source>
 <context>
     <name>_PadlockChip</name>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="51"/>
+        <location filename="../widgets/workspace_status_bar.py" line="49"/>
         <source>protegido</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="53"/>
+        <location filename="../widgets/workspace_status_bar.py" line="51"/>
         <source>sin proteger</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="56"/>
+        <location filename="../widgets/workspace_status_bar.py" line="54"/>
         <source>{0}: {1}. Clic para administrar en Configuración → Seguridad.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="63"/>
+        <location filename="../widgets/workspace_status_bar.py" line="61"/>
         <source>Abre la sección Seguridad</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1491,7 +1603,7 @@ aparecen aquí</source>
 <context>
     <name>_ScopeMark</name>
     <message>
-        <location filename="../widgets/action_row.py" line="92"/>
+        <location filename="../widgets/action_row.py" line="80"/>
         <source>De la máquina: no depende del repositorio abierto</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1499,7 +1611,7 @@ aparecen aquí</source>
 <context>
     <name>_SubTabButton</name>
     <message>
-        <location filename="../widgets/tab_panel.py" line="140"/>
+        <location filename="../widgets/tab_panel.py" line="183"/>
         <source>Cerrar {0}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1507,22 +1619,22 @@ aparecen aquí</source>
 <context>
     <name>_WindowButton</name>
     <message>
-        <location filename="../widgets/title_bar.py" line="137"/>
+        <location filename="../widgets/title_bar.py" line="179"/>
         <source>Minimizar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/title_bar.py" line="138"/>
+        <location filename="../widgets/title_bar.py" line="180"/>
         <source>Maximizar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/title_bar.py" line="139"/>
+        <location filename="../widgets/title_bar.py" line="181"/>
         <source>Cerrar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/title_bar.py" line="182"/>
+        <location filename="../widgets/title_bar.py" line="217"/>
         <source>Restaurar</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1530,22 +1642,22 @@ aparecen aquí</source>
 <context>
     <name>action_menu_bar</name>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="317"/>
+        <location filename="../widgets/action_menu_bar.py" line="282"/>
         <source>Compuesta · encadena varias atómicas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="319"/>
+        <location filename="../widgets/action_menu_bar.py" line="284"/>
         <source>Atómica · un solo paso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="322"/>
+        <location filename="../widgets/action_menu_bar.py" line="287"/>
         <source> · de la máquina, no del repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="328"/>
+        <location filename="../widgets/action_menu_bar.py" line="293"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;Clic para abrir&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5663,12 +5775,12 @@ aparecen aquí</source>
 <context>
     <name>guard_dialog</name>
     <message>
-        <location filename="../dialogs/guard_dialog.py" line="113"/>
+        <location filename="../dialogs/guard_dialog.py" line="134"/>
         <source>algo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../dialogs/guard_dialog.py" line="114"/>
+        <location filename="../dialogs/guard_dialog.py" line="135"/>
         <source>{0} y {1}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5988,42 +6100,42 @@ aparecen aquí</source>
 <context>
     <name>palettes</name>
     <message>
-        <location filename="../services/palettes.py" line="160"/>
+        <location filename="../services/palettes.py" line="49"/>
         <source>Azul</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/palettes.py" line="161"/>
+        <location filename="../services/palettes.py" line="50"/>
         <source>Índigo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/palettes.py" line="162"/>
+        <location filename="../services/palettes.py" line="51"/>
         <source>Violeta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/palettes.py" line="163"/>
+        <location filename="../services/palettes.py" line="52"/>
         <source>Rosa</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/palettes.py" line="164"/>
+        <location filename="../services/palettes.py" line="53"/>
         <source>Coral</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/palettes.py" line="165"/>
+        <location filename="../services/palettes.py" line="54"/>
         <source>Ámbar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/palettes.py" line="166"/>
+        <location filename="../services/palettes.py" line="55"/>
         <source>Verde</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/palettes.py" line="167"/>
+        <location filename="../services/palettes.py" line="56"/>
         <source>Cian</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6755,12 +6867,12 @@ aparecen aquí</source>
 <context>
     <name>tab_panel</name>
     <message>
-        <location filename="../widgets/tab_panel.py" line="255"/>
+        <location filename="../widgets/tab_panel.py" line="303"/>
         <source>Configuración del repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="259"/>
+        <location filename="../widgets/tab_panel.py" line="307"/>
         <source>Lo que hicieron los botones de Configuración del repo: guardar e importar.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6768,17 +6880,17 @@ aparecen aquí</source>
 <context>
     <name>tab_view</name>
     <message>
-        <location filename="../widgets/tab_view.py" line="56"/>
+        <location filename="../widgets/tab_view.py" line="44"/>
         <source>Consola</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="60"/>
+        <location filename="../widgets/tab_view.py" line="48"/>
         <source>Navegador</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="61"/>
+        <location filename="../widgets/tab_view.py" line="49"/>
         <source>Explorador</source>
         <translation type="unfinished"></translation>
     </message>

@@ -29,12 +29,13 @@ from PySide6.QtWidgets import (
 
 from app import theme
 from app.services import db_explorer, session
+from app.services.announce import announce
 from app.services.envfile import Config
 from app.services.language import QT_TRANSLATE_NOOP
 from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
 from app.services.registry import Capability
-from app.theme import Fonts, mono
+from app.theme import Fonts, Metrics, mono
 from app.widgets.browser_view import BrowserView, open_external
 from app.widgets.console_view import ConsoleView
 from app.widgets.led_indicator import LedIndicator
@@ -188,7 +189,7 @@ class TabView(QWidget):
         btn = QPushButton(text)
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setFixedHeight(22)
+        btn.setFixedHeight(Metrics.TARGET)
         btn.setFont(theme.font(Fonts.SIZE_XS))
         self._chips.append(btn)
         btn.clicked.connect(slot)
@@ -257,6 +258,9 @@ class TabView(QWidget):
         self.led.set_state(led)
         self.state_label.setProperty("label", label)
         self.state_label.setText(f"{label} · {text}" if label else text)
+        # The state changes while the focus is elsewhere: a screen
+        # reader would not read the label (WCAG 4.1.3).
+        announce(self.window(), self.state_label.text(), urgent=state == session.DOWN)
         alive = state != session.DOWN
         self.copy_btn.setEnabled(alive)
         self.external_btn.setEnabled(alive)

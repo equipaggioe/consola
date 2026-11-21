@@ -96,6 +96,9 @@ class EnvRow(QWidget):
         # The label names the field for assistive technology.
         self.label.setBuddy(self.field)
         self.label.setFixedWidth(label_width)
+        # A label longer than the column breaks in two, as in
+        # Parameters (`ParamsPanel._labeled`), instead of being cut.
+        self.label.setWordWrap(True)
         self.label.setToolTip(setting.key)
         self.label.setFont(theme.font(Fonts.SIZE_SM))
         if setting.kind == "list":

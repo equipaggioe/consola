@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from app import theme
 from app.services import command_docs
@@ -47,7 +47,7 @@ class CommandInfoPanel(QWidget):
 
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        theme.focus_frame(scroll)
 
         self._content = QWidget()
         self._lay = QVBoxLayout(self._content)

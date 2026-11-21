@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication, Qt, Signal
-from PySide6.QtWidgets import QCheckBox, QFrame, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QScrollArea, QVBoxLayout, QWidget
 
 from app import theme
 from app.services import params_store, protection
@@ -54,7 +54,7 @@ class SecurityPanel(QWidget):
         # much crushed the checkboxes instead of cropping them.
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        theme.focus_frame(scroll)
 
         self._body = QWidget()
         self.pal = NEUTRAL

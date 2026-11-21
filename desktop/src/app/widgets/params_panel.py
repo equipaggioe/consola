@@ -37,7 +37,7 @@ from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.registry import AxisDef, Capability, Step, registry
 from app.services.settings import relevant_keys_for, required_keys_for
-from app.theme import Colors, Fonts
+from app.theme import Colors, Fonts, Metrics
 from app.widgets.env_panel import EnvPanel
 from app.widgets.favorite_star import FavoriteStar
 
@@ -227,7 +227,7 @@ class ParamsPanel(QWidget):
     def _build_body(self) -> QWidget:
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
-        scroll.setFrameShape(QFrame.Shape.NoFrame)
+        theme.focus_frame(scroll)
 
         content = QWidget()
         lay = QVBoxLayout(content)
@@ -534,7 +534,7 @@ class ParamsPanel(QWidget):
             text = QLabel(f"● {labels.get(value, value)}")
             text.setFont(theme.font(Fonts.SIZE_SM))
             stop = QPushButton("✕")
-            stop.setFixedSize(20, 20)
+            stop.setFixedSize(Metrics.TARGET, Metrics.TARGET)
             stop.setCursor(Qt.CursorShape.PointingHandCursor)
             stop.setToolTip(QCoreApplication.translate("ParamsPanel", "Apagar"))
             stop.setAccessibleName(

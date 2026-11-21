@@ -4,10 +4,10 @@ from __future__ import annotations
 
 from PySide6.QtCore import QCoreApplication, Signal, Slot
 from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMenu, QMenuBar, QWidget
+from PySide6.QtWidgets import QMenu, QMenuBar, QSizePolicy, QWidget
 
 from app import theme
-from app.services import favorites, section_visibility
+from app.services import favorites, motion, section_visibility
 from app.services.palettes import NEUTRAL, Palette
 from app.services.registry import Capability, registry
 from app.theme import Colors
@@ -36,6 +36,11 @@ class ActionMenuBar(QMenuBar):
         super().__init__(parent)
         self.pal = NEUTRAL
         theme.MENU_BAR.on(self.pal).dress(self, fill=False)
+        # Narrower than its menus, it puts the last ones in «»». A
+        # `QMenuBar` does not shrink below its hint by itself, and its
+        # hint, with every menu, kept the window wider than a 1920 px
+        # screen at 200 %.
+        self.setSizePolicy(QSizePolicy.Policy.Preferred, QSizePolicy.Policy.Fixed)
 
         # capability_id -> menu item
         self._actions: dict[str, QAction] = {}
@@ -99,8 +104,8 @@ class ActionMenuBar(QMenuBar):
           always behind a line, without anyone declaring it (ADR-0043).
 
         The bar's title goes without the group's emoji: there are eight
-        menus in a row, and at 1000px, the window's minimum, the emoji
-        is the first thing that pushes the last ones into overflow.
+        menus in a row, and in a narrow window the emoji is the first
+        thing that pushes the last ones into overflow.
         """
         for group, capabilities in registry.get_groups().items():
             # The group is a key: the catalog declares it untranslated.
@@ -134,11 +139,15 @@ class ActionMenuBar(QMenuBar):
         return action
 
     def _build_view_menu(self) -> None:
-        """Build «Solo favoritos» and the visible sections.
+        """Build «Solo favoritos», the visible sections and what moves.
 
-        Both are preferences of the app, not of the repo: they hold for
+        All are preferences of the app, not of the repo: they hold for
         every tab. The checks are read again on opening the menu, since
         a section also hides from its header's right click.
+
+        «Animaciones» stops the console's cursor and the pulse of the
+        LEDs, and «RAM disponible» hides the RAM of the status bar,
+        which refreshes by itself (`services/motion.py`).
         """
         menu = self._add_menu(QCoreApplication.translate("ActionMenuBar", "Ver"))
         self._view_menu = menu
@@ -162,6 +171,22 @@ class ActionMenuBar(QMenuBar):
             action.toggled.connect(on_section)
             self._section_actions[section_id] = action
             menu.addAction(action)
+
+        menu.addSeparator()
+        self.animations_action = QAction(
+            QCoreApplication.translate("ActionMenuBar", "Animaciones"), self
+        )
+        self.animations_action.setCheckable(True)
+        self.animations_action.setChecked(motion.animated())
+        self.animations_action.toggled.connect(motion.set_animated)
+        menu.addAction(self.animations_action)
+        self.ram_action = QAction(
+            QCoreApplication.translate("ActionMenuBar", "RAM disponible"), self
+        )
+        self.ram_action.setCheckable(True)
+        self.ram_action.setChecked(motion.ram_shown())
+        self.ram_action.toggled.connect(motion.set_ram_shown)
+        menu.addAction(self.ram_action)
         menu.aboutToShow.connect(self._sync_view_checks)
 
     @Slot()

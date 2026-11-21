@@ -10,11 +10,26 @@ from PySide6.QtGui import (
     QAccessibleActionInterface,
     QAccessibleInterface,
     QAccessibleStateChangeEvent,
+    QFocusEvent,
+    QKeyEvent,
+    QKeySequence,
     QMouseEvent,
+    QShortcut,
 )
 from PySide6.QtWidgets import QAccessibleWidget, QWidget
 
 from app.widgets.reorderable_bar import ReorderableBar
+
+
+def pressed(event: QKeyEvent) -> bool:
+    """Return whether a key presses a widget that paints itself.
+
+    Space or Enter, either of the two, with no modifier: what presses a
+    `QPushButton` with the focus.
+    """
+    keys = (Qt.Key.Key_Space, Qt.Key.Key_Return, Qt.Key.Key_Enter)
+    modifiers = event.modifiers() & ~Qt.KeyboardModifier.KeypadModifier
+    return event.key() in keys and modifiers == Qt.KeyboardModifier.NoModifier
 
 
 class ReorderableTab(QWidget):
@@ -25,11 +40,17 @@ class ReorderableTab(QWidget):
     the tab enters drag mode and the bar repositions it each time the
     cursor crosses the center of a neighbor.
 
+    With the keyboard (WCAG 2.1.1), Tab reaches it, Space or Enter
+    selects it, and Ctrl+Shift+PgUp and Ctrl+Shift+PgDown move it one
+    place, the keys that move a tab in a browser. A click does not take
+    the focus.
+
     Whoever uses it has to call `_init_reorder()` in its __init__,
     delegate the three mouse events to `_reorder_press`, `_reorder_move`
-    and `_reorder_release`, and have as a parent a `ReorderableBar`. Its
-    accessible name is its title, and `set_active` changes `is_active`
-    and calls `_announce_active`.
+    and `_reorder_release`, draw the focus with `theme.ring` when it has
+    it, and have as a parent a `ReorderableBar`. Its accessible name is
+    its title, and `set_active` changes `is_active` and calls
+    `_announce_active`.
     """
 
     clicked = Signal()
@@ -48,6 +69,38 @@ class ReorderableTab(QWidget):
     def _init_reorder(self) -> None:
         self._drag_origin: QPointF | None = None
         self._is_dragging = False
+        self.setFocusPolicy(Qt.FocusPolicy.TabFocus)
+        for keys, step in (("Ctrl+Shift+PgUp", -1), ("Ctrl+Shift+PgDown", 1)):
+            shortcut = QShortcut(QKeySequence(keys), self)
+            shortcut.setContext(Qt.ShortcutContext.WidgetShortcut)
+            shortcut.activated.connect(lambda step=step: self._move(step))
+
+    def _move(self, step: int) -> None:
+        """Move the tab one place, as dragging it past its neighbor."""
+        bar = self._reorder_bar()
+        if bar is None or self not in bar.tabs:
+            return
+        index = bar.tabs.index(self) + step
+        if 0 <= index < len(bar.tabs):
+            bar.reorder_to(self, index)
+
+    @override
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        """Select the tab with Space or Enter, as a click does."""
+        if pressed(event):
+            self.clicked.emit()
+            return
+        super().keyPressEvent(event)
+
+    @override
+    def focusInEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusInEvent(event)
+
+    @override
+    def focusOutEvent(self, event: QFocusEvent) -> None:
+        self.update()
+        super().focusOutEvent(event)
 
     @property
     def is_dragging(self) -> bool:

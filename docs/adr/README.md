@@ -102,3 +102,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0092](0092-el-tema-de-color-se-elige-por-repo-y-viaja-con-el.md) | El tema de color se elige por repo y viaja con él |
 | [0093](0093-los-colores-son-los-roles-de-material-en-brand-tokens-solo-en-modo-oscuro.md) | Los colores son los roles de Material en `brand/tokens/`, solo en modo oscuro |
 | [0094](0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md) | Cada parte da sus colores en una `QPalette`, y `Style` dibuja lo demás |
+| [0095](0095-tab-sigue-el-orden-de-lectura-ver-detiene-lo-que-se-mueve-y-los-cambios-se-anuncian.md) | Tab sigue el orden de lectura, Ver detiene lo que se mueve y los cambios de estado se anuncian |

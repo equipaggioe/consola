@@ -170,7 +170,7 @@ class ActionSearch(QWidget):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        theme.focus_frame(self._scroll)
         content = QWidget()
         self._content_layout = QVBoxLayout(content)
         self._content_layout.setContentsMargins(6, 6, 6, 6)

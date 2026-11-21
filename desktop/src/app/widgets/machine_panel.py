@@ -52,7 +52,7 @@ class MachinePanel(QWidget):
         # rows instead of squeezing them and the footer.
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
-        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
+        theme.focus_frame(self._scroll)
         self._scroll.setWidget(self._body)
         root.addWidget(self._scroll, 1)
 

@@ -11,6 +11,7 @@ from PySide6.QtCore import (
     QObject,
     QPoint,
     QRectF,
+    QSize,
     Qt,
     QTimer,
     Signal,
@@ -25,6 +26,7 @@ from PySide6.QtGui import (
     QPainterPath,
     QPaintEvent,
     QPen,
+    QResizeEvent,
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -37,7 +39,6 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QPushButton,
     QSizePolicy,
-    QSplitter,
     QStackedWidget,
     QVBoxLayout,
     QWidget,
@@ -54,13 +55,14 @@ from app.services import (
     repo_logo,
     section_visibility,
 )
+from app.services.announce import announce
 from app.services.catalog import forget_machine_cache
 from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.registry import Capability, registry
 from app.services.section_visibility import title as section_title
 from app.services.task_runner import TaskRunner
-from app.theme import Colors, Fonts, tint
+from app.theme import Colors, Fonts, Metrics, Spacing, tint
 from app.widgets.accordion_section import AccordionSection
 from app.widgets.command_info_panel import CommandInfoPanel
 from app.widgets.console_view import ConsoleView
@@ -72,7 +74,57 @@ from app.widgets.reorderable_tab import ReorderableTab
 from app.widgets.repo_logo_view import RepoLogoView
 from app.widgets.section_resize_grip import SectionResizeGrip
 from app.widgets.security_panel import SecurityPanel
+from app.widgets.splitter import Splitter
 from app.widgets.tab_view import TabView
+
+
+class _ElidedLabel(QLabel):
+    """A label that shortens its text with «…» when it lacks room.
+
+    So many tabs fit in a narrow window, as a browser's do, instead of
+    holding the window wider than the screen at 200 % (WCAG 1.4.4).
+    Shortened, its tooltip has the whole text.
+    """
+
+    # The letters it keeps at least, besides «…».
+    KEEP = 4
+
+    def __init__(self) -> None:
+        """Build the empty label."""
+        super().__init__()
+        self.full = ""
+
+    def set_full(self, text: str) -> None:
+        """Show `text`, shortened if it does not fit."""
+        self.full = text
+        self.updateGeometry()
+        self._fit()
+
+    @override
+    def sizeHint(self) -> QSize:
+        return QSize(self.fontMetrics().horizontalAdvance(self.full), super().sizeHint().height())
+
+    @override
+    def minimumSizeHint(self) -> QSize:
+        width = self.fontMetrics().horizontalAdvance(self.full[: self.KEEP] + "…")
+        return QSize(width, super().minimumSizeHint().height())
+
+    @override
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        super().resizeEvent(event)
+        self._fit()
+
+    @override
+    def changeEvent(self, event: QEvent) -> None:
+        super().changeEvent(event)
+        if event.type() == QEvent.Type.FontChange:
+            self.updateGeometry()
+            self._fit()
+
+    def _fit(self) -> None:
+        shown = self.fontMetrics().elidedText(self.full, Qt.TextElideMode.ElideRight, self.width())
+        self.setText(shown)
+        self.setToolTip(self.full if shown != self.full else "")
 
 
 class _SubTabButton(ReorderableTab):
@@ -106,12 +158,12 @@ class _SubTabButton(ReorderableTab):
         layout.setContentsMargins(14, 0, 10, 0)
         layout.setSpacing(7)
 
-        self.title_label = QLabel()
+        self.title_label = _ElidedLabel()
 
         self.close_btn = QPushButton("×")
         self.close_btn.setFont(theme.font(Fonts.SIZE_LG))
         theme.glyph(self.close_btn, Colors.ON_SURFACE_VARIANT, "transparent", Colors.ERROR)
-        self.close_btn.setFixedSize(18, 18)
+        self.close_btn.setFixedSize(Metrics.TARGET, Metrics.TARGET)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.clicked.connect(self.close_requested.emit)
 
@@ -124,7 +176,7 @@ class _SubTabButton(ReorderableTab):
     def rename(self, title: str) -> None:
         """Show another title, also to assistive technology."""
         self.title = title
-        self.title_label.setText(title)
+        self.title_label.set_full(title)
         self.setAccessibleName(title)
         # With several tabs open, «Cerrar pestaña» did not say which.
         self.close_btn.setAccessibleName(
@@ -233,6 +285,10 @@ class _SubTabButton(ReorderableTab):
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
         p.drawPath(path)
+        if self.hasFocus():
+            # In the color of its name, which reads over its fill.
+            name = self.title_label.palette().color(self.title_label.foregroundRole())
+            theme.ring(p, r.adjusted(0, 0, 0, -1), name, 7)
         p.end()
 
 
@@ -438,6 +494,11 @@ class TabPanel(ReorderableBar):
             if section is not self._all_sections[-1]:
                 self._manual[section] = None
                 grip = SectionResizeGrip()
+                grip.setAccessibleName(
+                    QCoreApplication.translate("TabPanel", "Alto de {0}").format(
+                        section_title(self._section_ids[section])
+                    )
+                )
                 grip.pressed.connect(lambda s=section: self._begin_resize(s))
 
                 def on_grip_drag(delta: int, s: AccordionSection = section) -> None:
@@ -471,7 +532,10 @@ class TabPanel(ReorderableBar):
         right_layout.addWidget(self.right_column, 1)
         right_layout.addWidget(self.run_footer)
 
-        self.splitter = QSplitter(Qt.Orientation.Horizontal)
+        self.splitter = Splitter(
+            Qt.Orientation.Horizontal,
+            QCoreApplication.translate("TabPanel", "Ancho de la columna derecha"),
+        )
         self.splitter.addWidget(self.content_area)
         self.splitter.addWidget(right_container)
         self.splitter.setStretchFactor(0, 1)
@@ -558,7 +622,8 @@ class TabPanel(ReorderableBar):
         """Write what a settings button did in the settings tab.
 
         Saving and importing act like an action's button: they open
-        their tab, or bring it forward, and leave the result there.
+        their tab, or bring it forward, and leave the result there. A
+        screen reader hears it too: the focus stays on the button.
         """
         tab = self._config_tab
         if tab is None:
@@ -566,6 +631,7 @@ class TabPanel(ReorderableBar):
         else:
             self._activate(tab)
         self._consoles[tab].append_log(text, level)
+        announce(self.window(), text, urgent=level == "error")
 
     def _open_config_tab(self) -> _SubTabButton:
         """Open the tab of «Configuración del repo».
@@ -637,7 +703,9 @@ class TabPanel(ReorderableBar):
         self._params_placeholder = w
         lay = QVBoxLayout(w)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        lay.setContentsMargins(20, 20, 20, 20)
+        # Its two lines fit in the floor of an open section
+        # (`MIN_BODY`): in a short column, as at 200 %, they were cut.
+        lay.setContentsMargins(20, Spacing.SM, 20, Spacing.SM)
         hint = QLabel(
             QCoreApplication.translate("TabPanel", "Los parámetros de la acción\naparecen aquí")
         )
@@ -1510,6 +1578,12 @@ class TabPanel(ReorderableBar):
         launched.
         """
         console.append_log("─" * 46, "info")
+        # The start and the end reach a screen reader wherever the focus
+        # is: a task runs while one looks at something else.
+        announce(
+            self.window(),
+            QCoreApplication.translate("TabPanel", "Ejecutando {0}").format(tab.title),
+        )
         panel = self._params.get(tab)
         if panel is not None:
             panel.run_btn.setEnabled(False)
@@ -1547,6 +1621,12 @@ class TabPanel(ReorderableBar):
                 else QCoreApplication.translate("TabPanel", "Terminó con errores"),
                 "ok" if ok else "error",
             )
+            ending = (
+                QCoreApplication.translate("TabPanel", "{0}: hecho")
+                if ok
+                else QCoreApplication.translate("TabPanel", "{0}: terminó con errores")
+            )
+            announce(self.window(), ending.format(tab.title), urgent=not ok)
             # The process died: the URL stops being offered as alive and
             # the tab returns to the console, where the reason is.
             if view is not None:
@@ -1691,13 +1771,11 @@ class TabPanel(ReorderableBar):
             )
 
         if payload["missing_env"]:
-            console.append_log(
-                QCoreApplication.translate("TabPanel", "faltan claves: {0}").format(
-                    ", ".join(payload["missing_env"])
-                ),
-                "error",
+            ending = QCoreApplication.translate("TabPanel", "faltan claves: {0}").format(
+                ", ".join(payload["missing_env"])
             )
+            console.append_log(ending, "error")
         else:
-            console.append_log(
-                QCoreApplication.translate("TabPanel", "Simulación completada"), "ok"
-            )
+            ending = QCoreApplication.translate("TabPanel", "Simulación completada")
+            console.append_log(ending, "ok")
+        announce(self.window(), ending, urgent=bool(payload["missing_env"]))
