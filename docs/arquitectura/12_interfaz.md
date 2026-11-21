@@ -48,7 +48,20 @@ Las **partes** son las zonas de la ventana: barra de título, fila del menú, me
 
 Los roles que nombra el resto de esta sección son los que hoy tiene `theme.py`.
 
-Una casilla marcada de Parámetros o de Seguridad se rellena con `CHECK`, hoy el acento del repo: el panel repite las reglas de la hoja global (`theme.check_css`) con su paleta, y por estar más cerca de la casilla gana. Deshabilitada va en el texto inactivo (`Colors.TEXT_DISABLED`, `on_surface` al 38 %), salvo las de la vista previa (`previewCheck`), que llevan el relleno de `CHECK` porque muestran lo que la corrida va a tomar, no una opción apagada. La casilla sin marcar sigue en los neutros de la hoja global, con el fondo y el contorno de un campo (`surface_container_highest` y `outline`). El texto de una casilla va en `on_surface` y a 13 px, como el rótulo de un campo y lo que se escribe en él, en Parámetros, en Configuración del repo, en Máquina y en Seguridad.
+La app usa Fusion a través de `Style`, el `QProxyStyle` de `theme.py`, con la paleta que genera `colors.py` para el tema inicial (`theme.apply`, desde `main.py`), y sin hoja de estilo global. Fusion saca sus marcos del color de la ventana oscurecido, y en el modo oscuro no se ven, así que `Style` dibuja:
+
+| Qué | Cómo |
+|---|---|
+| Marco de un campo, un spin box, un combo box, un panel o un menú | 1 px de `Dark` (`outline`); con el foco, 2 px de `Highlight` (`primary`) |
+| Casilla | 15 × 15, ver abajo |
+| Barra de desplazamiento | 8 px, sin flechas ni canal: solo el asa, en `outline` y en `on_surface_variant` bajo el cursor |
+| Separador de un `QSplitter` y de un menú | 1 px de `Mid` (`outline_variant`) |
+| Menú | Fondo `AlternateBase` (`surface_container_low`), ítems de 32 px de alto y el ítem bajo el cursor con la capa de estado de `on_surface` y el texto en `primary` |
+| Grilla de una tabla | `Mid` |
+
+Los tamaños de `Style` están en `theme.Metrics`. La fuente de la app es Inter, con Segoe UI y Helvetica Neue detrás, a 15 px, y a 13 px en las casillas y las tooltips. Las tooltips toman la paleta generada: `inverseSurface`, clara, con el texto en `onInverseSurface`. Las hojas de estilo de cada widget siguen hasta que cada parte pase a una `QPalette` ([ADR-0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md)).
+
+Una casilla marcada de Parámetros o de Seguridad se rellena con `CHECK`, hoy el acento del repo: la hoja de estilo del panel la pinta con su paleta (`theme.check_css`). Deshabilitada va en el texto inactivo (`Colors.TEXT_DISABLED`, `on_surface` al 38 %), salvo las de la vista previa (`previewCheck`), que llevan el relleno de `CHECK` porque muestran lo que la corrida va a tomar, no una opción apagada. Fuera de esos paneles, y la casilla sin marcar en todos, la dibuja `Style`: el fondo de un campo (`Base`) con el contorno en `outline`, o rellena de `primary` con la palomita en `on_primary`, y con el foco, el contorno en 2 px de `primary`. El texto de una casilla va en `on_surface` y a 13 px, como el rótulo de un campo y lo que se escribe en él, en Parámetros, en Configuración del repo, en Máquina y en Seguridad.
 
 Lo que **no** se tiñe: el texto y los colores de estado (`error` y los custom colors `success` y `warning`, también en los LED; el LED apagado va en `outline`). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
 

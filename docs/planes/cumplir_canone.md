@@ -3,13 +3,13 @@
 > **Estado (verificado 2026-11-21).** Canone sacó `qt.md` de desarrollo (`461d857` y `e6b3d0b` de
 > canone), y después la sección «Tema» de `transversal.md` y de cada cliente (`e03dedd`, ADR-0198 y
 > ADR-0201 de canone): ahora `qt.md` rige entera. Canone agregó los custom colors `success` y
-> `warning` (`3d120e3`, ADR-0209), y con eso se hizo la etapa 1 del §2.10. Con canone en `main`
+> `warning` (`3d120e3`, ADR-0209), y con eso se hicieron las etapas 1 y 2 del §2.10. Con canone en `main`
 > (`3d120e3`), `verificar.py --repo .` da 1 incumplimiento con las tres variables
 > `RELEASE_DESKTOP_*`: falta `desktop/tests/test_theme.py`, que llega en la etapa 4 del §2.10. El job
 > `canone` de `ci.yml` falla hasta entonces. En Windows, `ruff format --check`, `ruff check`,
 > `pyrefly check` en las dos plataformas, `deptry` y `pip-audit` dan 0, y pasan 811 pruebas, con 3
 > saltadas (eran 1028: `test_palettes.py` dejó las de contraste, que hace `tokens.py --check`).
-> En Linux, los pasos del job `desktop` de `ci.yml` no se corrieron sobre la etapa 1 del §2.10.
+> En Linux (distro `Testing`), los pasos del job `desktop` de `ci.yml` dan 0 y pasan 814 pruebas.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
 > `stack.md`, el árbol de `qt.md`
 > ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
@@ -31,7 +31,7 @@
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
 > `canone/plataformas/python.md`, `canone/plataformas/qt.md`, «Tema» y «Accesibilidad» de
-> `canone/plataformas/transversal.md` y este plan. Falta «Tema» (§2.10), desde la etapa 2, el
+> `canone/plataformas/transversal.md` y este plan. Falta «Tema» (§2.10), desde la etapa 3, el
 > selector de idioma, que llega con el segundo idioma (§2.8), la prueba de
 > `release.yml` con un tag (§4) y lo que espera una decisión: el nivel AA (§2.5) y el §3,
 > «Abiertas».
@@ -82,7 +82,7 @@ de diseño:
 | 2.1.1, todo con el teclado | 11 controles no reciben el foco: las pestañas de acción (con Ctrl+PgDown y Ctrl+PgUp), las de repo (con Ctrl+Tab y Ctrl+1 a 9), el «+» (con Ctrl+T), la estrella de favorita, los tres botones de la ventana y el botón de borrar de los campos | Si cada pestaña y cada botón de glifo reciben el foco, o bastan los atajos |
 | 2.4.7, foco visible | 26 controles cambian de foco sin cambiar de aspecto: los botones y las casillas que tienen hoja de estilo propia | Se vuelve a medir al cerrar el §2.10: `Style` dibuja el foco de campos y paneles en 2 px de `primary`, y el de botones y casillas queda en manos de Fusion, sin probar en Consola |
 | 2.2.2, lo que se mueve | El cursor de la consola parpadea sin fin, y el LED verde pulsa mientras un servicio está vivo; ninguno se puede detener | Si se quitan o se pueden pausar |
-| 1.4.4, texto al 200 % | Los 70 controles con texto visibles fijan su tamaño en píxeles (la fuente de la app, de 15 px, en `apply_theme`, y las hojas de estilo): al duplicar la fuente de la app no crece ninguno, así que no siguen el tamaño de texto del sistema. Solo la escala de pantalla los agranda, y al 200 % el tamaño mínimo de la ventana, 1000 × 650, pide 2000 × 1300 px: no entra en una pantalla de 1920 × 1080 | Si la fuente sigue la del sistema. Los tamaños van en `theme.py` |
+| 1.4.4, texto al 200 % | Los 70 controles con texto visibles fijan su tamaño en píxeles (la fuente de la app, de 15 px, en `theme.apply`, y las hojas de estilo): al duplicar la fuente de la app no crece ninguno, así que no siguen el tamaño de texto del sistema. Solo la escala de pantalla los agranda, y al 200 % el tamaño mínimo de la ventana, 1000 × 650, pide 2000 × 1300 px: no entra en una pantalla de 1920 × 1080 | Si la fuente sigue la del sistema. Los tamaños van en `theme.py` |
 | 2.4.3, orden del foco | Tab recorre los 38 controles que reciben el foco y vuelve al buscador, pero no en el orden de lectura: buscador → panel de configuración (abajo a la derecha) → los `×` de las pestañas de acción (arriba) → consola → pasos (arriba a la derecha) → Limpiar → `×` del repo (arriba a la izquierda) → candados (abajo) | El orden que se quiere. Depende de la fila 2.1.1: si las pestañas reciben el foco, entran en él |
 | 4.1.3, mensajes de estado | Ningún widget manda `QAccessibleAnnouncementEvent`: un cambio de estado cambia el nombre o la descripción de un widget, que un lector anuncia solo si tiene el foco. Se ven sin foco el LED y el estado de una vista («Estado del endpoint»), los servicios y la RAM de la barra de estado, y el error de una tarea en la consola. Buscado en el código; sin probar con un lector | Qué mensajes se anuncian |
 
@@ -152,15 +152,15 @@ Rige desde `e03dedd` de canone (2026-11-20). Lo que pide «Tema» de `transversa
 | `desktop/src/app/theme.py` | Punto de partida de la plantilla: `Style`, un `QProxyStyle` sobre Fusion, que dibuja el marco de campos, spin boxes, combo boxes y paneles en `outline`, y en 2 px de `primary` con el foco, la grilla en `outlineVariant`, y los botones con la propiedad `variant` en `primary` o `danger`. La elección va en `QSettings`, en las claves `mode` y `theme`. Los tamaños, solo aquí |
 | `desktop/tests/test_theme.py` | Canónico, sin editar: ningún literal de color fuera de `colors.py`, ningún `setStyleSheet` y el estilo sobre Fusion |
 
-Lo que hay, contado en el código el 2026-11-21:
+Lo que hay, contado en el código el 2026-11-21, después de la etapa 2:
 
 | Qué | Hoy |
 |---|---|
 | Colores | En `brand/tokens/`: los 46 roles y `success` y `warning`, en nueve temas (los ocho de los repos y `neutral`, el inicial) y solo en `dark`. `scripts/tokens.py` genera `desktop/src/app/colors.py`, y `tokens.py --check` da 0 |
 | Roles y partes | `Role` de `theme.py` nombra 15 roles de Material, y las 39 partes (`Look`) los toman, o una capa de estado (`Layer`). `services/palettes.py` toma cada tema de `colors.py` |
 | Literales de color fuera de `colors.py` (la expresión de `test_theme.py`) | Ninguno. `test_colors_only_generated` de la plantilla de canone pasa |
-| Hojas de estilo | 169 `setStyleSheet` en 27 archivos, sin cambios. Nombran los colores fijos por `theme.Colors`, que los toma del tema `neutral` con los nombres de antes |
-| Estilo | El de la plataforma: nada llama a `setStyle` ni nombra Fusion |
+| Hojas de estilo | 168 `setStyleSheet` en 26 archivos, sin la global. Nombran los colores fijos por `theme.Colors`, que los toma del tema `neutral` con los nombres de antes |
+| Estilo | Fusion a través de `Style`, el `QProxyStyle` de `theme.py`, con la paleta del tema inicial |
 | Dibujo propio | 10 `paintEvent`, que pintan con los colores de su parte |
 
 Etapas:
@@ -172,8 +172,11 @@ Etapas:
    `brand/tokens/`, `scripts/tokens.py`, `colors.py` generado, y `theme.py` y
    `services/palettes.py` con los colores de `colors.py`. Los widgets y los modelos pasan los colores
    a Qt como texto o en un `QBrush`, sin construir un `QColor`.
-2. `Style` sobre Fusion y la paleta de la app desde `colors.py`. Sale la hoja global. Las tooltips de
-   `palette()` van en `inverseSurface`, claras: decidir si se conservan oscuras.
+2. Hecha el 2026-11-21: `Style` sobre Fusion, la paleta de la app desde `colors.py` y sin la hoja
+   global. `Style` dibuja los marcos, las casillas, las barras de desplazamiento sin flechas, los
+   separadores y los menús ([12](../arquitectura/12_interfaz.md), §2). Las tooltips toman la paleta
+   generada, claras. Las hojas de los paneles con desplazamiento dejaron sus reglas de `QScrollBar`, y
+   su selector ya no alcanza a la barra.
 3. Cada parte sin hoja de estilo, en los 27 archivos (pregunta 18). Sale `theme.Colors`, y cada widget
    toma sus colores de la paleta de su parte. Sale también la hoja que
    `MainWindow._apply_window_border` pone en el `centralWidget`, que se lleva 0,63 de los 0,7 s de
@@ -192,12 +195,10 @@ de estado al 8 %, y la fila elegida en `secondaryContainer`; los LED en los colo
 apagado en `outline`; `error` en `#ff7b72`; los colores de los roles que Consola no usa, y el tema
 `neutral` para la ventana sin repo.
 
-En canone, `test_theme.py` deja fuera `rc_resources.py` (2026-11-21, sin commitear en canone): lo
+En canone, `test_theme.py` deja fuera `rc_resources.py` (2026-11-21, `6372094` de canone): lo
 genera `pyside6-rcc`, git lo ignora, y el job `desktop` lo compila antes de `pytest`. Con la versión
 anterior, `test_colors_only_generated` fallaba en Consola con dos líneas suyas: el `stroke="#9aa4b2"`
-de `chevron-down.svg` y `#A77` dentro de los bytes de una imagen. Con la nueva pasa. El job `canone`
-de `ci.yml` toma canone de GitHub: hasta que el cambio llegue allí, la copia de la etapa 4 no
-coincide con la de GitHub.
+de `chevron-down.svg` y `#A77` dentro de los bytes de una imagen. Con la nueva pasa.
 
 ## 3. Preguntas
 

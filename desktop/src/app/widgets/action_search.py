@@ -167,13 +167,7 @@ class ActionSearch(QWidget):
         """
 
     def _scroll_style(self) -> str:
-        popup = theme.SEARCH_LIST.on(self.pal)
-        return f"""
-            QScrollArea {{ border: none; background: transparent; }}
-            QScrollBar:vertical {{ background: {popup.bg}; width: 8px; }}
-            QScrollBar::handle:vertical {{ background: {popup.border}; border-radius: 4px;
-                }}
-        """
+        return "QScrollArea { border: none; background: transparent; }"
 
     def _restyle_popup(self) -> None:
         """Repaint the list when the repo changes.

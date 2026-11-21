@@ -1,4 +1,4 @@
-"""The sizes, the style sheet and the parts of the app.
+"""The style, the palette, the sizes and the parts of the app.
 
 The colors come from `colors.py`, generated from `brand/tokens/`.
 """
@@ -7,12 +7,24 @@ from __future__ import annotations
 
 from dataclasses import dataclass, fields
 from enum import Enum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, cast, override
 
-from PySide6.QtGui import QFont, QPalette
-from PySide6.QtWidgets import QApplication
+from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt
+from PySide6.QtGui import QFont, QPainter, QPalette, QPen
+from PySide6.QtWidgets import (
+    QApplication,
+    QProxyStyle,
+    QStyle,
+    QStyleHintReturn,
+    QStyleOption,
+    QStyleOptionComplex,
+    QStyleOptionMenuItem,
+    QStyleOptionSlider,
+    QToolTip,
+    QWidget,
+)
 
-from app.colors import INITIAL
+from app.colors import INITIAL, palette
 
 if TYPE_CHECKING:
     # Only for the annotations: `services/palettes.py` imports this
@@ -124,36 +136,367 @@ def mono(font: QFont) -> QFont:
     return font
 
 
-def apply_theme(app: QApplication) -> None:
-    """Set the font, the style sheet and the palette of the app."""
+class Metrics:
+    """The sizes that `Style` gives Fusion."""
+
+    SCROLL_BAR = 8
+    SCROLL_HANDLE_MIN = 24
+    SPLITTER = 1
+    CHECK_BOX = 15
+    CHECK_SPACING = 9
+    TOOL_TIP_MARGIN = Spacing.SM
+    MENU_ITEM = 32
+
+
+class Style(QProxyStyle):
+    """Fusion, with frames, check boxes and scroll bars that show.
+
+    Fusion darkens the window color for its frames and grooves, and on a
+    dark window they do not show.
+    """
+
+    def __init__(self) -> None:
+        """Wrap Fusion."""
+        super().__init__("Fusion")
+
+    @override
+    def drawPrimitive(
+        self,
+        element: QStyle.PrimitiveElement,
+        option: QStyleOption,
+        painter: QPainter,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Draw frames in the outline and check boxes in the palette."""
+        if element in (
+            QStyle.PrimitiveElement.PE_FrameLineEdit,
+            QStyle.PrimitiveElement.PE_Frame,
+            QStyle.PrimitiveElement.PE_FrameMenu,
+        ):
+            frame(option, painter)
+            return
+        if element == QStyle.PrimitiveElement.PE_IndicatorCheckBox:
+            check_box(option, painter)
+            return
+        if element == QStyle.PrimitiveElement.PE_PanelMenu:
+            menu_panel(option, painter)
+            return
+        super().drawPrimitive(element, option, painter, widget)
+
+    @override
+    def drawComplexControl(
+        self,
+        control: QStyle.ComplexControl,
+        option: QStyleOptionComplex,
+        painter: QPainter,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Draw a thin scroll bar, and frame a spin or a combo box."""
+        if control == QStyle.ComplexControl.CC_ScrollBar and isinstance(
+            option, QStyleOptionSlider
+        ):
+            scroll_bar(self, option, painter, widget)
+            return
+        super().drawComplexControl(control, option, painter, widget)
+        if control in (QStyle.ComplexControl.CC_SpinBox, QStyle.ComplexControl.CC_ComboBox):
+            frame(option, painter)
+
+    @override
+    def drawControl(
+        self,
+        element: QStyle.ControlElement,
+        option: QStyleOption,
+        painter: QPainter,
+        widget: QWidget | None = None,
+    ) -> None:
+        """Draw splitters, menu separators and the hovered menu item.
+
+        A splitter and a separator are a line in the outline variant,
+        and the item under the cursor a state layer.
+        """
+        colors = cast(QPalette, option.palette)
+        if element == QStyle.ControlElement.CE_Splitter:
+            painter.fillRect(cast(QRect, option.rect), colors.color(QPalette.ColorRole.Mid))
+            return
+        if element == QStyle.ControlElement.CE_MenuItem and isinstance(
+            option, QStyleOptionMenuItem
+        ):
+            shown = menu_item(option, painter)
+            if shown is None:
+                return
+            option = shown
+        super().drawControl(element, option, painter, widget)
+
+    @override
+    def sizeFromContents(
+        self,
+        kind: QStyle.ContentsType,
+        option: QStyleOption,
+        size: QSize,
+        widget: QWidget | None = None,
+    ) -> QSize:
+        """Give a menu item the height of `Metrics.MENU_ITEM`."""
+        found = self.baseStyle().sizeFromContents(kind, option, size, widget)
+        if (
+            kind == QStyle.ContentsType.CT_MenuItem
+            and isinstance(option, QStyleOptionMenuItem)
+            and option.menuItemType != QStyleOptionMenuItem.MenuItemType.Separator
+        ):
+            found.setHeight(max(found.height(), Metrics.MENU_ITEM))
+        return found
+
+    @override
+    def subControlRect(
+        self,
+        control: QStyle.ComplexControl,
+        option: QStyleOptionComplex,
+        sub: QStyle.SubControl,
+        widget: QWidget | None = None,
+    ) -> QRect:
+        """Lay out a scroll bar with no arrows."""
+        if control == QStyle.ComplexControl.CC_ScrollBar and isinstance(
+            option, QStyleOptionSlider
+        ):
+            return scroll_part(option, sub)
+        return self.baseStyle().subControlRect(control, option, sub, widget)
+
+    @override
+    def pixelMetric(
+        self,
+        metric: QStyle.PixelMetric,
+        option: QStyleOption | None = None,
+        widget: QWidget | None = None,
+    ) -> int:
+        """Give the sizes of `Metrics`."""
+        sizes = {
+            QStyle.PixelMetric.PM_ScrollBarExtent: Metrics.SCROLL_BAR,
+            QStyle.PixelMetric.PM_ScrollBarSliderMin: Metrics.SCROLL_HANDLE_MIN,
+            QStyle.PixelMetric.PM_SplitterWidth: Metrics.SPLITTER,
+            QStyle.PixelMetric.PM_IndicatorWidth: Metrics.CHECK_BOX,
+            QStyle.PixelMetric.PM_IndicatorHeight: Metrics.CHECK_BOX,
+            QStyle.PixelMetric.PM_CheckBoxLabelSpacing: Metrics.CHECK_SPACING,
+            QStyle.PixelMetric.PM_ToolTipLabelFrameWidth: Metrics.TOOL_TIP_MARGIN,
+        }
+        if metric in sizes:
+            return sizes[metric]
+        return super().pixelMetric(metric, option, widget)
+
+    @override
+    def styleHint(
+        self,
+        hint: QStyle.StyleHint,
+        option: QStyleOption | None = None,
+        widget: QWidget | None = None,
+        returnData: QStyleHintReturn | None = None,
+    ) -> int:
+        """Draw the grid of a table in the outline variant."""
+        if hint == QStyle.StyleHint.SH_Table_GridLineColor and option is not None:
+            # An opaque QRgb, as the signed int that styleHint returns.
+            mid = cast(QPalette, option.palette).color(QPalette.ColorRole.Mid)
+            return mid.rgb() - (1 << 32)
+        return super().styleHint(hint, option, widget, returnData)
+
+
+def has(option: QStyleOption, flag: QStyle.StateFlag) -> bool:
+    """Return whether the state of a style option has that flag."""
+    # PySide types the fields of a style option as an ellipsis.
+    return bool(cast(QStyle.StateFlag, option.state) & flag)
+
+
+def frame(option: QStyleOption, painter: QPainter) -> None:
+    """Draw a frame in Dark, the outline, or in Highlight with focus."""
+    focus = has(option, QStyle.StateFlag.State_HasFocus)
+    width = 2 if focus else 1
+    role = QPalette.ColorRole.Highlight if focus else QPalette.ColorRole.Dark
+    inset = width / 2
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(cast(QPalette, option.palette).color(role), width))
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    rect = QRectF(cast(QRect, option.rect)).adjusted(inset, inset, -inset, -inset)
+    painter.drawRoundedRect(rect, 2, 2)
+    painter.restore()
+
+
+def check_box(option: QStyleOption, painter: QPainter) -> None:
+    """Draw a check box: a field, or filled with Highlight if checked.
+
+    With focus, its outline goes in Highlight and 2 px, like a field's.
+    """
+    colors = cast(QPalette, option.palette)
+    checked = has(option, QStyle.StateFlag.State_On)
+    focus = has(option, QStyle.StateFlag.State_HasFocus)
+    if checked:
+        fill = edge = colors.color(QPalette.ColorRole.Highlight)
+    else:
+        fill = colors.color(QPalette.ColorRole.Base)
+        edge = colors.color(QPalette.ColorRole.Dark)
+    if not has(option, QStyle.StateFlag.State_Enabled):
+        edge = colors.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text)
+        if checked:
+            fill = edge
+    if focus:
+        edge = colors.color(QPalette.ColorRole.Highlight)
+    width = 2 if focus else 1
+    inset = width / 2
+    rect = QRectF(cast(QRect, option.rect)).adjusted(inset, inset, -inset, -inset)
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(edge, width))
+    painter.setBrush(fill)
+    painter.drawRoundedRect(rect, Radius.SM, Radius.SM)
+    if checked:
+        pen = QPen(colors.color(QPalette.ColorRole.HighlightedText), 1.8)
+        pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+        pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+        painter.setPen(pen)
+        side = rect.width()
+        left, top = rect.left(), rect.top()
+        painter.drawPolyline(
+            [
+                QPointF(left + side * 0.25, top + side * 0.52),
+                QPointF(left + side * 0.43, top + side * 0.70),
+                QPointF(left + side * 0.76, top + side * 0.32),
+            ]
+        )
+    painter.restore()
+
+
+def menu_panel(option: QStyleOption, painter: QPainter) -> None:
+    """Fill a menu with AlternateBase, framed in Dark, the outline.
+
+    AlternateBase is the body of a section, as in the menus of a repo.
+    """
+    colors = cast(QPalette, option.palette)
+    rect = QRectF(cast(QRect, option.rect)).adjusted(0.5, 0.5, -0.5, -0.5)
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(colors.color(QPalette.ColorRole.Dark), 1))
+    painter.setBrush(colors.color(QPalette.ColorRole.AlternateBase))
+    painter.drawRoundedRect(rect, Radius.SM, Radius.SM)
+    painter.restore()
+
+
+def menu_item(option: QStyleOptionMenuItem, painter: QPainter) -> QStyleOptionMenuItem | None:
+    """Draw what Fusion does not show of a menu item.
+
+    A separator is a line in Mid, the outline variant, and there is
+    nothing left to draw. The item under the cursor gets a state layer
+    of the text, and the option that Fusion draws on it, with the text
+    in Highlight and no fill of its own.
+    """
+    colors = cast(QPalette, option.palette)
+    rect = cast(QRect, option.rect)
+    if option.menuItemType == QStyleOptionMenuItem.MenuItemType.Separator:
+        middle = rect.center().y()
+        painter.fillRect(
+            QRect(rect.left() + Spacing.SM, middle, rect.width() - 2 * Spacing.SM, 1),
+            colors.color(QPalette.ColorRole.Mid),
+        )
+        return None
+    selected = has(option, QStyle.StateFlag.State_Selected)
+    if not selected or not has(option, QStyle.StateFlag.State_Enabled):
+        return option
+    text = colors.color(QPalette.ColorRole.Text).name()
+    base = colors.color(QPalette.ColorRole.AlternateBase).name()
+    painter.fillRect(rect, blend(text, base, HOVER))
+    plain = QStyleOptionMenuItem(option)
+    # PySide types the fields of a style option as an ellipsis.
+    plain.state = cast(QStyle.StateFlag, option.state) & ~QStyle.StateFlag.State_Selected  # pyrefly: ignore[bad-assignment]
+    shown = QPalette(colors)
+    for role in (
+        QPalette.ColorRole.Text,
+        QPalette.ColorRole.WindowText,
+        QPalette.ColorRole.ButtonText,
+    ):
+        shown.setColor(role, colors.color(QPalette.ColorRole.Highlight))
+    plain.palette = shown  # pyrefly: ignore[bad-assignment]
+    return plain
+
+
+def scroll_part(option: QStyleOptionSlider, sub: QStyle.SubControl) -> QRect:
+    """Return a part of a scroll bar with no arrows.
+
+    The handle, and the track on each side of it.
+    """
+    rect = cast(QRect, option.rect)
+    horizontal = cast(Qt.Orientation, option.orientation) == Qt.Orientation.Horizontal
+    length = rect.width() if horizontal else rect.height()
+    if sub in (QStyle.SubControl.SC_ScrollBarAddLine, QStyle.SubControl.SC_ScrollBarSubLine):
+        return QRect()
+    if sub == QStyle.SubControl.SC_ScrollBarGroove:
+        return rect
+    minimum, maximum = cast(int, option.minimum), cast(int, option.maximum)
+    span = maximum - minimum
+    page = cast(int, option.pageStep)
+    handle = (
+        length if span <= 0 else max(Metrics.SCROLL_HANDLE_MIN, length * page // (span + page))
+    )
+    handle = min(handle, length)
+    start = QStyle.sliderPositionFromValue(
+        minimum,
+        maximum,
+        cast(int, option.sliderPosition),
+        length - handle,
+        cast(bool, option.upsideDown),
+    )
+    if sub == QStyle.SubControl.SC_ScrollBarSlider:
+        first, size = start, handle
+    elif sub == QStyle.SubControl.SC_ScrollBarSubPage:
+        first, size = 0, start
+    elif sub == QStyle.SubControl.SC_ScrollBarAddPage:
+        first, size = start + handle, length - start - handle
+    else:
+        return QRect()
+    if horizontal:
+        return QRect(rect.left() + first, rect.top(), size, rect.height())
+    return QRect(rect.left(), rect.top() + first, rect.width(), size)
+
+
+def scroll_bar(
+    style: QStyle, option: QStyleOptionSlider, painter: QPainter, widget: QWidget | None
+) -> None:
+    """Draw only the handle of a scroll bar.
+
+    In Dark, the outline, and in PlaceholderText under the cursor.
+    """
+    if cast(int, option.maximum) <= cast(int, option.minimum):
+        return
+    handle = style.subControlRect(
+        QStyle.ComplexControl.CC_ScrollBar, option, QStyle.SubControl.SC_ScrollBarSlider, widget
+    )
+    hovered = has(option, QStyle.StateFlag.State_MouseOver) and bool(
+        cast(QStyle.SubControl, option.activeSubControls) & QStyle.SubControl.SC_ScrollBarSlider
+    )
+    role = QPalette.ColorRole.PlaceholderText if hovered else QPalette.ColorRole.Dark
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(Qt.PenStyle.NoPen)
+    painter.setBrush(cast(QPalette, option.palette).color(role))
+    painter.drawRoundedRect(QRectF(handle), Radius.SM, Radius.SM)
+    painter.restore()
+
+
+def apply(app: QApplication) -> None:
+    """Set the style, the fonts and the palette of the initial theme."""
+    app.setStyle(Style())
+    app.setPalette(palette(SCHEME))
     font = QFont()
-    font.setFamily("Inter")
+    font.setFamilies([f.strip().strip('"') for f in Fonts.FAMILY.split(",")][:-1])
     font.setPixelSize(Fonts.SIZE_BASE)
     app.setFont(font)
-
-    app.setStyleSheet(global_stylesheet())
-    palette = QPalette()
-    palette.setColor(QPalette.ColorRole.Window, Colors.BG)
-    palette.setColor(QPalette.ColorRole.WindowText, Colors.TEXT)
-    palette.setColor(QPalette.ColorRole.Base, Colors.SURFACE)
-    palette.setColor(QPalette.ColorRole.AlternateBase, Colors.SURFACE_ALT)
-    palette.setColor(QPalette.ColorRole.ToolTipBase, Colors.SURFACE_ALT)
-    palette.setColor(QPalette.ColorRole.ToolTipText, Colors.TEXT)
-    palette.setColor(QPalette.ColorRole.Text, Colors.TEXT)
-    palette.setColor(QPalette.ColorRole.Button, Colors.SURFACE)
-    palette.setColor(QPalette.ColorRole.ButtonText, Colors.TEXT)
-    palette.setColor(QPalette.ColorRole.Link, Colors.ACCENT)
-    palette.setColor(QPalette.ColorRole.Highlight, Colors.ACCENT)
-    palette.setColor(QPalette.ColorRole.HighlightedText, Colors.BG)
-    app.setPalette(palette)
+    small = QFont(font)
+    small.setPixelSize(Fonts.SIZE_SM)
+    # The stubs type the class name as bytes; PySide only takes a str.
+    app.setFont(small, "QCheckBox")  # pyrefly: ignore[bad-argument-type]
+    QToolTip.setFont(small)
 
 
 def check_css(fill: str, border: str) -> str:
     """Return the rules of a marked check box, filled with `fill`.
 
-    The global sheet uses it with the neutral accent; a panel of a repo
-    repeats it with its palette's (`theme.py::CHECK`), and being
-    closer to the box, it wins. The disabled one goes along: a closer
+    A panel of a repo paints its check boxes with its palette's
+    (`theme.py::CHECK`). The disabled one goes along: a closer
     `:checked` would also paint it, and disabled it is gray.
     """
     return f"""
@@ -165,91 +508,6 @@ def check_css(fill: str, border: str) -> str:
     QCheckBox::indicator:checked:disabled {{
         background: {Colors.TEXT_DISABLED};
         border: 1px solid {Colors.TEXT_DISABLED};
-    }}
-    """
-
-
-def global_stylesheet() -> str:
-    """Return the app's global style sheet."""
-    return f"""
-    QWidget {{
-        background-color: {Colors.BG};
-        color: {Colors.TEXT};
-        font-family: {Fonts.FAMILY};
-        font-size: {Fonts.SIZE_BASE}px;
-    }}
-    QScrollBar {{
-        background: transparent;
-        width: 8px;
-        height: 8px;
-    }}
-    QScrollBar::handle {{
-        background: {Colors.BORDER_LIGHT};
-        border-radius: {Radius.SM}px;
-    }}
-    QScrollBar::handle:hover {{
-        background: {Colors.TEXT_MUTED};
-    }}
-    QScrollBar::add-line, QScrollBar::sub-line, QScrollBar::add-page, QScrollBar::sub-page {{
-        background: none;
-        border: none;
-        width: 0px;
-        height: 0px;
-    }}
-    QToolTip {{
-        background-color: {Colors.SURFACE_ALT};
-        color: {Colors.TEXT};
-        border: 1px solid {Colors.ACCENT};
-        border-radius: {Radius.SM}px;
-        padding: {Spacing.SM}px;
-        font-size: {Fonts.SIZE_SM}px;
-    }}
-    QMenu {{
-        background-color: {Colors.SURFACE};
-        color: {Colors.TEXT};
-        border: 1px solid {Colors.BORDER};
-        border-radius: {Radius.SM}px;
-        padding: {Spacing.XS}px 0px;
-        font-size: {Fonts.SIZE_BASE}px;
-    }}
-    QMenu::item {{
-        padding: {Spacing.SM}px {Spacing.XL}px {Spacing.SM}px {Spacing.XL}px;
-    }}
-    QMenu::item:selected {{
-        background-color: {Colors.SURFACE_HOVER};
-        color: {Colors.ACCENT};
-    }}
-    QCheckBox {{
-        background: transparent;
-        color: {Colors.TEXT_LABEL};
-        spacing: 9px;
-        font-size: {Fonts.SIZE_SM}px;
-    }}
-    QCheckBox:hover {{
-        color: {Colors.TEXT};
-    }}
-    QCheckBox:disabled {{
-        color: {Colors.TEXT_DISABLED};
-    }}
-    QCheckBox::indicator {{
-        width: 15px;
-        height: 15px;
-        border-radius: 4px;
-        border: 1px solid {Colors.BORDER_LIGHT};
-        background: {Colors.SURFACE_ALT};
-    }}
-    QCheckBox::indicator:hover {{
-        border: 1px solid {Colors.TEXT_DIM};
-    }}
-    {check_css(Colors.ACCENT, Colors.ACCENT)}
-    QSplitter::handle {{
-        background-color: {Colors.BORDER};
-    }}
-    QSplitter::handle:horizontal {{
-        width: 1px;
-    }}
-    QSplitter::handle:vertical {{
-        height: 1px;
     }}
     """
 

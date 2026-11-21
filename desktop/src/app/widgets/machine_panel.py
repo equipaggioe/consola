@@ -124,11 +124,10 @@ class MachinePanel(QWidget):
         button = theme.ACCENT_BUTTON.on(self.pal)
         self.setStyleSheet(f"MachinePanel {{ background: {body.bg}; }}")
         # The same as `EnvPanel._scroll_style`: the viewport shows the
-        # panel's background, and the bar's groove gets it by hand.
+        # panel's background.
         self._scroll.setStyleSheet(
-            "QScrollArea, QScrollArea > QWidget > QWidget "
+            "QScrollArea, #qt_scrollarea_viewport > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {body.bg}; width: 8px; }}"
         )
         self.footer.setStyleSheet(
             f"background: {footer.bg}; border-top: 1px solid {footer.border};"

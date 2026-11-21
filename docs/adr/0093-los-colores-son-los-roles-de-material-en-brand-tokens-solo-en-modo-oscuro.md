@@ -65,7 +65,7 @@ ADR-0209 de canone agregó los custom colors de Material, y con ellos `success` 
 - Los bordes de los campos, de los botones y de las pestañas se ven más claros, y las pistas, más
   claras que antes: es lo que pide el contraste de AA.
 - El rótulo de un campo se ve igual que el texto corrido: Material no tiene un tercer gris.
-- Las tooltips de la paleta generada van en `inverseSurface`, claras. Hoy las pinta la hoja global.
+- Las tooltips de la paleta generada van en `inverseSurface`, claras, como en Material.
 
 ## Descartado
 

@@ -10,11 +10,11 @@ from PySide6.QtWidgets import QApplication
 # Registers resources.qrc, which pyside6-rcc compiles: icon.png, the
 # images of assets/ and the translations.
 import app.rc_resources  # noqa: F401
+from app import theme
 from app.api import http
 from app.services import language
 from app.services.catalog import load_catalog
 from app.services.tasks import bind_all
-from app.theme import apply_theme
 from app.windows.main_window import MainWindow
 
 
@@ -44,7 +44,7 @@ def main() -> None:
     bind_all()
 
     # Apply the theme
-    apply_theme(app)
+    theme.apply(app)
 
     # Show main window
     window = MainWindow()

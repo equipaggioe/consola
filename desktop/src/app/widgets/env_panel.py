@@ -187,21 +187,10 @@ class EnvPanel(QWidget):
         self._restyle_create()
 
     def _scroll_style(self) -> str:
-        """Leave the scroll with no background, showing the panel's.
-
-        The bar's groove does need one. It falls under the same
-        `QScrollArea > QWidget > QWidget` that makes the viewport
-        transparent, since the bar is a child of the viewport, and
-        transparent painted Qt's palette gray instead of the panel's
-        background: a gray stripe at the edge of a tinted column. It
-        gets its color by hand in this same sheet, which is the closest
-        and the one that wins.
-        """
-        body = theme.SECTION_BODY.on(self.pal).bg
+        """Leave the scroll with no background, showing the panel's."""
         return (
-            "QScrollArea, QScrollArea > QWidget > QWidget "
+            "QScrollArea, #qt_scrollarea_viewport > QWidget "
             "{ border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {body}; width: 8px; }}"
         )
 
     def _restyle_create(self) -> None:

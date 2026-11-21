@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from app import theme
 from app.services import palettes
 from app.services.palettes import Palette
-from app.theme import Fonts, Layer, Look, Role, apply_theme
+from app.theme import Fonts, Layer, Look, Role
 
 
 def _square(color: str, side: int = 16) -> QLabel:
@@ -86,10 +86,7 @@ class SwatchesDialog(QDialog):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setWidget(content)
-        scroll.setStyleSheet(
-            "QScrollArea { border: none; background: transparent; }"
-            f"QScrollBar:vertical {{ background: {dialog.bg}; width: 8px; }}"
-        )
+        scroll.setStyleSheet("QScrollArea { border: none; background: transparent; }")
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.addWidget(scroll)
@@ -170,7 +167,7 @@ def main() -> None:
     parser.add_argument("theme", choices=list(palettes.THEMES), help="the parts' theme")
     args = parser.parse_args()
     app = QApplication(sys.argv[:1])
-    apply_theme(app)
+    theme.apply(app)
     SwatchesDialog(palettes.THEMES[args.theme]).show()
     sys.exit(app.exec())
 
