@@ -106,7 +106,7 @@ ventana; nada corrió en GitHub ni en Windows ([30](../arquitectura/30_riesgos_y
 Las variables `RELEASE_DESKTOP_LINUX`, `RELEASE_DESKTOP_MACOS` y `RELEASE_DESKTOP_WINDOWS` están
 creadas en GitHub con `true`, `false` y `true` (2026-11-19).
 
-Elegido al implementar, sin confirmar *(propuestas)*:
+Elegido al implementar y aceptado el 2026-11-21:
 
 - El rombo del icono va en el acento (`Colors.ACCENT`), como el icono de ventana que había, sobre
   fondo transparente. Lo pinta `desktop/scripts/icon.py` con el mismo `_Diamond` de la barra.
@@ -125,7 +125,7 @@ Hecho: los 1450 textos de la interfaz, de las tareas, del catálogo, de las clav
 [ADR-0091](../adr/0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md).
 
 Decidido el 2026-11-19: el texto fuente en español, solo `es.ts`, y sin selector mientras haya un
-solo idioma. Los puntos 4 a 9 del ADR-0091 son propuestas.
+solo idioma. Los puntos 4 a 9 del ADR-0091 se aceptaron el 2026-11-21.
 
 Falta:
 

@@ -1,7 +1,7 @@
 # ADR-0091 · Los textos de la interfaz se escriben en español y Qt Linguist los traduce
 
-- **Estado:** Aceptada. El usuario confirmó los puntos 1, 2 y 3 (2026-11-19). Los puntos 4 a 9 son
-  *(propuesta)*: se eligieron al implementar. Los puntos 4, 5 y 6 y la extracción sin
+- **Estado:** Aceptada. El usuario confirmó los puntos 1, 2 y 3 el 2026-11-19, y los puntos 4 a 9, que
+  se eligieron al implementar, el 2026-11-21. Los puntos 4, 5 y 6 y la extracción sin
   `rc_resources.py` los reemplaza el ADR-0197 de canone, que los lleva a `qt.md` y hace canónico
   `services/language.py`
 - **Fecha:** 2026-11-19
@@ -32,20 +32,20 @@ Se comprobó con PySide6 6.12.0:
 2. Consola trae solo `translations/es.ts`. Otro idioma se agrega con su `.ts`.
 3. Mientras haya un solo idioma no hay selector: rige `QLocale.system()`, como pide `qt.md` hasta
    que el usuario elige. El selector y su clave de `QSettings` llegan con el segundo idioma.
-4. *(propuesta)* El idioma es el primero de `QLocale.system().uiLanguages()` que tiene traducción,
+4. El idioma es el primero de `QLocale.system().uiLanguages()` que tiene traducción,
    comparado sin mayúsculas y recortando subetiquetas (`es-AR` encuentra `es`), o el base
    (`services/language.py::resolve`).
-5. *(propuesta)* Todo texto se traduce con `QCoreApplication.translate`, con la clase como contexto
+5. Todo texto se traduce con `QCoreApplication.translate`, con la clase como contexto
    o, fuera de una clase, el módulo. Los valores van como `{0}` y `.format()`, nunca en un
    f-string.
-6. *(propuesta)* Lo que se arma al importar se marca con `QT_TRANSLATE_NOOP` de
+6. Lo que se arma al importar se marca con `QT_TRANSLATE_NOOP` de
    `services/language.py`, que devuelve `str`, y se traduce donde se muestra. El catálogo marca
    todas sus declaraciones y `load_catalog()` las traduce al terminar, salvo el grupo.
-7. *(propuesta)* Un texto que también es clave, como el grupo de una capacidad o de una clave de
+7. Un texto que también es clave, como el grupo de una capacidad o de una clave de
    configuración, se guarda sin traducir y se traduce al mostrarse.
-8. *(propuesta)* No se traducen los comentarios que `envfile.py` escribe en `config.env`, porque el
+8. No se traducen los comentarios que `envfile.py` escribe en `config.env`, porque el
    archivo es del repo, ni los mensajes en inglés de los errores de programación.
-9. *(propuesta)* Un plural se elige en el código con dos textos. Con `%n` hace falta una traducción
+9. Un plural se elige en el código con dos textos. Con `%n` hace falta una traducción
    que elija la forma, y el idioma base no la tiene.
 
 ## Consecuencias
