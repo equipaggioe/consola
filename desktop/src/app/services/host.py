@@ -346,7 +346,7 @@ class WindowsHost(Host):
                     self._job = job
                 kernel32.AssignProcessToJobObject(self._job, int(getattr(proc, "_handle")))
         else:
-            raise OSError("Solo existe en Windows.")
+            raise OSError("Only exists on Windows.")
 
     def terminal_argv(self, argv: list[str]) -> list[str]:
         """Return `argv` in a new console window."""
@@ -417,7 +417,7 @@ class WindowsHost(Host):
                 return None
             return status.ullAvailPhys, status.ullTotalPhys
         else:
-            raise OSError("Solo existe en Windows.")
+            raise OSError("Only exists on Windows.")
 
 
 class PosixHost(Host):
@@ -482,7 +482,7 @@ class PosixHost(Host):
         if sys.platform != "win32":
             os.killpg(proc.pid, signal.SIGTERM)
         else:
-            raise OSError("Solo existe en POSIX.")
+            raise OSError("Only exists on POSIX.")
 
     def bind_to_app(self, proc: subprocess.Popen[str]) -> None:
         """Do nothing: there is no equivalent yet.

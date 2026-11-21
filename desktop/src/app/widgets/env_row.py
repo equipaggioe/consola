@@ -84,6 +84,9 @@ class EnvRow(QWidget):
         # It saves separated by commas; see `Setting.kind`.
         if setting.kind == "list":
             self.field = QPlainTextEdit(_to_lines(value))
+            # Tab goes to the next field, as in a QLineEdit: a list has
+            # one value per line, and a tab inside one is never wanted.
+            self.field.setTabChangesFocus(True)
             self.field.setVerticalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAsNeeded)
             self.field.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         else:

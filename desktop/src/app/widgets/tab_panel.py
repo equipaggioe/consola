@@ -100,19 +100,15 @@ class _SubTabButton(ReorderableTab):
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setStyleSheet("_SubTabButton { background: transparent; }")
-        self.setAccessibleName(title)
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 10, 0)
         layout.setSpacing(7)
 
-        self.title_label = QLabel(title)
+        self.title_label = QLabel()
 
         self.close_btn = QPushButton("×")
-        self.close_btn.setAccessibleName(
-            QCoreApplication.translate("_SubTabButton", "Cerrar pestaña")
-        )
         self.close_btn.setFixedSize(18, 18)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.close_btn.setStyleSheet(f"""
@@ -132,6 +128,17 @@ class _SubTabButton(ReorderableTab):
         layout.addWidget(self.close_btn)
 
         self._init_reorder()
+        self.rename(title)
+
+    def rename(self, title: str) -> None:
+        """Show another title, also to assistive technology."""
+        self.title = title
+        self.title_label.setText(title)
+        self.setAccessibleName(title)
+        # With several tabs open, «Cerrar pestaña» did not say which.
+        self.close_btn.setAccessibleName(
+            QCoreApplication.translate("_SubTabButton", "Cerrar {0}").format(title)
+        )
         self._sync_text()
 
     def set_palette(self, pal: Palette) -> None:
@@ -783,10 +790,7 @@ class TabPanel(ReorderableBar):
         used = {t.title for t in self.tabs if t is not tab}
         if title in used:
             title = self._next_title(title)
-        tab.title = title
-        tab.title_label.setText(title)
-        tab.setAccessibleName(title)
-        tab._sync_text()
+        tab.rename(title)
 
     def _next_title(self, title: str) -> str:
         """Return the first free title: `Emulador`, `Emulador 2`..."""

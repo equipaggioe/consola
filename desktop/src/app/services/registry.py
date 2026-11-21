@@ -593,7 +593,7 @@ class Registry:
         """
         cap = self._capabilities.get(cap_id)
         if cap is None:
-            raise KeyError(f"No hay ninguna capacidad registrada con id {cap_id!r}")
+            raise KeyError(f"No capability is registered with id {cap_id!r}")
         cap.func = func
         cap.stub = False
         return func

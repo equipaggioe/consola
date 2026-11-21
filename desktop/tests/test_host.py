@@ -165,7 +165,7 @@ def test_the_short_query_does_not_change_session() -> None:
     if sys.platform != "win32":
         assert int(output) == os.getsid(0)
     else:
-        raise OSError("Solo existe en POSIX.")
+        raise OSError("Only exists on POSIX.")
 
 
 def test_spawn_starts_on_this_system() -> None:

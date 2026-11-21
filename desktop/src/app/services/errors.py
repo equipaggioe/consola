@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from PySide6.QtCore import QCoreApplication
+
 
 class TaskError(RuntimeError):
     """An expected failure: the tab turns red and the app keeps running.
@@ -28,4 +30,7 @@ class MissingConfig(TaskError):
         """Keep the missing keys and name them in the message."""
         self.keys = list(keys)
         missing = ", ".join(self.keys)
-        super().__init__(f"Falta configurar: {missing}")
+        # The tab shows the message, so it goes through Linguist.
+        super().__init__(
+            QCoreApplication.translate("MissingConfig", "Falta configurar: {0}").format(missing)
+        )

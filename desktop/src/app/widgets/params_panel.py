@@ -692,6 +692,10 @@ class ParamsPanel(QWidget):
             default = axis.values[0] if axis.values else ""
             if axis.multiline:
                 field = QPlainTextEdit(default)
+                # Tab goes to the next field, as in a QLineEdit: a list
+                # has one value per line, and a tab inside one is never
+                # wanted.
+                field.setTabChangesFocus(True)
                 # about 4 lines: the typical list fits whole
                 field.setFixedHeight(88)
                 field.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
