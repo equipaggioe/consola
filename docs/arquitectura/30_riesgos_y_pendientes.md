@@ -31,7 +31,7 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 ### Reportados en uso
 
-- **Cambiar de pestaña de repo tarda 0,7 s, y arrancar, unos 8 s**, con ocho repos abiertos. Visto el 2026-11-09. Medido sin pantalla: de los 0,7 s, 0,63 son `MainWindow._apply_window_border`, que pone una hoja de estilo en el `centralWidget` y obliga a Qt a repulir todos los widgets de los ocho espacios de trabajo; sin esa llamada, el cambio baja a 0,07 s y el arranque a 5,9 s. La misma llamada corre cada vez que la ventana gana o pierde el foco. Del arranque, 5,7 s son construir los ocho `TabPanel` de entrada. Lo mismo en `main` que en esta rama.
+- **Arrancar tarda unos 8 s** con ocho repos abiertos. Visto el 2026-11-09. Medido sin pantalla ese día: 5,7 s son construir los ocho `TabPanel` de entrada, y unos 2 s, la hoja de estilo que `MainWindow._apply_window_border` ponía en el `centralWidget`, que ya no existe. Sin medir después de quitarla.
 
 ### Decididos y sin construir
 
@@ -39,7 +39,6 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 |---|---|---|
 | Lo que pide `qt.md` de canone, que ya no está en desarrollo, y Consola no tiene: el nivel AA de `transversal.md` verificado | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | El selector de idioma, con su clave de `QSettings`: llega con el segundo idioma. Hasta entonces rige `QLocale.system()` | [0091](../adr/0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
-| Lo que falta de la sección «Tema» de canone: `Style` sobre Fusion, la paleta de cada espacio de trabajo desde `colors.py`, ninguna hoja de estilo, con cada parte como una `QPalette`, y `tests/test_theme.py`. Hasta tenerlo, los widgets nombran los colores fijos por `theme.Colors` en sus hojas de estilo, y `verificar.py` y el job `canone` del CI fallan | [0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | «Compilar ejecutable»: empaquetar solo en CI con `pyside6-deploy`, sin PyInstaller, sin subir al VPS, sin número de versión ni manifiesto. Sale el ADR-0024 y cambian el 0025, el 0026 y el punto 4 del 0056 | [0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | Bitácora, historial y presets en un SQLite de la máquina (`services/store.py`) | — | — |
 | Que la confirmación escrita de un destructivo sea **el nombre del repo** y no una palabra fija, para que el automatismo no erosione la comprobación | [0018](../adr/0018-seguro-por-repo-y-objetivo.md) | — |

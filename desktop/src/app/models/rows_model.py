@@ -114,7 +114,7 @@ class RowsModel(QAbstractTableModel):
             parts.append(
                 QCoreApplication.translate(
                     "RowsModel", "<span style='color:{0};'>Clic para ordenar en el servidor</span>"
-                ).format(Colors.TEXT_MUTED)
+                ).format(Colors.ON_SURFACE_VARIANT)
             )
             return "<br>".join(parts)
         return None
@@ -171,9 +171,9 @@ class RowsModel(QAbstractTableModel):
             )
         if role == Qt.ItemDataRole.ForegroundRole:
             if value is None or col.base_type == dbx.BYTEA:
-                return QBrush(Colors.TEXT_MUTED)
+                return QBrush(Colors.ON_SURFACE_VARIANT)
             if col.fk:
-                return QBrush(Colors.ACCENT)
+                return QBrush(Colors.PRIMARY)
             return None
         if role == Qt.ItemDataRole.FontRole:
             if value is None:

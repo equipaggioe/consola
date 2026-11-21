@@ -24,9 +24,10 @@ from PySide6.QtCore import (
     Qt,
     Slot,
 )
-from PySide6.QtGui import QAction
+from PySide6.QtGui import QAction, QFont, QPalette
 from PySide6.QtWidgets import (
     QAbstractItemView,
+    QFrame,
     QHBoxLayout,
     QHeaderView,
     QLabel,
@@ -50,7 +51,7 @@ from app.services import db_models as dbm
 from app.services.db_worker import DbWorker
 from app.services.files import human_size
 from app.services.palettes import NEUTRAL, Palette
-from app.theme import Colors, Fonts
+from app.theme import Colors, Fonts, Spacing
 
 # --- view ---
 
@@ -67,7 +68,7 @@ class DbExplorerView(QWidget):
     ) -> None:
         """Build the view and start its worker."""
         super().__init__(parent)
-        self.setObjectName("dbExplorer")
+        self.setFont(theme.font(Fonts.SIZE_SM))
         self.pal = pal
         self._chips: list[QPushButton] = []
         self._relations: list[dbx.Relation] = []
@@ -108,51 +109,31 @@ class DbExplorerView(QWidget):
         and the right header, which do declare one, and the chips
         repaint apart.
         """
+        # The grid and the tree take the table's palette: its rows, the
+        # selected one in Highlight, the grid in Mid, and the column
+        # titles in Button, ButtonText and Dark, which `Style` draws.
         table = theme.TABLE.on(self.pal)
         header = theme.TABLE_HEADER.on(self.pal)
-        tab = theme.TABLE_TAB.on(self.pal)
-        field = theme.FIELD.on(self.pal)
-        tree = theme.TABLE_TREE.on(self.pal)
-        bar = theme.TOOL_BAR.on(self.pal)
-        self.setStyleSheet(f"""
-            QWidget#dbExplorer {{ background: {theme.CANVAS.on(self.pal).bg}; }}
-            QTreeView, QTableView {{
-                background: {table.bg}; color: {table.fg};
-                border: none; font-size: {Fonts.SIZE_SM}px;
-                selection-background-color: {table.hover};
-                selection-color: {table.fg};
-                gridline-color: {table.border};
-                alternate-background-color: {theme.TABLE_ALT_ROW.on(self.pal).bg};
-            }}
-            QHeaderView::section {{
-                background: {header.bg}; color: {header.fg};
-                border: none; border-right: 1px solid {header.border};
-                border-bottom: 1px solid {header.border};
-                padding: 4px 8px; font-size: {Fonts.SIZE_XS}px;
-            }}
-            QTabWidget::pane {{ border: none; }}
-            QTabBar::tab {{
-                background: transparent; color: {Colors.TEXT_DIM};
-                padding: 6px 14px; border: none; font-size: {Fonts.SIZE_SM}px;
-            }}
-            QTabBar::tab:selected {{
-                color: {tab.fg};
-                border-bottom: 2px solid {tab.border};
-            }}
-            QLineEdit {{
-                background: {field.bg}; color: {field.fg};
-                border: 1px solid {field.border}; border-radius: 6px;
-                padding: 5px 8px; font-size: {Fonts.SIZE_SM}px;
-            }}
-            QScrollArea {{ border: none; background: transparent; }}
-        """)
-        self._tree_side.setStyleSheet(
-            f"QWidget#dbTreeSide {{ background: {tree.bg}; "
-            f"border-right: 1px solid {tree.border}; }}"
-        )
-        self._head.setStyleSheet(f"background: {bar.bg}; border-bottom: 1px solid {bar.border};")
+        colors = theme.CANVAS.on(self.pal).palette()
+        colors.setColor(QPalette.ColorRole.Base, table.bg)
+        colors.setColor(QPalette.ColorRole.AlternateBase, theme.TABLE_ALT_ROW.on(self.pal).bg)
+        colors.setColor(QPalette.ColorRole.Highlight, table.hover)
+        colors.setColor(QPalette.ColorRole.HighlightedText, table.fg)
+        colors.setColor(QPalette.ColorRole.Mid, table.border)
+        colors.setColor(QPalette.ColorRole.Button, header.bg)
+        colors.setColor(QPalette.ColorRole.ButtonText, header.fg)
+        colors.setColor(QPalette.ColorRole.Dark, header.border)
+        # The open tab's underline.
+        colors.setColor(QPalette.ColorRole.Accent, theme.TABLE_TAB.on(self.pal).border)
+        self.setPalette(colors)
+        self.setAutoFillBackground(True)
+        theme.TABLE_TREE.on(self.pal).band(self._tree_side, "right")
+        theme.TOOL_BAR.on(self.pal).band(self._head, "bottom")
+        theme.FIELD.on(self.pal).dress(self.filter_box, fill=False)
+        theme.HINT.on(self.pal).dress(self.models_label)
+        theme.HINT.on(self.pal).dress(self.subtitle)
         for chip in self._chips:
-            chip.setStyleSheet(self._chip_style())
+            theme.CHIP.on(self.pal).dress(chip, fill=False)
 
     def _build(self) -> None:
         root = QHBoxLayout(self)
@@ -163,8 +144,7 @@ class DbExplorerView(QWidget):
         root.addWidget(splitter)
 
         # Left: filter, grouping, summary against the models, and tree.
-        left = QWidget()
-        left.setObjectName("dbTreeSide")
+        left = QFrame()
         self._tree_side = left
         # With no minimum, the right header (title, subtitle, Contar)
         # kept all the width and the tree fit in 50 px: no table was
@@ -192,9 +172,7 @@ class DbExplorerView(QWidget):
         self.models_label = QLabel("")
         self.models_label.setWordWrap(True)
         self.models_label.setTextFormat(Qt.TextFormat.RichText)
-        self.models_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.models_label.setFont(theme.font(Fonts.SIZE_XS))
         self.models_label.setText(
             QCoreApplication.translate("DbExplorerView", "Comparando con los modelos…")
         )
@@ -207,7 +185,7 @@ class DbExplorerView(QWidget):
         self.tree.setModel(self.tables)
         self.tree.setHeaderHidden(True)
         self.tree.setIndentation(14)
-        self.tree.setStyleSheet("border: none;")
+        self.tree.setFrameShape(QFrame.Shape.NoFrame)
         self.tree.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.tree.header().setSectionResizeMode(0, QHeaderView.ResizeMode.Stretch)
         self.tree.header().setSectionResizeMode(1, QHeaderView.ResizeMode.ResizeToContents)
@@ -225,7 +203,7 @@ class DbExplorerView(QWidget):
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(0)
 
-        head = QWidget()
+        head = QFrame()
         self._head = head
         hl = QVBoxLayout(head)
         hl.setContentsMargins(12, 8, 12, 8)
@@ -233,14 +211,9 @@ class DbExplorerView(QWidget):
         top = QHBoxLayout()
         top.setSpacing(8)
         self.title = QLabel(QCoreApplication.translate("DbExplorerView", "Elige una tabla"))
-        self.title.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT}; font-size: {Fonts.SIZE_BASE}px; "
-            f"font-weight: 600;"
-        )
+        self.title.setFont(theme.font(Fonts.SIZE_BASE, QFont.Weight.DemiBold))
         self.subtitle = QLabel("")
-        self.subtitle.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.subtitle.setFont(theme.font(Fonts.SIZE_XS))
         # A long name gets cut; it takes no width from the tree.
         for label in (self.title, self.subtitle):
             label.setMinimumWidth(1)
@@ -259,7 +232,6 @@ class DbExplorerView(QWidget):
         self.trail_row = QHBoxLayout()
         self.trail_row.setSpacing(4)
         self.trail_wrap = QWidget()
-        self.trail_wrap.setStyleSheet("background: transparent;")
         self.trail_wrap.setLayout(self.trail_row)
         self.trail_row.setContentsMargins(0, 0, 0, 0)
         self.trail_wrap.setVisible(False)
@@ -281,9 +253,9 @@ class DbExplorerView(QWidget):
         self.table.setWordWrap(False)
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setDefaultSectionSize(26)
-        self.table.verticalHeader().setStyleSheet(
-            f"QHeaderView::section {{ color: {Colors.TEXT_MUTED}; padding: 0 6px; }}"
-        )
+        self.table.setFrameShape(QFrame.Shape.NoFrame)
+        self.table.horizontalHeader().setFont(theme.font(Fonts.SIZE_XS))
+        self.table.verticalHeader().setFont(theme.font(Fonts.SIZE_XS))
         self.table.horizontalHeader().setSectionsClickable(True)
         self.table.horizontalHeader().sectionClicked.connect(self._on_sort)
         self.table.horizontalHeader().setHighlightSections(False)
@@ -311,6 +283,7 @@ class DbExplorerView(QWidget):
         layout.setSpacing(4)
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
+        scroll.setFrameShape(QFrame.Shape.NoFrame)
         scroll.setWidget(body)
         self.tabs.addTab(scroll, title)
         return layout
@@ -320,21 +293,10 @@ class DbExplorerView(QWidget):
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFixedHeight(22)
-        btn.setStyleSheet(self._chip_style())
+        btn.setFont(theme.font(Fonts.SIZE_XS))
         self._chips.append(btn)
         btn.clicked.connect(slot)
         return btn
-
-    def _chip_style(self) -> str:
-        chip = theme.CHIP.on(self.pal)
-        return f"""
-            QPushButton {{
-                background: {chip.bg}; color: {chip.fg};
-                border: none; border-radius: 5px; padding: 0 10px; font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ color: {Colors.TEXT}; }}
-            QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; background: transparent; }}
-        """
 
     # --- life cycle ---
     def refresh(self) -> None:
@@ -413,10 +375,9 @@ class DbExplorerView(QWidget):
 
     def _show_status(self, text: str, error: bool = False) -> None:
         self.status.setVisible(bool(text))
-        color = Colors.ERROR if error else Colors.TEXT_MUTED
-        self.status.setStyleSheet(
-            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        color = Colors.ERROR if error else Colors.ON_SURFACE_VARIANT
+        self.status.setFont(theme.font(Fonts.SIZE_XS))
+        theme.ink(self.status, color)
         self.status.setText(text)
 
     # --- models ---
@@ -445,7 +406,7 @@ class DbExplorerView(QWidget):
             text = self._models_error or QCoreApplication.translate(
                 "DbExplorerView", "Comparando con los modelos…"
             )
-            color = Colors.WARNING if self._models_error else Colors.TEXT_MUTED
+            color = Colors.WARNING if self._models_error else Colors.ON_SURFACE_VARIANT
             self.models_label.setText(
                 f"<span style='color:{color};'>{html.escape(text, quote=False)}</span>"
             )
@@ -759,18 +720,21 @@ class DbExplorerView(QWidget):
         for i, (rel, where) in enumerate(self._trail):
             if i:
                 sep = QLabel("›")
-                sep.setStyleSheet(f"background: transparent; color: {Colors.TEXT_MUTED};")
+                theme.ink(sep, Colors.ON_SURFACE_VARIANT)
                 self.trail_row.addWidget(sep)
             text = rel.name + "".join(f" {k}={v}" for k, v in where.equals.items())
             last = i == len(self._trail) - 1
             crumb = QPushButton(text if len(text) <= 60 else text[:57] + "…")
             crumb.setEnabled(not last)
             crumb.setCursor(Qt.CursorShape.PointingHandCursor)
-            crumb.setStyleSheet(f"""
-                QPushButton {{ background: transparent; border: none; padding: 0 2px;
-                               color: {Colors.ACCENT}; font-size: {Fonts.SIZE_XS}px; }}
-                QPushButton:disabled {{ color: {Colors.TEXT}; }}
-            """)
+            crumb.setFont(theme.font(Fonts.SIZE_XS))
+            theme.glyph(crumb, self.pal.accent, "transparent")
+            # The last crumb is where one is: in the text's color.
+            shown = crumb.palette()
+            shown.setColor(
+                QPalette.ColorGroup.Disabled, QPalette.ColorRole.ButtonText, Colors.ON_SURFACE
+            )
+            crumb.setPalette(shown)
             crumb.clicked.connect(lambda _c=False, n=i: self._back_to(n))
             self.trail_row.addWidget(crumb)
         self.trail_row.addStretch()
@@ -825,7 +789,7 @@ class DbExplorerView(QWidget):
                 QCoreApplication.translate(
                     "DbExplorerView", "Ningún modelo de app/models declara esta tabla."
                 ),
-                Colors.ACCENT_PURPLE,
+                Colors.TERTIARY,
             )
         elif status is not None and status.status == dbm.OK and status.model:
             self._note(
@@ -883,7 +847,7 @@ class DbExplorerView(QWidget):
             self._note(
                 self.indexes_pane,
                 QCoreApplication.translate("DbExplorerView", "La tabla no tiene índices."),
-                Colors.TEXT_MUTED,
+                Colors.ON_SURFACE_VARIANT,
             )
 
         # «Referenciada por» are other tables' FKs to this one:
@@ -910,7 +874,7 @@ class DbExplorerView(QWidget):
             self._note(
                 self.constraints_pane,
                 QCoreApplication.translate("DbExplorerView", "La tabla no tiene constraints."),
-                Colors.TEXT_MUTED,
+                Colors.ON_SURFACE_VARIANT,
             )
         if detail.incoming:
             rows = [
@@ -989,10 +953,9 @@ class DbExplorerView(QWidget):
     def _note(self, pane: QVBoxLayout, text: str, color: str) -> None:
         label = QLabel(text)
         label.setWordWrap(True)
-        label.setStyleSheet(
-            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px; "
-            f"padding-top: 6px;"
-        )
+        label.setFont(theme.font(Fonts.SIZE_XS))
+        label.setContentsMargins(0, Spacing.XS + 2, 0, 0)
+        theme.ink(label, color)
         pane.addWidget(label)
 
     def _section(
@@ -1001,17 +964,17 @@ class DbExplorerView(QWidget):
         title: str,
         headers: list[str],
         rows: list[list[str]],
-        title_color: str = Colors.TEXT_MUTED,
+        title_color: str = Colors.ON_SURFACE_VARIANT,
     ) -> QTableView:
         label = QLabel(title.upper())
-        label.setStyleSheet(
-            f"background: transparent; color: {title_color}; font-size: {Fonts.SIZE_XS}px; "
-            f"font-weight: 700; padding-top: 10px;"
-        )
+        label.setFont(theme.font(Fonts.SIZE_XS, QFont.Weight.Bold))
+        label.setContentsMargins(0, Spacing.SM + 2, 0, 0)
+        theme.ink(label, title_color)
         pane.addWidget(label)
 
         table = QTableView()
         table.setModel(StructureModel(headers, rows, table))
+        table.horizontalHeader().setFont(theme.font(Fonts.SIZE_XS))
         table.verticalHeader().setVisible(False)
         table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)

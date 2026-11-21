@@ -24,6 +24,7 @@ from PySide6.QtWidgets import (
     QWidget,
 )
 
+from app import theme
 from app.theme import Colors, Fonts, tint
 
 
@@ -53,10 +54,9 @@ class _LevelMark(QLabel):
             if composite
             else QCoreApplication.translate("_LevelMark", "Atómica: un solo paso, idempotente")
         )
-        color = Colors.TEXT_DIM if composite else Colors.TEXT_MUTED
-        self.setStyleSheet(
-            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        color = Colors.ON_SURFACE_VARIANT if composite else Colors.ON_SURFACE_VARIANT
+        self.setFont(theme.font(Fonts.SIZE_XS))
+        theme.ink(self, color)
 
 
 class _ScopeMark(QLabel):
@@ -81,9 +81,8 @@ class _ScopeMark(QLabel):
                 "_ScopeMark", "De la máquina: no depende del repositorio abierto"
             )
         )
-        self.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.setFont(theme.font(Fonts.SIZE_XS))
+        theme.ink(self, Colors.ON_SURFACE_VARIANT)
 
 
 class ActionRow(QWidget):
@@ -109,7 +108,7 @@ class ActionRow(QWidget):
         label: str,
         icon: str = "",
         danger: bool = False,
-        accent: str = Colors.ACCENT,
+        accent: str = Colors.PRIMARY,
         favorite: bool = False,
         composite: bool = False,
         description: str = "",
@@ -145,7 +144,7 @@ class ActionRow(QWidget):
         self.icon_label = QLabel(icon or "·")
         self.icon_label.setFixedWidth(18)
         self.icon_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        self.icon_label.setStyleSheet(f"background: transparent; font-size: {Fonts.SIZE_SM}px;")
+        self.icon_label.setFont(theme.font(Fonts.SIZE_SM))
 
         self.text_label = QLabel(label)
         f = QFont(self.text_label.font())
@@ -181,13 +180,13 @@ class ActionRow(QWidget):
         lines = [f"<b>{label}</b>"]
         if self.description:
             lines.append(self.description)
-        lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>{level}</span>")
+        lines.append(f"<span style='color:{Colors.ON_SURFACE_VARIANT};'>{level}</span>")
         lines.append(
             QCoreApplication.translate(
                 "ActionRow",
                 "<span style='color:{0};'>Clic para abrir · clic en el filete para "
                 "marcar favorita</span>",
-            ).format(Colors.TEXT_MUTED)
+            ).format(Colors.ON_SURFACE_VARIANT)
         )
         return "<br>".join(lines)
 
@@ -246,15 +245,9 @@ class ActionRow(QWidget):
                 "ActionRow", "Faltan claves de configuración para correr sin abrir la pestaña"
             )
         )
-        color = self.accent if self._ready else Colors.TEXT_MUTED
-        self.run_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: none; color: {color};
-                font-size: {Fonts.SIZE_LG}px; border-radius: 4px;
-            }}
-            QPushButton:hover {{ background: {tint(self.accent, 0.16)}; }}
-            QPushButton:disabled {{ color: {Colors.BORDER_LIGHT}; }}
-        """)
+        color = self.accent if self._ready else Colors.ON_SURFACE_VARIANT
+        self.run_btn.setFont(theme.font(Fonts.SIZE_LG))
+        theme.glyph(self.run_btn, color, tint(self.accent, 0.16))
 
     def set_accent(self, accent: str) -> None:
         """Change the stripe's color."""
@@ -273,10 +266,14 @@ class ActionRow(QWidget):
 
     def _restyle(self) -> None:
         if self.danger:
-            color = Colors.ERROR if self._hovered else Colors.TEXT_DIM
+            color = Colors.ERROR if self._hovered else Colors.ON_SURFACE_VARIANT
         else:
-            color = Colors.TEXT if (self._hovered or self.favorite) else Colors.TEXT_DIM
-        self.text_label.setStyleSheet(f"background: transparent; color: {color};")
+            color = (
+                Colors.ON_SURFACE
+                if (self._hovered or self.favorite)
+                else Colors.ON_SURFACE_VARIANT
+            )
+        theme.ink(self.text_label, color)
 
     def _in_pin_zone(self, pos: QPointF) -> bool:
         return 0 <= pos.x() <= self.PIN_ZONE

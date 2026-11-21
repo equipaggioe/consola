@@ -98,13 +98,13 @@ class LedIndicator(QWidget):
         painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
         color_map = {
-            "off": Colors.INACTIVE,
+            "off": Colors.OUTLINE,
             "on": Colors.SUCCESS,
             "green": Colors.SUCCESS,
             "amber": Colors.WARNING,
             "red": Colors.ERROR,
         }
-        hex_color = color_map.get(self._state, Colors.INACTIVE)
+        hex_color = color_map.get(self._state, Colors.OUTLINE)
         base_color = QBrush(hex_color).color()
 
         if self._state == "green":

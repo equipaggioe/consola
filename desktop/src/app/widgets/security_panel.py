@@ -26,7 +26,6 @@ from app import theme
 from app.services import params_store, protection
 from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
-from app.theme import check_css
 
 
 class SecurityPanel(QWidget):
@@ -56,7 +55,6 @@ class SecurityPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll  # `_restyle` repaints it
 
         self._body = QWidget()
         self.pal = NEUTRAL
@@ -85,22 +83,15 @@ class SecurityPanel(QWidget):
         scroll.setWidget(self._body)
         root.addWidget(scroll)
 
-    def _scroll_style(self) -> str:
-        """Leave the scroll with no background, showing the panel's."""
-        check = theme.CHECK.on(self.pal)
-        return (
-            "QScrollArea, #qt_scrollarea_viewport > QWidget "
-            "{ border: none; background: transparent; }" + check_css(check.bg, check.border)
-        )
-
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 
     def _restyle(self) -> None:
-        self._body.setStyleSheet(f"background: {theme.SECTION_BODY.on(self.pal).bg};")
-        self._scroll.setStyleSheet(self._scroll_style())
+        # The scroll's viewport fills with Base, the body's color; the
+        # check boxes take the accent of the palette as Highlight.
+        theme.SECTION_BODY.on(self.pal).dress(self)
 
     def state(self) -> dict[str, Any]:
         """Return what is shown: what `TabPanel._guard` applies."""

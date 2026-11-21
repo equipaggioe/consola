@@ -3,13 +3,14 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QCoreApplication
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QHBoxLayout, QWidget
 
 from app import theme
 from app.dialogs.guard_dialog import GuardDialog, join_words
 from app.services.projects import Project
 from app.services.protection import Target
-from app.theme import Colors, Fonts
+from app.theme import Fonts
 
 
 class ReminderDialog(GuardDialog):
@@ -39,28 +40,15 @@ class ReminderDialog(GuardDialog):
 
         cancel = self._button(QCoreApplication.translate("ReminderDialog", "Cancelar"))
         cancel.setDefault(True)
-        button = theme.BUTTON.on(self.pal)
-        cancel.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {button.border};
-                color: {button.fg}; border-radius: 5px; padding: 0 16px;
-                font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {button.hover}; color: {Colors.TEXT}; }}
-        """)
+        theme.BUTTON.on(self.pal).dress(cancel, fill=False)
         cancel.clicked.connect(self.reject)
 
         proceed = self._button(QCoreApplication.translate("ReminderDialog", "Continuar"))
         # Never the default button: one Enter too many destroys nothing.
         proceed.setAutoDefault(False)
         proceed.setDefault(False)
-        proceed.setStyleSheet(f"""
-            QPushButton {{
-                background: {Colors.ERROR}; color: {Colors.BG};
-                border: none; border-radius: 5px; padding: 0 18px;
-                font-size: {Fonts.SIZE_XS}px; font-weight: 600;
-            }}
-        """)
+        proceed.setProperty(theme.VARIANT, "danger")
+        proceed.setFont(theme.font(Fonts.SIZE_XS, QFont.Weight.DemiBold))
         proceed.clicked.connect(self.accept)
 
         buttons.addWidget(cancel)

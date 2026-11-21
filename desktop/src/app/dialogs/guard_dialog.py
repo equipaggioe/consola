@@ -20,13 +20,24 @@ full path: what gets taken for granted when one mistakes the tab.
 
 from __future__ import annotations
 
-from PySide6.QtCore import QCoreApplication, Qt
-from PySide6.QtWidgets import QDialog, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from typing import override
+
+from PySide6.QtCore import QCoreApplication, QRectF, Qt
+from PySide6.QtGui import QFont, QPainter, QPaintEvent, QPalette
+from PySide6.QtWidgets import (
+    QDialog,
+    QFrame,
+    QHBoxLayout,
+    QLabel,
+    QPushButton,
+    QVBoxLayout,
+    QWidget,
+)
 
 from app import theme
 from app.services import palettes, repo_logo
 from app.services.projects import Project
-from app.theme import Colors, Fonts
+from app.theme import Fonts, Radius
 from app.widgets.repo_logo_view import RepoLogoView
 
 
@@ -49,8 +60,7 @@ class GuardDialog(QDialog):
         self.pal = palettes.get(project.theme)
         self.setWindowTitle(window_title)
         self.setMinimumWidth(460)
-        dialog = theme.DIALOG.on(self.pal)
-        self.setStyleSheet(f"QDialog {{ background: {dialog.bg}; }}")
+        theme.DIALOG.on(self.pal).dress(self)
 
         self._lay = QVBoxLayout(self)
         self._lay.setContentsMargins(22, 20, 22, 18)
@@ -58,40 +68,29 @@ class GuardDialog(QDialog):
 
         header = QLabel(heading)
         header.setWordWrap(True)
-        header.setStyleSheet(
-            f"background: transparent; color: {dialog.fg}; "
-            f"font-size: {Fonts.SIZE_LG}px; font-weight: 600;"
-        )
+        header.setFont(theme.font(Fonts.SIZE_LG, QFont.Weight.DemiBold))
         self._lay.addWidget(header)
 
         self._lay.addWidget(self._repo_card())
 
         footer = QLabel(note)
         footer.setWordWrap(True)
-        footer.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        footer.setFont(theme.font(Fonts.SIZE_XS))
+        theme.HINT.on(self.pal).dress(footer)
         self._lay.addWidget(footer)
 
     def _repo_card(self) -> QWidget:
-        box = QWidget()
-        card = theme.REPO_CARD.on(self.pal)
-        box.setStyleSheet(
-            f"background: {card.bg}; border-left: 3px solid {card.border}; border-radius: 4px;"
-        )
+        box = _RepoCard()
+        theme.REPO_CARD.on(self.pal).dress(box, fill=False)
         lay = QVBoxLayout(box)
         lay.setContentsMargins(12, 9, 12, 9)
         lay.setSpacing(2)
 
         name = QLabel(self.project.name)
-        name.setStyleSheet(
-            f"background: transparent; color: {card.fg}; "
-            f"font-size: {Fonts.SIZE_LG}px; font-weight: 700;"
-        )
+        name.setFont(theme.font(Fonts.SIZE_LG, QFont.Weight.Bold))
         path = QLabel(self.project.path)
-        path.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        path.setFont(theme.font(Fonts.SIZE_XS))
+        theme.HINT.on(self.pal).dress(path)
         row = QHBoxLayout()
         row.setSpacing(8)
         row.addWidget(RepoLogoView(18, repo_logo.resolve(self.project.path)))
@@ -104,7 +103,29 @@ class GuardDialog(QDialog):
         button = QPushButton(text)
         button.setCursor(Qt.CursorShape.PointingHandCursor)
         button.setFixedHeight(32)
+        button.setFont(theme.font(Fonts.SIZE_XS))
         return button
+
+
+class _RepoCard(QFrame):
+    """The repo's plate: its background, with a stripe on the left.
+
+    The stripe is the part's outline, Dark in its palette.
+    """
+
+    STRIPE = 3
+
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
+        colors = self.palette()
+        p = QPainter(self)
+        p.setRenderHint(QPainter.RenderHint.Antialiasing)
+        p.setPen(Qt.PenStyle.NoPen)
+        p.setBrush(colors.color(QPalette.ColorRole.Dark))
+        p.drawRoundedRect(QRectF(self.rect()), Radius.SM, Radius.SM)
+        p.setBrush(colors.color(QPalette.ColorRole.Window))
+        p.drawRoundedRect(QRectF(self.rect()).adjusted(self.STRIPE, 0, 0, 0), Radius.SM, Radius.SM)
+        p.end()
 
 
 def join_words(things: list[str]) -> str:

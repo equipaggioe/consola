@@ -10,7 +10,7 @@ from app import theme
 from app.services import favorites, section_visibility
 from app.services.palettes import NEUTRAL, Palette
 from app.services.registry import Capability, registry
-from app.theme import Colors, Fonts
+from app.theme import Colors
 
 # A text marker and not custom paint: a `QMenu` does not allow tinting
 # one item, and this reads just as well without a `QWidgetAction`, which
@@ -35,7 +35,7 @@ class ActionMenuBar(QMenuBar):
         """Build the menus from the registry."""
         super().__init__(parent)
         self.pal = NEUTRAL
-        self.setStyleSheet(self._bar_style())
+        theme.MENU_BAR.on(self.pal).dress(self, fill=False)
 
         # capability_id -> menu item
         self._actions: dict[str, QAction] = {}
@@ -65,79 +65,19 @@ class ActionMenuBar(QMenuBar):
     def set_palette(self, pal: Palette) -> None:
         """Repaint the open menus: they belong to the open repo too.
 
-        Without this they stayed in the neutrals of `theme.py`, and the
-        name of the item under the cursor came out in the fixed blue of
-        `Colors.ACCENT`, the accent of ANOTHER theme, in the seven repos
-        that are not blue.
+        The name of the item under the cursor goes in the repo's accent,
+        Highlight in the palette of its theme.
         """
         self.pal = pal
-        self.setStyleSheet(self._bar_style())
+        # The open menu's title takes the popup's background (`hover`),
+        # so they read as one piece; `Style` draws both.
+        theme.MENU_BAR.on(pal).dress(self, fill=False)
         for menu in self._menus:
-            menu.setStyleSheet(self._menu_style(checks=menu is self._view_menu))
+            theme.workspace(menu, pal)
 
-    def _bar_style(self) -> str:
-        """Return the bar's style.
-
-        The strip itself is not painted: the row that holds it sets the
-        background (`surface_alt`) and the bottom line, and it reaches
-        further right than the menu, where the search goes. What is
-        painted is the open menu's title, in the background of
-        the popup hanging from it, so they read as one piece.
-        """
-        bar = theme.MENU_BAR.on(self.pal)
-        return f"""
-            QMenuBar {{
-                background: transparent; color: {bar.fg};
-                font-size: {Fonts.SIZE_BASE}px;
-                min-height: 20px;
-                padding: 3px 2px;
-            }}
-            QMenuBar::item {{ background: transparent; padding: 5px 13px; }}
-            QMenuBar::item:selected {{ background: {bar.hover}; }}
-            QMenuBar::item:pressed {{ background: {bar.hover}; }}
-        """
-
-    def _menu_style(self, *, checks: bool = False) -> str:
-        """Return the popup's style.
-
-        The popup is `panel`, below the row it hangs from, so it stands
-        out against the bar, and the item under the cursor needs its own
-        step above the popup.
-
-        `QMenu::separator` is required: with a style sheet on the
-        `QMenu`, Qt stops drawing the separator's native line and only
-        its blank height remains. Without this rule, the cuts of
-        ADR-0043 show as empty space, not a line.
-
-        `checks` is for the Ver menu, whose items carry a check: by
-        default Qt draws it 5 px from the edge and the text at 41.
-        These two rules leave them at 13 and 33, measured offscreen.
-        """
-        checks_css = (
-            "QMenu::indicator { left: 8px; } QMenu::item { padding-left: 16px; }" if checks else ""
-        )
-        menu = theme.MENU.on(self.pal)
-        item = theme.MENU_ITEM.on(self.pal)
-        return (
-            checks_css
-            + f"""
-            QMenu {{
-                background: {menu.bg}; color: {menu.fg};
-                border: 1px solid {menu.border};
-            }}
-            QMenu::item:selected {{
-                background: {item.bg}; color: {item.fg};
-            }}
-            QMenu::separator {{
-                height: 1px; margin: 4px 8px;
-                background: {menu.border};
-            }}
-        """
-        )
-
-    def _add_menu(self, title: str, *, checks: bool = False) -> QMenu:
+    def _add_menu(self, title: str) -> QMenu:
         menu = self.addMenu(title)
-        menu.setStyleSheet(self._menu_style(checks=checks))
+        theme.workspace(menu, self.pal)
         self._menus.append(menu)
         return menu
 
@@ -200,7 +140,7 @@ class ActionMenuBar(QMenuBar):
         every tab. The checks are read again on opening the menu, since
         a section also hides from its header's right click.
         """
-        menu = self._add_menu(QCoreApplication.translate("ActionMenuBar", "Ver"), checks=True)
+        menu = self._add_menu(QCoreApplication.translate("ActionMenuBar", "Ver"))
         self._view_menu = menu
         self._only_favorites_action = QAction(
             QCoreApplication.translate("ActionMenuBar", "Solo favoritos"), self
@@ -323,10 +263,10 @@ def _tooltip(cap: Capability) -> str:
     lines = [f"<b>{cap.name}</b>"]
     if cap.description:
         lines.append(cap.description)
-    lines.append(f"<span style='color:{Colors.TEXT_MUTED};'>{level}</span>")
+    lines.append(f"<span style='color:{Colors.ON_SURFACE_VARIANT};'>{level}</span>")
     lines.append(
         QCoreApplication.translate(
             "action_menu_bar", "<span style='color:{0};'>Clic para abrir</span>"
-        ).format(Colors.TEXT_MUTED)
+        ).format(Colors.ON_SURFACE_VARIANT)
     )
     return "<br>".join(lines)

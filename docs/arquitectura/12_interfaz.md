@@ -48,20 +48,37 @@ Las **partes** son las zonas de la ventana: barra de título, fila del menú, me
 
 Los roles que nombra el resto de esta sección son los que hoy tiene `theme.py`.
 
-La app usa Fusion a través de `Style`, el `QProxyStyle` de `theme.py`, con la paleta que genera `colors.py` para el tema inicial (`theme.apply`, desde `main.py`), y sin hoja de estilo global. Fusion saca sus marcos del color de la ventana oscurecido, y en el modo oscuro no se ven, así que `Style` dibuja:
+La app no tiene ninguna hoja de estilo: usa Fusion a través de `Style`, el `QProxyStyle` de `theme.py`, con la paleta que genera `colors.py` para el tema inicial (`theme.apply`, desde `main.py`). Cada espacio de trabajo aplica la paleta de su tema (`theme.workspace`), y cada parte da sus colores como una `QPalette` que su widget aplica (`Paint.dress`), y que heredan sus hijos ([ADR-0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md)):
+
+| Ranura | Rol de la paleta |
+|---|---|
+| `bg` | `Window`, `Base` y `Button`; transparente si la parte no lo declara |
+| `fg` | `WindowText`, `Text` y `ButtonText`; el texto inactivo sigue siendo el del tema |
+| `border` | `Dark`, que dibuja `Style` |
+| `hover` | `Midlight` |
+| `focus` | `Highlight` |
+
+Un texto que cambia de color con su estado, o que no pinta ninguna parte, toma un rol fijo de `theme.Colors` (`on_surface_variant`, `error`, `warning`…) con `theme.ink`. Un botón que es solo un glifo o una palabra, sin relleno ni contorno, se pinta con `theme.glyph`, que también le da el color bajo el cursor (`BrightText`, propiedad `hoverInk`). Un botón con relleno de acento lleva la propiedad `variant` en `primary`, y el que destruye, en `danger`. Una banda con líneas en algunos lados, como una barra con la línea de abajo, es un `QFrame` con la propiedad `edges` (`Paint.band`).
+
+Fusion saca sus marcos del color de la ventana oscurecido, y en el modo oscuro no se ven, así que `Style` dibuja:
 
 | Qué | Cómo |
 |---|---|
-| Marco de un campo, un spin box, un combo box, un panel o un menú | 1 px de `Dark` (`outline`); con el foco, 2 px de `Highlight` (`primary`) |
-| Casilla | 15 × 15, ver abajo |
-| Barra de desplazamiento | 8 px, sin flechas ni canal: solo el asa, en `outline` y en `on_surface_variant` bajo el cursor |
-| Separador de un `QSplitter` y de un menú | 1 px de `Mid` (`outline_variant`) |
-| Menú | Fondo `AlternateBase` (`surface_container_low`), ítems de 32 px de alto y el ítem bajo el cursor con la capa de estado de `on_surface` y el texto en `primary` |
+| Marco de un campo, un spin box, un panel o un menú | 1 px de `Dark`; con el foco, 2 px de `Highlight` |
+| Lista cerrada | Plana, como un campo, con el fondo en `Button` y un chevron en `ButtonText` |
+| Botón | Fondo `Button`, `Midlight` bajo el cursor; el contorno en `Dark` solo si su parte lo tiene, y con el foco del teclado, 2 px de `Highlight` |
+| Casilla | 15 × 15: el fondo de los campos (`Light`) con el contorno en `Dark`, o rellena de `Highlight` con la palomita en `HighlightedText`, y con el foco, el contorno en 2 px de `Highlight`. Inactiva, en el texto inactivo |
+| Barra de desplazamiento | 8 px, sin flechas ni canal: solo el asa, en `Dark` y en `PlaceholderText` bajo el cursor |
+| Separador de un `QSplitter` y de un menú | 1 px de `Mid` |
+| Menú | Fondo `AlternateBase` (`surface_container_low`), ítems de 32 px de alto y el ítem bajo el cursor con la capa de estado del texto y el texto en `Highlight` |
+| Barra de menú | Los títulos sobre `Window`, y el del menú abierto en `Midlight` |
+| Títulos de columna | Planos en `Button`, con líneas de `Dark` a la derecha y abajo |
+| Pestañas del explorador | Sin fondo; la abierta con una línea de 2 px de `Accent` abajo, y las demás con el texto en `PlaceholderText` |
 | Grilla de una tabla | `Mid` |
 
-Los tamaños de `Style` están en `theme.Metrics`. La fuente de la app es Inter, con Segoe UI y Helvetica Neue detrás, a 15 px, y a 13 px en las casillas y las tooltips. Las tooltips toman la paleta generada: `inverseSurface`, clara, con el texto en `onInverseSurface`. Las hojas de estilo de cada widget siguen hasta que cada parte pase a una `QPalette` ([ADR-0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md)).
+Los tamaños de `Style` están en `theme.Metrics`. La fuente de la app es Inter, con Segoe UI y Helvetica Neue detrás, a 15 px, y a 13 px en las casillas y las tooltips. Las tooltips toman la paleta generada: `inverseSurface`, clara, con el texto en `onInverseSurface`.
 
-Una casilla marcada de Parámetros o de Seguridad se rellena con `CHECK`, hoy el acento del repo: la hoja de estilo del panel la pinta con su paleta (`theme.check_css`). Deshabilitada va en el texto inactivo (`Colors.TEXT_DISABLED`, `on_surface` al 38 %), salvo las de la vista previa (`previewCheck`), que llevan el relleno de `CHECK` porque muestran lo que la corrida va a tomar, no una opción apagada. Fuera de esos paneles, y la casilla sin marcar en todos, la dibuja `Style`: el fondo de un campo (`Base`) con el contorno en `outline`, o rellena de `primary` con la palomita en `on_primary`, y con el foco, el contorno en 2 px de `primary`. El texto de una casilla va en `on_surface` y a 13 px, como el rótulo de un campo y lo que se escribe en él, en Parámetros, en Configuración del repo, en Máquina y en Seguridad.
+Una casilla marcada de Parámetros o de Seguridad se rellena con el acento del repo, el `Highlight` de su paleta. Las de la vista previa de Parámetros están inactivas y llevan el relleno de `CHECK`, porque muestran lo que la corrida va a tomar, no una opción apagada: su texto inactivo de la paleta es ese color. El texto de una casilla va en `on_surface` y a 13 px, como el rótulo de un campo y lo que se escribe en él, en Parámetros, en Configuración del repo, en Máquina y en Seguridad.
 
 Lo que **no** se tiñe: el texto y los colores de estado (`error` y los custom colors `success` y `warning`, también en los LED; el LED apagado va en `outline`). Un error tiene que verse igual en los ocho temas, y un gris de texto corrido hacia el tono de su fondo pierde contraste en vez de ganarlo.
 
@@ -89,7 +106,7 @@ El logo se recorta a lo que dibuja y llena el cuadrado por su lado largo: el mar
 
 Los tres botones de ventana se **pintan** —trazo de 1.6 px en `on_primary`—, no se escriben: como caracteres («─», «□», «✕») eran trazos de un píxel que se perdían contra el acento, y la negrita no engorda un carácter de dibujo de caja. El fondo del hover sale del mismo `on_primary` al 16 %, salvo el de cerrar, que es `error` con el glifo en `on_error`.
 
-El campo del buscador tiene las medidas de un campo de «Configuración del repo»: contorno (`outline`), alto (28 px), radio, cuerpo de letra (13 px) y foco (`primary`). El fondo es otro: los campos (`FIELD`) van en `surface_container_highest` y el buscador (`SEARCH_FIELD`), que está en la fila del menú, en `secondary_container`, el color del repo. El contorno de un campo vacío de «Configuración del repo» (`FIELD_EMPTY`) va en `on_surface_variant`, más claro. Los campos de «Parámetros» miden 30 px de alto. La flecha de una lista cerrada de «Parámetros» es un SVG propio (`assets/chevron-down.svg`) dentro del relleno: con el borde estilado, Qt deja encima su caja de la flecha y corta el borde derecho, y estilar `::drop-down` para sacar esa caja borra también la flecha. La lista abierta tiene el ancho del campo y cae alineada bajo él, con el texto de cada entrada a la misma x que el del campo; una entrada más larga que el campo se corta con «…».
+El campo del buscador tiene las medidas de un campo de «Configuración del repo»: contorno (`outline`), alto (28 px), radio, cuerpo de letra (13 px) y foco (`primary`). El fondo es otro: los campos (`FIELD`) van en `surface_container_highest` y el buscador (`SEARCH_FIELD`), que está en la fila del menú, en `secondary_container`, el color del repo. El contorno de un campo vacío de «Configuración del repo» (`FIELD_EMPTY`) va en `on_surface_variant`, más claro. Los campos de «Parámetros» miden 30 px de alto. La flecha de una lista cerrada la dibuja `Style`. La lista abierta tiene el ancho del campo y cae alineada bajo él, con el texto de cada entrada a la misma x que el del campo; una entrada más larga que el campo se corta con «…».
 
 Los menús desplegados de la barra y la lista del buscador van en `surface_container_low` —por debajo de la fila de la que cuelgan, para que el popup se recorte contra ella—, con contorno `outline`, el ítem bajo el cursor en la capa de estado de `on_surface` con el nombre en el acento del repo, y el título del menú abierto en la barra del mismo `surface_container_low` que el popup, para que se lean como una sola pieza. En Ver, la palomita de cada casilla va a 13 px del borde y el texto a 33, en vez de los 5 y 41 que Qt pone por defecto.
 

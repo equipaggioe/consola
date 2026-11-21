@@ -5,12 +5,12 @@ from __future__ import annotations
 from typing import override
 
 from PySide6.QtCore import QSize, Qt, Signal, Slot
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent, QPalette
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from app import theme
 from app.services.palettes import NEUTRAL, Palette
-from app.theme import Colors, Fonts
+from app.theme import Fonts
 
 # `QWIDGETSIZE_MAX`: what Qt understands as «no height limit».
 NO_CAP = 16777215
@@ -29,11 +29,8 @@ class _AccordionHeader(QWidget):
     def __init__(self, title: str, parent: QWidget | None = None) -> None:
         """Build the bar."""
         super().__init__(parent)
-        self.setObjectName("accordionHeader")
-        # A *subclassed* QWidget does not paint its style sheet's
-        # background without this; the plain QWidgets in the rest of the
-        # file do.
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        # Repainted when the cursor comes in or goes out.
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.pal = NEUTRAL
@@ -50,9 +47,10 @@ class _AccordionHeader(QWidget):
         # protegidos»). Empty by default: not every section has a useful
         # summary.
         self.summary = QLabel("")
-        self.summary.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.summary.setFont(theme.font(Fonts.SIZE_XS))
+        self.chevron.setFont(theme.font(Fonts.SIZE_XS))
+        self.title.setFont(theme.caption())
+        self.warn = False
 
         lay.addWidget(self.chevron)
         lay.addWidget(self.title)
@@ -70,21 +68,21 @@ class _AccordionHeader(QWidget):
         # that separates a section from its neighbor and the label from
         # its content. When both were the same gray, the right column
         # read as one stain.
-        header = theme.SECTION_HEADER.on(self.pal)
-        self.setStyleSheet(f"""
-            QWidget#accordionHeader {{
-                background: {header.bg};
-                border-bottom: 1px solid {header.border};
-            }}
-            QWidget#accordionHeader:hover {{ background: {header.hover}; }}
-        """)
-        self.chevron.setStyleSheet(
-            f"background: transparent; color: {header.fg}; font-size: {Fonts.SIZE_XS}px;"
-        )
-        self.title.setStyleSheet(
-            f"background: transparent; color: {header.fg}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;"
-        )
+        theme.SECTION_HEADER.on(self.pal).dress(self, fill=False)
+        # The summary is a hint, or a warning when the section asks for
+        # attention.
+        (theme.WARNING_TEXT if self.warn else theme.HINT).on(self.pal).dress(self.summary)
+        self.update()
+
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Paint the band, or its hover, and the line below."""
+        colors = self.palette()
+        p = QPainter(self)
+        fill = QPalette.ColorRole.Midlight if self.underMouse() else QPalette.ColorRole.Window
+        p.fillRect(self.rect(), colors.color(fill))
+        p.fillRect(0, self.height() - 1, self.width(), 1, colors.color(QPalette.ColorRole.Dark))
+        p.end()
 
     @override
     def mouseReleaseEvent(self, event: QMouseEvent) -> None:
@@ -183,17 +181,15 @@ class AccordionSection(QWidget):
     def set_summary(self, text: str, detail: str = "", warn: bool = False) -> None:
         """Set the summary, its tooltip and whether it warns.
 
-        `warn` paints it in `Colors.WARNING` instead of the muted gray:
+        `warn` paints it in the warning color instead of the hint's:
         the state of «Configuración del repo» when the file is not
         ready, whose detail reads in the tooltip.
         """
         summary = self.header.summary
         summary.setText(text)
         summary.setToolTip(detail)
-        color = Colors.WARNING if warn else Colors.TEXT_MUTED
-        summary.setStyleSheet(
-            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.header.warn = warn
+        self.header.set_palette(self.header.pal)
 
     def set_palette(self, pal: Palette) -> None:
         """Repaint the header.

@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import override
 
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QMouseEvent, QResizeEvent
+from PySide6.QtGui import QMouseEvent, QPalette, QResizeEvent
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -18,7 +18,7 @@ from app import theme
 from app.services import envfile
 from app.services.palettes import Palette
 from app.services.settings import Setting
-from app.theme import Colors, Fonts
+from app.theme import Fonts, Spacing
 
 
 def _to_lines(value: str) -> str:
@@ -73,7 +73,6 @@ class EnvRow(QWidget):
         super().__init__(parent)
         self.setting = setting
         self.pal = pal
-        self.setStyleSheet("background: transparent;")
 
         lay = QHBoxLayout(self)
         lay.setContentsMargins(0, 0, 0, 0)
@@ -91,15 +90,14 @@ class EnvRow(QWidget):
             self.field.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
         else:
             self.field = QLineEdit(value)
+            self.field.setTextMargins(Spacing.XS, 0, Spacing.XS, 0)
 
         self.label = _ClickToSelectLabel(setting.display, self.field)
         # The label names the field for assistive technology.
         self.label.setBuddy(self.field)
         self.label.setFixedWidth(label_width)
         self.label.setToolTip(setting.key)
-        self.label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
-        )
+        self.label.setFont(theme.font(Fonts.SIZE_SM))
         if setting.kind == "list":
             self.label.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignLeft)
 
@@ -201,19 +199,9 @@ class EnvRow(QWidget):
             self.field.setFixedHeight(height)
 
     def _restyle(self) -> None:
-        # Lighter border = key without a value. The same signal, now in
-        # the repo's tinted borders.
-        field = theme.FIELD.on(self.pal)
-        border = field.border if self.value() else theme.FIELD_EMPTY.on(self.pal).border
-        widget = "QPlainTextEdit" if self._is_list else "QLineEdit"
-        self.field.setStyleSheet(f"""
-            {widget} {{
-                background: {field.bg};
-                color: {field.fg};
-                border: 1px solid {border};
-                border-radius: 5px;
-                padding: 5px 8px;
-                font-size: {Fonts.SIZE_SM}px;
-            }}
-            {widget}:focus {{ border: 1px solid {field.focus}; }}
-        """)
+        # Lighter border = key without a value.
+        colors = theme.FIELD.on(self.pal).palette()
+        if not self.value():
+            colors.setColor(QPalette.ColorRole.Dark, theme.FIELD_EMPTY.on(self.pal).border)
+        self.field.setPalette(colors)
+        self.field.setFont(theme.font(Fonts.SIZE_SM))

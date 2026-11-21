@@ -2,14 +2,11 @@
 
 > **Estado (verificado 2026-11-21).** Canone sacó `qt.md` de desarrollo (`461d857` y `e6b3d0b` de
 > canone), y después la sección «Tema» de `transversal.md` y de cada cliente (`e03dedd`, ADR-0198 y
-> ADR-0201 de canone): ahora `qt.md` rige entera. Canone agregó los custom colors `success` y
-> `warning` (`3d120e3`, ADR-0209), y con eso se hicieron las etapas 1 y 2 del §2.10. Con canone en `main`
-> (`3d120e3`), `verificar.py --repo .` da 1 incumplimiento con las tres variables
-> `RELEASE_DESKTOP_*`: falta `desktop/tests/test_theme.py`, que llega en la etapa 4 del §2.10. El job
-> `canone` de `ci.yml` falla hasta entonces. En Windows, `ruff format --check`, `ruff check`,
-> `pyrefly check` en las dos plataformas, `deptry` y `pip-audit` dan 0, y pasan 811 pruebas, con 3
-> saltadas (eran 1028: `test_palettes.py` dejó las de contraste, que hace `tokens.py --check`).
-> En Linux (distro `Testing`), los pasos del job `desktop` de `ci.yml` dan 0 y pasan 814 pruebas.
+> ADR-0201 de canone): ahora `qt.md` rige entera. Con canone en `main` (`6372094`),
+> `verificar.py --repo .` da 0 con las tres variables `RELEASE_DESKTOP_*`. En Windows,
+> `ruff format --check`, `ruff check`, `pyrefly check` en las dos plataformas, `deptry` y
+> `pip-audit` dan 0, y pasan 850 pruebas, con 3 saltadas. En Linux (distro `Testing`), los pasos del
+> job `desktop` de `ci.yml` dan 0 y pasan 853.
 > Ya hecho: el código en inglés, `ruff` con las reglas de `plantilla/qt/`, las versiones de
 > `stack.md`, el árbol de `qt.md`
 > ([ADR-0090](../adr/0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md)), los tipos, `@override`,
@@ -20,7 +17,9 @@
 > ([ADR-0091](../adr/0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md)),
 > `brand/tokens/`, `scripts/tokens.py` y `colors.py`
 > ([ADR-0092](../adr/0092-el-tema-de-color-se-elige-por-repo-y-viaja-con-el.md) y
-> [ADR-0093](../adr/0093-los-colores-son-los-roles-de-material-en-brand-tokens-solo-en-modo-oscuro.md)), `IniFormat`, HTTP con un solo
+> [ADR-0093](../adr/0093-los-colores-son-los-roles-de-material-en-brand-tokens-solo-en-modo-oscuro.md)),
+> `Style` sobre Fusion y ninguna hoja de estilo
+> ([ADR-0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md)), `IniFormat`, HTTP con un solo
 > `QNetworkAccessManager` y reintentos
 > ([ADR-0089](../adr/0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md)),
 > `release.yml` ([ADR-0081](../adr/0081-consola-se-publica-para-windows-y-linux.md)) y `api/`
@@ -31,8 +30,8 @@
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
 > `canone/plataformas/python.md`, `canone/plataformas/qt.md`, «Tema» y «Accesibilidad» de
-> `canone/plataformas/transversal.md` y este plan. Falta «Tema» (§2.10), desde la etapa 3, el
-> selector de idioma, que llega con el segundo idioma (§2.8), la prueba de
+> `canone/plataformas/transversal.md` y este plan. Falta volver a medir el nivel AA después de
+> «Tema» (§2.5 y §2.10), el selector de idioma, que llega con el segundo idioma (§2.8), la prueba de
 > `release.yml` con un tag (§4) y lo que espera una decisión: el nivel AA (§2.5) y el §3,
 > «Abiertas».
 
@@ -142,63 +141,22 @@ autorización».
 
 ### 2.10 Tema
 
-Rige desde `e03dedd` de canone (2026-11-20). Lo que pide «Tema» de `transversal.md` y de `qt.md`:
+Hecho el 2026-11-21: `brand/tokens/` con los 46 roles de Material, `success` y `warning`, en nueve
+temas y solo en `dark`; `scripts/tokens.py` y `colors.py` generado; `Style` sobre Fusion; ninguna
+hoja de estilo en `src/app/`, con cada parte como una `QPalette`, y `tests/test_theme.py` copiado.
+Está en [12](../arquitectura/12_interfaz.md), §2, y en los ADR
+[0092](../adr/0092-el-tema-de-color-se-elige-por-repo-y-viaja-con-el.md),
+[0093](../adr/0093-los-colores-son-los-roles-de-material-en-brand-tokens-solo-en-modo-oscuro.md) y
+[0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md). Cambiar
+de pestaña de repo con ocho abiertos, sin pantalla, bajó de 0,78 s a 0,06 s.
 
-| Pieza | Qué pide |
-|---|---|
-| `brand/tokens/` | `colors.resolver.json` con dos modificadores: `theme`, un contexto por tema con el inicial en `default`, y `mode`, con `light`, `dark` o los dos. Un archivo de tema solo tiene `palette`, y uno de modo, solo `color`. Los roles son los 46 del `ColorScheme` de Flutter: cada modo los asigna todos, y `tokens.py` falla con uno de más |
-| `scripts/tokens.py` | La copia canónica. `verificar.py` corre su comprobación: el contraste, las partes de DTCG y lo generado al día |
-| `desktop/src/app/colors.py` | Generado y commiteado: el enum `ColorTheme`, con un esquema por modo, `INITIAL` y `palette()` |
-| `desktop/src/app/theme.py` | Punto de partida de la plantilla: `Style`, un `QProxyStyle` sobre Fusion, que dibuja el marco de campos, spin boxes, combo boxes y paneles en `outline`, y en 2 px de `primary` con el foco, la grilla en `outlineVariant`, y los botones con la propiedad `variant` en `primary` o `danger`. La elección va en `QSettings`, en las claves `mode` y `theme`. Los tamaños, solo aquí |
-| `desktop/tests/test_theme.py` | Canónico, sin editar: ningún literal de color fuera de `colors.py`, ningún `setStyleSheet` y el estilo sobre Fusion |
+Falta:
 
-Lo que hay, contado en el código el 2026-11-21, después de la etapa 2:
-
-| Qué | Hoy |
-|---|---|
-| Colores | En `brand/tokens/`: los 46 roles y `success` y `warning`, en nueve temas (los ocho de los repos y `neutral`, el inicial) y solo en `dark`. `scripts/tokens.py` genera `desktop/src/app/colors.py`, y `tokens.py --check` da 0 |
-| Roles y partes | `Role` de `theme.py` nombra 15 roles de Material, y las 39 partes (`Look`) los toman, o una capa de estado (`Layer`). `services/palettes.py` toma cada tema de `colors.py` |
-| Literales de color fuera de `colors.py` (la expresión de `test_theme.py`) | Ninguno. `test_colors_only_generated` de la plantilla de canone pasa |
-| Hojas de estilo | 168 `setStyleSheet` en 26 archivos, sin la global. Nombran los colores fijos por `theme.Colors`, que los toma del tema `neutral` con los nombres de antes |
-| Estilo | Fusion a través de `Style`, el `QProxyStyle` de `theme.py`, con la paleta del tema inicial |
-| Dibujo propio | 10 `paintEvent`, que pintan con los colores de su parte |
-
-Etapas:
-
-1. Hecha el 2026-11-21: los ADR
-   [0092](../adr/0092-el-tema-de-color-se-elige-por-repo-y-viaja-con-el.md),
-   [0093](../adr/0093-los-colores-son-los-roles-de-material-en-brand-tokens-solo-en-modo-oscuro.md)
-   y [0094](../adr/0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md),
-   `brand/tokens/`, `scripts/tokens.py`, `colors.py` generado, y `theme.py` y
-   `services/palettes.py` con los colores de `colors.py`. Los widgets y los modelos pasan los colores
-   a Qt como texto o en un `QBrush`, sin construir un `QColor`.
-2. Hecha el 2026-11-21: `Style` sobre Fusion, la paleta de la app desde `colors.py` y sin la hoja
-   global. `Style` dibuja los marcos, las casillas, las barras de desplazamiento sin flechas, los
-   separadores y los menús ([12](../arquitectura/12_interfaz.md), §2). Las tooltips toman la paleta
-   generada, claras. Las hojas de los paneles con desplazamiento dejaron sus reglas de `QScrollBar`, y
-   su selector ya no alcanza a la barra.
-3. Cada parte sin hoja de estilo, en los 27 archivos (pregunta 18). Sale `theme.Colors`, y cada widget
-   toma sus colores de la paleta de su parte. Sale también la hoja que
-   `MainWindow._apply_window_border` pone en el `centralWidget`, que se lleva 0,63 de los 0,7 s de
-   cambiar de pestaña de repo ([30](../arquitectura/30_riesgos_y_pendientes.md), «Reportados en
-   uso»). La flecha de las listas, `assets/chevron-down.svg`, lleva el color `#9aa4b2` escrito: la
-   dibuja `Style`, o el SVG deja de llevar color.
-4. `tests/test_theme.py` copiado y `verificar.py` en 0. Se vuelve a medir el §2.5.
-
-Las etapas 1 a 3 dejan en verde el job `desktop`; el job `canone` sigue fallando hasta la 4.
-
-Elegido al implementar la etapa 1 y aceptado el 2026-11-21 (puntos 7 a 13 del ADR-0093 y punto 4
-del ADR-0092): qué superficie va en cada rol `surface*`; el rótulo de un campo en `onSurface`; los
-resúmenes y las pistas en `onSurfaceVariant` (`#9aa4b2`); el texto inactivo al 38 %; las líneas que
-dividen en `outlineVariant` y el contorno de un control en `outline` (`#7a8392`); el hover como capa
-de estado al 8 %, y la fila elegida en `secondaryContainer`; los LED en los colores de estado, el
-apagado en `outline`; `error` en `#ff7b72`; los colores de los roles que Consola no usa, y el tema
-`neutral` para la ventana sin repo.
-
-En canone, `test_theme.py` deja fuera `rc_resources.py` (2026-11-21, `6372094` de canone): lo
-genera `pyside6-rcc`, git lo ignora, y el job `desktop` lo compila antes de `pytest`. Con la versión
-anterior, `test_colors_only_generated` fallaba en Consola con dos líneas suyas: el `stroke="#9aa4b2"`
-de `chevron-down.svg` y `#A77` dentro de los bytes de una imagen. Con la nueva pasa.
+- Volver a medir el §2.5 con la app: el foco visible (2.4.7) y los contrastes.
+- `desktop/scripts/swatches.py`, que se corre aparte y no es parte de la app, sigue con hojas de
+  estilo.
+- El color de las claves foráneas de `models/rows_model.py` es el acento del tema sin repo: un
+  modelo no tiene la paleta de su espacio de trabajo.
 
 ## 3. Preguntas
 

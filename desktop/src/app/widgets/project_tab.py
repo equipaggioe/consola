@@ -72,7 +72,6 @@ class ProjectTab(ReorderableTab):
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         self.setToolTip(project.path)
         self.setAccessibleName(project.name)
-        self.setStyleSheet("ProjectTab { background: transparent; }")
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
@@ -143,21 +142,9 @@ class ProjectTab(ReorderableTab):
             if self.is_active
             else theme.REPO_TAB.on(self.active_pal).fg
         )
-        self.name_label.setStyleSheet(f"background: transparent; color: {color};")
-        self.close_btn.setStyleSheet(f"""
-            QPushButton {{
-                color: {color};
-                background: transparent;
-                border: none; padding: 0;
-                text-align: center;
-                border-radius: 4px;
-                font-size: {Fonts.SIZE_LG}px;
-            }}
-            QPushButton:hover {{
-                color: {Colors.ERROR};
-                background: {tint(color, 0.16)};
-            }}
-        """)
+        theme.ink(self.name_label, color)
+        self.close_btn.setFont(theme.font(Fonts.SIZE_LG))
+        theme.glyph(self.close_btn, color, tint(color, 0.16), Colors.ERROR)
         self.updateGeometry()
 
     @override
@@ -244,10 +231,6 @@ class ProjectTab(ReorderableTab):
 
     def _context_menu(self) -> QMenu:
         menu = QMenu(self)
-        # Qt sets the samples against the edge; these leave them where
-        # the Ver menu sets its checks
-        # (`widgets/action_menu_bar.py::_menu_style`).
-        menu.setStyleSheet("QMenu::icon { left: 8px; } QMenu::item { padding-left: 16px; }")
         path_action = QAction(self.project.path, self)
         path_action.setEnabled(False)
         menu.addAction(path_action)

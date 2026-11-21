@@ -23,7 +23,7 @@ from app.services.errors import TaskError
 from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.settings import Setting, settings_by_group
-from app.theme import Colors, Fonts
+from app.theme import Fonts
 from app.widgets.env_row import EnvRow
 
 
@@ -81,11 +81,6 @@ class EnvPanel(QWidget):
         self.read_error = ""
         self.declared: set[str] = set()  # `_read_fields` fills it
         self.fields, self.fields_error = self._read_fields()
-        # Without this, a QWidget subclass ignores its own sheet's
-        # background and shows the global sheet's gray (`theme.py`): the
-        # section's body did not take the repo's color.
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -120,7 +115,7 @@ class EnvPanel(QWidget):
         except TaskError as error:
             return (), str(error)
 
-    def _build_file_bar(self) -> QWidget:
+    def _build_file_bar(self) -> QFrame:
         """Build the footer with the actions on `config.env`.
 
         The file's state, existing or not, does not go here: it travels
@@ -129,7 +124,7 @@ class EnvPanel(QWidget):
         is the only way to persist edits, because row changes only emit
         in memory.
         """
-        bar = QWidget()
+        bar = QFrame()
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(16, 8, 16, 8)
         lay.setSpacing(8)
@@ -178,35 +173,16 @@ class EnvPanel(QWidget):
         The body is `panel`, one step above its header, and the footer
         with Save and Reload rises to `surface`, like the other bars.
         """
-        footer = theme.FOOTER.on(self.pal)
-        self.setStyleSheet(f"EnvPanel {{ background: {theme.SECTION_BODY.on(self.pal).bg}; }}")
-        self._scroll.setStyleSheet(self._scroll_style())
-        self.file_bar.setStyleSheet(
-            f"background: {footer.bg}; border-top: 1px solid {footer.border};"
-        )
+        # The scroll's viewport fills with Base, the body's color.
+        theme.SECTION_BODY.on(self.pal).dress(self)
+        theme.FOOTER.on(self.pal).band(self.file_bar, "top")
         self._restyle_create()
-
-    def _scroll_style(self) -> str:
-        """Leave the scroll with no background, showing the panel's."""
-        return (
-            "QScrollArea, #qt_scrollarea_viewport > QWidget "
-            "{ border: none; background: transparent; }"
-        )
 
     def _restyle_create(self) -> None:
         button = theme.ACCENT_BUTTON.on(self.pal)
-        button_css = f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {button.border};
-                color: {button.fg}; border-radius: 5px;
-                padding: 4px 12px; font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {button.hover}; }}
-        """
-        self.create_btn.setStyleSheet(button_css)
-        self.import_btn.setStyleSheet(button_css)
-        self.reload_btn.setStyleSheet(button_css)
-        self.save_btn.setStyleSheet(button_css)
+        for each in (self.create_btn, self.import_btn, self.reload_btn, self.save_btn):
+            button.dress(each, fill=False)
+            each.setFont(theme.font(Fonts.SIZE_XS))
 
     def _label_width(self) -> int:
         """Return the longest label's width, plus a margin.
@@ -229,11 +205,9 @@ class EnvPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll  # `_restyle` repaints it
 
         content = QWidget()
         self._content = content  # `content_height` measures it
-        content.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(content)
         lay.setContentsMargins(16, 12, 16, 12)
         lay.setSpacing(14)
@@ -248,9 +222,8 @@ class EnvPanel(QWidget):
         if self.fields_error:
             notice = QLabel(self.fields_error)
             notice.setWordWrap(True)
-            notice.setStyleSheet(
-                f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_XS}px;"
-            )
+            notice.setFont(theme.font(Fonts.SIZE_XS))
+            theme.ERROR_TEXT.on(self.pal).dress(notice)
             lay.addWidget(notice)
 
         for group, every in settings_by_group(self.fields).items():
@@ -258,16 +231,13 @@ class EnvPanel(QWidget):
             if not settings:
                 continue
             block_widget = QWidget()
-            block_widget.setStyleSheet("background: transparent;")
             block = QVBoxLayout(block_widget)
             block.setContentsMargins(0, 0, 0, 0)
             block.setSpacing(6)
             # The group is a key: settings.py declares it untranslated.
             header = QLabel(QCoreApplication.translate("settings", group).upper())
-            header.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.2px;"
-            )
+            header.setFont(theme.caption())
+            theme.HINT.on(self.pal).dress(header)
             block.addWidget(header)
             for setting in settings:
                 row = EnvRow(setting, "", self.pal, label_width=label_width)

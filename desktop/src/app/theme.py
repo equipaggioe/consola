@@ -10,16 +10,20 @@ from enum import Enum
 from typing import TYPE_CHECKING, cast, override
 
 from PySide6.QtCore import QPointF, QRect, QRectF, QSize, Qt
-from PySide6.QtGui import QFont, QPainter, QPalette, QPen
+from PySide6.QtGui import QColor, QFont, QPainter, QPalette, QPen
 from PySide6.QtWidgets import (
     QApplication,
+    QFrame,
     QProxyStyle,
+    QPushButton,
     QStyle,
     QStyleHintReturn,
     QStyleOption,
+    QStyleOptionButton,
     QStyleOptionComplex,
     QStyleOptionMenuItem,
     QStyleOptionSlider,
+    QStyleOptionTab,
     QToolTip,
     QWidget,
 )
@@ -34,6 +38,33 @@ if TYPE_CHECKING:
 # The scheme of the theme without a repo. What is the same in every
 # theme, the surfaces, the text and the states, is read from it.
 SCHEME = INITIAL.dark
+
+# The dynamic properties that `Style` reads from a widget: the sides of
+# a frame it draws, and the colors of a button that the part does not
+# give.
+EDGES = "edges"
+VARIANT = "variant"
+# A glyph button whose text changes color under the cursor (`glyph`).
+HOVER_INK = "hoverInk"
+# A button whose part has an outline (`Paint.dress`).
+OUTLINED = "outlined"
+
+# The values of the property "variant" of a button.
+VARIANTS = ("primary", "danger")
+
+
+def variant_colors(variant: str, colors: QPalette) -> tuple[QColor, QColor]:
+    """Return the fill and the text of a button with a variant.
+
+    `primary` is the accent of its theme, and `danger`, the error.
+    """
+    if variant == "primary":
+        return (
+            colors.color(QPalette.ColorRole.Accent),
+            colors.color(QPalette.ColorRole.HighlightedText),
+        )
+    return QColor.fromString(SCHEME["error"]), QColor.fromString(SCHEME["on_error"])
+
 
 # The opacities of the state layers of Material.
 HOVER = 0.08
@@ -54,33 +85,23 @@ def blend(over: str, base: str, opacity: float) -> str:
 
 
 class Colors:
-    """The roles that are the same in every theme.
+    """The roles that are the same in every theme, by their names.
 
-    By the names the style sheets of the widgets still give them.
+    For what a part does not paint: a text that changes color with its
+    state, a line of rich text, a LED. What changes with the theme comes
+    from the palette of the widget.
     """
 
-    INK = SCHEME["on_primary"]
-    CHROME = SCHEME["primary_container"]
-    BG = SCHEME["surface"]
-    PANEL = SCHEME["surface_container_low"]
-    SURFACE = SCHEME["surface_container"]
-    SURFACE_HOVER = SCHEME["surface_container_high"]
-    SURFACE_ALT = SCHEME["surface_container_highest"]
-    BORDER = SCHEME["outline_variant"]
-    BORDER_LIGHT = SCHEME["outline"]
-    TEXT = SCHEME["on_surface"]
-    TEXT_LABEL = SCHEME["on_surface"]
-    TEXT_DIM = SCHEME["on_surface_variant"]
-    TEXT_MUTED = SCHEME["on_surface_variant"]
-    # Disabled text, on the body of a section.
-    TEXT_DISABLED = blend(SCHEME["on_surface"], SCHEME["surface_container_low"], DISABLED)
-    ACCENT = SCHEME["primary"]
-    ACCENT_PURPLE = SCHEME["tertiary"]
+    ON_PRIMARY = SCHEME["on_primary"]
+    PRIMARY = SCHEME["primary"]
+    ON_SURFACE = SCHEME["on_surface"]
+    ON_SURFACE_VARIANT = SCHEME["on_surface_variant"]
+    OUTLINE = SCHEME["outline"]
+    TERTIARY = SCHEME["tertiary"]
     SUCCESS = SCHEME["success"]
     WARNING = SCHEME["warning"]
     ERROR = SCHEME["error"]
     ON_ERROR = SCHEME["on_error"]
-    INACTIVE = SCHEME["outline"]
 
 
 class Fonts:
@@ -95,6 +116,13 @@ class Fonts:
     SIZE_XL = 21
     SIZE_XXL = 30
     SIZE_MONO = 15
+    SIZE_HERO = 54
+    # The space between the letters of a caption, in pixels.
+    CAPTION_SPACING = 1.2
+    # And of the title of the window without repos.
+    TITLE_SPACING = 6
+    # And of the name of a repo on its welcome.
+    REPO_SPACING = 8
 
 
 class Spacing:
@@ -146,6 +174,13 @@ class Metrics:
     CHECK_SPACING = 9
     TOOL_TIP_MARGIN = Spacing.SM
     MENU_ITEM = 32
+    BUTTON_PADDING = 12
+    FIELD = 28
+    # The width of the chevron of a closed list.
+    CHEVRON = 10
+    # The side and the top padding of the menu bar, and of each title.
+    MENU_BAR = (2, 3)
+    MENU_BAR_ITEM = (13, 5)
 
 
 class Style(QProxyStyle):
@@ -168,6 +203,11 @@ class Style(QProxyStyle):
         widget: QWidget | None = None,
     ) -> None:
         """Draw frames in the outline and check boxes in the palette."""
+        if element == QStyle.PrimitiveElement.PE_Frame and widget is not None:
+            sides = widget.property(EDGES)
+            if sides:
+                edges(option, painter, str(sides))
+                return
         if element in (
             QStyle.PrimitiveElement.PE_FrameLineEdit,
             QStyle.PrimitiveElement.PE_Frame,
@@ -175,8 +215,16 @@ class Style(QProxyStyle):
         ):
             frame(option, painter)
             return
+        if element == QStyle.PrimitiveElement.PE_PanelButtonCommand:
+            button(option, painter, widget)
+            return
         if element == QStyle.PrimitiveElement.PE_IndicatorCheckBox:
             check_box(option, painter)
+            return
+        if element in (
+            QStyle.PrimitiveElement.PE_FrameTabWidget,
+            QStyle.PrimitiveElement.PE_FrameTabBarBase,
+        ):
             return
         if element == QStyle.PrimitiveElement.PE_PanelMenu:
             menu_panel(option, painter)
@@ -197,8 +245,11 @@ class Style(QProxyStyle):
         ):
             scroll_bar(self, option, painter, widget)
             return
+        if control == QStyle.ComplexControl.CC_ComboBox:
+            combo_box(self, option, painter, widget)
+            return
         super().drawComplexControl(control, option, painter, widget)
-        if control in (QStyle.ComplexControl.CC_SpinBox, QStyle.ComplexControl.CC_ComboBox):
+        if control == QStyle.ComplexControl.CC_SpinBox:
             frame(option, painter)
 
     @override
@@ -215,8 +266,61 @@ class Style(QProxyStyle):
         and the item under the cursor a state layer.
         """
         colors = cast(QPalette, option.palette)
+        variant = str(widget.property(VARIANT)) if widget is not None else ""
+        if isinstance(option, QStyleOptionButton) and variant in VARIANTS:
+            option = QStyleOptionButton(option)
+            fill, text = variant_colors(variant, colors)
+            shown = QPalette(colors)
+            for role in (QPalette.ColorRole.Button, QPalette.ColorRole.Midlight):
+                shown.setColor(role, fill)
+            shown.setColor(QPalette.ColorGroup.Active, QPalette.ColorRole.ButtonText, text)
+            shown.setColor(QPalette.ColorGroup.Inactive, QPalette.ColorRole.ButtonText, text)
+            option.palette = shown  # pyrefly: ignore[bad-assignment]
+        elif (
+            isinstance(option, QStyleOptionButton)
+            and widget is not None
+            and widget.property(HOVER_INK)
+            and has(option, QStyle.StateFlag.State_MouseOver)
+            and has(option, QStyle.StateFlag.State_Enabled)
+        ):
+            # A glyph that turns BrightText under the cursor.
+            option = QStyleOptionButton(option)
+            shown = QPalette(colors)
+            shown.setColor(
+                QPalette.ColorRole.ButtonText, colors.color(QPalette.ColorRole.BrightText)
+            )
+            option.palette = shown  # pyrefly: ignore[bad-assignment]
         if element == QStyle.ControlElement.CE_Splitter:
             painter.fillRect(cast(QRect, option.rect), colors.color(QPalette.ColorRole.Mid))
+            return
+        if element == QStyle.ControlElement.CE_HeaderSection:
+            header_section(option, painter)
+            return
+        if element == QStyle.ControlElement.CE_TabBarTabShape:
+            if has(option, QStyle.StateFlag.State_Selected):
+                rect = cast(QRect, option.rect)
+                underline = QRect(rect.left(), rect.bottom() - 1, rect.width(), 2)
+                painter.fillRect(underline, colors.color(QPalette.ColorRole.Accent))
+            return
+        if (
+            element == QStyle.ControlElement.CE_TabBarTabLabel
+            and isinstance(option, QStyleOptionTab)
+            and not has(option, QStyle.StateFlag.State_Selected)
+        ):
+            # A tab that is not open says its name in the hint's color.
+            option = QStyleOptionTab(option)
+            shown = QPalette(colors)
+            shown.setColor(
+                QPalette.ColorRole.WindowText, colors.color(QPalette.ColorRole.PlaceholderText)
+            )
+            option.palette = shown  # pyrefly: ignore[bad-assignment]
+        if element == QStyle.ControlElement.CE_MenuBarEmptyArea:
+            painter.fillRect(cast(QRect, option.rect), colors.color(QPalette.ColorRole.Window))
+            return
+        if element == QStyle.ControlElement.CE_MenuBarItem and isinstance(
+            option, QStyleOptionMenuItem
+        ):
+            menu_bar_item(self, option, painter)
             return
         if element == QStyle.ControlElement.CE_MenuItem and isinstance(
             option, QStyleOptionMenuItem
@@ -235,8 +339,17 @@ class Style(QProxyStyle):
         size: QSize,
         widget: QWidget | None = None,
     ) -> QSize:
-        """Give a menu item the height of `Metrics.MENU_ITEM`."""
+        """Give menu items and fields a height, buttons a padding."""
         found = self.baseStyle().sizeFromContents(kind, option, size, widget)
+        if kind == QStyle.ContentsType.CT_PushButton:
+            found.setWidth(size.width() + 2 * Metrics.BUTTON_PADDING)
+        if kind == QStyle.ContentsType.CT_MenuBarItem:
+            return QSize(
+                size.width() + 2 * Metrics.MENU_BAR_ITEM[0],
+                size.height() + 2 * Metrics.MENU_BAR_ITEM[1],
+            )
+        if kind in (QStyle.ContentsType.CT_LineEdit, QStyle.ContentsType.CT_ComboBox):
+            found.setHeight(max(found.height(), Metrics.FIELD))
         if (
             kind == QStyle.ContentsType.CT_MenuItem
             and isinstance(option, QStyleOptionMenuItem)
@@ -276,6 +389,8 @@ class Style(QProxyStyle):
             QStyle.PixelMetric.PM_IndicatorHeight: Metrics.CHECK_BOX,
             QStyle.PixelMetric.PM_CheckBoxLabelSpacing: Metrics.CHECK_SPACING,
             QStyle.PixelMetric.PM_ToolTipLabelFrameWidth: Metrics.TOOL_TIP_MARGIN,
+            QStyle.PixelMetric.PM_MenuBarVMargin: Metrics.MENU_BAR[1],
+            QStyle.PixelMetric.PM_MenuBarHMargin: Metrics.MENU_BAR[0],
         }
         if metric in sizes:
             return sizes[metric]
@@ -314,12 +429,60 @@ def frame(option: QStyleOption, painter: QPainter) -> None:
     painter.setPen(QPen(cast(QPalette, option.palette).color(role), width))
     painter.setBrush(Qt.BrushStyle.NoBrush)
     rect = QRectF(cast(QRect, option.rect)).adjusted(inset, inset, -inset, -inset)
-    painter.drawRoundedRect(rect, 2, 2)
+    painter.drawRoundedRect(rect, Radius.SM, Radius.SM)
+    painter.restore()
+
+
+def edges(option: QStyleOption, painter: QPainter, sides: str) -> None:
+    """Draw only some sides of a frame, as 1 px lines in Dark.
+
+    `sides` names them: `top`, `bottom`, `left` and `right`.
+    """
+    rect = cast(QRect, option.rect)
+    color = cast(QPalette, option.palette).color(QPalette.ColorRole.Dark)
+    lines = {
+        "top": QRect(rect.left(), rect.top(), rect.width(), 1),
+        "bottom": QRect(rect.left(), rect.bottom(), rect.width(), 1),
+        "left": QRect(rect.left(), rect.top(), 1, rect.height()),
+        "right": QRect(rect.right(), rect.top(), 1, rect.height()),
+    }
+    for side in sides.split():
+        painter.fillRect(lines[side], color)
+
+
+def button(option: QStyleOption, painter: QPainter, widget: QWidget | None) -> None:
+    """Draw a push button from its palette.
+
+    The fill is Button, Midlight under the cursor or pressed, and the
+    outline Dark, only if its part has one (`OUTLINED`). With the focus
+    of the keyboard, the outline goes in 2 px of Highlight.
+    """
+    colors = cast(QPalette, option.palette)
+    active = has(option, QStyle.StateFlag.State_Enabled) and (
+        has(option, QStyle.StateFlag.State_MouseOver) or has(option, QStyle.StateFlag.State_Sunken)
+    )
+    fill = colors.color(QPalette.ColorRole.Midlight if active else QPalette.ColorRole.Button)
+    focus = has(option, QStyle.StateFlag.State_HasFocus) and has(
+        option, QStyle.StateFlag.State_KeyboardFocusChange
+    )
+    width = 2 if focus else 1
+    outlined = widget is not None and bool(widget.property(OUTLINED))
+    edge = colors.color(QPalette.ColorRole.Highlight if focus else QPalette.ColorRole.Dark)
+    inset = width / 2
+    rect = QRectF(cast(QRect, option.rect)).adjusted(inset, inset, -inset, -inset)
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(edge, width) if focus or outlined else Qt.PenStyle.NoPen)
+    painter.setBrush(fill)
+    painter.drawRoundedRect(rect, Radius.SM + 1, Radius.SM + 1)
     painter.restore()
 
 
 def check_box(option: QStyleOption, painter: QPainter) -> None:
     """Draw a check box: a field, or filled with Highlight if checked.
+
+    The field is Light, the surface of the fields, which no part
+    changes.
 
     With focus, its outline goes in Highlight and 2 px, like a field's.
     """
@@ -329,7 +492,7 @@ def check_box(option: QStyleOption, painter: QPainter) -> None:
     if checked:
         fill = edge = colors.color(QPalette.ColorRole.Highlight)
     else:
-        fill = colors.color(QPalette.ColorRole.Base)
+        fill = colors.color(QPalette.ColorRole.Light)
         edge = colors.color(QPalette.ColorRole.Dark)
     if not has(option, QStyle.StateFlag.State_Enabled):
         edge = colors.color(QPalette.ColorGroup.Disabled, QPalette.ColorRole.Text)
@@ -360,6 +523,91 @@ def check_box(option: QStyleOption, painter: QPainter) -> None:
             ]
         )
     painter.restore()
+
+
+def header_section(option: QStyleOption, painter: QPainter) -> None:
+    """Draw a column title flat in Button, with lines in Dark.
+
+    The lines go right and below, so the titles read as a row of cells.
+    """
+    colors = cast(QPalette, option.palette)
+    rect = cast(QRect, option.rect)
+    painter.fillRect(rect, colors.color(QPalette.ColorRole.Button))
+    line = colors.color(QPalette.ColorRole.Dark)
+    painter.fillRect(QRect(rect.right(), rect.top(), 1, rect.height()), line)
+    painter.fillRect(QRect(rect.left(), rect.bottom(), rect.width(), 1), line)
+
+
+def combo_box(
+    style: QStyle, option: QStyleOptionComplex, painter: QPainter, widget: QWidget | None
+) -> None:
+    """Draw a closed list flat, like a field, with a chevron.
+
+    The fill is Button, the outline Dark, or 2 px of Highlight with
+    focus, and the chevron is ButtonText. Its text is drawn apart.
+    """
+    colors = cast(QPalette, option.palette)
+    focus = has(option, QStyle.StateFlag.State_HasFocus)
+    width = 2 if focus else 1
+    edge = colors.color(QPalette.ColorRole.Highlight if focus else QPalette.ColorRole.Dark)
+    inset = width / 2
+    rect = QRectF(cast(QRect, option.rect)).adjusted(inset, inset, -inset, -inset)
+    painter.save()
+    painter.setRenderHint(QPainter.RenderHint.Antialiasing)
+    painter.setPen(QPen(edge, width))
+    painter.setBrush(colors.color(QPalette.ColorRole.Button))
+    painter.drawRoundedRect(rect, Radius.SM, Radius.SM)
+    arrow = QRectF(
+        style.subControlRect(
+            QStyle.ComplexControl.CC_ComboBox, option, QStyle.SubControl.SC_ComboBoxArrow, widget
+        )
+    )
+    center = arrow.center()
+    half = Metrics.CHEVRON / 2
+    pen = QPen(colors.color(QPalette.ColorRole.ButtonText), 1.5)
+    pen.setCapStyle(Qt.PenCapStyle.RoundCap)
+    pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
+    painter.setPen(pen)
+    painter.setBrush(Qt.BrushStyle.NoBrush)
+    painter.drawPolyline(
+        [
+            QPointF(center.x() - half, center.y() - half / 2),
+            QPointF(center.x(), center.y() + half / 2),
+            QPointF(center.x() + half, center.y() - half / 2),
+        ]
+    )
+    painter.restore()
+
+
+def menu_bar_item(style: QStyle, option: QStyleOptionMenuItem, painter: QPainter) -> None:
+    """Draw a title of the menu bar on the bar's Window.
+
+    Open or pressed, it takes Midlight, the popup's background in the
+    part of the menu bar.
+    """
+    colors = cast(QPalette, option.palette)
+    rect = cast(QRect, option.rect)
+    enabled = has(option, QStyle.StateFlag.State_Enabled)
+    open_ = enabled and (
+        has(option, QStyle.StateFlag.State_Selected) or has(option, QStyle.StateFlag.State_Sunken)
+    )
+    role = QPalette.ColorRole.Midlight if open_ else QPalette.ColorRole.Window
+    painter.fillRect(rect, colors.color(role))
+    flags = (
+        Qt.AlignmentFlag.AlignCenter
+        | Qt.TextFlag.TextShowMnemonic
+        | Qt.TextFlag.TextDontClip
+        | Qt.TextFlag.TextSingleLine
+    )
+    style.drawItemText(
+        painter,
+        rect,
+        int(flags),
+        colors,
+        enabled,
+        str(option.text),
+        QPalette.ColorRole.WindowText,
+    )
 
 
 def menu_panel(option: QStyleOption, painter: QPainter) -> None:
@@ -477,6 +725,64 @@ def scroll_bar(
     painter.restore()
 
 
+def workspace(widget: QWidget, pal: Palette) -> None:
+    """Give a repo's workspace the palette of its theme.
+
+    Its children take it: the accent as Highlight, the surfaces, the
+    text.
+    """
+    widget.setPalette(palette(pal.colors))
+
+
+def ink(widget: QWidget, color: str) -> None:
+    """Paint the text of a widget in a color, but not the disabled."""
+    colors = QPalette(widget.palette())
+    for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+        for role in (
+            QPalette.ColorRole.WindowText,
+            QPalette.ColorRole.Text,
+            QPalette.ColorRole.ButtonText,
+        ):
+            colors.setColor(group, role, color)
+    widget.setPalette(colors)
+
+
+def glyph(button: QPushButton, color: str, hover: str, ink: str | None = None) -> None:
+    """Paint a button that is only a glyph or a word.
+
+    No fill and no outline: the glyph in `color`, on `hover` under the
+    cursor and, with `ink`, in that color there, and the disabled one in
+    the theme's disabled text.
+    """
+    colors = QPalette(button.palette())
+    none = Qt.GlobalColor.transparent
+    for role in (QPalette.ColorRole.Button, QPalette.ColorRole.Dark, QPalette.ColorRole.Window):
+        colors.setColor(role, none)
+    colors.setColor(QPalette.ColorRole.Midlight, hover)
+    for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+        colors.setColor(group, QPalette.ColorRole.ButtonText, color)
+    if ink is not None:
+        colors.setColor(QPalette.ColorRole.BrightText, ink)
+    button.setProperty(HOVER_INK, ink is not None)
+    button.setPalette(colors)
+    button.setAutoFillBackground(False)
+
+
+def font(size: int, weight: QFont.Weight = QFont.Weight.Normal) -> QFont:
+    """Return the font of the app at a size in pixels and a weight."""
+    result = QFont(QApplication.font())
+    result.setPixelSize(size)
+    result.setWeight(weight)
+    return result
+
+
+def caption() -> QFont:
+    """Return the font of a caption: small, bold, spaced out."""
+    result = font(Fonts.SIZE_XS, QFont.Weight.Bold)
+    result.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, Fonts.CAPTION_SPACING)
+    return result
+
+
 def apply(app: QApplication) -> None:
     """Set the style, the fonts and the palette of the initial theme."""
     app.setStyle(Style())
@@ -490,26 +796,6 @@ def apply(app: QApplication) -> None:
     # The stubs type the class name as bytes; PySide only takes a str.
     app.setFont(small, "QCheckBox")  # pyrefly: ignore[bad-argument-type]
     QToolTip.setFont(small)
-
-
-def check_css(fill: str, border: str) -> str:
-    """Return the rules of a marked check box, filled with `fill`.
-
-    A panel of a repo paints its check boxes with its palette's
-    (`theme.py::CHECK`). The disabled one goes along: a closer
-    `:checked` would also paint it, and disabled it is gray.
-    """
-    return f"""
-    QCheckBox::indicator:checked {{
-        background: {fill};
-        border: 1px solid {border};
-        image: none;
-    }}
-    QCheckBox::indicator:checked:disabled {{
-        background: {Colors.TEXT_DISABLED};
-        border: 1px solid {Colors.TEXT_DISABLED};
-    }}
-    """
 
 
 # --- The parts of the window -----------------------------------------
@@ -564,6 +850,8 @@ class Role(Enum):
     ON_SURFACE_VARIANT = "on_surface_variant"
     OUTLINE = "outline"
     OUTLINE_VARIANT = "outline_variant"
+    ERROR = "error"
+    WARNING = "warning"
 
 
 @dataclass(frozen=True)
@@ -638,6 +926,61 @@ class Paint:
     def focus(self) -> str:
         """Return the border with focus."""
         return self._slot("focus")
+
+    def palette(self) -> QPalette:
+        """Return the palette of the theme with this part's colors.
+
+        The background goes in Window, Base and Button, the text in
+        WindowText, Text and ButtonText, the outline in Dark, which
+        `Style` draws, the background under the cursor in Midlight and
+        the outline with focus in Highlight. A background the part does
+        not declare is transparent, an outline stays the theme's for
+        what is inside, and the disabled text stays the theme's.
+        """
+        result = palette(self.pal.colors)
+        slots = self.look.slots()
+        none = Qt.GlobalColor.transparent
+        fill = self.bg if "bg" in slots else none
+        for role in (
+            QPalette.ColorRole.Window,
+            QPalette.ColorRole.Base,
+            QPalette.ColorRole.Button,
+        ):
+            result.setColor(role, fill)
+        if "fg" in slots:
+            for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+                for role in (
+                    QPalette.ColorRole.WindowText,
+                    QPalette.ColorRole.Text,
+                    QPalette.ColorRole.ButtonText,
+                ):
+                    result.setColor(group, role, self.fg)
+        if "border" in slots:
+            result.setColor(QPalette.ColorRole.Dark, self.border)
+        result.setColor(QPalette.ColorRole.Midlight, self.hover if "hover" in slots else fill)
+        if "focus" in slots:
+            result.setColor(QPalette.ColorRole.Highlight, self.focus)
+        return result
+
+    def band(self, frame: QFrame, sides: str) -> None:
+        """Make a frame a band of this part, with lines on some sides.
+
+        `sides` names them, as `Style` draws them: `top`, `bottom`,
+        `left` and `right`, in the outline of the part.
+        """
+        self.dress(frame)
+        frame.setFrameShape(QFrame.Shape.StyledPanel)
+        frame.setProperty(EDGES, sides)
+
+    def dress(self, widget: QWidget, *, fill: bool = True) -> None:
+        """Give a widget this part's palette, filling its background.
+
+        `fill=False` leaves the background to `Style`, as a button's.
+        """
+        widget.setPalette(self.palette())
+        widget.setAutoFillBackground(fill and "bg" in self.look.slots())
+        # A button draws its outline only if its part has one.
+        widget.setProperty(OUTLINED, "border" in self.look.slots())
 
 
 # Bands and headers carry the repo's color: the title bar, the menu row
@@ -796,6 +1139,17 @@ FILLED_BUTTON = Look(
     border=Role.OUTLINE,
     hover=Layer(Role.ON_SURFACE, Role.SURFACE_CONTAINER_HIGHEST),
 )
+
+# --- text -------------------------------------------------------------
+
+# Hints, summaries and paths, on whatever background they rest.
+HINT = Look(fg=Role.ON_SURFACE_VARIANT)
+# Text and glyphs in the accent of the repo.
+ACCENT_TEXT = Look(fg=Role.PRIMARY)
+# An error said in text.
+ERROR_TEXT = Look(fg=Role.ERROR)
+# A warning said in text.
+WARNING_TEXT = Look(fg=Role.WARNING)
 
 # --- bottom and dialogs -----------------------------------------------
 

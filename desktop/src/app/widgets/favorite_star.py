@@ -5,6 +5,7 @@ from __future__ import annotations
 from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
 from PySide6.QtWidgets import QPushButton, QWidget
 
+from app import theme
 from app.theme import Colors, Fonts, tint
 
 
@@ -21,7 +22,7 @@ class FavoriteStar(QPushButton):
     FULL = "★"
     EMPTY = "☆"
 
-    def __init__(self, accent: str = Colors.ACCENT, parent: QWidget | None = None) -> None:
+    def __init__(self, accent: str = Colors.PRIMARY, parent: QWidget | None = None) -> None:
         """Build the star."""
         super().__init__(parent)
         self.accent = accent
@@ -55,7 +56,7 @@ class FavoriteStar(QPushButton):
 
     def _restyle(self) -> None:
         self.setText(self.FULL if self._favorite else self.EMPTY)
-        color = self.accent if self._favorite else Colors.TEXT_MUTED
+        color = self.accent if self._favorite else Colors.ON_SURFACE_VARIANT
         tip = (
             QCoreApplication.translate("FavoriteStar", "Quitar de favoritas")
             if self._favorite
@@ -65,11 +66,5 @@ class FavoriteStar(QPushButton):
         # A new tooltip does not reach assistive technology; a new
         # description does.
         self.setAccessibleDescription(tip)
-        self.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: none; border-radius: 5px;
-                color: {color}; font-size: {Fonts.SIZE_LG}px;
-            }}
-            QPushButton:hover {{ background: {tint(self.accent, 0.16)}; }}
-            QPushButton:disabled {{ color: {Colors.BORDER}; }}
-        """)
+        self.setFont(theme.font(Fonts.SIZE_LG))
+        theme.glyph(self, color, tint(self.accent, 0.16))

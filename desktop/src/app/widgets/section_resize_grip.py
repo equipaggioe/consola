@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import override
 
 from PySide6.QtCore import Qt, Signal
-from PySide6.QtGui import QMouseEvent
+from PySide6.QtGui import QMouseEvent, QPainter, QPaintEvent, QPalette
 from PySide6.QtWidgets import QWidget
 
 from app import theme
@@ -31,8 +31,8 @@ class SectionResizeGrip(QWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the bar."""
         super().__init__(parent)
-        self.setObjectName("sectionGrip")
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
+        # Repainted when the cursor comes in or goes out.
+        self.setAttribute(Qt.WidgetAttribute.WA_Hover, True)
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.SplitVCursor)
         self.pal = NEUTRAL
@@ -45,14 +45,18 @@ class SectionResizeGrip(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        grip = theme.SECTION_GRIP.on(self.pal)
-        self.setStyleSheet(f"""
-            QWidget#sectionGrip {{
-                background: {grip.bg};
-                border-bottom: 1px solid {grip.border};
-            }}
-            QWidget#sectionGrip:hover {{ background: {grip.hover}; }}
-        """)
+        theme.SECTION_GRIP.on(self.pal).dress(self, fill=False)
+        self.update()
+
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
+        """Paint the body's color, or the hover's, and a line below."""
+        colors = self.palette()
+        p = QPainter(self)
+        fill = QPalette.ColorRole.Midlight if self.underMouse() else QPalette.ColorRole.Window
+        p.fillRect(self.rect(), colors.color(fill))
+        p.fillRect(0, self.height() - 1, self.width(), 1, colors.color(QPalette.ColorRole.Dark))
+        p.end()
 
     @override
     def mousePressEvent(self, event: QMouseEvent) -> None:

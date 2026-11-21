@@ -7,13 +7,18 @@ from typing import Any, override
 from PySide6.QtCore import QCoreApplication, QEvent, QSettings, Qt, QTimer, Slot
 from PySide6.QtGui import (
     QCloseEvent,
+    QFont,
     QIcon,
     QKeySequence,
     QMouseEvent,
+    QPainter,
+    QPaintEvent,
+    QPalette,
     QResizeEvent,
     QShortcut,
 )
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -37,7 +42,7 @@ from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
 from app.services.registry import registry
 from app.services.repo_logo import RepoLogo
-from app.theme import Colors, Fonts
+from app.theme import Fonts
 from app.widgets.action_menu_bar import ActionMenuBar
 from app.widgets.action_search import ActionSearch
 from app.widgets.project_tab_bar import ProjectTabBar
@@ -70,7 +75,6 @@ class _EdgeGrip(QWidget):
         super().__init__(window)
         self._edges = edges
         self.setCursor(cursor)
-        self.setStyleSheet("background: transparent;")
 
     def place(self, w: int, h: int) -> None:
         t, c = self.THICKNESS, self.CORNER
@@ -90,6 +94,32 @@ class _EdgeGrip(QWidget):
         handle = self.window().windowHandle()
         if event.button() == Qt.MouseButton.LeftButton and handle is not None:
             handle.startSystemResize(self._edges)
+
+
+class _WindowFrame(QWidget):
+    """The window's content: its background and its outline.
+
+    The outline goes in Highlight while the window is active and in
+    Dark without focus, and not at all maximized (`outline`).
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        """Build it with the outline."""
+        super().__init__(parent)
+        self.outline = True
+
+    @override
+    def paintEvent(self, event: QPaintEvent) -> None:
+        colors = self.palette()
+        p = QPainter(self)
+        p.fillRect(self.rect(), colors.color(QPalette.ColorRole.Window))
+        if self.outline:
+            role = (
+                QPalette.ColorRole.Highlight if self.isActiveWindow() else QPalette.ColorRole.Dark
+            )
+            p.setPen(colors.color(role))
+            p.drawRect(self.rect().adjusted(0, 0, -1, -1))
+        p.end()
 
 
 class MainWindow(QMainWindow):
@@ -124,16 +154,11 @@ class MainWindow(QMainWindow):
         # layout.
         self.action_menu = ActionMenuBar(self)
 
-        self.central_widget = QWidget()
-        # A selector by name and not a bare `QWidget`: a sheet without a
-        # selector cascades to every child without its own, and the
-        # outline border (`_apply_window_border`) ended up drawn around
-        # each text field and button, not just the window's edge.
-        self.central_widget.setObjectName("centralWidget")
-        # With no repo chosen yet: the bare grays. `_apply_palette`
-        # repaints them as soon as one is active.
+        self.central_widget = _WindowFrame()
+        # With no repo chosen yet: the theme without a repo.
+        # `_apply_palette` repaints it as soon as one is active.
         self.pal = NEUTRAL
-        self.central_widget.setStyleSheet(f"QWidget#centralWidget {{ background: {Colors.BG}; }}")
+        theme.WINDOW.on(self.pal).dress(self.central_widget, fill=False)
         self.setCentralWidget(self.central_widget)
 
         self.main_layout = QVBoxLayout(self.central_widget)
@@ -242,17 +267,13 @@ class MainWindow(QMainWindow):
             self.restoreState(state)
 
     # --- menu row ---
-    def _build_menu_row(self) -> QWidget:
+    def _build_menu_row(self) -> QFrame:
         """Build the action menus and the search.
 
         «Solo favoritos» is in the bar's Ver menu
         (`widgets/action_menu_bar.py`).
         """
-        row = QWidget()
-        # A selector by name and not a bare `QWidget`: a sheet without a
-        # selector inherits to the children, which came out underlined
-        # by the same `border-bottom` that closes the row.
-        row.setObjectName("menuRow")
+        row = QFrame()
         self.menu_row = row
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, 0, 14, 0)
@@ -269,20 +290,20 @@ class MainWindow(QMainWindow):
     # --- empty state: no repository in tabs ---
     def _build_empty_state(self) -> QWidget:
         w = QWidget()
-        w.setStyleSheet(f"background: {Colors.BG};")
+        theme.CANVAS.on(NEUTRAL).dress(w)
         lay = QVBoxLayout(w)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
         lay.setSpacing(6)
 
         diamond = QLabel("◇")
-        diamond.setStyleSheet(f"color: {Colors.ACCENT}; font-size: 54px;")
+        diamond.setFont(theme.font(Fonts.SIZE_HERO))
+        theme.ACCENT_TEXT.on(NEUTRAL).dress(diamond)
         diamond.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         title = QLabel(QCoreApplication.translate("MainWindow", "SIN REPOSITORIOS ABIERTOS"))
-        title.setStyleSheet(
-            f"color: {Colors.TEXT}; font-size: {Fonts.SIZE_XXL}px; "
-            f"font-weight: 300; letter-spacing: 6px;"
-        )
+        heading = theme.font(Fonts.SIZE_XXL, QFont.Weight.Light)
+        heading.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, Fonts.TITLE_SPACING)
+        title.setFont(heading)
         title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         subtitle = QLabel(
@@ -290,19 +311,14 @@ class MainWindow(QMainWindow):
                 "MainWindow", "Añade la carpeta de un proyecto para empezar"
             )
         )
-        subtitle.setStyleSheet(f"color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_BASE}px;")
+        theme.HINT.on(NEUTRAL).dress(subtitle)
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         add_btn = QPushButton(QCoreApplication.translate("MainWindow", "+  Añadir repositorio"))
         add_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         add_btn.setFixedHeight(38)
-        add_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {Colors.ACCENT}; color: {Colors.BG};
-                border: none; border-radius: 6px; padding: 0 24px;
-                font-size: {Fonts.SIZE_SM}px; font-weight: 600;
-            }}
-        """)
+        add_btn.setProperty(theme.VARIANT, "primary")
+        add_btn.setFont(theme.font(Fonts.SIZE_SM, QFont.Weight.DemiBold))
         add_btn.clicked.connect(lambda: self.project_tabs._pick_repo())
 
         lay.addWidget(diamond, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -445,16 +461,9 @@ class MainWindow(QMainWindow):
         so the content does not shift a pixel on activating. Maximized
         it is not needed.
         """
-        window = theme.WINDOW.on(self.pal)
-        if self.isMaximized():
-            self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {window.bg}; }}"
-            )
-        else:
-            color = window.focus if self.isActiveWindow() else window.border
-            self.central_widget.setStyleSheet(
-                f"QWidget#centralWidget {{ background: {window.bg}; border: 1px solid {color}; }}"
-            )
+        theme.WINDOW.on(self.pal).dress(self.central_widget, fill=False)
+        self.central_widget.outline = not self.isMaximized()
+        self.central_widget.update()
 
     # --- the active repo's palette ---
     def _apply_palette(self, pal: Palette) -> None:
@@ -469,10 +478,7 @@ class MainWindow(QMainWindow):
         self.action_menu.set_palette(pal)
         self.action_search.set_palette(pal)
         self.status_bar.set_palette(pal)
-        bar = theme.MENU_BAR.on(pal)
-        self.menu_row.setStyleSheet(
-            f"QWidget#menuRow {{ background: {bar.bg}; border-bottom: 1px solid {bar.border}; }}"
-        )
+        theme.MENU_BAR.on(pal).band(self.menu_row, "bottom")
         self._apply_window_border()
 
     # --- favorites ---

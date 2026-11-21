@@ -48,7 +48,6 @@ class _AddProjectTab(QWidget):
         super().__init__(parent)
         self.setFixedSize(48, ProjectTab.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet("_AddProjectTab { background: transparent; }")
         self.pal = palettes.NEUTRAL
         self._hovered = False
         self.setToolTip(QCoreApplication.translate("_AddProjectTab", "Añadir repositorio"))

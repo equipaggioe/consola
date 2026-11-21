@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 from PySide6.QtCore import QCoreApplication, Qt
+from PySide6.QtGui import QFont
 from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
 
 from app import theme
@@ -15,10 +16,7 @@ from app.theme import Colors, Fonts
 class _Heading(QLabel):
     def __init__(self, text: str, parent: QWidget | None = None) -> None:
         super().__init__(text.upper(), parent)
-        self.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.2px;"
-        )
+        self.setFont(theme.caption())
 
 
 class CommandInfoPanel(QWidget):
@@ -50,10 +48,8 @@ class CommandInfoPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll  # `_restyle` repaints it
 
         self._content = QWidget()
-        self._content.setStyleSheet("background: transparent;")
         self._lay = QVBoxLayout(self._content)
         self._lay.setContentsMargins(16, 14, 16, 14)
         self._lay.setSpacing(10)
@@ -65,22 +61,16 @@ class CommandInfoPanel(QWidget):
         self._restyle()
         self.set_capability(None)
 
-    def _scroll_style(self) -> str:
-        """Leave the scroll with no background, showing the panel's."""
-        return (
-            "QScrollArea, #qt_scrollarea_viewport > QWidget "
-            "{ border: none; background: transparent; }"
-        )
-
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
         self.pal = pal
         self._restyle()
 
     def _restyle(self) -> None:
-        body = theme.SECTION_BODY.on(self.pal)
-        self.setStyleSheet(f"CommandInfoPanel {{ background: {body.bg}; }}")
-        self._scroll.setStyleSheet(self._scroll_style())
+        # Everything in it is a hint: the text takes the body's palette
+        # with the hint's color.
+        theme.SECTION_BODY.on(self.pal).dress(self)
+        theme.ink(self, Colors.ON_SURFACE_VARIANT)
 
     # --- API ---
     def content_height(self) -> int:
@@ -135,23 +125,17 @@ class CommandInfoPanel(QWidget):
     def _body(self, text: str) -> QLabel:
         label = QLabel(text)
         label.setWordWrap(True)
-        label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; "
-            f"font-size: {Fonts.SIZE_SM}px; line-height: 140%;"
-        )
+        label.setFont(theme.font(Fonts.SIZE_SM))
         return label
 
     def _muted(self, text: str) -> QLabel:
         label = QLabel(text)
         label.setWordWrap(True)
-        label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        label.setFont(theme.font(Fonts.SIZE_XS))
         return label
 
     def _step(self, number: int, text: str) -> QWidget:
         row = QWidget()
-        row.setStyleSheet("background: transparent;")
         lay = QHBoxLayout(row)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(8)
@@ -159,16 +143,11 @@ class CommandInfoPanel(QWidget):
         badge = QLabel(str(number))
         badge.setFixedWidth(16)
         badge.setAlignment(Qt.AlignmentFlag.AlignTop | Qt.AlignmentFlag.AlignHCenter)
-        badge.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700;"
-        )
+        badge.setFont(theme.font(Fonts.SIZE_XS, QFont.Weight.Bold))
 
         body = QLabel(text)
         body.setWordWrap(True)
-        body.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        body.setFont(theme.font(Fonts.SIZE_XS))
 
         lay.addWidget(badge, 0, Qt.AlignmentFlag.AlignTop)
         lay.addWidget(body, 1)

@@ -6,7 +6,7 @@ from dataclasses import replace
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
-from PySide6.QtGui import QIntValidator
+from PySide6.QtGui import QFont, QIntValidator, QPalette
 from PySide6.QtWidgets import (
     QButtonGroup,
     QCheckBox,
@@ -37,7 +37,7 @@ from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.registry import AxisDef, Capability, Step, registry
 from app.services.settings import relevant_keys_for, required_keys_for
-from app.theme import Colors, Fonts, check_css
+from app.theme import Colors, Fonts
 from app.widgets.env_panel import EnvPanel
 from app.widgets.favorite_star import FavoriteStar
 
@@ -48,21 +48,14 @@ class _SectionLabel(QLabel):
     def __init__(self, text: str, parent: QWidget | None = None) -> None:
         """Build the label."""
         super().__init__(text.upper(), parent)
-        self.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.2px;"
-        )
+        self.setFont(theme.caption())
+        theme.ink(self, Colors.ON_SURFACE_VARIANT)
 
 
 # Minimum width of a closed list, in characters. It is not the real
 # width but all the combo requires, so it then stretches with the row
 # instead of pushing it (`_pick_combo`).
 _COMBO_MIN_CHARS = 8
-
-# The arrow of a closed list. Drawn by hand because styling the combo's
-# border leaves the native drop-down box on top of it, cutting the right
-# edge; styling `::drop-down` hides that box and its arrow with it.
-_ARROW = ":/assets/chevron-down.svg"
 
 
 class ParamsPanel(QWidget):
@@ -134,11 +127,6 @@ class ParamsPanel(QWidget):
         self._step_checks: dict[str, QCheckBox] = {}
         self._step_rows: dict[str, QWidget] = {}
         self._restoring = True  # while building, no change saves
-        # Without this, a QWidget subclass ignores its own sheet's
-        # background and shows the global sheet's gray (`theme.py`): the
-        # section's body did not take the repo's color.
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
@@ -240,10 +228,8 @@ class ParamsPanel(QWidget):
         scroll = QScrollArea()
         scroll.setWidgetResizable(True)
         scroll.setFrameShape(QFrame.Shape.NoFrame)
-        self._scroll = scroll  # `_restyle` repaints it
 
         content = QWidget()
-        content.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(content)
         lay.setContentsMargins(16, 14, 16, 14)
         lay.setSpacing(16)
@@ -302,7 +288,6 @@ class ParamsPanel(QWidget):
         and what reads is its label.
         """
         box = QWidget()
-        box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(9)
@@ -334,9 +319,7 @@ class ParamsPanel(QWidget):
         # With `wordWrap` a label longer than the column breaks in two
         # instead of pushing the field to the right.
         label.setWordWrap(True)
-        label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: {Fonts.SIZE_SM}px;"
-        )
+        label.setFont(theme.font(Fonts.SIZE_SM))
         row = QHBoxLayout()
         row.setSpacing(8)
         align = Qt.AlignmentFlag.AlignTop if top else Qt.AlignmentFlag.AlignVCenter
@@ -373,42 +356,12 @@ class ParamsPanel(QWidget):
             completer.setFilterMode(Qt.MatchFlag.MatchContains)
             completer.setCompletionMode(QCompleter.CompletionMode.PopupCompletion)
             combo.setCompleter(completer)
-        # The default delegate of a combo ignores `::item` in the
-        # stylesheet: without this one, the entries would not take the
-        # field's padding and their text would not line up with it.
+        # The default delegate draws the entries in the menu's style;
+        # this one, as rows of a list, in the field's colors.
         combo.setItemDelegate(QStyledItemDelegate(combo))
-        combo.setStyleSheet(self._combo_style())
+        combo.setFont(theme.font(Fonts.SIZE_SM))
+        theme.FIELD.on(self.pal).dress(combo, fill=False)
         return combo
-
-    def _scroll_style(self) -> str:
-        """Leave the scroll with no background, showing the panel's."""
-        return (
-            "QScrollArea, #qt_scrollarea_viewport > QWidget "
-            "{ border: none; background: transparent; }"
-        )
-
-    def _combo_style(self) -> str:
-        field = theme.FIELD.on(self.pal)
-        listing = theme.COMBO_LIST.on(self.pal)
-        return f"""
-            QComboBox {{
-                background: {field.bg}; border: 1px solid {field.border};
-                border-radius: 5px; padding: 0 8px;
-                color: {field.fg}; font-size: {Fonts.SIZE_SM}px;
-            }}
-            QComboBox:focus {{ border: 1px solid {field.focus}; }}
-            QComboBox::drop-down {{
-                subcontrol-origin: padding; subcontrol-position: center right;
-                width: 18px; right: 6px; border: none; background: transparent;
-            }}
-            QComboBox::down-arrow {{ image: url({_ARROW}); width: 10px; height: 6px; }}
-            QComboBox QAbstractItemView {{
-                background: {listing.bg}; color: {listing.fg};
-                selection-background-color: {listing.hover};
-                border: 1px solid {listing.border}; outline: 0;
-            }}
-            QComboBox QAbstractItemView::item {{ padding: 0 8px; min-height: 26px; }}
-        """
 
     def _build_facets(self, axis: AxisDef) -> QWidget:
         """Build a `pick` axis: one short list per part of the value.
@@ -426,7 +379,6 @@ class ParamsPanel(QWidget):
         still the whole package sdkmanager understands.
         """
         box = QWidget()
-        box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
@@ -545,17 +497,14 @@ class ParamsPanel(QWidget):
             # fixed.
             note = QLabel(text)
             note.setWordWrap(True)
-            note.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                f"font-size: {Fonts.SIZE_XS}px;"
-            )
+            note.setFont(theme.font(Fonts.SIZE_XS))
+            theme.ink(note, Colors.ON_SURFACE_VARIANT)
             self._empty_notes[axis.name] = note
             lay.addWidget(note)
 
     def _build_live(self) -> QWidget:
         """Build the header with what is running now and its ✕."""
         box = QWidget()
-        box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
@@ -578,16 +527,12 @@ class ParamsPanel(QWidget):
 
         for value in values:
             row = QWidget()
-            row.setStyleSheet("background: transparent;")
             flay = QHBoxLayout(row)
             flay.setContentsMargins(0, 0, 0, 0)
             flay.setSpacing(6)
 
             text = QLabel(f"● {labels.get(value, value)}")
-            text.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: "
-                f"{Fonts.SIZE_SM}px;"
-            )
+            text.setFont(theme.font(Fonts.SIZE_SM))
             stop = QPushButton("✕")
             stop.setFixedSize(20, 20)
             stop.setCursor(Qt.CursorShape.PointingHandCursor)
@@ -597,11 +542,8 @@ class ParamsPanel(QWidget):
                     labels.get(value, value)
                 )
             )
-            stop.setStyleSheet(f"""
-                QPushButton {{ background: transparent; border: none;
-                               color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px; }}
-                QPushButton:hover {{ color: {Colors.ERROR}; }}
-            """)
+            stop.setFont(theme.font(Fonts.SIZE_SM))
+            theme.glyph(stop, Colors.ON_SURFACE_VARIANT, "transparent", Colors.ERROR)
             stop.clicked.connect(lambda _=False, v=value: self.stop_requested.emit(v))
 
             flay.addWidget(text)
@@ -612,9 +554,8 @@ class ParamsPanel(QWidget):
         if error:
             reason = QLabel(error)
             reason.setWordWrap(True)
-            reason.setStyleSheet(
-                f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_SM}px;"
-            )
+            reason.setFont(theme.font(Fonts.SIZE_SM))
+            theme.ink(reason, Colors.ERROR)
             self._live_layout.addWidget(reason)
         self._live_box.setVisible(bool(values) or bool(error))
 
@@ -624,7 +565,6 @@ class ParamsPanel(QWidget):
         Hidden until the answer comes.
         """
         box = QWidget()
-        box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
@@ -652,25 +592,30 @@ class ParamsPanel(QWidget):
             check = QCheckBox(value)
             check.setChecked(value in marked)
             check.setEnabled(False)
-            # Marked like an enabled check (`_restyle`): it shows what
-            # the run will take, not a choice that is off.
-            check.setObjectName("previewCheck")
+            # Marked like an enabled check: it shows what the run will
+            # take, not a choice that is off. The indicator of a
+            # disabled check box takes the disabled Text.
+            shown = check.palette()
+            shown.setColor(
+                QPalette.ColorGroup.Disabled,
+                QPalette.ColorRole.Text,
+                theme.CHECK.on(self.pal).bg,
+            )
+            check.setPalette(shown)
             hint = PREVIEW_HINTS.get(self.capability.preview, "")
             check.setToolTip(QCoreApplication.translate("catalog", hint))
             self._preview_layout.addWidget(check)
         if error:
             reason = QLabel(error)
             reason.setWordWrap(True)
-            reason.setStyleSheet(
-                f"background: transparent; color: {Colors.ERROR}; font-size: {Fonts.SIZE_SM}px;"
-            )
+            reason.setFont(theme.font(Fonts.SIZE_SM))
+            theme.ink(reason, Colors.ERROR)
             self._preview_layout.addWidget(reason)
         self._preview_box.setVisible(bool(every) or bool(error))
 
     def _build_fields(self, axes: list[AxisDef]) -> QWidget:
         """Build the written axes: an install folder, an API level."""
         box = QWidget()
-        box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(9)
@@ -704,14 +649,13 @@ class ParamsPanel(QWidget):
             # explaining what goes in the field would take this same
             # place and read as a value; that goes in the label.
             field.setPlaceholderText(default)
-            field.setStyleSheet(self._field_style(axis.multiline))
+            self._dress_field(field)
             self._fields[axis.name] = field
             lay.addLayout(self._labeled(axis.display, field, top=axis.multiline))
         return box
 
     def _build_multi_axis(self, axis: AxisDef) -> QWidget:
         box = QWidget()
-        box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
@@ -731,7 +675,6 @@ class ParamsPanel(QWidget):
 
     def _build_steps(self) -> QWidget:
         box = QWidget()
-        box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(7)
@@ -739,7 +682,6 @@ class ParamsPanel(QWidget):
 
         for step in self.steps:
             row = QWidget()
-            row.setStyleSheet("background: transparent;")
             row_lay = QHBoxLayout(row)
             row_lay.setContentsMargins(0, 0, 0, 0)
             row_lay.setSpacing(6)
@@ -758,7 +700,6 @@ class ParamsPanel(QWidget):
 
     def _build_options(self, axes: list[AxisDef]) -> QWidget:
         box = QWidget()
-        box.setStyleSheet("background: transparent;")
         lay = QVBoxLayout(box)
         lay.setContentsMargins(0, 0, 0, 0)
         lay.setSpacing(9)
@@ -768,10 +709,7 @@ class ParamsPanel(QWidget):
             row = QVBoxLayout()
             row.setSpacing(4)
             label = QLabel(axis.display)
-            label.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_LABEL}; font-size: "
-                f"{Fonts.SIZE_SM}px;"
-            )
+            label.setFont(theme.font(Fonts.SIZE_SM))
             row.addWidget(label)
 
             # The checkboxes do not hang from `row` but from their own
@@ -780,7 +718,6 @@ class ParamsPanel(QWidget):
             # container there would be nowhere to put them back, which
             # is why the VPS services axis never appeared.
             holder = QWidget()
-            holder.setStyleSheet("background: transparent;")
             hlay = QVBoxLayout(holder)
             hlay.setContentsMargins(0, 0, 0, 0)
             hlay.setSpacing(4)
@@ -828,7 +765,7 @@ class ParamsPanel(QWidget):
             check = QCheckBox(axis.text_of(value))
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             if value in axis.danger:
-                check.setStyleSheet(f"QCheckBox {{ color: {Colors.ERROR}; }}")
+                theme.ink(check, Colors.ERROR)
             if value in axis.combine:
                 # An independent toggle: outside the group, it starts
                 # off.
@@ -861,23 +798,15 @@ class ParamsPanel(QWidget):
                     axis.query_place
                 )
             )
-            note.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                f"font-size: {Fonts.SIZE_XS}px;"
-            )
+            note.setFont(theme.font(Fonts.SIZE_XS))
+            theme.ink(note, Colors.ON_SURFACE_VARIANT)
             self._empty_notes[axis.name] = note
             lay.addWidget(note)
 
-    def _field_style(self, multiline: bool) -> str:
-        field = theme.FIELD.on(self.pal)
-        return f"""
-            QLineEdit, QPlainTextEdit {{
-                background: {field.bg}; border: 1px solid {field.border};
-                border-radius: 5px; padding: {"5px 8px" if multiline else "0 8px"};
-                color: {field.fg}; font-size: {Fonts.SIZE_SM}px;
-            }}
-            QLineEdit:focus, QPlainTextEdit:focus {{ border: 1px solid {field.focus}; }}
-        """
+    def _dress_field(self, field: QWidget) -> None:
+        """Paint a written field as a field of the repo."""
+        theme.FIELD.on(self.pal).dress(field, fill=False)
+        field.setFont(theme.font(Fonts.SIZE_SM))
 
     @property
     def _dry_run_axis(self) -> AxisDef | None:
@@ -888,8 +817,8 @@ class ParamsPanel(QWidget):
         """
         return next((a for a in self.capability.single_axes if "dry_run" in a.values), None)
 
-    def _build_footer(self) -> QWidget:
-        foot = QWidget()
+    def _build_footer(self) -> QFrame:
+        foot = QFrame()
         lay = QHBoxLayout(foot)
         lay.setContentsMargins(16, 10, 16, 10)
         lay.setSpacing(8)
@@ -1184,48 +1113,24 @@ class ParamsPanel(QWidget):
         self.fav_star.set_accent(pal.accent)
 
     def _restyle(self) -> None:
-        # The panel is the BODY of the «Parámetros» section. The
-        # scrollbar paints apart: its groove is not a sheet background
-        # but Qt's palette color, and it stayed gray inside a tinted
-        # panel. The checks go here, so they reach every one inside.
-        check = theme.CHECK.on(self.pal)
-        footer = theme.FOOTER.on(self.pal)
-        self.setStyleSheet(
-            f"ParamsPanel {{ background: {theme.SECTION_BODY.on(self.pal).bg}; }}"
-            + check_css(check.bg, check.border)
-            + "QCheckBox#previewCheck::indicator:checked:disabled "
-            f"{{ background: {check.bg}; border: 1px solid {check.border}; }}"
-        )
-        self._scroll.setStyleSheet(self._scroll_style())
-        self.footer.setStyleSheet(
-            f"background: {footer.bg}; border-top: 1px solid {footer.border};"
-        )
+        # The panel is the BODY of the «Parámetros» section; its check
+        # boxes take the repo's accent as Highlight, and the scroll's
+        # viewport fills with Base, the body's color.
+        theme.SECTION_BODY.on(self.pal).dress(self)
+        theme.FOOTER.on(self.pal).band(self.footer, "top")
         for button in (self.clear_btn, self.dry_btn):
             if button is not None:
-                button.setStyleSheet(self._secondary_style())
+                # Clear and Dry run: outline, not fill. The only filled
+                # button of the footer is Run.
+                theme.BUTTON.on(self.pal).dress(button, fill=False)
+                button.setFont(theme.font(Fonts.SIZE_SM))
         for field in self._fields.values():
-            field.setStyleSheet(self._field_style(isinstance(field, QPlainTextEdit)))
+            self._dress_field(field)
         combos = list(self._picks.values())
         combos += [c for facets in self._facets.values() for c in facets.values()]
         for combo in combos:
-            combo.setStyleSheet(self._combo_style())
+            theme.FIELD.on(self.pal).dress(combo, fill=False)
         self._restyle_run()
-
-    def _secondary_style(self) -> str:
-        """Clear and Dry run: outline, not fill.
-
-        The only filled button of the footer is Run.
-        """
-        button = theme.BUTTON.on(self.pal)
-        return f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {button.border};
-                color: {button.fg}; border-radius: 6px;
-                padding: 0 16px; font-size: {Fonts.SIZE_SM}px;
-            }}
-            QPushButton:hover {{ background: {button.hover}; color: {Colors.TEXT}; }}
-            QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; }}
-        """
 
     def refresh_run_state(self) -> None:
         """Restore the Run button according to the current blockers.
@@ -1388,19 +1293,13 @@ class ParamsPanel(QWidget):
         self._restyle_run()
 
     def _restyle_run(self) -> None:
-        run = (theme.RUN_BUTTON if self.run_btn.isEnabled() else theme.RUN_BUTTON_OFF).on(self.pal)
-        self.run_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {run.bg};
-                color: {run.fg};
-                border: none; border-radius: 6px;
-                padding: 0 22px;
-                font-size: {Fonts.SIZE_SM}px; font-weight: 600;
-            }}
-            QPushButton:hover {{
-                background: {run.bg};
-            }}
-        """)
+        # Enabled, filled with the accent (`variant`); disabled, in the
+        # colors of Run off.
+        enabled = self.run_btn.isEnabled()
+        self.run_btn.setProperty(theme.VARIANT, "primary" if enabled else "")
+        theme.RUN_BUTTON_OFF.on(self.pal).dress(self.run_btn, fill=False)
+        self.run_btn.setFont(theme.font(Fonts.SIZE_SM, QFont.Weight.DemiBold))
+        self.run_btn.update()
 
     @Slot()
     def _emit_execute(self, *, dry_run: bool = False) -> bool:

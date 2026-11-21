@@ -74,7 +74,7 @@ class TablesModel(QAbstractItemModel):
     MARKS = {
         dbm.MISSING: ("✕ ", Colors.ERROR),
         dbm.CHANGED: ("≠ ", Colors.WARNING),
-        dbm.UNMODELED: ("+ ", Colors.ACCENT_PURPLE),
+        dbm.UNMODELED: ("+ ", Colors.TERTIARY),
     }
 
     def __init__(self, locale: QLocale, parent: QObject | None = None) -> None:
@@ -184,13 +184,13 @@ class TablesModel(QAbstractItemModel):
             )
         if role == Qt.ItemDataRole.ForegroundRole:
             if column == 1:
-                return QBrush(Colors.TEXT_MUTED)
+                return QBrush(Colors.ON_SURFACE_VARIANT)
             if not rel.readable:
-                return QBrush(Colors.TEXT_MUTED)
+                return QBrush(Colors.ON_SURFACE_VARIANT)
             if mark:
                 return QBrush(mark_color)
             if rel.kind in ("v", "m", "f") or rel.extension:
-                return QBrush(Colors.TEXT_DIM)
+                return QBrush(Colors.ON_SURFACE_VARIANT)
             return None
         if role == Qt.ItemDataRole.TextAlignmentRole and column == 1:
             return int(Qt.AlignmentFlag.AlignRight)
@@ -277,7 +277,7 @@ class TablesModel(QAbstractItemModel):
                 QCoreApplication.translate(
                     "TablesModel",
                     "<span style='color:{0};'>Ningún modelo declara esta tabla</span>",
-                ).format(Colors.ACCENT_PURPLE)
+                ).format(Colors.TERTIARY)
             )
         return "<br>".join(tip)
 
@@ -383,7 +383,7 @@ def _group_data(node: _Node, column: int, role: int) -> Any:
     if role == Qt.ItemDataRole.DisplayRole:
         return node.label
     if role == Qt.ItemDataRole.ForegroundRole:
-        return QBrush(Colors.TEXT_DIM)
+        return QBrush(Colors.ON_SURFACE_VARIANT)
     if role == Qt.ItemDataRole.FontRole:
         font = QFont()
         font.setBold(True)

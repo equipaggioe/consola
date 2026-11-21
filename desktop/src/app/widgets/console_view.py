@@ -12,6 +12,7 @@ from PySide6.QtGui import (
     QContextMenuEvent,
     QFont,
     QKeySequence,
+    QPalette,
     QResizeEvent,
     QShortcut,
     QTextCharFormat,
@@ -22,7 +23,7 @@ from PySide6.QtWidgets import QLineEdit, QMenu, QPlainTextEdit, QWidget
 
 from app import theme
 from app.services.palettes import NEUTRAL, Palette
-from app.theme import Colors, Fonts, mono
+from app.theme import Colors, Fonts, Spacing, mono
 
 # The time zone of a QLocale time format, with its parentheses.
 _ZONE = re.compile(r"\s*\(?t+\)?")
@@ -35,6 +36,8 @@ class ConsoleView(QPlainTextEdit):
         """Build the read-only view."""
         super().__init__(parent)
         self.setReadOnly(True)
+        self.setFrameShape(QPlainTextEdit.Shape.NoFrame)
+        self.setViewportMargins(Spacing.MD, Spacing.MD - 2, Spacing.MD, Spacing.MD - 2)
         self.setAccessibleName(QCoreApplication.translate("ConsoleView", "Consola"))
         self.pal = NEUTRAL
         font = mono(QFont())
@@ -54,6 +57,7 @@ class ConsoleView(QPlainTextEdit):
         self.search_bar.setAccessibleName(
             QCoreApplication.translate("ConsoleView", "Buscar en la consola")
         )
+        self.search_bar.setFont(theme.font(Fonts.SIZE_SM))
         self.search_bar.hide()
         self.search_bar.textChanged.connect(self._find_typed)
         self.search_bar.returnPressed.connect(self._find_next)
@@ -80,28 +84,18 @@ class ConsoleView(QPlainTextEdit):
 
     def _restyle(self) -> None:
         console = theme.CONSOLE.on(self.pal)
+        colors = console.palette()
+        # The selection is the accent, faint, under the same text.
+        colors.setColor(QPalette.ColorRole.Highlight, self.pal.glow(0.30))
+        colors.setColor(QPalette.ColorRole.HighlightedText, console.fg)
+        self.setPalette(colors)
         field = theme.FIELD.on(self.pal)
+        search = field.palette()
         # A search with no match turns its text red.
-        text = Colors.ERROR if self._missing else field.fg
-        self.setStyleSheet(f"""
-            QPlainTextEdit {{
-                background-color: {console.bg};
-                color: {console.fg};
-                selection-background-color: {self.pal.glow(0.30)};
-                border: none;
-                padding: 10px 12px;
-            }}
-        """)
-        self.search_bar.setStyleSheet(f"""
-            QLineEdit {{
-                background-color: {field.bg};
-                color: {text};
-                border: 1px solid {field.border};
-                border-radius: 4px;
-                padding: 6px;
-                font-size: 14px;
-            }}
-        """)
+        if self._missing:
+            for group in (QPalette.ColorGroup.Active, QPalette.ColorGroup.Inactive):
+                search.setColor(group, QPalette.ColorRole.Text, Colors.ERROR)
+        self.search_bar.setPalette(search)
 
     @override
     def resizeEvent(self, event: QResizeEvent) -> None:
@@ -117,13 +111,13 @@ class ConsoleView(QPlainTextEdit):
         """Append one line, colored by its level."""
         fmt = QTextCharFormat()
         color_map = {
-            "info": Colors.ACCENT,
+            "info": self.pal.accent,
             "ok": Colors.SUCCESS,
             "warn": Colors.WARNING,
             "error": Colors.ERROR,
         }
         level = level.lower()
-        level_color = color_map.get(level, Colors.TEXT_DIM)
+        level_color = color_map.get(level, Colors.ON_SURFACE_VARIANT)
 
         now = self._stamp()
 
@@ -137,7 +131,7 @@ class ConsoleView(QPlainTextEdit):
         cursor.movePosition(cursor.MoveOperation.End)
         self.setTextCursor(cursor)
 
-        fmt.setForeground(QBrush(Colors.TEXT_MUTED))
+        fmt.setForeground(QBrush(Colors.ON_SURFACE_VARIANT))
         self.setCurrentCharFormat(fmt)
         self.insertPlainText(f"[{now}] ")
 
@@ -146,7 +140,7 @@ class ConsoleView(QPlainTextEdit):
         level_str = f"[{level.upper()}]".ljust(7)
         self.insertPlainText(level_str)
 
-        fmt.setForeground(QBrush(Colors.TEXT_DIM))
+        fmt.setForeground(QBrush(Colors.ON_SURFACE_VARIANT))
         self.setCurrentCharFormat(fmt)
         self.insertPlainText(f" {text}\n")
 
@@ -196,7 +190,7 @@ class ConsoleView(QPlainTextEdit):
             self.cursor_visible = False
         else:
             fmt = QTextCharFormat()
-            fmt.setForeground(QBrush(Colors.ACCENT))
+            fmt.setForeground(QBrush(self.pal.accent))
             cursor.insertText("▍", fmt)
             self.cursor_visible = True
 

@@ -25,7 +25,7 @@ def main() -> None:
     """Write the icon."""
     QApplication(sys.argv)
     diamond = _Diamond()
-    diamond.set_color(Colors.ACCENT)
+    diamond.set_color(Colors.PRIMARY)
     image = QImage(SIDE, SIDE, QImage.Format.Format_ARGB32_Premultiplied)
     image.fill(Qt.GlobalColor.transparent)
     # The widget paints in its logical pixels: the ratio scales them to

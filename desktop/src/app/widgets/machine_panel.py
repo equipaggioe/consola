@@ -35,13 +35,11 @@ class MachinePanel(QWidget):
         """Build one row per machine key and the footer."""
         super().__init__(parent)
         self.pal = pal
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
         self._body = QWidget()
-        self._body.setStyleSheet("background: transparent;")
         body = QVBoxLayout(self._body)
         body.setContentsMargins(16, 12, 16, 12)
         body.setSpacing(6)
@@ -58,7 +56,7 @@ class MachinePanel(QWidget):
         self._scroll.setWidget(self._body)
         root.addWidget(self._scroll, 1)
 
-        self.footer = QWidget()
+        self.footer = QFrame()
         # Its natural height always (`setFixedHeight` below, once the
         # buttons are in): the section's height goes to the scroll
         # above. A Fixed size policy alone was not enough, the layout
@@ -119,26 +117,9 @@ class MachinePanel(QWidget):
 
         The body is `panel` and the footer `surface`.
         """
-        body = theme.SECTION_BODY.on(self.pal)
-        footer = theme.FOOTER.on(self.pal)
-        button = theme.ACCENT_BUTTON.on(self.pal)
-        self.setStyleSheet(f"MachinePanel {{ background: {body.bg}; }}")
-        # The same as `EnvPanel._scroll_style`: the viewport shows the
-        # panel's background.
-        self._scroll.setStyleSheet(
-            "QScrollArea, #qt_scrollarea_viewport > QWidget "
-            "{ border: none; background: transparent; }"
-        )
-        self.footer.setStyleSheet(
-            f"background: {footer.bg}; border-top: 1px solid {footer.border};"
-        )
-        button_css = f"""
-            QPushButton {{
-                background: transparent; border: 1px solid {button.border};
-                color: {button.fg}; border-radius: 5px;
-                padding: 4px 12px; font-size: {Fonts.SIZE_XS}px;
-            }}
-            QPushButton:hover {{ background: {button.hover}; }}
-        """
+        # The scroll's viewport fills with Base, the body's color.
+        theme.SECTION_BODY.on(self.pal).dress(self)
+        theme.FOOTER.on(self.pal).band(self.footer, "top")
         for button in (self.reload_btn, self.save_btn):
-            button.setStyleSheet(button_css)
+            theme.ACCENT_BUTTON.on(self.pal).dress(button, fill=False)
+            button.setFont(theme.font(Fonts.SIZE_XS))

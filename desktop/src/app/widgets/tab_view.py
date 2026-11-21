@@ -18,6 +18,7 @@ from typing import TYPE_CHECKING
 from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication
 from PySide6.QtWidgets import (
+    QFrame,
     QHBoxLayout,
     QLabel,
     QPushButton,
@@ -33,24 +34,10 @@ from app.services.language import QT_TRANSLATE_NOOP
 from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
 from app.services.registry import Capability
-from app.theme import Colors, Fonts
+from app.theme import Fonts, mono
 from app.widgets.browser_view import BrowserView, open_external
 from app.widgets.console_view import ConsoleView
 from app.widgets.led_indicator import LedIndicator
-
-
-def _chip_style(pal: Palette) -> str:
-    chip = theme.CHIP.on(pal)
-    return f"""
-        QPushButton {{
-            background: {chip.bg}; color: {chip.fg};
-            border: none; border-radius: 5px; padding: 0 10px;
-            font-size: {Fonts.SIZE_XS}px;
-        }}
-        QPushButton:hover {{ color: {Colors.TEXT}; }}
-        QPushButton:disabled {{ color: {Colors.TEXT_MUTED}; background: transparent; }}
-    """
-
 
 # The console of the tab, the word and not the app's name.
 CONSOLA = QT_TRANSLATE_NOOP("tab_view", "Consola")
@@ -101,7 +88,7 @@ class TabView(QWidget):
         root.addWidget(self.stack, 1)
 
     # --- building ---
-    def _build_header(self) -> QWidget:
+    def _build_header(self) -> QFrame:
         """Build the bar that names the view below, like a section's.
 
         The right column's sections (`widgets/accordion.py`) say what
@@ -111,8 +98,7 @@ class TabView(QWidget):
         the URL. Clear does not live here: it is in the footer, next to
         Run.
         """
-        bar = QWidget()
-        bar.setObjectName("viewHeader")
+        bar = QFrame()
         bar.setFixedHeight(30)
         lay = QHBoxLayout(bar)
         lay.setContentsMargins(12, 0, 8, 0)
@@ -122,16 +108,11 @@ class TabView(QWidget):
         self.led = LedIndicator(bar, size=9)
         self.led.setAccessibleName(QCoreApplication.translate("TabView", "Estado del endpoint"))
         self.state_label = QLabel("")
-        self.state_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.state_label.setFont(theme.font(Fonts.SIZE_XS))
 
         self.url_label = QLabel("")
         self.url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        self.url_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT}; "
-            f"font-family: {Fonts.MONO}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.url_label.setFont(mono(theme.font(Fonts.SIZE_XS)))
 
         self.copy_btn = self._chip(
             QCoreApplication.translate("TabView", "Copiar"),
@@ -208,7 +189,7 @@ class TabView(QWidget):
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFixedHeight(22)
-        btn.setStyleSheet(_chip_style(self.pal))
+        btn.setFont(theme.font(Fonts.SIZE_XS))
         self._chips.append(btn)
         btn.clicked.connect(slot)
         return btn
@@ -225,17 +206,11 @@ class TabView(QWidget):
             self._explorer.set_palette(pal)
 
     def _restyle(self) -> None:
-        header = theme.CONSOLE_HEADER.on(self.pal)
-        self.header.setStyleSheet(
-            f"QWidget#viewHeader {{ background: {header.bg}; "
-            f"border-bottom: 1px solid {header.border}; }}"
-        )
-        self.header_title.setStyleSheet(
-            f"background: transparent; color: {header.fg}; "
-            f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; letter-spacing: 1.1px;"
-        )
+        theme.CONSOLE_HEADER.on(self.pal).band(self.header, "bottom")
+        self.header_title.setFont(theme.caption())
+        theme.HINT.on(self.pal).dress(self.state_label)
         for chip in self._chips:
-            chip.setStyleSheet(_chip_style(self.pal))
+            theme.CHIP.on(self.pal).dress(chip, fill=False)
 
     # --- endpoint ---
     @Slot(str, str, bool, str)

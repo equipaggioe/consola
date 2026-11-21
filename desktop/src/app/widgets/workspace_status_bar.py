@@ -43,10 +43,8 @@ class _PadlockChip(QPushButton):
         # Closed = safe (the repo's color); open = exposed to a
         # destructive action with no net, and that is red in every repo.
         color = theme.PADLOCK.on(pal).fg if protected else Colors.ERROR
-        self.setStyleSheet(
-            f"QPushButton {{ background: transparent; border: none; padding: 0; "
-            f"color: {color}; font-size: {Fonts.SIZE_XS}px; }}"
-        )
+        self.setFont(theme.font(Fonts.SIZE_XS))
+        theme.glyph(self, color, "transparent")
         state = (
             QCoreApplication.translate("_PadlockChip", "protegido")
             if protected
@@ -64,7 +62,7 @@ class _PadlockChip(QPushButton):
         )
 
 
-class WorkspaceStatusBar(QWidget):
+class WorkspaceStatusBar(QFrame):
     """The window's bottom bar: the repo at left, the machine at right.
 
     At left, what belongs to the active repo: its guards, and the
@@ -84,12 +82,6 @@ class WorkspaceStatusBar(QWidget):
         # be repainted, and the repo holds the state, not the bar.
         self._protection: dict[str, Any] = {}
         self.setFixedHeight(34)
-        # Without this a QWidget subclass paints neither background nor
-        # border from its style sheet: the top line separating it from
-        # the content did not show (same reason as in
-        # `widgets/accordion_section.py`).
-        self.setAttribute(Qt.WidgetAttribute.WA_StyledBackground, True)
-
         layout = QHBoxLayout(self)
         layout.setContentsMargins(16, 0, 16, 0)
         layout.setSpacing(12)
@@ -101,7 +93,6 @@ class WorkspaceStatusBar(QWidget):
         # padlock, always in view whichever action is open above
         # (`ADR-0018` §4). A click on any jumps to the Security section.
         self.security_box = QWidget()
-        self.security_box.setStyleSheet("background: transparent;")
         self._security_row = QHBoxLayout(self.security_box)
         self._security_row.setContentsMargins(0, 0, 0, 0)
         self._security_row.setSpacing(9)
@@ -128,9 +119,7 @@ class WorkspaceStatusBar(QWidget):
         # Available RAM: unlike the SDKs, it changes all the time and
         # not only after an install, so it has its own timer.
         self.ram_label = QLabel()
-        self.ram_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.ram_label.setFont(theme.font(Fonts.SIZE_XS))
         layout.addWidget(self.ram_label)
         self._ram_timer = QTimer(self)
         self._ram_timer.timeout.connect(self.refresh_ram)
@@ -142,9 +131,8 @@ class WorkspaceStatusBar(QWidget):
     def _divider(self) -> QFrame:
         """Return a thin vertical line between two bar sections."""
         line = QFrame()
-        line.setFrameShape(QFrame.Shape.VLine)
         line.setFixedWidth(1)
-        line.setStyleSheet(f"background: {theme.STATUS_BAR.on(self.pal).border}; border: none;")
+        theme.STATUS_BAR.on(self.pal).band(line, "left")
         line.setFixedHeight(16)
         return line
 
@@ -167,9 +155,9 @@ class WorkspaceStatusBar(QWidget):
             tip = f"{tool.label}: {tool.detail}"
             led.setToolTip(tip)
             label.setToolTip(tip)
-            label.setStyleSheet(
-                f"color: {Colors.TEXT_DIM if tool.found else Colors.TEXT_MUTED}; "
-                f"font-size: {Fonts.SIZE_XS}px;"
+            label.setFont(theme.font(Fonts.SIZE_XS))
+            theme.ink(
+                label, Colors.ON_SURFACE_VARIANT if tool.found else Colors.ON_SURFACE_VARIANT
             )
 
     @Slot()
@@ -191,14 +179,11 @@ class WorkspaceStatusBar(QWidget):
             QCoreApplication.translate("WorkspaceStatusBar", "RAM {0}/{1} GB").format(free, size)
         )
         threshold = total * 0.15
-        color = Colors.TEXT_DIM if available > threshold else Colors.WARNING
-        self.ram_label.setStyleSheet(
-            f"background: transparent; color: {color}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        color = Colors.ON_SURFACE_VARIANT if available > threshold else Colors.WARNING
+        theme.ink(self.ram_label, color)
 
     def _build_tool(self, tool: Tool) -> tuple[LedIndicator, QLabel]:
         container = QWidget()
-        container.setStyleSheet("background: transparent;")
         clayout = QHBoxLayout(container)
         clayout.setContentsMargins(0, 0, 0, 0)
         clayout.setSpacing(5)
@@ -216,7 +201,6 @@ class WorkspaceStatusBar(QWidget):
         """Add a service indicator."""
         container = QWidget()
         container.setObjectName(f"service_{name}")
-        container.setStyleSheet("background: transparent;")
         clayout = QHBoxLayout(container)
         clayout.setContentsMargins(0, 0, 0, 0)
         clayout.setSpacing(5)
@@ -227,9 +211,8 @@ class WorkspaceStatusBar(QWidget):
         clayout.addWidget(led)
 
         label = QLabel(name)
-        label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        label.setFont(theme.font(Fonts.SIZE_XS))
+        theme.ink(label, Colors.ON_SURFACE_VARIANT)
         clayout.addWidget(label)
 
         self.services_layout.addWidget(container)
@@ -281,10 +264,5 @@ class WorkspaceStatusBar(QWidget):
 
     def _restyle(self) -> None:
         bar = theme.STATUS_BAR.on(self.pal)
-        self.setStyleSheet(f"""
-            WorkspaceStatusBar {{
-                background: {bar.bg};
-                border-top: 1px solid {bar.border};
-            }}
-        """)
-        self._sep_ram.setStyleSheet(f"background: {bar.border}; border: none;")
+        bar.band(self, "top")
+        bar.band(self._sep_ram, "left")

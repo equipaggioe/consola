@@ -18,6 +18,7 @@ from PySide6.QtGui import (
     QAccessible,
     QAccessibleInterface,
     QEnterEvent,
+    QFont,
     QMouseEvent,
     QPainter,
     QPaintEvent,
@@ -49,7 +50,7 @@ class _Diamond(QWidget):
         """Build the diamond."""
         super().__init__(parent)
         self.setFixedSize(self.SIZE + 4, self.SIZE + 4)
-        self._color = Colors.INK
+        self._color = Colors.ON_PRIMARY
 
     def set_color(self, color: str) -> None:
         """Change its color."""
@@ -107,15 +108,12 @@ class _BrandMark(QWidget):
 
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
-        fg = theme.TITLE_BAR.on(pal).fg
-        self.diamond.set_color(fg)
-        self.title.setStyleSheet(f"""
-            background: transparent;
-            color: {fg};
-            font-size: {Fonts.SIZE_SM}px;
-            font-weight: 900;
-            letter-spacing: 3px;
-        """)
+        bar = theme.TITLE_BAR.on(pal)
+        self.diamond.set_color(bar.fg)
+        bar.dress(self.title, fill=False)
+        title = theme.font(Fonts.SIZE_SM, QFont.Weight.Black)
+        title.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, 3)
+        self.title.setFont(title)
 
 
 class _WindowButton(QPushButton):
@@ -150,8 +148,8 @@ class _WindowButton(QPushButton):
         self.setFixedWidth(self.WIDTH)
         self.setFocusPolicy(Qt.FocusPolicy.NoFocus)
         self.setCursor(Qt.CursorShape.ArrowCursor)
-        self._fg = Colors.TEXT_DIM
-        self.set_foreground(Colors.TEXT_DIM)
+        self._fg = Colors.ON_SURFACE_VARIANT
+        self.set_foreground(Colors.ON_SURFACE_VARIANT)
 
     def set_foreground(self, color: str) -> None:
         """Set the stroke to the legible color over the bar.
@@ -163,13 +161,7 @@ class _WindowButton(QPushButton):
         """
         self._fg = color
         hover = Colors.ERROR if self.kind == "close" else tint(color, 0.16)
-        self.setStyleSheet(f"""
-            QPushButton {{ background: transparent; border: none; padding: 0; }}
-            QPushButton:hover {{ background: {hover}; }}
-            QPushButton:pressed {{ background: {
-            tint(Colors.ERROR if self.kind == "close" else color, 0.32)
-        }; }}
-        """)
+        theme.glyph(self, color, hover)
         self.update()
 
     def set_maximized(self, value: bool) -> None:

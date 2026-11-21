@@ -19,11 +19,11 @@ from collections.abc import Callable
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication, Qt, QUrl, Signal, Slot
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QFrame, QHBoxLayout, QLabel, QPushButton, QVBoxLayout, QWidget
 
 from app import theme
 from app.services.palettes import NEUTRAL, Palette
-from app.theme import Colors, Fonts
+from app.theme import Colors, Fonts, Metrics, Spacing, mono
 
 try:
     from PySide6.QtWebEngineWidgets import QWebEngineView
@@ -72,7 +72,7 @@ class BrowserView(QWidget):
 
     # --- building ---
     def _build_bar(self) -> QWidget:
-        bar = QWidget()
+        bar = QFrame()
         bar.setFixedHeight(34)
         self._bar = bar
         lay = QHBoxLayout(bar)
@@ -90,10 +90,7 @@ class BrowserView(QWidget):
         )
 
         self.url_label = QLabel(self._url)
-        self.url_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; "
-            f"font-family: {Fonts.MONO}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.url_label.setFont(mono(theme.font(Fonts.SIZE_XS)))
 
         self.external_btn = self._tool(
             "↗",
@@ -115,19 +112,11 @@ class BrowserView(QWidget):
         self._restyle()
 
     def _restyle(self) -> None:
-        bar = theme.TOOL_BAR.on(self.pal)
-        self._bar.setStyleSheet(f"background: {bar.bg}; border-bottom: 1px solid {bar.border};")
+        theme.TOOL_BAR.on(self.pal).band(self._bar, "bottom")
+        theme.HINT.on(self.pal).dress(self.url_label)
         if self._fallback is not None:
-            self._fallback.setStyleSheet(f"background: {theme.CANVAS.on(self.pal).bg};")
-            button = theme.FILLED_BUTTON.on(self.pal)
-            self._opener.setStyleSheet(f"""
-                QPushButton {{
-                    background: {button.bg}; color: {button.fg};
-                    border: none; border-radius: 6px; padding: 8px 16px;
-                    font-size: {Fonts.SIZE_SM}px;
-                }}
-                QPushButton:hover {{ background: {button.hover}; }}
-            """)
+            theme.CANVAS.on(self.pal).dress(self._fallback)
+            theme.FILLED_BUTTON.on(self.pal).dress(self._opener, fill=False)
 
     def _tool(self, glyph: str, tip: str, slot: Callable[[], None]) -> QPushButton:
         btn = QPushButton(glyph)
@@ -135,13 +124,8 @@ class BrowserView(QWidget):
         btn.setToolTip(tip)
         btn.setAccessibleName(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        btn.setStyleSheet(f"""
-            QPushButton {{
-                background: transparent; border: none;
-                color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_BASE}px;
-            }}
-            QPushButton:hover {{ color: {Colors.TEXT}; }}
-        """)
+        btn.setFont(theme.font(Fonts.SIZE_BASE))
+        theme.glyph(btn, Colors.ON_SURFACE_VARIANT, "transparent", Colors.ON_SURFACE)
         btn.clicked.connect(slot)
         return btn
 
@@ -161,14 +145,15 @@ class BrowserView(QWidget):
             )
         )
         text.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        text.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;"
-        )
+        text.setFont(theme.font(Fonts.SIZE_SM))
+        theme.HINT.on(self.pal).dress(text)
 
         opener = QPushButton(
             QCoreApplication.translate("BrowserView", "Abrir en el navegador del sistema")
         )
         opener.setCursor(Qt.CursorShape.PointingHandCursor)
+        opener.setFont(theme.font(Fonts.SIZE_SM))
+        opener.setMinimumHeight(Metrics.FIELD + Spacing.SM)
         self._opener = opener
         opener.clicked.connect(lambda: open_external(self._url))
 

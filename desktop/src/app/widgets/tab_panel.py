@@ -28,6 +28,7 @@ from PySide6.QtGui import (
 )
 from PySide6.QtWidgets import (
     QDialog,
+    QFrame,
     QHBoxLayout,
     QInputDialog,
     QLabel,
@@ -99,7 +100,6 @@ class _SubTabButton(ReorderableTab):
 
         self.setFixedHeight(self.HEIGHT)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.setStyleSheet("_SubTabButton { background: transparent; }")
         self.setSizePolicy(QSizePolicy.Policy.Maximum, QSizePolicy.Policy.Fixed)
 
         layout = QHBoxLayout(self)
@@ -109,19 +109,10 @@ class _SubTabButton(ReorderableTab):
         self.title_label = QLabel()
 
         self.close_btn = QPushButton("×")
+        self.close_btn.setFont(theme.font(Fonts.SIZE_LG))
+        theme.glyph(self.close_btn, Colors.ON_SURFACE_VARIANT, "transparent", Colors.ERROR)
         self.close_btn.setFixedSize(18, 18)
         self.close_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.close_btn.setStyleSheet(f"""
-            QPushButton {{
-                color: {Colors.TEXT_MUTED};
-                background: transparent;
-                border: none;
-                font-size: {Fonts.SIZE_LG}px;
-            }}
-            QPushButton:hover {{
-                color: {Colors.ERROR};
-            }}
-        """)
         self.close_btn.clicked.connect(self.close_requested.emit)
 
         layout.addWidget(self.title_label)
@@ -163,9 +154,9 @@ class _SubTabButton(ReorderableTab):
         color = (
             theme.RUN_TAB_ACTIVE.on(self.pal).fg
             if self.is_active
-            else (Colors.TEXT_LABEL if self._hovered else theme.RUN_TAB.on(self.pal).fg)
+            else (Colors.ON_SURFACE if self._hovered else theme.RUN_TAB.on(self.pal).fg)
         )
-        self.title_label.setStyleSheet(f"background: transparent; color: {color};")
+        theme.ink(self.title_label, color)
 
     @override
     def enterEvent(self, event: QEnterEvent) -> None:
@@ -307,8 +298,7 @@ class TabPanel(ReorderableBar):
         self.root_layout.setSpacing(0)
 
         # --- sub-tabs bar ---
-        self.sub_bar = QWidget()
-        self.sub_bar.setObjectName("subBar")
+        self.sub_bar = QFrame()
         self.sub_bar.setFixedHeight(_SubTabButton.HEIGHT + self.SUB_BAR_TOP)
         sub_bar_layout = QHBoxLayout(self.sub_bar)
         # No bottom margin: the tabs reach the bar's line
@@ -326,9 +316,8 @@ class TabPanel(ReorderableBar):
                 "TabPanel", "sin acciones abiertas — elige una del panel izquierdo"
             )
         )
-        self.empty_hint.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        self.empty_hint.setFont(theme.font(Fonts.SIZE_XS))
+        theme.HINT.on(self.pal).dress(self.empty_hint)
         sub_bar_layout.addWidget(self.empty_hint)
         sub_bar_layout.addStretch()
 
@@ -618,24 +607,20 @@ class TabPanel(ReorderableBar):
         self.welcome_logo = RepoLogoView(64, self.logo)
 
         self.welcome_title = QLabel(self.project.name.upper())
-        self.welcome_title.setStyleSheet(
-            f"color: {Colors.TEXT}; font-size: {Fonts.SIZE_XXL}px; font-weight: 300; "
-            f"letter-spacing: 8px;"
-        )
+        heading = theme.font(Fonts.SIZE_XXL, QFont.Weight.Light)
+        heading.setLetterSpacing(QFont.SpacingType.AbsoluteSpacing, Fonts.REPO_SPACING)
+        self.welcome_title.setFont(heading)
         self.welcome_title.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         subtitle = QLabel(
             QCoreApplication.translate("TabPanel", "Selecciona una accion del panel izquierdo")
         )
-        subtitle.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_DIM}; font-size: {Fonts.SIZE_BASE}px;"
-        )
+        theme.HINT.on(self.pal).dress(subtitle)
         subtitle.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         self.path_label = QLabel(self.project.path)
-        self.path_label.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_SM}px;"
-        )
+        self.path_label.setFont(theme.font(Fonts.SIZE_SM))
+        theme.HINT.on(self.pal).dress(self.path_label)
         self.path_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
 
         lay.addWidget(self.welcome_logo, 0, Qt.AlignmentFlag.AlignHCenter)
@@ -648,6 +633,7 @@ class TabPanel(ReorderableBar):
 
     def _build_params_placeholder(self) -> QWidget:
         w = QWidget()
+        w.setAutoFillBackground(True)
         self._params_placeholder = w
         lay = QVBoxLayout(w)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
@@ -656,18 +642,17 @@ class TabPanel(ReorderableBar):
             QCoreApplication.translate("TabPanel", "Los parámetros de la acción\naparecen aquí")
         )
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        hint.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; font-size: {Fonts.SIZE_XS}px;"
-        )
+        hint.setFont(theme.font(Fonts.SIZE_XS))
+        theme.HINT.on(self.pal).dress(hint)
         lay.addWidget(hint)
         return w
 
-    def _build_footer_placeholder(self) -> QWidget:
+    def _build_footer_placeholder(self) -> QFrame:
         """Show Run visible but disabled, with no action open.
 
         So the bar does not change height on opening the first action.
         """
-        foot = QWidget()
+        foot = QFrame()
         self._footer_placeholder = foot
         lay = QHBoxLayout(foot)
         lay.setContentsMargins(16, 10, 16, 10)
@@ -676,6 +661,7 @@ class TabPanel(ReorderableBar):
         btn = QPushButton(QCoreApplication.translate("TabPanel", "Ejecutar"))
         btn.setFixedHeight(34)
         btn.setEnabled(False)
+        btn.setFont(theme.font(Fonts.SIZE_SM, QFont.Weight.DemiBold))
         self._footer_placeholder_btn = btn
         lay.addWidget(btn)
         return foot
@@ -971,29 +957,12 @@ class TabPanel(ReorderableBar):
         The runs sub-bar, the console's canvas and the two placeholders.
         Each panel repaints what is inside it.
         """
-        bar = theme.RUN_BAR.on(self.pal)
-        footer = theme.FOOTER.on(self.pal)
-        run = theme.RUN_BUTTON_OFF.on(self.pal)
-        self.sub_bar.setStyleSheet(f"""
-            QWidget#subBar {{
-                background: {bar.bg};
-                border-bottom: 1px solid {bar.border};
-            }}
-        """)
-        self.content_area.setStyleSheet(f"background: {theme.CANVAS.on(self.pal).bg};")
-        self._params_placeholder.setStyleSheet(
-            f"background: {theme.SECTION_BODY.on(self.pal).bg};"
-        )
-        self._footer_placeholder.setStyleSheet(
-            f"background: {footer.bg}; border-top: 1px solid {footer.border};"
-        )
-        self._footer_placeholder_btn.setStyleSheet(f"""
-            QPushButton {{
-                background: {run.bg}; color: {run.fg};
-                border: none; border-radius: 6px; padding: 0 22px;
-                font-size: {Fonts.SIZE_SM}px; font-weight: 600;
-            }}
-        """)
+        theme.workspace(self, self.pal)
+        theme.RUN_BAR.on(self.pal).band(self.sub_bar, "bottom")
+        theme.CANVAS.on(self.pal).dress(self.content_area)
+        theme.SECTION_BODY.on(self.pal).dress(self._params_placeholder)
+        theme.FOOTER.on(self.pal).band(self._footer_placeholder, "top")
+        theme.RUN_BUTTON_OFF.on(self.pal).dress(self._footer_placeholder_btn, fill=False)
 
     def reveal_security(self) -> None:
         """Open this repo's Security section.

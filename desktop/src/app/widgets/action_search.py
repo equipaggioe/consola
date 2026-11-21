@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import cast, override
 
 from PySide6.QtCore import QCoreApplication, QEvent, QObject, QPoint, QRect, Qt, Signal, Slot
-from PySide6.QtGui import QAction, QKeyEvent, QMouseEvent
+from PySide6.QtGui import QAction, QFont, QKeyEvent, QMouseEvent
 from PySide6.QtWidgets import (
     QApplication,
     QFrame,
@@ -21,7 +21,7 @@ from app import theme
 from app.services import favorites
 from app.services.palettes import NEUTRAL, Palette
 from app.services.registry import registry
-from app.theme import Colors, Fonts
+from app.theme import Colors, Fonts, Spacing
 from app.widgets.action_row import ActionRow
 
 
@@ -136,38 +136,9 @@ class ActionSearch(QWidget):
             self.box.clear()
 
     def _restyle_box(self) -> None:
-        field = theme.SEARCH_FIELD.on(self.pal)
-        self.box.setStyleSheet(f"""
-            QLineEdit {{
-                background: {field.bg};
-                color: {field.fg};
-                border: 1px solid {field.border};
-                border-radius: 5px;
-                padding: 5px 8px;
-                font-size: {Fonts.SIZE_SM}px;
-            }}
-            QLineEdit:focus {{ border: 1px solid {field.focus}; }}
-            QLineEdit:disabled {{ color: {Colors.TEXT_MUTED}; }}
-        """)
-
-    def _popup_style(self) -> str:
-        """Return the list's style, like a group menu's.
-
-        The list hangs from the menu row like a group menu, painted the
-        same (`widgets/action_menu_bar.py::_menu_style`): `panel`, two
-        steps below the bar.
-        """
-        popup = theme.SEARCH_LIST.on(self.pal)
-        return f"""
-            QFrame#actionSearchPopup {{
-                background: {popup.bg};
-                border: 1px solid {popup.border};
-                border-radius: 8px;
-            }}
-        """
-
-    def _scroll_style(self) -> str:
-        return "QScrollArea { border: none; background: transparent; }"
+        theme.SEARCH_FIELD.on(self.pal).dress(self.box, fill=False)
+        self.box.setFont(theme.font(Fonts.SIZE_SM))
+        self.box.setTextMargins(Spacing.XS, 0, Spacing.XS, 0)
 
     def _restyle_popup(self) -> None:
         """Repaint the list when the repo changes.
@@ -176,8 +147,9 @@ class ActionSearch(QWidget):
         birth is not enough.
         """
         if self._popup is not None:
-            self._popup.setStyleSheet(self._popup_style())
-            self._scroll.setStyleSheet(self._scroll_style())
+            # Like a group menu's (`widgets/action_menu_bar.py`): the
+            # list hangs from the menu row.
+            theme.SEARCH_LIST.on(self.pal).dress(self._popup)
 
     # --- popup ---
     def _build_popup(self) -> QFrame:
@@ -188,9 +160,9 @@ class ActionSearch(QWidget):
         open. The search only changes which rows show.
         """
         popup = QFrame(self.window())
-        popup.setObjectName("actionSearchPopup")
         popup.setCursor(Qt.CursorShape.ArrowCursor)
-        popup.setStyleSheet(self._popup_style())
+        popup.setFrameShape(QFrame.Shape.StyledPanel)
+        theme.SEARCH_LIST.on(self.pal).dress(popup)
         outer = QVBoxLayout(popup)
         outer.setContentsMargins(1, 1, 1, 1)
         outer.setSpacing(0)
@@ -198,9 +170,8 @@ class ActionSearch(QWidget):
         self._scroll = QScrollArea()
         self._scroll.setWidgetResizable(True)
         self._scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
-        self._scroll.setStyleSheet(self._scroll_style())
+        self._scroll.setFrameShape(QFrame.Shape.NoFrame)
         content = QWidget()
-        content.setStyleSheet("background: transparent;")
         self._content_layout = QVBoxLayout(content)
         self._content_layout.setContentsMargins(6, 6, 6, 6)
         self._content_layout.setSpacing(0)
@@ -211,10 +182,9 @@ class ActionSearch(QWidget):
             # The group is a key: the catalog declares it untranslated.
             title = QCoreApplication.translate("catalog", group).upper()
             header = QLabel(f"{registry.get_group_icon(group)}  {title}".strip())
-            header.setStyleSheet(
-                f"background: transparent; color: {Colors.TEXT_MUTED}; "
-                f"font-size: {Fonts.SIZE_XS}px; font-weight: 700; padding: 8px 10px 3px 10px;"
-            )
+            header.setFont(theme.font(Fonts.SIZE_XS, QFont.Weight.Bold))
+            header.setContentsMargins(Spacing.SM + 2, Spacing.SM, Spacing.SM + 2, 3)
+            theme.ink(header, Colors.ON_SURFACE_VARIANT)
             self._content_layout.addWidget(header)
             rows = []
             for cap in capabilities:
@@ -239,10 +209,9 @@ class ActionSearch(QWidget):
             self._rows.extend(rows)
 
         self._empty = QLabel(QCoreApplication.translate("ActionSearch", "Sin resultados"))
-        self._empty.setStyleSheet(
-            f"background: transparent; color: {Colors.TEXT_MUTED}; "
-            f"font-size: {Fonts.SIZE_SM}px; padding: 12px;"
-        )
+        self._empty.setFont(theme.font(Fonts.SIZE_SM))
+        self._empty.setContentsMargins(Spacing.MD, Spacing.MD, Spacing.MD, Spacing.MD)
+        theme.ink(self._empty, Colors.ON_SURFACE_VARIANT)
         self._empty.setAlignment(Qt.AlignmentFlag.AlignCenter)
         self._content_layout.addWidget(self._empty)
 
