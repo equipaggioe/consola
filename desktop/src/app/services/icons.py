@@ -66,7 +66,7 @@ RASTER_SIZE = 1024
 FLET_ICON = Path("src/assets/icon.png")
 
 # YAML: a `#` opens a comment at the start of the line or after a blank.
-# Inside quotes (`"#0b1224"`) no blank comes first, and it stays.
+# Inside quotes (a quoted color) no blank comes first, and it stays.
 _COMMENT = re.compile(r"(?:^|\s)#.*$")
 
 _LINK = re.compile(r"<link\b[^>]*>", re.IGNORECASE | re.DOTALL)

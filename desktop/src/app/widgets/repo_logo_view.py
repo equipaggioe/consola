@@ -8,11 +8,11 @@ from PySide6.QtCore import QCoreApplication, QObject, QRectF, QSize, Qt
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleInterface,
-    QColor,
     QFont,
     QImage,
     QPainter,
     QPaintEvent,
+    QPen,
 )
 from PySide6.QtWidgets import QAccessibleWidget, QWidget
 
@@ -73,7 +73,7 @@ class RepoLogoView(QWidget):
         f = QFont(self.font())
         f.setPixelSize(round(self.height() * 0.8))
         p.setFont(f)
-        p.setPen(QColor(Colors.ERROR))
+        p.setPen(QPen(Colors.ERROR))
         p.drawText(QRectF(self.rect()), Qt.AlignmentFlag.AlignCenter, "⚠")
 
 

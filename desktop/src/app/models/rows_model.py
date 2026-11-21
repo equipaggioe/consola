@@ -15,7 +15,7 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QBrush, QFont
 
 from app.services import db_explorer as dbx
 from app.services.files import human_size
@@ -171,9 +171,9 @@ class RowsModel(QAbstractTableModel):
             )
         if role == Qt.ItemDataRole.ForegroundRole:
             if value is None or col.base_type == dbx.BYTEA:
-                return QColor(Colors.TEXT_MUTED)
+                return QBrush(Colors.TEXT_MUTED)
             if col.fk:
-                return QColor(Colors.ACCENT)
+                return QBrush(Colors.ACCENT)
             return None
         if role == Qt.ItemDataRole.FontRole:
             if value is None:

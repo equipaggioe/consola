@@ -94,7 +94,7 @@ Cada módulo de `dialogs/`, `widgets/` y `models/` declara una sola clase públi
 | Ejecución | `dialogs/guard_dialog.py`, `dialogs/blocked_dialog.py`, `dialogs/reminder_dialog.py`, y `services/task_runner.py` | Corre la capacidad en un hilo y puentea sus canales; los dos avisos del seguro y su base |
 | Explorador | `widgets/db_explorer_view.py`, `models/tables_model.py`, `models/rows_model.py`, `models/structure_model.py`, y `services/db_worker.py` | Árbol, datos y estructura, sobre su propio hilo: un `QTreeView` y dos `QTableView` con sus modelos |
 | Persistencia | `services/params_store.py`, `services/project_store.py`, `services/section_visibility.py` | `.consola/params.json` del repo y `QSettings` de la máquina |
-| Apoyo | `theme.py`, `widgets/reorderable_tab.py`, `widgets/reorderable_bar.py`, `widgets/led_indicator.py`, `widgets/favorite_star.py`, `widgets/segmented.py`, y `services/readiness.py` | Colores, tipografía y partes de la ventana, pestañas que se arrastran, controles propios, qué puede correr ya |
+| Apoyo | `colors.py`, generado desde `brand/tokens/` por `scripts/tokens.py` de la raíz, `theme.py`, `widgets/reorderable_tab.py`, `widgets/reorderable_bar.py`, `widgets/led_indicator.py`, `widgets/favorite_star.py`, `widgets/segmented.py`, y `services/readiness.py` | Colores, tipografía y partes de la ventana, pestañas que se arrastran, controles propios, qué puede correr ya |
 
 ## 5. `assets/`
 

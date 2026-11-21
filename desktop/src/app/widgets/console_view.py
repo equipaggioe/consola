@@ -8,7 +8,7 @@ from typing import override
 from PySide6.QtCore import QCoreApplication, QDateTime, QLocale, Qt, QTimer, Slot
 from PySide6.QtGui import (
     QAction,
-    QColor,
+    QBrush,
     QContextMenuEvent,
     QFont,
     QKeySequence,
@@ -137,16 +137,16 @@ class ConsoleView(QPlainTextEdit):
         cursor.movePosition(cursor.MoveOperation.End)
         self.setTextCursor(cursor)
 
-        fmt.setForeground(QColor(Colors.TEXT_MUTED))
+        fmt.setForeground(QBrush(Colors.TEXT_MUTED))
         self.setCurrentCharFormat(fmt)
         self.insertPlainText(f"[{now}] ")
 
-        fmt.setForeground(QColor(level_color))
+        fmt.setForeground(QBrush(level_color))
         self.setCurrentCharFormat(fmt)
         level_str = f"[{level.upper()}]".ljust(7)
         self.insertPlainText(level_str)
 
-        fmt.setForeground(QColor(Colors.TEXT_DIM))
+        fmt.setForeground(QBrush(Colors.TEXT_DIM))
         self.setCurrentCharFormat(fmt)
         self.insertPlainText(f" {text}\n")
 
@@ -196,7 +196,7 @@ class ConsoleView(QPlainTextEdit):
             self.cursor_visible = False
         else:
             fmt = QTextCharFormat()
-            fmt.setForeground(QColor(Colors.ACCENT))
+            fmt.setForeground(QBrush(Colors.ACCENT))
             cursor.insertText("▍", fmt)
             self.cursor_visible = True
 

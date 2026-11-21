@@ -17,7 +17,6 @@ from PySide6.QtCore import (
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleInterface,
-    QColor,
     QEnterEvent,
     QMouseEvent,
     QPainter,
@@ -61,7 +60,7 @@ class _Diamond(QWidget):
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        pen = QPen(QColor(self._color))
+        pen = QPen(self._color)
         pen.setWidthF(self.STROKE)
         pen.setJoinStyle(Qt.PenJoinStyle.MiterJoin)
         p.setPen(pen)
@@ -157,8 +156,6 @@ class _WindowButton(QPushButton):
     def set_foreground(self, color: str) -> None:
         """Set the stroke to the legible color over the bar.
 
-        See `on_color`.
-
         The hover background comes from that same color and not a fixed
         gray: a dark gray over a light bar was a stain unlike anything
         else in the window. Close's is red: there the color IS the
@@ -190,7 +187,7 @@ class _WindowButton(QPushButton):
         super().paintEvent(event)  # the sheet sets the hover background
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
-        color = QColor(Colors.TEXT if (self.kind == "close" and self.underMouse()) else self._fg)
+        color = Colors.ON_ERROR if (self.kind == "close" and self.underMouse()) else self._fg
         pen = QPen(color)
         pen.setWidthF(self.STROKE)
         pen.setCapStyle(Qt.PenCapStyle.FlatCap)
@@ -341,7 +338,7 @@ class TitleBar(QWidget):
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
         p = QPainter(self)
-        p.fillRect(self.rect(), QColor(self.fill))
+        p.fillRect(self.rect(), self.fill)
         p.end()
 
 

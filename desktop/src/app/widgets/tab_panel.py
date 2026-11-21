@@ -17,7 +17,7 @@ from PySide6.QtCore import (
     Slot,
 )
 from PySide6.QtGui import (
-    QColor,
+    QBrush,
     QEnterEvent,
     QFont,
     QMouseEvent,
@@ -59,7 +59,7 @@ from app.services.projects import Project
 from app.services.registry import Capability, registry
 from app.services.section_visibility import title as section_title
 from app.services.task_runner import TaskRunner
-from app.theme import Colors, Fonts
+from app.theme import Colors, Fonts, tint
 from app.widgets.accordion_section import AccordionSection
 from app.widgets.command_info_panel import CommandInfoPanel
 from app.widgets.console_view import ConsoleView
@@ -222,18 +222,19 @@ class _SubTabButton(ReorderableTab):
 
         if self.is_active:
             active = theme.RUN_TAB_ACTIVE.on(self.pal)
-            p.fillPath(path, QColor(active.bg))
-            edge = QColor(active.border)
+            p.fillPath(path, QBrush(active.bg))
+            edge = active.border
         else:
             # Its fill stops one row short: the bar's line runs on
             # under it, and only the active one breaks it.
             tab = theme.RUN_TAB.on(self.pal)
             p.save()
             p.setClipRect(QRectF(self.rect()).adjusted(0, 0, 0, -1))
-            p.fillPath(path, QColor(tab.bg))
+            p.fillPath(path, QBrush(tab.bg))
             p.restore()
-            edge = QColor(tab.border)
-            edge.setAlpha(200 if (self._hovered or self.is_dragging) else 110)
+            edge = tint(
+                tab.border, 200 / 255 if (self._hovered or self.is_dragging) else 110 / 255
+            )
         pen = QPen(edge)
         pen.setWidthF(1.0)
         if self.is_dragging:

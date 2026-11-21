@@ -1,0 +1,33 @@
+{
+  "$schema": "https://www.designtokens.org/schemas/2025.10/resolver.json",
+  "version": "2025.10",
+  "sets": {
+    "palette": { "sources": [{ "$ref": "palette.tokens.json" }] }
+  },
+  "modifiers": {
+    "theme": {
+      "contexts": {
+        "neutral": [{ "$ref": "neutral.tokens.json" }],
+        "blue": [{ "$ref": "blue.tokens.json" }],
+        "indigo": [{ "$ref": "indigo.tokens.json" }],
+        "violet": [{ "$ref": "violet.tokens.json" }],
+        "pink": [{ "$ref": "pink.tokens.json" }],
+        "coral": [{ "$ref": "coral.tokens.json" }],
+        "amber": [{ "$ref": "amber.tokens.json" }],
+        "green": [{ "$ref": "green.tokens.json" }],
+        "cyan": [{ "$ref": "cyan.tokens.json" }]
+      },
+      "default": "neutral"
+    },
+    "mode": {
+      "contexts": {
+        "dark": [{ "$ref": "dark.tokens.json" }]
+      }
+    }
+  },
+  "resolutionOrder": [
+    { "$ref": "#/sets/palette" },
+    { "$ref": "#/modifiers/theme" },
+    { "$ref": "#/modifiers/mode" }
+  ]
+}

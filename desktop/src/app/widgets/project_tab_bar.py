@@ -10,7 +10,6 @@ from PySide6.QtGui import (
     QAccessible,
     QAccessibleActionInterface,
     QAccessibleInterface,
-    QColor,
     QEnterEvent,
     QMouseEvent,
     QPainter,
@@ -29,6 +28,7 @@ from app import theme
 from app.services import palettes, params_store, project_store
 from app.services.palettes import Palette
 from app.services.projects import Project
+from app.theme import tint
 from app.widgets.project_tab import ProjectTab
 from app.widgets.reorderable_bar import ReorderableBar
 
@@ -84,9 +84,7 @@ class _AddProjectTab(QWidget):
         r = QRectF(self.rect()).adjusted(7.5, 5.5, -7.5, -5.5)
 
         add = theme.ADD_TAB.on(self.pal)
-        edge = QColor(add.border)
-        edge.setAlpha(150 if self._hovered else 90)
-        pen = QPen(edge)
+        pen = QPen(tint(add.border, 150 / 255 if self._hovered else 90 / 255))
         pen.setWidthF(1.2)
         p.setPen(pen)
         p.setBrush(Qt.BrushStyle.NoBrush)
@@ -94,9 +92,7 @@ class _AddProjectTab(QWidget):
         path.addRoundedRect(r, 6, 6)
         p.drawPath(path)
 
-        glyph = QColor(add.fg)
-        glyph.setAlpha(255 if self._hovered else 190)
-        pen = QPen(glyph)
+        pen = QPen(tint(add.fg, 1 if self._hovered else 190 / 255))
         pen.setWidth(2)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         p.setPen(pen)

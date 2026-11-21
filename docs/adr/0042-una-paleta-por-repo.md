@@ -1,6 +1,6 @@
 # ADR-0042 · El color de un repo es una paleta, y se elige
 
-- **Estado:** Propuesta
+- **Estado:** Reemplazada por [ADR-0092](0092-el-tema-de-color-se-elige-por-repo-y-viaja-con-el.md) y [ADR-0093](0093-los-colores-son-los-roles-de-material-en-brand-tokens-solo-en-modo-oscuro.md)
 - **Fecha:** 2026-09-22
 - **Alcance:** ui/palettes.py, ui/theme.py, ui/title_bar.py, ui/action_search.py, ui/menu_bar.py, tests/test_palettes.py, core/projects.py, ui/project_store.py, ui/project_tabs.py, ui/main_window.py, ui/tab_panel.py, ui/params_panel.py, ui/env_panel.py, ui/security_panel.py, ui/command_info_panel.py, ui/console_view.py, ui/tab_view.py, ui/browser_view.py, ui/db_explorer_view.py, ui/guard_dialog.py, ui/widgets/accordion.py, ui/widgets/switch.py
 

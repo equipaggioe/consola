@@ -29,7 +29,7 @@ from PySide6.QtWidgets import (
 from app import theme
 from app.services import palettes
 from app.services.palettes import Palette
-from app.theme import Fonts, Look, Role, apply_theme
+from app.theme import Fonts, Layer, Look, Role, apply_theme
 
 
 def _square(color: str, side: int = 16) -> QLabel:
@@ -50,6 +50,13 @@ def _text(text: str, color: str, size: int = Fonts.SIZE_XS, bold: bool = False) 
         f"font-weight: {700 if bold else 400};"
     )
     return label
+
+
+def _name(slot: Role | Layer) -> str:
+    """Return a role by its name, and a layer by its two roles."""
+    if isinstance(slot, Layer):
+        return f"{slot.over.name} {round(slot.opacity * 100)} % / {slot.base.name}"
+    return slot.name
 
 
 class SwatchesDialog(QDialog):
@@ -131,7 +138,7 @@ class SwatchesDialog(QDialog):
             slots.setSpacing(6)
             for slot, role in look.slots().items():
                 slots.addWidget(_square(theme.color(role, self.pal), 14))
-                slots.addWidget(_text(f"{slot} = {role.name}", dialog.fg))
+                slots.addWidget(_text(f"{slot} = {_name(role)}", dialog.fg))
                 slots.addSpacing(10)
             slots.addStretch(1)
             grid.addLayout(slots, row, 2)

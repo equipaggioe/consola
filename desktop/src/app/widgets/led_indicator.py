@@ -16,7 +16,6 @@ from PySide6.QtGui import (
     QAccessible,
     QAccessibleInterface,
     QBrush,
-    QColor,
     QPainter,
     QPaintEvent,
     QPen,
@@ -106,7 +105,7 @@ class LedIndicator(QWidget):
             "red": Colors.ERROR,
         }
         hex_color = color_map.get(self._state, Colors.INACTIVE)
-        base_color = QColor(hex_color)
+        base_color = QBrush(hex_color).color()
 
         if self._state == "green":
             base_color.setAlphaF(self._opacity)
@@ -130,14 +129,9 @@ class LedIndicator(QWidget):
             painter.setBrush(Qt.BrushStyle.NoBrush)
             glow_pen = QPen(base_color)
             glow_pen.setWidth(1)
-            glow_pen.setColor(
-                QColor(
-                    base_color.red(),
-                    base_color.green(),
-                    base_color.blue(),
-                    int(100 * self._opacity),
-                )
-            )
+            glow = base_color.toRgb()
+            glow.setAlpha(int(100 * self._opacity))
+            glow_pen.setColor(glow)
             painter.setPen(glow_pen)
             painter.drawEllipse(center, glow_radius, glow_radius)
 

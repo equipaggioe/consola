@@ -9,7 +9,6 @@ from PySide6.QtGui import (
     QAccessible,
     QAccessibleActionInterface,
     QAccessibleInterface,
-    QColor,
     QEnterEvent,
     QFont,
     QMouseEvent,
@@ -26,17 +25,6 @@ from PySide6.QtWidgets import (
 )
 
 from app.theme import Colors, Fonts, tint
-
-
-def _alpha(hex_color: str, alpha: float) -> QColor:
-    """Return the same color with transparency.
-
-    QColor does not understand 'rgba(...)', which is what `theme.tint`
-    serves for style sheets.
-    """
-    c = QColor(hex_color)
-    c.setAlphaF(alpha)
-    return c
 
 
 class _LevelMark(QLabel):
@@ -336,12 +324,10 @@ class ActionRow(QWidget):
         p = QPainter(self)
         p.setRenderHint(QPainter.RenderHint.Antialiasing)
         r = QRectF(self.rect())
-        edge = QColor(Colors.ERROR) if self.danger else QColor(self.accent)
+        edge = Colors.ERROR if self.danger else self.accent
 
         if self._hovered:
-            p.fillRect(
-                r, _alpha(self.accent, 0.09) if not self.danger else _alpha(Colors.ERROR, 0.08)
-            )
+            p.fillRect(r, tint(self.accent, 0.09) if not self.danger else tint(Colors.ERROR, 0.08))
 
         # Accent stripe: always visible and faint if destructive (a
         # permanent warning) or favorite, wider on hover because that is
@@ -356,7 +342,7 @@ class ActionRow(QWidget):
             if self._pin_hovered:
                 bar_alpha = 1.0
             bar_width = 5.0 if self._pin_hovered else 2.5
-            p.fillRect(QRectF(0, 3, bar_width, r.height() - 6), _alpha(edge.name(), bar_alpha))
+            p.fillRect(QRectF(0, 3, bar_width, r.height() - 6), tint(edge, bar_alpha))
         p.end()
 
 

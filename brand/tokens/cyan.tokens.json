@@ -1,0 +1,10 @@
+{
+  "palette": {
+    "$type": "color",
+    "theme": {
+      "accent": { "$value": { "colorSpace": "srgb", "components": [0.4275, 0.7451, 0.7961], "hex": "#6dbecb" } },
+      "chrome": { "$value": { "colorSpace": "srgb", "components": [0.0706, 0.1922, 0.2118], "hex": "#123136" } },
+      "field": { "$value": { "colorSpace": "srgb", "components": [0.098, 0.2353, 0.2549], "hex": "#193c41" } }
+    }
+  }
+}

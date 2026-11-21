@@ -99,3 +99,6 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0089](0089-http-va-por-un-solo-manager-en-el-hilo-de-la-interfaz-y-reintenta.md) | HTTP va por un solo manager, en el hilo de la interfaz, y reintenta |
 | [0090](0090-el-codigo-sigue-el-arbol-de-qt-de-canone.md) | El código sigue el árbol de `qt.md` de canone |
 | [0091](0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md) | Los textos de la interfaz se escriben en español y Qt Linguist los traduce |
+| [0092](0092-el-tema-de-color-se-elige-por-repo-y-viaja-con-el.md) | El tema de color se elige por repo y viaja con él |
+| [0093](0093-los-colores-son-los-roles-de-material-en-brand-tokens-solo-en-modo-oscuro.md) | Los colores son los roles de Material en `brand/tokens/`, solo en modo oscuro |
+| [0094](0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md) | Cada parte da sus colores en una `QPalette`, y `Style` dibuja lo demás |

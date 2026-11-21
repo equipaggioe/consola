@@ -15,7 +15,7 @@ from PySide6.QtCore import (
     QPersistentModelIndex,
     Qt,
 )
-from PySide6.QtGui import QColor, QFont
+from PySide6.QtGui import QBrush, QFont
 
 from app.services import db_explorer as dbx
 from app.services import db_models as dbm
@@ -184,13 +184,13 @@ class TablesModel(QAbstractItemModel):
             )
         if role == Qt.ItemDataRole.ForegroundRole:
             if column == 1:
-                return QColor(Colors.TEXT_MUTED)
+                return QBrush(Colors.TEXT_MUTED)
             if not rel.readable:
-                return QColor(Colors.TEXT_MUTED)
+                return QBrush(Colors.TEXT_MUTED)
             if mark:
-                return QColor(mark_color)
+                return QBrush(mark_color)
             if rel.kind in ("v", "m", "f") or rel.extension:
-                return QColor(Colors.TEXT_DIM)
+                return QBrush(Colors.TEXT_DIM)
             return None
         if role == Qt.ItemDataRole.TextAlignmentRole and column == 1:
             return int(Qt.AlignmentFlag.AlignRight)
@@ -383,7 +383,7 @@ def _group_data(node: _Node, column: int, role: int) -> Any:
     if role == Qt.ItemDataRole.DisplayRole:
         return node.label
     if role == Qt.ItemDataRole.ForegroundRole:
-        return QColor(Colors.TEXT_DIM)
+        return QBrush(Colors.TEXT_DIM)
     if role == Qt.ItemDataRole.FontRole:
         font = QFont()
         font.setBold(True)
@@ -405,7 +405,7 @@ def _missing_data(model: dbm.ModelTable, column: int, role: int) -> Any:
             else f"{mark}{model.name}"
         )
     if role == Qt.ItemDataRole.ForegroundRole:
-        return QColor(color)
+        return QBrush(color)
     if role == Qt.ItemDataRole.TextAlignmentRole and column == 1:
         return int(Qt.AlignmentFlag.AlignRight)
     if role == Qt.ItemDataRole.AccessibleTextRole:

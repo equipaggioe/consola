@@ -7,7 +7,7 @@ from typing import override
 from PySide6.QtCore import QCoreApplication, QEvent, QPointF, QRectF, QSize, Qt, Signal
 from PySide6.QtGui import (
     QAction,
-    QColor,
+    QBrush,
     QContextMenuEvent,
     QEnterEvent,
     QFont,
@@ -32,7 +32,7 @@ from app import theme
 from app.services import palettes, params_store, repo_logo
 from app.services.palettes import Palette
 from app.services.projects import Project
-from app.theme import Colors, Fonts, on_color, tint
+from app.theme import Colors, Fonts, tint
 from app.widgets.reorderable_tab import ReorderableTab
 from app.widgets.repo_logo_view import RepoLogoView
 
@@ -260,7 +260,7 @@ class ProjectTab(ReorderableTab):
         ratio = self.devicePixelRatioF()
         for key, pal in palettes.THEMES.items():
             action = QAction(
-                swatch(pal.accent, chosen=key == self.project.theme, ratio=ratio),
+                swatch(pal, chosen=key == self.project.theme, ratio=ratio),
                 QCoreApplication.translate("palettes", pal.label),
                 self,
             )
@@ -285,15 +285,15 @@ class ProjectTab(ReorderableTab):
         path.addRoundedRect(r, 7, 7)
 
         if self.is_active:
-            p.fillPath(path, QColor(theme.REPO_TAB_SELECTED.on(self.pal).bg))
+            p.fillPath(path, QBrush(theme.REPO_TAB_SELECTED.on(self.pal).bg))
             p.end()
             return
 
         tab = theme.REPO_TAB.on(self.active_pal)
-        p.fillPath(path, QColor(tab.bg))
-        edge = QColor(tab.border)
-        edge.setAlpha(150 if (self._hovered or self.is_dragging) else 90)
-        pen = QPen(edge)
+        p.fillPath(path, QBrush(tab.bg))
+        pen = QPen(
+            tint(tab.border, 150 / 255 if (self._hovered or self.is_dragging) else 90 / 255)
+        )
         pen.setWidthF(1.2)
         if self.is_dragging:
             pen.setStyle(Qt.PenStyle.DotLine)
@@ -303,8 +303,8 @@ class ProjectTab(ReorderableTab):
         p.end()
 
 
-def swatch(color: str, *, chosen: bool, ratio: float) -> QIcon:
-    """Return a box filled with `color`, with a check if `chosen`.
+def swatch(pal: Palette, *, chosen: bool, ratio: float) -> QIcon:
+    """Return a box filled with the accent, with a check if `chosen`.
 
     The size and the radius of a check box (`QCheckBox::indicator` in
     `app/theme.py`), so the color menu reads as a list of boxes.
@@ -317,9 +317,9 @@ def swatch(color: str, *, chosen: bool, ratio: float) -> QIcon:
     p.setRenderHint(QPainter.RenderHint.Antialiasing)
     box = QPainterPath()
     box.addRoundedRect(QRectF(0.5, 0.5, side - 1, side - 1), 4, 4)
-    p.fillPath(box, QColor(color))
+    p.fillPath(box, QBrush(pal.accent))
     if chosen:
-        pen = QPen(QColor(on_color(color)))
+        pen = QPen(pal.colors["on_primary"])
         pen.setWidthF(1.8)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)

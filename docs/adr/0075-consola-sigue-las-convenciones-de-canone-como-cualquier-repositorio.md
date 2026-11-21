@@ -1,6 +1,6 @@
 # ADR-0075 · Consola sigue las convenciones de canone como cualquier repositorio
 
-- **Estado:** Aceptada
+- **Estado:** Aceptada. El punto 1 lo reemplaza el [ADR-0092](0092-el-tema-de-color-se-elige-por-repo-y-viaja-con-el.md) para el tema de color, y el punto 3, el [ADR-0093](0093-los-colores-son-los-roles-de-material-en-brand-tokens-solo-en-modo-oscuro.md) para `scripts/tokens.py`
 - **Fecha:** 2026-11-02
 - **Alcance:** todo el repositorio
 
