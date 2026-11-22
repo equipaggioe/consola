@@ -1,6 +1,7 @@
 """What WCAG asks of the keyboard, of motion and of status messages.
 
-The whole window is measured by `scripts/aa.py`; here, each piece.
+The whole window is measured by `test_accessibility.py`; here, each
+piece.
 """
 
 from collections.abc import Iterator

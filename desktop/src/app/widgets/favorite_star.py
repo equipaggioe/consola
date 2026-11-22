@@ -57,7 +57,9 @@ class FavoriteStar(QPushButton):
 
     def _restyle(self) -> None:
         self.setText(self.FULL if self._favorite else self.EMPTY)
-        color = self.accent if self._favorite else Colors.ON_SURFACE_VARIANT
+        # Empty, in the text and not the hint: its thin outline,
+        # smoothed, did not reach 3:1 with DejaVu Sans (WCAG 1.4.11).
+        color = self.accent if self._favorite else Colors.ON_SURFACE
         tip = (
             QCoreApplication.translate("FavoriteStar", "Quitar de favoritas")
             if self._favorite

@@ -35,7 +35,7 @@
 > `canone/plataformas/python.md`, `canone/plataformas/qt.md`, «Tema» y «Accesibilidad» de
 > `canone/plataformas/transversal.md` y este plan. Falta el selector de idioma, que llega con el
 > segundo idioma (§2.8), la prueba de `release.yml` con un tag (§4), el 48 × 48 del §2.5, que espera
-> la pregunta 14, el §3, «Abiertas», y la confirmación del ADR-0095, que está como *Propuesta*.
+> la pregunta 14 y el §3, «Abiertas».
 
 ## 1. Cómo se comprueba
 
@@ -53,7 +53,7 @@ uv run pip-audit --disable-pip --require-hashes -r "${TMPDIR:-/tmp}/req.txt"
 QT_QPA_PLATFORM=offscreen PYTHONDEVMODE=1 PYTHONWARNDEFAULTENCODING=1 uv run pytest
 ```
 
-La accesibilidad se mide desde `desktop/` con `uv run python scripts/aa.py`
+La accesibilidad la mide `tests/test_accessibility.py`, con las demás pruebas
 ([12](../arquitectura/12_interfaz.md), §10).
 
 Desde la raíz: `python ../canone/scripts/verificar.py --repo . --variables '{"RELEASE_DESKTOP_LINUX":
@@ -74,10 +74,10 @@ la app.
 Hecho: lo que pide la sección «Accesibilidad» de `qt.md`, también los atajos (pregunta 10). Está en
 [12](../arquitectura/12_interfaz.md), §10.
 
-Medido el 2026-11-21 con `desktop/scripts/aa.py`, sin pantalla, en Windows y en Linux (distro
+Medido el 2026-11-21 con `tests/test_accessibility.py`, sin pantalla, en Windows y en Linux (distro
 `Testing`), con un repo y cuatro pestañas de acción
 ([ADR-0095](../adr/0095-tab-sigue-el-orden-de-lectura-ver-detiene-lo-que-se-mueve-y-los-cambios-se-anuncian.md),
-*Propuesta*). Lo que el script no ve se probó en Windows con teclas reales enviadas desde otro
+aceptado el 2026-11-21). Lo que el script no ve se probó en Windows con teclas reales enviadas desde otro
 proceso y con un cliente de UI Automation:
 
 | Criterio | Qué falla | Decisión que pide |
@@ -93,7 +93,7 @@ proceso y con un cliente de UI Automation:
 | 1.4.4, texto al 200 % | Nada a 960 × 500 px de Qt, con la escala de pantalla del sistema, también con las fuentes de Linux. El «Tamaño del texto» de Windows no agranda la app | — |
 | 4.1.3, mensajes de estado | Nada: un cliente de UI Automation recibe las notificaciones. Sin escuchar un lector concreto (NVDA o Narrador) | — |
 
-Las mediciones del 2026-11-19 al 2026-11-21 anteriores a `aa.py` corrieron sin pantalla y sin las
+Las mediciones del 2026-11-19 al 2026-11-21 anteriores a esa prueba corrieron sin pantalla y sin las
 fuentes del sistema: cada texto medía el doble de ancho, así que los tamaños de entonces no valen.
 Los colores, sí.
 
@@ -185,14 +185,14 @@ duda es cómo cumplirla.
 | 16 | Los roles de Consola no son los de Material: dos escaleras de fondos (teñida y gris), cuatro grises de texto, cuatro bordes y colores de estado (`SUCCESS`, `WARNING`, los LED) que el `ColorScheme` no tiene. `tokens.py` falla con un rol de más y `test_theme.py` con un literal fuera de `colors.py` | Consola, y canone los estados | Consola adopta los 46 roles de Material, sin nombres propios, y conserva el aspecto de hoy (comparado en capturas con fondos grises y con un tinte leve). Los cinco fondos grises van en `surface*`, iguales en los ocho temas; `CHROME`, la banda teñida de las cabeceras y la pestaña de acción activa, en `primaryContainer`; `SURFACE_ALT`, la de la fila del menú, la pestaña del repo y el buscador, en `secondaryContainer`. Los menús desplegados y las pestañas de acción inactivas (`PANEL`) pasan a gris, y `ACCENT_PURPLE` va en `tertiary`. `SUCCESS` y `WARNING` no se agregan en Consola: se pide a canone que adopte los *custom colors* de Material, que `material-color-utilities` define en `theme_utils.ts` (`CustomColor`, con la familia `color`, `onColor`, `colorContainer` y `onColorContainer` en cada modo), como regla para todo producto que muestre estados. Canone los adoptó (ADR-0209). Hecho (ADR-0093). Aceptado el 2026-11-21, con el detalle de los puntos 7 a 13 del ADR-0093: el texto en `onSurface` y `onSurfaceVariant`, lo inactivo al 38 % que genera `colors.py`, los cuatro bordes en `outline` y `outlineVariant`, el hover como capa de estado y no como rol, y los LED en los colores de estado. |
 | 17 | ¿Consola tiene solo el modo oscuro o los dos? | Consola | Solo el oscuro, como hoy. `colors.resolver.json` tiene solo `dark` en `mode`, la app lo usa siempre, y `theme.py` no tiene la elección del modo ni la clave `mode` |
 | 18 | ¿Cómo se ven las 39 partes sin hoja de estilo? | Consola | Cada espacio de trabajo aplica la `palette()` de su tema, y cada parte (`Look`) da su fondo y su texto como una `QPalette` que su widget aplica con `setPalette()`; los hijos la heredan. Lo que una paleta no expresa, como los bordes y el foco, lo dibuja `Style`, y los botones con relleno de acento usan la propiedad `variant` en `primary`, como pide `qt.md`. La tabla de partes de `theme.py` sigue siendo el único lugar donde se cambia un tono |
-| 19 | La ventana no tiene marco del sistema, y moverla o redimensionarla era solo con el ratón (§2.5, 2.1.1). ¿Entra en «toda función se puede usar con el teclado»? | Consola | Sí: el usuario pidió resolverlo el 2026-11-21. La marca abre un menú de la ventana con Mover y Tamaño (ADR-0095, *Propuesta*). Hecho |
+| 19 | La ventana no tiene marco del sistema, y moverla o redimensionarla era solo con el ratón (§2.5, 2.1.1). ¿Entra en «toda función se puede usar con el teclado»? | Consola | Sí: el usuario pidió resolverlo el 2026-11-21. La marca abre un menú de la ventana con Mover y Tamaño (ADR-0095). Hecho |
+| 20 | `desktop/scripts/aa.py` medía lo que pide «Accesibilidad» de `transversal.md`, y casi todo era de Qt y no de Consola. ¿Lo da canone? | Canone | Sí, decidido por el usuario el 2026-11-21: `tests/test_accessibility.py` es canónico y Consola da su ventana en `tests/conftest.py` (ADR-0216 de canone). Salió `aa.py`. Hecho |
 
 ### Abiertas
 
 | # | Pregunta | Dónde | Recomendación |
 |---|---|---|---|
 | 14 | `transversal.md` pide 48 × 48 a «cada objetivo táctil». Una app de escritorio se usa con el puntero: no está claro si rige, o si basta el 24 × 24 de AA (WCAG 2.5.8) | Canone | Que diga «objetivo táctil o de puntero» y fije el valor del escritorio |
-| 20 | `desktop/scripts/aa.py` mide lo que pide «Accesibilidad» de `transversal.md`, y casi todo es de Qt y no de Consola. ¿Lo da canone? | Canone | Sí: la parte de Qt como archivo canónico de `plantilla/qt/`, y cada repo con un módulo chico propio. Anotado en `canone/pendientes/medicion-de-accesibilidad.md` (2026-11-21) |
 
 ## 4. Sin verificar
 

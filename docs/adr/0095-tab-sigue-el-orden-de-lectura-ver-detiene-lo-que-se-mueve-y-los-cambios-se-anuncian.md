@@ -1,9 +1,8 @@
 # ADR-0095 · Tab sigue el orden de lectura, Ver detiene lo que se mueve y los cambios de estado se anuncian
 
-- **Estado:** Propuesta. El usuario pidió el 2026-11-21 implementar sin preguntar las filas 2.1.1,
-  2.4.3, 2.2.2, 1.4.4 y 4.1.3 del §2.5 del plan `cumplir_canone.md` como dice `transversal.md`, y
-  después que se resolviera lo que quedaba (2.4.7, 1.4.11, 2.5.8 a 24 px y mover la ventana con el
-  teclado); cómo cumplirlas se eligió al implementar
+- **Estado:** Aceptada. El usuario la confirmó el 2026-11-21 entera, para revisarla en la app y
+  cambiar lo que no le guste. `transversal.md` de canone pide los criterios de WCAG; cómo se
+  cumplen en Consola, cada punto de abajo, se eligió al implementar
 - **Fecha:** 2026-11-21
 - **Alcance:** `desktop/src/app/windows/main_window.py`, `desktop/src/app/widgets/`,
   `desktop/src/app/services/motion.py`, `desktop/src/app/services/announce.py`,
@@ -69,7 +68,7 @@ mide en píxeles independientes del dispositivo.
 
 - Tab recorre 55 controles en vez de 38: la marca, las pestañas, las cabeceras y los separadores
   se suman.
-- Un widget nuevo que responde al ratón tiene que recibir el foco y dibujarlo; `scripts/aa.py` lo
+- Un widget nuevo que responde al ratón tiene que recibir el foco y dibujarlo; `tests/test_accessibility.py` lo
   detecta por su rol accesible o por su cursor.
 - Un panel nuevo entra solo en el orden de Tab, por su lugar en pantalla.
 - El «Tamaño del texto» de Windows no agranda la app.
