@@ -34,8 +34,7 @@
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
 > `canone/plataformas/python.md`, `canone/plataformas/qt.md`, «Tema» y «Accesibilidad» de
 > `canone/plataformas/transversal.md` y este plan. Falta el selector de idioma, que llega con el
-> segundo idioma (§2.8), la prueba de `release.yml` con un tag (§4), el 48 × 48 del §2.5, que espera
-> la pregunta 14 y el §3, «Abiertas».
+> segundo idioma (§2.8) y la prueba de `release.yml` con un tag (§4).
 
 ## 1. Cómo se comprueba
 
@@ -84,7 +83,7 @@ proceso y con un cliente de UI Automation:
 |---|---|---|
 | 1.4.3, contraste del texto | Nada | — |
 | 1.4.11, contraste de lo que no es texto | Nada: el `»` de la barra de menú, los glifos de los botones y las líneas de la barra entre secciones y del separador dan 3:1 o más | — |
-| 2.5.8, objetivo de 24 × 24 | Nada a 1400 × 860 ni a 960 × 500 | Si el 48 × 48 de `transversal.md` rige en el escritorio (pregunta 14) |
+| 2.5.8, objetivo de 24 × 24 | Nada a 1400 × 860 ni a 960 × 500. En el escritorio rige 24 × 24 (pregunta 14) | — |
 | 2.1.1, todo con el teclado | Nada: todo lo que responde al ratón recibe el foco, y la marca abre el menú que mueve y redimensiona la ventana. Bajo Wayland, «Mover» no hace nada | — |
 | 2.1.2, sin trampas | Nada: Tab sale de los 55 controles | — |
 | 2.4.3, orden del foco | Nada: Tab recorre los 55 controles por bandas y por líneas | — |
@@ -181,6 +180,7 @@ duda es cómo cumplirla.
 | 11 | «Los widgets se ubican con layouts», pero tres flotan sobre otros: la lista del buscador, la búsqueda de la consola y los bordes de la ventana | Canone | `qt.md` exceptúa lo que flota encima de otros: va con `setGeometry()` y su tamaño sale de `sizeHint()` (ADR-0195 de canone). En Consola, la búsqueda de la consola ya toma su alto de `sizeHint()` |
 | 12 | «Un diálogo modal se abre con `open()`». ¿Rige para los menús contextuales, que se abren con `exec()`? | Canone | No: un `QMenu` no es un diálogo, y Qt documenta `exec()` como su uso común; la nota que pide `open()` está solo en `QDialog::exec()`. `qt.md` no cambia |
 | 13 | Los colores de texto y de borde no llegan al contraste de AA (§2.5) | Canone | `transversal.md` pide el contraste a cada rol de texto y a `outline` en cada tema y cada modo, y `tokens.py --check` lo hace cumplir. Consola lo cumple al pasar sus colores a `brand/tokens/` (§2.10) |
+| 14 | `transversal.md` pedía 48 × 48 a «cada objetivo táctil». Una app de escritorio se usa con el puntero: ¿rige, o basta el 24 × 24 de WCAG 2.5.8? | Canone | El usuario pidió el 2026-11-21 aplicar lo que recomendara la literatura: WCAG 2.5.8 pide 24 × 24 a todo puntero, ratón incluido, y Apple y Microsoft dan al escritorio menos que al teléfono. `transversal.md` dice ahora que en una app que solo se usa con el puntero, como la de Qt, cada objetivo mide 24 × 24 (ADR-0217 de canone). Consola ya cumple. Hecho |
 | 15 | Las paletas de Consola son por repo y viajan con él. En «Tema», el tema lo elige el usuario como preferencia de cada dispositivo, en la clave `theme` de `QSettings` | Consola | Una excepción en Consola, y no un cambio en canone: ningún otro producto lo necesita hoy. Las ocho paletas pasan a ser ocho temas de `brand/tokens/`, el tema se elige por repo y se guarda en `.consola/params.json`, y cada espacio de trabajo toma la `palette()` de su tema. Va en un ADR que reemplaza el punto 1 del ADR-0075 solo para esto. Si otro producto llega a necesitarlo, como una marca por cliente o un color por entorno, se propone a canone |
 | 16 | Los roles de Consola no son los de Material: dos escaleras de fondos (teñida y gris), cuatro grises de texto, cuatro bordes y colores de estado (`SUCCESS`, `WARNING`, los LED) que el `ColorScheme` no tiene. `tokens.py` falla con un rol de más y `test_theme.py` con un literal fuera de `colors.py` | Consola, y canone los estados | Consola adopta los 46 roles de Material, sin nombres propios, y conserva el aspecto de hoy (comparado en capturas con fondos grises y con un tinte leve). Los cinco fondos grises van en `surface*`, iguales en los ocho temas; `CHROME`, la banda teñida de las cabeceras y la pestaña de acción activa, en `primaryContainer`; `SURFACE_ALT`, la de la fila del menú, la pestaña del repo y el buscador, en `secondaryContainer`. Los menús desplegados y las pestañas de acción inactivas (`PANEL`) pasan a gris, y `ACCENT_PURPLE` va en `tertiary`. `SUCCESS` y `WARNING` no se agregan en Consola: se pide a canone que adopte los *custom colors* de Material, que `material-color-utilities` define en `theme_utils.ts` (`CustomColor`, con la familia `color`, `onColor`, `colorContainer` y `onColorContainer` en cada modo), como regla para todo producto que muestre estados. Canone los adoptó (ADR-0209). Hecho (ADR-0093). Aceptado el 2026-11-21, con el detalle de los puntos 7 a 13 del ADR-0093: el texto en `onSurface` y `onSurfaceVariant`, lo inactivo al 38 % que genera `colors.py`, los cuatro bordes en `outline` y `outlineVariant`, el hover como capa de estado y no como rol, y los LED en los colores de estado. |
 | 17 | ¿Consola tiene solo el modo oscuro o los dos? | Consola | Solo el oscuro, como hoy. `colors.resolver.json` tiene solo `dark` en `mode`, la app lo usa siempre, y `theme.py` no tiene la elección del modo ni la clave `mode` |
@@ -190,9 +190,7 @@ duda es cómo cumplirla.
 
 ### Abiertas
 
-| # | Pregunta | Dónde | Recomendación |
-|---|---|---|---|
-| 14 | `transversal.md` pide 48 × 48 a «cada objetivo táctil». Una app de escritorio se usa con el puntero: no está claro si rige, o si basta el 24 × 24 de AA (WCAG 2.5.8) | Canone | Que diga «objetivo táctil o de puntero» y fije el valor del escritorio |
+Ninguna.
 
 ## 4. Sin verificar
 
