@@ -20,7 +20,7 @@ from __future__ import annotations
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication, Qt, Signal
-from PySide6.QtWidgets import QCheckBox, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QCheckBox, QVBoxLayout, QWidget
 
 from app import theme
 from app.services import params_store, protection
@@ -49,13 +49,6 @@ class SecurityPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        # Five fixed checkboxes, and still inside a scroll: the
-        # accordion section drags by hand and without it, shrinking too
-        # much crushed the checkboxes instead of cropping them.
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        theme.focus_frame(scroll)
-
         self._body = QWidget()
         self.pal = NEUTRAL
         self._restyle()
@@ -80,8 +73,7 @@ class SecurityPanel(QWidget):
             self._checks[target.id] = check
             lay.addWidget(check)
 
-        scroll.setWidget(self._body)
-        root.addWidget(scroll)
+        root.addWidget(self._body)
 
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
@@ -97,14 +89,11 @@ class SecurityPanel(QWidget):
         """Return what is shown: what `TabPanel._guard` applies."""
         return dict(self._state)
 
-    def content_height(self) -> int:
-        """Return the height the checkboxes ask for without scrolling.
-
-        `TabPanel._relayout_right` uses it to decide how much to give
-        the section. It asks the body and not the scroll, which has no
-        height of its own.
-        """
-        return self._body.sizeHint().height()
+    def toggle(self, target_id: str) -> None:
+        """Flip a target's checkbox, as a click on it: it saves."""
+        check = self._checks.get(target_id)
+        if check is not None:
+            check.setChecked(not check.isChecked())
 
     def _toggle(self, target_id: str, checked: bool) -> None:
         self._state[target_id] = bool(checked)

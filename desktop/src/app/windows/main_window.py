@@ -254,7 +254,7 @@ class MainWindow(QMainWindow):
         # edge. It reflects the active repo and refreshes when a machine
         # task touches the environment (`TabPanel.machine_changed`).
         self.status_bar = WorkspaceStatusBar(NEUTRAL)
-        self.status_bar.security_clicked.connect(self._on_security_clicked)
+        self.status_bar.padlock_clicked.connect(self._on_padlock_clicked)
         self.main_layout.addWidget(self.status_bar)
 
         # Over all the content, so they are created last.
@@ -665,15 +665,16 @@ class MainWindow(QMainWindow):
         if workspace is self.current_workspace:
             self._refresh_protection(workspace)
 
-    @Slot()
-    def _on_security_clicked(self) -> None:
-        """Jump to the active repo's Security section.
+    @Slot(str)
+    def _on_padlock_clicked(self, target_id: str) -> None:
+        """Protect or unprotect that target of the active repo.
 
-        It is a click on the status bar's indicator (`ADR-0018` §4).
+        It is a click on a padlock of the status bar (`ADR-0018` §4).
+        The panel saves it and tells the bar, which redraws the padlock.
         """
         workspace = self.current_workspace
         if workspace is not None:
-            workspace.reveal_security()
+            workspace.security_panel.toggle(target_id)
 
     @Slot(str)
     def _on_action_requested(self, capability_id: str) -> None:

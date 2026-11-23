@@ -29,6 +29,8 @@ from app.services import palettes, params_store
 from app.services.projects import Project
 
 _KEY = "projects/list"
+# The repo whose tab was selected, to select it again on the next start.
+_ACTIVE_KEY = "projects/active"
 
 
 def identity(path: str) -> str:
@@ -130,6 +132,16 @@ def save(projects: list[Project]) -> None:
     QSettings().setValue(
         _KEY, json.dumps([_to_dict(p) for p in dedupe(projects)], ensure_ascii=False)
     )
+
+
+def save_active(project: Project) -> None:
+    """Save which repo's tab is selected."""
+    QSettings().setValue(_ACTIVE_KEY, identity(project.path))
+
+
+def load_active() -> str:
+    """Return the identity of the repo selected last time, or ""."""
+    return str(QSettings().value(_ACTIVE_KEY, ""))
 
 
 def clear() -> None:

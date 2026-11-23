@@ -1,9 +1,9 @@
 """Which sections of the side column stay visible.
 
 The sections are in `widgets/tab_panel.py`: Action, Security,
-Parameters, Settings and Machine. They hide from the Ver menu or a
-section header's right click. It is a global app preference, not per
-repository, in QSettings like «only favorites»
+Parameters, Deduced, Settings and Machine. They hide from the Ver menu
+or a section header's right click. It is a global app preference, not
+per repository, in QSettings like «only favorites»
 (`services/favorites.py`).
 """
 
@@ -23,14 +23,26 @@ SECTIONS = {
     "accion": QT_TRANSLATE_NOOP("section_visibility", "Acción"),
     "seguridad": QT_TRANSLATE_NOOP("section_visibility", "Seguridad"),
     "parametros": QT_TRANSLATE_NOOP("section_visibility", "Parámetros"),
+    "deducido": QT_TRANSLATE_NOOP("section_visibility", "Deducido"),
     "configuracion": QT_TRANSLATE_NOOP("section_visibility", "Configuración del repo"),
     "maquina": QT_TRANSLATE_NOOP("section_visibility", "Configuración de la máquina"),
 }
 
 
+# The sections of the left column, below the run tabs
+# (`widgets/tab_view.py`), saved in the same list.
+CONSOLE_SECTIONS = {
+    "consola": QT_TRANSLATE_NOOP("section_visibility", "Consola"),
+    "explorador": QT_TRANSLATE_NOOP("section_visibility", "Explorador"),
+    "errores": QT_TRANSLATE_NOOP("section_visibility", "Errores y avisos"),
+    "comandos": QT_TRANSLATE_NOOP("section_visibility", "Comandos"),
+}
+
+
 def title(section_id: str) -> str:
     """Return a section's title in the interface language."""
-    return QCoreApplication.translate("section_visibility", SECTIONS[section_id])
+    text = SECTIONS.get(section_id) or CONSOLE_SECTIONS[section_id]
+    return QCoreApplication.translate("section_visibility", text)
 
 
 # Hidden until the Ver menu shows them, while nothing is saved.

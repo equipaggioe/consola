@@ -12,7 +12,6 @@ from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
     QPushButton,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -126,7 +125,7 @@ class EnvPanel(QWidget):
         """
         bar = QFrame()
         lay = QHBoxLayout(bar)
-        lay.setContentsMargins(16, 8, 16, 8)
+        lay.setContentsMargins(16, 8, 16, 16)
         lay.setSpacing(8)
 
         self.import_btn = QPushButton(
@@ -175,7 +174,8 @@ class EnvPanel(QWidget):
         """
         # The scroll's viewport fills with Base, the body's color.
         theme.SECTION_BODY.on(self.pal).dress(self)
-        theme.FOOTER.on(self.pal).band(self.file_bar, "top")
+        # No band of its own: the buttons sit on the section's body.
+        theme.SECTION_BODY.on(self.pal).dress(self.file_bar)
         self._restyle_create()
 
     def _restyle_create(self) -> None:
@@ -202,12 +202,7 @@ class EnvPanel(QWidget):
         return metrics.horizontalAdvance(longest) + 12
 
     def _build_body(self) -> QWidget:
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        theme.focus_frame(scroll)
-
         content = QWidget()
-        self._content = content  # `content_height` measures it
         lay = QVBoxLayout(content)
         lay.setContentsMargins(16, 12, 16, 12)
         lay.setSpacing(14)
@@ -247,8 +242,7 @@ class EnvPanel(QWidget):
                 block.addWidget(row)
             lay.addWidget(block_widget)
 
-        scroll.setWidget(content)
-        return scroll
+        return content
 
     # --- API ---
     def values(self) -> dict[str, str]:
@@ -274,15 +268,6 @@ class EnvPanel(QWidget):
         self._refresh_defaults()
         self.values_changed.emit(self.values())
         self.reloaded.emit()
-
-    def content_height(self) -> int:
-        """Return the height of the whole form and its footer.
-
-        From the content, not the scroll wrapping it: a `QScrollArea`
-        has no height of its own. It is what Settings asks for when the
-        machine section, below, is the one taking the excess.
-        """
-        return self._content.sizeHint().height() + self.file_bar.sizeHint().height()
 
     def reload_machine(self) -> None:
         """Pass on the machine keys the machine section saved.

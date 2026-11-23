@@ -19,6 +19,7 @@ Un seguro por botón tampoco alcanza: un mismo botón puede tocar dos cosas (`cl
 5. El interruptor vive en su **propia sección**, no entre los parámetros: un seguro que se quita en el mismo gesto con el que se aprieta Ejecutar se vuelve parte del gesto.
 6. El guard se aplica en el punto único por el que pasan las dos formas de ejecutar.
 7. Un objetivo que no figura en el archivo cae en su default: agregar uno nuevo no puede dejar desprotegidos a los repos que ya existen.
+9. *(Cambio del 2026-11-23)* **Los candados de la barra de estado también son interruptores.** Un clic en un candado protege o desprotege ese objetivo y lo guarda, igual que su casilla de la sección Seguridad; ya no salta a la sección. Sustituye la parte del punto 5 que apartaba el interruptor del resto de la ventana: el riesgo de quitar el seguro por reflejo queda aceptado a cambio de verlo y cambiarlo sin salir de lo que se hace. Casilla y candado leen y escriben el mismo estado, así que no pueden contradecirse.
 8. *(Propuesta, sin construir)* La confirmación escrita de un destructivo debería ser **el nombre del repo** y no una palabra fija: escribir `BORRAR` es correcto en cualquier repo, así que el automatismo siempre acierta y la comprobación no comprueba nada.
 
 ## Consecuencias

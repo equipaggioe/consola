@@ -8,7 +8,7 @@ barra de menú     catálogo por grupo · Ver · buscador
 ─────────────────────────────────────────────┬──────────────────────────────
  pestañas de EJECUCIÓN del repo activo       │ Acción
  CONSOLA (nombre de la vista) · URL         │ Seguridad
- consola  |  segunda vista (navegador | base)│ Parámetros
+ consola | navegador; EXPLORADOR (base)      │ Parámetros
                                              │ Configuración del repo
                                              ├──────────────────────────────
                                              │ Limpiar · ☆ · Simulacro · Ejecutar
@@ -69,7 +69,7 @@ Fusion saca sus marcos del color de la ventana oscurecido, y en el modo oscuro n
 | Botón | Fondo `Button`, `Midlight` bajo el cursor; el contorno en `Dark` solo si su parte lo tiene, y con el foco del teclado, 2 px de `Highlight` |
 | Casilla | 15 × 15: el fondo de los campos (`Light`) con el contorno en `Dark`, o rellena de `Highlight` con la palomita en `HighlightedText`, y con el foco, el contorno en 2 px de `Highlight`. Inactiva, en el texto inactivo |
 | Barra de desplazamiento | 8 px, sin flechas ni canal: solo el asa, en `Dark` y en `PlaceholderText` bajo el cursor |
-| Separador de un `QSplitter` | Se agarra en 24 px (`Metrics.SPLITTER`), y se ve una línea de 1 px de `Dark` en el medio |
+| Separador de un `QSplitter` | Una línea de 1 px de `Dark`. El de la columna derecha mide 1 px (`setHandleWidth(1)`) y se mueve con las flechas; los demás se agarran en 24 px (`Metrics.SPLITTER`) con la línea en el medio |
 | Separador de un menú | 1 px de `Mid` |
 | «»» de la barra de menú | Dos chevrones en el `ButtonText` de la barra (`Style.standardIcon`), en un botón de 24 px de ancho: el de Fusion es oscuro y no se veía sobre la banda |
 | Casilla, botón de un campo | 24 px de alto como mínimo: la casilla por `sizeFromContents`, y el botón de borrar de un campo por el tamaño de su icono (`Metrics.FIELD_ICON`) |
@@ -88,7 +88,7 @@ Lo que **no** se tiñe: el texto y los colores de estado (`error` y los custom c
 
 La pestaña de ejecución activa (`RUN_TAB_ACTIVE`) toma el fondo de la cabecera «CONSOLA», que tiene debajo, con el nombre en negrita: rompe la línea de la barra, y esa abertura es lo que la une a su contenido. Las demás (`RUN_TAB`) llevan el gris de la barra y el contorno en `outline`, que es lo que las separa de ella; su relleno se detiene una fila antes del borde inferior, así que la línea de la barra sigue de largo debajo de ellas.
 
-Debajo de las pestañas de ejecución va una barra que nombra la vista (`TabView._build_header`, parte `CONSOLE_HEADER`): «CONSOLA», o «NAVEGADOR» o «EXPLORADOR» cuando se ve la segunda vista. Después del nombre lleva el endpoint que publicó la tarea —LED, estado y URL— y, a la derecha, Copiar, «Abrir ↗» y el botón que cambia de vista; todo eso aparece y desaparece con la URL. Hace en la columna izquierda lo que las cabeceras de sección hacen en la derecha: es la misma parte (`CONSOLE_HEADER = SECTION_HEADER`), así que se pinta igual y cambia con ellas, con las mismas medidas (30 px de alto, mayúsculas de 12 px en negrita), pero no se pliega.
+Debajo de las pestañas de ejecución, la columna izquierda tiene secciones como las de la derecha (`AccordionSection`): misma cabecera, mismas medidas, y se pliegan con un clic, Espacio o Enter. La primera es la consola: su cabecera dice «CONSOLA», o «NAVEGADOR» cuando se ve el navegador, y después del nombre lleva el endpoint que publicó la tarea —LED, estado y URL— y, a la derecha, Copiar, «Abrir ↗» y el botón que cambia entre consola y navegador; todo eso aparece y desaparece con la URL (`TabView._build_header`). En «Explorar base», el explorador va en una segunda sección, «EXPLORADOR», debajo de la consola, mientras vive la conexión. Debajo van «ERRORES Y AVISOS» y «COMANDOS»: copian de la consola las líneas de error y aviso, y las de los comandos que corrió la tarea (nivel `cmd`), y su cabecera las cuenta (`_LogSection`). Aparecen con la primera línea de su tipo —la de errores abierta, la de comandos plegada— y se vacían y ocultan con Limpiar. Las secciones van en un separador vertical (`widgets/splitter.py`): al abrir o plegar una, las abiertas se reparten el alto en partes iguales, y las barras entre ellas lo cambian a mano, con el ratón o con las flechas. Cada barra mide 1 px, Qt la agarra en 5, y se pinta del color de la cabecera de abajo: no se ve, solo cambia el cursor; plegada, queda solo su cabecera (`TabView.fit_sections`). El clic derecho en una cabecera abre «Secciones visibles», como en la columna derecha, y se guarda en la misma lista que Ver (`section_visibility.CONSOLE_SECTIONS`): una sección oculta no aparece aunque tenga líneas.
 
 Las pestañas de repo **no seleccionadas** llevan de fondo el acento del repo activo —el color con el que queda pintada la barra de título— y el contorno de `on_primary`, el mismo del «+», que es lo único que las recorta; el hover lo sube de 90 a 150 de alfa. La **seleccionada** se pinta de `secondary_container`, la banda de la fila del menú (`MENU_BAR`), que es la que va justo debajo: la pestaña queda conectada con el contenido que abre, como en un navegador, con el nombre en el acento del repo y sin contorno. El «+» es una pestaña más, la que todavía no tiene repo. Cambiar el color del repo activo repinta la fila entera.
 
@@ -126,7 +126,7 @@ Sin ningún repo abierto no hay de quién tomar el tono: la ventana se pinta con
 
 Los menús de acciones son los grupos del catálogo, en el orden en que `services/catalog.py` los declara, y dentro las acciones en ese mismo orden: el del uso real, de preparar a usar a mirar. Cada acción va por su nombre, sin el emoji; una destructiva lleva `⚠` al final. Una favorita se marca con el filete de su fila en el buscador o con la estrella del pie, junto a Ejecutar ([§5](#5-la-columna-derecha)).
 
-Después va **Ver**, que tiene «Solo favoritos», una casilla por sección de la columna derecha, «Animaciones» y «RAM disponible» ([§10](#10-accesibilidad)) e «Idioma» ([04](04_conceptos_transversales.md) §10): todas son preferencias de la aplicación, no del repo.
+Después va **Ver**, que tiene «Solo favoritos», una casilla por sección de la columna derecha y, tras un separador, una por sección de la izquierda, «Animaciones» y «RAM disponible» ([§10](#10-accesibilidad)) y, tras un separador, una opción por idioma ([04](04_conceptos_transversales.md) §10), sin submenú ni encabezado: todas son preferencias de la aplicación, no del repo.
 
 Dentro de un menú **no hay encabezados de sección**: los tramos se cortan con rayas. Una raya sale de `Capability.cut` —el catálogo declara que ese botón abre un tramo— o de ser el primer destructivo del grupo, que va siempre al fondo detrás de una raya sin que nadie lo declare ([ADR-0043](../adr/0043-un-menu-sin-secciones.md)). Un menú que se quedó sin acciones aplicables desaparece de la barra, y cada raya se dibuja solo si quedó algo visible de los dos lados.
 
@@ -140,25 +140,28 @@ El recuento se **pide**, no se hace en el acto: `windows/main_window.py::_refres
 
 Las pestañas de ejecución son de carpeta, como las de repo en la barra de título: la activa se pinta del fondo de la cabecera «CONSOLA», llega hasta la línea de abajo de la barra y la tapa, así que se abre hacia la consola y la columna derecha, que se leen como su contenido. Lleva el nombre en negrita. Las demás llevan contorno, que el hover sube de 110 a 200 de alfa ([§2](#2-el-color-del-repo)). Llevan el nombre de la acción, sin el emoji.
 
-`TabView` tiene la consola y, si la capacidad lo declara, una segunda vista: el navegador embebido (`view='web'`) o el explorador de base (`view='db'`). La cabecera de la vista muestra la URL que publicó la tarea con su estado ([ADR-0008](../adr/0008-un-launcher-entrega-un-endpoint.md)).
+`TabView` tiene la consola y, si la capacidad lo declara, una segunda vista: el navegador embebido (`view='web'`), que ocupa el lugar de la consola, o el explorador de base (`view='db'`), en su propia sección debajo. La cabecera de la vista muestra la URL que publicó la tarea con su estado ([ADR-0008](../adr/0008-un-launcher-entrega-un-endpoint.md)).
 
-La pestaña **«Configuración del repo»** no es del catálogo: la abren Guardar e importar en esa sección, y guarda lo que hicieron. No tiene parámetros; mostrándola, la sección Configuración enseña el archivo entero, sin filtrar. No se reabre al arrancar (`TabPanel._open_config_tab`).
+La pestaña **«Configuración del repo»** no es del catálogo: la abren Guardar e importar en esa sección, sin traerla al frente (el formulario no se mueve), y guarda lo que hicieron. No tiene parámetros; mostrándola, la sección Configuración enseña el archivo entero, sin filtrar. No se reabre al arrancar (`TabPanel._open_config_tab`).
 
-Las pestañas se reordenan arrastrando (`widgets/reorderable_tab.py`) y **se reabren al arrancar**: qué botones quedaron a mano es una decisión sobre ese repo, y va a su `params.json` ([ADR-0033](../adr/0033-que-es-de-la-app-y-que-del-repo.md)). Reabrirlas no corre nada.
+Las pestañas se reordenan arrastrando (`widgets/reorderable_tab.py`) y **se reabren al arrancar**, con la que estaba activa al cerrar al frente (`TabPanel._restore_tabs`): qué botones quedaron a mano es una decisión sobre ese repo, y va a su `params.json` ([ADR-0033](../adr/0033-que-es-de-la-app-y-que-del-repo.md)). Reabrirlas no corre nada.
 
 ## 5. La columna derecha
 
-Un acordeón de cinco secciones («Acción», «Seguridad», «Parámetros», «Configuración del repo», «Configuración de la máquina»), no pestañas: se leen juntas —un bloqueo de Parámetros puede decir «faltan claves» y la respuesta está en Configuración, debajo—.
+Un acordeón de seis secciones («Acción», «Seguridad», «Parámetros», «Deducido», «Configuración del repo», «Configuración de la máquina»), no pestañas: se leen juntas —un bloqueo de Parámetros puede decir «faltan claves» y la respuesta está en Configuración, debajo—.
+
+El ancho mínimo de la columna es el que piden sus secciones (`_ColumnScroll.minimumSizeHint`, que suma la barra de desplazamiento): el divisor no la deja más angosta que sus campos, así que ninguno sale cortado, ni al abrir la ventana ni al arrastrar.
 
 | Sección | Qué muestra |
 |---|---|
 | Acción | La ficha larga del comando: qué hace y qué pasos ejecuta, de `services/command_docs.py`. Sin texto largo, cae en la descripción de una línea más las etiquetas de los pasos |
 | Seguridad | Los seis interruptores del seguro del repo ([14](14_seguro_de_destructivos.md)) |
-| Parámetros | Los ejes y los pasos de la acción abierta |
+| Parámetros | Los ejes y los pasos de la acción abierta. Una opción con un solo valor no sale aquí, sino en Deducido |
+| Deducido | Lo que la acción va a usar sin que se elija, en bloques que se ocultan vacíos (`ParamsPanel.deduced`): lo que hará al correr, como los paquetes que instala; las opciones de un solo valor («Fijas»), y las claves de la acción que están vacías y corren con su valor por defecto («Por defecto»), como el rol de la base, que sale del nombre del repo. Solo informa: no se edita nada |
 | Configuración del repo | `.consola/config.env` del repo, **filtrado** a lo que la acción puede llegar a mirar con lo que está marcado ahora. Sin las claves de máquina |
 | Configuración de la máquina | Todas las claves `scope='machine'`, sin filtrar, con Recargar y Guardar (`widgets/machine_panel.py`): el único lugar donde se editan. Empieza oculta: se muestra desde el menú Ver. Abierta, se le reserva el alto de todas sus filas |
 
-La columna no tiene cabecera propia: empieza por la primera sección visible. La cabecera de cada sección se ve siempre, esté abierta o cerrada. El reparto de alto es automático y se puede forzar arrastrando la barra entre dos secciones abiertas, de 24 px de alto con una línea en `outline` en el medio, que lleva el color del cuerpo de la sección y se aclara con el hover (`SECTION_GRIP`); doble clic vuelve al automático. El pie con Recargar y Guardar de las dos configuraciones tiene alto fijo: una sección corta achica el formulario, no los botones. Qué secciones se ocultan es preferencia global de la aplicación, no del repo: se elige en el menú Ver o con el clic derecho sobre la cabecera de una sección. Mientras no hay nada guardado, la única oculta es «Configuración de la máquina» (`section_visibility.HIDDEN_BY_DEFAULT`).
+La columna no tiene cabecera propia: empieza por la primera sección visible. La cabecera de cada sección se ve siempre, esté abierta o cerrada. Toda la columna va en un solo scroll (`TabPanel.right_scroll`): una sección abierta se ve entera, con el alto que pide su contenido, y las largas se recorren bajando la columna; ninguna sección tiene barra propia ni barra para arrastrar su alto. El pie con Recargar y Guardar de las dos configuraciones se ve al final de su sección. Qué secciones se ocultan es preferencia global de la aplicación, no del repo: se elige en el menú Ver o con el clic derecho sobre la cabecera de una sección. Mientras no hay nada guardado, la única oculta es «Configuración de la máquina» (`section_visibility.HIDDEN_BY_DEFAULT`).
 
 En Parámetros, un campo de texto o una lista va a la derecha de su rótulo, como en Configuración del repo: la columna de rótulos tiene el ancho de la de Configuración (`EnvPanel.label_width`) y los dos cuerpos tienen los mismos márgenes, así que los campos de las dos secciones empiezan en la misma x y tienen el mismo ancho. Un rótulo más largo que la columna se parte en dos líneas. Las casillas (componentes, pasos, opciones) siguen en columna bajo su título, y los campos de texto van al final, debajo de ellas: «Otra IP» de Cloudflare queda bajo la opción que la pide.
 
@@ -180,7 +183,7 @@ Un eje consultado cuya fuente falla —el SDK, el VPS, la cámara o GitHub— no
 
 ## 8. La barra de estado
 
-Una sola, de borde a borde, fuera de los `TabPanel`. A la izquierda, lo del repo activo: sus candados, uno por objetivo del seguro; cada candado es un botón que salta a la sección Seguridad. A la derecha, lo de la máquina, que vale para cualquier repo: el estado de Java, Git, Android y Flutter (mirando el disco, sin lanzar `flutter doctor`) y, tras una raya, la RAM disponible. Sin repo abierto, la izquierda queda vacía.
+Una sola, de borde a borde, fuera de los `TabPanel`. A la izquierda, lo del repo activo: sus candados, uno por objetivo del seguro; cada candado es un botón que protege o desprotege ese objetivo. A la derecha, lo de la máquina, que vale para cualquier repo: el estado de Java, Git, Android y Flutter (mirando el disco, sin lanzar `flutter doctor`) y, tras una raya, la RAM disponible. Sin repo abierto, la izquierda queda vacía.
 
 El LED verde **pulsa** solo cuando algo está vivo ahora mismo; un hecho estático —una herramienta instalada— es el mismo verde sin animación. El pulso se detiene con «Animaciones», en Ver, y la RAM, que se refresca cada 5 s, se oculta con «RAM disponible» (`services/motion.py`).
 

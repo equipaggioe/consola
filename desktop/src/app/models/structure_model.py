@@ -13,9 +13,9 @@ from PySide6.QtCore import (
     QPersistentModelIndex,
     Qt,
 )
-from PySide6.QtGui import QFont
 
-from app.theme import mono
+from app import theme
+from app.theme import Fonts, mono
 
 
 class StructureModel(QAbstractTableModel):
@@ -72,5 +72,5 @@ class StructureModel(QAbstractTableModel):
         if role == Qt.ItemDataRole.AccessibleDescriptionRole:
             return self.headers[index.column()]
         if role == Qt.ItemDataRole.FontRole and index.column() == 0:
-            return mono(QFont())
+            return mono(theme.font(Fonts.SIZE_SM))
         return None

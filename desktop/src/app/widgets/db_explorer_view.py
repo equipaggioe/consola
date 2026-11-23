@@ -128,7 +128,9 @@ class DbExplorerView(QWidget):
         self.setPalette(colors)
         self.setAutoFillBackground(True)
         self.model.set_accent(self.pal.accent)
-        theme.TABLE_TREE.on(self.pal).band(self._tree_side, "right")
+        # No edge of its own: the splitter's line is the only one
+        # between the tree and the data.
+        theme.TABLE_TREE.on(self.pal).dress(self._tree_side)
         theme.TOOL_BAR.on(self.pal).band(self._head, "bottom")
         theme.FIELD.on(self.pal).dress(self.filter_box, fill=False)
         theme.HINT.on(self.pal).dress(self.models_label)
@@ -144,6 +146,9 @@ class DbExplorerView(QWidget):
             QCoreApplication.translate("DbExplorerView", "Ancho del árbol"),
         )
         splitter.setChildrenCollapsible(False)
+        # A line of 1 px, grabbed in 5 by Qt, and not a band of 24 with
+        # its line in the middle beside the tree's edge.
+        splitter.setHandleWidth(1)
         root.addWidget(splitter)
 
         # Left: filter, grouping, summary against the models, and tree.
@@ -200,21 +205,17 @@ class DbExplorerView(QWidget):
         ll.addWidget(self.tree, 1)
         splitter.addWidget(left)
 
-        # Right: header, breadcrumb and tabs.
+        # Right: breadcrumb and status, when there are, and tabs.
         right = QWidget()
         rl = QVBoxLayout(right)
         rl.setContentsMargins(0, 0, 0, 0)
         rl.setSpacing(0)
 
-        head = QFrame()
-        self._head = head
-        hl = QVBoxLayout(head)
-        hl.setContentsMargins(12, 8, 12, 8)
-        hl.setSpacing(4)
-        top = QHBoxLayout()
-        top.setSpacing(8)
-        self.title = QLabel(QCoreApplication.translate("DbExplorerView", "Elige una tabla"))
-        self.title.setFont(theme.font(Fonts.SIZE_BASE, QFont.Weight.DemiBold))
+        # The open table, what it holds and Contar go in the header of
+        # the explorer's section (`TabView._start_explorer`), not in a
+        # band of their own: `heading` hands them over.
+        self.title = QLabel("")
+        self.title.setFont(theme.font(Fonts.SIZE_SM, QFont.Weight.DemiBold))
         self.subtitle = QLabel("")
         self.subtitle.setFont(theme.font(Fonts.SIZE_XS))
         # A long name gets cut; it takes no width from the tree.
@@ -225,12 +226,14 @@ class DbExplorerView(QWidget):
             QCoreApplication.translate("DbExplorerView", "Contar las filas exactas (COUNT(*))"),
             self._count,
         )
-        self.count_btn.setEnabled(False)
-        top.addWidget(self.title)
-        top.addWidget(self.subtitle)
-        top.addStretch()
-        top.addWidget(self.count_btn)
-        hl.addLayout(top)
+        self.count_btn.setVisible(False)
+        self.heading = (self.title, self.subtitle, self.count_btn)
+
+        head = QFrame()
+        self._head = head
+        hl = QVBoxLayout(head)
+        hl.setContentsMargins(12, 8, 12, 8)
+        hl.setSpacing(4)
 
         self.trail_row = QHBoxLayout()
         self.trail_row.setSpacing(4)
@@ -246,6 +249,7 @@ class DbExplorerView(QWidget):
         self.status.setVisible(False)
         hl.addWidget(self.status)
         rl.addWidget(head)
+        self._fit_head()
 
         self.tabs = QTabWidget()
         self.model = RowsModel(self.locale(), self)
@@ -378,6 +382,7 @@ class DbExplorerView(QWidget):
 
     def _show_status(self, text: str, error: bool = False) -> None:
         self.status.setVisible(bool(text))
+        self._fit_head()
         color = Colors.ERROR if error else Colors.ON_SURFACE_VARIANT
         self.status.setFont(theme.font(Fonts.SIZE_XS))
         theme.ink(self.status, color)
@@ -646,7 +651,13 @@ class DbExplorerView(QWidget):
             self.count_btn.setEnabled(False)
             self._send("count", relation=rel, where=where)
 
+    def _fit_head(self) -> None:
+        """Show the band only while it has a breadcrumb or a status."""
+        self._head.setVisible(not (self.trail_wrap.isHidden() and self.status.isHidden()))
+
     def _update_header(self) -> None:
+        # Contar shows with a table open.
+        self.count_btn.setVisible(self._missing is None and bool(self._trail))
         if self._missing is not None:
             self.title.setText(self._missing.qualified)
             self.subtitle.setText(
@@ -657,7 +668,7 @@ class DbExplorerView(QWidget):
             self.count_btn.setEnabled(False)
             return
         if not self._trail:
-            self.title.setText(QCoreApplication.translate("DbExplorerView", "Elige una tabla"))
+            self.title.setText("")
             self.subtitle.setText("")
             self.count_btn.setEnabled(False)
             return
@@ -718,6 +729,7 @@ class DbExplorerView(QWidget):
             if widget is not None:
                 widget.deleteLater()
         self.trail_wrap.setVisible(len(self._trail) > 1)
+        self._fit_head()
         if len(self._trail) <= 1:
             return
         for i, (rel, where) in enumerate(self._trail):

@@ -14,28 +14,27 @@
         <translation>Favorites only</translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="200"/>
+        <location filename="../widgets/action_menu_bar.py" line="204"/>
         <source>Animaciones</source>
         <translation>Animations</translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="207"/>
+        <location filename="../widgets/action_menu_bar.py" line="211"/>
         <source>RAM disponible</source>
         <translation>Available RAM</translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="224"/>
-        <location filename="../widgets/action_menu_bar.py" line="245"/>
+        <location filename="../widgets/action_menu_bar.py" line="248"/>
         <source>Idioma</source>
         <translation>Language</translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="228"/>
+        <location filename="../widgets/action_menu_bar.py" line="231"/>
         <source>El del sistema</source>
         <translation>The system&apos;s</translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="246"/>
+        <location filename="../widgets/action_menu_bar.py" line="249"/>
         <source>El idioma cambia la próxima vez que se abra Consola.</source>
         <translation>The language changes the next time Consola opens.</translation>
     </message>
@@ -247,17 +246,17 @@ Install «PySide6-Addons» to see the page in here.</translation>
 <context>
     <name>CommandInfoPanel</name>
     <message>
-        <location filename="../widgets/command_info_panel.py" line="90"/>
+        <location filename="../widgets/command_info_panel.py" line="77"/>
         <source>Abre una acción para ver de qué se trata y qué pasos ejecuta.</source>
         <translation>Open an action to see what it is about and which steps it runs.</translation>
     </message>
     <message>
-        <location filename="../widgets/command_info_panel.py" line="104"/>
+        <location filename="../widgets/command_info_panel.py" line="91"/>
         <source>Esta acción todavía no tiene una descripción larga.</source>
         <translation>This action does not have a long description yet.</translation>
     </message>
     <message>
-        <location filename="../widgets/command_info_panel.py" line="113"/>
+        <location filename="../widgets/command_info_panel.py" line="100"/>
         <source>Pasos</source>
         <translation>Steps</translation>
     </message>
@@ -265,12 +264,12 @@ Install «PySide6-Addons» to see the page in here.</translation>
 <context>
     <name>Config</name>
     <message>
-        <location filename="../services/envfile.py" line="317"/>
+        <location filename="../services/envfile.py" line="318"/>
         <source>{0} no es un puerto valido: {1}</source>
         <translation>{0} is not a valid port: {1}</translation>
     </message>
     <message>
-        <location filename="../services/envfile.py" line="333"/>
+        <location filename="../services/envfile.py" line="334"/>
         <source>{0} no es un booleano: {1}</source>
         <translation>{0} is not a boolean: {1}</translation>
     </message>
@@ -278,52 +277,52 @@ Install «PySide6-Addons» to see the page in here.</translation>
 <context>
     <name>ConsoleView</name>
     <message>
-        <location filename="../widgets/console_view.py" line="46"/>
+        <location filename="../widgets/console_view.py" line="50"/>
         <source>Consola</source>
         <translation>Console</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="63"/>
+        <location filename="../widgets/console_view.py" line="67"/>
         <source>Buscar…</source>
         <translation>Search…</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="65"/>
+        <location filename="../widgets/console_view.py" line="69"/>
         <source>Buscar en la consola</source>
         <translation>Search the console</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="177"/>
+        <location filename="../widgets/console_view.py" line="182"/>
         <source>Esta capacidad aún no está implementada.</source>
         <translation>This capability is not implemented yet.</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="181"/>
+        <location filename="../widgets/console_view.py" line="186"/>
         <source>El esqueleto de UI está funcionando correctamente.</source>
         <translation>The UI skeleton is working correctly.</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="186"/>
+        <location filename="../widgets/console_view.py" line="191"/>
         <source>Stub ejecutado</source>
         <translation>Stub run</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="266"/>
+        <location filename="../widgets/console_view.py" line="271"/>
         <source>Sin resultados</source>
         <translation>No results</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="273"/>
+        <location filename="../widgets/console_view.py" line="278"/>
         <source>Copy</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="275"/>
+        <location filename="../widgets/console_view.py" line="280"/>
         <source>Select All</source>
         <translation>Select All</translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="277"/>
+        <location filename="../widgets/console_view.py" line="282"/>
         <source>Clear</source>
         <translation>Clear</translation>
     </message>
@@ -331,108 +330,102 @@ Install «PySide6-Addons» to see the page in here.</translation>
 <context>
     <name>DbExplorerView</name>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="144"/>
+        <location filename="../widgets/db_explorer_view.py" line="146"/>
         <source>Ancho del árbol</source>
         <translation>Tree width</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="161"/>
+        <location filename="../widgets/db_explorer_view.py" line="166"/>
         <source>Filtrar tablas…</source>
         <translation>Filter tables…</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="164"/>
+        <location filename="../widgets/db_explorer_view.py" line="169"/>
         <source>Filtrar tablas</source>
         <translation>Filter tables</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="172"/>
+        <location filename="../widgets/db_explorer_view.py" line="177"/>
         <source>Borrar el texto</source>
         <translation>Clear the text</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="180"/>
-        <location filename="../widgets/db_explorer_view.py" line="409"/>
+        <location filename="../widgets/db_explorer_view.py" line="185"/>
+        <location filename="../widgets/db_explorer_view.py" line="414"/>
         <source>Comparando con los modelos…</source>
         <translation>Comparing with the models…</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="216"/>
-        <location filename="../widgets/db_explorer_view.py" line="660"/>
-        <source>Elige una tabla</source>
-        <translation>Choose a table</translation>
-    </message>
-    <message>
-        <location filename="../widgets/db_explorer_view.py" line="224"/>
+        <location filename="../widgets/db_explorer_view.py" line="225"/>
         <source>Contar</source>
         <translation>Count</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="225"/>
+        <location filename="../widgets/db_explorer_view.py" line="226"/>
         <source>Contar las filas exactas (COUNT(*))</source>
         <translation>Count the exact rows (COUNT(*))</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="266"/>
+        <location filename="../widgets/db_explorer_view.py" line="270"/>
         <source>Datos</source>
         <translation>Data</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="269"/>
-        <location filename="../widgets/db_explorer_view.py" line="827"/>
-        <location filename="../widgets/db_explorer_view.py" line="897"/>
+        <location filename="../widgets/db_explorer_view.py" line="273"/>
+        <location filename="../widgets/db_explorer_view.py" line="839"/>
+        <location filename="../widgets/db_explorer_view.py" line="909"/>
         <source>Columnas</source>
         <translation>Columns</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="271"/>
-        <location filename="../widgets/db_explorer_view.py" line="842"/>
+        <location filename="../widgets/db_explorer_view.py" line="275"/>
+        <location filename="../widgets/db_explorer_view.py" line="854"/>
         <source>Índices</source>
         <translation>Indexes</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="273"/>
-        <location filename="../widgets/db_explorer_view.py" line="868"/>
+        <location filename="../widgets/db_explorer_view.py" line="277"/>
+        <location filename="../widgets/db_explorer_view.py" line="880"/>
         <source>Constraints</source>
         <translation>Constraints</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="347"/>
+        <location filename="../widgets/db_explorer_view.py" line="351"/>
         <source> con este filtro</source>
         <translation> with this filter</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="354"/>
+        <location filename="../widgets/db_explorer_view.py" line="358"/>
         <source>La tabla no tiene filas{0}.</source>
         <translation>The table has no rows{0}.</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="420"/>
+        <location filename="../widgets/db_explorer_view.py" line="425"/>
         <source>faltan en la base</source>
         <translation>missing in the database</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="421"/>
+        <location filename="../widgets/db_explorer_view.py" line="426"/>
         <source>difieren</source>
         <translation>differ</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="422"/>
+        <location filename="../widgets/db_explorer_view.py" line="427"/>
         <source>sin modelo</source>
         <translation>without a model</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="430"/>
+        <location filename="../widgets/db_explorer_view.py" line="435"/>
         <source>{0} modelos: </source>
         <translation>{0} models: </translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="435"/>
+        <location filename="../widgets/db_explorer_view.py" line="440"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;✓ Al día con los {1} modelos&lt;/span&gt;</source>
         <translation>&lt;span style=&apos;color:{0};&apos;&gt;✓ Up to date with the {1} models&lt;/span&gt;</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="441"/>
+        <location filename="../widgets/db_explorer_view.py" line="446"/>
         <source>✕ en los modelos, no en la base (falta migrar)
 ≠ columnas o tipos distintos de su modelo
 + en la base, sin modelo que la declare</source>
@@ -441,202 +434,202 @@ Install «PySide6-Addons» to see the page in here.</translation>
 + in the database, with no model declaring it</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="557"/>
+        <location filename="../widgets/db_explorer_view.py" line="562"/>
         <source>Cargando…</source>
         <translation>Loading…</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="578"/>
+        <location filename="../widgets/db_explorer_view.py" line="583"/>
         <source>Esta tabla está en los modelos pero no en la base: falta migrar.</source>
         <translation>This table is in the models but not in the database: migration pending.</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="653"/>
+        <location filename="../widgets/db_explorer_view.py" line="664"/>
         <source>falta en la base  ·  modelo en app/models/{0}</source>
         <translation>missing in the database  ·  model in app/models/{0}</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="669"/>
+        <location filename="../widgets/db_explorer_view.py" line="680"/>
         <source>fila</source>
         <translation>row</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="671"/>
+        <location filename="../widgets/db_explorer_view.py" line="682"/>
         <source>filas</source>
         <translation>rows</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="676"/>
+        <location filename="../widgets/db_explorer_view.py" line="687"/>
         <source> con el filtro</source>
         <translation> with the filter</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="680"/>
+        <location filename="../widgets/db_explorer_view.py" line="691"/>
         <source>~{0} filas</source>
         <translation>~{0} rows</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="706"/>
+        <location filename="../widgets/db_explorer_view.py" line="717"/>
         <source>{0}.{1} no está en el catálogo leído.</source>
         <translation>{0}.{1} is not in the catalog that was read.</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="773"/>
+        <location filename="../widgets/db_explorer_view.py" line="785"/>
         <source>Diferencias con el modelo</source>
         <translation>Differences with the model</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="775"/>
+        <location filename="../widgets/db_explorer_view.py" line="787"/>
         <source>Columna</source>
         <translation>Column</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="776"/>
+        <location filename="../widgets/db_explorer_view.py" line="788"/>
         <source>En la base</source>
         <translation>In the database</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="777"/>
+        <location filename="../widgets/db_explorer_view.py" line="789"/>
         <source>En el modelo</source>
         <translation>In the model</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="782"/>
+        <location filename="../widgets/db_explorer_view.py" line="794"/>
         <source>— falta</source>
         <translation>— missing</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="783"/>
+        <location filename="../widgets/db_explorer_view.py" line="795"/>
         <source>— sobra</source>
         <translation>— extra</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="792"/>
+        <location filename="../widgets/db_explorer_view.py" line="804"/>
         <source>Ningún modelo de app/models declara esta tabla.</source>
         <translation>No model in app/models declares this table.</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="800"/>
+        <location filename="../widgets/db_explorer_view.py" line="812"/>
         <source>Igual a su modelo: app/models/{0}</source>
         <translation>Same as its model: app/models/{0}</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="807"/>
-        <location filename="../widgets/db_explorer_view.py" line="940"/>
+        <location filename="../widgets/db_explorer_view.py" line="819"/>
+        <location filename="../widgets/db_explorer_view.py" line="952"/>
         <source>🔑 PK</source>
         <translation>🔑 PK</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="812"/>
+        <location filename="../widgets/db_explorer_view.py" line="824"/>
         <source>generada</source>
         <translation>generated</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="819"/>
-        <location filename="../widgets/db_explorer_view.py" line="939"/>
+        <location filename="../widgets/db_explorer_view.py" line="831"/>
+        <location filename="../widgets/db_explorer_view.py" line="951"/>
         <source>NOT NULL</source>
         <translation>NOT NULL</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="829"/>
-        <location filename="../widgets/db_explorer_view.py" line="844"/>
-        <location filename="../widgets/db_explorer_view.py" line="870"/>
-        <location filename="../widgets/db_explorer_view.py" line="930"/>
+        <location filename="../widgets/db_explorer_view.py" line="841"/>
+        <location filename="../widgets/db_explorer_view.py" line="856"/>
+        <location filename="../widgets/db_explorer_view.py" line="882"/>
+        <location filename="../widgets/db_explorer_view.py" line="942"/>
         <source>Nombre</source>
         <translation>Name</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="830"/>
-        <location filename="../widgets/db_explorer_view.py" line="871"/>
-        <location filename="../widgets/db_explorer_view.py" line="931"/>
+        <location filename="../widgets/db_explorer_view.py" line="842"/>
+        <location filename="../widgets/db_explorer_view.py" line="883"/>
+        <location filename="../widgets/db_explorer_view.py" line="943"/>
         <source>Tipo</source>
         <translation>Type</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="831"/>
-        <location filename="../widgets/db_explorer_view.py" line="932"/>
+        <location filename="../widgets/db_explorer_view.py" line="843"/>
+        <location filename="../widgets/db_explorer_view.py" line="944"/>
         <source>Nulo</source>
         <translation>Null</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="832"/>
+        <location filename="../widgets/db_explorer_view.py" line="844"/>
         <source>Default</source>
         <translation>Default</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="833"/>
-        <location filename="../widgets/db_explorer_view.py" line="933"/>
+        <location filename="../widgets/db_explorer_view.py" line="845"/>
+        <location filename="../widgets/db_explorer_view.py" line="945"/>
         <source>Llave</source>
         <translation>Key</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="834"/>
+        <location filename="../widgets/db_explorer_view.py" line="846"/>
         <source>Comentario</source>
         <translation>Comment</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="845"/>
-        <location filename="../widgets/db_explorer_view.py" line="872"/>
+        <location filename="../widgets/db_explorer_view.py" line="857"/>
+        <location filename="../widgets/db_explorer_view.py" line="884"/>
         <source>Definición</source>
         <translation>Definition</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="852"/>
+        <location filename="../widgets/db_explorer_view.py" line="864"/>
         <source>La tabla no tiene índices.</source>
         <translation>The table has no indexes.</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="859"/>
+        <location filename="../widgets/db_explorer_view.py" line="871"/>
         <source>PRIMARY KEY</source>
         <translation>PRIMARY KEY</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="860"/>
+        <location filename="../widgets/db_explorer_view.py" line="872"/>
         <source>FOREIGN KEY</source>
         <translation>FOREIGN KEY</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="879"/>
+        <location filename="../widgets/db_explorer_view.py" line="891"/>
         <source>La tabla no tiene constraints.</source>
         <translation>The table has no constraints.</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="894"/>
+        <location filename="../widgets/db_explorer_view.py" line="906"/>
         <source>Referenciada por</source>
         <translation>Referenced by</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="896"/>
+        <location filename="../widgets/db_explorer_view.py" line="908"/>
         <source>Tabla</source>
         <translation>Table</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="898"/>
+        <location filename="../widgets/db_explorer_view.py" line="910"/>
         <source>→ de esta tabla</source>
         <translation>→ of this table</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="899"/>
+        <location filename="../widgets/db_explorer_view.py" line="911"/>
         <source>Constraint</source>
         <translation>Constraint</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="904"/>
+        <location filename="../widgets/db_explorer_view.py" line="916"/>
         <source>Doble clic para abrir esa tabla</source>
         <translation>Double-click to open that table</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="921"/>
+        <location filename="../widgets/db_explorer_view.py" line="933"/>
         <source>Declarada en app/models/{0}. Todavía no existe en la base.</source>
         <translation>Declared in app/models/{0}. It does not exist in the database yet.</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="928"/>
+        <location filename="../widgets/db_explorer_view.py" line="940"/>
         <source>Columnas del modelo</source>
         <translation>Model columns</translation>
     </message>
     <message>
-        <location filename="../widgets/db_explorer_view.py" line="948"/>
+        <location filename="../widgets/db_explorer_view.py" line="960"/>
         <source>La tabla todavía no existe en la base.</source>
         <translation>The table does not exist in the database yet.</translation>
     </message>
@@ -657,130 +650,130 @@ Install «PySide6-Addons» to see the page in here.</translation>
 <context>
     <name>EnvPanel</name>
     <message>
-        <location filename="../widgets/env_panel.py" line="133"/>
+        <location filename="../widgets/env_panel.py" line="132"/>
         <source>Importar desde archivo…</source>
         <translation>Import from file…</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="138"/>
-        <location filename="../widgets/env_panel.py" line="363"/>
+        <location filename="../widgets/env_panel.py" line="137"/>
+        <location filename="../widgets/env_panel.py" line="348"/>
         <source>Crear archivo</source>
         <translation>Create file</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="142"/>
+        <location filename="../widgets/env_panel.py" line="141"/>
         <source>Recargar</source>
         <translation>Reload</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="145"/>
+        <location filename="../widgets/env_panel.py" line="144"/>
         <source>Descarta los cambios sin guardar, relee el archivo
 y vuelve a consultar los catálogos de los parámetros</source>
         <translation>Discards unsaved changes, rereads the file
 and queries the parameter catalogs again</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="153"/>
+        <location filename="../widgets/env_panel.py" line="152"/>
         <source>Guardar</source>
         <translation>Save</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="156"/>
+        <location filename="../widgets/env_panel.py" line="155"/>
         <source>Escribe .consola/config.env con los valores actuales</source>
         <translation>Writes .consola/config.env with the current values</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="339"/>
+        <location filename="../widgets/env_panel.py" line="324"/>
         <source>ilegible</source>
         <translation>unreadable</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="341"/>
+        <location filename="../widgets/env_panel.py" line="326"/>
         <source>no existe</source>
         <translation>does not exist</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="342"/>
+        <location filename="../widgets/env_panel.py" line="327"/>
         <source>No hay {0} todavía. Pulsa «Crear archivo» para generarlo con todas las claves.</source>
         <translation>There is no {0} yet. Press «Create file» to generate it with all the keys.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="347"/>
+        <location filename="../widgets/env_panel.py" line="332"/>
         <source>listo</source>
         <translation>ready</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="349"/>
+        <location filename="../widgets/env_panel.py" line="334"/>
         <source>desactualizado</source>
         <translation>outdated</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="352"/>
+        <location filename="../widgets/env_panel.py" line="337"/>
         <source>no se puede guardar</source>
         <translation>cannot be saved</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="353"/>
+        <location filename="../widgets/env_panel.py" line="338"/>
         <source>No se escribe {0} mientras config.py tenga el error de arriba.</source>
         <translation>{0} is not written while config.py has the error above.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="365"/>
+        <location filename="../widgets/env_panel.py" line="350"/>
         <source>Actualizar archivo</source>
         <translation>Update file</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="368"/>
+        <location filename="../widgets/env_panel.py" line="353"/>
         <source>Escribe el archivo con todas las claves del esquema, en su orden y con sus comentarios, conservando los valores</source>
         <translation>Writes the file with all the schema&apos;s keys, in their order and with their comments, keeping the values</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="381"/>
+        <location filename="../widgets/env_panel.py" line="366"/>
         <source>Importa claves conocidas desde otro archivo .env</source>
         <translation>Imports known keys from another .env file</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="388"/>
+        <location filename="../widgets/env_panel.py" line="373"/>
         <source>{0} no tiene la forma actual del esquema.</source>
         <translation>{0} does not have the current shape of the schema.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="393"/>
+        <location filename="../widgets/env_panel.py" line="378"/>
         <source> Al escribirlo se borran: {0}.</source>
         <translation> Writing it removes: {0}.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="408"/>
+        <location filename="../widgets/env_panel.py" line="393"/>
         <source>Importar variables desde…</source>
         <translation>Import variables from…</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="410"/>
+        <location filename="../widgets/env_panel.py" line="395"/>
         <source>Archivos .env (*.env);;Todos los archivos (*)</source>
         <translation>.env files (*.env);;All files (*)</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="425"/>
+        <location filename="../widgets/env_panel.py" line="410"/>
         <source>{0} no tiene claves reconocidas.</source>
         <translation>{0} has no recognized keys.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="436"/>
+        <location filename="../widgets/env_panel.py" line="421"/>
         <source>Se importaron {0} claves de {1}. Revisa y guarda para escribir el archivo.</source>
         <translation>{0} keys were imported from {1}. Review and save to write the file.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="458"/>
+        <location filename="../widgets/env_panel.py" line="443"/>
         <source>No se guardó: {0}</source>
         <translation>Not saved: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="467"/>
+        <location filename="../widgets/env_panel.py" line="452"/>
         <source>Guardado {0}</source>
         <translation>Saved {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="470"/>
+        <location filename="../widgets/env_panel.py" line="455"/>
         <source>Se borraron de config.env: {0}.</source>
         <translation>Removed from config.env: {0}.</translation>
     </message>
@@ -834,22 +827,22 @@ and queries the parameter catalogs again</translation>
 <context>
     <name>MachinePanel</name>
     <message>
-        <location filename="../widgets/machine_panel.py" line="68"/>
+        <location filename="../widgets/machine_panel.py" line="64"/>
         <source>Recargar</source>
         <translation>Reload</translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="70"/>
+        <location filename="../widgets/machine_panel.py" line="66"/>
         <source>Descarta los cambios sin guardar</source>
         <translation>Discards unsaved changes</translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="73"/>
+        <location filename="../widgets/machine_panel.py" line="69"/>
         <source>Guardar</source>
         <translation>Save</translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="75"/>
+        <location filename="../widgets/machine_panel.py" line="71"/>
         <source>Guarda las claves de esta máquina, para todos los repos</source>
         <translation>Saves this machine&apos;s keys, for all repos</translation>
     </message>
@@ -880,7 +873,7 @@ and queries the parameter catalogs again</translation>
 <context>
     <name>MissingConfig</name>
     <message>
-        <location filename="../services/errors.py" line="35"/>
+        <location filename="../services/errors.py" line="37"/>
         <source>Falta configurar: {0}</source>
         <translation>Needs configuring: {0}</translation>
     </message>
@@ -890,8 +883,8 @@ and queries the parameter catalogs again</translation>
     <message>
         <location filename="../widgets/params_panel.py" line="425"/>
         <location filename="../widgets/params_panel.py" line="458"/>
-        <location filename="../widgets/params_panel.py" line="795"/>
-        <location filename="../widgets/params_panel.py" line="1211"/>
+        <location filename="../widgets/params_panel.py" line="799"/>
+        <location filename="../widgets/params_panel.py" line="1325"/>
         <source>leyendo el catálogo…</source>
         <translation>reading the catalog…</translation>
     </message>
@@ -908,7 +901,7 @@ and queries the parameter catalogs again</translation>
     <message>
         <location filename="../widgets/params_panel.py" line="460"/>
         <location filename="../widgets/params_panel.py" line="488"/>
-        <location filename="../widgets/params_panel.py" line="797"/>
+        <location filename="../widgets/params_panel.py" line="801"/>
         <source>no hay ninguno {0}</source>
         <translation>there is no {0}</translation>
     </message>
@@ -928,78 +921,93 @@ and queries the parameter catalogs again</translation>
         <translation>Shut down {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="681"/>
+        <location filename="../widgets/params_panel.py" line="682"/>
         <source>Pasos</source>
         <translation>Steps</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="706"/>
+        <location filename="../widgets/params_panel.py" line="707"/>
         <source>Opciones</source>
         <translation>Options</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="785"/>
+        <location filename="../widgets/params_panel.py" line="789"/>
         <source>Única opción disponible</source>
         <translation>Only option available</translation>
     </message>
     <message>
         <location filename="../widgets/params_panel.py" line="827"/>
+        <source>Fijas</source>
+        <translation>Fixed</translation>
+    </message>
+    <message>
+        <location filename="../widgets/params_panel.py" line="831"/>
+        <source>Por defecto</source>
+        <translation>By default</translation>
+    </message>
+    <message>
+        <location filename="../widgets/params_panel.py" line="835"/>
+        <source>Esta acción no usa nada deducido.</source>
+        <translation>This action uses nothing deduced.</translation>
+    </message>
+    <message>
+        <location filename="../widgets/params_panel.py" line="947"/>
         <source>Limpiar</source>
         <translation>Clear</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="831"/>
+        <location filename="../widgets/params_panel.py" line="951"/>
         <source>Vaciar el log de esta pestaña y cerrar sus túneles SSH</source>
         <translation>Empty this tab&apos;s log and close its SSH tunnels</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="849"/>
+        <location filename="../widgets/params_panel.py" line="969"/>
         <source>Simulacro</source>
         <translation>Dry run</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="853"/>
-        <location filename="../widgets/params_panel.py" line="1289"/>
+        <location filename="../widgets/params_panel.py" line="973"/>
+        <location filename="../widgets/params_panel.py" line="1404"/>
         <source>Corre sin tocar nada: solo muestra qué haría</source>
         <translation>Runs without touching anything: it only shows what it would do</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="860"/>
+        <location filename="../widgets/params_panel.py" line="980"/>
         <source>Ejecutar</source>
         <translation>Run</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1225"/>
+        <location filename="../widgets/params_panel.py" line="1339"/>
         <source>en este repo</source>
         <translation>in this repo</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1233"/>
+        <location filename="../widgets/params_panel.py" line="1347"/>
         <source>no hay {0} {1}</source>
         <translation>there is no {0} {1}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1240"/>
+        <location filename="../widgets/params_panel.py" line="1354"/>
         <source>escribe {0}</source>
         <translation>type {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1247"/>
+        <location filename="../widgets/params_panel.py" line="1361"/>
         <source>elige {0}</source>
         <translation>choose {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1256"/>
+        <location filename="../widgets/params_panel.py" line="1370"/>
         <source>selecciona al menos un valor en {0}</source>
         <translation>select at least one value in {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1262"/>
+        <location filename="../widgets/params_panel.py" line="1376"/>
         <source>selecciona al menos un paso</source>
         <translation>select at least one step</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1267"/>
+        <location filename="../widgets/params_panel.py" line="1381"/>
         <source>faltan claves de configuración: {0}</source>
         <translation>configuration keys are missing: {0}</translation>
     </message>
@@ -1028,7 +1036,7 @@ and queries the parameter catalogs again</translation>
 <context>
     <name>ProjectTabBar</name>
     <message>
-        <location filename="../widgets/project_tab_bar.py" line="292"/>
+        <location filename="../widgets/project_tab_bar.py" line="299"/>
         <source>Elegir carpeta del repositorio</source>
         <translation>Choose the repository folder</translation>
     </message>
@@ -1077,32 +1085,32 @@ and queries the parameter catalogs again</translation>
 <context>
     <name>RowsModel</name>
     <message>
-        <location filename="../models/rows_model.py" line="128"/>
+        <location filename="../models/rows_model.py" line="129"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;Clic para ordenar en el servidor&lt;/span&gt;</source>
         <translation>&lt;span style=&apos;color:{0};&apos;&gt;Click to sort on the server&lt;/span&gt;</translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="148"/>
+        <location filename="../models/rows_model.py" line="149"/>
         <source>‹bytea {0}›</source>
         <translation>‹bytea {0}›</translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="164"/>
+        <location filename="../models/rows_model.py" line="165"/>
         <source>Doble clic para ir a {0}</source>
         <translation>Double-click to go to {0}</translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="170"/>
+        <location filename="../models/rows_model.py" line="171"/>
         <source>nulo</source>
         <translation>null</translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="172"/>
+        <location filename="../models/rows_model.py" line="173"/>
         <source>bytea de {0}</source>
         <translation>bytea of {0}</translation>
     </message>
     <message>
-        <location filename="../models/rows_model.py" line="179"/>
+        <location filename="../models/rows_model.py" line="180"/>
         <source>{0}, lleva a {1}</source>
         <translation>{0}, leads to {1}</translation>
     </message>
@@ -1126,14 +1134,6 @@ and queries the parameter catalogs again</translation>
     </message>
 </context>
 <context>
-    <name>SectionResizeGrip</name>
-    <message>
-        <location filename="../widgets/section_resize_grip.py" line="55"/>
-        <source>Las flechas arriba y abajo cambian el alto; Enter vuelve al reparto automático</source>
-        <translation>The up and down arrows change the height; Enter goes back to the automatic layout</translation>
-    </message>
-</context>
-<context>
     <name>Splitter</name>
     <message>
         <location filename="../widgets/splitter.py" line="43"/>
@@ -1152,160 +1152,162 @@ and queries the parameter catalogs again</translation>
 <context>
     <name>TabPanel</name>
     <message>
-        <location filename="../widgets/tab_panel.py" line="371"/>
+        <location filename="../widgets/tab_panel.py" line="427"/>
         <source>sin acciones abiertas — elige una del panel izquierdo</source>
         <translation>no open actions — choose one from the left panel</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="498"/>
-        <source>Alto de {0}</source>
-        <translation>Height of {0}</translation>
-    </message>
-    <message>
-        <location filename="../widgets/tab_panel.py" line="537"/>
+        <location filename="../widgets/tab_panel.py" line="570"/>
         <source>Ancho de la columna derecha</source>
         <translation>Width of the right column</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="682"/>
+        <location filename="../widgets/tab_panel.py" line="719"/>
         <source>Selecciona una accion del panel izquierdo</source>
         <translation>Select an action from the left panel</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="710"/>
+        <location filename="../widgets/tab_panel.py" line="745"/>
         <source>Los parámetros de la acción
 aparecen aquí</source>
         <translation>The action&apos;s parameters
 appear here</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="729"/>
+        <location filename="../widgets/tab_panel.py" line="761"/>
+        <source>Lo que la acción deduce
+aparece aquí</source>
+        <translation>What the action deduces
+shows here</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_panel.py" line="780"/>
         <source>Ejecutar</source>
         <translation>Run</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="759"/>
+        <location filename="../widgets/tab_panel.py" line="810"/>
         <source>no se puede correr: {0}</source>
         <translation>cannot run: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1236"/>
+        <location filename="../widgets/tab_panel.py" line="1150"/>
         <source>Secciones visibles</source>
         <translation>Visible sections</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1319"/>
+        <location filename="../widgets/tab_panel.py" line="1177"/>
         <source>{0} de {1} protegidos</source>
         <translation>{0} of {1} protected</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1323"/>
+        <location filename="../widgets/tab_panel.py" line="1181"/>
         <source>sin seguros</source>
         <translation>no locks</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1437"/>
+        <location filename="../widgets/tab_panel.py" line="1295"/>
         <source>Bloqueado: {0} toca {1} y este repo lo tiene protegido. El seguro se quita en Configuracion, seccion Seguridad.</source>
         <translation>Blocked: {0} touches {1} and this repo has it protected. The lock is removed in Settings, Security section.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1454"/>
+        <location filename="../widgets/tab_panel.py" line="1312"/>
         <source>Cancelado: {0} no llego a correr sobre {1}.</source>
         <translation>Canceled: {0} did not get to run on {1}.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1500"/>
+        <location filename="../widgets/tab_panel.py" line="1358"/>
         <source>{0} apps marcadas: una pestaña por cada una ({1}).</source>
         <translation>{0} apps checked: one tab for each ({1}).</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1533"/>
+        <location filename="../widgets/tab_panel.py" line="1391"/>
         <source>{0}: cada paso va a su propia pestaña.</source>
         <translation>{0}: each step goes to its own tab.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1543"/>
+        <location filename="../widgets/tab_panel.py" line="1401"/>
         <source>paso desconocido: {0}</source>
         <translation>unknown step: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1555"/>
+        <location filename="../widgets/tab_panel.py" line="1413"/>
         <source>Lanzados: {0}.</source>
         <translation>Launched: {0}.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1562"/>
+        <location filename="../widgets/tab_panel.py" line="1420"/>
         <source>Ningún paso marcado.</source>
         <translation>No step checked.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1585"/>
+        <location filename="../widgets/tab_panel.py" line="1443"/>
         <source>Ejecutando {0}</source>
         <translation>Running {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1619"/>
+        <location filename="../widgets/tab_panel.py" line="1477"/>
         <source>Hecho</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1621"/>
+        <location filename="../widgets/tab_panel.py" line="1479"/>
         <source>Terminó con errores</source>
         <translation>Finished with errors</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1625"/>
+        <location filename="../widgets/tab_panel.py" line="1483"/>
         <source>{0}: hecho</source>
         <translation>{0}: done</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1627"/>
+        <location filename="../widgets/tab_panel.py" line="1485"/>
         <source>{0}: terminó con errores</source>
         <translation>{0}: finished with errors</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1695"/>
-        <location filename="../widgets/tab_panel.py" line="1719"/>
+        <location filename="../widgets/tab_panel.py" line="1553"/>
+        <location filename="../widgets/tab_panel.py" line="1577"/>
         <source>Confirmar</source>
         <translation>Confirm</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1697"/>
+        <location filename="../widgets/tab_panel.py" line="1555"/>
         <source>Dato requerido</source>
         <translation>Required input</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1721"/>
+        <location filename="../widgets/tab_panel.py" line="1579"/>
         <source>Pregunta</source>
         <translation>Question</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1725"/>
+        <location filename="../widgets/tab_panel.py" line="1583"/>
         <source>Sí</source>
         <translation>Yes</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1728"/>
+        <location filename="../widgets/tab_panel.py" line="1586"/>
         <source>No</source>
         <translation>No</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1757"/>
+        <location filename="../widgets/tab_panel.py" line="1615"/>
         <source>{0} paso(s) × {1} variante(s)</source>
         <translation>{0} step(s) × {1} variant(s)</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1767"/>
+        <location filename="../widgets/tab_panel.py" line="1625"/>
         <source>paso «{0}» — no implementado (stub)</source>
         <translation>step «{0}» — not implemented (stub)</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1774"/>
+        <location filename="../widgets/tab_panel.py" line="1632"/>
         <source>faltan claves: {0}</source>
         <translation>missing keys: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1779"/>
+        <location filename="../widgets/tab_panel.py" line="1637"/>
         <source>Simulación completada</source>
         <translation>Simulation completed</translation>
     </message>
@@ -1313,57 +1315,107 @@ appear here</translation>
 <context>
     <name>TabView</name>
     <message>
-        <location filename="../widgets/tab_view.py" line="110"/>
+        <location filename="../widgets/tab_view.py" line="144"/>
+        <source>Errores y avisos</source>
+        <translation>Errors and warnings</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="147"/>
+        <source>Comandos</source>
+        <translation>Commands</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="157"/>
+        <source>Alto de las secciones</source>
+        <translation>Height of the sections</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="180"/>
         <source>Estado del endpoint</source>
         <translation>Endpoint status</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="119"/>
+        <location filename="../widgets/tab_view.py" line="189"/>
         <source>Copiar</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="120"/>
+        <location filename="../widgets/tab_view.py" line="190"/>
         <source>Copiar la URL al portapapeles</source>
         <translation>Copy the URL to the clipboard</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="124"/>
+        <location filename="../widgets/tab_view.py" line="194"/>
         <source>Abrir ↗</source>
         <translation>Open ↗</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="125"/>
+        <location filename="../widgets/tab_view.py" line="195"/>
         <source>Abrir en el navegador del sistema</source>
         <translation>Open in the system browser</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="131"/>
+        <location filename="../widgets/tab_view.py" line="201"/>
         <source>Ver {0} en esta pestaña</source>
         <translation>View {0} in this tab</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="253"/>
+        <location filename="../widgets/tab_view.py" line="254"/>
+        <source>Secciones visibles</source>
+        <translation>Visible sections</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="314"/>
+        <source>1 error</source>
+        <translation>1 error</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="315"/>
+        <source>{0} errores</source>
+        <translation>{0} errors</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="322"/>
+        <source>1 aviso</source>
+        <translation>1 warning</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="323"/>
+        <source>{0} avisos</source>
+        <translation>{0} warnings</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="334"/>
+        <source>1 comando</source>
+        <translation>1 command</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="335"/>
+        <source>{0} comandos</source>
+        <translation>{0} commands</translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="445"/>
         <source>arrancando</source>
         <translation>starting</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="254"/>
+        <location filename="../widgets/tab_view.py" line="446"/>
         <source>listo</source>
         <translation>ready</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="255"/>
+        <location filename="../widgets/tab_view.py" line="447"/>
         <source>caído</source>
         <translation>down</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="272"/>
+        <location filename="../widgets/tab_view.py" line="464"/>
         <source>URL copiada: {0}</source>
         <translation>URL copied: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="334"/>
+        <location filename="../widgets/tab_view.py" line="523"/>
         <source>La tarea no publicó la conexión.</source>
         <translation>The task did not publish the connection.</translation>
     </message>
@@ -1371,47 +1423,47 @@ appear here</translation>
 <context>
     <name>TablesModel</name>
     <message>
-        <location filename="../models/tables_model.py" line="204"/>
+        <location filename="../models/tables_model.py" line="205"/>
         <source>unas {0} filas</source>
         <translation>about {0} rows</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="223"/>
+        <location filename="../models/tables_model.py" line="224"/>
         <source>{0} particiones</source>
         <translation>{0} partitions</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="231"/>
+        <location filename="../models/tables_model.py" line="232"/>
         <source>el rol de la app no tiene SELECT</source>
         <translation>the app&apos;s role has no SELECT</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="242"/>
+        <location filename="../models/tables_model.py" line="243"/>
         <source>~{0} filas · {1}</source>
         <translation>~{0} rows · {1}</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="250"/>
+        <location filename="../models/tables_model.py" line="251"/>
         <source>Modelo: app/models/{0}</source>
         <translation>Model: app/models/{0}</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="256"/>
+        <location filename="../models/tables_model.py" line="257"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;El rol de la app no tiene SELECT&lt;/span&gt;</source>
         <translation>&lt;span style=&apos;color:{0};&apos;&gt;The app&apos;s role has no SELECT&lt;/span&gt;</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="265"/>
+        <location filename="../models/tables_model.py" line="266"/>
         <source>… y {0} más</source>
         <translation>… and {0} more</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="270"/>
+        <location filename="../models/tables_model.py" line="271"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;Difiere de su modelo:&lt;/span&gt;&lt;br&gt;</source>
         <translation>&lt;span style=&apos;color:{0};&apos;&gt;Differs from its model:&lt;/span&gt;&lt;br&gt;</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="277"/>
+        <location filename="../models/tables_model.py" line="278"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;Ningún modelo declara esta tabla&lt;/span&gt;</source>
         <translation>&lt;span style=&apos;color:{0};&apos;&gt;No model declares this table&lt;/span&gt;</translation>
     </message>
@@ -1478,12 +1530,12 @@ appear here</translation>
 <context>
     <name>TitleBar</name>
     <message>
-        <location filename="../widgets/title_bar.py" line="337"/>
+        <location filename="../widgets/title_bar.py" line="345"/>
         <source>Restaurar</source>
         <translation>Restore</translation>
     </message>
     <message>
-        <location filename="../widgets/title_bar.py" line="339"/>
+        <location filename="../widgets/title_bar.py" line="347"/>
         <source>Maximizar</source>
         <translation>Maximize</translation>
     </message>
@@ -1550,7 +1602,7 @@ appear here</translation>
 <context>
     <name>WorkspaceStatusBar</name>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="193"/>
+        <location filename="../widgets/workspace_status_bar.py" line="201"/>
         <source>RAM {0}/{1} GB</source>
         <translation>RAM {0}/{1} GB</translation>
     </message>
@@ -1580,7 +1632,7 @@ appear here</translation>
 <context>
     <name>_Builder</name>
     <message>
-        <location filename="../models/tables_model.py" line="370"/>
+        <location filename="../models/tables_model.py" line="371"/>
         <source>sin modelo</source>
         <translation>without a model</translation>
     </message>
@@ -1601,24 +1653,24 @@ appear here</translation>
 <context>
     <name>_PadlockChip</name>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="49"/>
+        <location filename="../widgets/workspace_status_bar.py" line="57"/>
         <source>protegido</source>
         <translation>protected</translation>
     </message>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="51"/>
+        <location filename="../widgets/workspace_status_bar.py" line="59"/>
         <source>sin proteger</source>
         <translation>unprotected</translation>
     </message>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="54"/>
-        <source>{0}: {1}. Clic para administrar en Configuración → Seguridad.</source>
-        <translation>{0}: {1}. Click to manage in Settings → Security.</translation>
+        <location filename="../widgets/workspace_status_bar.py" line="62"/>
+        <source>{0}: {1}. Clic para cambiarlo.</source>
+        <translation>{0}: {1}. Click to change it.</translation>
     </message>
     <message>
-        <location filename="../widgets/workspace_status_bar.py" line="61"/>
-        <source>Abre la sección Seguridad</source>
-        <translation>Opens the Security section</translation>
+        <location filename="../widgets/workspace_status_bar.py" line="69"/>
+        <source>Protege o desprotege este objetivo</source>
+        <translation>Protects or unprotects this target</translation>
     </message>
 </context>
 <context>
@@ -1640,22 +1692,22 @@ appear here</translation>
 <context>
     <name>_WindowButton</name>
     <message>
-        <location filename="../widgets/title_bar.py" line="179"/>
+        <location filename="../widgets/title_bar.py" line="187"/>
         <source>Minimizar</source>
         <translation>Minimize</translation>
     </message>
     <message>
-        <location filename="../widgets/title_bar.py" line="180"/>
+        <location filename="../widgets/title_bar.py" line="188"/>
         <source>Maximizar</source>
         <translation>Maximize</translation>
     </message>
     <message>
-        <location filename="../widgets/title_bar.py" line="181"/>
+        <location filename="../widgets/title_bar.py" line="189"/>
         <source>Cerrar</source>
         <translation>Close</translation>
     </message>
     <message>
-        <location filename="../widgets/title_bar.py" line="217"/>
+        <location filename="../widgets/title_bar.py" line="225"/>
         <source>Restaurar</source>
         <translation>Restore</translation>
     </message>
@@ -1663,22 +1715,22 @@ appear here</translation>
 <context>
     <name>action_menu_bar</name>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="345"/>
+        <location filename="../widgets/action_menu_bar.py" line="348"/>
         <source>Compuesta · encadena varias atómicas</source>
         <translation>Composite · chains several atomic actions</translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="347"/>
+        <location filename="../widgets/action_menu_bar.py" line="350"/>
         <source>Atómica · un solo paso</source>
         <translation>Atomic · a single step</translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="350"/>
+        <location filename="../widgets/action_menu_bar.py" line="353"/>
         <source> · de la máquina, no del repo</source>
         <translation> · of the machine, not of the repo</translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="356"/>
+        <location filename="../widgets/action_menu_bar.py" line="359"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;Clic para abrir&lt;/span&gt;</source>
         <translation>&lt;span style=&apos;color:{0};&apos;&gt;Click to open&lt;/span&gt;</translation>
     </message>
@@ -1921,157 +1973,157 @@ appear here</translation>
     <name>canone</name>
     <message>
         <location filename="../services/canone.py" line="67"/>
-        <source>No hay install.py en {0}: CANONE_DIR tiene que ser la carpeta de canone.</source>
-        <translation>There is no install.py in {0}: CANONE_DIR must be the canone folder.</translation>
+        <source>No hay install.py en {0}: «Carpeta de canone» tiene que ser la carpeta de canone.</source>
+        <translation>There is no install.py in {0}: «canone folder» must be the canone folder.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="83"/>
-        <source>No hay vite.config.ts en {0}: CANONE_DIR tiene que ser la carpeta de canone.</source>
-        <translation>There is no vite.config.ts in {0}: CANONE_DIR must be the canone folder.</translation>
+        <location filename="../services/canone.py" line="84"/>
+        <source>No hay vite.config.ts en {0}: «Carpeta de canone» tiene que ser la carpeta de canone.</source>
+        <translation>There is no vite.config.ts in {0}: «canone folder» must be the canone folder.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="101"/>
+        <location filename="../services/canone.py" line="103"/>
         <source>origin no es un repo de GitHub: {0}</source>
         <translation>origin is not a GitHub repo: {0}</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="118"/>
+        <location filename="../services/canone.py" line="120"/>
         <source>{0} no declara su estado: falta una línea «Estado: en desarrollo» o «Estado: en producción».</source>
         <translation>{0} does not declare its status: a line «Estado: en desarrollo» or «Estado: en producción» is missing.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="131"/>
+        <location filename="../services/canone.py" line="133"/>
         <source>database.py no tiene el comando {0!r}.</source>
         <translation>database.py does not have the command {0!r}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="191"/>
+        <location filename="../services/canone.py" line="193"/>
         <source>No hay packages.py en {0}: actualiza la copia de canone.</source>
         <translation>There is no packages.py in {0}: update the canone copy.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="242"/>
+        <location filename="../services/canone.py" line="244"/>
         <source>/proc/meminfo del VPS no trae MemTotal.</source>
         <translation>The VPS&apos;s /proc/meminfo has no MemTotal.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="248"/>
-        <source>VALKEY_PERCENT tiene que ser un número, como 12.5: {0!r}.</source>
-        <translation>VALKEY_PERCENT must be a number, like 12.5: {0!r}.</translation>
-    </message>
-    <message>
-        <location filename="../services/canone.py" line="254"/>
-        <source>VALKEY_PERCENT va de 0 a 100: {0}.</source>
-        <translation>VALKEY_PERCENT goes from 0 to 100: {0}.</translation>
-    </message>
-    <message>
-        <location filename="../services/canone.py" line="283"/>
+        <location filename="../services/canone.py" line="285"/>
         <source>No hay {0}: el servidor no trae las tareas de canone.</source>
         <translation>There is no {0}: the server does not include canone&apos;s tasks.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="300"/>
+        <location filename="../services/canone.py" line="302"/>
         <source>{0} no declara el diccionario TASKS.</source>
         <translation>{0} does not declare the TASKS dictionary.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="331"/>
+        <location filename="../services/canone.py" line="333"/>
         <source>{0}: {1} está en TIMERS y en BROWSER_TIMERS.</source>
         <translation>{0}: {1} is in TIMERS and in BROWSER_TIMERS.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="349"/>
+        <location filename="../services/canone.py" line="351"/>
         <source>{0}: cada tarea de {1} es un texto.</source>
         <translation>{0}: each task of {1} is a string.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="355"/>
+        <location filename="../services/canone.py" line="357"/>
         <source>{0}: el calendario de {1} en {2} es un texto, como minutely.</source>
         <translation>{0}: the schedule of {1} in {2} is a string, like minutely.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="361"/>
+        <location filename="../services/canone.py" line="363"/>
         <source>{0}: {1} está en {2} y no en TASKS.</source>
         <translation>{0}: {1} is in {2} and not in TASKS.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="392"/>
+        <location filename="../services/canone.py" line="394"/>
         <source>{0} no tiene {1}: ningún host apunta al VPS.</source>
         <translation>{0} has no {1}: no host points to the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="409"/>
-        <source>LOGS, LOGS_KEY y LOGS_IP van los tres juntos o ninguno.</source>
-        <translation>LOGS, LOGS_KEY and LOGS_IP go all three together or none.</translation>
+        <location filename="../services/canone.py" line="250"/>
+        <source>{0} tiene que ser un número, como 12.5: {1!r}.</source>
+        <translation>{0} must be a number, like 12.5: {1!r}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="471"/>
-        <source>TURN_IP sin {0} en Settings: --turn-ip necesita --turn. Bórrala de config.env.</source>
-        <translation>TURN_IP without {0} in Settings: --turn-ip needs --turn. Delete it from config.env.</translation>
+        <location filename="../services/canone.py" line="256"/>
+        <source>{0} va de 0 a 100: {1}.</source>
+        <translation>{0} goes from 0 to 100: {1}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="490"/>
+        <location filename="../services/canone.py" line="411"/>
+        <source>{0} van los tres juntos o ninguno.</source>
+        <translation>{0} go all three together or none.</translation>
+    </message>
+    <message>
+        <location filename="../services/canone.py" line="473"/>
+        <source>{0} sin {1} en Settings: --turn-ip necesita --turn. Bórrala de config.env.</source>
+        <translation>{0} without {1} in Settings: --turn-ip needs --turn. Delete it from config.env.</translation>
+    </message>
+    <message>
+        <location filename="../services/canone.py" line="492"/>
         <source>No se sube {0!r}: es una de {1}.</source>
         <translation>{0!r} is not uploaded: it is one of {1}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="528"/>
+        <location filename="../services/canone.py" line="530"/>
         <source>ninguno</source>
         <translation>none</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="530"/>
+        <location filename="../services/canone.py" line="532"/>
         <source>último evento</source>
         <translation>last event</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="531"/>
+        <location filename="../services/canone.py" line="533"/>
         <source>último crítico</source>
         <translation>last critical</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="532"/>
+        <location filename="../services/canone.py" line="534"/>
         <source>último respaldo</source>
         <translation>last backup</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="533"/>
+        <location filename="../services/canone.py" line="535"/>
         <source>disco libre</source>
         <translation>free disk</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="533"/>
+        <location filename="../services/canone.py" line="535"/>
         <source>{0:.1f} GB de {1:.1f} GB</source>
         <translation>{0:.1f} GB of {1:.1f} GB</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="546"/>
+        <location filename="../services/canone.py" line="548"/>
         <source>{0!r} no es un tag como v1.4.0.</source>
         <translation>{0!r} is not a tag like v1.4.0.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="559"/>
+        <location filename="../services/canone.py" line="561"/>
         <source>DATABASE_URL no nombra su rol: hace falta para entrar como el dueño.</source>
         <translation>DATABASE_URL does not name its role: it is needed to log in as the owner.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="579"/>
-        <location filename="../services/canone.py" line="623"/>
+        <location filename="../services/canone.py" line="581"/>
+        <location filename="../services/canone.py" line="625"/>
         <source>Faltan en config.env: {0}.</source>
         <translation>Missing in config.env: {0}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="602"/>
+        <location filename="../services/canone.py" line="604"/>
         <source>No hay campos de Settings en {0}.</source>
         <translation>There are no Settings fields in {0}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="610"/>
+        <location filename="../services/canone.py" line="612"/>
         <source>Estas claves de config.env no son de Consola ni campos de Settings: {0}. Bórralas antes de cargar las credenciales.</source>
         <translation>These config.env keys are neither Consola&apos;s nor Settings fields: {0}. Delete them before loading the credentials.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="630"/>
+        <location filename="../services/canone.py" line="632"/>
         <source>{0} tiene un salto de linea: credentials.py lee una por linea.</source>
         <translation>{0} has a line break: credentials.py reads one per line.</translation>
     </message>
@@ -3471,37 +3523,37 @@ appear here</translation>
         <translation>Downloads Flutter&apos;s stable channel and leaves it in the user&apos;s environment.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="53"/>
+        <location filename="../services/toolchain.py" line="54"/>
         <source>APK</source>
         <translation>APK</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="61"/>
+        <location filename="../services/toolchain.py" line="62"/>
         <source>AAB</source>
         <translation>AAB</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="69"/>
+        <location filename="../services/toolchain.py" line="70"/>
         <source>Web</source>
         <translation>Web</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="72"/>
+        <location filename="../services/toolchain.py" line="73"/>
         <source>Windows</source>
         <translation>Windows</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="80"/>
+        <location filename="../services/toolchain.py" line="81"/>
         <source>Linux</source>
         <translation>Linux</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="88"/>
+        <location filename="../services/toolchain.py" line="89"/>
         <source>macOS</source>
         <translation>macOS</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="100"/>
+        <location filename="../services/toolchain.py" line="101"/>
         <source>iOS</source>
         <translation>iOS</translation>
     </message>
@@ -5291,217 +5343,217 @@ appear here</translation>
         <translation>{0} is from PostgreSQL {1} and the server is {2}: client tools do not read a newer server. Install PostgreSQL {3} or later on this machine ({4}).</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="50"/>
+        <location filename="../services/tasks/database.py" line="51"/>
         <source>Rol listo: {0}</source>
         <translation>Role ready: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="64"/>
+        <location filename="../services/tasks/database.py" line="65"/>
         <source>La base {0} ya existe.</source>
         <translation>The database {0} already exists.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="68"/>
+        <location filename="../services/tasks/database.py" line="69"/>
         <source>Base creada: {0}</source>
         <translation>Database created: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="80"/>
+        <location filename="../services/tasks/database.py" line="81"/>
         <source>Permisos otorgados a {0} sobre {1}.</source>
         <translation>Permissions granted to {0} on {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="123"/>
-        <source>DB_EXTENSIONS esta vacia: no hay nada que habilitar.</source>
-        <translation>DB_EXTENSIONS is empty: there is nothing to enable.</translation>
-    </message>
-    <message>
-        <location filename="../services/tasks/database.py" line="140"/>
-        <source>La extensión {0} no está instalada en el sistema: instala su paquete o quítala de DB_EXTENSIONS.</source>
-        <translation>The extension {0} is not installed on the system: install its package or remove it from DB_EXTENSIONS.</translation>
-    </message>
-    <message>
-        <location filename="../services/tasks/database.py" line="150"/>
+        <location filename="../services/tasks/database.py" line="151"/>
         <source>Extension habilitada: {0}</source>
         <translation>Extension enabled: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="175"/>
+        <location filename="../services/tasks/database.py" line="176"/>
         <source>No hay tablas para borrar.</source>
         <translation>There are no tables to drop.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="179"/>
+        <location filename="../services/tasks/database.py" line="180"/>
         <source>Se van a borrar {0} tabla(s) de {1}.</source>
         <translation>{0} table(s) of {1} will be dropped.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="185"/>
+        <location filename="../services/tasks/database.py" line="186"/>
         <source>{0} tabla(s) eliminadas.</source>
         <translation>{0} table(s) dropped.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="204"/>
+        <location filename="../services/tasks/database.py" line="205"/>
         <source>Base eliminada: {0}</source>
         <translation>Database dropped: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="213"/>
+        <location filename="../services/tasks/database.py" line="214"/>
         <source>Rol eliminado: {0}</source>
         <translation>Role dropped: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="233"/>
+        <location filename="../services/tasks/database.py" line="234"/>
         <source>Migracion eliminada: {0}</source>
         <translation>Migration deleted: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="236"/>
+        <location filename="../services/tasks/database.py" line="237"/>
         <source>{0} migracion(es) eliminadas.</source>
         <translation>{0} migration(s) deleted.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="253"/>
+        <location filename="../services/tasks/database.py" line="254"/>
         <source>El modelo no cambio: no se genero ninguna migracion.</source>
         <translation>The model did not change: no migration was generated.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="260"/>
+        <location filename="../services/tasks/database.py" line="261"/>
         <source>Migracion generada: {0}</source>
         <translation>Migration generated: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="269"/>
+        <location filename="../services/tasks/database.py" line="270"/>
         <source>Migraciones aplicadas hasta {0}.</source>
         <translation>Migrations applied up to {0}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="319"/>
+        <location filename="../services/tasks/database.py" line="320"/>
         <source>database.py {0}: listo en {1}.</source>
         <translation>database.py {0}: done in {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="333"/>
+        <location filename="../services/tasks/database.py" line="334"/>
         <source>El README dice «Estado: en producción»: Consola no vacía la base del VPS ni le carga datos de prueba.</source>
         <translation>The README says «Estado: en producción»: Consola does not empty the VPS&apos;s database or load test data into it.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="349"/>
+        <location filename="../services/tasks/database.py" line="350"/>
         <source>Se borran la base del VPS y los archivos subidos.</source>
         <translation>The VPS&apos;s database and the uploaded files are deleted.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="405"/>
-        <source>BACKUP_KEEP tiene que ser un numero entero, y dice {0!r}.</source>
-        <translation>BACKUP_KEEP must be an integer, and it says {0!r}.</translation>
+        <location filename="../services/tasks/database.py" line="124"/>
+        <source>{0} esta vacia: no hay nada que habilitar.</source>
+        <translation>{0} is empty: there is nothing to enable.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="411"/>
-        <source>BACKUP_KEEP tiene que ser 1 o mas, y dice {0}.</source>
-        <translation>BACKUP_KEEP must be 1 or more, and it says {0}.</translation>
+        <location filename="../services/tasks/database.py" line="141"/>
+        <source>La extensión {0} no está instalada en el sistema: instala su paquete o quítala de {1}.</source>
+        <translation>The extension {0} is not installed on the system: install its package or remove it from {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="455"/>
+        <location filename="../services/tasks/database.py" line="406"/>
+        <source>{0} tiene que ser un numero entero, y dice {1!r}.</source>
+        <translation>{0} must be an integer, and it says {1!r}.</translation>
+    </message>
+    <message>
+        <location filename="../services/tasks/database.py" line="412"/>
+        <source>{0} tiene que ser 1 o mas, y dice {1}.</source>
+        <translation>{0} must be 1 or more, and it says {1}.</translation>
+    </message>
+    <message>
+        <location filename="../services/tasks/database.py" line="456"/>
         <source>Volcando {0} en {1}...</source>
         <translation>Dumping {0} to {1}...</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="466"/>
+        <location filename="../services/tasks/database.py" line="467"/>
         <source>Backup guardado: {0} ({1})</source>
         <translation>Backup saved: {0} ({1})</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="472"/>
+        <location filename="../services/tasks/database.py" line="473"/>
         <source>Backup de {0}: {1}</source>
         <translation>Backup of {0}: {1}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="485"/>
+        <location filename="../services/tasks/database.py" line="486"/>
         <source>Backup rotado: {0}</source>
         <translation>Backup rotated: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="515"/>
+        <location filename="../services/tasks/database.py" line="516"/>
         <source>No se eligio ningun respaldo para restaurar.</source>
         <translation>No backup was chosen to restore.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="520"/>
+        <location filename="../services/tasks/database.py" line="521"/>
         <source>No existe el respaldo: {0}</source>
         <translation>The backup does not exist: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="530"/>
+        <location filename="../services/tasks/database.py" line="531"/>
         <source>Restaurando {0} sobre {1}: se reemplaza lo que haya.</source>
         <translation>Restoring {0} over {1}: whatever is there is replaced.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="555"/>
+        <location filename="../services/tasks/database.py" line="556"/>
         <source>Base {0} restaurada desde {1}.</source>
         <translation>Database {0} restored from {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="560"/>
+        <location filename="../services/tasks/database.py" line="561"/>
         <source>Restauracion de {0}: {1}</source>
         <translation>Restore of {0}: {1}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="574"/>
+        <location filename="../services/tasks/database.py" line="575"/>
         <source>Tunel abierto en {0}: entra como {1}, sin contraseña, a la base {2}.</source>
         <translation>Tunnel open on {0}: log in as {1}, without a password, to the database {2}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="598"/>
+        <location filename="../services/tasks/database.py" line="599"/>
         <source>Conectado a {0} como {1} (solo lectura).</source>
         <translation>Connected to {0} as {1} (read-only).</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="603"/>
+        <location filename="../services/tasks/database.py" line="604"/>
         <source>Servidor: {0}</source>
         <translation>Server: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="608"/>
+        <location filename="../services/tasks/database.py" line="609"/>
         <source>Tamaño de la base: {0}</source>
         <translation>Database size: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="614"/>
+        <location filename="../services/tasks/database.py" line="615"/>
         <source>{0} tabla(s), {1} vista(s) o partición(es):</source>
         <translation>{0} table(s), {1} view(s) or partition(s):</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="620"/>
+        <location filename="../services/tasks/database.py" line="621"/>
         <source>  {0}  ~{1} filas  {2}</source>
         <translation>  {0}  ~{1} rows  {2}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="632"/>
+        <location filename="../services/tasks/database.py" line="633"/>
         <source>El túnel SSH se cerró: vuelve a conectar.</source>
         <translation>The SSH tunnel closed: connect again.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="723"/>
+        <location filename="../services/tasks/database.py" line="724"/>
         <source>Bootstrap de la base local completado.</source>
         <translation>Local database bootstrap completed.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="768"/>
+        <location filename="../services/tasks/database.py" line="769"/>
         <source>Reconstruccion de {0} (local) completada.</source>
         <translation>Rebuild of {0} (local) completed.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="786"/>
+        <location filename="../services/tasks/database.py" line="787"/>
         <source>Reconstruccion de la base del VPS completada.</source>
         <translation>Rebuild of the VPS&apos;s database completed.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="821"/>
+        <location filename="../services/tasks/database.py" line="822"/>
         <source>Historial de migraciones reiniciado; {0} quedo vacia.</source>
         <translation>Migration history reset; {0} was left empty.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/database.py" line="840"/>
+        <location filename="../services/tasks/database.py" line="841"/>
         <source>Teardown de {0}.</source>
         <translation>Teardown of {0}.</translation>
     </message>
@@ -5706,7 +5758,7 @@ appear here</translation>
 <context>
     <name>envfile</name>
     <message>
-        <location filename="../services/envfile.py" line="98"/>
+        <location filename="../services/envfile.py" line="99"/>
         <source>No se puede leer {0}: {1}</source>
         <translation>{0} cannot be read: {1}</translation>
     </message>
@@ -5810,98 +5862,98 @@ appear here</translation>
 <context>
     <name>icons</name>
     <message>
-        <location filename="../services/icons.py" line="184"/>
+        <location filename="../services/icons.py" line="185"/>
         <source>{0}: falta {1} en dev_dependencies del pubspec.yaml.</source>
         <translation>{0}: {1} is missing in the dev_dependencies of pubspec.yaml.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="196"/>
+        <location filename="../services/icons.py" line="197"/>
         <source>{0}: el pubspec pide una imagen en {1} y Consola no sabe qué dibujo va ahí.</source>
         <translation>{0}: the pubspec asks for an image at {1} and Consola does not know which drawing goes there.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="203"/>
+        <location filename="../services/icons.py" line="204"/>
         <source>{0}: la sección {1} no declara image_path.</source>
         <translation>{0}: the section {1} does not declare image_path.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="235"/>
+        <location filename="../services/icons.py" line="236"/>
         <source>el &lt;link&gt; de {0}</source>
         <translation>the &lt;link&gt; of {0}</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="287"/>
-        <location filename="../services/icons.py" line="378"/>
+        <location filename="../services/icons.py" line="288"/>
+        <location filename="../services/icons.py" line="379"/>
         <source>{0}: el ícono apunta fuera de la app: {1}</source>
         <translation>{0}: the icon points outside the app: {1}</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="311"/>
+        <location filename="../services/icons.py" line="312"/>
         <source>{0}: {1} es un PNG sin sizes=&quot;NxN&quot;: no se sabe de qué tamaño generarlo.</source>
         <translation>{0}: {1} is a PNG without sizes=&quot;NxN&quot;: it is unknown what size to generate it at.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="318"/>
+        <location filename="../services/icons.py" line="319"/>
         <source>{0}: {1} no es cuadrado ({2}), y el logo sí.</source>
         <translation>{0}: {1} is not square ({2}), and the logo is.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="324"/>
+        <location filename="../services/icons.py" line="325"/>
         <source>{0}: {1} es {2}, y Consola solo genera .svg, .png e .ico.</source>
         <translation>{0}: {1} is {2}, and Consola only generates .svg, .png and .ico.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="329"/>
+        <location filename="../services/icons.py" line="330"/>
         <source>un archivo sin extensión</source>
         <translation>a file without an extension</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="350"/>
+        <location filename="../services/icons.py" line="351"/>
         <source>{0}: no existe el manifest {1}.</source>
         <translation>{0}: the manifest {1} does not exist.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="358"/>
+        <location filename="../services/icons.py" line="359"/>
         <source>{0}: {1} no es JSON: {2}</source>
         <translation>{0}: {1} is not JSON: {2}</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="372"/>
+        <location filename="../services/icons.py" line="373"/>
         <source>{0}: un ícono de {1} no tiene src.</source>
         <translation>{0}: an icon of {1} has no src.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="389"/>
+        <location filename="../services/icons.py" line="390"/>
         <source>{0}: {1} tiene purpose &quot;{2}&quot;, y Consola genera &quot;any&quot; o &quot;maskable&quot;, cada uno en su archivo.</source>
         <translation>{0}: {1} has purpose &quot;{2}&quot;, and Consola generates &quot;any&quot; or &quot;maskable&quot;, each in its own file.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="408"/>
+        <location filename="../services/icons.py" line="409"/>
         <source>{0}: el plugin de PWA de {1} genera el manifest. Va en un archivo de static/ enlazado con &lt;link rel=&quot;manifest&quot;&gt;, y el plugin con manifest: false.</source>
         <translation>{0}: the PWA plugin of {1} generates the manifest. It goes in a file in static/ linked with &lt;link rel=&quot;manifest&quot;&gt;, and the plugin with manifest: false.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="424"/>
+        <location filename="../services/icons.py" line="425"/>
         <source>{0}: {1} se declara de dos tamaños: {2} y {3}.</source>
         <translation>{0}: {1} is declared with two sizes: {2} and {3}.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="430"/>
+        <location filename="../services/icons.py" line="431"/>
         <source>{0}: {1} lleva dos capas distintas: {2}.</source>
         <translation>{0}: {1} carries two different layers: {2}.</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="464"/>
+        <location filename="../services/icons.py" line="465"/>
         <source>{0} tiene que ser un SVG: {1}</source>
         <translation>{0} must be an SVG: {1}</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="468"/>
+        <location filename="../services/icons.py" line="471"/>
         <source>No existe {0}: {1}</source>
         <translation>{0} does not exist: {1}</translation>
     </message>
     <message>
-        <location filename="../services/icons.py" line="483"/>
+        <location filename="../services/icons.py" line="486"/>
         <source>{0} no declara dónde va su ícono.</source>
         <translation>{0} does not declare where its icon goes.</translation>
     </message>
@@ -5909,117 +5961,117 @@ appear here</translation>
 <context>
     <name>images</name>
     <message>
-        <location filename="../services/tasks/images.py" line="41"/>
+        <location filename="../services/tasks/images.py" line="42"/>
         <source>Marca al menos una app.</source>
         <translation>Check at least one app.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="59"/>
+        <location filename="../services/tasks/images.py" line="60"/>
         <source>{0}: ícono listo.</source>
         <translation>{0}: icon ready.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="82"/>
+        <location filename="../services/tasks/images.py" line="83"/>
         <source>  sin cambios: {0}</source>
         <translation>  unchanged: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="94"/>
-        <source>Falta SHOTS_CMD en la configuración: es el comando de la cámara del repo.</source>
-        <translation>SHOTS_CMD is missing from the configuration: it is the command of the repo&apos;s camera.</translation>
+        <location filename="../services/tasks/images.py" line="95"/>
+        <source>Falta {0} en la configuración: es el comando de la cámara del repo.</source>
+        <translation>{0} is missing from the configuration: it is the command of the repo&apos;s camera.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="103"/>
-        <source>Revisa SHOTS_CMD.</source>
-        <translation>Check SHOTS_CMD.</translation>
+        <location filename="../services/tasks/images.py" line="104"/>
+        <source>Revisa {0}.</source>
+        <translation>Check {0}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="123"/>
+        <location filename="../services/tasks/images.py" line="124"/>
         <source>La cámara no dijo qué sabe capturar: {0}</source>
         <translation>The camera did not say what it can capture: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="141"/>
+        <location filename="../services/tasks/images.py" line="142"/>
         <source>Marca al menos una app, un tema y un idioma.</source>
         <translation>Check at least one app, one theme and one language.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="151"/>
+        <location filename="../services/tasks/images.py" line="152"/>
         <source>Se borraron {0} capturas de la corrida anterior.</source>
         <translation>{0} screenshots from the previous run were deleted.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="186"/>
+        <location filename="../services/tasks/images.py" line="187"/>
         <source>La cámara terminó sin capturas para: </source>
         <translation>The camera finished without screenshots for: </translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="189"/>
+        <location filename="../services/tasks/images.py" line="190"/>
         <source>{0} capturas en {1}</source>
         <translation>{0} screenshots in {1}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="203"/>
+        <location filename="../services/tasks/images.py" line="204"/>
         <source>{0} ya está encendido: {1}</source>
         <translation>{0} is already on: {1}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="210"/>
+        <location filename="../services/tasks/images.py" line="211"/>
         <source>No existe el AVD &quot;{0}&quot;.</source>
         <translation>The AVD &quot;{0}&quot; does not exist.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="215"/>
+        <location filename="../services/tasks/images.py" line="216"/>
         <source>Encendiendo {0} como {1}.</source>
         <translation>Turning on {0} as {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="231"/>
+        <location filename="../services/tasks/images.py" line="232"/>
         <source>{0} listo.</source>
         <translation>{0} ready.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="249"/>
+        <location filename="../services/tasks/images.py" line="250"/>
         <source>Marca al menos un destino.</source>
         <translation>Check at least one destination.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="254"/>
+        <location filename="../services/tasks/images.py" line="255"/>
         <source>No hay preset para: {0} ({1}).</source>
         <translation>There is no preset for: {0} ({1}).</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="263"/>
+        <location filename="../services/tasks/images.py" line="264"/>
         <source>No hay capturas en {0}. Sácalas primero.</source>
         <translation>There are no screenshots in {0}. Take them first.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="275"/>
+        <location filename="../services/tasks/images.py" line="276"/>
         <source>{0}: {1} en {2}</source>
         <translation>{0}: {1} in {2}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="293"/>
+        <location filename="../services/tasks/images.py" line="294"/>
         <source>Cambiaron</source>
         <translation>Changed</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="294"/>
+        <location filename="../services/tasks/images.py" line="295"/>
         <source>Nuevas</source>
         <translation>New</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="295"/>
+        <location filename="../services/tasks/images.py" line="296"/>
         <source>Ya no están</source>
         <translation>No longer there</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="304"/>
+        <location filename="../services/tasks/images.py" line="305"/>
         <source>{0} archivo</source>
         <translation>{0} file</translation>
     </message>
     <message>
-        <location filename="../services/tasks/images.py" line="306"/>
+        <location filename="../services/tasks/images.py" line="307"/>
         <source>{0} archivos</source>
         <translation>{0} files</translation>
     </message>
@@ -6382,13 +6434,38 @@ appear here</translation>
     </message>
     <message>
         <location filename="../services/section_visibility.py" line="26"/>
+        <source>Deducido</source>
+        <translation>Deduced</translation>
+    </message>
+    <message>
+        <location filename="../services/section_visibility.py" line="27"/>
         <source>Configuración del repo</source>
         <translation>Repo configuration</translation>
     </message>
     <message>
-        <location filename="../services/section_visibility.py" line="27"/>
+        <location filename="../services/section_visibility.py" line="28"/>
         <source>Configuración de la máquina</source>
         <translation>Machine configuration</translation>
+    </message>
+    <message>
+        <location filename="../services/section_visibility.py" line="35"/>
+        <source>Consola</source>
+        <translation>Console</translation>
+    </message>
+    <message>
+        <location filename="../services/section_visibility.py" line="36"/>
+        <source>Explorador</source>
+        <translation>Explorer</translation>
+    </message>
+    <message>
+        <location filename="../services/section_visibility.py" line="37"/>
+        <source>Errores y avisos</source>
+        <translation>Errors and warnings</translation>
+    </message>
+    <message>
+        <location filename="../services/section_visibility.py" line="38"/>
+        <source>Comandos</source>
+        <translation>Commands</translation>
     </message>
 </context>
 <context>
@@ -6396,7 +6473,7 @@ appear here</translation>
     <message>
         <location filename="../services/settings.py" line="112"/>
         <location filename="../services/settings.py" line="412"/>
-        <location filename="../services/settings.py" line="609"/>
+        <location filename="../services/settings.py" line="611"/>
         <source>Server</source>
         <translation>Server</translation>
     </message>
@@ -6408,7 +6485,7 @@ appear here</translation>
     <message>
         <location filename="../services/settings.py" line="120"/>
         <location filename="../services/settings.py" line="127"/>
-        <location filename="../services/settings.py" line="610"/>
+        <location filename="../services/settings.py" line="612"/>
         <source>Cloudflare</source>
         <translation>Cloudflare</translation>
     </message>
@@ -6436,7 +6513,7 @@ appear here</translation>
         <location filename="../services/settings.py" line="228"/>
         <location filename="../services/settings.py" line="238"/>
         <location filename="../services/settings.py" line="247"/>
-        <location filename="../services/settings.py" line="611"/>
+        <location filename="../services/settings.py" line="613"/>
         <source>VPS</source>
         <translation>VPS</translation>
     </message>
@@ -6510,7 +6587,7 @@ appear here</translation>
         <location filename="../services/settings.py" line="308"/>
         <location filename="../services/settings.py" line="315"/>
         <location filename="../services/settings.py" line="332"/>
-        <location filename="../services/settings.py" line="612"/>
+        <location filename="../services/settings.py" line="614"/>
         <source>Base de datos</source>
         <translation>Database</translation>
     </message>
@@ -6552,7 +6629,7 @@ appear here</translation>
     <message>
         <location filename="../services/settings.py" line="344"/>
         <location filename="../services/settings.py" line="352"/>
-        <location filename="../services/settings.py" line="613"/>
+        <location filename="../services/settings.py" line="615"/>
         <source>GitHub</source>
         <translation>GitHub</translation>
     </message>
@@ -6572,7 +6649,7 @@ appear here</translation>
         <location filename="../services/settings.py" line="387"/>
         <location filename="../services/settings.py" line="395"/>
         <location filename="../services/settings.py" line="404"/>
-        <location filename="../services/settings.py" line="614"/>
+        <location filename="../services/settings.py" line="616"/>
         <source>Credenciales</source>
         <translation>Credentials</translation>
     </message>
@@ -6608,7 +6685,7 @@ appear here</translation>
     </message>
     <message>
         <location filename="../services/settings.py" line="427"/>
-        <location filename="../services/settings.py" line="615"/>
+        <location filename="../services/settings.py" line="617"/>
         <source>Builds</source>
         <translation>Builds</translation>
     </message>
@@ -6681,7 +6758,7 @@ appear here</translation>
         <location filename="../services/settings.py" line="483"/>
         <location filename="../services/settings.py" line="494"/>
         <location filename="../services/settings.py" line="503"/>
-        <location filename="../services/settings.py" line="616"/>
+        <location filename="../services/settings.py" line="618"/>
         <source>Marca</source>
         <translation>Brand</translation>
     </message>
@@ -6705,7 +6782,7 @@ appear here</translation>
         <location filename="../services/settings.py" line="523"/>
         <location filename="../services/settings.py" line="530"/>
         <location filename="../services/settings.py" line="540"/>
-        <location filename="../services/settings.py" line="617"/>
+        <location filename="../services/settings.py" line="619"/>
         <source>Capturas</source>
         <translation>Screenshots</translation>
     </message>
@@ -6731,11 +6808,11 @@ appear here</translation>
     </message>
     <message>
         <location filename="../services/settings.py" line="558"/>
-        <location filename="../services/settings.py" line="569"/>
-        <location filename="../services/settings.py" line="578"/>
-        <location filename="../services/settings.py" line="594"/>
-        <location filename="../services/settings.py" line="601"/>
-        <location filename="../services/settings.py" line="618"/>
+        <location filename="../services/settings.py" line="570"/>
+        <location filename="../services/settings.py" line="580"/>
+        <location filename="../services/settings.py" line="596"/>
+        <location filename="../services/settings.py" line="603"/>
+        <location filename="../services/settings.py" line="620"/>
         <source>Máquina</source>
         <translation>Machine</translation>
     </message>
@@ -6750,22 +6827,22 @@ appear here</translation>
         <translation>the app&apos;s venv, otherwise the PATH</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="570"/>
-        <source>Llave pública guardada fuera</source>
-        <translation>Public key kept elsewhere</translation>
+        <location filename="../services/settings.py" line="571"/>
+        <source>Archivo .pub de la llave guardada fuera</source>
+        <translation>.pub file of the key kept elsewhere</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="579"/>
+        <location filename="../services/settings.py" line="581"/>
         <source>Carpeta de canone</source>
         <translation>canone folder</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="595"/>
+        <location filename="../services/settings.py" line="597"/>
         <source>Destino de logs</source>
         <translation>Logs destination</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="602"/>
+        <location filename="../services/settings.py" line="604"/>
         <source>Llave de logs</source>
         <translation>Logs key</translation>
     </message>
@@ -6883,7 +6960,7 @@ appear here</translation>
         <translation>The local key already exists: {0}</translation>
     </message>
     <message>
-        <location filename="../services/ssh.py" line="423"/>
+        <location filename="../services/ssh.py" line="427"/>
         <source>No existe la llave publica: {0}</source>
         <translation>The public key does not exist: {0}</translation>
     </message>
@@ -6904,17 +6981,17 @@ appear here</translation>
 <context>
     <name>tab_view</name>
     <message>
-        <location filename="../widgets/tab_view.py" line="44"/>
+        <location filename="../widgets/tab_view.py" line="47"/>
         <source>Consola</source>
         <translation>Console</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="48"/>
+        <location filename="../widgets/tab_view.py" line="51"/>
         <source>Navegador</source>
         <translation>Browser</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="49"/>
+        <location filename="../widgets/tab_view.py" line="52"/>
         <source>Explorador</source>
         <translation>Explorer</translation>
     </message>
@@ -6922,42 +6999,42 @@ appear here</translation>
 <context>
     <name>tables_model</name>
     <message>
-        <location filename="../models/tables_model.py" line="32"/>
+        <location filename="../models/tables_model.py" line="33"/>
         <source>falta en la base</source>
         <translation>missing in the database</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="33"/>
+        <location filename="../models/tables_model.py" line="34"/>
         <source>difiere de su modelo</source>
         <translation>differs from its model</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="34"/>
+        <location filename="../models/tables_model.py" line="35"/>
         <source>sin modelo</source>
         <translation>without a model</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="37"/>
+        <location filename="../models/tables_model.py" line="38"/>
         <source>esquema</source>
         <translation>schema</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="38"/>
+        <location filename="../models/tables_model.py" line="39"/>
         <source>carpeta de modelos</source>
         <translation>models folder</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="39"/>
+        <location filename="../models/tables_model.py" line="40"/>
         <source>tablas sin modelo</source>
         <translation>tables without a model</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="41"/>
+        <location filename="../models/tables_model.py" line="42"/>
         <source>Tabla</source>
         <translation>Table</translation>
     </message>
     <message>
-        <location filename="../models/tables_model.py" line="41"/>
+        <location filename="../models/tables_model.py" line="42"/>
         <source>Filas</source>
         <translation>Rows</translation>
     </message>
@@ -6999,46 +7076,46 @@ appear here</translation>
 <context>
     <name>toolchain</name>
     <message>
-        <location filename="../services/toolchain.py" line="126"/>
+        <location filename="../services/toolchain.py" line="127"/>
         <source>Flutter</source>
         <translation>Flutter</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="127"/>
-        <location filename="../services/toolchain.py" line="138"/>
+        <location filename="../services/toolchain.py" line="128"/>
+        <location filename="../services/toolchain.py" line="139"/>
         <source>Instala el SDK Flutter con su capacidad, o agrega flutter al PATH.</source>
         <translation>Install the Flutter SDK with its capability, or add flutter to the PATH.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="137"/>
+        <location filename="../services/toolchain.py" line="138"/>
         <source>Dart</source>
         <translation>Dart</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="149"/>
+        <location filename="../services/toolchain.py" line="150"/>
         <source>Flet</source>
         <translation>Flet</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="150"/>
+        <location filename="../services/toolchain.py" line="151"/>
         <source>Instala flet en el venv del proyecto.</source>
         <translation>Install flet in the project&apos;s venv.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="158"/>
+        <location filename="../services/toolchain.py" line="159"/>
         <location filename="../services/toolchain.py" line="248"/>
         <source>Python</source>
         <translation>Python</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="168"/>
+        <location filename="../services/toolchain.py" line="169"/>
         <source>Instálalo con corepack enable pnpm.</source>
         <translation>Install it with corepack enable pnpm.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="191"/>
-        <source>Instalalo en el venv de la app (pip install pyinstaller) o escribe su ruta en PYINSTALLER_BIN.</source>
-        <translation>Install it in the app&apos;s venv (pip install pyinstaller) or write its path in PYINSTALLER_BIN.</translation>
+        <location filename="../services/toolchain.py" line="192"/>
+        <source>Instálalo en el venv de la app (pip install pyinstaller) o escribe su ruta en {0}.</source>
+        <translation>Install it in the app&apos;s venv (pip install pyinstaller) or write its path in {0}.</translation>
     </message>
     <message>
         <location filename="../services/toolchain.py" line="215"/>
@@ -7536,82 +7613,82 @@ Check that virtualization (VT-x or AMD-V) is enabled in the BIOS and that the kv
 <context>
     <name>vps</name>
     <message>
-        <location filename="../services/vps.py" line="34"/>
-        <source>No se puede deducir el nombre del repo: falta GIT_REPO_URL.</source>
-        <translation>The repo name cannot be deduced: GIT_REPO_URL is missing.</translation>
+        <location filename="../services/vps.py" line="35"/>
+        <source>No se puede deducir el nombre del repo: falta {0}.</source>
+        <translation>The repo name cannot be deduced: {0} is missing.</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="78"/>
+        <location filename="../services/vps.py" line="79"/>
         <source>Servidor</source>
         <translation>Server</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="80"/>
+        <location filename="../services/vps.py" line="81"/>
         <source>Barrido</source>
         <translation>Sweep</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="81"/>
+        <location filename="../services/vps.py" line="82"/>
         <source>Purga</source>
         <translation>Purge</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="82"/>
+        <location filename="../services/vps.py" line="83"/>
         <source>Volcado</source>
         <translation>Dump</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="83"/>
+        <location filename="../services/vps.py" line="84"/>
         <source>Respaldo</source>
         <translation>Backup</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="101"/>
+        <location filename="../services/vps.py" line="102"/>
         <source>Tarea</source>
         <translation>Task</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="102"/>
+        <location filename="../services/vps.py" line="103"/>
         <source>Tarea con navegador</source>
         <translation>Browser task</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="137"/>
+        <location filename="../services/vps.py" line="138"/>
         <source>Servicio desconocido: {0}</source>
         <translation>Unknown service: {0}</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="159"/>
+        <location filename="../services/vps.py" line="160"/>
         <source>No se entra al VPS como {0}: no se puede preguntar qué servicios tiene.</source>
         <translation>Cannot log in to the VPS as {0}: it is not possible to ask which services it has.</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="219"/>
+        <location filename="../services/vps.py" line="220"/>
         <source>Accion de systemd desconocida: {0}</source>
         <translation>Unknown systemd action: {0}</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="267"/>
+        <location filename="../services/vps.py" line="268"/>
         <source>Respuesta inesperada al pedir el puerto de Postgres: {0!r}</source>
         <translation>Unexpected answer when asking for the Postgres port: {0!r}</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="307"/>
+        <location filename="../services/vps.py" line="308"/>
         <source>acceso</source>
         <translation>access</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="311"/>
+        <location filename="../services/vps.py" line="312"/>
         <source>carga</source>
         <translation>load</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="314"/>
+        <location filename="../services/vps.py" line="315"/>
         <source>disco</source>
         <translation>disk</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="317"/>
+        <location filename="../services/vps.py" line="318"/>
         <source>memoria</source>
         <translation>memory</translation>
     </message>
@@ -7771,97 +7848,97 @@ Check that virtualization (VT-x or AMD-V) is enabled in the BIOS and that the kv
 <context>
     <name>vps_setup</name>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="85"/>
+        <location filename="../services/tasks/vps_setup.py" line="87"/>
         <source>Contraseña de {0} (la de sudo)</source>
         <translation>Password of {0} (the sudo one)</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="90"/>
+        <location filename="../services/tasks/vps_setup.py" line="92"/>
         <source>Sin la contraseña de sudo no se puede administrar el VPS.</source>
         <translation>Without the sudo password the VPS cannot be administered.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="111"/>
+        <location filename="../services/tasks/vps_setup.py" line="113"/>
         <source>{0} todavía no entra: se usa {1}.</source>
         <translation>{0} cannot log in yet: {1} is used.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="117"/>
+        <location filename="../services/tasks/vps_setup.py" line="119"/>
         <source>No se entra al VPS ni como {0} ni como {1} con la llave {2}.</source>
         <translation>Cannot log in to the VPS as {0} or as {1} with the key {2}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="132"/>
+        <location filename="../services/tasks/vps_setup.py" line="134"/>
         <source>La cuenta que administra todavía no existe: corre «Configurar VPS» con «Instalar infraestructura» primero.</source>
         <translation>The administering account does not exist yet: run «Set up VPS» with «Install infrastructure» first.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="191"/>
+        <location filename="../services/tasks/vps_setup.py" line="193"/>
         <source>La llave ya entra al VPS.</source>
         <translation>The key already logs in to the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="194"/>
+        <location filename="../services/tasks/vps_setup.py" line="196"/>
         <source>Contraseña de {0} (la del proveedor)</source>
         <translation>Password of {0} (the provider&apos;s)</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="201"/>
+        <location filename="../services/tasks/vps_setup.py" line="203"/>
         <source>Sin la contraseña de root no se puede poner la llave en el VPS.</source>
         <translation>Without the root password the key cannot be installed on the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="217"/>
+        <location filename="../services/tasks/vps_setup.py" line="219"/>
         <source>La llave quedó en {0}, pero no entra con ella.</source>
         <translation>The key was left in {0}, but it does not log in with it.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="222"/>
+        <location filename="../services/tasks/vps_setup.py" line="224"/>
         <source>La llave {0} entra como {1}.</source>
         <translation>The key {0} logs in as {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="241"/>
+        <location filename="../services/tasks/vps_setup.py" line="243"/>
         <source>Paquetes de canone para este repo: {0}</source>
         <translation>canone packages for this repo: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="254"/>
+        <location filename="../services/tasks/vps_setup.py" line="256"/>
         <source>Paquetes y uv listos: {0}</source>
         <translation>Packages and uv ready: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="289"/>
+        <location filename="../services/tasks/vps_setup.py" line="291"/>
         <source>Memoria de Valkey: {0}, el {1} % de la RAM del VPS.</source>
         <translation>Valkey memory: {0}, {1} % of the VPS&apos;s RAM.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="312"/>
-        <source>OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, guardada fuera de esta máquina.</source>
-        <translation>OFFLINE_KEY is the same key as VPS_KEY_NAME: another one is needed, kept outside this machine.</translation>
+        <location filename="../services/tasks/vps_setup.py" line="314"/>
+        <source>{0} es la misma llave que {1}: hace falta otra, guardada fuera de esta máquina.</source>
+        <translation>{0} is the same key as {1}: another one is needed, kept outside this machine.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="337"/>
+        <location filename="../services/tasks/vps_setup.py" line="338"/>
         <source>{0} instalado en {1}.</source>
         <translation>{0} installed on {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="363"/>
+        <location filename="../services/tasks/vps_setup.py" line="364"/>
         <source>{0} credenciales cargadas.</source>
         <translation>{0} credentials loaded.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="387"/>
+        <location filename="../services/tasks/vps_setup.py" line="388"/>
         <source>VPS vaciado: {0}.</source>
         <translation>VPS emptied: {0}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="389"/>
+        <location filename="../services/tasks/vps_setup.py" line="390"/>
         <source>VPS {0} vaciado: {1}.</source>
         <translation>VPS {0} emptied: {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="442"/>
+        <location filename="../services/tasks/vps_setup.py" line="443"/>
         <source>VPS {0} configurado.</source>
         <translation>VPS {0} configured.</translation>
     </message>

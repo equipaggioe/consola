@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+from functools import partial
 from typing import Any
 
 from PySide6.QtCore import QCoreApplication, Qt, QTimer, Signal, Slot
@@ -30,15 +31,22 @@ class _PadlockChip(QPushButton):
     """A protection target on the status bar.
 
     Its short name with a padlock, closed (protected) or open
-    (unprotected). A click, or Space with the focus on it, jumps to the
-    Security section: it is a button, though it looks like a label.
+    (unprotected). A click, or Space with the focus on it, protects or
+    unprotects the target: it is a button, though it looks like a label.
     """
 
     def __init__(
-        self, chip: str, label: str, protected: bool, pal: Palette, parent: QWidget | None = None
+        self,
+        target_id: str,
+        chip: str,
+        label: str,
+        protected: bool,
+        pal: Palette,
+        parent: QWidget | None = None,
     ) -> None:
         """Build the chip."""
         super().__init__(f"{'🔒' if protected else '🔓'} {chip}", parent)
+        self.target_id = target_id
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Closed = safe (the repo's color); open = exposed to a
         # destructive action with no net, and that is red in every repo.
@@ -51,14 +59,14 @@ class _PadlockChip(QPushButton):
             else QCoreApplication.translate("_PadlockChip", "sin proteger")
         )
         self.setToolTip(
-            QCoreApplication.translate(
-                "_PadlockChip", "{0}: {1}. Clic para administrar en Configuración → Seguridad."
-            ).format(label, state)
+            QCoreApplication.translate("_PadlockChip", "{0}: {1}. Clic para cambiarlo.").format(
+                label, state
+            )
         )
         # The padlock says its state only to the eye.
         self.setAccessibleName(f"{label}: {state}")
         self.setAccessibleDescription(
-            QCoreApplication.translate("_PadlockChip", "Abre la sección Seguridad")
+            QCoreApplication.translate("_PadlockChip", "Protege o desprotege este objetivo")
         )
 
 
@@ -71,8 +79,8 @@ class WorkspaceStatusBar(QFrame):
     RAM.
     """
 
-    # click on the active repo's guards indicator
-    security_clicked = Signal()
+    # a padlock was clicked: the id of its target
+    padlock_clicked = Signal(str)
 
     def __init__(self, pal: Palette, parent: QWidget | None = None) -> None:
         """Build the bar."""
@@ -91,7 +99,7 @@ class WorkspaceStatusBar(QFrame):
         # The active repo's protection targets
         # (`services/protection.py`), each with its open or closed
         # padlock, always in view whichever action is open above
-        # (`ADR-0018` §4). A click on any jumps to the Security section.
+        # (`ADR-0018` §4). A click on one protects or unprotects it.
         self.security_box = QWidget()
         self._security_row = QHBoxLayout(self.security_box)
         self._security_row.setContentsMargins(0, 0, 0, 0)
@@ -248,6 +256,12 @@ class WorkspaceStatusBar(QFrame):
         each time a switch is touched.
         """
         self._protection = dict(state)
+        # The chip is rebuilt on each click: the keyboard focus goes to
+        # the new one of the same target.
+        focused = next(
+            (c.target_id for c in self.security_box.findChildren(_PadlockChip) if c.hasFocus()),
+            None,
+        )
         while self._security_row.count():
             item = self._security_row.takeAt(0)
             widget = item.widget() if item else None
@@ -258,13 +272,16 @@ class WorkspaceStatusBar(QFrame):
         for target in protection.TARGETS:
             protected = protection.is_protected(state, target)
             chip = _PadlockChip(
+                target.id,
                 QCoreApplication.translate("protection", target.chip),
                 QCoreApplication.translate("protection", target.label),
                 protected,
                 self.pal,
             )
-            chip.clicked.connect(self.security_clicked)
+            chip.clicked.connect(partial(self.padlock_clicked.emit, target.id))
             self._security_row.addWidget(chip)
+            if target.id == focused:
+                chip.setFocus(Qt.FocusReason.OtherFocusReason)
         self._restyle()
 
     def set_palette(self, pal: Palette) -> None:

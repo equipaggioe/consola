@@ -24,6 +24,7 @@ from app.services.database import Connection
 from app.services.envfile import Config
 from app.services.errors import TaskError
 from app.services.registry import registry
+from app.services.settings import names
 from app.services.ssh import Tunnel
 from app.services.tasks import payloads, vps_setup
 
@@ -121,8 +122,8 @@ def enable_extensions(ctx: TaskContext) -> list[str]:
     if not requested:
         ctx.info(
             QCoreApplication.translate(
-                "database", "DB_EXTENSIONS esta vacia: no hay nada que habilitar."
-            )
+                "database", "{0} esta vacia: no hay nada que habilitar."
+            ).format(names(["DB_EXTENSIONS"]))
         )
         return []
 
@@ -140,8 +141,8 @@ def enable_extensions(ctx: TaskContext) -> list[str]:
                 QCoreApplication.translate(
                     "database",
                     "La extensión {0} no está instalada en el sistema: instala su paquete o "
-                    "quítala de DB_EXTENSIONS.",
-                ).format(extension)
+                    "quítala de {1}.",
+                ).format(extension, names(["DB_EXTENSIONS"]))
             )
         admin.execute(
             ctx, f"CREATE EXTENSION IF NOT EXISTS {db.quote_ident(extension)};", database=name
@@ -403,14 +404,14 @@ def backup_keep(ctx: TaskContext) -> int:
     except ValueError:
         raise TaskError(
             QCoreApplication.translate(
-                "database", "BACKUP_KEEP tiene que ser un numero entero, y dice {0!r}."
-            ).format(raw)
+                "database", "{0} tiene que ser un numero entero, y dice {1!r}."
+            ).format(names(["BACKUP_KEEP"]), raw)
         ) from None
     if keep < 1:
         raise TaskError(
             QCoreApplication.translate(
-                "database", "BACKUP_KEEP tiene que ser 1 o mas, y dice {0}."
-            ).format(keep)
+                "database", "{0} tiene que ser 1 o mas, y dice {1}."
+            ).format(names(["BACKUP_KEEP"]), keep)
         )
     return keep
 

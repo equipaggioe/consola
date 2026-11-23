@@ -29,6 +29,7 @@ from PySide6.QtCore import QCoreApplication
 from app.services import targets
 from app.services.errors import MissingConfig, TaskError
 from app.services.files import read_text
+from app.services.settings import names
 
 ICON_KINDS = (targets.FLUTTER_APP, targets.FLET_APP, targets.SPA_VITE)
 
@@ -461,11 +462,13 @@ def brand_file(root: Path, value: str, key: str) -> Path:
     path = root / value
     if path.suffix.lower() != ".svg":
         raise TaskError(
-            QCoreApplication.translate("icons", "{0} tiene que ser un SVG: {1}").format(key, value)
+            QCoreApplication.translate("icons", "{0} tiene que ser un SVG: {1}").format(
+                names([key]), value
+            )
         )
     if not path.is_file():
         raise TaskError(
-            QCoreApplication.translate("icons", "No existe {0}: {1}").format(key, path)
+            QCoreApplication.translate("icons", "No existe {0}: {1}").format(names([key]), path)
         )
     return path
 

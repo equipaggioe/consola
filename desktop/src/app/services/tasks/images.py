@@ -26,6 +26,7 @@ from app.services.context import Level, TaskContext
 from app.services.envfile import Config
 from app.services.errors import TaskError
 from app.services.registry import registry
+from app.services.settings import names
 from app.services.tasks import raster
 
 LANDING = "landing"
@@ -93,14 +94,14 @@ def camera_command(config: Config) -> list[str]:
         raise TaskError(
             QCoreApplication.translate(
                 "images",
-                "Falta SHOTS_CMD en la configuración: es el comando de la cámara del repo.",
-            )
+                "Falta {0} en la configuración: es el comando de la cámara del repo.",
+            ).format(names(["SHOTS_CMD"]))
         )
     command = shlex.split(config.get("SHOTS_CMD"))
     executable = process.resolve_executable(
         [command[0]],
         label=command[0],
-        hint=QCoreApplication.translate("images", "Revisa SHOTS_CMD."),
+        hint=QCoreApplication.translate("images", "Revisa {0}.").format(names(["SHOTS_CMD"])),
     )
     return [*executable, *command[1:]]
 

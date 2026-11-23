@@ -46,8 +46,8 @@ def test_without_a_logo_it_carries_the_equipaggio_mark(repo: Path, config: bool)
 @pytest.mark.parametrize(
     ("value", "error"),
     [
-        ("brand/otro.svg", "No existe BRAND_ICON"),
-        ("brand/logomark.png", "BRAND_ICON tiene que ser un SVG"),
+        ("brand/otro.svg", "No existe Logo (SVG)"),
+        ("brand/logomark.png", "Logo (SVG) tiene que ser un SVG"),
         ("brand/roto.svg", "Qt no pudo leer roto.svg como SVG."),
     ],
 )

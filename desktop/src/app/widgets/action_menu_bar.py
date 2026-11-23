@@ -17,7 +17,7 @@ from app.theme import Colors
 # would reimplement `ActionRow` inside the popup.
 MARK_DANGER = "⚠"  # destructive: check before pressing
 
-# Each translation's name in itself, as «Idioma» lists it: whoever does
+# Each translation's name in itself, as Ver lists it: whoever does
 # not read the current language still finds theirs. Not from
 # `QLocale.nativeLanguageName()`, which names the default region too:
 # «español de España», «American English».
@@ -182,9 +182,13 @@ class ActionMenuBar(QMenuBar):
         self._only_favorites_action.toggled.connect(self.only_favorites_toggled.emit)
         menu.addAction(self._only_favorites_action)
 
-        menu.addSeparator()
         self._section_actions: dict[str, QAction] = {}
-        for section_id in section_visibility.SECTIONS:
+        groups = (section_visibility.SECTIONS, section_visibility.CONSOLE_SECTIONS)
+        for section_id in (sid for group in groups for sid in [None, *group]):
+            if section_id is None:
+                # The right column, then the console's.
+                menu.addSeparator()
+                continue
             action = QAction(section_visibility.title(section_id), self)
             action.setCheckable(True)
 
@@ -211,17 +215,16 @@ class ActionMenuBar(QMenuBar):
         self.ram_action.toggled.connect(motion.set_ram_shown)
         menu.addAction(self.ram_action)
         menu.addSeparator()
-        self._build_language_menu(menu)
+        self._build_language_options(menu)
         menu.aboutToShow.connect(self._sync_view_checks)
 
-    def _build_language_menu(self, view: QMenu) -> None:
-        """Build «Idioma»: the system's, or one of the translations.
+    def _build_language_options(self, menu: QMenu) -> None:
+        """List the languages in Ver: the system's, or a translation.
 
         The choice applies on the next start, and a message says so:
         every widget sets its texts when it is built, after
         `language.install`.
         """
-        menu = view.addMenu(QCoreApplication.translate("ActionMenuBar", "Idioma"))
         self.language_actions: dict[str, QAction] = {}
         group = QActionGroup(self)
         current = chosen_language()

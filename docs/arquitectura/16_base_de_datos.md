@@ -159,6 +159,8 @@ Una tarea viva, como un launcher: sostiene la conexión —y en remoto el túnel
 | El orden es del servidor | Ordenar solo lo ya cargado mentiría. Sin columna elegida se ordena por la clave primaria, que además desempata |
 | Las consultas corren en `DbWorker` | Una consulta lenta no congela el árbol; la vista pide páginas al desplazar y las filas entran cuando llegan |
 
+La vista va en la sección «EXPLORADOR», debajo de la consola ([12](12_interfaz.md)). Entre el árbol y los datos hay una sola línea, la del separador, de 1 px. La cabecera de esa sección lleva la tabla abierta, su tipo, filas y tamaño, y «Contar», que pide el `COUNT(*)` exacto y solo aparece con una tabla abierta. Sobre los datos, una banda muestra la miga de pan al seguir una clave foránea y el estado de la consulta, y desaparece cuando no hay ninguno de los dos (`DbExplorerView._fit_head`).
+
 La URL con contraseña que la vista necesita no viaja por la pantalla: la tarea la deja con `ctx.publish` bajo una clave derivada de la URL enmascarada, y se borra sola cuando la tarea termina.
 
 `services/db_models.py` compara la base viva contra los modelos del repo. No parsea archivos: importa `app.models` con el Python del proyecto y devuelve JSON, porque los tipos salen de `type_annotation_map`, de alias `Annotated` y de enums cuyo largo solo se sabe ejecutando. Es lo mismo que compara Alembic.

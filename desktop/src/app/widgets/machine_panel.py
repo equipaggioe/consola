@@ -13,7 +13,6 @@ from PySide6.QtWidgets import (
     QFrame,
     QHBoxLayout,
     QPushButton,
-    QScrollArea,
     QVBoxLayout,
     QWidget,
 )
@@ -43,18 +42,15 @@ class MachinePanel(QWidget):
         body = QVBoxLayout(self._body)
         body.setContentsMargins(16, 12, 16, 12)
         body.setSpacing(6)
+        # Rows at the top with the same gap as «Configuración del repo»:
+        # without it, a tall section spread them apart.
+        body.setAlignment(Qt.AlignmentFlag.AlignTop)
         self.rows = {
             s.key: EnvRow(s, "", pal, label_width=label_width) for s in machine_settings()
         }
         for row in self.rows.values():
             body.addWidget(row)
-        # In a scroll, like the repo's form: a short section scrolls the
-        # rows instead of squeezing them and the footer.
-        self._scroll = QScrollArea()
-        self._scroll.setWidgetResizable(True)
-        theme.focus_frame(self._scroll)
-        self._scroll.setWidget(self._body)
-        root.addWidget(self._scroll, 1)
+        root.addWidget(self._body)
 
         self.footer = QFrame()
         # Its natural height always (`setFixedHeight` below, once the
@@ -62,7 +58,7 @@ class MachinePanel(QWidget):
         # above. A Fixed size policy alone was not enough, the layout
         # still squeezed the buttons.
         bar = QHBoxLayout(self.footer)
-        bar.setContentsMargins(16, 8, 16, 8)
+        bar.setContentsMargins(16, 8, 16, 16)
         bar.setSpacing(8)
         bar.addStretch(1)
         self.reload_btn = QPushButton(QCoreApplication.translate("MachinePanel", "Recargar"))
@@ -101,10 +97,6 @@ class MachinePanel(QWidget):
         params_store.save_machine_env({key: row.value() for key, row in self.rows.items()})
         self.saved.emit()
 
-    def content_height(self) -> int:
-        """Return the height of the rows and the footer."""
-        return self._body.sizeHint().height() + self.footer.sizeHint().height()
-
     def set_palette(self, pal: Palette) -> None:
         """Repaint with the palette of the repo."""
         self.pal = pal
@@ -119,7 +111,7 @@ class MachinePanel(QWidget):
         """
         # The scroll's viewport fills with Base, the body's color.
         theme.SECTION_BODY.on(self.pal).dress(self)
-        theme.FOOTER.on(self.pal).band(self.footer, "top")
+        theme.SECTION_BODY.on(self.pal).dress(self.footer)
         for button in (self.reload_btn, self.save_btn):
             theme.ACCENT_BUTTON.on(self.pal).dress(button, fill=False)
             button.setFont(theme.font(Fonts.SIZE_XS))

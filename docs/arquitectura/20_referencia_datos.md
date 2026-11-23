@@ -54,7 +54,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/screenshots` | usa |
 | `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `.consola/publishable` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |
-| `OFFLINE_KEY` | Máquina | Llave pública guardada fuera | `scope='machine'` | | exige |
+| `OFFLINE_KEY` | Máquina | Archivo .pub de la llave guardada fuera | `scope='machine'`; ruta al `.pub`, que «Configurar VPS» lee al correr (`ssh.read_public_key`) | `~/.ssh/vps_offline.pub` | usa |
 | `CANONE_DIR` | Máquina | Carpeta de canone | `scope='machine'` | | exige |
 | `LOGS` | Máquina | Destino de logs | `scope='machine'` | | usa |
 | `LOGS_KEY` | Máquina | Llave de logs | `scope='machine'` | | usa |
@@ -73,7 +73,7 @@ Lista plana de nombres de extensión.
 
 ```json
 {
-  "@tabs":       { "open": ["<capability_id>", "..."] },
+  "@tabs":       { "open": ["<capability_id>", "..."], "active": "<capability_id>" },
   "@protection": { "vps": true, "db": true, "otros_repos": true,
                    "local": false, "origin": false },
   "<capability_id>": {
@@ -95,6 +95,7 @@ Archivo INI: `%APPDATA%\Equipaggio\Consola.ini` en Windows y `~/.config/Equipagg
 | Clave | Qué |
 |---|---|
 | `projects/list` | JSON con los repos abiertos: ruta y nombre, en orden |
+| `projects/active` | Ruta normalizada (`project_store.identity`) del repo seleccionado |
 | `favorites/ids` | Ids de las acciones favoritas |
 | `favorites/only` | «Solo favoritos», del menú Ver |
 | `ui/hidden_sections` | Secciones ocultas de la columna derecha. Sin nada guardado, «Configuración de la máquina» |

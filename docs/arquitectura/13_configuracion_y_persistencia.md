@@ -73,7 +73,7 @@ Leerlo nunca toca `os.environ`: una tarea no puede pisarle el entorno a las otra
 
 ## 5. Los repos en pestañas
 
-`QSettings` guarda en `projects/list` la lista de repos abiertos, en orden: ruta y nombre (`services/project_store.py`). Añadir, quitar y reordenar sobreviven al reinicio. Va aquí y no en un repo porque un repo no puede saber que está en tu barra.
+`QSettings` guarda en `projects/list` la lista de repos abiertos, en orden: ruta y nombre (`services/project_store.py`). Añadir, quitar y reordenar sobreviven al reinicio. En `projects/active` guarda el repo de la pestaña seleccionada, que se vuelve a seleccionar al arrancar; si ya no está abierto, se selecciona el primero. Va aquí y no en un repo porque un repo no puede saber que está en tu barra.
 
 El **color no está en esa lista**: es una decisión sobre ese repo, así que vive en su `params.json` bajo `@theme` y viaja con él. Se guarda la clave del tema de `brand/tokens/` (`services/palettes.py`, [ADR-0092](../adr/0092-el-tema-de-color-se-elige-por-repo-y-viaja-con-el.md)), no un hex, para poder cambiar un tono sin repintar a mano lo ya guardado. Un repo sin tema guardado —recién clonado, o abierto antes de que hubiera temas— recibe al cargar el primer tema libre y se le escribe en el acto.
 
@@ -86,7 +86,7 @@ Un solo archivo por repo, con tres clases de entrada:
 ```json
 {
   "@theme":     { "key": "blue" },
-  "@tabs":      { "open": ["build_vite", "backend"] },
+  "@tabs":      { "open": ["build_vite", "backend"], "active": "backend" },
   "@protection":{ "vps": true, "db": true, "local": false },
   "build_vite": { "variants": {...}, "options": {...},
                      "fields": {...}, "picks": {...}, "steps": [...] }

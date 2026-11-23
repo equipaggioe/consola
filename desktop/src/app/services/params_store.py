@@ -208,14 +208,21 @@ def load_tabs(repo_path: str) -> list[str]:
     return [str(x) for x in opened] if isinstance(opened, list) else []
 
 
-def save_tabs(repo_path: str, capability_ids: list[str]) -> None:
-    """Save which action tabs stay open, in order, to reopen them.
+def load_active_tab(repo_path: str) -> str:
+    """Return the `capability_id` of the tab that was active, or ""."""
+    raw = _read(repo_path).get(_TABS_KEY)
+    return str(raw.get("active", "")) if isinstance(raw, dict) else ""
+
+
+def save_tabs(repo_path: str, capability_ids: list[str], active: str) -> None:
+    """Save which action tabs stay open, in order, and the active one.
 
     They reopen as they were on the next start (`widgets/tab_panel.py`).
+    `active` is "" when the active tab is not an action's.
     """
     key = _norm(repo_path)
     data = _read(repo_path)
-    clean = {"open": [str(x) for x in capability_ids]}
+    clean = {"open": [str(x) for x in capability_ids], "active": active}
     if data.get(_TABS_KEY) == clean:
         return
     data[_TABS_KEY] = clean

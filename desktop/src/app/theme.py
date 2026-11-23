@@ -222,7 +222,11 @@ class Style(QProxyStyle):
             and widget is not None
             and widget.property(FOCUS_FRAME)
         ):
-            if has(option, QStyle.StateFlag.State_HasFocus):
+            # Only for who moves with the keyboard, as a button's: a
+            # click in the console to select text drew a box around it.
+            if has(option, QStyle.StateFlag.State_HasFocus) and has(
+                option, QStyle.StateFlag.State_KeyboardFocusChange
+            ):
                 colors = cast(QPalette, option.palette)
                 ring(
                     painter,
@@ -600,7 +604,14 @@ def check_box(option: QStyleOption, painter: QPainter) -> None:
     painter.setBrush(fill)
     painter.drawRoundedRect(rect, Radius.SM, Radius.SM)
     if checked:
-        pen = QPen(colors.color(QPalette.ColorRole.HighlightedText), 1.8)
+        # The ink of its label. A disabled one is filled with that very
+        # ink, so its mark goes in HighlightedText to show over it.
+        ink = (
+            QPalette.ColorRole.WindowText
+            if has(option, QStyle.StateFlag.State_Enabled)
+            else QPalette.ColorRole.HighlightedText
+        )
+        pen = QPen(colors.color(ink), 1.8)
         pen.setCapStyle(Qt.PenCapStyle.RoundCap)
         pen.setJoinStyle(Qt.PenJoinStyle.RoundJoin)
         painter.setPen(pen)
@@ -865,8 +876,8 @@ def glyph(button: QPushButton, color: str, hover: str, ink: str | None = None) -
 def focus_frame(area: QAbstractScrollArea) -> None:
     """Give a scroll area no frame but the focus of the keyboard.
 
-    `Style` draws it in 2 px of Highlight while the area has the focus,
-    and nothing without it (WCAG 2.4.7).
+    `Style` draws it in 2 px of Highlight while the area has the focus
+    that Tab gave, and nothing with the mouse's or none (WCAG 2.4.7).
     """
     area.setFrameShape(QFrame.Shape.StyledPanel)
     area.setProperty(FOCUS_FRAME, True)
@@ -1204,17 +1215,8 @@ TABLE_TAB = Look(fg=Role.ON_SURFACE, border=Role.PRIMARY)
 
 # --- right: sections --------------------------------------------------
 
-# What a section holds, with its scroll bar.
+# What a section holds.
 SECTION_BODY = Look(bg=Role.SURFACE_CONTAINER_LOW)
-# The bar to drag between two open sections: the body's color, so it
-# only shows on hover.
-# Its line is what shows of a handle: `outline`, which reads at 3:1
-# (WCAG 1.4.11).
-SECTION_GRIP = Look(
-    bg=SECTION_BODY.bg,
-    border=Role.OUTLINE,
-    hover=Layer(Role.ON_SURFACE, Role.SURFACE_CONTAINER_LOW),
-)
 # The bottom strip of a panel: Limpiar · Ejecutar, Guardar · Recargar.
 FOOTER = Look(bg=Role.SURFACE_CONTAINER, border=Role.OUTLINE_VARIANT)
 # Text fields and closed lists.

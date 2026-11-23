@@ -17,6 +17,7 @@ provider's panel set or `install_key` added with root's password. After
 from __future__ import annotations
 
 from dataclasses import dataclass
+from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 
@@ -24,6 +25,7 @@ from app.services import canone, session, ssh
 from app.services.context import TaskContext
 from app.services.errors import TaskError
 from app.services.registry import registry
+from app.services.settings import names
 
 # Where canone's programs are uploaded. Deleted at the end.
 REMOTE_DIR = "/tmp/consola-canone"
@@ -306,14 +308,13 @@ def install_infra(ctx: TaskContext) -> None:
     key = ssh.public_key(
         ssh.ensure_local_keypair(ctx, ctx.config.require("VPS_KEY_NAME"), comment=app)
     )
-    outside = ctx.config.require("OFFLINE_KEY").strip()
+    outside = ssh.read_public_key(Path(ctx.config.require("OFFLINE_KEY")).expanduser())
     if outside.split()[:2] == key.split()[:2]:
         raise TaskError(
             QCoreApplication.translate(
                 "vps_setup",
-                "OFFLINE_KEY es la misma llave que VPS_KEY_NAME: hace falta otra, "
-                "guardada fuera de esta máquina.",
-            )
+                "{0} es la misma llave que {1}: hace falta otra, guardada fuera de esta máquina.",
+            ).format(names(["OFFLINE_KEY"]), names(["VPS_KEY_NAME"]))
         )
     entry = access(ctx)
     memory = _valkey_memory(ctx, entry)

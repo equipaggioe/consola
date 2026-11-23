@@ -416,8 +416,12 @@ def public_key_path(private: Path) -> Path:
 
 
 def public_key(private: Path) -> str:
-    """Return the text of the public key."""
-    pub = public_key_path(private)
+    """Return the text of the private key's public half."""
+    return read_public_key(public_key_path(private))
+
+
+def read_public_key(pub: Path) -> str:
+    """Return the text of a `.pub` file, or stop if it is missing."""
     if not pub.is_file():
         raise TaskError(
             QCoreApplication.translate("ssh", "No existe la llave publica: {0}").format(pub)

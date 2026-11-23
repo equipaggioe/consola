@@ -189,6 +189,11 @@ class ProjectTabBar(ReorderableBar):
         finally:
             self._loading = False
         self._persist()
+        # The repo that was selected when Consola closed, or the first.
+        if self.tabs:
+            saved = project_store.load_active()
+            match = (t for t in self.tabs if project_store.identity(t.project.path) == saved)
+            self.select_tab(next(match, self.tabs[0]))
 
     def find_tab(self, path: str) -> ProjectTab | None:
         """Return that folder's tab, however its path is written."""
@@ -216,7 +221,8 @@ class ProjectTabBar(ReorderableBar):
         self.tabs.append(tab)
         self._refresh_closable()
         self._persist()
-        if select or self._active is None:
+        # While loading, `load_projects` selects the saved one last.
+        if select or (self._active is None and not self._loading):
             self.select_tab(tab)
         return tab
 
@@ -240,6 +246,7 @@ class ProjectTabBar(ReorderableBar):
             t.set_active(t is tab)
         self.add_tab.set_palette(tab.pal)
         self.update()
+        project_store.save_active(tab.project)
         self.project_selected.emit(tab.project)
 
     def select_project(self, project: Project) -> None:

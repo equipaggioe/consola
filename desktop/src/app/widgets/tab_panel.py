@@ -13,7 +13,6 @@ from PySide6.QtCore import (
     QRectF,
     QSize,
     Qt,
-    QTimer,
     Signal,
     Slot,
 )
@@ -38,6 +37,7 @@ from PySide6.QtWidgets import (
     QMenu,
     QMessageBox,
     QPushButton,
+    QScrollArea,
     QSizePolicy,
     QStackedWidget,
     QVBoxLayout,
@@ -54,6 +54,7 @@ from app.services import (
     protection,
     repo_logo,
     section_visibility,
+    settings,
 )
 from app.services.announce import announce
 from app.services.catalog import forget_machine_cache
@@ -72,7 +73,6 @@ from app.widgets.params_panel import ParamsPanel
 from app.widgets.reorderable_bar import ReorderableBar
 from app.widgets.reorderable_tab import ReorderableTab
 from app.widgets.repo_logo_view import RepoLogoView
-from app.widgets.section_resize_grip import SectionResizeGrip
 from app.widgets.security_panel import SecurityPanel
 from app.widgets.splitter import Splitter
 from app.widgets.tab_view import TabView
@@ -311,6 +311,64 @@ def _config_tab() -> Capability:
     )
 
 
+class _CurrentPageStack(QStackedWidget):
+    """A stack that is as big as the page showing, not the biggest.
+
+    A `QStackedWidget` asks for the size of its largest page; with a
+    panel per open action, Parameters would keep the height of the
+    longest one.
+    """
+
+    def __init__(self, parent: QWidget | None = None) -> None:
+        """Build the stack; it resizes when the page changes."""
+        super().__init__(parent)
+        self.currentChanged.connect(lambda _index: self.updateGeometry())
+
+    @override
+    def sizeHint(self) -> QSize:
+        page = self.currentWidget()
+        return page.sizeHint() if page is not None else super().sizeHint()
+
+    @override
+    def minimumSizeHint(self) -> QSize:
+        page = self.currentWidget()
+        return page.minimumSizeHint() if page is not None else super().minimumSizeHint()
+
+    @override
+    def hasHeightForWidth(self) -> bool:
+        page = self.currentWidget()
+        return page is not None and page.hasHeightForWidth()
+
+    @override
+    def heightForWidth(self, width: int) -> int:
+        page = self.currentWidget()
+        return page.heightForWidth(width) if page is not None else -1
+
+
+class _ColumnScroll(QScrollArea):
+    """The right column's scroll, as wide as its content needs.
+
+    A `QScrollArea` reports a tiny minimum, so the splitter let the
+    column narrower than its fields and the horizontal scroll, off,
+    cut them.
+    """
+
+    @override
+    def minimumSizeHint(self) -> QSize:
+        content = self.widget()
+        if content is None:
+            return super().minimumSizeHint()
+        bar = self.verticalScrollBar().sizeHint().width()
+        return QSize(content.minimumSizeHint().width() + bar, super().minimumSizeHint().height())
+
+    @override
+    def eventFilter(self, watched: QObject, event: QEvent) -> bool:
+        # A section's header or field changed what its content asks for.
+        if watched is self.widget() and event.type() == QEvent.Type.LayoutRequest:
+            self.updateGeometry()
+        return super().eventFilter(watched, event)
+
+
 class TabPanel(ReorderableBar):
     """The workspace of ONE repository.
 
@@ -337,8 +395,6 @@ class TabPanel(ReorderableBar):
     # config.env was reread: the `RepoLogo`, for the repo's tab
     logo_changed = Signal(object)
 
-    # Floor of an accordion section's body when dragging it by hand.
-    MIN_BODY = 48
     # The gap above the run tabs: it sets them apart from the menu row.
     SUB_BAR_TOP = 8
 
@@ -390,8 +446,12 @@ class TabPanel(ReorderableBar):
         # and that key is in the section below. With tabs, the message
         # would point at something out of view. See
         # `widgets/accordion_section.py`.
-        self.params_stack = QStackedWidget()
+        self.params_stack = _CurrentPageStack()
         self.params_stack.addWidget(self._build_params_placeholder())
+        # What the open action will use without it being chosen: one
+        # page per panel (`ParamsPanel.deduced`), like Parameters.
+        self.deduced_stack = _CurrentPageStack()
+        self.deduced_stack.addWidget(self._build_deduced_placeholder())
 
         self.env_panel = EnvPanel(project)
         self.env_panel.values_changed.connect(self._on_env_changed)
@@ -421,11 +481,11 @@ class TabPanel(ReorderableBar):
         )
         # Open at first and without folding by itself: it is the section
         # used on each run, and opening an action only to have to open
-        # this too is one click too many. `_relayout_right` gives it its
-        # full natural height.
+        # this too is one click too many.
         self.params_section = AccordionSection(
             section_title("parametros"), self.params_stack, expanded=True
         )
+        self.deduced_section = AccordionSection(section_title("deducido"), self.deduced_stack)
         self.config_section = AccordionSection(section_title("configuracion"), self.env_panel)
         # The machine keys: the only place they edit. Last, below the
         # repo's, and hidden until the Ver menu shows it.
@@ -438,27 +498,11 @@ class TabPanel(ReorderableBar):
         self.env_panel.notice.connect(self._on_env_notice)
         self._show_file_status()
 
-        # A layout and not a `QSplitter`: folding is setting a height
-        # cap on the section, and a splitter keeps its own sizes apart;
-        # the two controls fought and the allotment only settled a turn
-        # later.
-        #
-        # `_relayout_right` shares out, computing each one's cap; the
-        # layout only obeys. Leaving it to stretch factors was not
-        # enough: `params_stack` and `env_panel` ask for heights
-        # unrelated to what the column can give, and negotiating among
-        # them one section ended up with another's height.
-        #
-        # Body height (without header) chosen by hand by dragging the
-        # bar below. `None` = follow `_relayout_right`'s automatic
-        # share. It clears by itself on folding the section: reopening
-        # autosizes again.
-        self._manual: dict[AccordionSection, int | None] = {}
-        self._grips: dict[AccordionSection, SectionResizeGrip] = {}
         self._all_sections = (
             self.info_section,
             self.security_section,
             self.params_section,
+            self.deduced_section,
             self.config_section,
             self.machine_section,
         )
@@ -468,10 +512,13 @@ class TabPanel(ReorderableBar):
             self.info_section: "accion",
             self.security_section: "seguridad",
             self.params_section: "parametros",
+            self.deduced_section: "deducido",
             self.machine_section: "maquina",
             self.config_section: "configuracion",
         }
 
+        # One scroll for the whole column: an open section shows
+        # whole, and a long one is seen by scrolling the column.
         self.right_column = QWidget()
         self._column = QVBoxLayout(self.right_column)
         self._column.setContentsMargins(0, 0, 0, 0)
@@ -483,38 +530,24 @@ class TabPanel(ReorderableBar):
                 self._show_sections_menu(h.mapToGlobal(pos))
 
             section.header.customContextMenuRequested.connect(on_section_menu)
-            # `_relayout_right` decides who stretches with
-            # `setStretchFactor`: it has to be the last open section not
-            # fixed by hand, which is not always Settings. Without that,
-            # with Settings folded the excess fell in the final spring
-            # and left a dead gap.
             self._column.addWidget(section, 0)
-            section.toggled.connect(self._on_section_toggled)
-            # The last one has no one to negotiate with below.
-            if section is not self._all_sections[-1]:
-                self._manual[section] = None
-                grip = SectionResizeGrip()
-                grip.setAccessibleName(
-                    QCoreApplication.translate("TabPanel", "Alto de {0}").format(
-                        section_title(self._section_ids[section])
-                    )
-                )
-                grip.pressed.connect(lambda s=section: self._begin_resize(s))
+        # What is left below the last section.
+        self._column.addStretch(1)
+        self.right_scroll = _ColumnScroll()
+        self.right_scroll.setWidgetResizable(True)
+        self.right_scroll.setHorizontalScrollBarPolicy(Qt.ScrollBarPolicy.ScrollBarAlwaysOff)
+        # No frame and no focus of its own: the controls inside take it.
+        self.right_scroll.setFrameShape(QFrame.Shape.NoFrame)
+        self.right_scroll.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+        self.right_scroll.setWidget(self.right_column)
 
-                def on_grip_drag(delta: int, s: AccordionSection = section) -> None:
-                    self._resize_section(s, delta)
-
-                grip.dragged.connect(on_grip_drag)
-                grip.reset.connect(lambda s=section: self._resize_section(s, None))
-                self._column.addWidget(grip)
-                self._grips[section] = grip
-        # With ALL folded nobody is left to stretch: this spring eats
-        # the excess so the headers stack on top.
-        self._column.addStretch(0)
-        # Only now: the filter fires `_relayout_right`, which needs the
-        # sections and bars built.
-        self.right_column.installEventFilter(self)  # see `eventFilter`
-
+        # A tab is a box with the console and, when the action publishes
+        # an endpoint, a browser next to it (`widgets/tab_view.py`,
+        # ADR-0008). `_consoles` exists because almost all this file
+        # speaks to the console and not the box.
+        self._views: dict[_SubTabButton, TabView] = {}
+        self._consoles: dict[_SubTabButton, ConsoleView] = {}
+        self._params: dict[_SubTabButton, ParamsPanel] = {}
         self.apply_section_visibility()
 
         # Fixed footer with Run and Dry run: outside the accordion, so
@@ -529,13 +562,16 @@ class TabPanel(ReorderableBar):
         right_layout = QVBoxLayout(right_container)
         right_layout.setContentsMargins(0, 0, 0, 0)
         right_layout.setSpacing(0)
-        right_layout.addWidget(self.right_column, 1)
+        right_layout.addWidget(self.right_scroll, 1)
         right_layout.addWidget(self.run_footer)
 
         self.splitter = Splitter(
             Qt.Orientation.Horizontal,
             QCoreApplication.translate("TabPanel", "Ancho de la columna derecha"),
         )
+        # A line of 1 px between the two, as it always was; the arrows
+        # still move it with the focus.
+        self.splitter.setHandleWidth(1)
         self.splitter.addWidget(self.content_area)
         self.splitter.addWidget(right_container)
         self.splitter.setStretchFactor(0, 1)
@@ -551,13 +587,6 @@ class TabPanel(ReorderableBar):
         self.root_layout.addWidget(self.splitter, 1)
 
         self.tabs: list[_SubTabButton] = []
-        # A tab is a box with the console and, when the action publishes
-        # an endpoint, a browser next to it (`widgets/tab_view.py`,
-        # ADR-0008). `_consoles` exists because almost all this file
-        # speaks to the console and not the box.
-        self._views: dict[_SubTabButton, TabView] = {}
-        self._consoles: dict[_SubTabButton, ConsoleView] = {}
-        self._params: dict[_SubTabButton, ParamsPanel] = {}
         self._runners: set[TaskRunner] = (
             set()
         )  # live references: without this Qt collects them mid-thread
@@ -576,7 +605,6 @@ class TabPanel(ReorderableBar):
         self.set_palette(self.pal)
         self._refresh_security_summary(self.security_panel.state())
         self._restore_tabs()
-        QTimer.singleShot(0, self._relayout_right)
 
     def _restore_tabs(self) -> None:
         """Reopen the action tabs left open last time, in their order.
@@ -592,19 +620,28 @@ class TabPanel(ReorderableBar):
                     self.open_tab(capability)
         finally:
             self._restoring = False
+        # The tab that was active when Consola closed; each `open_tab`
+        # activated its own, so without it the last would stay.
+        active = params_store.load_active_tab(self.project.path)
+        match = (t for t, p in self._params.items() if p.capability.id == active)
+        tab = next(match, None)
+        if tab is not None:
+            self._activate(tab)
         # Rewrite the cleaned list: if the catalog lost a button, its
         # saved id does not drag on.
         self._persist_tabs()
 
     def _persist_tabs(self) -> None:
-        """Note which tabs stay open, in order, for the next start.
+        """Note which tabs stay open, in order, and the active one.
 
-        A tab without a panel, half closed, is skipped.
+        A tab without a panel, half closed, is skipped, and so is the
+        settings tab, which has none either.
         """
         if self._restoring:
             return
         ids = [self._params[t].capability.id for t in self.tabs if t in self._params]
-        params_store.save_tabs(self.project.path, ids)
+        active = next((self._params[t].capability.id for t in self._params if t.is_active), "")
+        params_store.save_tabs(self.project.path, ids, active)
 
     @override
     def tabs_reordered(self) -> None:
@@ -621,15 +658,13 @@ class TabPanel(ReorderableBar):
     def _on_env_notice(self, text: str, level: str) -> None:
         """Write what a settings button did in the settings tab.
 
-        Saving and importing act like an action's button: they open
-        their tab, or bring it forward, and leave the result there. A
+        Saving and importing leave their result in their tab, which
+        opens without taking the view: the form stays where it is. A
         screen reader hears it too: the focus stays on the button.
         """
         tab = self._config_tab
         if tab is None:
             tab = self._open_config_tab()
-        else:
-            self._activate(tab)
         self._consoles[tab].append_log(text, level)
         announce(self.window(), text, urgent=level == "error")
 
@@ -638,7 +673,9 @@ class TabPanel(ReorderableBar):
 
         It has a console and no parameters: showing it, the settings
         section shows the whole file, unfiltered. It is not reopened at
-        start, since it only holds a log (`_persist_tabs` skips it).
+        start, since it only holds a log (`_persist_tabs` skips it). It
+        does not take the view: a click on a settings button is not a
+        request to leave the form.
         """
         config = _config_tab()
         tab = _SubTabButton(config.name, self.pal)
@@ -652,11 +689,11 @@ class TabPanel(ReorderableBar):
         self._views[tab] = view
         self._consoles[tab] = view.console
         view.cleared.connect(lambda t=tab: self._on_cleared(t))
+        view.section_toggled.connect(self._set_section_visible)
         tab.clicked.connect(lambda t=tab: self._activate(t))
         tab.close_requested.connect(lambda t=tab: self.close_tab(t))
         self._config_tab = tab
         self.empty_hint.setVisible(False)
-        self._activate(tab)
         return tab
 
     def refresh_favorite_stars(self) -> None:
@@ -703,11 +740,25 @@ class TabPanel(ReorderableBar):
         self._params_placeholder = w
         lay = QVBoxLayout(w)
         lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
-        # Its two lines fit in the floor of an open section
-        # (`MIN_BODY`): in a short column, as at 200 %, they were cut.
         lay.setContentsMargins(20, Spacing.SM, 20, Spacing.SM)
         hint = QLabel(
             QCoreApplication.translate("TabPanel", "Los parámetros de la acción\naparecen aquí")
+        )
+        hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        hint.setFont(theme.font(Fonts.SIZE_XS))
+        theme.HINT.on(self.pal).dress(hint)
+        lay.addWidget(hint)
+        return w
+
+    def _build_deduced_placeholder(self) -> QWidget:
+        w = QWidget()
+        w.setAutoFillBackground(True)
+        self._deduced_placeholder = w
+        lay = QVBoxLayout(w)
+        lay.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        lay.setContentsMargins(20, Spacing.SM, 20, Spacing.SM)
+        hint = QLabel(
+            QCoreApplication.translate("TabPanel", "Lo que la acción deduce\naparece aquí")
         )
         hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
         hint.setFont(theme.font(Fonts.SIZE_XS))
@@ -807,6 +858,7 @@ class TabPanel(ReorderableBar):
         self._views[tab] = view
         self._consoles[tab] = console
         view.cleared.connect(lambda t=tab: self._on_cleared(t))
+        view.section_toggled.connect(self._set_section_visible)
 
         panel = ParamsPanel(capability, self.project, self.env_panel)
         panel.set_env(self.env_panel.values())
@@ -824,6 +876,7 @@ class TabPanel(ReorderableBar):
         panel.clear_requested.connect(view.clear_console)
         panel.favorite_changed.connect(self.favorite_changed.emit)
         self.params_stack.addWidget(panel)
+        self.deduced_stack.addWidget(panel.deduced)
         self.run_footer.addWidget(panel.footer)
         self._params[tab] = panel
 
@@ -927,7 +980,9 @@ class TabPanel(ReorderableBar):
         panel = self._params.pop(tab, None)
         if panel is not None:
             self.params_stack.removeWidget(panel)
+            self.deduced_stack.removeWidget(panel.deduced)
             self.run_footer.removeWidget(panel.footer)
+            panel.deduced.deleteLater()
             panel.footer.deleteLater()
             panel.deleteLater()
 
@@ -946,13 +1001,13 @@ class TabPanel(ReorderableBar):
             self.empty_hint.setVisible(True)
             self.content_area.setCurrentWidget(self.welcome_widget)
             self.params_stack.setCurrentIndex(0)
+            self.deduced_stack.setCurrentIndex(0)
             self.run_footer.setCurrentIndex(0)
             self.env_panel.filter_for(None)
             self.info_panel.set_capability(None)
             self.info_section.set_expanded(False, announce=False)
             # Parameters stays open: it is its default state, even if it
             # only shows the placeholder now.
-            self._relayout_right()
 
     def current_console(self) -> ConsoleView | None:
         """Return the active tab's console.
@@ -1016,8 +1071,8 @@ class TabPanel(ReorderableBar):
         self.info_panel.set_palette(pal)
         for section in self._all_sections:
             section.set_palette(pal)
-        for grip in self._grips.values():
-            grip.set_palette(pal)
+        theme.SECTION_BODY.on(pal).dress(self.right_column)
+        theme.SECTION_BODY.on(pal).dress(self.right_scroll.viewport())
 
     def _restyle(self) -> None:
         """Paint the backgrounds THIS panel sets.
@@ -1029,20 +1084,15 @@ class TabPanel(ReorderableBar):
         theme.RUN_BAR.on(self.pal).band(self.sub_bar, "bottom")
         theme.CANVAS.on(self.pal).dress(self.content_area)
         theme.SECTION_BODY.on(self.pal).dress(self._params_placeholder)
+        theme.SECTION_BODY.on(self.pal).dress(self._deduced_placeholder)
         theme.FOOTER.on(self.pal).band(self._footer_placeholder, "top")
         theme.RUN_BUTTON_OFF.on(self.pal).dress(self._footer_placeholder_btn, fill=False)
-
-    def reveal_security(self) -> None:
-        """Open this repo's Security section.
-
-        The status bar's indicator calls it (`windows/main_window.py`).
-        """
-        self.security_section.set_expanded(True)
 
     # --- internal ---
     def _activate(self, tab: _SubTabButton) -> None:
         for t in self.tabs:
             t.set_active(t is tab)
+        self._persist_tabs()
         view = self._views.get(tab)
         if view is not None:
             self.content_area.setCurrentWidget(view)
@@ -1050,6 +1100,7 @@ class TabPanel(ReorderableBar):
         panel = self._params.get(tab)
         if panel is not None:
             self.params_stack.setCurrentWidget(panel)
+            self.deduced_stack.setCurrentWidget(panel.deduced)
             self.run_footer.setCurrentWidget(panel.footer)
             # Showing the tab IS the request to see the list up to date:
             # queried axes (the SDK's AVDs, the VPS's services) reread
@@ -1063,14 +1114,13 @@ class TabPanel(ReorderableBar):
             # by hand, it opens again: it is what the click went looking
             # for.
             self.params_section.set_expanded(True, announce=False)
-            QTimer.singleShot(0, self._relayout_right)
         else:
             # The settings tab: no parameters and the whole file.
             self.params_stack.setCurrentIndex(0)
+            self.deduced_stack.setCurrentIndex(0)
             self.run_footer.setCurrentIndex(0)
             self.env_panel.filter_for(None)
             self.info_panel.set_capability(None)
-            QTimer.singleShot(0, self._relayout_right)
 
     def _refilter_env(self, panel: ParamsPanel) -> None:
         """Refilter the settings when a value is marked or unmarked.
@@ -1082,143 +1132,6 @@ class TabPanel(ReorderableBar):
         if self.current_params() is panel:
             self.env_panel.filter_for(panel.relevant_keys())
 
-    @override
-    def eventFilter(self, obj: QObject, event: QEvent) -> bool:
-        """Share out again: the right column changed height.
-
-        A resized window. Settings's height is «what is left».
-        """
-        if obj is self.right_column and event.type() == QEvent.Type.Resize:
-            self._relayout_right()
-        return super().eventFilter(obj, event)
-
-    def _relayout_right(self, *_args) -> None:
-        """Compute the height of each visible section.
-
-        Folded, a section is only its header. Open, Security keeps what
-        its checkboxes need and Parameters what its action asks for, up
-        to the long half of the column, so an action with many options
-        does not leave the rest by a thread; Settings gets what is left,
-        since it is the only one with a long scroll. A section dragged
-        by hand (`_manual`) wins over all that.
-
-        It shares out BODIES, not whole sections: `height` starts at the
-        header and what adds is the body. Mixing the two units made the
-        first dragged section jump its header's height at once.
-        """
-        total = self.right_column.height()
-        if total <= 0:
-            return
-        sections = self._sections
-        self._sync_grips()
-        # Drag bars also take height. Without subtracting them more
-        # pixels were shared than there are, and the layout had to
-        # squeeze some body below its minimum to fit.
-        spent = sum(s.header_height() for s in sections) + sum(
-            SectionResizeGrip.HEIGHT for s in sections[:-1] if self._grip_visible(s)
-        )
-        height = {s: s.header_height() for s in sections}
-        free = max(0, total - spent)
-
-        # The excess goes to the last open section, Settings or the
-        # machine section below it when shown, but if folded Parameters
-        # absorbs it, and so on upward.
-        # Otherwise, with it folded the rest fell in the final spring
-        # and the last header came off the bottom edge, leaving a dead
-        # gap.
-        absorbing = next((s for s in reversed(sections) if s.is_expanded()), None)
-        # The last open section has no bar of its own, with no one below
-        # to negotiate with, so a manual height of its own is from an
-        # old state: it drops. Otherwise that old value fell short and
-        # the gap returned.
-        if absorbing in self._manual:
-            self._manual[absorbing] = None
-
-        for i, section in enumerate(sections[:-1]):
-            if not section.is_expanded():
-                continue
-            # Keep the floor for each open section left below: an open
-            # section showing no body reads as broken. That makes the
-            # bar stop on dragging instead of erasing what is below.
-            # Settings also has a roomier minimum, and the machine
-            # section keeps all its rows: they are few, and Settings
-            # above would otherwise take everything.
-            reserve = sum(self._floor(s) for s in sections[i + 1 :] if s.is_expanded())
-            if (
-                self._manual[section] is None
-                and section is self.params_section
-                and self.config_section.is_expanded()
-            ):
-                reserve = max(reserve, 120)
-            # But the reserve cannot eat this very section's floor.
-            reserve = min(reserve, max(0, free - self.MIN_BODY))
-            dar = max(0, min(self._section_wanted(section), free - reserve))
-            height[section] += dar
-            free -= dar
-
-        if absorbing is not None:
-            height[absorbing] += free
-
-        for section, value in height.items():
-            # A cap and not a fixed height: with all three pinned, the
-            # column imposed their sum as minimum height and the window
-            # could no longer shrink. The floor stays at the header, the
-            # one thing that cannot be given up.
-            section.setMaximumHeight(value)
-            section.setMinimumHeight(section.header_height())
-            # And also the hint, which is how the layout truly shares
-            # out (see `AccordionSection.set_allotted`).
-            section.set_allotted(value)
-            # If a pixel were still left over from rounding, the
-            # absorbing section keeps it and not the final spring.
-            self._column.setStretchFactor(section, 1 if section is absorbing else 0)
-
-    @Slot()
-    def _on_section_toggled(self, *_args) -> None:
-        # Folding a section discards its manual height: reopening
-        # expects the size its content computes, not what it had three
-        # clicks ago.
-        for section in self._manual:
-            if not section.is_expanded():
-                self._manual[section] = None
-        self._relayout_right()
-
-    def _begin_resize(self, section: AccordionSection) -> None:
-        """Start a drag from the height the section has ON SCREEN.
-
-        Without this the drag kept counting from the saved value, which
-        the share may have cut for lack of room: there was a dead zone
-        where moving the mouse moved nothing until recovering the
-        difference.
-        """
-        if section in self._manual:
-            self._manual[section] = max(0, section.height() - section.header_height())
-
-    def _resize_section(self, section: AccordionSection, delta: int | None) -> None:
-        """Fix a section's body height, or release it with `delta=None`.
-
-        The rest share what is left in `_relayout_right`.
-        """
-        if delta is None:
-            self._manual[section] = None
-        else:
-            base = self._manual[section]
-            if base is None:
-                base = max(0, section.height() - section.header_height())
-            # Floor: below it the body's scroll is smaller than its own
-            # bar and cannot even scroll. To shrink further there is the
-            # chevron.
-            self._manual[section] = max(self.MIN_BODY, base + delta)
-        self._relayout_right()
-
-    @property
-    def _sections(self) -> tuple[AccordionSection, ...]:
-        """Return the sections the user left in view, in order.
-
-        The height share and the drag bars only count these.
-        """
-        return tuple(s for s in self._all_sections if not s.isHidden())
-
     def reload_machine(self) -> None:
         """Reread the machine keys that another form saved."""
         self.machine_panel.reload()
@@ -1229,7 +1142,8 @@ class TabPanel(ReorderableBar):
         hidden = section_visibility.hidden_sections()
         for section in self._all_sections:
             section.setHidden(self._section_ids[section] in hidden)
-        self._relayout_right()
+        for view in self._views.values():
+            view.fit_sections()
 
     def _show_sections_menu(self, global_pos: QPoint) -> None:
         menu = QMenu(self)
@@ -1249,62 +1163,6 @@ class TabPanel(ReorderableBar):
     def _set_section_visible(self, section_id: str, visible: bool) -> None:
         section_visibility.set_section_hidden(section_id, not visible)
         self.sections_changed.emit()
-
-    def _grip_visible(self, section: AccordionSection) -> bool:
-        """Return whether there is something to negotiate.
-
-        The section is open and some section open below can trade
-        height.
-        """
-        sections = self._sections
-        if section not in sections:
-            return False
-        i = sections.index(section)
-        return section.is_expanded() and any(s.is_expanded() for s in sections[i + 1 :])
-
-    def _sync_grips(self) -> None:
-        for section, grip in self._grips.items():
-            grip.setVisible(self._grip_visible(section))
-
-    def _floor(self, section: AccordionSection) -> int:
-        """Return the body height kept for an open section below."""
-        if section is self.machine_section:
-            return self.machine_panel.content_height()
-        return self.MIN_BODY
-
-    def _section_wanted(self, section: AccordionSection) -> int:
-        """Return the body height an open section asks for."""
-        manual = self._manual.get(section)
-        if manual is not None:
-            return manual
-        if section is self.info_section:
-            return self._info_wanted()
-        if section is self.security_section:
-            return self._security_wanted()
-        if section is self.machine_section:
-            return self.machine_panel.content_height()
-        if section is self.config_section:
-            return self.env_panel.content_height()
-        # Parameters asks for its whole natural height: the idea is
-        # seeing all the action's options without scrolling.
-        # `_relayout_right`'s reserve keeps Settings from being left
-        # with nothing, not a cap here.
-        return self._params_wanted()
-
-    def _params_wanted(self) -> int:
-        panel = self.current_params()
-        if panel is None:
-            return self.params_stack.sizeHint().height()
-        return max(160, panel.natural_height())
-
-    def _security_wanted(self) -> int:
-        # From the content, not the scroll wrapping it: a `QScrollArea`
-        # has no height of its own and would answer a generic
-        # `sizeHint`.
-        return self.security_panel.content_height()
-
-    def _info_wanted(self) -> int:
-        return self.info_panel.content_height() + 28
 
     @Slot(dict)
     def _refresh_security_summary(self, state: dict[str, Any]) -> None:
@@ -1772,7 +1630,7 @@ class TabPanel(ReorderableBar):
 
         if payload["missing_env"]:
             ending = QCoreApplication.translate("TabPanel", "faltan claves: {0}").format(
-                ", ".join(payload["missing_env"])
+                settings.names(payload["missing_env"])
             )
             console.append_log(ending, "error")
         else:

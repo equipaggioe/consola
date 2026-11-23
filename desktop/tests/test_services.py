@@ -4,9 +4,12 @@
 value of the `service` axis names the unit `install.py` installs.
 """
 
+from pathlib import Path
+
 import pytest
 
-from app.services import vps
+from app.services import ssh, vps
+from app.services.envfile import Config
 from app.services.errors import TaskError
 
 
@@ -111,3 +114,21 @@ def test_unknown_action() -> None:
     """An unknown action stops."""
     with pytest.raises(TaskError):
         vps.systemctl_command("reboot", "banditore")
+
+
+def test_the_offline_key_is_a_pub_file_in_ssh_by_default() -> None:
+    """Empty, the offline key is `~/.ssh/vps_offline.pub`."""
+    assert Config({}).get("OFFLINE_KEY") == "~/.ssh/vps_offline.pub"
+
+
+def test_a_pub_file_is_read_whole(tmp_path: Path) -> None:
+    """The key is the file's line, without its line break."""
+    pub = tmp_path / "vps_offline.pub"
+    pub.write_text("ssh-ed25519 AAAA fuera\n", encoding="utf-8")
+    assert ssh.read_public_key(pub) == "ssh-ed25519 AAAA fuera"
+
+
+def test_a_missing_pub_file_stops(tmp_path: Path) -> None:
+    """Without the file there is no key to read: it says which file."""
+    with pytest.raises(TaskError, match="vps_offline.pub"):
+        ssh.read_public_key(tmp_path / "vps_offline.pub")

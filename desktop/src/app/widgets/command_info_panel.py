@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from PySide6.QtCore import QCoreApplication, Qt
 from PySide6.QtGui import QFont
-from PySide6.QtWidgets import QHBoxLayout, QLabel, QScrollArea, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QHBoxLayout, QLabel, QVBoxLayout, QWidget
 
 from app import theme
 from app.services import command_docs
@@ -45,18 +45,13 @@ class CommandInfoPanel(QWidget):
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        theme.focus_frame(scroll)
-
         self._content = QWidget()
         self._lay = QVBoxLayout(self._content)
         self._lay.setContentsMargins(16, 14, 16, 14)
         self._lay.setSpacing(10)
         self._lay.setAlignment(Qt.AlignmentFlag.AlignTop)
 
-        scroll.setWidget(self._content)
-        root.addWidget(scroll)
+        root.addWidget(self._content)
 
         self._restyle()
         self.set_capability(None)
@@ -73,14 +68,6 @@ class CommandInfoPanel(QWidget):
         theme.ink(self, Colors.ON_SURFACE_VARIANT)
 
     # --- API ---
-    def content_height(self) -> int:
-        """Return the height the text asks for without scrolling.
-
-        `TabPanel._relayout_right` uses it to decide how much to give
-        the section.
-        """
-        return self._content.sizeHint().height()
-
     def set_capability(self, capability: Capability | None) -> None:
         """Show the description of that capability, or nothing."""
         self._clear()

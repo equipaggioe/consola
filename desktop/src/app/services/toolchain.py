@@ -15,6 +15,7 @@ from app.services.files import read_text
 from app.services.host import HOST
 from app.services.language import QT_TRANSLATE_NOOP
 from app.services.process import resolve_executable
+from app.services.settings import names
 
 FLUTTER = "flutter"
 FLET = "flet"
@@ -190,9 +191,8 @@ def pyinstaller_cmd(app_dir: Path | None = None, override: str = "") -> list[str
         label="PyInstaller",
         hint=QCoreApplication.translate(
             "toolchain",
-            "Instalalo en el venv de la app (pip install pyinstaller) o escribe su "
-            "ruta en PYINSTALLER_BIN.",
-        ),
+            "Instálalo en el venv de la app (pip install pyinstaller) o escribe su ruta en {0}.",
+        ).format(names(["PYINSTALLER_BIN"])),
     )
 
 

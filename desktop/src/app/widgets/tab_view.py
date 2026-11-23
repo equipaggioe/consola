@@ -4,9 +4,10 @@ A launcher delivers a URL and not a log: the console is the first of two
 views, and the second, the browser, is what is needed when a dev server
 came up (ADR-0008).
 
-The same box serves «Explorar base» (ADR-0015): a tree and a grid
-instead of text, sharing the parameters panel and the tab's footer. That
-is why the switcher is called "view" and not "browser".
+The same box serves «Explorar base» (ADR-0015): a tree and a grid,
+sharing the parameters panel and the tab's footer. The explorer goes in
+a second section below the console, and both fold like the right
+column's (`widgets/accordion_section.py`).
 """
 
 from __future__ import annotations
@@ -15,12 +16,12 @@ from collections.abc import Callable
 from pathlib import Path
 from typing import TYPE_CHECKING
 
-from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
-from PySide6.QtGui import QGuiApplication
+from PySide6.QtCore import QCoreApplication, QPoint, Qt, Signal, Slot
+from PySide6.QtGui import QGuiApplication, QPalette
 from PySide6.QtWidgets import (
-    QFrame,
     QHBoxLayout,
     QLabel,
+    QMenu,
     QPushButton,
     QStackedWidget,
     QVBoxLayout,
@@ -28,7 +29,7 @@ from PySide6.QtWidgets import (
 )
 
 from app import theme
-from app.services import db_explorer, session
+from app.services import db_explorer, section_visibility, session
 from app.services.announce import announce
 from app.services.envfile import Config
 from app.services.language import QT_TRANSLATE_NOOP
@@ -36,9 +37,11 @@ from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
 from app.services.registry import Capability
 from app.theme import Fonts, Metrics, mono
+from app.widgets.accordion_section import AccordionSection
 from app.widgets.browser_view import BrowserView, open_external
 from app.widgets.console_view import ConsoleView
 from app.widgets.led_indicator import LedIndicator
+from app.widgets.splitter import Splitter
 
 # The console of the tab, the word and not the app's name.
 CONSOLA = QT_TRANSLATE_NOOP("tab_view", "Consola")
@@ -52,12 +55,58 @@ VIEW_NAMES = {
 if TYPE_CHECKING:
     from app.widgets.db_explorer_view import DbExplorerView
 
+# Qt's QWIDGETSIZE_MAX, which PySide does not export: no maximum.
+_NO_MAXIMUM = 16_777_215
+
+
+def _count(n: int, one: str, many: str) -> str:
+    """Return «1 error» or «3 errores»: two texts, not `%n`."""
+    return one if n == 1 else many.format(n)
+
+
+class _LogSection(AccordionSection):
+    """A section below the console with only some of its lines.
+
+    It shows from the first such line (`filled`), and empties with the
+    console. Its header counts them.
+    """
+
+    def __init__(self, title: str, levels: tuple[str, ...], expanded: bool) -> None:
+        """Build the section and its log, empty."""
+        self.log = ConsoleView()
+        self.log.setAccessibleName(title)
+        super().__init__(title, self.log, expanded=expanded)
+        self.levels = levels
+        self.counts = dict.fromkeys(levels, 0)
+        self.filled = False
+
+    def take(self, text: str, level: str) -> bool:
+        """Copy a line of its levels; say whether it is the first."""
+        self.log.append_log(text, level)
+        self.counts[level] += 1
+        first = not self.filled
+        self.filled = True
+        return first
+
+    def reset(self) -> None:
+        """Empty it, as the console clears."""
+        self.log.clear_console()
+        self.counts = dict.fromkeys(self.levels, 0)
+        self.filled = False
+
+    def set_palette(self, pal: Palette) -> None:
+        """Repaint the header and the log."""
+        super().set_palette(pal)
+        self.log.set_palette(pal)
+
 
 class TabView(QWidget):
-    """The header with the endpoint, and the console or second view."""
+    """The console's section, with the endpoint, and the explorer's."""
 
     # Clear: the tab decides whether it also stops its task
     cleared = Signal()
+    # A section checked or unchecked in its headers' menu: id, visible
+    section_toggled = Signal(str, bool)
 
     def __init__(
         self, capability: Capability, project: Project | None = None, parent: QWidget | None = None
@@ -74,38 +123,59 @@ class TabView(QWidget):
         self.pal = NEUTRAL
         self._chips: list[QPushButton] = []
 
-        root = QVBoxLayout(self)
-        root.setContentsMargins(0, 0, 0, 0)
-        root.setSpacing(0)
-
-        self.header = self._build_header()
-        self._restyle()
+        self._root = QVBoxLayout(self)
+        self._root.setContentsMargins(0, 0, 0, 0)
+        self._root.setSpacing(0)
 
         self.console = ConsoleView(self)
         self.stack = QStackedWidget(self)
         self.stack.addWidget(self.console)
+        self.console_section = AccordionSection(
+            QCoreApplication.translate("tab_view", CONSOLA), self.stack
+        )
+        self.header = self.console_section.header
+        self._build_header()
+        # «Explorar base»: the explorer's section, below the console,
+        # while the connection lives.
+        self.explorer_section: AccordionSection | None = None
+        # The console's errors and warnings, and the commands it ran,
+        # each in its own section below it.
+        self.issues_section = _LogSection(
+            QCoreApplication.translate("TabView", "Errores y avisos"), ("error", "warn"), True
+        )
+        self.commands_section = _LogSection(
+            QCoreApplication.translate("TabView", "Comandos"), ("cmd",), False
+        )
+        self.console.logged.connect(self._on_logged)
 
-        root.addWidget(self.header)
-        root.addWidget(self.stack, 1)
+        # The sections share the height in a splitter: its bars change
+        # it by hand, with the mouse or the arrows. A bar of 1 px, which
+        # Qt grabs in 5 (its «tiny mode»), painted as the header below
+        # it: it does not show, only the cursor changes over it.
+        self._split = Splitter(
+            Qt.Orientation.Vertical,
+            QCoreApplication.translate("TabView", "Alto de las secciones"),
+        )
+        self._split.setChildrenCollapsible(False)
+        self._split.setHandleWidth(1)
+        self._restyle()
+        self._root.addWidget(self._split)
+        # What is left when every section is folded.
+        self._root.addStretch(0)
+        for section in (self.console_section, self.issues_section, self.commands_section):
+            self._add_section(section, self._split.count())
+        self.fit_sections()
 
     # --- building ---
-    def _build_header(self) -> QFrame:
-        """Build the bar that names the view below, like a section's.
+    def _build_header(self) -> None:
+        """Put the endpoint in the console section's header.
 
-        The right column's sections (`widgets/accordion.py`) say what
-        they hold; this one says it for the left: «Consola», or the
-        second view when it is the one showing. After the name goes the
-        endpoint the task published, which appears and disappears with
-        the URL. Clear does not live here: it is in the footer, next to
-        Run.
+        The header names the view below: «Consola», or the browser when
+        it is the one showing. After the name goes the endpoint the task
+        published, which appears and disappears with the URL. Clear does
+        not live here: it is in the footer, next to Run.
         """
-        bar = QFrame()
-        bar.setFixedHeight(30)
-        lay = QHBoxLayout(bar)
-        lay.setContentsMargins(12, 0, 8, 0)
-        lay.setSpacing(8)
-        self.header_title = QLabel(QCoreApplication.translate("tab_view", CONSOLA).upper())
-
+        bar = self.header
         self.led = LedIndicator(bar, size=9)
         self.led.setAccessibleName(QCoreApplication.translate("TabView", "Estado del endpoint"))
         self.state_label = QLabel("")
@@ -145,25 +215,136 @@ class TabView(QWidget):
             self.view_btn,
         ]
 
-        lay.addWidget(self.header_title)
-        lay.addSpacing(8)
-        lay.addWidget(self.led)
-        lay.addWidget(self.state_label)
-        lay.addWidget(self.url_label)
-        lay.addStretch()
-        lay.addWidget(self.copy_btn)
-        lay.addWidget(self.external_btn)
-        lay.addWidget(self.view_btn)
+        # After the chevron and the name, before the stretch and the
+        # summary; the chips go at the right end.
+        lay = bar.layout()
+        assert isinstance(lay, QHBoxLayout)
+        lay.insertSpacing(2, 8)
+        for offset, widget in enumerate((self.led, self.state_label, self.url_label)):
+            lay.insertWidget(3 + offset, widget)
+        for chip in (self.copy_btn, self.external_btn, self.view_btn):
+            lay.addWidget(chip)
         self._show_endpoint(False)
-        return bar
+
+    def _add_section(self, section: AccordionSection, index: int) -> None:
+        """Put a section in the splitter, with its fold and its menu."""
+        self._split.insertWidget(index, section)
+        self._split.setStretchFactor(index, 1)
+        section.toggled.connect(self.fit_sections)
+        header = section.header
+        header.setContextMenuPolicy(Qt.ContextMenuPolicy.CustomContextMenu)
+
+        def on_menu(pos: QPoint) -> None:
+            self._show_sections_menu(header.mapToGlobal(pos))
+
+        header.customContextMenuRequested.connect(on_menu)
+
+    def _sections(self) -> list[tuple[str, AccordionSection, bool]]:
+        """Return each section, its id and whether it has content."""
+        every: list[tuple[str, AccordionSection, bool]] = [("consola", self.console_section, True)]
+        if self.explorer_section is not None:
+            every.append(("explorador", self.explorer_section, True))
+        every.append(("errores", self.issues_section, self.issues_section.filled))
+        every.append(("comandos", self.commands_section, self.commands_section.filled))
+        return every
+
+    def _show_sections_menu(self, global_pos: QPoint) -> None:
+        """Check which sections show, like the right column's menu."""
+        menu = QMenu(self)
+        menu.addSection(QCoreApplication.translate("TabView", "Secciones visibles"))
+        hidden = section_visibility.hidden_sections()
+        ids = ["consola", "errores", "comandos"]
+        if self.capability.has_db_view:
+            ids.insert(1, "explorador")
+        for sid in ids:
+            item = menu.addAction(section_visibility.title(sid))
+            item.setCheckable(True)
+            item.setChecked(sid not in hidden)
+
+            def on_toggled(visible: bool, s: str = sid) -> None:
+                self.section_toggled.emit(s, visible)
+
+            item.toggled.connect(on_toggled)
+        menu.exec(global_pos)
+
+    @Slot()
+    def fit_sections(self) -> None:
+        """Show the sections and share the height among the open ones.
+
+        A section shows if it has something and the Ver menu does not
+        hide it. A folded one keeps only its header; the open ones split
+        the rest in equal parts, which the bars then change by hand.
+        With all folded, the stretch below takes the rest.
+        """
+        hidden = section_visibility.hidden_sections()
+        shown = []
+        for sid, section, has in self._sections():
+            section.setVisible(has and sid not in hidden)
+            if not section.isHidden():
+                shown.append(section)
+        for section in shown:
+            folded = section.header.HEIGHT
+            section.setMaximumHeight(_NO_MAXIMUM if section.is_expanded() else folded)
+        anyone = any(s.is_expanded() for s in shown)
+        self._root.setStretch(0, 1 if anyone else 0)
+        self._root.setStretch(1, 0 if anyone else 1)
+        # Relative weights: the splitter spreads its height by them.
+        sizes = []
+        for i in range(self._split.count()):
+            widget = self._split.widget(i)
+            assert isinstance(widget, AccordionSection)
+            if widget.isHidden():
+                sizes.append(0)
+            else:
+                sizes.append(10_000 if widget.is_expanded() else widget.header.HEIGHT)
+        self._split.setSizes(sizes)
+
+    @Slot(str, str)
+    def _on_logged(self, text: str, level: str) -> None:
+        """Copy an error, a warning or a command to its section."""
+        issues, commands = self.issues_section, self.commands_section
+        if level in issues.levels:
+            first = issues.take(text, level)
+            errors, warnings = issues.counts["error"], issues.counts["warn"]
+            parts = []
+            if errors:
+                parts.append(
+                    _count(
+                        errors,
+                        QCoreApplication.translate("TabView", "1 error"),
+                        QCoreApplication.translate("TabView", "{0} errores"),
+                    )
+                )
+            if warnings:
+                parts.append(
+                    _count(
+                        warnings,
+                        QCoreApplication.translate("TabView", "1 aviso"),
+                        QCoreApplication.translate("TabView", "{0} avisos"),
+                    )
+                )
+            issues.set_summary("  ·  ".join(parts), warn=bool(errors))
+            if first:
+                self.fit_sections()
+        elif level in commands.levels:
+            first = commands.take(text, level)
+            commands.set_summary(
+                _count(
+                    commands.counts["cmd"],
+                    QCoreApplication.translate("TabView", "1 comando"),
+                    QCoreApplication.translate("TabView", "{0} comandos"),
+                )
+            )
+            if first:
+                self.fit_sections()
 
     def _show_endpoint(self, visible: bool) -> None:
         db = self.capability.has_db_view
         for w in self._endpoint_widgets:
             if w is self.view_btn:
-                # It has its own rule: only with a second view to show.
-                # `set_endpoint` decides it.
-                w.setVisible(visible and (self._web or (db and self._explorer is not None)))
+                # Only the browser shares the console's place: the
+                # explorer has its own section.
+                w.setVisible(visible and self._web)
             elif w in (self.copy_btn, self.external_btn):
                 # A database's URL is masked: copying it or «opening» it
                 # in the browser is useless.
@@ -180,6 +361,9 @@ class TabView(QWidget):
         the same it was born with.
         """
         self.console.clear_console()
+        self.issues_section.reset()
+        self.commands_section.reset()
+        self.fit_sections()
         self.console.append_log(f"─── {self.capability.name} ───", "info")
         if self.capability.description:
             self.console.append_log(self.capability.description, "info")
@@ -207,11 +391,19 @@ class TabView(QWidget):
             self._explorer.set_palette(pal)
 
     def _restyle(self) -> None:
-        theme.CONSOLE_HEADER.on(self.pal).band(self.header, "bottom")
-        self.header_title.setFont(theme.caption())
+        self.console_section.set_palette(self.pal)
+        self.issues_section.set_palette(self.pal)
+        self.commands_section.set_palette(self.pal)
+        if self.explorer_section is not None:
+            self.explorer_section.set_palette(self.pal)
         theme.HINT.on(self.pal).dress(self.state_label)
         for chip in self._chips:
             theme.CHIP.on(self.pal).dress(chip, fill=False)
+        # A bar's line is Dark (`Style`); the header color hides it.
+        colors = self._split.palette()
+        header = theme.SECTION_HEADER.on(self.pal).palette()
+        colors.setColor(QPalette.ColorRole.Dark, header.color(QPalette.ColorRole.Window))
+        self._split.setPalette(colors)
 
     # --- endpoint ---
     @Slot(str, str, bool, str)
@@ -276,12 +468,14 @@ class TabView(QWidget):
     @Slot()
     def _toggle_view(self) -> None:
         if self.stack.currentWidget() is self.console:
-            if self.capability.has_db_view:
-                self.show_explorer()
-            else:
-                self.show_browser()
+            self.show_browser()
         else:
             self.show_console()
+
+    def _name_view(self, name: str) -> None:
+        """Name in the console section's header the view it shows."""
+        self.header.title.setText(name.upper())
+        self.header.setAccessibleName(name)
 
     def show_console(self) -> None:
         """Show the console."""
@@ -289,7 +483,7 @@ class TabView(QWidget):
         self.view_btn.setText(
             QCoreApplication.translate("tab_view", VIEW_NAMES.get(self.capability.view, ""))
         )
-        self.header_title.setText(QCoreApplication.translate("tab_view", CONSOLA).upper())
+        self._name_view(QCoreApplication.translate("tab_view", CONSOLA))
 
     def show_browser(self) -> None:
         """Create the browser the first time it is needed.
@@ -306,17 +500,12 @@ class TabView(QWidget):
             self._browser.load(self._url)
         self.stack.setCurrentWidget(self._browser)
         self.view_btn.setText(QCoreApplication.translate("tab_view", CONSOLA))
-        self.header_title.setText(
-            QCoreApplication.translate("tab_view", VIEW_NAMES["web"]).upper()
-        )
+        self._name_view(QCoreApplication.translate("tab_view", VIEW_NAMES["web"]))
 
     def show_explorer(self) -> None:
-        """Show the explorer."""
-        if self._explorer is None:
-            return
-        self.stack.setCurrentWidget(self._explorer)
-        self.view_btn.setText(QCoreApplication.translate("tab_view", CONSOLA))
-        self.header_title.setText(QCoreApplication.translate("tab_view", VIEW_NAMES["db"]).upper())
+        """Open the explorer's section."""
+        if self.explorer_section is not None:
+            self.explorer_section.set_expanded(True)
 
     # --- database explorer ---
     def _start_explorer(self, safe_url: str) -> None:
@@ -340,16 +529,32 @@ class TabView(QWidget):
             "SERVER_DIR", "server"
         )
         self._explorer = DbExplorerView(str(url), server_root, self.pal, self)
-        self.stack.addWidget(self._explorer)
-        self.show_explorer()
+        self.explorer_section = AccordionSection(
+            QCoreApplication.translate("tab_view", VIEW_NAMES["db"]), self._explorer
+        )
+        self.explorer_section.set_palette(self.pal)
+        # The open table, what it holds and Contar, after the name.
+        lay = self.explorer_section.header.layout()
+        assert isinstance(lay, QHBoxLayout)
+        title, subtitle, count = self._explorer.heading
+        lay.insertSpacing(2, 8)
+        lay.insertWidget(3, title)
+        lay.insertWidget(4, subtitle)
+        lay.addWidget(count)
+        # Right below the console.
+        self._add_section(self.explorer_section, 1)
+        self.fit_sections()
 
     def _stop_explorer(self) -> None:
-        if self._explorer is None:
+        if self._explorer is None or self.explorer_section is None:
             return
         self._explorer.shutdown()
-        self.stack.removeWidget(self._explorer)
-        self._explorer.deleteLater()
+        # The explorer goes with it: it is its body.
+        self.explorer_section.setParent(None)
+        self.explorer_section.deleteLater()
+        self.explorer_section = None
         self._explorer = None
+        self.fit_sections()
 
     def on_shown(self) -> None:
         """Reread what was queried when the tab returns to the front.

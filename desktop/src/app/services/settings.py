@@ -561,13 +561,15 @@ SETTINGS: tuple[Setting, ...] = (
         scope="machine",
         used_by=("build_binary",),
     ),
-    # The public key kept off this machine (a physical key, for
-    # example): with `VPS_KEY_NAME`'s, they are the two `--key` and two
-    # `--signer` of `install.py`. It is one for all VPSs.
+    # The `.pub` of the key whose private half is kept off this machine
+    # (a physical key, a USB): with `VPS_KEY_NAME`'s, they are the two
+    # `--key` and two `--signer` of `install.py`. It is one for all
+    # VPSs, and its file sits in `~/.ssh` like the local key's.
     Setting(
         "OFFLINE_KEY",
         QT_TRANSLATE_NOOP("settings", "Máquina"),
-        QT_TRANSLATE_NOOP("settings", "Llave pública guardada fuera"),
+        QT_TRANSLATE_NOOP("settings", "Archivo .pub de la llave guardada fuera"),
+        default="~/.ssh/vps_offline.pub",
         scope="machine",
         used_by=("bootstrap_vps",),
     ),
@@ -656,6 +658,14 @@ def get_setting(key: str) -> Setting | None:
         if s.key == key:
             return s
     return None
+
+
+def names(keys: list[str] | tuple[str, ...]) -> str:
+    """Return the keys as the form labels them, comma separated.
+
+    A key with no declaration reads as it is.
+    """
+    return ", ".join(s.display if (s := get_setting(k)) else k for k in keys)
 
 
 def required_keys_for(capability_id: str) -> list[str]:

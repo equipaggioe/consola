@@ -29,7 +29,9 @@ class MissingConfig(TaskError):
     def __init__(self, keys: list[str]) -> None:
         """Keep the missing keys and name them in the message."""
         self.keys = list(keys)
-        missing = ", ".join(self.keys)
+        from app.services.settings import names
+
+        missing = names(self.keys)
         # The tab shows the message, so it goes through Linguist.
         super().__init__(
             QCoreApplication.translate("MissingConfig", "Falta configurar: {0}").format(missing)

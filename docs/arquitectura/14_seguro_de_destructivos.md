@@ -55,7 +55,7 @@ El bloqueo no tiene escape por diseño: el seguro se quita en la sección Seguri
 
 - **Se aplica** en `widgets/tab_panel.py::_run`, que es el único punto por el que pasan las dos formas de ejecutar —el botón Ejecutar y el ▶ del buscador—. Ponerlo en el panel de parámetros dejaría el segundo camino sin red. Los dos avisos se abren con `open()`: la corrida sigue en `_dispatch` cuando se acepta el recordatorio, y el bloqueo deja su motivo en la consola al abrirse.
 - **Se decide** en la sección Seguridad del panel derecho, no entre los parámetros: un seguro que se quita en el mismo gesto con el que se aprieta Ejecutar se vuelve parte del gesto, y a las dos semanas se quita sin leerlo.
-- **Se ve** en la barra de estado: un candado por objetivo, abierto o cerrado, y un clic salta a la sección. El indicador lee el panel, la misma fuente que consulta el guard, para que no puedan decir cosas distintas.
+- **Se ve** en la barra de estado: un candado por objetivo, abierto o cerrado, y un clic lo cambia (lo guarda la sección Seguridad, que muestra la misma casilla). El indicador lee el panel, la misma fuente que consulta el guard, para que no puedan decir cosas distintas.
 
 ## 6. La confirmación escrita
 

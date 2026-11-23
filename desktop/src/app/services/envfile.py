@@ -13,6 +13,7 @@ from app.services.settings import (
     GROUP_ORDER,
     Setting,
     get_setting,
+    names,
     repo_settings,
     settings_by_group,
 )
@@ -315,7 +316,7 @@ class Config:
         if not raw.isdigit() or not 1 <= int(raw) <= 65535:
             raise TaskError(
                 QCoreApplication.translate("Config", "{0} no es un puerto valido: {1}").format(
-                    key, raw
+                    names([key]), raw
                 )
             )
         return int(raw)
@@ -330,7 +331,9 @@ class Config:
         if raw in _FALSE:
             return False
         raise TaskError(
-            QCoreApplication.translate("Config", "{0} no es un booleano: {1}").format(key, raw)
+            QCoreApplication.translate("Config", "{0} no es un booleano: {1}").format(
+                names([key]), raw
+            )
         )
 
     def rel_path(self, key: str, root: str) -> str:

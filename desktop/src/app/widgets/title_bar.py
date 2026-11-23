@@ -113,6 +113,7 @@ class _BrandMark(QWidget):
             )
         )
         self._ring = Colors.ON_PRIMARY
+        self._by_keyboard = False
         layout = QHBoxLayout(self)
         layout.setContentsMargins(14, 0, 14, 0)
         layout.setSpacing(9)
@@ -145,13 +146,20 @@ class _BrandMark(QWidget):
 
     @override
     def paintEvent(self, event: QPaintEvent) -> None:
-        if self.hasFocus():
+        # The ring is for who moves with the keyboard: the window
+        # giving the focus when it opens must not frame the title.
+        if self.hasFocus() and self._by_keyboard:
             p = QPainter(self)
             theme.ring(p, QRectF(self.rect()).adjusted(2, 4, -2, -4), self._ring)
             p.end()
 
     @override
     def focusInEvent(self, event: QFocusEvent) -> None:
+        self._by_keyboard = event.reason() in (
+            Qt.FocusReason.TabFocusReason,
+            Qt.FocusReason.BacktabFocusReason,
+            Qt.FocusReason.ShortcutFocusReason,
+        )
         self.update()
         super().focusInEvent(event)
 

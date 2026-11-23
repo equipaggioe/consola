@@ -18,7 +18,6 @@ from PySide6.QtWidgets import (
     QLineEdit,
     QPlainTextEdit,
     QPushButton,
-    QScrollArea,
     QSizePolicy,
     QStyledItemDelegate,
     QVBoxLayout,
@@ -36,7 +35,7 @@ from app.services.catalog import (
 from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.registry import AxisDef, Capability, Step, registry
-from app.services.settings import relevant_keys_for, required_keys_for
+from app.services.settings import get_setting, names, relevant_keys_for, required_keys_for
 from app.theme import Colors, Fonts, Metrics
 from app.widgets.env_panel import EnvPanel
 from app.widgets.favorite_star import FavoriteStar
@@ -126,11 +125,20 @@ class ParamsPanel(QWidget):
         self._option_groups: dict[str, QButtonGroup] = {}
         self._step_checks: dict[str, QCheckBox] = {}
         self._step_rows: dict[str, QWidget] = {}
+        # axis -> its row in «Opciones», hidden while it has one value
+        self._option_rows: dict[str, QWidget] = {}
+        self._options_box: QWidget | None = None
+        # what «Deducido» lists, to rebuild it only when it changes
+        self._shown_fixed: list[tuple[str, str]] = []
+        self._shown_defaults: list[tuple[str, str]] = []
         self._restoring = True  # while building, no change saves
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
         root.setSpacing(0)
 
+        # The body of «Deducido»: what the run will use and is not
+        # chosen. Like the footer, `TabPanel` takes it to its section.
+        self.deduced = self._build_deduced()
         self._body_widget = self._build_body()
         # The footer with Run and Dry run does not live inside the
         # panel: `TabPanel` takes it to a fixed bar at the column's
@@ -225,10 +233,6 @@ class ParamsPanel(QWidget):
 
     # --- building -------------------------------------------------
     def _build_body(self) -> QWidget:
-        scroll = QScrollArea()
-        scroll.setWidgetResizable(True)
-        theme.focus_frame(scroll)
-
         content = QWidget()
         lay = QVBoxLayout(content)
         lay.setContentsMargins(16, 14, 16, 14)
@@ -251,21 +255,18 @@ class ParamsPanel(QWidget):
         if len(self.steps) > 1:
             lay.addWidget(self._build_steps())
 
-        # What running will do, under the steps that run it.
-        self._preview_box = self._build_preview()
-        lay.addWidget(self._preview_box)
-
-        # A single-valued axis is not chosen either, but it shows:
-        # checked and disabled, so WHICH one is seen (which mobile app,
-        # which target) without letting it be removed. `_build_options`
-        # draws it so.
+        # A single-valued axis is not chosen: «Deducido» says which one
+        # it is (which mobile app, which target), and its row here hides
+        # (`_sync_fixed`).
         #
         # A QUERIED axis enters even if empty: when the panel builds
         # nobody has been asked yet, and discarding it here left it
         # nowhere to appear when the answer came.
         singles = [a for a in self.capability.single_axes if a.values or a.is_queried]
         if singles:
-            lay.addWidget(self._build_options(singles))
+            self._options_box = self._build_options(singles)
+            lay.addWidget(self._options_box)
+            self._sync_fixed()
 
         # The written fields go last, under the choices: «Otra IP» reads
         # below the option that asks for it.
@@ -274,8 +275,7 @@ class ParamsPanel(QWidget):
             lay.addWidget(self._build_fields(fields))
 
         self._content = content
-        scroll.setWidget(content)
-        return scroll
+        return content
 
     def _build_picks(self, axes: list[AxisDef]) -> QWidget:
         """Build the long, closed lists: type to filter and choose.
@@ -612,6 +612,7 @@ class ParamsPanel(QWidget):
             theme.ink(reason, Colors.ERROR)
             self._preview_layout.addWidget(reason)
         self._preview_box.setVisible(bool(every) or bool(error))
+        self._sync_nothing()
 
     def _build_fields(self, axes: list[AxisDef]) -> QWidget:
         """Build the written axes: an install folder, an API level."""
@@ -706,8 +707,11 @@ class ParamsPanel(QWidget):
         lay.addWidget(_SectionLabel(QCoreApplication.translate("ParamsPanel", "Opciones")))
 
         for axis in axes:
-            row = QVBoxLayout()
+            row_widget = QWidget()
+            row = QVBoxLayout(row_widget)
+            row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(4)
+            self._option_rows[axis.name] = row_widget
             label = QLabel(axis.display)
             label.setFont(theme.font(Fonts.SIZE_SM))
             row.addWidget(label)
@@ -724,7 +728,7 @@ class ParamsPanel(QWidget):
             self._option_layouts[axis.name] = hlay
             self._fill_options(axis)
             row.addWidget(holder)
-            lay.addLayout(row)
+            lay.addWidget(row_widget)
         return box
 
     def _fill_options(self, axis: AxisDef) -> None:
@@ -802,6 +806,122 @@ class ParamsPanel(QWidget):
             theme.ink(note, Colors.ON_SURFACE_VARIANT)
             self._empty_notes[axis.name] = note
             lay.addWidget(note)
+        self._sync_fixed()
+
+    # --- «Deducido» -----------------------------------------------
+    def _build_deduced(self) -> QWidget:
+        """Build the body of «Deducido», empty until there is something.
+
+        Three blocks, each hidden while empty: what running will do
+        (the packages), the options with one value, and the keys left
+        empty that run with their default.
+        """
+        box = QWidget()
+        lay = QVBoxLayout(box)
+        lay.setContentsMargins(16, 14, 16, 14)
+        lay.setSpacing(16)
+        lay.setAlignment(Qt.AlignmentFlag.AlignTop)
+        self._preview_box = self._build_preview()
+        lay.addWidget(self._preview_box)
+        self._fixed_box, self._fixed_lines = self._deduced_block(
+            QCoreApplication.translate("ParamsPanel", "Fijas")
+        )
+        lay.addWidget(self._fixed_box)
+        self._defaults_box, self._defaults_lines = self._deduced_block(
+            QCoreApplication.translate("ParamsPanel", "Por defecto")
+        )
+        lay.addWidget(self._defaults_box)
+        self._nothing = QLabel(
+            QCoreApplication.translate("ParamsPanel", "Esta acción no usa nada deducido.")
+        )
+        self._nothing.setFont(theme.font(Fonts.SIZE_XS))
+        theme.ink(self._nothing, Colors.ON_SURFACE_VARIANT)
+        lay.addWidget(self._nothing)
+        return box
+
+    def _deduced_block(self, title: str) -> tuple[QWidget, QVBoxLayout]:
+        """Return a hidden block with its label, and where lines go."""
+        block = QWidget()
+        lay = QVBoxLayout(block)
+        lay.setContentsMargins(0, 0, 0, 0)
+        lay.setSpacing(6)
+        lay.addWidget(_SectionLabel(title))
+        lines = QVBoxLayout()
+        lines.setSpacing(4)
+        lay.addLayout(lines)
+        block.setVisible(False)
+        return block, lines
+
+    def _fill_lines(self, block: QWidget, lines: QVBoxLayout, rows: list[tuple[str, str]]) -> None:
+        """Put one «label  value» line per row in a block."""
+        while lines.count():
+            item = lines.takeAt(0)
+            widget = item.widget() if item is not None else None
+            if widget is not None:
+                widget.deleteLater()
+        for label, value in rows:
+            line = QHBoxLayout()
+            name = QLabel(label)
+            name.setFont(theme.font(Fonts.SIZE_SM))
+            name.setFixedWidth(self.env_panel.label_width)
+            name.setWordWrap(True)
+            shown = QLabel(value)
+            shown.setFont(theme.font(Fonts.SIZE_SM))
+            shown.setWordWrap(True)
+            shown.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
+            holder = QWidget()
+            line.setContentsMargins(0, 0, 0, 0)
+            line.addWidget(name)
+            line.addWidget(shown, 1)
+            holder.setLayout(line)
+            lines.addWidget(holder)
+        block.setVisible(bool(rows))
+        self._sync_nothing()
+
+    def _sync_nothing(self) -> None:
+        """Say so when no block has anything."""
+        self._nothing.setVisible(
+            self._preview_box.isHidden()
+            and self._fixed_box.isHidden()
+            and self._defaults_box.isHidden()
+        )
+
+    def _sync_fixed(self) -> None:
+        """Move the one-valued options from «Opciones» to «Deducido»."""
+        fixed = []
+        for axis in self.capability.single_axes:
+            row = self._option_rows.get(axis.name)
+            if row is None:
+                continue
+            locked = len(axis.values) == 1 and not axis.combine
+            row.setVisible(not locked)
+            if locked:
+                fixed.append((axis.display, axis.text_of(axis.values[0])))
+        if self._options_box is not None:
+            self._options_box.setVisible(any(not r.isHidden() for r in self._option_rows.values()))
+        if fixed != self._shown_fixed:
+            self._shown_fixed = fixed
+            self._fill_lines(self._fixed_box, self._fixed_lines, fixed)
+
+    def _sync_defaults(self) -> None:
+        """List the keys of this run left empty that take a default.
+
+        Such as the database role, from the repo's name: they run with
+        that value without anyone writing it.
+        """
+        cfg = envfile.Config(self._env, repo_name=envfile.repo_name_of(self.project.path))
+        rows = []
+        for key in self.relevant_keys():
+            setting = get_setting(key)
+            if setting is None or self._env.get(key, "").strip():
+                continue
+            value = cfg.get(key)
+            if value:
+                rows.append((setting.display, value))
+        rows.sort()
+        if rows != self._shown_defaults:
+            self._shown_defaults = rows
+            self._fill_lines(self._defaults_box, self._defaults_lines, rows)
 
     def _dress_field(self, field: QWidget) -> None:
         """Paint a written field as a field of the repo."""
@@ -1117,6 +1237,7 @@ class ParamsPanel(QWidget):
         # boxes take the repo's accent as Highlight, and the scroll's
         # viewport fills with Base, the body's color.
         theme.SECTION_BODY.on(self.pal).dress(self)
+        theme.SECTION_BODY.on(self.pal).dress(self.deduced)
         theme.FOOTER.on(self.pal).band(self.footer, "top")
         for button in (self.clear_btn, self.dry_btn):
             if button is not None:
@@ -1140,13 +1261,6 @@ class ParamsPanel(QWidget):
         it to the state it should have, not simply enabled.
         """
         self._refresh_summary()
-
-    def natural_height(self) -> int:
-        """Return the height that shows all its content, unscrolled.
-
-        So the `.env` panel keeps the rest of the vertical space.
-        """
-        return self._content.sizeHint().height() + 4
 
     def relevant_keys(self) -> set[str]:
         """Return the `.env` keys it may need WITH WHAT IS CHECKED NOW.
@@ -1266,7 +1380,7 @@ class ParamsPanel(QWidget):
             reasons.append(
                 QCoreApplication.translate(
                     "ParamsPanel", "faltan claves de configuración: {0}"
-                ).format(", ".join(missing))
+                ).format(names(missing))
             )
         return reasons
 
@@ -1277,6 +1391,7 @@ class ParamsPanel(QWidget):
             row = self._step_rows.get(step.id)
             if row is not None:
                 row.setVisible(step.applies(scope))
+        self._sync_defaults()
         self._persist()
         blockers = self._blockers()
         self.run_btn.setEnabled(not blockers)

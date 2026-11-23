@@ -15,11 +15,12 @@ from PySide6.QtCore import (
     Qt,
     Signal,
 )
-from PySide6.QtGui import QBrush, QFont
+from PySide6.QtGui import QBrush
 
+from app import theme
 from app.services import db_explorer as dbx
 from app.services.files import human_size
-from app.theme import Colors
+from app.theme import Colors, Fonts
 
 NUMERIC_TYPES = {"int2", "int4", "int8", "numeric", "float4", "float8", "money", "oid"}
 JSON_TYPES = {"json", "jsonb"}
@@ -190,7 +191,9 @@ class RowsModel(QAbstractTableModel):
             return None
         if role == Qt.ItemDataRole.FontRole:
             if value is None:
-                font = QFont()
+                # The size of the rest of the table, which `QFont()`,
+                # the app's 15 px, did not have.
+                font = theme.font(Fonts.SIZE_SM)
                 font.setItalic(True)
                 return font
             return None

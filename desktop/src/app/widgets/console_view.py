@@ -5,7 +5,7 @@ from __future__ import annotations
 import re
 from typing import override
 
-from PySide6.QtCore import QCoreApplication, QDateTime, QLocale, Qt, QTimer, Slot
+from PySide6.QtCore import QCoreApplication, QDateTime, QLocale, Qt, QTimer, Signal, Slot
 from PySide6.QtGui import (
     QAction,
     QBrush,
@@ -36,6 +36,10 @@ class ConsoleView(QPlainTextEdit):
     The cursor blinks only while «Animaciones» of the Ver menu is on
     (`services/motion.py`); off, there is none.
     """
+
+    # Each line appended, with its level: the sections below the
+    # console take theirs from here (`widgets/tab_view.py`).
+    logged = Signal(str, str)
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the read-only view."""
@@ -152,6 +156,7 @@ class ConsoleView(QPlainTextEdit):
         self.insertPlainText(f" {text}\n")
 
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+        self.logged.emit(text, level)
 
     def _stamp(self) -> str:
         """Return the date and time of now, in the widget's locale.

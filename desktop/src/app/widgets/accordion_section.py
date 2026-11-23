@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import override
 
-from PySide6.QtCore import QObject, QRectF, QSize, Qt, Signal, Slot
+from PySide6.QtCore import QObject, QRectF, Qt, Signal, Slot
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleActionInterface,
@@ -23,9 +23,6 @@ from app import theme
 from app.services.palettes import NEUTRAL, Palette
 from app.theme import Fonts
 from app.widgets.reorderable_tab import pressed
-
-# `QWIDGETSIZE_MAX`: what Qt understands as «no height limit».
-NO_CAP = 16777215
 
 
 class _AccordionHeader(QWidget):
@@ -133,15 +130,10 @@ class _AccordionHeader(QWidget):
 class AccordionSection(QWidget):
     """A header and a collapsible body, like VSCode's sidebar.
 
-    It is meant to live in a vertical `QSplitter`: closed, it sets a
-    `maximumHeight` of its header's height, the only thing the splitter
-    respects to stop dragging it further. Open, it lets go and its
-    container shares out the height (`TabPanel._relayout_right`).
-
-    Tabs were not chosen for this reason: the right panel's sections
-    read together. A `ParamsPanel` block may say config keys are missing
-    while those keys are in the section below, and tabs would force
-    switching between what is being compared.
+    Open, the body shows whole, with the height its content asks for:
+    the column that holds the sections is the one that scrolls
+    (`TabPanel.right_scroll`), so no section scrolls on its own. Closed,
+    only the header shows.
     """
 
     toggled = Signal(bool)
@@ -160,9 +152,8 @@ class AccordionSection(QWidget):
         self.header = _AccordionHeader(title)
         self.header.clicked.connect(self.toggle)
         root.addWidget(self.header)
-        root.addWidget(body, 1)
+        root.addWidget(body)
 
-        self._allotted: int | None = None
         # so `set_expanded` does not leave at once
         self._expanded = not expanded
         self.set_expanded(expanded, announce=False)
@@ -171,32 +162,6 @@ class AccordionSection(QWidget):
     def is_expanded(self) -> bool:
         """Return whether it is open."""
         return self._expanded
-
-    def set_allotted(self, height: int) -> None:
-        """Keep the height `TabPanel._relayout_right` granted.
-
-        It is needed besides `maximumHeight` because `QBoxLayout` shares
-        out by `sizeHint` and only crops with the limit: a body asking
-        for less than granted, such as anything in a `QScrollArea`,
-        stayed at its hint and the spare pixels fell into the column's
-        final spring, a dead gap below. Answering the grant here makes
-        the hints add up exactly.
-        """
-        if height == self._allotted:
-            return
-        self._allotted = height
-        self.updateGeometry()
-
-    @override
-    def sizeHint(self) -> QSize:
-        hint = super().sizeHint()
-        if self._allotted is None:
-            return hint
-        return QSize(hint.width(), self._allotted)
-
-    def header_height(self) -> int:
-        """Return the height of the header alone."""
-        return _AccordionHeader.HEIGHT
 
     def set_expanded(self, value: bool, announce: bool = True) -> None:
         """Open or close it, and tell the listeners if `announce`."""
@@ -212,8 +177,6 @@ class AccordionSection(QWidget):
         changed.expanded = True  # pyrefly: ignore[bad-assignment]
         changed.collapsed = True  # pyrefly: ignore[bad-assignment]
         QAccessible.updateAccessibility(QAccessibleStateChangeEvent(self.header, changed))
-        self.setMinimumHeight(_AccordionHeader.HEIGHT)
-        self.setMaximumHeight(NO_CAP if value else _AccordionHeader.HEIGHT)
         if announce:
             self.toggled.emit(value)
 

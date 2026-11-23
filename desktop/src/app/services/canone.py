@@ -22,7 +22,7 @@ from PySide6.QtCore import QCoreApplication
 from app.services import envfile, fields, process, toolchain
 from app.services.envfile import Config
 from app.services.errors import TaskError
-from app.services.settings import get_setting
+from app.services.settings import get_setting, names
 
 # The web pieces `install.py --without` leaves out, by their folder.
 SURFACES = ("web", "panel", "landing")
@@ -66,7 +66,8 @@ def infra_dir(config: Config) -> Path:
         raise TaskError(
             QCoreApplication.translate(
                 "canone",
-                "No hay install.py en {0}: CANONE_DIR tiene que ser la carpeta de canone.",
+                "No hay install.py en {0}: «Carpeta de canone» tiene que ser "
+                "la carpeta de canone.",
             ).format(folder)
         )
     return folder
@@ -82,7 +83,8 @@ def spa_template(config: Config) -> Path:
         raise TaskError(
             QCoreApplication.translate(
                 "canone",
-                "No hay vite.config.ts en {0}: CANONE_DIR tiene que ser la carpeta de canone.",
+                "No hay vite.config.ts en {0}: «Carpeta de canone» tiene que ser "
+                "la carpeta de canone.",
             ).format(folder)
         )
     return folder
@@ -246,13 +248,13 @@ def valkey_memory(meminfo: str, percent: str) -> str:
     except ValueError:
         raise TaskError(
             QCoreApplication.translate(
-                "canone", "VALKEY_PERCENT tiene que ser un número, como 12.5: {0!r}."
-            ).format(percent)
+                "canone", "{0} tiene que ser un número, como 12.5: {1!r}."
+            ).format(names(["VALKEY_PERCENT"]), percent)
         ) from None
     if not 0 < share <= 100:
         raise TaskError(
-            QCoreApplication.translate("canone", "VALKEY_PERCENT va de 0 a 100: {0}.").format(
-                percent
+            QCoreApplication.translate("canone", "{0} va de 0 a 100: {1}.").format(
+                names(["VALKEY_PERCENT"]), percent
             )
         )
     return f"{max(1, int(int(found.group(1)) * share / 100 / 1024))}mb"
@@ -406,8 +408,8 @@ def _logs(config: Config) -> tuple[str, str, str] | None:
         return None
     if not (logs and key and ip):
         raise TaskError(
-            QCoreApplication.translate(
-                "canone", "LOGS, LOGS_KEY y LOGS_IP van los tres juntos o ninguno."
+            QCoreApplication.translate("canone", "{0} van los tres juntos o ninguno.").format(
+                names(["LOGS", "LOGS_KEY", "LOGS_IP"])
             )
         )
     return logs, key, ip
@@ -470,8 +472,8 @@ def install_args(
         raise TaskError(
             QCoreApplication.translate(
                 "canone",
-                "TURN_IP sin {0} en Settings: --turn-ip necesita --turn. Bórrala de config.env.",
-            ).format(fields.TURN)
+                "{0} sin {1} en Settings: --turn-ip necesita --turn. Bórrala de config.env.",
+            ).format(names(["TURN_IP"]), fields.TURN)
         )
     logs = _logs(config)
     if logs is not None:
@@ -577,7 +579,7 @@ def credential_files(server: Path, config: Config, *, owner: bool = False) -> di
     if missing:
         raise TaskError(
             QCoreApplication.translate("canone", "Faltan en config.env: {0}.").format(
-                ", ".join(missing)
+                names(missing)
             )
         )
     files = {f"app_{field}": config.get(field.upper()) for field in declared_fields}
@@ -621,7 +623,7 @@ def credential_lines(root: Path, config: Config) -> str:
     if missing:
         raise TaskError(
             QCoreApplication.translate("canone", "Faltan en config.env: {0}.").format(
-                ", ".join(missing)
+                names(missing)
             )
         )
     for field, key in pairs:
@@ -629,6 +631,6 @@ def credential_lines(root: Path, config: Config) -> str:
             raise TaskError(
                 QCoreApplication.translate(
                     "canone", "{0} tiene un salto de linea: credentials.py lee una por linea."
-                ).format(key)
+                ).format(names([key]))
             )
     return "".join(f"{field}={config.get(key)}\n" for field, key in pairs)

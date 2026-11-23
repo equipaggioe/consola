@@ -228,8 +228,8 @@ def test_valkey_memory_is_a_share_of_memtotal() -> None:
 
 @pytest.mark.parametrize("percent", ["", "doce", "0", "120"])
 def test_a_wrong_percent_stops(percent: str) -> None:
-    """A percent that is not a number from 0 to 100 stops."""
-    with pytest.raises(TaskError, match="VALKEY_PERCENT"):
+    """A percent outside 0 to 100, or not a number, stops."""
+    with pytest.raises(TaskError, match="% de RAM para Valkey"):
         canone.valkey_memory("MemTotal: 1000 kB\n", percent)
 
 
@@ -385,12 +385,12 @@ def test_the_config_it_receives_is_checked_not_the_file(tmp_path: Path) -> None:
 
 
 def test_an_empty_field_stops(tmp_path: Path) -> None:
-    """An empty field stops."""
+    """An empty field stops, naming each key by its label."""
     root, config = repo(tmp_path, HEALTH_TOKEN="h", RESTIC_PASSWORD="r", PRIVATE="si")
     with pytest.raises(TaskError) as error:
         canone.credential_lines(root, config)
     assert "PAGE_TOKEN_KEY" in str(error.value)
-    assert "GITHUB_TOKEN" in str(error.value)
+    assert "Token de GitHub" in str(error.value)
 
 
 def test_the_tag_follows_the_highest() -> None:
@@ -508,7 +508,7 @@ def test_alembic_enters_as_the_owner(tmp_path: Path) -> None:
 
 def test_the_development_files_stop_if_a_field_is_missing(tmp_path: Path) -> None:
     """The development files stop if a field is missing."""
-    with pytest.raises(TaskError, match="DATABASE_URL, PAGE_TOKEN_KEY"):
+    with pytest.raises(TaskError, match="Base de desarrollo, PAGE_TOKEN_KEY"):
         canone.credential_files(_server(tmp_path), Config({"HEALTH_TOKEN": "t"}))
 
 

@@ -17,11 +17,12 @@ from PySide6.QtCore import (
 )
 from PySide6.QtGui import QBrush, QFont
 
+from app import theme
 from app.services import db_explorer as dbx
 from app.services import db_models as dbm
 from app.services.files import human_size
 from app.services.language import QT_TRANSLATE_NOOP
-from app.theme import Colors
+from app.theme import Colors, Fonts
 
 type Entry = dbx.Relation | dbm.ModelTable
 
@@ -385,9 +386,8 @@ def _group_data(node: _Node, column: int, role: int) -> Any:
     if role == Qt.ItemDataRole.ForegroundRole:
         return QBrush(Colors.ON_SURFACE_VARIANT)
     if role == Qt.ItemDataRole.FontRole:
-        font = QFont()
-        font.setBold(True)
-        return font
+        # The tree's size, not the app's 15 px of `QFont()`.
+        return theme.font(Fonts.SIZE_SM, QFont.Weight.Bold)
     if role == Qt.ItemDataRole.AccessibleTextRole:
         return node.label
     if role == Qt.ItemDataRole.AccessibleDescriptionRole:

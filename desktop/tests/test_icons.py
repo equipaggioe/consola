@@ -343,7 +343,7 @@ def test_the_logo_has_to_be_an_existing_svg(repo: Path) -> None:
     """The logo has to be an existing SVG."""
     with pytest.raises(TaskError, match="tiene que ser un SVG"):
         icons.brand_file(repo, "brand/logo.png", "BRAND_ICON")
-    with pytest.raises(TaskError, match="No existe BRAND_ICON"):
+    with pytest.raises(TaskError, match=r"No existe Logo \(SVG\)"):
         icons.brand_file(repo, "brand/otro.svg", "BRAND_ICON")
 
 

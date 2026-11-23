@@ -10,6 +10,7 @@ from PySide6.QtCore import QCoreApplication
 from app.services.envfile import Config
 from app.services.errors import TaskError
 from app.services.language import QT_TRANSLATE_NOOP
+from app.services.settings import names
 from app.services.ssh import Remote, capture, quote, reachable, succeeds
 
 SUDO = "sudo -n"
@@ -32,8 +33,8 @@ def repo_name(config: Config) -> str:
         return config.repo_name
     raise TaskError(
         QCoreApplication.translate(
-            "vps", "No se puede deducir el nombre del repo: falta GIT_REPO_URL."
-        )
+            "vps", "No se puede deducir el nombre del repo: falta {0}."
+        ).format(names(["GIT_REPO_URL"]))
     )
 
 
