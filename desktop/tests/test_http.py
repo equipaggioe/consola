@@ -42,6 +42,8 @@ class _Handler(http.server.BaseHTTPRequestHandler):
             self._answer(200, b"x" * SIZE)
         elif self.path == "/unavailable":
             self._answer(503, b"busy")
+        elif self.path == "/refused":
+            self._answer(400, b'{"success": false, "errors": [{"code": 6003}]}')
         elif self.path == "/unavailable-once":
             self._answer(503, b"busy") if first else self._answer(200, b"ok")
         elif self.path == "/slow-once":
@@ -135,6 +137,14 @@ def test_an_http_error_raises_oserror(qtbot: QtBot, server: str) -> None:
     with pytest.raises(OSError, match="404|not found|Not Found"):
         _in_task(qtbot, lambda: consola_http.request(f"{server}/none"))
     assert _Handler.calls["/none"] == 1
+
+
+def test_an_http_error_keeps_the_status_and_the_body(qtbot: QtBot, server: str) -> None:
+    """An error status raises `HttpError` with what the server said."""
+    with pytest.raises(consola_http.HttpError) as caught:
+        _in_task(qtbot, lambda: consola_http.request(f"{server}/refused"))
+    assert caught.value.status == 400
+    assert json.loads(caught.value.body) == {"success": False, "errors": [{"code": 6003}]}
 
 
 def test_a_refused_connection_raises_oserror(

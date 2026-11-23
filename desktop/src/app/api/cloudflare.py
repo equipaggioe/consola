@@ -4,7 +4,7 @@ import json
 from collections.abc import Mapping
 from typing import Any
 
-from pydantic import BaseModel
+from pydantic import BaseModel, ValidationError
 
 from app.api import http
 
@@ -60,13 +60,22 @@ def call[A: Answer](
 
     Raises `OSError` without an answer, `RejectedError` when Cloudflare
     rejects it and `ValidationError` when it does not have the shape.
+    A rejection comes with an error status, such as 400 for a bad
+    token, and its body says why.
     """
-    raw = http.request(
-        f"{API}{path}",
-        method=method,
-        headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
-        body=json.dumps(body).encode("utf-8") if body is not None else None,
-    )
+    try:
+        raw = http.request(
+            f"{API}{path}",
+            method=method,
+            headers={"Authorization": f"Bearer {token}", "Content-Type": "application/json"},
+            body=json.dumps(body).encode("utf-8") if body is not None else None,
+        )
+    except http.HttpError as exc:
+        try:
+            refused = Answer.model_validate_json(exc.body)
+        except ValidationError:
+            raise exc from None
+        raise RejectedError(refused.errors) from exc
     # A rejected answer does not bring the `result` of `shape`.
     answer = Answer.model_validate_json(raw)
     if not answer.success:

@@ -75,7 +75,7 @@ def create_avd(ctx: TaskContext, device: str = "", image: str = "") -> str:
             QCoreApplication.translate(
                 "emulators",
                 "Elige una maquina virtual instalada. Si no hay ninguna, instalala "
-                'primero con "Instalar maquina".',
+                'primero con "Instalar imagen de sistema".',
             )
         )
 

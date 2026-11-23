@@ -3,7 +3,9 @@
   <qresource prefix="/">
     <file>icon.png</file>
     <file>assets/equipaggio.png</file>
+    <file>translations/en.qm</file>
     <file>translations/es.qm</file>
+    <file>translations/qtbase_en.qm</file>
     <file>translations/qtbase_es.qm</file>
   </qresource>
 </RCC>

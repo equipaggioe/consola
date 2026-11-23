@@ -7,7 +7,7 @@ from typing import Any
 
 import pytest
 
-from app.api import flutter
+from app.api import flutter, http
 from app.services import canone, files
 from app.services.catalog import load_catalog
 from app.services.context import TaskContext
@@ -290,3 +290,36 @@ def test_mobiles_reads_the_apks_the_release_uploads(tmp_path: Path) -> None:
         encoding="utf-8",
     )
     assert canone.mobiles(tmp_path) == ["mobile-customer", "mobile-vendor"]
+
+
+def test_cloudflare_says_why_it_refused(monkeypatch: pytest.MonkeyPatch, tmp_path: Path) -> None:
+    """A bad token answers 400, and the task shows Cloudflare's reason.
+
+    The body is what the real API answered on 2026-11-22 to a token
+    that is not valid.
+    """
+
+    def refuse(url: str, **kwargs: object) -> bytes:
+        body = (
+            b'{"success":false,"errors":[{"code":6003,"message":"Invalid request headers",'
+            b'"error_chain":[{"code":6111,"message":"Invalid format for Authorization header"}]}],'
+            b'"messages":[],"result":null}'
+        )
+        raise http.HttpError("server replied with status code 400", 400, body)
+
+    monkeypatch.setattr(utils.http, "request", refuse)
+    with pytest.raises(TaskError, match="rechazo.*Invalid request headers"):
+        utils.update_cloudflare(_cloudflare_ctx(tmp_path, "web"))
+
+
+def test_cloudflare_without_its_answer_cannot_be_reached(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """An error page that is not Cloudflare's answer fails to talk."""
+
+    def fail(url: str, **kwargs: object) -> bytes:
+        raise http.HttpError("server replied with status code 502", 502, b"<html>")
+
+    monkeypatch.setattr(utils.http, "request", fail)
+    with pytest.raises(TaskError, match="No se pudo hablar con Cloudflare"):
+        utils.update_cloudflare(_cloudflare_ctx(tmp_path, "web"))

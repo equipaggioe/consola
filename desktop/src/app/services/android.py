@@ -490,7 +490,8 @@ def ensure_avd(ctx: TaskContext, sdk: Sdk, spec: AvdSpec) -> str:
             raise TaskError(
                 QCoreApplication.translate(
                     "android",
-                    'La maquina {0} no esta instalada. Instalala primero con "Instalar maquina".',
+                    "La maquina {0} no esta instalada. Instalala primero con "
+                    '"Instalar imagen de sistema".',
                 ).format(spec.image)
             )
         ctx.info(

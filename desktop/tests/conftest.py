@@ -16,6 +16,7 @@ from app.services.catalog import applicable_ids, load_catalog
 from app.services.context import TaskError
 from app.services.registry import Capability, registry
 from app.services.tasks import bind_all
+from app.widgets.action_menu_bar import choose_language
 from app.widgets.tab_panel import TabPanel
 from app.windows.main_window import MainWindow
 
@@ -79,11 +80,14 @@ class ConsolaScreen:
         self._qtbot.waitUntil(lambda: tab not in workspace._busy, timeout=10000)
 
 
-@pytest.fixture
+@pytest.fixture(params=language.offered())
 def screen(
-    qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
+    request: pytest.FixtureRequest, qtbot: QtBot, tmp_path: Path, monkeypatch: pytest.MonkeyPatch
 ) -> Iterator[ConsolaScreen]:
-    """Open the window as `main.py` does, with nothing of the user."""
+    """Open the window as `main.py` does, with nothing of the user.
+
+    Once in each language: the texts of each measure differently.
+    """
     for variable in ("APPDATA", "LOCALAPPDATA", "XDG_CACHE_HOME", "XDG_CONFIG_HOME"):
         monkeypatch.setenv(variable, str(tmp_path / variable.lower()))
     QSettings.setDefaultFormat(QSettings.Format.IniFormat)
@@ -91,6 +95,7 @@ def screen(
     app = QApplication.instance()
     assert isinstance(app, QApplication)
     locale = QLocale()
+    choose_language(request.param)
     language.install(app)
     monkeypatch.setattr(http, "_network", None)
     http.start()

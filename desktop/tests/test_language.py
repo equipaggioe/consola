@@ -1,20 +1,29 @@
 """The interface language: which applies, and what gets translated."""
 
+import re
 from collections.abc import Iterator
 from pathlib import Path
 from typing import override
 from xml.etree import ElementTree
 
 import pytest
-from PySide6.QtCore import QCoreApplication, QLocale, QTranslator
+from PySide6.QtCore import QCoreApplication, QLocale, QSettings, QTranslator
+from PySide6.QtWidgets import QMessageBox
 from pytestqt.qtbot import QtBot
 
 # The translations are in the compiled resources.
 import app.rc_resources  # noqa: F401
 from app.services import catalog, command_docs, language, settings
 from app.services.registry import Registry
+from app.widgets.action_menu_bar import (
+    LANGUAGE_NAMES,
+    ActionMenuBar,
+    choose_language,
+    chosen_language,
+)
 
-TS = Path(language.__file__).parents[1] / "translations" / "es.ts"
+TRANSLATIONS = Path(language.__file__).parents[1] / "translations"
+TS = TRANSLATIONS / "es.ts"
 
 
 class _Marking(QTranslator):
@@ -35,6 +44,15 @@ def marking(qtbot: QtBot) -> Iterator[None]:
     QCoreApplication.installTranslator(translator)
     yield
     QCoreApplication.removeTranslator(translator)
+
+
+@pytest.fixture
+def stored(tmp_path: Path) -> Iterator[None]:
+    """Keep `QSettings` in a temporary folder while the test runs."""
+    QSettings.setDefaultFormat(QSettings.Format.IniFormat)
+    QSettings.setPath(QSettings.Format.IniFormat, QSettings.Scope.UserScope, str(tmp_path))
+    yield
+    QSettings().clear()
 
 
 @pytest.mark.parametrize(
@@ -61,23 +79,32 @@ def test_a_longer_tag_wins_over_its_prefix() -> None:
     assert language.resolve(["pt-BR"], ["pt", "pt-BR"]) == "pt-BR"
 
 
-def test_the_resources_offer_the_base_language() -> None:
-    """The compiled resources carry the base language's translation."""
-    assert language.offered() == ["es"]
+def test_the_resources_offer_every_translation() -> None:
+    """The compiled resources carry the base language and English."""
+    assert language.offered() == ["en", "es"]
 
 
-def test_install_applies_the_language_and_both_translators(qtbot: QtBot) -> None:
-    """`install` sets the default locale and loads both translators."""
-    del qtbot
+@pytest.mark.parametrize("tag", ["en", "es"])
+def test_install_applies_the_language_and_both_translators(
+    qtbot: QtBot, stored: None, tag: str
+) -> None:
+    """`install` sets the chosen locale and loads both translators."""
+    del qtbot, stored
     app = QCoreApplication.instance()
     assert app is not None
     before = QLocale()
+    choose_language(tag)
+    # An earlier test's wait for `deleteLater` until the loop runs.
+    earlier = set(app.findChildren(QTranslator))
     try:
-        assert language.install(app) == "es"
-        assert QLocale().bcp47Name() == "es"
-        assert len(app.findChildren(QTranslator)) == 2
+        assert language.install(app) == tag
+        assert QLocale().bcp47Name() == tag
+        assert len(set(app.findChildren(QTranslator)) - earlier) == 2
+        assert QCoreApplication.translate("ActionMenuBar", "Ver") == (
+            "View" if tag == "en" else "Ver"
+        )
     finally:
-        for translator in app.findChildren(QTranslator):
+        for translator in set(app.findChildren(QTranslator)) - earlier:
             QCoreApplication.removeTranslator(translator)
             translator.deleteLater()
         QLocale.setDefault(before)
@@ -155,3 +182,52 @@ def test_the_catalog_texts_are_in_the_translations(monkeypatch: pytest.MonkeyPat
             texts |= {facet.label for facet in axis.facets}
     texts.discard("")
     assert texts - _extracted("catalog") == set()
+
+
+def test_the_choice_is_saved_and_forgotten(stored: None) -> None:
+    """A tag is saved under `KEY`, and "" goes back to the system's."""
+    del stored
+    choose_language("en")
+    assert chosen_language() == "en"
+    choose_language("")
+    assert chosen_language() == ""
+    assert not QSettings().contains(language.KEY)
+
+
+def test_each_language_is_named_in_itself() -> None:
+    """«English» and «Español», whatever language is on."""
+    assert LANGUAGE_NAMES == {"en": "English", "es": "Español"}
+    assert set(LANGUAGE_NAMES) == set(language.offered())
+
+
+def test_the_view_menu_chooses_the_language(qtbot: QtBot, stored: None) -> None:
+    """«Idioma» lists the system's and each translation, and saves."""
+    del stored
+    bar = ActionMenuBar()
+    qtbot.addWidget(bar)
+    assert list(bar.language_actions) == ["", "en", "es"]
+    assert bar.language_actions[""].isChecked()
+    bar.language_actions["en"].trigger()
+    assert chosen_language() == "en"
+    assert bar.language_actions["en"].isChecked()
+    for dialog in bar.window().findChildren(QMessageBox):
+        dialog.close()
+
+
+def test_every_text_has_its_english(qtbot: QtBot) -> None:
+    """`en.ts` translates every text, with the same `{…}` fields.
+
+    A field lost in the translation raises on `.format()` only when that
+    text shows.
+    """
+    del qtbot
+    fields = re.compile(r"\{[^{}]*\}")
+    tree = ElementTree.parse(TRANSLATIONS / "en.ts")
+    assert tree.getroot().get("language") == "en"
+    for message in tree.getroot().iter("message"):
+        source = message.findtext("source") or ""
+        translation = message.find("translation")
+        assert translation is not None, source
+        assert translation.get("type") is None, source
+        assert translation.text, source
+        assert sorted(fields.findall(source)) == sorted(fields.findall(translation.text)), source

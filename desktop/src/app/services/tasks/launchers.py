@@ -85,7 +85,7 @@ def backend_url(ctx: TaskContext, *, wait: float = 0.0, required: bool = True) -
         QCoreApplication.translate(
             "launchers",
             "El backend todavia no arranco en esta sesion: levantalo primero, o usa "
-            '"Entorno de desarrollo".',
+            '"Levantar todo el entorno".',
         )
     )
 

@@ -102,7 +102,7 @@ def _android() -> Tool:
         QCoreApplication.translate("toolstatus", "SDK Android"),
         path,
         hint=QCoreApplication.translate(
-            "toolstatus", 'Corre "Herramientas Android" para instalarlo.'
+            "toolstatus", 'Corre "Instalar SDK de Android" para instalarlo.'
         ),
     )
 
@@ -113,7 +113,9 @@ def _flutter() -> Tool:
         "flutter",
         QCoreApplication.translate("toolstatus", "Flutter"),
         path,
-        hint=QCoreApplication.translate("toolstatus", 'Corre "SDK Flutter" para instalarlo.'),
+        hint=QCoreApplication.translate(
+            "toolstatus", 'Corre "Instalar SDK de Flutter" para instalarlo.'
+        ),
     )
 
 

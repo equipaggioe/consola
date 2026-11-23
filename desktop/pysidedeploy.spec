@@ -19,4 +19,4 @@ plugins =
 [nuitka]
 macos.permissions =
 mode = onefile
-extra_args = --quiet --noinclude-qt-translations --assume-yes-for-downloads --include-distribution-metadata=consola-desktop --include-data-files=src/app/assets/shots_presets.json=app/assets/shots_presets.json --include-data-files=src/app/assets/camera/index.mjs=app/assets/camera/index.mjs
+extra_args = --quiet --windows-console-mode=disable --noinclude-qt-translations --assume-yes-for-downloads --include-distribution-metadata=consola-desktop --include-data-files=src/app/assets/shots_presets.json=app/assets/shots_presets.json --include-data-files=src/app/assets/camera/index.mjs=app/assets/camera/index.mjs

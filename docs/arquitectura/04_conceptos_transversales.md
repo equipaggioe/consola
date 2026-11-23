@@ -59,7 +59,7 @@ La regla completa, con sus casos límite, está en [13](13_configuracion_y_persi
 
 ## 10. Los textos de la interfaz pasan por Qt Linguist
 
-Cada texto que ve el usuario se traduce con `QCoreApplication.translate(contexto, texto)`, y el texto fuente es el español, el idioma base ([ADR-0091](../adr/0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md)). `translations/es.ts` los junta.
+Cada texto que ve el usuario se traduce con `QCoreApplication.translate(contexto, texto)`, y el texto fuente es el español, el idioma base ([ADR-0091](../adr/0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md)). `translations/es.ts` los junta, y `translations/en.ts` los traduce al inglés ([ADR-0096](../adr/0096-el-ingles-es-el-segundo-idioma-y-ver-lo-elige.md)).
 
 - El contexto es la clase donde está el texto o, fuera de una clase, el módulo.
 - Los valores van como `{0}`, `{1}` y entran con `.format()` después de traducir. Un f-string arma el texto antes de buscarlo, y la búsqueda falla.
@@ -67,4 +67,5 @@ Cada texto que ve el usuario se traduce con `QCoreApplication.translate(contexto
 - El grupo de una capacidad y el de una clave de configuración son también claves: ordenan el menú y el formulario, y nombran el icono del grupo. Se guardan sin traducir, y el menú, el buscador y el formulario los traducen al mostrarlos.
 - No se traducen los comentarios que `envfile.py` escribe en `config.env`, porque el archivo es del repo, ni los mensajes en inglés de los errores de programación (`RuntimeError`, `OSError`).
 - Un plural se elige en el código con dos textos: con `%n` hace falta una traducción que elija la forma, y el idioma base no la tiene.
-- El idioma lo aplica `language.install()` en `main.py`, antes de crear un widget o el catálogo: el guardado bajo `language.KEY` en `QSettings`, que hoy nada escribe porque no hay selector, o el primero de `QLocale.system().uiLanguages()` que tiene traducción, o el base. Fija el `QLocale` por defecto, que formatea fechas y números, e instala el traductor de Consola y el de Qt (`qtbase_<locale>.qm`). `api/http.py` manda ese idioma en `Accept-Language`. `services/language.py` es una copia sin editar del de la plantilla de canone, y `verificar.py` lo compara.
+- El idioma lo aplica `language.install()` en `main.py`, antes de crear un widget o el catálogo: el guardado bajo `language.KEY` en `QSettings`, que escribe «Idioma», en Ver, o el primero de `QLocale.system().uiLanguages()` que tiene traducción, o el base. Fija el `QLocale` por defecto, que formatea fechas y números, e instala el traductor de Consola y el de Qt (`qtbase_<locale>.qm`). `api/http.py` manda ese idioma en `Accept-Language`. `services/language.py` es una copia sin editar del de la plantilla de canone, y `verificar.py` lo compara: el menú guarda la elección con `choose_language()`, de `action_menu_bar.py`.
+- «Idioma» lista «El del sistema» y cada traducción con su nombre en ese idioma (`LANGUAGE_NAMES`). La elección vale desde la próxima vez que se abre Consola, y un mensaje lo dice. `tests/test_language.py` falla si un texto de `en.ts` no tiene traducción o pierde un `{…}`.

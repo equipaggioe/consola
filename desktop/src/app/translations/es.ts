@@ -4,23 +4,39 @@
 <context>
     <name>ActionMenuBar</name>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="152"/>
+        <location filename="../widgets/action_menu_bar.py" line="175"/>
         <source>Ver</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="155"/>
+        <location filename="../widgets/action_menu_bar.py" line="178"/>
         <source>Solo favoritos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="177"/>
+        <location filename="../widgets/action_menu_bar.py" line="200"/>
         <source>Animaciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="184"/>
+        <location filename="../widgets/action_menu_bar.py" line="207"/>
         <source>RAM disponible</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/action_menu_bar.py" line="224"/>
+        <location filename="../widgets/action_menu_bar.py" line="245"/>
+        <source>Idioma</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/action_menu_bar.py" line="228"/>
+        <source>El del sistema</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/action_menu_bar.py" line="246"/>
+        <source>El idioma cambia la próxima vez que se abra Consola.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>
@@ -773,12 +789,12 @@ y vuelve a consultar los catálogos de los parámetros</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/favorite_star.py" line="62"/>
+        <location filename="../widgets/favorite_star.py" line="64"/>
         <source>Quitar de favoritas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/favorite_star.py" line="64"/>
+        <location filename="../widgets/favorite_star.py" line="66"/>
         <source>Marcar como favorita</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1642,22 +1658,22 @@ aparecen aquí</source>
 <context>
     <name>action_menu_bar</name>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="282"/>
+        <location filename="../widgets/action_menu_bar.py" line="345"/>
         <source>Compuesta · encadena varias atómicas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="284"/>
+        <location filename="../widgets/action_menu_bar.py" line="347"/>
         <source>Atómica · un solo paso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="287"/>
+        <location filename="../widgets/action_menu_bar.py" line="350"/>
         <source> · de la máquina, no del repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/action_menu_bar.py" line="293"/>
+        <location filename="../widgets/action_menu_bar.py" line="356"/>
         <source>&lt;span style=&apos;color:{0};&apos;&gt;Clic para abrir&lt;/span&gt;</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1711,26 +1727,26 @@ aparecen aquí</source>
     </message>
     <message>
         <location filename="../services/android.py" line="491"/>
-        <source>La maquina {0} no esta instalada. Instalala primero con &quot;Instalar maquina&quot;.</source>
+        <source>La maquina {0} no esta instalada. Instalala primero con &quot;Instalar imagen de sistema&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/android.py" line="497"/>
+        <location filename="../services/android.py" line="498"/>
         <source>Creando AVD &quot;{0}&quot; ({1}).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/android.py" line="522"/>
+        <location filename="../services/android.py" line="523"/>
         <source>No se encontro config.ini del AVD &quot;{0}&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/android.py" line="579"/>
+        <location filename="../services/android.py" line="580"/>
         <source>Ningun emulador termino de arrancar en {0:.0f}s.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/android.py" line="591"/>
+        <location filename="../services/android.py" line="592"/>
         <source>Emulador {0} detenido.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -5588,7 +5604,7 @@ aparecen aquí</source>
     </message>
     <message>
         <location filename="../services/tasks/emulators.py" line="75"/>
-        <source>Elige una maquina virtual instalada. Si no hay ninguna, instalala primero con &quot;Instalar maquina&quot;.</source>
+        <source>Elige una maquina virtual instalada. Si no hay ninguna, instalala primero con &quot;Instalar imagen de sistema&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6021,7 +6037,7 @@ aparecen aquí</source>
     </message>
     <message>
         <location filename="../services/tasks/launchers.py" line="85"/>
-        <source>El backend todavia no arranco en esta sesion: levantalo primero, o usa &quot;Entorno de desarrollo&quot;.</source>
+        <source>El backend todavia no arranco en esta sesion: levantalo primero, o usa &quot;Levantar todo el entorno&quot;.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7076,17 +7092,17 @@ aparecen aquí</source>
     </message>
     <message>
         <location filename="../services/toolstatus.py" line="104"/>
-        <source>Corre &quot;Herramientas Android&quot; para instalarlo.</source>
+        <source>Corre &quot;Instalar SDK de Android&quot; para instalarlo.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../services/toolstatus.py" line="116"/>
+        <source>Corre &quot;Instalar SDK de Flutter&quot; para instalarlo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
         <location filename="../services/toolstatus.py" line="114"/>
         <source>Flutter</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../services/toolstatus.py" line="116"/>
-        <source>Corre &quot;SDK Flutter&quot; para instalarlo.</source>
         <translation type="unfinished"></translation>
     </message>
 </context>

@@ -2,12 +2,12 @@
 
 from __future__ import annotations
 
-from PySide6.QtCore import QCoreApplication, Signal, Slot
-from PySide6.QtGui import QAction
-from PySide6.QtWidgets import QMenu, QMenuBar, QSizePolicy, QWidget
+from PySide6.QtCore import QCoreApplication, QSettings, Qt, Signal, Slot
+from PySide6.QtGui import QAction, QActionGroup
+from PySide6.QtWidgets import QMenu, QMenuBar, QMessageBox, QSizePolicy, QWidget
 
 from app import theme
-from app.services import favorites, motion, section_visibility
+from app.services import favorites, language, motion, section_visibility
 from app.services.palettes import NEUTRAL, Palette
 from app.services.registry import Capability, registry
 from app.theme import Colors
@@ -16,6 +16,29 @@ from app.theme import Colors
 # one item, and this reads just as well without a `QWidgetAction`, which
 # would reimplement `ActionRow` inside the popup.
 MARK_DANGER = "⚠"  # destructive: check before pressing
+
+# Each translation's name in itself, as «Idioma» lists it: whoever does
+# not read the current language still finds theirs. Not from
+# `QLocale.nativeLanguageName()`, which names the default region too:
+# «español de España», «American English».
+LANGUAGE_NAMES = {"en": "English", "es": "Español"}
+
+
+def chosen_language() -> str:
+    """Return the tag saved under `language.KEY`, or "" if none."""
+    return str(QSettings().value(language.KEY, ""))
+
+
+def choose_language(tag: str) -> None:
+    """Save the choice, which `language.install` applies on next start.
+
+    "" forgets it, and the system's language rules again.
+    """
+    settings = QSettings()
+    if tag:
+        settings.setValue(language.KEY, tag)
+    else:
+        settings.remove(language.KEY)
 
 
 class ActionMenuBar(QMenuBar):
@@ -187,7 +210,47 @@ class ActionMenuBar(QMenuBar):
         self.ram_action.setChecked(motion.ram_shown())
         self.ram_action.toggled.connect(motion.set_ram_shown)
         menu.addAction(self.ram_action)
+        menu.addSeparator()
+        self._build_language_menu(menu)
         menu.aboutToShow.connect(self._sync_view_checks)
+
+    def _build_language_menu(self, view: QMenu) -> None:
+        """Build «Idioma»: the system's, or one of the translations.
+
+        The choice applies on the next start, and a message says so:
+        every widget sets its texts when it is built, after
+        `language.install`.
+        """
+        menu = view.addMenu(QCoreApplication.translate("ActionMenuBar", "Idioma"))
+        self.language_actions: dict[str, QAction] = {}
+        group = QActionGroup(self)
+        current = chosen_language()
+        options = [("", QCoreApplication.translate("ActionMenuBar", "El del sistema"))]
+        options += [(tag, LANGUAGE_NAMES[tag]) for tag in language.offered()]
+        for tag, label in options:
+            action = QAction(label, self)
+            action.setCheckable(True)
+            action.setChecked(tag == current)
+            group.addAction(action)
+            action.triggered.connect(lambda _=False, t=tag: self._choose_language(t))
+            self.language_actions[tag] = action
+            menu.addAction(action)
+
+    def _choose_language(self, tag: str) -> None:
+        if tag == chosen_language():
+            return
+        choose_language(tag)
+        notice = QMessageBox(
+            QMessageBox.Icon.Information,
+            QCoreApplication.translate("ActionMenuBar", "Idioma"),
+            QCoreApplication.translate(
+                "ActionMenuBar", "El idioma cambia la próxima vez que se abra Consola."
+            ),
+            QMessageBox.StandardButton.Ok,
+            self.window(),
+        )
+        notice.setAttribute(Qt.WidgetAttribute.WA_DeleteOnClose)
+        notice.open()
 
     @Slot()
     def _sync_view_checks(self) -> None:

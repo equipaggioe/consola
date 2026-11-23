@@ -44,6 +44,19 @@ _NETWORK_FAILURES = frozenset(
 )
 
 
+class HttpError(OSError):
+    """The server answered with an error status.
+
+    `body` is what it answered: an API may say there why it refused.
+    """
+
+    def __init__(self, message: str, status: int, body: bytes = b"") -> None:
+        """Keep the status and the body of the answer."""
+        super().__init__(message)
+        self.status = status
+        self.body = body
+
+
 @dataclass(frozen=True)
 class _Chunk:
     data: bytes
@@ -145,9 +158,15 @@ def request(
     body: bytes | None = None,
     timeout: float = 30.0,
 ) -> bytes:
-    """Return the body of the answer, or raise `OSError`."""
+    """Return the body of the answer, or raise `OSError`.
+
+    An error status raises `HttpError`, with the body the server sent.
+    """
     chunks: list[bytes] = []
-    _transfer(url, method, headers, body, timeout, chunks.append, chunks.clear)
+    try:
+        _transfer(url, method, headers, body, timeout, chunks.append, chunks.clear)
+    except HttpError as exc:
+        raise HttpError(str(exc), exc.status, b"".join(chunks)) from None
     return b"".join(chunks)
 
 
@@ -199,6 +218,8 @@ def _transfer(
         if end is None or end.error == _Error.NoError:
             return
         if method not in _IDEMPOTENT or attempt == RETRIES or not end.retryable:
+            if end.status is not None:
+                raise HttpError(end.message, end.status)
             raise OSError(end.message)
         if delivered:
             on_restart()

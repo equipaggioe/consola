@@ -33,8 +33,9 @@
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
 > `canone/plataformas/python.md`, `canone/plataformas/qt.md`, «Tema» y «Accesibilidad» de
-> `canone/plataformas/transversal.md` y este plan. Falta el selector de idioma, que llega con el
-> segundo idioma (§2.8) y la prueba de `release.yml` con un tag (§4).
+> `canone/plataformas/transversal.md` y este plan. Falta lo del §4: armar otra vez el `.exe` de
+> Windows sin consola y probar `api/cloudflare.py` contra el servicio real, con un token del
+> usuario.
 
 ## 1. Cómo se comprueba
 
@@ -91,12 +92,12 @@ proceso y con un cliente de UI Automation:
 | 2.2.2, lo que se mueve | Nada: el cursor, el pulso del LED y la RAM se detienen u ocultan desde Ver | — |
 | 1.4.4, texto al 200 % | Nada a 960 × 500 px de Qt, con la escala de pantalla del sistema, también con las fuentes de Linux. El «Tamaño del texto» de Windows no agranda la app | — |
 | 4.1.3, mensajes de estado | Nada: un cliente de UI Automation recibe las notificaciones. Sin escuchar un lector concreto (NVDA o Narrador) | — |
+| 3.1.1, idioma de la pantalla | Nada en Windows: un cliente de UI Automation lee la cultura `en-US` o `es-ES` en los 53 elementos de la ventana, según el idioma elegido. En Linux no se miró qué expone AT-SPI | — |
 
 Las mediciones del 2026-11-19 al 2026-11-21 anteriores a esa prueba corrieron sin pantalla y sin las
 fuentes del sistema: cada texto medía el doble de ancho, así que los tamaños de entonces no valen.
 Los colores, sí.
 
-Falta medir el idioma de la pantalla (3.1.1), que llega con el §2.8.
 
 ### 2.7 Icono, recursos y empaquetado
 
@@ -128,12 +129,13 @@ Hecho: los 1450 textos de la interfaz, de las tareas, del catálogo, de las clav
 `QLocale`. Está en [04](../arquitectura/04_conceptos_transversales.md), §10, y en el
 [ADR-0091](../adr/0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md).
 
-Decidido el 2026-11-19: el texto fuente en español, solo `es.ts`, y sin selector mientras haya un
-solo idioma. Los puntos 4 a 9 del ADR-0091 se aceptaron el 2026-11-21.
+Decidido el 2026-11-19: el texto fuente en español. Los puntos 4 a 9 del ADR-0091 se aceptaron el
+2026-11-21.
 
-Falta:
-
-- El selector de idioma y su clave de `QSettings`, que pide `qt.md`: llegan con el segundo idioma.
+Hecho el 2026-11-22: el usuario pidió el inglés. `en.ts` traduce los 1473 textos, y «Idioma», en
+Ver, guarda la elección bajo `language.KEY`, que vale desde la próxima vez que se abre Consola
+([ADR-0096](../adr/0096-el-ingles-es-el-segundo-idioma-y-ver-lo-elige.md); dónde va el menú y
+cuándo se aplica se eligió al implementar).
 
 ### 2.9 Lo que no aplica
 
@@ -194,10 +196,14 @@ Ninguna.
 
 ## 4. Sin verificar
 
-- `api/http.py` y `api/cloudflare.py` contra el servicio real: leer necesita un token y escribir cambia
-  el DNS. Se probó contra un servidor local y con respuestas simuladas.
-- `release.yml` con un tag: nunca corrió en GitHub. Sus pasos de Linux armaron en la distro `Testing`
-  un binario que abre la ventana; en Windows no se armó ([30](../arquitectura/30_riesgos_y_pendientes.md)).
+- `api/cloudflare.py` contra el servicio real, creando, cambiando y borrando un registro de prueba:
+  el usuario lo pidió el 2026-11-22 y falta su token. El 2026-11-22, con un token falso, Cloudflare
+  respondió 400 con su motivo en el cuerpo, y `api/http.py` lo descartaba: ahora `HttpError` lo
+  guarda y la tarea muestra el motivo.
+- El `.exe` de Windows: `release.yml` corrió el 2026-11-22 con un tag de prueba y armó los dos
+  binarios, pero el `.exe` abría también una consola. `pysidedeploy.spec` lleva ahora
+  `--windows-console-mode=disable`, y falta armarlo otra vez
+  ([30](../arquitectura/30_riesgos_y_pendientes.md)).
 
 ## 5. Al terminar
 
