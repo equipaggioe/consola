@@ -38,7 +38,6 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 | Qué | ADR | Plan |
 |---|---|---|
 | Lo que pide `qt.md` de canone, que ya no está en desarrollo, y Consola no tiene: el nivel AA de `transversal.md` verificado | [0075](../adr/0075-consola-sigue-las-convenciones-de-canone-como-cualquier-repositorio.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
-| El selector de idioma, con su clave de `QSettings`: llega con el segundo idioma. Hasta entonces rige `QLocale.system()` | [0091](../adr/0091-los-textos-se-escriben-en-espanol-y-linguist-los-traduce.md) | [cumplir_canone.md](../planes/cumplir_canone.md) |
 | «Compilar ejecutable»: empaquetar solo en CI con `pyside6-deploy`, sin PyInstaller, sin subir al VPS, sin número de versión ni manifiesto. Sale el ADR-0024 y cambian el 0025, el 0026 y el punto 4 del 0056 | [0074](../adr/0074-lo-que-cambia-un-vps-y-canone-no-hace-va-primero-a-canone.md) | [despliegue_canone.md](../planes/despliegue_canone.md) |
 | Bitácora, historial y presets en un SQLite de la máquina (`services/store.py`) | — | — |
 | Que la confirmación escrita de un destructivo sea **el nombre del repo** y no una palabra fija, para que el automatismo no erosione la comprobación | [0018](../adr/0018-seguro-por-repo-y-objetivo.md) | — |
