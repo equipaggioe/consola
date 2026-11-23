@@ -33,9 +33,7 @@
 >
 > **Para retomar en otro chat:** leer `canone/principios.md`, `canone/documentacion.md`,
 > `canone/plataformas/python.md`, `canone/plataformas/qt.md`, «Tema» y «Accesibilidad» de
-> `canone/plataformas/transversal.md` y este plan. Falta lo del §4: armar otra vez el `.exe` de
-> Windows sin consola y probar `api/cloudflare.py` contra el servicio real, con un token del
-> usuario.
+> `canone/plataformas/transversal.md` y este plan. No falta nada: queda el §5, «Al terminar».
 
 ## 1. Cómo se comprueba
 
@@ -196,14 +194,14 @@ Ninguna.
 
 ## 4. Sin verificar
 
-- `api/cloudflare.py` contra el servicio real, creando, cambiando y borrando un registro de prueba:
-  el usuario lo pidió el 2026-11-22 y falta su token. El 2026-11-22, con un token falso, Cloudflare
-  respondió 400 con su motivo en el cuerpo, y `api/http.py` lo descartaba: ahora `HttpError` lo
-  guarda y la tarea muestra el motivo.
-- El `.exe` de Windows: `release.yml` corrió el 2026-11-22 con un tag de prueba y armó los dos
-  binarios, pero el `.exe` abría también una consola. `pysidedeploy.spec` lleva ahora
-  `--windows-console-mode=disable`, y falta armarlo otra vez
-  ([30](../arquitectura/30_riesgos_y_pendientes.md)).
+- Hecho el 2026-11-22: `api/cloudflare.py` contra el servicio real. `update_cloudflare` creó
+  `consola-prueba.equipaggio.net`, lo dejó igual al repetir y lo cambió, y el script lo borró; la IP
+  pública se detectó contra el servicio real. Con un token falso, Cloudflare respondió 400 con su
+  motivo en el cuerpo, y `api/http.py` lo descartaba: ahora `HttpError` lo guarda y la tarea muestra
+  el motivo.
+- Hecho el 2026-11-22: `release.yml` con un tag. Corrió dos veces con tags de prueba, borrados
+  después con sus releases, y armó los dos binarios. El primer `.exe` abría también una consola;
+  con `--windows-console-mode=disable` en `pysidedeploy.spec`, el segundo abre solo la ventana.
 
 ## 5. Al terminar
 
