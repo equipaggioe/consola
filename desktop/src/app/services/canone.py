@@ -656,6 +656,8 @@ def credential_lines(root: Path, config: Config) -> str:
             ).format(", ".join(foreign))
         )
     pairs = [(s.label, s.key) for s in declared_fields]
+    if fields.SETUP_CODE in fields.settings_fields(server):
+        pairs.append((fields.SETUP_CODE, "SETUP_CODE"))
     pairs.append(("restic_password", "RESTIC_PASSWORD"))
     if config.flag("PRIVATE"):
         pairs.append(("github_token", "GITHUB_TOKEN"))

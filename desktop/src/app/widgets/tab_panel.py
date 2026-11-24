@@ -1452,6 +1452,10 @@ class TabPanel(ReorderableBar):
             # here.
             if ok and capability.opens_repo and runner.result:
                 self.repo_ready.emit(str(runner.result))
+            # A task that wrote `config.env` leaves the form showing the
+            # old value, and Save would write it back.
+            if ok and capability.writes_config:
+                self.env_panel.reload()
             if capability.is_machine_wide:
                 # Installing an image, creating an AVD or stopping an
                 # emulator changes exactly what this group's panels

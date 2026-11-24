@@ -390,6 +390,16 @@ SETTINGS: tuple[Setting, ...] = (
         used_by=("backend",),
         needs="turn_secret",
     ),
+    # The code that registers the first superadmin («Superadministrador»
+    # of canone's autenticacion.md). Empty, Consola generates one when
+    # it loads it on the VPS, saves it here and shows it.
+    Setting(
+        "SETUP_CODE",
+        QT_TRANSLATE_NOOP("settings", "Credenciales"),
+        QT_TRANSLATE_NOOP("settings", "Código de instalación"),
+        used_by=("load_credentials", "load_setup_code", "bootstrap_vps"),
+        needs="setup_code",
+    ),
     Setting(
         "RESTIC_PASSWORD",
         QT_TRANSLATE_NOOP("settings", "Credenciales"),

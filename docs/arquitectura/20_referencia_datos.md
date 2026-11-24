@@ -37,6 +37,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `DATABASE_URL` | Credenciales | Base de desarrollo | secreto | | usa |
 | `VALKEY_URL` | Credenciales | Valkey de desarrollo | secreto | | usa |
 | `TURN_SECRET` | Credenciales | Secreto TURN de desarrollo | secreto | | usa |
+| `SETUP_CODE` | Credenciales | Código de instalación | | si está vacío, Consola genera uno al cargarlo | usa |
 | `RESTIC_PASSWORD` | Credenciales | Contraseña de restic | secreto | | exige |
 | `GITHUB_TOKEN` | Credenciales | Token de GitHub | secreto | | usa |
 | `BUILD_OUT_APK` | Builds | Carpeta del build APK | | donde lo deja el framework | usa |
@@ -125,8 +126,8 @@ Archivo INI: `%APPDATA%\Equipaggio\Consola.ini` en Windows y `~/.config/Equipagg
 | `<VPS_DEPLOY_DIR>/<repo>/…` | `build_binary`: el ejecutable, su manifiesto, su checksum y su manifiesto de release |
 | Los paquetes de `packages.py` y `/usr/local/bin/uv` | `install_software` |
 | `/swapfile` y su línea de `/etc/fstab`, de `swap.py` | `create_swap` |
-| Lo que instalan `install.py` y `credentials.py` | `install_infra`, `load_credentials` |
-| `/tmp/consola-canone/` | `install_software`, `create_swap`, `install_infra` y `load_credentials`; se borra al terminar |
+| Lo que instalan `install.py` y `credentials.py` | `install_infra`, `load_credentials`, `load_setup_code` |
+| `/tmp/consola-canone/` | `install_software`, `create_swap`, `install_infra`, `load_credentials` y `load_setup_code`; se borra al terminar |
 
 ### En esta máquina
 
@@ -194,9 +195,10 @@ Archivo INI: `%APPDATA%\Equipaggio\Consola.ini` en Windows y `~/.config/Equipagg
 | Despliegue | `systemd_action` | Control del servicio | A |  |
 |  | `view_logs` | Ver logs del servicio | A | `live` |
 |  | `upload_to_vps` | Subir artefacto al VPS | A | oculta |
-| VPS | `bootstrap_vps` | Configurar VPS | C |  |
+| VPS | `bootstrap_vps` | Configurar VPS | C | `writes_config` |
 |  | `install_software` | Instalar paquetes base | A |  |
-|  | `load_credentials` | Cargar credenciales | A |  |
+|  | `load_credentials` | Cargar credenciales | A | `writes_config` |
+|  | `load_setup_code` | Código de instalación | A | `writes_config` |
 |  | `refresh_known_host` | Refrescar known_hosts | A |  |
 |  | `update_cloudflare` | Actualizar Cloudflare | A |  |
 |  | `health_check` | Health check | A |  |

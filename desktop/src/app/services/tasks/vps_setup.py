@@ -16,12 +16,13 @@ provider's panel set or `install_key` added with root's password. After
 
 from __future__ import annotations
 
+import secrets
 from dataclasses import dataclass
 from pathlib import Path
 
 from PySide6.QtCore import QCoreApplication
 
-from app.services import canone, session, ssh
+from app.services import canone, envfile, fields, session, ssh
 from app.services.context import TaskContext
 from app.services.errors import TaskError
 from app.services.registry import registry
@@ -351,6 +352,8 @@ def load_credentials(ctx: TaskContext) -> None:
     time.
     """
     _, app = canone.origin(ctx.root)
+    if fields.SETUP_CODE in fields.settings_fields(ctx.root / ctx.config.get("SERVER_DIR")):
+        setup_code(ctx)
     lines = canone.credential_lines(ctx.root, ctx.config)
     for line in lines.splitlines():
         ctx.guard(line.partition("=")[2])
@@ -364,6 +367,51 @@ def load_credentials(ctx: TaskContext) -> None:
         QCoreApplication.translate("vps_setup", "{0} credenciales cargadas.").format(
             len(lines.splitlines())
         )
+    )
+
+
+def setup_code(ctx: TaskContext) -> str:
+    """Return `SETUP_CODE`, generating and saving one if it is empty.
+
+    The code registers the first superadmin («Superadministrador» of
+    canone's autenticacion.md). A generated one is 6 digits, goes to
+    `config.env` so every load sends the same, and shows in the log.
+    """
+    code = ctx.config.get("SETUP_CODE").strip()
+    if code:
+        return code
+    code = f"{secrets.randbelow(10**6):06d}"
+    server = ctx.root / ctx.config.get("SERVER_DIR")
+    values = envfile.load_config(str(ctx.root))
+    values["SETUP_CODE"] = code
+    envfile.save_config(str(ctx.root), values, fields.field_settings(server))
+    ctx.config.values["SETUP_CODE"] = code
+    ctx.note(QCoreApplication.translate("vps_setup", "Código de instalación: {0}").format(code))
+    return code
+
+
+def load_setup_code(ctx: TaskContext) -> None:
+    """Load `SETUP_CODE` on the VPS, generating it if it is empty.
+
+    It goes alone: `credentials.py` writes only the fields it reads,
+    and restarts the server so it reads it.
+    """
+    code = setup_code(ctx)
+    _, app = canone.origin(ctx.root)
+    entry = admin(ctx)
+    destination = _upload(ctx, entry)
+    try:
+        entry.run(
+            ctx,
+            f"python3 {destination}/credentials.py {ssh.quote(app)}",
+            text=f"{fields.SETUP_CODE}={code}\n",
+        )
+    finally:
+        _cleanup(ctx, entry)
+    ctx.ok(
+        QCoreApplication.translate(
+            "vps_setup", "Código de instalación cargado en {0}: el servidor se reinició."
+        ).format(entry.remote.host)
     )
 
 
@@ -451,5 +499,6 @@ def bind_all() -> None:
     registry.bind("refresh_known_host", refresh_known_host)
     registry.bind("install_software", install_software)
     registry.bind("load_credentials", load_credentials)
+    registry.bind("load_setup_code", load_setup_code)
     registry.bind("bootstrap_vps", bootstrap_vps)
     registry.bind("clean_vps", clean_vps)

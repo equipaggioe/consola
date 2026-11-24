@@ -1757,6 +1757,7 @@ def load_catalog() -> None:
             ),
             preview=PACKAGES,
             steps=BOOTSTRAP_VPS_STEPS,
+            writes_config=True,
             stub=True,
         )
     )
@@ -1785,6 +1786,25 @@ def load_catalog() -> None:
             description=QT_TRANSLATE_NOOP(
                 "catalog", "Pasa las credenciales de config.env a credentials.py de canone."
             ),
+            writes_config=True,
+            stub=True,
+        )
+    )
+    # The code that registers the first superadmin: `SETUP_CODE`, or one
+    # generated and saved there if empty. It goes to the VPS alone.
+    registry.register(
+        Capability(
+            id="load_setup_code",
+            name=QT_TRANSLATE_NOOP("catalog", "Código de instalación"),
+            group=QT_TRANSLATE_NOOP("catalog", "VPS"),
+            kind="once",
+            icon="🔑",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Carga en el VPS el código con que se registra el superadministrador; "
+                "si está vacío, genera uno y lo muestra.",
+            ),
+            writes_config=True,
             stub=True,
         )
     )

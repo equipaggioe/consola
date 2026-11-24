@@ -403,6 +403,9 @@ class Capability:
     # running: the packages canone installs for this repo
     # (`services/catalog.py::preview_lines`)
     preview: str = ""
+    # the task writes the repo's `config.env`: at its end the Settings
+    # form rereads it, so a later Save does not write back the old value
+    writes_config: bool = False
     stub: bool = True
     func: Callable[..., Any] | None = None
 

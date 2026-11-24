@@ -949,6 +949,11 @@ DOCS: dict[str, CommandDoc] = {
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",
+                "Si Settings declara setup_code y SETUP_CODE está vacío, genera uno de 6 "
+                "dígitos, lo guarda en config.env y lo muestra.",
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
                 "Corta si config.env tiene una clave que no es de Consola ni un campo, o "
                 "si falta el valor de un campo o de RESTIC_PASSWORD (y de GITHUB_TOKEN "
                 "con PRIVATE).",
@@ -969,6 +974,30 @@ DOCS: dict[str, CommandDoc] = {
                 "command_docs",
                 "Corre sudo python3 credentials.py <app> y le pasa por stdin una línea "
                 "campo=valor por credencial; nada de eso va al log.",
+            ),
+            QT_TRANSLATE_NOOP("command_docs", "Borra /tmp/consola-canone."),
+        ],
+    ),
+    "load_setup_code": CommandDoc(
+        summary=QT_TRANSLATE_NOOP(
+            "command_docs",
+            "Carga en el VPS el código con que se registra el superadministrador; "
+            "si está vacío, genera uno y lo muestra.",
+        ),
+        steps=[
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "Toma SETUP_CODE de la configuración del repo. Si está vacío, genera uno de "
+                "6 dígitos, lo guarda ahí y lo muestra en el log.",
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "Entra como VPS_USER y sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone.",
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "Corre sudo python3 credentials.py <app> con la sola línea setup_code=…; "
+                "credentials.py la cifra y reinicia el servidor.",
             ),
             QT_TRANSLATE_NOOP("command_docs", "Borra /tmp/consola-canone."),
         ],
