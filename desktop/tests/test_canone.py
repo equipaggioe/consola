@@ -554,3 +554,41 @@ def test_the_server_folder_keeps_the_owner_folder(tmp_path: Path) -> None:
         {"app_database_url": "server"},
     )
     assert (owner / "app_database_url").is_file()
+
+
+# The signature of equipaggio-v0.1.2.sha256, made with a key that was
+# no longer in the VPS's allowed_signers (2026-11-24).
+SIGNATURE = """-----BEGIN SSH SIGNATURE-----
+U1NIU0lHAAAAAQAAADMAAAALc3NoLWVkMjU1MTkAAAAgnQCoiLr260+p5sfrfdUnwqc589
+Vjb3PNA7tI2sqekH4AAAAGZGVwbG95AAAAAAAAAAZzaGE1MTIAAABTAAAAC3NzaC1lZDI1
+NTE5AAAAQKWZdyKvt1ziPvzeBRpLtpL4Q/dPVJ+MG+u9O3fTphZQ36gBnhrSbiLLqKq92S
+tFenY1Sqn41t62XuBVcqocMA8=
+-----END SSH SIGNATURE-----
+"""
+SIGNER = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIJ0AqIi69utPqebH633VJ8KnOfPVY29zzQO7SNrKnpB+"
+OTHER = "ssh-ed25519 AAAAC3NzaC1lZDI1NTE5AAAAIMJwj/h7VIh9c8swXsS0KWOBL/8/WobA2b3r26cVI7Id"
+
+
+def test_the_signer_is_the_key_inside_the_signature() -> None:
+    """The signature carries the public key that made it."""
+    assert canone.signer(SIGNATURE) == SIGNER
+
+
+def test_allowed_signers_gives_its_keys_without_principal_or_comment() -> None:
+    """allowed_signers puts the principal and options before the key."""
+    allowed = f'deploy namespaces="deploy" {OTHER} equipaggio\n'
+    allowed += f'deploy namespaces="deploy" {SIGNER}\n'
+    assert canone.public_keys(allowed) == {OTHER, SIGNER}
+
+
+def test_a_signature_of_a_key_the_vps_lacks_is_not_accepted() -> None:
+    """The signing key is compared with the VPS's, not its comment."""
+    allowed = f'deploy namespaces="deploy" {OTHER} equipaggio\n'
+    assert canone.signer(SIGNATURE) not in canone.public_keys(allowed)
+    assert canone.signer(SIGNATURE) in canone.public_keys(f"{SIGNER} -@DESKTOP-1")
+
+
+def test_a_text_that_is_not_a_signature_stops() -> None:
+    """Without the SSHSIG mark it is not an SSH signature."""
+    with pytest.raises(TaskError):
+        canone.signer("-----BEGIN SSH SIGNATURE-----\nAAAA\n-----END SSH SIGNATURE-----\n")

@@ -12,6 +12,7 @@ but asking `packages.py --list`: it can be tested without a VPS.
 from __future__ import annotations
 
 import ast
+import base64
 import re
 from pathlib import Path
 from typing import Any
@@ -524,6 +525,37 @@ def signed(app: str, releases: list[dict[str, Any]]) -> list[dict[str, Any]]:
     ]
 
 
+# A public key as `ssh-keygen` writes it: type and base64. The base64 of
+# a key always starts with `AAAA`, the length of its type.
+_KEY = re.compile(r"(\S+) (AAAA[A-Za-z0-9+/]+=*)")
+
+
+def public_keys(text: str) -> set[str]:
+    """Return the public keys in a text, as `type base64`.
+
+    It reads a `.pub` and an `allowed_signers`, whose lines put the
+    principal and its options before the key. The comment is left out:
+    the same key can carry another one.
+    """
+    return {f"{kind} {body}" for kind, body in _KEY.findall(text)}
+
+
+def signer(armored: str) -> str:
+    """Return the public key that made an SSH signature: `type base64`.
+
+    It is the key that `ssh-keygen -Y find-principals` looks for in
+    `allowed_signers`: the signature carries it after the `SSHSIG` mark
+    and its version (PROTOCOL.sshsig of OpenSSH).
+    """
+    body = "".join(line for line in armored.splitlines() if not line.startswith("-----"))
+    blob = base64.b64decode(body)
+    if blob[:6] != b"SSHSIG":
+        raise TaskError(QCoreApplication.translate("canone", "No es una firma SSH."))
+    key = blob[14 : 14 + int.from_bytes(blob[10:14], "big")]
+    kind = key[4 : 4 + int.from_bytes(key[:4], "big")].decode("ascii")
+    return f"{kind} {base64.b64encode(key).decode('ascii')}"
+
+
 def events_summary(events: dict[str, Any]) -> dict[str, str]:
     """Return `GET /api/health/events` with the log's names."""
     free, total = events["diskFreeBytes"] / 10**9, events["diskTotalBytes"] / 10**9
@@ -548,6 +580,14 @@ def deploy_command(app: str, tag: str) -> str:
             QCoreApplication.translate("canone", "{0!r} no es un tag como v1.4.0.").format(tag)
         )
     return f"/usr/local/sbin/{app}-deploy {tag}"
+
+
+def signers(app: str) -> str:
+    """Return the VPS's `allowed_signers`: the keys `deploy.py` accepts.
+
+    `install.py` writes it from its `--signer`, and only adds to it.
+    """
+    return f"/etc/{app}/allowed_signers"
 
 
 def owner_url(url: str) -> str:

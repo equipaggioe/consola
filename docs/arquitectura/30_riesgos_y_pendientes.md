@@ -35,6 +35,10 @@ Encontrados al leer el código para esta serie, **sin confirmar**. No se tratan 
 
 - **Arrancar tarda unos 8 s** con ocho repos abiertos. Visto el 2026-11-09. Medido sin pantalla ese día: 5,7 s son construir los ocho `TabPanel` de entrada, y unos 2 s, la hoja de estilo que `MainWindow._apply_window_border` ponía en el `centralWidget`, que ya no existe. Sin medir después de quitarla.
 
+### Pedidos concretos sin hacer
+
+- **Un botón que cambie la llave de un VPS.** Pedido el 2026-11-24. Debe agregar la llave nueva de `VPS_KEY_NAME` a `/etc/ssh/authorized_keys/<admin>` y a `/etc/<app>/allowed_signers`, comprobar que entra con ella y después quitar la vieja de los dos archivos. Hoy no hay forma de hacerlo desde Consola: `install.py` solo agrega llaves (`add_signers`) y «Poner la llave» solo entra con la contraseña de root si la llave no entra. Ese día se hizo a mano en equipaggio: entró `vps_xs1` y salió `vps_xs152`. Sin decidir: si el programa que quita llaves va en `plantilla/infra/` de canone o en Consola.
+
 ### Decididos y sin construir
 
 | Qué | ADR | Plan |

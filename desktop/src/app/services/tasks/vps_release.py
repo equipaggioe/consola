@@ -21,6 +21,7 @@ from app.services.context import TaskContext
 from app.services.errors import TaskError
 from app.services.host import HOST
 from app.services.registry import registry
+from app.services.settings import names
 from app.services.tasks.git import _current_branch, _ensure_git
 from app.services.tasks.vps_setup import Access, admin
 
@@ -110,16 +111,19 @@ def _pushed(ctx: TaskContext) -> None:
         )
 
 
-def release_run(answer: dict[str, Any]) -> str:
+def release_run(answer: dict[str, Any], sha: str) -> str:
     """Return the id of the `release.yml` run, or "" if it is not there.
 
     `answer` is `GET /repos/{repo}/actions/runs`, newest first. The run
     is found by the path of its workflow: `gh run list --workflow` finds
     the file only on the default branch, and a repo can bring
-    `release.yml` in the branch it tags.
+    `release.yml` in the branch it tags. It also has to be of `sha`, the
+    tag's commit: a tag deleted and created again keeps the runs of the
+    old one under the same name, and before GitHub creates the new run
+    the old one would pass for it.
     """
     for run in answer["workflow_runs"]:
-        if run["path"] == WORKFLOW_PATH:
+        if run["path"] == WORKFLOW_PATH and run["head_sha"] == sha:
             return str(run["id"])
     return ""
 
@@ -129,12 +133,13 @@ def _run_id(ctx: TaskContext, gh: list[str], repo: str, tag: str) -> str:
 
     GitHub creates it a few seconds later.
     """
+    sha = ctx.capture(["git", "rev-parse", f"{tag}^{{commit}}"]).strip()
     for _ in range(_APPEARS):
         answer = ctx.capture(
-            [*gh, "api", f"repos/{repo}/actions/runs?branch={tag}&event=push"],
+            [*gh, "api", f"repos/{repo}/actions/runs?branch={tag}&event=push&head_sha={sha}"],
             timeout=30.0,
         )
-        run = release_run(json.loads(answer))
+        run = release_run(json.loads(answer), sha)
         if run:
             return run
         ctx.wait_cancelled(5)
@@ -201,8 +206,10 @@ def sign_release(ctx: TaskContext, tag: str) -> None:
     """Sign the `.sha256` with `VPS_KEY_NAME` and upload the signature.
 
     `-n deploy` is the namespace `deploy.py` checks: it separates this
-    signature from any other use of the key. A release that has its
-    signature is not signed again.
+    signature from any other use of the key. A release whose signature
+    is `VPS_KEY_NAME`'s is not signed again; one signed with another
+    key is signed again and its signature replaced, since the VPS only
+    accepts the keys `install.py` received.
     """
     repo, app = _repo(ctx.root)
     gh = _gh()
@@ -212,14 +219,22 @@ def sign_release(ctx: TaskContext, tag: str) -> None:
             [*gh, "release", "view", tag, "--repo", repo, "--json", "isDraft,assets"], timeout=30.0
         )
     )
-    names = {a["name"] for a in release["assets"]}
+    assets = {a["name"] for a in release["assets"]}
     total, signature = canone.checksum(app, tag), canone.signature(app, tag)
-    if signature in names:
-        ctx.ok(
-            QCoreApplication.translate("vps_release", "{0} ya tiene {1}.").format(tag, signature)
+    if signature in assets:
+        if _signer(ctx, repo, tag, signature) in canone.public_keys(ssh.public_key(key)):
+            ctx.ok(
+                QCoreApplication.translate("vps_release", "{0} ya tiene {1}.").format(
+                    tag, signature
+                )
+            )
+            return
+        ctx.warn(
+            QCoreApplication.translate(
+                "vps_release", "{0} está firmado con una llave distinta de {1}: se firma de nuevo."
+            ).format(signature, names(["VPS_KEY_NAME"]))
         )
-        return
-    if release["isDraft"] or total not in names:
+    if release["isDraft"] or total not in assets:
         raise TaskError(
             QCoreApplication.translate(
                 "vps_release", "El release {0} no tiene {1}: {2} no terminó."
@@ -241,8 +256,61 @@ def sign_release(ctx: TaskContext, tag: str) -> None:
                 str(Path(folder) / total),
             ]
         )
-        ctx.run([*gh, "release", "upload", tag, str(Path(folder) / signature), "--repo", repo])
+        ctx.run(
+            [
+                *gh,
+                "release",
+                "upload",
+                tag,
+                str(Path(folder) / signature),
+                "--repo",
+                repo,
+                "--clobber",
+            ]
+        )
     ctx.ok(QCoreApplication.translate("vps_release", "{0} firmado.").format(tag))
+
+
+def _signer(ctx: TaskContext, repo: str, tag: str, signature: str) -> str:
+    """Return the key that signed the release, as `type base64`."""
+    with tempfile.TemporaryDirectory() as folder:
+        ctx.run(
+            [*_gh(), "release", "download", tag, "--repo", repo]
+            + ["--pattern", signature, "--dir", folder]
+        )
+        return canone.signer((Path(folder) / signature).read_text(encoding="ascii"))
+
+
+def _check_signer(ctx: TaskContext, entry: Access, tag: str) -> None:
+    """Stop unless the VPS accepts the key that signed the release.
+
+    `deploy.py` checks the same, but only says «No principal matched».
+    The way out depends on the key: `VPS_KEY_NAME`'s is added to the VPS
+    by `install.py`; another one is replaced by signing again.
+    """
+    repo, app = _repo(ctx.root)
+    key = _signer(ctx, repo, tag, canone.signature(app, tag))
+    accepted = canone.public_keys(
+        ssh.capture(entry.remote, f"cat {ssh.quote(canone.signers(app))}")
+    )
+    if key in accepted:
+        return
+    own = ssh.public_key(ssh.resolve_identity(ctx.config.require("VPS_KEY_NAME")))
+    if key in canone.public_keys(own):
+        raise TaskError(
+            QCoreApplication.translate(
+                "vps_release",
+                "{0} está firmado con {1}, que {2} no tiene en {3}: agrégala con "
+                "«Instalar infraestructura» de «Configurar VPS».",
+            ).format(tag, names(["VPS_KEY_NAME"]), entry.remote.host, canone.signers(app))
+        )
+    raise TaskError(
+        QCoreApplication.translate(
+            "vps_release",
+            "{0} está firmado con una llave distinta de {1}, que {2} no tiene en {3}: fírmalo de "
+            "nuevo con «Publicar versión» sin «Crear tag».",
+        ).format(tag, names(["VPS_KEY_NAME"]), entry.remote.host, canone.signers(app))
+    )
 
 
 def deploy_release(ctx: TaskContext, tag: str) -> None:
@@ -258,6 +326,7 @@ def deploy_release(ctx: TaskContext, tag: str) -> None:
 
 
 def _deploy(ctx: TaskContext, entry: Access, app: str, tag: str) -> None:
+    _check_signer(ctx, entry, tag)
     entry.run(ctx, canone.deploy_command(app, tag))
     ctx.ok(
         QCoreApplication.translate("vps_release", "{0} desplegado en {1}.").format(

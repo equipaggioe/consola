@@ -758,7 +758,9 @@ DOCS: dict[str, CommandDoc] = {
             QT_TRANSLATE_NOOP(
                 "command_docs",
                 "Lee con gh release view los archivos del release. Si ya tiene "
-                "<app>-<tag>.sha256.sig, no lo vuelve a firmar; sin .sha256, corta.",
+                "<app>-<tag>.sha256.sig hecha con VPS_KEY_NAME, no lo vuelve a firmar; "
+                "si la hizo otra llave, lo firma de nuevo y reemplaza la firma; sin "
+                ".sha256, corta.",
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs", "Baja el .sha256 con gh release download a una carpeta temporal."
@@ -767,7 +769,7 @@ DOCS: dict[str, CommandDoc] = {
                 "command_docs",
                 "Lo firma con ssh-keygen -Y sign -n deploy y la llave VPS_KEY_NAME.",
             ),
-            QT_TRANSLATE_NOOP("command_docs", "Sube la firma con gh release upload."),
+            QT_TRANSLATE_NOOP("command_docs", "Sube la firma con gh release upload --clobber."),
             QT_TRANSLATE_NOOP(
                 "command_docs", "Corre los pasos de «Desplegar versión» con ese tag."
             ),
@@ -786,6 +788,12 @@ DOCS: dict[str, CommandDoc] = {
                 "command_docs",
                 "Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o "
                 "pedida una vez por sesión. Corta si la cuenta todavía no existe.",
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "Baja la firma del release y lee /etc/<app>/allowed_signers del VPS. "
+                "Si la llave que firmó no está, corta y dice si se agrega con "
+                "«Instalar infraestructura» o se firma de nuevo.",
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",
@@ -897,7 +905,8 @@ DOCS: dict[str, CommandDoc] = {
                 "command_docs",
                 "Toma el último release publicado de GitHub y corta si no tiene su "
                 ".sha256.sig. Si /srv/<app>/current ya es ese release, no hace nada; si "
-                "no, lo instala con deploy.py.",
+                "no, corta si el VPS no acepta la llave que lo firmó, y lo instala con "
+                "deploy.py.",
             ),
         ],
     ),
