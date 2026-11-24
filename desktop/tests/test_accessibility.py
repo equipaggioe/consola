@@ -62,6 +62,8 @@ if sys.platform == "win32" and QCoreApplication.instance() is None:
 SCREEN_200 = (960, 500)
 # The smallest side of what one points at (WCAG 2.2 §2.5.8).
 TARGET = 24
+# The thin side of the grip of a splitter.
+GRIP = 5
 # The roles of what one presses, checks or writes in.
 INTERACTIVE = {
     QAccessible.Role.Button,
@@ -265,17 +267,26 @@ def apart(point: QPointF, rect: QRectF) -> float:
     return math.hypot(dx, dy)
 
 
+def grabs(widget: QWidget) -> bool:
+    """Return whether a widget is what moves a splitter."""
+    cursor = widget.testAttribute(Qt.WidgetAttribute.WA_SetCursor) and widget.cursor().shape()
+    return cursor in (Qt.CursorShape.SplitHCursor, Qt.CursorShape.SplitVCursor)
+
+
 def crowded(window: QWidget) -> list[str]:
     """Return the targets under 24 × 24 with no room around them.
 
     One smaller is allowed if a circle of 24 px centered on it touches
-    no other target nor the circle of another small one.
+    no other target nor the circle of another small one. The grip of a
+    splitter needs `GRIP` px.
     """
     targets = [
         (w, QRectF(QPointF(w.mapTo(window, QPoint(0, 0))), QSizeF(w.size())))
         for w in interactive(window)
     ]
-    small = {id(w) for w, r in targets if r.width() < TARGET or r.height() < TARGET}
+    small = {
+        id(w) for w, r in targets if min(r.width(), r.height()) < (GRIP if grabs(w) else TARGET)
+    }
     failures = []
     for widget, rect in targets:
         if id(widget) not in small:

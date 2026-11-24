@@ -100,8 +100,8 @@ class TabView(QWidget):
         # Room at the right of the console's scroll bar for the grip of
         # the right column's line, which lies over it
         # (`widgets/splitter.py`), in the console's background.
-        self.stack.setContentsMargins(0, 0, Metrics.TARGET // 2, 0)
         self.stack.setAutoFillBackground(True)
+        self.stack.setContentsMargins(0, 0, Metrics.GRIP // 2, 0)
         self.stack.addWidget(self.console)
         self.console_section = AccordionSection(
             QCoreApplication.translate("tab_view", CONSOLA), self.stack

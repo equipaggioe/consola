@@ -159,10 +159,7 @@ class DbExplorerView(QWidget):
         # visible.
         left.setMinimumWidth(240)
         ll = QVBoxLayout(left)
-        # At the right, room for the grip of the line beside it, which
-        # lies over it and would cover the tree's scroll bar
-        # (`widgets/splitter.py`).
-        ll.setContentsMargins(8, 8, Metrics.TARGET // 2, 8)
+        ll.setContentsMargins(8, 8, 8, 8)
         ll.setSpacing(6)
         self.filter_box = QLineEdit()
         self.filter_box.setPlaceholderText(

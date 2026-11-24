@@ -550,7 +550,7 @@ def compile_binary(
     source = resolve_entrypoint(ctx, entrypoint)
     app_dir = _binary_app(ctx.root, source)
     label = _binary_label(app_dir, source, name)
-    pyinstaller = toolchain.pyinstaller_cmd(app_dir, ctx.config.get("PYINSTALLER_BIN"))
+    pyinstaller = toolchain.pyinstaller_cmd(app_dir)
 
     argv = [
         *pyinstaller,

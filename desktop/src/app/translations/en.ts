@@ -1131,7 +1131,7 @@ and queries the parameter catalogs again</translation>
 <context>
     <name>Splitter</name>
     <message>
-        <location filename="../widgets/splitter.py" line="43"/>
+        <location filename="../widgets/splitter.py" line="121"/>
         <source>Las flechas mueven el separador</source>
         <translation>The arrows move the divider</translation>
     </message>
@@ -1325,82 +1325,82 @@ shows here</translation>
         <translation>Commands {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="120"/>
+        <location filename="../widgets/tab_view.py" line="125"/>
         <source>Alto de las secciones</source>
         <translation>Height of the sections</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="142"/>
+        <location filename="../widgets/tab_view.py" line="147"/>
         <source>Estado del endpoint</source>
         <translation>Endpoint status</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="151"/>
+        <location filename="../widgets/tab_view.py" line="156"/>
         <source>Copiar</source>
         <translation>Copy</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="152"/>
+        <location filename="../widgets/tab_view.py" line="157"/>
         <source>Copiar la URL al portapapeles</source>
         <translation>Copy the URL to the clipboard</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="156"/>
+        <location filename="../widgets/tab_view.py" line="161"/>
         <source>Abrir ↗</source>
         <translation>Open ↗</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="157"/>
+        <location filename="../widgets/tab_view.py" line="162"/>
         <source>Abrir en el navegador del sistema</source>
         <translation>Open in the system browser</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="163"/>
+        <location filename="../widgets/tab_view.py" line="168"/>
         <source>Ver {0} en esta pestaña</source>
         <translation>View {0} in this tab</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="174"/>
+        <location filename="../widgets/tab_view.py" line="179"/>
         <source>Ver solo los errores; otro clic quita el filtro</source>
         <translation>Show only the errors; click again to remove the filter</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="177"/>
+        <location filename="../widgets/tab_view.py" line="182"/>
         <source>Ver solo los avisos; otro clic quita el filtro</source>
         <translation>Show only the warnings; click again to remove the filter</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="180"/>
+        <location filename="../widgets/tab_view.py" line="185"/>
         <source>Ver solo los comandos que corrió; otro clic quita el filtro</source>
         <translation>Show only the commands it ran; click again to remove the filter</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="236"/>
+        <location filename="../widgets/tab_view.py" line="239"/>
         <source>Secciones visibles</source>
         <translation>Visible sections</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="434"/>
+        <location filename="../widgets/tab_view.py" line="438"/>
         <source>arrancando</source>
         <translation>starting</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="435"/>
+        <location filename="../widgets/tab_view.py" line="439"/>
         <source>listo</source>
         <translation>ready</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="436"/>
+        <location filename="../widgets/tab_view.py" line="440"/>
         <source>caído</source>
         <translation>down</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="454"/>
+        <location filename="../widgets/tab_view.py" line="458"/>
         <source>URL copiada: {0}</source>
         <translation>URL copied: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="515"/>
+        <location filename="../widgets/tab_view.py" line="519"/>
         <source>La tarea no publicó la conexión.</source>
         <translation>The task did not publish the connection.</translation>
     </message>
@@ -3508,37 +3508,37 @@ shows here</translation>
         <translation>Downloads Flutter&apos;s stable channel and leaves it in the user&apos;s environment.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="54"/>
+        <location filename="../services/toolchain.py" line="53"/>
         <source>APK</source>
         <translation>APK</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="62"/>
+        <location filename="../services/toolchain.py" line="61"/>
         <source>AAB</source>
         <translation>AAB</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="70"/>
+        <location filename="../services/toolchain.py" line="69"/>
         <source>Web</source>
         <translation>Web</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="73"/>
+        <location filename="../services/toolchain.py" line="72"/>
         <source>Windows</source>
         <translation>Windows</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="81"/>
+        <location filename="../services/toolchain.py" line="80"/>
         <source>Linux</source>
         <translation>Linux</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="89"/>
+        <location filename="../services/toolchain.py" line="88"/>
         <source>macOS</source>
         <translation>macOS</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="101"/>
+        <location filename="../services/toolchain.py" line="100"/>
         <source>iOS</source>
         <translation>iOS</translation>
     </message>
@@ -6448,7 +6448,7 @@ shows here</translation>
     <message>
         <location filename="../services/settings.py" line="112"/>
         <location filename="../services/settings.py" line="412"/>
-        <location filename="../services/settings.py" line="611"/>
+        <location filename="../services/settings.py" line="597"/>
         <source>Server</source>
         <translation>Server</translation>
     </message>
@@ -6460,7 +6460,7 @@ shows here</translation>
     <message>
         <location filename="../services/settings.py" line="120"/>
         <location filename="../services/settings.py" line="127"/>
-        <location filename="../services/settings.py" line="612"/>
+        <location filename="../services/settings.py" line="598"/>
         <source>Cloudflare</source>
         <translation>Cloudflare</translation>
     </message>
@@ -6488,7 +6488,7 @@ shows here</translation>
         <location filename="../services/settings.py" line="228"/>
         <location filename="../services/settings.py" line="238"/>
         <location filename="../services/settings.py" line="247"/>
-        <location filename="../services/settings.py" line="613"/>
+        <location filename="../services/settings.py" line="599"/>
         <source>VPS</source>
         <translation>VPS</translation>
     </message>
@@ -6562,7 +6562,7 @@ shows here</translation>
         <location filename="../services/settings.py" line="308"/>
         <location filename="../services/settings.py" line="315"/>
         <location filename="../services/settings.py" line="332"/>
-        <location filename="../services/settings.py" line="614"/>
+        <location filename="../services/settings.py" line="600"/>
         <source>Base de datos</source>
         <translation>Database</translation>
     </message>
@@ -6604,7 +6604,7 @@ shows here</translation>
     <message>
         <location filename="../services/settings.py" line="344"/>
         <location filename="../services/settings.py" line="352"/>
-        <location filename="../services/settings.py" line="615"/>
+        <location filename="../services/settings.py" line="601"/>
         <source>GitHub</source>
         <translation>GitHub</translation>
     </message>
@@ -6624,7 +6624,7 @@ shows here</translation>
         <location filename="../services/settings.py" line="387"/>
         <location filename="../services/settings.py" line="395"/>
         <location filename="../services/settings.py" line="404"/>
-        <location filename="../services/settings.py" line="616"/>
+        <location filename="../services/settings.py" line="602"/>
         <source>Credenciales</source>
         <translation>Credentials</translation>
     </message>
@@ -6660,7 +6660,7 @@ shows here</translation>
     </message>
     <message>
         <location filename="../services/settings.py" line="427"/>
-        <location filename="../services/settings.py" line="617"/>
+        <location filename="../services/settings.py" line="603"/>
         <source>Builds</source>
         <translation>Builds</translation>
     </message>
@@ -6733,7 +6733,7 @@ shows here</translation>
         <location filename="../services/settings.py" line="483"/>
         <location filename="../services/settings.py" line="494"/>
         <location filename="../services/settings.py" line="503"/>
-        <location filename="../services/settings.py" line="618"/>
+        <location filename="../services/settings.py" line="604"/>
         <source>Marca</source>
         <translation>Brand</translation>
     </message>
@@ -6757,7 +6757,7 @@ shows here</translation>
         <location filename="../services/settings.py" line="523"/>
         <location filename="../services/settings.py" line="530"/>
         <location filename="../services/settings.py" line="540"/>
-        <location filename="../services/settings.py" line="619"/>
+        <location filename="../services/settings.py" line="605"/>
         <source>Capturas</source>
         <translation>Screenshots</translation>
     </message>
@@ -6782,42 +6782,31 @@ shows here</translation>
         <translation>Folder for the other destinations</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="558"/>
-        <location filename="../services/settings.py" line="570"/>
-        <location filename="../services/settings.py" line="580"/>
-        <location filename="../services/settings.py" line="596"/>
-        <location filename="../services/settings.py" line="603"/>
-        <location filename="../services/settings.py" line="620"/>
+        <location filename="../services/settings.py" line="556"/>
+        <location filename="../services/settings.py" line="566"/>
+        <location filename="../services/settings.py" line="582"/>
+        <location filename="../services/settings.py" line="589"/>
+        <location filename="../services/settings.py" line="606"/>
         <source>Máquina</source>
         <translation>Machine</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="559"/>
-        <source>Ruta de PyInstaller</source>
-        <translation>PyInstaller path</translation>
-    </message>
-    <message>
-        <location filename="../services/settings.py" line="560"/>
-        <source>venv de la app, si no el PATH</source>
-        <translation>the app&apos;s venv, otherwise the PATH</translation>
-    </message>
-    <message>
-        <location filename="../services/settings.py" line="571"/>
+        <location filename="../services/settings.py" line="557"/>
         <source>Llave externa</source>
         <translation>External key</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="581"/>
+        <location filename="../services/settings.py" line="567"/>
         <source>Carpeta de canone</source>
         <translation>canone folder</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="597"/>
+        <location filename="../services/settings.py" line="583"/>
         <source>Destino de logs</source>
         <translation>Logs destination</translation>
     </message>
     <message>
-        <location filename="../services/settings.py" line="604"/>
+        <location filename="../services/settings.py" line="590"/>
         <source>Llave de logs</source>
         <translation>Logs key</translation>
     </message>
@@ -7051,74 +7040,74 @@ shows here</translation>
 <context>
     <name>toolchain</name>
     <message>
-        <location filename="../services/toolchain.py" line="127"/>
+        <location filename="../services/toolchain.py" line="126"/>
         <source>Flutter</source>
         <translation>Flutter</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="128"/>
-        <location filename="../services/toolchain.py" line="139"/>
+        <location filename="../services/toolchain.py" line="127"/>
+        <location filename="../services/toolchain.py" line="138"/>
         <source>Instala el SDK Flutter con su capacidad, o agrega flutter al PATH.</source>
         <translation>Install the Flutter SDK with its capability, or add flutter to the PATH.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="138"/>
+        <location filename="../services/toolchain.py" line="137"/>
         <source>Dart</source>
         <translation>Dart</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="150"/>
+        <location filename="../services/toolchain.py" line="149"/>
         <source>Flet</source>
         <translation>Flet</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="151"/>
+        <location filename="../services/toolchain.py" line="150"/>
         <source>Instala flet en el venv del proyecto.</source>
         <translation>Install flet in the project&apos;s venv.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="159"/>
-        <location filename="../services/toolchain.py" line="248"/>
+        <location filename="../services/toolchain.py" line="158"/>
+        <location filename="../services/toolchain.py" line="245"/>
         <source>Python</source>
         <translation>Python</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="169"/>
+        <location filename="../services/toolchain.py" line="168"/>
         <source>Instálalo con corepack enable pnpm.</source>
         <translation>Install it with corepack enable pnpm.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="192"/>
-        <source>Instálalo en el venv de la app (pip install pyinstaller) o escribe su ruta en {0}.</source>
-        <translation>Install it in the app&apos;s venv (pip install pyinstaller) or write its path in {0}.</translation>
+        <location filename="../services/toolchain.py" line="190"/>
+        <source>Instálalo en el venv de la app: pip install pyinstaller.</source>
+        <translation>Install it in the app's venv: pip install pyinstaller.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="215"/>
+        <location filename="../services/toolchain.py" line="212"/>
         <source>Tipo de app desconocido: {0!r}</source>
         <translation>Unknown app type: {0!r}</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="229"/>
+        <location filename="../services/toolchain.py" line="226"/>
         <source>No existe el Python del venv: {0}</source>
         <translation>The venv&apos;s Python does not exist: {0}</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="249"/>
+        <location filename="../services/toolchain.py" line="246"/>
         <source>Crea el venv de {0} o agrega Python al PATH.</source>
         <translation>Create the venv of {0} or add Python to the PATH.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="266"/>
+        <location filename="../services/toolchain.py" line="263"/>
         <source>{0} tiene pubspec.yaml y pyproject.toml a la vez: no se puede deducir el framework.</source>
         <translation>{0} has pubspec.yaml and pyproject.toml at once: the framework cannot be deduced.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="277"/>
+        <location filename="../services/toolchain.py" line="274"/>
         <source>{0} no parece un proyecto Flutter ni Flet.</source>
         <translation>{0} does not look like a Flutter or Flet project.</translation>
     </message>
     <message>
-        <location filename="../services/toolchain.py" line="295"/>
+        <location filename="../services/toolchain.py" line="292"/>
         <source>Respuesta invalida de `flutter devices --machine`.</source>
         <translation>Invalid answer from `flutter devices --machine`.</translation>
     </message>

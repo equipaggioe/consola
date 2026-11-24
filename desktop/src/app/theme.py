@@ -186,6 +186,8 @@ class Metrics:
     CHIP_PADDING = 8
     # The smallest side of a button with text, WCAG 2.5.8.
     TARGET = 24
+    # A splitter's grip across its line (ADR-0230 of canone).
+    GRIP = 5
     # The width of the focus of the keyboard.
     FOCUS = 2
     # What a grip or a splitter moves with each arrow key.

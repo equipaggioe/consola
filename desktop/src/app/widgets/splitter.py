@@ -1,9 +1,8 @@
 """A splitter whose line and grip are two widgets.
 
 The handle of Qt is a line of 1 px that draws and does nothing else.
-What one grabs is a grip of `Metrics.TARGET` px laid over the line,
-transparent: it measures what WCAG 2.5.8 asks of a pointer without
-opening a gap of 24 px between the panels.
+What one grabs is a transparent grip of `Metrics.GRIP` px laid over the
+line, without opening a gap between the panels (ADR-0230 of canone).
 """
 
 from __future__ import annotations
@@ -31,24 +30,16 @@ from app.theme import Metrics
 class Splitter(QSplitter):
     """A `QSplitter` moved by grips that Tab reaches.
 
-    Each handle is a line that answers nothing; its grip, `before` px
-    over the first panel and the rest over the second, takes the mouse,
-    the focus of Tab and the arrows of its direction, which move it
-    `Metrics.KEY_STEP` px. `name` says to assistive technology what it
-    resizes.
+    Each handle is a line that answers nothing; its grip, centered on
+    it, takes the mouse, the focus of Tab and the arrows of its
+    direction, which move it `Metrics.KEY_STEP` px. `name` says to
+    assistive technology what it resizes.
     """
 
-    def __init__(
-        self,
-        orientation: Qt.Orientation,
-        name: str,
-        parent: QWidget | None = None,
-        before: int = Metrics.TARGET // 2,
-    ) -> None:
+    def __init__(self, orientation: Qt.Orientation, name: str, parent: QWidget | None = None):
         """Build the splitter; its grips take `name`."""
         super().__init__(orientation, parent)
         self.name = name
-        self.before = before
         self._grips: dict[QSplitterHandle, _Grip] = {}
         self.splitterMoved.connect(self.place_grips)
 
@@ -66,12 +57,13 @@ class Splitter(QSplitter):
     def place_grips(self) -> None:
         """Lay each grip over its line, above the panels."""
         horizontal = self.orientation() == Qt.Orientation.Horizontal
+        side = Metrics.GRIP
         for handle, grip in self._grips.items():
             line = handle.geometry().center()
             if horizontal:
-                grip.setGeometry(line.x() - self.before, 0, Metrics.TARGET, self.height())
+                grip.setGeometry(line.x() - side // 2, 0, side, self.height())
             else:
-                grip.setGeometry(0, line.y() - self.before, self.width(), Metrics.TARGET)
+                grip.setGeometry(0, line.y() - side // 2, self.width(), side)
             grip.setVisible(not handle.isHidden())
             grip.raise_()
 

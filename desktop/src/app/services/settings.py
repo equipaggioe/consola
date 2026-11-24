@@ -544,23 +544,9 @@ SETTINGS: tuple[Setting, ...] = (
     ),
     # --- Machine ---
     #
-    # `pip install pyinstaller` leaves the executable in the user's
-    # Scripts, which on Windows is not always on the PATH. It does not
-    # block the button: empty, it looks first in the app's venv and then
-    # the PATH.
-    #
-    # `scope='machine'`: where an executable got installed belongs to
-    # the machine, not the project. In `config.env` the same path would
-    # be written in each repo, and nine copies of a datum are eight
-    # chances to disagree.
-    Setting(
-        "PYINSTALLER_BIN",
-        QT_TRANSLATE_NOOP("settings", "Máquina"),
-        QT_TRANSLATE_NOOP("settings", "Ruta de PyInstaller"),
-        default_hint=QT_TRANSLATE_NOOP("settings", "venv de la app, si no el PATH"),
-        scope="machine",
-        used_by=("build_binary",),
-    ),
+    # `scope='machine'`: these belong to the machine, not the project.
+    # In `config.env` the same value would be written in each repo, and
+    # nine copies of a datum are eight chances to disagree.
     # The `.pub` of the key whose private half is kept off this machine
     # (a physical key, a USB): with `VPS_KEY_NAME`'s, they are the two
     # `--key` and two `--signer` of `install.py`. It is one for all

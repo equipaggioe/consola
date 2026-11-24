@@ -15,7 +15,6 @@ from app.services.files import read_text
 from app.services.host import HOST
 from app.services.language import QT_TRANSLATE_NOOP
 from app.services.process import resolve_executable
-from app.services.settings import names
 
 FLUTTER = "flutter"
 FLET = "flet"
@@ -170,7 +169,7 @@ def pnpm_cmd(override: str = "") -> list[str]:
     )
 
 
-def pyinstaller_cmd(app_dir: Path | None = None, override: str = "") -> list[str]:
+def pyinstaller_cmd(app_dir: Path | None = None) -> list[str]:
     """Return PyInstaller, preferring the venv of the app to package.
 
     PyInstaller freezes the environment it runs from: the global one
@@ -181,18 +180,16 @@ def pyinstaller_cmd(app_dir: Path | None = None, override: str = "") -> list[str
     (`services/tasks/launchers.py`), and prefers it only if PyInstaller
     is really installed there; otherwise it goes to the PATH.
     """
-    if not override and app_dir is not None:
+    if app_dir is not None:
         del_venv = _venv_tool(app_dir / ".venv", "pyinstaller")
         if del_venv is not None:
             return [str(del_venv)]
     return resolve_executable(
         ["pyinstaller", "pyinstaller.exe", "pyinstaller.cmd"],
-        override=override,
         label="PyInstaller",
         hint=QCoreApplication.translate(
-            "toolchain",
-            "Instálalo en el venv de la app (pip install pyinstaller) o escribe su ruta en {0}.",
-        ).format(names(["PYINSTALLER_BIN"])),
+            "toolchain", "Instálalo en el venv de la app: pip install pyinstaller."
+        ),
     )
 
 
