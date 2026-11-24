@@ -35,7 +35,7 @@ from app.services.catalog import (
 from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.registry import AxisDef, Capability, Step, registry
-from app.services.settings import get_setting, names, relevant_keys_for, required_keys_for
+from app.services.settings import names, relevant_keys_for, required_keys_for
 from app.theme import Colors, Fonts, Metrics
 from app.widgets.env_panel import EnvPanel
 from app.widgets.favorite_star import FavoriteStar
@@ -130,7 +130,6 @@ class ParamsPanel(QWidget):
         self._options_box: QWidget | None = None
         # what «Deducido» lists, to rebuild it only when it changes
         self._shown_fixed: list[tuple[str, str]] = []
-        self._shown_defaults: list[tuple[str, str]] = []
         self._restoring = True  # while building, no change saves
         root = QVBoxLayout(self)
         root.setContentsMargins(0, 0, 0, 0)
@@ -337,7 +336,7 @@ class ParamsPanel(QWidget):
         """
         combo = QComboBox()
         combo.setInsertPolicy(QComboBox.InsertPolicy.NoInsert)
-        combo.setMinimumHeight(30)
+        combo.setMinimumHeight(Metrics.FIELD)
         combo.setMaxVisibleItems(18)
         # The column rules the width, not the longest item. By default a
         # QComboBox asks at minimum for its longest entry, and here some
@@ -637,7 +636,7 @@ class ParamsPanel(QWidget):
                 field.textChanged.connect(self._refresh_summary)
             else:
                 field = QLineEdit(default)
-                field.setFixedHeight(30)
+                field.setFixedHeight(Metrics.FIELD)
                 if axis.cast == "int":
                     # An axis declaring `cast='int'` accepts nothing
                     # else: not letting a letter be typed is cheaper
@@ -812,9 +811,10 @@ class ParamsPanel(QWidget):
     def _build_deduced(self) -> QWidget:
         """Build the body of «Deducido», empty until there is something.
 
-        Three blocks, each hidden while empty: what running will do
-        (the packages), the options with one value, and the keys left
-        empty that run with their default.
+        Two blocks, each hidden while empty: what running will do (the
+        packages) and the options with one value. A key left empty that
+        runs with its default is not here: its field shows that default
+        as its watermark.
         """
         box = QWidget()
         lay = QVBoxLayout(box)
@@ -827,10 +827,6 @@ class ParamsPanel(QWidget):
             QCoreApplication.translate("ParamsPanel", "Fijas")
         )
         lay.addWidget(self._fixed_box)
-        self._defaults_box, self._defaults_lines = self._deduced_block(
-            QCoreApplication.translate("ParamsPanel", "Por defecto")
-        )
-        lay.addWidget(self._defaults_box)
         self._nothing = QLabel(
             QCoreApplication.translate("ParamsPanel", "Esta acción no usa nada deducido.")
         )
@@ -880,11 +876,7 @@ class ParamsPanel(QWidget):
 
     def _sync_nothing(self) -> None:
         """Say so when no block has anything."""
-        self._nothing.setVisible(
-            self._preview_box.isHidden()
-            and self._fixed_box.isHidden()
-            and self._defaults_box.isHidden()
-        )
+        self._nothing.setVisible(self._preview_box.isHidden() and self._fixed_box.isHidden())
 
     def _sync_fixed(self) -> None:
         """Move the one-valued options from «Opciones» to «Deducido»."""
@@ -902,26 +894,6 @@ class ParamsPanel(QWidget):
         if fixed != self._shown_fixed:
             self._shown_fixed = fixed
             self._fill_lines(self._fixed_box, self._fixed_lines, fixed)
-
-    def _sync_defaults(self) -> None:
-        """List the keys of this run left empty that take a default.
-
-        Such as the database role, from the repo's name: they run with
-        that value without anyone writing it.
-        """
-        cfg = envfile.Config(self._env, repo_name=envfile.repo_name_of(self.project.path))
-        rows = []
-        for key in self.relevant_keys():
-            setting = get_setting(key)
-            if setting is None or self._env.get(key, "").strip():
-                continue
-            value = cfg.get(key)
-            if value:
-                rows.append((setting.display, value))
-        rows.sort()
-        if rows != self._shown_defaults:
-            self._shown_defaults = rows
-            self._fill_lines(self._defaults_box, self._defaults_lines, rows)
 
     def _dress_field(self, field: QWidget) -> None:
         """Paint a written field as a field of the repo."""
@@ -946,7 +918,7 @@ class ParamsPanel(QWidget):
         # At left, away from Run: emptying the log runs nothing.
         clear_btn = QPushButton(QCoreApplication.translate("ParamsPanel", "Limpiar"))
         clear_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        clear_btn.setFixedHeight(34)
+        clear_btn.setFixedHeight(28)
         clear_btn.setToolTip(
             QCoreApplication.translate(
                 "ParamsPanel", "Vaciar el log de esta pestaña y cerrar sus túneles SSH"
@@ -968,7 +940,7 @@ class ParamsPanel(QWidget):
         if self._dry_run_axis is not None:
             self.dry_btn = QPushButton(QCoreApplication.translate("ParamsPanel", "Simulacro"))
             self.dry_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-            self.dry_btn.setFixedHeight(34)
+            self.dry_btn.setFixedHeight(28)
             self.dry_btn.setToolTip(
                 QCoreApplication.translate(
                     "ParamsPanel", "Corre sin tocar nada: solo muestra qué haría"
@@ -979,7 +951,7 @@ class ParamsPanel(QWidget):
 
         self.run_btn = QPushButton(QCoreApplication.translate("ParamsPanel", "Ejecutar"))
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
-        self.run_btn.setFixedHeight(34)
+        self.run_btn.setFixedHeight(28)
         self.run_btn.clicked.connect(self._emit_execute)
 
         lay.addWidget(self.run_btn)
@@ -1391,7 +1363,6 @@ class ParamsPanel(QWidget):
             row = self._step_rows.get(step.id)
             if row is not None:
                 row.setVisible(step.applies(scope))
-        self._sync_defaults()
         self._persist()
         blockers = self._blockers()
         self.run_btn.setEnabled(not blockers)

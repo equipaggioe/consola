@@ -34,8 +34,6 @@ SECTIONS = {
 CONSOLE_SECTIONS = {
     "consola": QT_TRANSLATE_NOOP("section_visibility", "Consola"),
     "explorador": QT_TRANSLATE_NOOP("section_visibility", "Explorador"),
-    "errores": QT_TRANSLATE_NOOP("section_visibility", "Errores y avisos"),
-    "comandos": QT_TRANSLATE_NOOP("section_visibility", "Comandos"),
 }
 
 

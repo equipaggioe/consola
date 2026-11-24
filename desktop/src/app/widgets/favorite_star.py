@@ -6,7 +6,7 @@ from PySide6.QtCore import QCoreApplication, Qt, Signal, Slot
 from PySide6.QtWidgets import QPushButton, QWidget
 
 from app import theme
-from app.theme import Colors, Fonts, tint
+from app.theme import Colors, Fonts, Metrics, tint
 
 
 class FavoriteStar(QPushButton):
@@ -28,7 +28,7 @@ class FavoriteStar(QPushButton):
         self.accent = accent
         self._favorite = False
         self.setAccessibleName(QCoreApplication.translate("FavoriteStar", "Favorita"))
-        self.setFixedSize(26, 26)
+        self.setFixedSize(Metrics.TARGET, Metrics.TARGET)
         self.setCursor(Qt.CursorShape.PointingHandCursor)
         # Tab reaches it; a click does not take the focus.
         self.setFocusPolicy(Qt.FocusPolicy.TabFocus)

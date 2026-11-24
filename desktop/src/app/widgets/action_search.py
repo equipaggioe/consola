@@ -47,7 +47,7 @@ class ActionSearch(QWidget):
 
     WIDTH = 240
     # that of a «Configuración del repo» field (`widgets/env_panel.py`)
-    FIELD_HEIGHT = 28
+    FIELD_HEIGHT = 24
     POPUP_WIDTH = 440
     POPUP_MAX_HEIGHT = 460
 

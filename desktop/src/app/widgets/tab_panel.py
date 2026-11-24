@@ -25,7 +25,6 @@ from PySide6.QtGui import (
     QPainterPath,
     QPaintEvent,
     QPen,
-    QResizeEvent,
 )
 from PySide6.QtWidgets import (
     QDialog,
@@ -67,6 +66,7 @@ from app.theme import Colors, Fonts, Metrics, Spacing, tint
 from app.widgets.accordion_section import AccordionSection
 from app.widgets.command_info_panel import CommandInfoPanel
 from app.widgets.console_view import ConsoleView
+from app.widgets.elided_label import ElidedLabel
 from app.widgets.env_panel import EnvPanel
 from app.widgets.machine_panel import MachinePanel
 from app.widgets.params_panel import ParamsPanel
@@ -76,55 +76,6 @@ from app.widgets.repo_logo_view import RepoLogoView
 from app.widgets.security_panel import SecurityPanel
 from app.widgets.splitter import Splitter
 from app.widgets.tab_view import TabView
-
-
-class _ElidedLabel(QLabel):
-    """A label that shortens its text with «…» when it lacks room.
-
-    So many tabs fit in a narrow window, as a browser's do, instead of
-    holding the window wider than the screen at 200 % (WCAG 1.4.4).
-    Shortened, its tooltip has the whole text.
-    """
-
-    # The letters it keeps at least, besides «…».
-    KEEP = 4
-
-    def __init__(self) -> None:
-        """Build the empty label."""
-        super().__init__()
-        self.full = ""
-
-    def set_full(self, text: str) -> None:
-        """Show `text`, shortened if it does not fit."""
-        self.full = text
-        self.updateGeometry()
-        self._fit()
-
-    @override
-    def sizeHint(self) -> QSize:
-        return QSize(self.fontMetrics().horizontalAdvance(self.full), super().sizeHint().height())
-
-    @override
-    def minimumSizeHint(self) -> QSize:
-        width = self.fontMetrics().horizontalAdvance(self.full[: self.KEEP] + "…")
-        return QSize(width, super().minimumSizeHint().height())
-
-    @override
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        super().resizeEvent(event)
-        self._fit()
-
-    @override
-    def changeEvent(self, event: QEvent) -> None:
-        super().changeEvent(event)
-        if event.type() == QEvent.Type.FontChange:
-            self.updateGeometry()
-            self._fit()
-
-    def _fit(self) -> None:
-        shown = self.fontMetrics().elidedText(self.full, Qt.TextElideMode.ElideRight, self.width())
-        self.setText(shown)
-        self.setToolTip(self.full if shown != self.full else "")
 
 
 class _SubTabButton(ReorderableTab):
@@ -158,7 +109,7 @@ class _SubTabButton(ReorderableTab):
         layout.setContentsMargins(14, 0, 10, 0)
         layout.setSpacing(7)
 
-        self.title_label = _ElidedLabel()
+        self.title_label = ElidedLabel()
 
         self.close_btn = QPushButton("×")
         self.close_btn.setFont(theme.font(Fonts.SIZE_LG))
@@ -778,7 +729,7 @@ class TabPanel(ReorderableBar):
         lay.setSpacing(8)
         lay.addStretch()
         btn = QPushButton(QCoreApplication.translate("TabPanel", "Ejecutar"))
-        btn.setFixedHeight(34)
+        btn.setFixedHeight(28)
         btn.setEnabled(False)
         btn.setFont(theme.font(Fonts.SIZE_SM, QFont.Weight.DemiBold))
         self._footer_placeholder_btn = btn

@@ -54,7 +54,7 @@ Formatos, claves y archivos. Lo que **significa** cada uno está en el documento
 | `SHOTS_PUBLISH` | Capturas | Carpeta de la landing | | `landing/static/screenshots` | usa |
 | `SHOTS_DIST` | Capturas | Carpeta de los demás destinos | | `.consola/publishable` | usa |
 | `PYINSTALLER_BIN` | Máquina | Ruta de PyInstaller | `scope='machine'` | venv de la app, si no el PATH | usa |
-| `OFFLINE_KEY` | Máquina | Archivo .pub de la llave guardada fuera | `scope='machine'`; ruta al `.pub`, que «Configurar VPS» lee al correr (`ssh.read_public_key`) | `~/.ssh/vps_offline.pub` | usa |
+| `OFFLINE_KEY` | Máquina | Llave externa | `scope='machine'`; ruta al `.pub`, que «Configurar VPS» lee al correr (`ssh.read_public_key`) | `~/.ssh/vps_offline.pub` | usa |
 | `CANONE_DIR` | Máquina | Carpeta de canone | `scope='machine'` | | exige |
 | `LOGS` | Máquina | Destino de logs | `scope='machine'` | | usa |
 | `LOGS_KEY` | Máquina | Llave de logs | `scope='machine'` | | usa |

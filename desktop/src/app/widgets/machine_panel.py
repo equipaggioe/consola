@@ -45,8 +45,11 @@ class MachinePanel(QWidget):
         # Rows at the top with the same gap as «Configuración del repo»:
         # without it, a tall section spread them apart.
         body.setAlignment(Qt.AlignmentFlag.AlignTop)
+        # The watermark is the key's default, as in «Configuración del
+        # repo»: a machine key has only the fixed one of `Setting`.
         self.rows = {
-            s.key: EnvRow(s, "", pal, label_width=label_width) for s in machine_settings()
+            s.key: EnvRow(s, "", pal, default_display=s.default, label_width=label_width)
+            for s in machine_settings()
         }
         for row in self.rows.values():
             body.addWidget(row)

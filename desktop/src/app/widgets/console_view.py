@@ -37,9 +37,11 @@ class ConsoleView(QPlainTextEdit):
     (`services/motion.py`); off, there is none.
     """
 
-    # Each line appended, with its level: the sections below the
-    # console take theirs from here (`widgets/tab_view.py`).
+    # Each line appended, with its level: the filter chips of the
+    # console's header count theirs from here (`widgets/tab_view.py`).
     logged = Signal(str, str)
+    # The log was emptied: the chips count from zero again.
+    emptied = Signal()
 
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the read-only view."""
@@ -49,6 +51,11 @@ class ConsoleView(QPlainTextEdit):
         self.setViewportMargins(Spacing.MD, Spacing.MD - 2, Spacing.MD, Spacing.MD - 2)
         self.setAccessibleName(QCoreApplication.translate("ConsoleView", "Consola"))
         self.pal = NEUTRAL
+        # Every line, shown or not: the filter rebuilds the view from
+        # here. Each is (stamp, level, text).
+        self._entries: list[tuple[str, str, str]] = []
+        # The levels shown; None shows them all.
+        self._levels: frozenset[str] | None = None
         font = mono(QFont())
         font.setPixelSize(Fonts.SIZE_MONO)
         self.setFont(font)
@@ -119,7 +126,35 @@ class ConsoleView(QPlainTextEdit):
 
     @Slot(str, str)
     def append_log(self, text: str, level: str = "info") -> None:
-        """Append one line, colored by its level."""
+        """Append one line, colored by its level.
+
+        It is kept even if the filter hides it, so it shows when the
+        filter changes.
+        """
+        level = level.lower()
+        entry = (self._stamp(), level, text)
+        self._entries.append(entry)
+        if self._shows(level):
+            self._write(*entry)
+        self.logged.emit(text, level)
+
+    def set_filter(self, levels: frozenset[str] | None) -> None:
+        """Show only the lines of these levels; None shows all."""
+        if levels == self._levels:
+            return
+        self._levels = levels
+        self.clear()
+        self.cursor_visible = False
+        for entry in self._entries:
+            if self._shows(entry[1]):
+                self._write(*entry)
+        self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
+
+    def _shows(self, level: str) -> bool:
+        return self._levels is None or level in self._levels
+
+    def _write(self, now: str, level: str, text: str) -> None:
+        """Write one line at the end of the view."""
         fmt = QTextCharFormat()
         color_map = {
             "info": self.pal.accent,
@@ -127,10 +162,7 @@ class ConsoleView(QPlainTextEdit):
             "warn": Colors.WARNING,
             "error": Colors.ERROR,
         }
-        level = level.lower()
         level_color = color_map.get(level, Colors.ON_SURFACE_VARIANT)
-
-        now = self._stamp()
 
         cursor = self.textCursor()
         cursor.movePosition(cursor.MoveOperation.End)
@@ -156,7 +188,6 @@ class ConsoleView(QPlainTextEdit):
         self.insertPlainText(f" {text}\n")
 
         self.verticalScrollBar().setValue(self.verticalScrollBar().maximum())
-        self.logged.emit(text, level)
 
     def _stamp(self) -> str:
         """Return the date and time of now, in the widget's locale.
@@ -172,8 +203,11 @@ class ConsoleView(QPlainTextEdit):
 
     @Slot()
     def clear_console(self) -> None:
-        """Empty the view."""
+        """Empty the view and the lines the filter hides."""
+        self._entries.clear()
         self.clear()
+        self.cursor_visible = False
+        self.emptied.emit()
 
     def write_stub_message(self, capability_name: str) -> None:
         """Say that the capability has no body yet."""

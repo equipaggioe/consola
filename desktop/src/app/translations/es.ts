@@ -276,52 +276,52 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
 <context>
     <name>ConsoleView</name>
     <message>
-        <location filename="../widgets/console_view.py" line="50"/>
+        <location filename="../widgets/console_view.py" line="52"/>
         <source>Consola</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="67"/>
+        <location filename="../widgets/console_view.py" line="74"/>
         <source>Buscar…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="69"/>
+        <location filename="../widgets/console_view.py" line="76"/>
         <source>Buscar en la consola</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="182"/>
+        <location filename="../widgets/console_view.py" line="216"/>
         <source>Esta capacidad aún no está implementada.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="186"/>
+        <location filename="../widgets/console_view.py" line="220"/>
         <source>El esqueleto de UI está funcionando correctamente.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="191"/>
+        <location filename="../widgets/console_view.py" line="225"/>
         <source>Stub ejecutado</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="271"/>
+        <location filename="../widgets/console_view.py" line="305"/>
         <source>Sin resultados</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="278"/>
+        <location filename="../widgets/console_view.py" line="312"/>
         <source>Copy</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="280"/>
+        <location filename="../widgets/console_view.py" line="314"/>
         <source>Select All</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/console_view.py" line="282"/>
+        <location filename="../widgets/console_view.py" line="316"/>
         <source>Clear</source>
         <translation type="unfinished"></translation>
     </message>
@@ -823,22 +823,22 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>MachinePanel</name>
     <message>
-        <location filename="../widgets/machine_panel.py" line="64"/>
+        <location filename="../widgets/machine_panel.py" line="67"/>
         <source>Recargar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="66"/>
+        <location filename="../widgets/machine_panel.py" line="69"/>
         <source>Descarta los cambios sin guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="69"/>
+        <location filename="../widgets/machine_panel.py" line="72"/>
         <source>Guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/machine_panel.py" line="71"/>
+        <location filename="../widgets/machine_panel.py" line="74"/>
         <source>Guarda las claves de esta máquina, para todos los repos</source>
         <translation type="unfinished"></translation>
     </message>
@@ -877,57 +877,57 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>ParamsPanel</name>
     <message>
-        <location filename="../widgets/params_panel.py" line="425"/>
-        <location filename="../widgets/params_panel.py" line="458"/>
-        <location filename="../widgets/params_panel.py" line="799"/>
-        <location filename="../widgets/params_panel.py" line="1325"/>
+        <location filename="../widgets/params_panel.py" line="424"/>
+        <location filename="../widgets/params_panel.py" line="457"/>
+        <location filename="../widgets/params_panel.py" line="798"/>
+        <location filename="../widgets/params_panel.py" line="1297"/>
         <source>leyendo el catálogo…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="427"/>
+        <location filename="../widgets/params_panel.py" line="426"/>
         <source>no hay ninguna {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="450"/>
+        <location filename="../widgets/params_panel.py" line="449"/>
         <source>automático</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="460"/>
-        <location filename="../widgets/params_panel.py" line="488"/>
-        <location filename="../widgets/params_panel.py" line="801"/>
+        <location filename="../widgets/params_panel.py" line="459"/>
+        <location filename="../widgets/params_panel.py" line="487"/>
+        <location filename="../widgets/params_panel.py" line="800"/>
         <source>no hay ninguno {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="511"/>
+        <location filename="../widgets/params_panel.py" line="510"/>
         <source>Corriendo ahora</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="539"/>
+        <location filename="../widgets/params_panel.py" line="538"/>
         <source>Apagar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="541"/>
+        <location filename="../widgets/params_panel.py" line="540"/>
         <source>Apagar {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="682"/>
+        <location filename="../widgets/params_panel.py" line="681"/>
         <source>Pasos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="707"/>
+        <location filename="../widgets/params_panel.py" line="706"/>
         <source>Opciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="789"/>
+        <location filename="../widgets/params_panel.py" line="788"/>
         <source>Única opción disponible</source>
         <translation type="unfinished"></translation>
     </message>
@@ -938,72 +938,67 @@ y vuelve a consultar los catálogos de los parámetros</source>
     </message>
     <message>
         <location filename="../widgets/params_panel.py" line="831"/>
-        <source>Por defecto</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/params_panel.py" line="835"/>
         <source>Esta acción no usa nada deducido.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="947"/>
+        <location filename="../widgets/params_panel.py" line="919"/>
         <source>Limpiar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="951"/>
+        <location filename="../widgets/params_panel.py" line="923"/>
         <source>Vaciar el log de esta pestaña y cerrar sus túneles SSH</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="969"/>
+        <location filename="../widgets/params_panel.py" line="941"/>
         <source>Simulacro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="973"/>
-        <location filename="../widgets/params_panel.py" line="1404"/>
+        <location filename="../widgets/params_panel.py" line="945"/>
+        <location filename="../widgets/params_panel.py" line="1375"/>
         <source>Corre sin tocar nada: solo muestra qué haría</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="980"/>
+        <location filename="../widgets/params_panel.py" line="952"/>
         <source>Ejecutar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1339"/>
+        <location filename="../widgets/params_panel.py" line="1311"/>
         <source>en este repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1347"/>
+        <location filename="../widgets/params_panel.py" line="1319"/>
         <source>no hay {0} {1}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1354"/>
+        <location filename="../widgets/params_panel.py" line="1326"/>
         <source>escribe {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1361"/>
+        <location filename="../widgets/params_panel.py" line="1333"/>
         <source>elige {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1370"/>
+        <location filename="../widgets/params_panel.py" line="1342"/>
         <source>selecciona al menos un valor en {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1376"/>
+        <location filename="../widgets/params_panel.py" line="1348"/>
         <source>selecciona al menos un paso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1381"/>
+        <location filename="../widgets/params_panel.py" line="1353"/>
         <source>faltan claves de configuración: {0}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1148,160 +1143,160 @@ y vuelve a consultar los catálogos de los parámetros</source>
 <context>
     <name>TabPanel</name>
     <message>
-        <location filename="../widgets/tab_panel.py" line="427"/>
+        <location filename="../widgets/tab_panel.py" line="378"/>
         <source>sin acciones abiertas — elige una del panel izquierdo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="570"/>
+        <location filename="../widgets/tab_panel.py" line="521"/>
         <source>Ancho de la columna derecha</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="719"/>
+        <location filename="../widgets/tab_panel.py" line="670"/>
         <source>Selecciona una accion del panel izquierdo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="745"/>
+        <location filename="../widgets/tab_panel.py" line="696"/>
         <source>Los parámetros de la acción
 aparecen aquí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="761"/>
+        <location filename="../widgets/tab_panel.py" line="712"/>
         <source>Lo que la acción deduce
 aparece aquí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="780"/>
+        <location filename="../widgets/tab_panel.py" line="731"/>
         <source>Ejecutar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="810"/>
+        <location filename="../widgets/tab_panel.py" line="761"/>
         <source>no se puede correr: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1150"/>
+        <location filename="../widgets/tab_panel.py" line="1101"/>
         <source>Secciones visibles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1177"/>
+        <location filename="../widgets/tab_panel.py" line="1128"/>
         <source>{0} de {1} protegidos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1181"/>
+        <location filename="../widgets/tab_panel.py" line="1132"/>
         <source>sin seguros</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1295"/>
+        <location filename="../widgets/tab_panel.py" line="1246"/>
         <source>Bloqueado: {0} toca {1} y este repo lo tiene protegido. El seguro se quita en Configuracion, seccion Seguridad.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1312"/>
+        <location filename="../widgets/tab_panel.py" line="1263"/>
         <source>Cancelado: {0} no llego a correr sobre {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1358"/>
+        <location filename="../widgets/tab_panel.py" line="1309"/>
         <source>{0} apps marcadas: una pestaña por cada una ({1}).</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1391"/>
+        <location filename="../widgets/tab_panel.py" line="1342"/>
         <source>{0}: cada paso va a su propia pestaña.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1401"/>
+        <location filename="../widgets/tab_panel.py" line="1352"/>
         <source>paso desconocido: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1413"/>
+        <location filename="../widgets/tab_panel.py" line="1364"/>
         <source>Lanzados: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1420"/>
+        <location filename="../widgets/tab_panel.py" line="1371"/>
         <source>Ningún paso marcado.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1443"/>
+        <location filename="../widgets/tab_panel.py" line="1394"/>
         <source>Ejecutando {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1477"/>
+        <location filename="../widgets/tab_panel.py" line="1428"/>
         <source>Hecho</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1479"/>
+        <location filename="../widgets/tab_panel.py" line="1430"/>
         <source>Terminó con errores</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1483"/>
+        <location filename="../widgets/tab_panel.py" line="1434"/>
         <source>{0}: hecho</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1485"/>
+        <location filename="../widgets/tab_panel.py" line="1436"/>
         <source>{0}: terminó con errores</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1553"/>
-        <location filename="../widgets/tab_panel.py" line="1577"/>
+        <location filename="../widgets/tab_panel.py" line="1504"/>
+        <location filename="../widgets/tab_panel.py" line="1528"/>
         <source>Confirmar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1555"/>
+        <location filename="../widgets/tab_panel.py" line="1506"/>
         <source>Dato requerido</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1579"/>
+        <location filename="../widgets/tab_panel.py" line="1530"/>
         <source>Pregunta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1583"/>
+        <location filename="../widgets/tab_panel.py" line="1534"/>
         <source>Sí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1586"/>
+        <location filename="../widgets/tab_panel.py" line="1537"/>
         <source>No</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1615"/>
+        <location filename="../widgets/tab_panel.py" line="1566"/>
         <source>{0} paso(s) × {1} variante(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1625"/>
+        <location filename="../widgets/tab_panel.py" line="1576"/>
         <source>paso «{0}» — no implementado (stub)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1632"/>
+        <location filename="../widgets/tab_panel.py" line="1583"/>
         <source>faltan claves: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1637"/>
+        <location filename="../widgets/tab_panel.py" line="1588"/>
         <source>Simulación completada</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1309,107 +1304,97 @@ aparece aquí</source>
 <context>
     <name>TabView</name>
     <message>
-        <location filename="../widgets/tab_view.py" line="144"/>
-        <source>Errores y avisos</source>
+        <location filename="../widgets/tab_view.py" line="65"/>
+        <source>Errores {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="147"/>
-        <source>Comandos</source>
+        <location filename="../widgets/tab_view.py" line="66"/>
+        <source>Avisos {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="157"/>
+        <location filename="../widgets/tab_view.py" line="67"/>
+        <source>Comandos {0}</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="120"/>
         <source>Alto de las secciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="180"/>
+        <location filename="../widgets/tab_view.py" line="142"/>
         <source>Estado del endpoint</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="189"/>
+        <location filename="../widgets/tab_view.py" line="151"/>
         <source>Copiar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="190"/>
+        <location filename="../widgets/tab_view.py" line="152"/>
         <source>Copiar la URL al portapapeles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="194"/>
+        <location filename="../widgets/tab_view.py" line="156"/>
         <source>Abrir ↗</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="195"/>
+        <location filename="../widgets/tab_view.py" line="157"/>
         <source>Abrir en el navegador del sistema</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="201"/>
+        <location filename="../widgets/tab_view.py" line="163"/>
         <source>Ver {0} en esta pestaña</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="254"/>
+        <location filename="../widgets/tab_view.py" line="174"/>
+        <source>Ver solo los errores; otro clic quita el filtro</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="177"/>
+        <source>Ver solo los avisos; otro clic quita el filtro</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="180"/>
+        <source>Ver solo los comandos que corrió; otro clic quita el filtro</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../widgets/tab_view.py" line="236"/>
         <source>Secciones visibles</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="314"/>
-        <source>1 error</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/tab_view.py" line="315"/>
-        <source>{0} errores</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/tab_view.py" line="322"/>
-        <source>1 aviso</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/tab_view.py" line="323"/>
-        <source>{0} avisos</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/tab_view.py" line="334"/>
-        <source>1 comando</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/tab_view.py" line="335"/>
-        <source>{0} comandos</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../widgets/tab_view.py" line="445"/>
+        <location filename="../widgets/tab_view.py" line="434"/>
         <source>arrancando</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="446"/>
+        <location filename="../widgets/tab_view.py" line="435"/>
         <source>listo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="447"/>
+        <location filename="../widgets/tab_view.py" line="436"/>
         <source>caído</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="464"/>
+        <location filename="../widgets/tab_view.py" line="454"/>
         <source>URL copiada: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_view.py" line="523"/>
+        <location filename="../widgets/tab_view.py" line="515"/>
         <source>La tarea no publicó la conexión.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1678,7 +1663,7 @@ aparece aquí</source>
 <context>
     <name>_SubTabButton</name>
     <message>
-        <location filename="../widgets/tab_panel.py" line="183"/>
+        <location filename="../widgets/tab_panel.py" line="134"/>
         <source>Cerrar {0}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -6449,16 +6434,6 @@ aparece aquí</source>
         <source>Explorador</source>
         <translation type="unfinished"></translation>
     </message>
-    <message>
-        <location filename="../services/section_visibility.py" line="37"/>
-        <source>Errores y avisos</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../services/section_visibility.py" line="38"/>
-        <source>Comandos</source>
-        <translation type="unfinished"></translation>
-    </message>
 </context>
 <context>
     <name>settings</name>
@@ -6820,7 +6795,7 @@ aparece aquí</source>
     </message>
     <message>
         <location filename="../services/settings.py" line="571"/>
-        <source>Archivo .pub de la llave guardada fuera</source>
+        <source>Llave externa</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -6959,12 +6934,12 @@ aparece aquí</source>
 <context>
     <name>tab_panel</name>
     <message>
-        <location filename="../widgets/tab_panel.py" line="303"/>
+        <location filename="../widgets/tab_panel.py" line="254"/>
         <source>Configuración del repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="307"/>
+        <location filename="../widgets/tab_panel.py" line="258"/>
         <source>Lo que hicieron los botones de Configuración del repo: guardar e importar.</source>
         <translation type="unfinished"></translation>
     </message>

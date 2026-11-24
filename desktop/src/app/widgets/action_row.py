@@ -25,7 +25,7 @@ from PySide6.QtWidgets import (
 )
 
 from app import theme
-from app.theme import Colors, Fonts, tint
+from app.theme import Colors, Fonts, Metrics, tint
 
 
 class _LevelMark(QLabel):
@@ -160,7 +160,7 @@ class ActionRow(QWidget):
 
         self.run_btn = QPushButton("▶")
         self.run_btn.setAccessibleName(QCoreApplication.translate("ActionRow", "Ejecutar"))
-        self.run_btn.setFixedSize(26, 26)
+        self.run_btn.setFixedSize(Metrics.TARGET, Metrics.TARGET)
         self.run_btn.setCursor(Qt.CursorShape.PointingHandCursor)
         self.run_btn.clicked.connect(lambda: self.run_requested.emit(self.capability_id))
         layout.addWidget(self.run_btn)

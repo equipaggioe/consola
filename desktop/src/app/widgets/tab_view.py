@@ -20,7 +20,6 @@ from PySide6.QtCore import QCoreApplication, QPoint, Qt, Signal, Slot
 from PySide6.QtGui import QGuiApplication, QPalette
 from PySide6.QtWidgets import (
     QHBoxLayout,
-    QLabel,
     QMenu,
     QPushButton,
     QStackedWidget,
@@ -36,10 +35,11 @@ from app.services.language import QT_TRANSLATE_NOOP
 from app.services.palettes import NEUTRAL, Palette
 from app.services.projects import Project
 from app.services.registry import Capability
-from app.theme import Fonts, Metrics, mono
+from app.theme import Colors, Fonts, Metrics, mono
 from app.widgets.accordion_section import AccordionSection
 from app.widgets.browser_view import BrowserView, open_external
 from app.widgets.console_view import ConsoleView
+from app.widgets.elided_label import ElidedLabel
 from app.widgets.led_indicator import LedIndicator
 from app.widgets.splitter import Splitter
 
@@ -59,45 +59,13 @@ if TYPE_CHECKING:
 _NO_MAXIMUM = 16_777_215
 
 
-def _count(n: int, one: str, many: str) -> str:
-    """Return «1 error» or «3 errores»: two texts, not `%n`."""
-    return one if n == 1 else many.format(n)
-
-
-class _LogSection(AccordionSection):
-    """A section below the console with only some of its lines.
-
-    It shows from the first such line (`filled`), and empties with the
-    console. Its header counts them.
-    """
-
-    def __init__(self, title: str, levels: tuple[str, ...], expanded: bool) -> None:
-        """Build the section and its log, empty."""
-        self.log = ConsoleView()
-        self.log.setAccessibleName(title)
-        super().__init__(title, self.log, expanded=expanded)
-        self.levels = levels
-        self.counts = dict.fromkeys(levels, 0)
-        self.filled = False
-
-    def take(self, text: str, level: str) -> bool:
-        """Copy a line of its levels; say whether it is the first."""
-        self.log.append_log(text, level)
-        self.counts[level] += 1
-        first = not self.filled
-        self.filled = True
-        return first
-
-    def reset(self) -> None:
-        """Empty it, as the console clears."""
-        self.log.clear_console()
-        self.counts = dict.fromkeys(self.levels, 0)
-        self.filled = False
-
-    def set_palette(self, pal: Palette) -> None:
-        """Repaint the header and the log."""
-        super().set_palette(pal)
-        self.log.set_palette(pal)
+# The console's filter chips: the levels each one shows, and its label
+# with the count.
+FILTERS = {
+    "error": (frozenset({"error"}), QT_TRANSLATE_NOOP("TabView", "Errores {0}")),
+    "warn": (frozenset({"warn"}), QT_TRANSLATE_NOOP("TabView", "Avisos {0}")),
+    "cmd": (frozenset({"cmd"}), QT_TRANSLATE_NOOP("TabView", "Comandos {0}")),
+}
 
 
 class TabView(QWidget):
@@ -129,24 +97,24 @@ class TabView(QWidget):
 
         self.console = ConsoleView(self)
         self.stack = QStackedWidget(self)
+        # Room at the right of the console's scroll bar for the grip of
+        # the right column's line, which lies over it
+        # (`widgets/splitter.py`), in the console's background.
+        self.stack.setContentsMargins(0, 0, Metrics.TARGET // 2, 0)
+        self.stack.setAutoFillBackground(True)
         self.stack.addWidget(self.console)
         self.console_section = AccordionSection(
             QCoreApplication.translate("tab_view", CONSOLA), self.stack
         )
         self.header = self.console_section.header
+        # How many lines of each filter the console holds.
+        self._counts = dict.fromkeys(FILTERS, 0)
         self._build_header()
         # «Explorar base»: the explorer's section, below the console,
         # while the connection lives.
         self.explorer_section: AccordionSection | None = None
-        # The console's errors and warnings, and the commands it ran,
-        # each in its own section below it.
-        self.issues_section = _LogSection(
-            QCoreApplication.translate("TabView", "Errores y avisos"), ("error", "warn"), True
-        )
-        self.commands_section = _LogSection(
-            QCoreApplication.translate("TabView", "Comandos"), ("cmd",), False
-        )
         self.console.logged.connect(self._on_logged)
+        self.console.emptied.connect(self._on_emptied)
 
         # The sections share the height in a splitter: its bars change
         # it by hand, with the mouse or the arrows. A bar of 1 px, which
@@ -162,8 +130,7 @@ class TabView(QWidget):
         self._root.addWidget(self._split)
         # What is left when every section is folded.
         self._root.addStretch(0)
-        for section in (self.console_section, self.issues_section, self.commands_section):
-            self._add_section(section, self._split.count())
+        self._add_section(self.console_section, 0)
         self.fit_sections()
 
     # --- building ---
@@ -178,10 +145,10 @@ class TabView(QWidget):
         bar = self.header
         self.led = LedIndicator(bar, size=9)
         self.led.setAccessibleName(QCoreApplication.translate("TabView", "Estado del endpoint"))
-        self.state_label = QLabel("")
+        self.state_label = ElidedLabel(keep=0)
         self.state_label.setFont(theme.font(Fonts.SIZE_XS))
 
-        self.url_label = QLabel("")
+        self.url_label = ElidedLabel(keep=0)
         self.url_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
         self.url_label.setFont(mono(theme.font(Fonts.SIZE_XS)))
 
@@ -205,6 +172,25 @@ class TabView(QWidget):
         )
         self.view_btn.setVisible(False)
 
+        # The filter of the log: one chip per filter that has lines.
+        # Several can be on at once; with none on, everything shows.
+        self.filter_btns: dict[str, QPushButton] = {}
+        tips = {
+            "error": QCoreApplication.translate(
+                "TabView", "Ver solo los errores; otro clic quita el filtro"
+            ),
+            "warn": QCoreApplication.translate(
+                "TabView", "Ver solo los avisos; otro clic quita el filtro"
+            ),
+            "cmd": QCoreApplication.translate(
+                "TabView", "Ver solo los comandos que corrió; otro clic quita el filtro"
+            ),
+        }
+        for key, tip in tips.items():
+            btn = self._chip("", tip, self._apply_filter)
+            btn.setCheckable(True)
+            self.filter_btns[key] = btn
+
         # Everything of the endpoint shows and hides together.
         self._endpoint_widgets = [
             self.led,
@@ -216,15 +202,16 @@ class TabView(QWidget):
         ]
 
         # After the chevron and the name, before the stretch and the
-        # summary; the chips go at the right end.
+        # summary; the chips go at the right end, the filters last.
         lay = bar.layout()
         assert isinstance(lay, QHBoxLayout)
         lay.insertSpacing(2, 8)
         for offset, widget in enumerate((self.led, self.state_label, self.url_label)):
             lay.insertWidget(3 + offset, widget)
-        for chip in (self.copy_btn, self.external_btn, self.view_btn):
+        for chip in (self.copy_btn, self.external_btn, self.view_btn, *self.filter_btns.values()):
             lay.addWidget(chip)
         self._show_endpoint(False)
+        self._sync_filters()
 
     def _add_section(self, section: AccordionSection, index: int) -> None:
         """Put a section in the splitter, with its fold and its menu."""
@@ -244,8 +231,6 @@ class TabView(QWidget):
         every: list[tuple[str, AccordionSection, bool]] = [("consola", self.console_section, True)]
         if self.explorer_section is not None:
             every.append(("explorador", self.explorer_section, True))
-        every.append(("errores", self.issues_section, self.issues_section.filled))
-        every.append(("comandos", self.commands_section, self.commands_section.filled))
         return every
 
     def _show_sections_menu(self, global_pos: QPoint) -> None:
@@ -253,7 +238,7 @@ class TabView(QWidget):
         menu = QMenu(self)
         menu.addSection(QCoreApplication.translate("TabView", "Secciones visibles"))
         hidden = section_visibility.hidden_sections()
-        ids = ["consola", "errores", "comandos"]
+        ids = ["consola"]
         if self.capability.has_db_view:
             ids.insert(1, "explorador")
         for sid in ids:
@@ -300,43 +285,53 @@ class TabView(QWidget):
         self._split.setSizes(sizes)
 
     @Slot(str, str)
-    def _on_logged(self, text: str, level: str) -> None:
-        """Copy an error, a warning or a command to its section."""
-        issues, commands = self.issues_section, self.commands_section
-        if level in issues.levels:
-            first = issues.take(text, level)
-            errors, warnings = issues.counts["error"], issues.counts["warn"]
-            parts = []
-            if errors:
-                parts.append(
-                    _count(
-                        errors,
-                        QCoreApplication.translate("TabView", "1 error"),
-                        QCoreApplication.translate("TabView", "{0} errores"),
-                    )
-                )
-            if warnings:
-                parts.append(
-                    _count(
-                        warnings,
-                        QCoreApplication.translate("TabView", "1 aviso"),
-                        QCoreApplication.translate("TabView", "{0} avisos"),
-                    )
-                )
-            issues.set_summary("  ·  ".join(parts), warn=bool(errors))
-            if first:
-                self.fit_sections()
-        elif level in commands.levels:
-            first = commands.take(text, level)
-            commands.set_summary(
-                _count(
-                    commands.counts["cmd"],
-                    QCoreApplication.translate("TabView", "1 comando"),
-                    QCoreApplication.translate("TabView", "{0} comandos"),
-                )
-            )
-            if first:
-                self.fit_sections()
+    def _on_logged(self, _text: str, level: str) -> None:
+        """Count a line in its filter's chip."""
+        if level in self._counts:
+            self._counts[level] += 1
+            self._sync_filters()
+
+    @Slot()
+    def _on_emptied(self) -> None:
+        """Count from zero, and show everything again."""
+        self._counts = dict.fromkeys(FILTERS, 0)
+        self._show_all()
+
+    @Slot()
+    def _show_all(self) -> None:
+        """Turn the filters off: the console shows every line."""
+        for btn in self.filter_btns.values():
+            btn.setChecked(False)
+        self._apply_filter()
+
+    @Slot()
+    def _apply_filter(self) -> None:
+        """Show the levels of the chips that are on, or all of them."""
+        on = [key for key, btn in self.filter_btns.items() if btn.isChecked()]
+        levels = frozenset().union(*(FILTERS[key][0] for key in on)) if on else None
+        self.console.set_filter(levels)
+        self._sync_filters()
+
+    def _sync_filters(self) -> None:
+        """Show each chip with its count, only while it has lines.
+
+        None shows while the browser takes the console's place.
+        """
+        for key, btn in self.filter_btns.items():
+            count = self._counts[key]
+            btn.setText(QCoreApplication.translate("TabView", FILTERS[key][1]).format(count))
+            btn.setVisible(count > 0 and self.stack.currentWidget() is self.console)
+        self._dress_filters()
+
+    def _dress_filters(self) -> None:
+        """Paint the chips that are on in the accent, errors in red."""
+        for key, btn in self.filter_btns.items():
+            look = theme.CHIP_ON if btn.isChecked() else theme.CHIP
+            look.on(self.pal).dress(btn, fill=False)
+            if key == "error" and not btn.isChecked():
+                colors = btn.palette()
+                colors.setColor(QPalette.ColorRole.ButtonText, Colors.ERROR)
+                btn.setPalette(colors)
 
     def _show_endpoint(self, visible: bool) -> None:
         db = self.capability.has_db_view
@@ -361,9 +356,6 @@ class TabView(QWidget):
         the same it was born with.
         """
         self.console.clear_console()
-        self.issues_section.reset()
-        self.commands_section.reset()
-        self.fit_sections()
         self.console.append_log(f"─── {self.capability.name} ───", "info")
         if self.capability.description:
             self.console.append_log(self.capability.description, "info")
@@ -374,6 +366,7 @@ class TabView(QWidget):
         btn.setToolTip(tip)
         btn.setCursor(Qt.CursorShape.PointingHandCursor)
         btn.setFixedHeight(Metrics.TARGET)
+        btn.setProperty(theme.CHIP_BUTTON, True)
         btn.setFont(theme.font(Fonts.SIZE_XS))
         self._chips.append(btn)
         btn.clicked.connect(slot)
@@ -391,14 +384,14 @@ class TabView(QWidget):
             self._explorer.set_palette(pal)
 
     def _restyle(self) -> None:
+        theme.CONSOLE.on(self.pal).dress(self.stack)
         self.console_section.set_palette(self.pal)
-        self.issues_section.set_palette(self.pal)
-        self.commands_section.set_palette(self.pal)
         if self.explorer_section is not None:
             self.explorer_section.set_palette(self.pal)
         theme.HINT.on(self.pal).dress(self.state_label)
         for chip in self._chips:
             theme.CHIP.on(self.pal).dress(chip, fill=False)
+        self._dress_filters()
         # A bar's line is Dark (`Style`); the header color hides it.
         colors = self._split.palette()
         header = theme.SECTION_HEADER.on(self.pal).palette()
@@ -415,7 +408,7 @@ class TabView(QWidget):
         """
         self._url = url
         self._web = web and self.capability.has_web_view
-        self.url_label.setText(url)
+        self.url_label.set_full(url)
         self._set_state(state, label)
 
         if state == session.READY:
@@ -449,10 +442,11 @@ class TabView(QWidget):
         led, text = texts.get(state, ("off", state))
         self.led.set_state(led)
         self.state_label.setProperty("label", label)
-        self.state_label.setText(f"{label} · {text}" if label else text)
+        said = f"{label} · {text}" if label else text
+        self.state_label.set_full(said)
         # The state changes while the focus is elsewhere: a screen
         # reader would not read the label (WCAG 4.1.3).
-        announce(self.window(), self.state_label.text(), urgent=state == session.DOWN)
+        announce(self.window(), said, urgent=state == session.DOWN)
         alive = state != session.DOWN
         self.copy_btn.setEnabled(alive)
         self.external_btn.setEnabled(alive)
@@ -478,8 +472,9 @@ class TabView(QWidget):
         self.header.setAccessibleName(name)
 
     def show_console(self) -> None:
-        """Show the console."""
+        """Show the console, and its filter."""
         self.stack.setCurrentWidget(self.console)
+        self._sync_filters()
         self.view_btn.setText(
             QCoreApplication.translate("tab_view", VIEW_NAMES.get(self.capability.view, ""))
         )
@@ -499,6 +494,7 @@ class TabView(QWidget):
         elif self._browser.url != self._url:
             self._browser.load(self._url)
         self.stack.setCurrentWidget(self._browser)
+        self._sync_filters()
         self.view_btn.setText(QCoreApplication.translate("tab_view", CONSOLA))
         self._name_view(QCoreApplication.translate("tab_view", VIEW_NAMES["web"]))
 
@@ -559,8 +555,11 @@ class TabView(QWidget):
     def on_shown(self) -> None:
         """Reread what was queried when the tab returns to the front.
 
-        It happens on showing, not with a reload button.
+        It happens on showing, not with a reload button. The console
+        comes back with every line: a filter does not stay hiding lines
+        of a tab one was not looking at.
         """
+        self._show_all()
         if self._explorer is not None:
             self._explorer.refresh()
 

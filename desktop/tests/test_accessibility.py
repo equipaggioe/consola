@@ -10,6 +10,7 @@ order makes sense, is still checked by hand.
 
 from __future__ import annotations
 
+import math
 import os
 import sys
 from collections import Counter
@@ -18,7 +19,18 @@ from pathlib import Path
 from typing import Protocol
 
 import pytest
-from PySide6.QtCore import QAbstractAnimation, QCoreApplication, QEvent, QPoint, QRect, Qt, QTimer
+from PySide6.QtCore import (
+    QAbstractAnimation,
+    QCoreApplication,
+    QEvent,
+    QPoint,
+    QPointF,
+    QRect,
+    QRectF,
+    QSizeF,
+    Qt,
+    QTimer,
+)
 from PySide6.QtGui import (
     QAccessible,
     QAccessibleAnnouncementEvent,
@@ -246,14 +258,54 @@ def test_glyphs_contrast(screen: Screen) -> None:
     assert not failures
 
 
-def test_targets_measure_24(screen: Screen) -> None:
-    """2.5.8: what one points at measures 24 × 24 or more."""
-    small = [
-        f"{name(w)} {w.width()} × {w.height()}"
-        for w in both_sizes(screen.window)
-        if w.width() < TARGET or w.height() < TARGET
+def apart(point: QPointF, rect: QRectF) -> float:
+    """Return how far a point is from a rectangle; 0 inside it."""
+    dx = max(rect.left() - point.x(), 0.0, point.x() - rect.right())
+    dy = max(rect.top() - point.y(), 0.0, point.y() - rect.bottom())
+    return math.hypot(dx, dy)
+
+
+def crowded(window: QWidget) -> list[str]:
+    """Return the targets under 24 × 24 with no room around them.
+
+    One smaller is allowed if a circle of 24 px centered on it touches
+    no other target nor the circle of another small one.
+    """
+    targets = [
+        (w, QRectF(QPointF(w.mapTo(window, QPoint(0, 0))), QSizeF(w.size())))
+        for w in interactive(window)
     ]
-    assert not small
+    small = {id(w) for w, r in targets if r.width() < TARGET or r.height() < TARGET}
+    failures = []
+    for widget, rect in targets:
+        if id(widget) not in small:
+            continue
+        center = rect.center()
+        for other, area in targets:
+            if other is widget:
+                continue
+            touches = apart(center, area) < TARGET / 2
+            if id(other) in small:
+                mid = area.center()
+                distance = math.hypot(center.x() - mid.x(), center.y() - mid.y())
+                touches = touches or distance < TARGET
+            if touches:
+                failures.append(f"{name(widget)} {rect.width():.0f} × {rect.height():.0f}")
+                break
+    return failures
+
+
+def test_targets_measure_24(screen: Screen) -> None:
+    """2.5.8: what one points at measures 24 × 24, or has room around.
+
+    Once as the window is, and again at 200 %.
+    """
+    window = screen.window
+    small = crowded(window)
+    window.showNormal()
+    window.resize(*SCREEN_200)
+    settle()
+    assert not small + crowded(window)
 
 
 def test_keyboard_reaches_everything(screen: Screen) -> None:

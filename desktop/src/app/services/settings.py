@@ -568,7 +568,7 @@ SETTINGS: tuple[Setting, ...] = (
     Setting(
         "OFFLINE_KEY",
         QT_TRANSLATE_NOOP("settings", "Máquina"),
-        QT_TRANSLATE_NOOP("settings", "Archivo .pub de la llave guardada fuera"),
+        QT_TRANSLATE_NOOP("settings", "Llave externa"),
         default="~/.ssh/vps_offline.pub",
         scope="machine",
         used_by=("bootstrap_vps",),

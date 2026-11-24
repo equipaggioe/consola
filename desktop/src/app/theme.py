@@ -49,6 +49,8 @@ VARIANT = "variant"
 HOVER_INK = "hoverInk"
 # A button whose part has an outline (`Paint.dress`).
 OUTLINED = "outlined"
+# A chip of a header, with `Metrics.CHIP_PADDING` at its sides.
+CHIP_BUTTON = "chip"
 # A scroll area with no frame that shows the focus of the keyboard
 # (`focus_frame`).
 FOCUS_FRAME = "focusFrame"
@@ -178,15 +180,17 @@ class Metrics:
     CHECK_BOX = 15
     CHECK_SPACING = 9
     TOOL_TIP_MARGIN = Spacing.SM
-    MENU_ITEM = 32
+    MENU_ITEM = 24
     BUTTON_PADDING = 12
+    # A chip shares a header with the endpoint and the filters.
+    CHIP_PADDING = 8
     # The smallest side of a button with text, WCAG 2.5.8.
     TARGET = 24
     # The width of the focus of the keyboard.
     FOCUS = 2
     # What a grip or a splitter moves with each arrow key.
     KEY_STEP = 16
-    FIELD = 28
+    FIELD = 24
     # The width of the chevron of a closed list.
     CHEVRON = 10
     # The side and the top padding of the menu bar, and of each title.
@@ -380,7 +384,9 @@ class Style(QProxyStyle):
         """Give menu items and fields a height, buttons a padding."""
         found = self.baseStyle().sizeFromContents(kind, option, size, widget)
         if kind == QStyle.ContentsType.CT_PushButton:
-            found.setWidth(size.width() + 2 * Metrics.BUTTON_PADDING)
+            chip = widget is not None and bool(widget.property(CHIP_BUTTON))
+            padding = Metrics.CHIP_PADDING if chip else Metrics.BUTTON_PADDING
+            found.setWidth(size.width() + 2 * padding)
             found.setHeight(max(found.height(), Metrics.TARGET))
         if kind == QStyle.ContentsType.CT_MenuBarItem:
             return QSize(
@@ -1191,6 +1197,9 @@ CONSOLE = Look(bg=Role.SURFACE, fg=Role.ON_SURFACE_VARIANT)
 TOOL_BAR = Look(bg=Role.SURFACE_CONTAINER, border=Role.OUTLINE_VARIANT)
 # The small buttons of those bars.
 CHIP = Look(bg=Role.SURFACE_CONTAINER_HIGHEST, fg=Role.ON_SURFACE_VARIANT)
+# A chip that is on, such as a filter of the console: filled with the
+# accent. Its focus goes in the text's color, which shows on the fill.
+CHIP_ON = Look(bg=Role.PRIMARY, fg=Role.ON_PRIMARY, focus=Role.ON_PRIMARY)
 
 # --- left: database ---------------------------------------------------
 

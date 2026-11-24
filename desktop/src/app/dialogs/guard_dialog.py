@@ -102,7 +102,7 @@ class GuardDialog(QDialog):
     def _button(self, text: str) -> QPushButton:
         button = QPushButton(text)
         button.setCursor(Qt.CursorShape.PointingHandCursor)
-        button.setFixedHeight(32)
+        button.setFixedHeight(28)
         button.setFont(theme.font(Fonts.SIZE_XS))
         return button
 
