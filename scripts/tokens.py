@@ -788,6 +788,19 @@ def typescript(themes: Themes, initial: str) -> str:
     )
 
 
+def server(themes: Themes, initial: str) -> str:
+    """Write the CSS variables of the pages of the server.
+
+    They show the initial theme: the browser has no choice of the user.
+    """
+    modes = themes[initial]
+    rules = [css(":root", mode, modes[mode]) for mode in list(modes)[:1]]
+    if len(modes) > 1:
+        dark = css(":root", "dark", modes["dark"], "\t")
+        rules.append(f"@media (prefers-color-scheme: dark) {{\n{dark}}}\n")
+    return f'"""{HEADER}"""\n\nCSS = """\n{"".join(rules)}"""\n'
+
+
 def quote(key: str) -> str:
     """Quote an object key only when TypeScript needs it."""
     return key if key.isidentifier() else f"'{key}'"
@@ -831,6 +844,8 @@ def outputs(repo: Path) -> dict[Path, Writer]:
             found[pyproject.parent / "src/colors.py"] = flet
         if "pyside6" in declared:
             found[pyproject.parent / "src/app/colors.py"] = qt
+    if (repo / "server/src/app/pages.py").is_file():
+        found[repo / "server/src/app/colors.py"] = server
     for package_json in sorted(repo.glob("*/package.json")):
         data = json.loads(package_json.read_text(encoding="utf-8"))
         if "@sveltejs/kit" in {**data.get("dependencies", {}), **data.get("devDependencies", {})}:
