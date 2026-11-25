@@ -713,9 +713,10 @@ class ParamsPanel(QWidget):
             row.setContentsMargins(0, 0, 0, 0)
             row.setSpacing(4)
             self._option_rows[axis.name] = row_widget
-            label = QLabel(axis.display)
-            label.setFont(theme.font(Fonts.SIZE_SM))
-            row.addWidget(label)
+            if not axis.is_box:
+                label = QLabel(axis.display)
+                label.setFont(theme.font(Fonts.SIZE_SM))
+                row.addWidget(label)
 
             # The checkboxes do not hang from `row` but from their own
             # container, because a queried axis draws TWICE: empty while

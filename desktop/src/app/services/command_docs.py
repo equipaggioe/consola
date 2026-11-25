@@ -960,11 +960,11 @@ DOCS: dict[str, CommandDoc] = {
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",
-                "Con «Reemplazar», crea todos los marcados, también los que ya tienen valor en "
-                "config.env o en el VPS, y el anterior se pierde. Con otra refresh_key las apps "
-                "vuelven a entrar; con otra vapid_key la web se vuelve a suscribir al push; con "
-                "otro health_token hay que dárselo a quien vigila la salud, y con otra "
-                "page_token_key una lista abierta se vuelve a pedir desde el principio.",
+                "Con «Reemplazar los que ya tienen valor», crea todos los marcados, aunque tengan "
+                "valor en config.env o en el VPS, y el anterior se pierde. Con otra refresh_key "
+                "las apps vuelven a entrar; con otra vapid_key la web se vuelve a suscribir al "
+                "push; con otro health_token hay que dárselo a quien vigila la salud, y con "
+                "otra page_token_key una lista abierta se vuelve a pedir desde el principio.",
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",
@@ -1619,8 +1619,8 @@ DOCS: dict[str, CommandDoc] = {
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",
-                "Con «Agregar», suma los archivos de un servidor con cuentas. Reemplaza los del "
-                "repo que se llaman igual, como routers/auth.py.",
+                "Con «Agregar los archivos de las cuentas», suma los de un servidor con cuentas. "
+                "Reemplaza los del repo que se llaman igual, como routers/auth.py.",
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",

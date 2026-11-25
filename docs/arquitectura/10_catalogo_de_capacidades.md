@@ -53,7 +53,7 @@ Modificadores que resuelven casos concretos:
 | `required` | Solo en `field`: vacío **no** es una elección (la URL a clonar) |
 | `cast='int'` | El campo devuelve texto y la función hace aritmética |
 | `truthy` | Un segmentado de dos valores que en realidad es un booleano ([ADR-0003](../adr/0003-contrato-de-nombres.md)) |
-| `combine` + `truthy` | Con un solo valor, un booleano de una sola casilla, sin marcar: «Reemplazar» |
+| `combine` + `truthy` | Con un solo valor, un booleano de una sola casilla, sin marcar y sin etiqueta encima: su texto lo dice todo, como «Reemplazar los que ya tienen valor» (`AxisDef.is_box`) |
 | `combine` + `join` | Un valor que se suma al excluyente: `patch` + `build` → `patch+build` |
 | `requires_env` / `uses_env` | Claves que ese valor exige, o que solo hacen que aparezcan en el formulario filtrado |
 | `facets` + `facet_sep` | El valor se compone de partes que se eligen por separado ([ADR-0027](../adr/0027-emuladores-tres-actividades.md)) |

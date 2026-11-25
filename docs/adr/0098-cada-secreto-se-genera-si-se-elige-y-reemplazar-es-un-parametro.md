@@ -17,8 +17,8 @@ aviso.
 1. «Cargar credenciales» tiene un parámetro por cada secreto a generar, también los que ya tienen
    valor, y dice cuáles lo tienen.
 2. Son `health_token`, `page_token_key`, `refresh_key` y `vapid_key`, si `Settings` los declara.
-3. Otro parámetro, la casilla «Reemplazar», decide qué pasa con los que ya tienen valor: sin marcar,
-   se generan solo los que no tienen; marcada, todos los elegidos. No se pide confirmación.
+3. Otro parámetro, la casilla «Reemplazar los que ya tienen valor», decide qué pasa con ellos: sin
+   marcar, se generan solo los que no tienen; marcada, todos los elegidos. No se pide confirmación.
 4. Un secreto que no se marca y está vacío corta la carga.
 5. Sin «Reemplazar», uno vacío en `config.env` que el VPS ya tiene corta la carga.
 6. Los generados se guardan en `config.env` justo antes de cargarlos, cuando ya se comprobó todo lo

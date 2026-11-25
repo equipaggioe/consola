@@ -243,6 +243,14 @@ class AxisDef:
         return options[0] if options else ""
 
     @property
+    def is_box(self) -> bool:
+        """Return whether it is one box, a boolean.
+
+        The box's own text says it all: the panel draws no label above.
+        """
+        return bool(self.truthy) and self.combine == {self.truthy} == set(self.values)
+
+    @property
     def is_multi(self) -> bool:
         """Return whether it allows several values."""
         return self.select == "many"
@@ -538,7 +546,7 @@ class Capability:
             # then the combined.
             checked = [raw] if isinstance(raw, str) else list(raw or ())
             # A single combined value is a lone box: a boolean.
-            if axis.truthy:
+            if axis.is_box:
                 return axis.truthy in checked
             base = next((v for v in checked if v not in axis.combine), axis.initial)
             extra = [v for v in axis.values if v in axis.combine and v in checked]

@@ -8,6 +8,7 @@ from pathlib import Path
 
 import pytest
 from PySide6.QtCore import QSettings
+from PySide6.QtWidgets import QLabel
 from pytestqt.qtbot import QtBot
 
 from app.services import envfile, fields, palettes, params_store
@@ -67,7 +68,10 @@ def test_each_random_secret_has_its_box_with_its_state(project: Project, qtbot: 
     assert "con valor" in boxes["health_token"].text()
     assert "vacío" in boxes["refresh_key"].text()
     assert panel.selection("generate") == []
-    assert [box.isChecked() for box in panel._options["replace"].values()] == [False]
+    (replace,) = panel._options["replace"].values()
+    assert not replace.isChecked()
+    # The box says it all: no label above.
+    assert panel._option_rows["replace"].findChildren(QLabel) == []
     chosen = panel.capability.kwargs_from(panel.payload())
     assert chosen == {"generate": [], "replace": False}
 

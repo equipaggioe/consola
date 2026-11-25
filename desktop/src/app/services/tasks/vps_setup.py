@@ -424,7 +424,8 @@ def new_secrets(
             raise TaskError(
                 QCoreApplication.translate(
                     "vps_setup",
-                    "El VPS ya tiene {0}, y config.env no: escribe su valor o marca «Reemplazar».",
+                    "El VPS ya tiene {0}, y config.env no: escribe su valor o marca "
+                    "«Reemplazar los que ya tienen valor».",
                 ).format(", ".join(stored))
             )
     new = {field.upper(): canone.GENERATED[field]() for field in wanted}

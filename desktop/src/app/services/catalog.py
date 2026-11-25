@@ -1363,13 +1363,12 @@ def load_catalog() -> None:
                 # canone recognizes it by its `models/account/`.
                 AxisDef(
                     "accounts",
-                    ["keep", "add"],
+                    ["add"],
                     "scope",
-                    label=QT_TRANSLATE_NOOP("catalog", "Archivos de las cuentas"),
                     truthy="add",
+                    combine={"add"},
                     labels={
-                        "keep": QT_TRANSLATE_NOOP("catalog", "Si ya las tiene"),
-                        "add": QT_TRANSLATE_NOOP("catalog", "Agregar"),
+                        "add": QT_TRANSLATE_NOOP("catalog", "Agregar los archivos de las cuentas"),
                     },
                 ),
                 AxisDef(
@@ -1877,11 +1876,14 @@ def load_catalog() -> None:
                     "replace",
                     ["replace"],
                     "scope",
-                    label=QT_TRANSLATE_NOOP("catalog", "Los que ya tienen valor"),
                     truthy="replace",
                     combine={"replace"},
                     danger={"replace"},
-                    labels={"replace": QT_TRANSLATE_NOOP("catalog", "Reemplazar")},
+                    labels={
+                        "replace": QT_TRANSLATE_NOOP(
+                            "catalog", "Reemplazar los que ya tienen valor"
+                        ),
+                    },
                     remembered=False,
                 ),
             ],
