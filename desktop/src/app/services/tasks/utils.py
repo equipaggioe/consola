@@ -1,8 +1,9 @@
 """Utils group.
 
-What crosses everything: clean artifacts, update DNS, sync common files
-between repos and install the SDKs. All destructive tasks here share one
-pattern: first the exact list of what will happen, and only then the
+What crosses everything: clean artifacts, update DNS, check the repo
+against canone, sync common files between repos and install the SDKs.
+All destructive tasks here share one pattern: first the
+exact list of what will happen, and only then the
 deletion (ADR-0018).
 """
 
@@ -19,7 +20,7 @@ from pydantic import ValidationError
 from PySide6.QtCore import QCoreApplication, QLocale
 
 from app.api import android_studio, cloudflare, flutter, http, ip
-from app.services import android, canone, files, userenv
+from app.services import android, canone, files, toolchain, userenv
 from app.services.catalog import (
     ANDROID_DIR_DEFAULT,
     API_LEVEL_DEFAULT,
@@ -163,6 +164,40 @@ def clean_artifacts(
 
 
 # --- sync between repos ---
+
+
+def verify_canone(ctx: TaskContext) -> None:
+    """Run canone's `verificar.py` on the repo, which only reads it.
+
+    It ends with 1 both when it finds something and when it breaks: the
+    log has which. Without `--variables`, which CI passes, it does not
+    look at the repo's variables on GitHub.
+    """
+    program = canone.script(ctx.config, "verificar.py")
+    code = ctx.run([*toolchain.python_cmd(), str(program), "--repo", str(ctx.root)], check=False)
+    if code != 0:
+        raise TaskError(
+            QCoreApplication.translate(
+                "utils", "verificar.py termino con codigo {0}: el motivo esta arriba."
+            ).format(code)
+        )
+    ctx.ok(QCoreApplication.translate("utils", "El repo cumple con canone."))
+
+
+def update_copies(ctx: TaskContext, accounts: bool = False, apply: bool = False) -> None:
+    """Run canone's `copiar.py`; a dry run only names the files.
+
+    The list of what is copied lives only in canone (its ADR-0242).
+    """
+    program = canone.script(ctx.config, "copiar.py")
+    argv = [*toolchain.python_cmd(), str(program), str(ctx.root)]
+    if accounts:
+        argv.append("--cuentas")
+    if apply:
+        argv.append("--aplicar")
+    ctx.run(argv)
+    if not apply:
+        ctx.info(QCoreApplication.translate("utils", "Simulacro: no se copio nada."))
 
 
 def compare_common_files(
@@ -927,6 +962,8 @@ def bind_all() -> None:
     """Register the group's functions in the catalog."""
     registry.bind("clean_artifacts", clean_artifacts)
     registry.bind("update_cloudflare", update_cloudflare)
+    registry.bind("verify_canone", verify_canone)
+    registry.bind("update_copies", update_copies)
     registry.bind("sync_common_files", sync_common_files)
     registry.bind("install_android_tools", install_android_tools)
     registry.bind("install_android_packages", install_android_packages)

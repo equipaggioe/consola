@@ -582,6 +582,8 @@ SETTINGS: tuple[Setting, ...] = (
             "load_credentials",
             "clean_vps",
             "create_spa",
+            "verify_canone",
+            "update_copies",
         ),
     ),
     # `--logs` and `--logs-key`: Equipaggio's WireGuard endpoint and its

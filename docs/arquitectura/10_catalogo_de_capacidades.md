@@ -4,7 +4,7 @@ Cómo se declara un botón, de qué está hecho y cómo llega lo elegido a la fu
 
 ## 1. Declarar y vincular
 
-`main.py` llama primero a `load_catalog()`, que registra las 64 `Capability` con `stub=True`, y después a `bind_all()`, que recorre los nueve módulos de `services/tasks/` y llama a `Registry.bind(id, func)`. Vincular hace dos cosas: le pone `func` y baja `stub`. Lo que nadie vincule sigue siendo un stub y la interfaz lo simula ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)).
+`main.py` llama primero a `load_catalog()`, que registra las 60 `Capability` con `stub=True`, y después a `bind_all()`, que recorre los nueve módulos de `services/tasks/` y llama a `Registry.bind(id, func)`. Vincular hace dos cosas: le pone `func` y baja `stub`. Lo que nadie vincule sigue siendo un stub y la interfaz lo simula ([ADR-0002](../adr/0002-catalogo-declara-tareas-implementan.md)).
 
 Hoy están vinculadas todas. `dev_env` no se vincula: declara `stub=False` a mano porque su cuerpo no es una función, es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
 

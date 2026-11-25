@@ -53,17 +53,17 @@ flowchart LR
 
 ## 5. Alcance del catálogo
 
-56 capacidades registradas: 53 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 43 atómicas y 13 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
+60 capacidades registradas: 57 con botón y 3 ocultas (`stop_emulator`, `bump_version`, `upload_to_vps`), que existen como paso de otras o como acción de la interfaz. 47 atómicas y 13 compuestas (`Capability.is_composite`). Todas tienen cuerpo salvo `dev_env`, que por diseño no lo tiene: su cuerpo es el despachador de la interfaz ([ADR-0011](../adr/0011-compuesta-concurrente-sin-cuerpo.md)).
 
 | Grupo | Botones | Qué resuelve |
 |---|---|---|
 | Ejecutar | 5 | Levantar lo que corre en desarrollo: backend, SPA, app móvil, app de escritorio, y todo junto |
 | Compilar | 5 | Compilar: Flutter/Flet, Vite y el ejecutable, que además se publica; SPA nueva y limpieza de artefactos |
 | Imágenes | 4 | Los íconos de las apps a partir del logo, y las capturas publicables: sacarlas, revelarlas y las dos juntas |
-| Repositorio | 4 | Clonar, los dos forzados contra origin desde esta máquina ([ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)), y la sincronización de archivos entre repos |
+| Repositorio | 6 | Clonar, comparar el repo con canone y actualizar sus copias, los dos forzados contra origin desde esta máquina ([ADR-0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)), y la sincronización de archivos entre repos |
 | Base de datos | 12 | Ciclo de vida del esquema, migraciones, datos, respaldo, túnel y explorador |
 | Despliegue | 4 | Publicar, firmar y desplegar versiones con el `deploy.py` de canone, y los servicios systemd del VPS: acciones y logs |
-| VPS | 10 | Preparar el VPS con los programas de canone, diagnóstico: paquetes, credenciales, DNS, salud, eventos, comandos sueltos y revocación |
+| VPS | 12 | Preparar el VPS con los programas de canone, diagnóstico: paquetes, credenciales, DNS, salud, eventos, comandos sueltos y revocación |
 | Emuladores | 4 | Imágenes de sistema, dispositivos virtuales, arranque y limpieza de disco |
 | SDKs | 5 | Dejar esta máquina lista para compilar: Android y Flutter |
 

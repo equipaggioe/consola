@@ -74,6 +74,22 @@ def infra_dir(config: Config) -> Path:
     return folder
 
 
+def script(config: Config, name: str) -> Path:
+    """Return a program of `scripts/` of the local canone copy.
+
+    See `CANONE_DIR`.
+    """
+    program = Path(config.require("CANONE_DIR")) / "scripts" / name
+    if not program.is_file():
+        raise TaskError(
+            QCoreApplication.translate(
+                "canone",
+                "No hay {0}: «Carpeta de canone» tiene que ser la carpeta de canone.",
+            ).format(program)
+        )
+    return program
+
+
 def spa_template(config: Config) -> Path:
     """`plantilla/sveltekit/` of the local copy of canone.
 
@@ -656,8 +672,8 @@ def credential_lines(root: Path, config: Config) -> str:
             ).format(", ".join(foreign))
         )
     pairs = [(s.label, s.key) for s in declared_fields]
-    if fields.SETUP_CODE in fields.settings_fields(server):
-        pairs.append((fields.SETUP_CODE, "SETUP_CODE"))
+    declared = fields.settings_fields(server)
+    pairs.extend((field, field.upper()) for field in fields.FROM_CONSOLA if field in declared)
     pairs.append(("restic_password", "RESTIC_PASSWORD"))
     if config.flag("PRIVATE"):
         pairs.append(("github_token", "GITHUB_TOKEN"))

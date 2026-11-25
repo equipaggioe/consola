@@ -157,7 +157,7 @@ Archivo INI: `%APPDATA%\Equipaggio\Consola.ini` en Windows y `~/.config/Equipagg
 
 ## 7. El catálogo, de un vistazo
 
-54 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
+60 capacidades. `C` = compuesta, `A` = atómica; `⌂` = `scope='machine'`.
 
 | Grupo | Id | Botón | Tipo | |
 |---|---|---|---|---|
@@ -177,6 +177,8 @@ Archivo INI: `%APPDATA%\Equipaggio\Consola.ini` en Windows y `~/.config/Equipagg
 |  | `render_shots` | Revelar capturas | A |  |
 |  | `screenshots` | Capturar y publicar | C |  |
 | Repositorio | `clone_repo` | Clonar repositorio de GitHub | A | `opens_repo`, ⌂ |
+|  | `verify_canone` | Verificar con canone | A |  |
+|  | `update_copies` | Actualizar copias de canone | A | destructiva |
 |  | `sync_common_files` | Copiar archivos comunes a otros repos | A | destructiva |
 |  | `git_force_push` | Force push | A | destructiva |
 |  | `git_force_reset` | Force reset | A | destructiva |
@@ -192,7 +194,9 @@ Archivo INI: `%APPDATA%\Equipaggio\Consola.ini` en Windows y `~/.config/Equipagg
 |  | `rebuild_db` | Reconstruir base | C | destructiva |
 |  | `reinit_migrations` | Reiniciar historial de migraciones | C | destructiva, `requires_repo: migrations` |
 |  | `teardown_db` | Borrar base y rol | C | destructiva |
-| Despliegue | `systemd_action` | Control del servicio | A |  |
+| Despliegue | `publish_release` | Publicar versión | C |  |
+|  | `deploy_version` | Desplegar versión | A |  |
+|  | `systemd_action` | Control del servicio | A |  |
 |  | `view_logs` | Ver logs del servicio | A | `live` |
 |  | `upload_to_vps` | Subir artefacto al VPS | A | oculta |
 | VPS | `bootstrap_vps` | Configurar VPS | C | `writes_config` |

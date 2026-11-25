@@ -153,6 +153,7 @@ RULES: dict[str, Rule] = {
     # deletes the files in the open repo's `alembic/versions/`.
     "reinit_migrations": Rule(always=("db", "local")),
     "clean_artifacts": Rule(always=("local",), dry_run={"apply": ("dry_run",)}),
+    "update_copies": Rule(always=("local",), dry_run={"apply": ("dry_run",)}),
     "sync_common_files": Rule(always=("other_repos",), dry_run={"apply": ("dry_run",)}),
     # `push` rewrites origin and leaves this machine as is; `reset`
     # discards this machine's commits and files.

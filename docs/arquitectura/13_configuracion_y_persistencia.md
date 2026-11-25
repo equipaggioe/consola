@@ -38,9 +38,9 @@ Cada línea de `config.env` es de una de tres fuentes ([ADR-0063](../adr/0063-la
 
 | Fuente | Qué claves | Adónde van |
 |---|---|---|
-| Los campos de `Settings` del repo | Uno por campo de `<SERVER_DIR>/src/app/config.py`, en mayúsculas, salvo `database_url`, `turn_secret` y `valkey_url`, que escribe `install.py` y `credentials.py` rechaza, y `setup_code`, que da `SETUP_CODE`. Los lee `services/fields.py` con `ast` | A `credentials.py` |
+| Los campos de `Settings` del repo | Uno por campo de `<SERVER_DIR>/src/app/config.py`, en mayúsculas, salvo `database_url`, `turn_secret` y `valkey_url`, que escribe `install.py` y `credentials.py` rechaza, `setup_code`, que da `SETUP_CODE`, y `domain`, el RP ID de las passkeys, que da `DOMAIN`, el mismo que recibe `install.py` (`fields.FROM_CONSOLA`). Los lee `services/fields.py` con `ast` | A `credentials.py` |
 | Nombre fijo | `RESTIC_PASSWORD`; `GITHUB_TOKEN` si `PRIVATE` dice que sí, y `SETUP_CODE` si `Settings` declara `setup_code`. Si `SETUP_CODE` está vacío al cargar las credenciales, Consola genera uno de 6 dígitos, lo guarda en `config.env` y lo muestra en el log (`vps_setup.setup_code`) | A `credentials.py` |
-| El registro de `services/settings.py` | Los argumentos de `install.py` y las claves propias de Consola | A `install.py`, o las lee Consola |
+| El registro de `services/settings.py` | Los argumentos de `install.py` y las claves propias de Consola | A `install.py`, o las lee Consola. `SETUP_CODE` y `DOMAIN` van además a `credentials.py` si `Settings` declara su campo |
 
 El formulario muestra las dos primeras en el grupo «Credenciales», junto con `DATABASE_URL`, `VALKEY_URL` y `TURN_SECRET`, que son del registro y no van a `credentials.py`: son la base, el Valkey y el secreto de coturn locales de las credenciales de desarrollo (§9). `VALKEY_URL` y `TURN_SECRET` aparecen solo si `Settings` declara su campo (`needs`). Los campos se leen al abrir el repo; un campo que se llame como una clave del registro corta, y un `config.py` sin la clase `Settings` se avisa arriba del formulario.
 

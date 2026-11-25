@@ -29,6 +29,10 @@ WRITTEN_BY_INSTALL = ("database_url", TURN, "valkey_url")
 # The code that registers the first superadmin: Consola's key
 # `SETUP_CODE` supplies it, and generates it if empty.
 SETUP_CODE = "setup_code"
+# The RP ID of the passkeys: the `DOMAIN` that `install.py` receives.
+DOMAIN = "domain"
+# The fields a Consola key of the same name supplies, in that order.
+FROM_CONSOLA = (SETUP_CODE, DOMAIN)
 
 
 def settings_fields(server: Path) -> list[str]:
@@ -55,14 +59,15 @@ def settings_fields(server: Path) -> list[str]:
 
 
 def field_settings(server: Path) -> tuple[Setting, ...]:
-    """Return one `config.env` key per field, except `install.py`'s.
+    """Return one `config.env` key per field, except those Consola has.
 
-    A key that is both a field and a Consola key would have two sources,
+    `install.py` writes some, and a Consola key supplies others. Any
+    other that is both a field and a Consola key would have two sources,
     and nobody would know which one wins: it stops.
     """
     keys = []
     for field in settings_fields(server):
-        if field in WRITTEN_BY_INSTALL or field == SETUP_CODE:
+        if field in WRITTEN_BY_INSTALL or field in FROM_CONSOLA:
             continue
         key = field.upper()
         if get_setting(key) is not None:

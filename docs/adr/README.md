@@ -104,3 +104,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0094](0094-cada-parte-da-sus-colores-en-una-qpalette-y-style-dibuja-lo-demas.md) | Cada parte da sus colores en una `QPalette`, y `Style` dibuja lo demás |
 | [0095](0095-tab-sigue-el-orden-de-lectura-ver-detiene-lo-que-se-mueve-y-los-cambios-se-anuncian.md) | Tab sigue el orden de lectura, Ver detiene lo que se mueve y los cambios de estado se anuncian |
 | [0096](0096-el-ingles-es-el-segundo-idioma-y-ver-lo-elige.md) | El inglés es el segundo idioma, y Ver lo elige |
+| [0097](0097-los-secretos-vacios-se-generan-solo-si-se-elige.md) | Los secretos vacíos se generan solo si se elige al cargar las credenciales |

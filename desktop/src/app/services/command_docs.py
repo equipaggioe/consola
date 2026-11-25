@@ -954,6 +954,13 @@ DOCS: dict[str, CommandDoc] = {
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",
+                "Con «Generar», crea los que estén vacíos de HEALTH_TOKEN, PAGE_TOKEN_KEY, "
+                "REFRESH_KEY y VAPID_KEY, de los que declara Settings, y los guarda en "
+                "config.env. Si el VPS ya tenía otros, los reemplaza: con otra REFRESH_KEY las "
+                "apps vuelven a entrar, y con otra VAPID_KEY la web se vuelve a suscribir.",
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
                 "Corta si config.env tiene una clave que no es de Consola ni un campo, o "
                 "si falta el valor de un campo o de RESTIC_PASSWORD (y de GITHUB_TOKEN "
                 "con PRIVATE).",
@@ -1565,6 +1572,48 @@ DOCS: dict[str, CommandDoc] = {
                 "apunta a esa IP sin proxy, o lo cambia con un PUT.",
             ),
             QT_TRANSLATE_NOOP("command_docs", "Deja en el log cada cambio."),
+        ],
+    ),
+    "verify_canone": CommandDoc(
+        summary=QT_TRANSLATE_NOOP(
+            "command_docs",
+            "Corre verificar.py de canone sobre este repo y muestra cada "
+            "incumplimiento. No cambia nada.",
+        ),
+        steps=[
+            QT_TRANSLATE_NOOP(
+                "command_docs", "Toma scripts/verificar.py de CANONE_DIR, y corta si no está."
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "Lo corre con el Python de esta máquina y --repo con la carpeta del repo, "
+                "sobre los archivos como están, también los que no tienen commit.",
+            ),
+            QT_TRANSLATE_NOOP("command_docs", "Falla si verificar.py encuentra algo."),
+        ],
+    ),
+    "update_copies": CommandDoc(
+        summary=QT_TRANSLATE_NOOP(
+            "command_docs",
+            "Corre copiar.py de canone sobre este repo: copia los archivos que se copian sin "
+            "editar y que faltan o se separaron. No toca los que se completan.",
+        ),
+        steps=[
+            QT_TRANSLATE_NOOP(
+                "command_docs", "Toma scripts/copiar.py de CANONE_DIR, y corta si no está."
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs", "Nombra cada archivo que crea o reemplaza; en simulacro, termina."
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "Con «Agregar», suma los archivos de un servidor con cuentas. Reemplaza los del "
+                "repo que se llaman igual, como routers/auth.py.",
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "No copia nada si reemplazaría un archivo cuyo contenido no está en un commit.",
+            ),
         ],
     ),
     "sync_common_files": CommandDoc(

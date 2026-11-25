@@ -1316,6 +1316,60 @@ def load_catalog() -> None:
     )
     registry.register(
         Capability(
+            id="verify_canone",
+            name=QT_TRANSLATE_NOOP("catalog", "Verificar con canone"),
+            group=QT_TRANSLATE_NOOP("catalog", "Repositorio"),
+            kind="once",
+            icon="📋",
+            description=QT_TRANSLATE_NOOP(
+                "catalog", "Dice en qué se aparta el repo de canone, sin cambiar nada."
+            ),
+            stub=True,
+        )
+    )
+    registry.register(
+        Capability(
+            id="update_copies",
+            name=QT_TRANSLATE_NOOP("catalog", "Actualizar copias de canone"),
+            group=QT_TRANSLATE_NOOP("catalog", "Repositorio"),
+            kind="destructive",
+            icon="📑",
+            description=QT_TRANSLATE_NOOP(
+                "catalog",
+                "Copia al repo los archivos de canone que se copian sin editar; en simulacro "
+                "solo los nombra.",
+            ),
+            axes=[
+                # A repo starts to have accounts once: from then on
+                # canone recognizes it by its `models/account/`.
+                AxisDef(
+                    "accounts",
+                    ["keep", "add"],
+                    "scope",
+                    label=QT_TRANSLATE_NOOP("catalog", "Archivos de las cuentas"),
+                    truthy="add",
+                    labels={
+                        "keep": QT_TRANSLATE_NOOP("catalog", "Si ya las tiene"),
+                        "add": QT_TRANSLATE_NOOP("catalog", "Agregar"),
+                    },
+                ),
+                AxisDef(
+                    "apply",
+                    ["dry_run", "apply"],
+                    "scope",
+                    label=QT_TRANSLATE_NOOP("catalog", "Modo"),
+                    truthy="apply",
+                    labels={
+                        "dry_run": QT_TRANSLATE_NOOP("catalog", "Simulacro"),
+                        "apply": QT_TRANSLATE_NOOP("catalog", "Aplicar"),
+                    },
+                ),
+            ],
+            stub=True,
+        )
+    )
+    registry.register(
+        Capability(
             id="sync_common_files",
             name=QT_TRANSLATE_NOOP("catalog", "Copiar archivos comunes a otros repos"),
             group=QT_TRANSLATE_NOOP("catalog", "Repositorio"),
@@ -1786,6 +1840,21 @@ def load_catalog() -> None:
             description=QT_TRANSLATE_NOOP(
                 "catalog", "Pasa las credenciales de config.env a credentials.py de canone."
             ),
+            # Requiring goes first: with config.env lost, generating
+            # replaces the secrets the VPS already uses (ADR-0097).
+            axes=[
+                AxisDef(
+                    "generate",
+                    ["require", "generate"],
+                    "scope",
+                    label=QT_TRANSLATE_NOOP("catalog", "Secretos vacíos"),
+                    truthy="generate",
+                    labels={
+                        "require": QT_TRANSLATE_NOOP("catalog", "Exigir"),
+                        "generate": QT_TRANSLATE_NOOP("catalog", "Generar"),
+                    },
+                ),
+            ],
             writes_config=True,
             stub=True,
         )

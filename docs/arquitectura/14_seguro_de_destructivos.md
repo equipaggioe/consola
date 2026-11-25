@@ -31,6 +31,7 @@ Un objetivo que no figura en el `params.json` cae en su default: agregar uno nue
 | `restore_db` | `db`: actúa solo sobre la base local |
 | `reinit_migrations` | `db` + `local`: actúa solo sobre la base local |
 | `clean_artifacts` | `local`, salvo en simulacro |
+| `update_copies` | `local`, salvo en simulacro |
 | `sync_common_files` | `otros_repos`, salvo en simulacro |
 | `git_force_push` | `origin` |
 | `git_force_reset` | `local` |
