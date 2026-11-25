@@ -128,32 +128,37 @@
 <context>
     <name>AxisDef</name>
     <message>
-        <location filename="../services/registry.py" line="272"/>
+        <location filename="../services/registry.py" line="276"/>
         <source>en este VPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/registry.py" line="277"/>
+        <location filename="../services/registry.py" line="281"/>
         <source>en la carpeta de respaldos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/registry.py" line="279"/>
+        <location filename="../services/registry.py" line="283"/>
         <source>en la cámara del repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/registry.py" line="284"/>
+        <location filename="../services/registry.py" line="288"/>
         <source>con ícono a cargo de Consola</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/registry.py" line="286"/>
+        <location filename="../services/registry.py" line="290"/>
+        <source>vacío en config.env</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../services/registry.py" line="292"/>
         <source>firmado en GitHub</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/registry.py" line="287"/>
+        <location filename="../services/registry.py" line="293"/>
         <source>en esta máquina</source>
         <translation type="unfinished"></translation>
     </message>
@@ -214,12 +219,12 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
 <context>
     <name>Capability</name>
     <message>
-        <location filename="../services/registry.py" line="470"/>
+        <location filename="../services/registry.py" line="476"/>
         <source>Compuesta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/registry.py" line="472"/>
+        <location filename="../services/registry.py" line="478"/>
         <source>Atómica</source>
         <translation type="unfinished"></translation>
     </message>
@@ -653,7 +658,7 @@ Instala «PySide6-Addons» para ver la página aquí dentro.</source>
     </message>
     <message>
         <location filename="../widgets/env_panel.py" line="137"/>
-        <location filename="../widgets/env_panel.py" line="348"/>
+        <location filename="../widgets/env_panel.py" line="366"/>
         <source>Crear archivo</source>
         <translation type="unfinished"></translation>
     </message>
@@ -679,97 +684,97 @@ y vuelve a consultar los catálogos de los parámetros</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="324"/>
+        <location filename="../widgets/env_panel.py" line="342"/>
         <source>ilegible</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="326"/>
+        <location filename="../widgets/env_panel.py" line="344"/>
         <source>no existe</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="327"/>
+        <location filename="../widgets/env_panel.py" line="345"/>
         <source>No hay {0} todavía. Pulsa «Crear archivo» para generarlo con todas las claves.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="332"/>
+        <location filename="../widgets/env_panel.py" line="350"/>
         <source>listo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="334"/>
+        <location filename="../widgets/env_panel.py" line="352"/>
         <source>desactualizado</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="337"/>
+        <location filename="../widgets/env_panel.py" line="355"/>
         <source>no se puede guardar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="338"/>
+        <location filename="../widgets/env_panel.py" line="356"/>
         <source>No se escribe {0} mientras config.py tenga el error de arriba.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="350"/>
+        <location filename="../widgets/env_panel.py" line="368"/>
         <source>Actualizar archivo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="353"/>
+        <location filename="../widgets/env_panel.py" line="371"/>
         <source>Escribe el archivo con todas las claves del esquema, en su orden y con sus comentarios, conservando los valores</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="366"/>
+        <location filename="../widgets/env_panel.py" line="384"/>
         <source>Importa claves conocidas desde otro archivo .env</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="373"/>
+        <location filename="../widgets/env_panel.py" line="391"/>
         <source>{0} no tiene la forma actual del esquema.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="378"/>
+        <location filename="../widgets/env_panel.py" line="396"/>
         <source> Al escribirlo se borran: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="393"/>
+        <location filename="../widgets/env_panel.py" line="411"/>
         <source>Importar variables desde…</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="395"/>
+        <location filename="../widgets/env_panel.py" line="413"/>
         <source>Archivos .env (*.env);;Todos los archivos (*)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="410"/>
+        <location filename="../widgets/env_panel.py" line="428"/>
         <source>{0} no tiene claves reconocidas.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="421"/>
+        <location filename="../widgets/env_panel.py" line="439"/>
         <source>Se importaron {0} claves de {1}. Revisa y guarda para escribir el archivo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="443"/>
+        <location filename="../widgets/env_panel.py" line="461"/>
         <source>No se guardó: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="452"/>
+        <location filename="../widgets/env_panel.py" line="470"/>
         <source>Guardado {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="455"/>
+        <location filename="../widgets/env_panel.py" line="473"/>
         <source>Se borraron de config.env: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -879,8 +884,8 @@ y vuelve a consultar los catálogos de los parámetros</source>
     <message>
         <location filename="../widgets/params_panel.py" line="426"/>
         <location filename="../widgets/params_panel.py" line="459"/>
-        <location filename="../widgets/params_panel.py" line="802"/>
-        <location filename="../widgets/params_panel.py" line="1302"/>
+        <location filename="../widgets/params_panel.py" line="804"/>
+        <location filename="../widgets/params_panel.py" line="1307"/>
         <source>leyendo el catálogo…</source>
         <translation type="unfinished"></translation>
     </message>
@@ -896,109 +901,109 @@ y vuelve a consultar los catálogos de los parámetros</source>
     </message>
     <message>
         <location filename="../widgets/params_panel.py" line="461"/>
-        <location filename="../widgets/params_panel.py" line="489"/>
-        <location filename="../widgets/params_panel.py" line="804"/>
+        <location filename="../widgets/params_panel.py" line="491"/>
+        <location filename="../widgets/params_panel.py" line="806"/>
         <source>no hay ninguno {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="512"/>
+        <location filename="../widgets/params_panel.py" line="514"/>
         <source>Corriendo ahora</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="540"/>
+        <location filename="../widgets/params_panel.py" line="542"/>
         <source>Apagar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="542"/>
+        <location filename="../widgets/params_panel.py" line="544"/>
         <source>Apagar {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="685"/>
+        <location filename="../widgets/params_panel.py" line="687"/>
         <source>Pasos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="710"/>
+        <location filename="../widgets/params_panel.py" line="712"/>
         <source>Opciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="792"/>
+        <location filename="../widgets/params_panel.py" line="794"/>
         <source>Única opción disponible</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="831"/>
+        <location filename="../widgets/params_panel.py" line="833"/>
         <source>Fijas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="835"/>
+        <location filename="../widgets/params_panel.py" line="837"/>
         <source>Esta acción no usa nada deducido.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="923"/>
+        <location filename="../widgets/params_panel.py" line="925"/>
         <source>Limpiar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="927"/>
+        <location filename="../widgets/params_panel.py" line="929"/>
         <source>Vaciar el log de esta pestaña y cerrar sus túneles SSH</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="946"/>
+        <location filename="../widgets/params_panel.py" line="948"/>
         <source>Simulacro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="950"/>
-        <location filename="../widgets/params_panel.py" line="1380"/>
+        <location filename="../widgets/params_panel.py" line="952"/>
+        <location filename="../widgets/params_panel.py" line="1385"/>
         <source>Corre sin tocar nada: solo muestra qué haría</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="957"/>
+        <location filename="../widgets/params_panel.py" line="959"/>
         <source>Ejecutar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1316"/>
+        <location filename="../widgets/params_panel.py" line="1321"/>
         <source>en este repo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1324"/>
+        <location filename="../widgets/params_panel.py" line="1329"/>
         <source>no hay {0} {1}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1331"/>
+        <location filename="../widgets/params_panel.py" line="1336"/>
         <source>escribe {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1338"/>
+        <location filename="../widgets/params_panel.py" line="1343"/>
         <source>elige {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1347"/>
+        <location filename="../widgets/params_panel.py" line="1352"/>
         <source>selecciona al menos un valor en {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1353"/>
+        <location filename="../widgets/params_panel.py" line="1358"/>
         <source>selecciona al menos un paso</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1358"/>
+        <location filename="../widgets/params_panel.py" line="1363"/>
         <source>faltan claves de configuración: {0}</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1255,48 +1260,48 @@ aparece aquí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1508"/>
-        <location filename="../widgets/tab_panel.py" line="1532"/>
+        <location filename="../widgets/tab_panel.py" line="1512"/>
+        <location filename="../widgets/tab_panel.py" line="1536"/>
         <source>Confirmar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1510"/>
+        <location filename="../widgets/tab_panel.py" line="1514"/>
         <source>Dato requerido</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1534"/>
+        <location filename="../widgets/tab_panel.py" line="1538"/>
         <source>Pregunta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1538"/>
+        <location filename="../widgets/tab_panel.py" line="1542"/>
         <source>Sí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1541"/>
+        <location filename="../widgets/tab_panel.py" line="1545"/>
         <source>No</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1570"/>
+        <location filename="../widgets/tab_panel.py" line="1574"/>
         <source>{0} paso(s) × {1} variante(s)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1580"/>
+        <location filename="../widgets/tab_panel.py" line="1584"/>
         <source>paso «{0}» — no implementado (stub)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1587"/>
+        <location filename="../widgets/tab_panel.py" line="1591"/>
         <source>faltan claves: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1592"/>
+        <location filename="../widgets/tab_panel.py" line="1596"/>
         <source>Simulación completada</source>
         <translation type="unfinished"></translation>
     </message>
@@ -1951,168 +1956,168 @@ aparece aquí</source>
 <context>
     <name>canone</name>
     <message>
-        <location filename="../services/canone.py" line="68"/>
+        <location filename="../services/canone.py" line="70"/>
         <source>No hay install.py en {0}: «Carpeta de canone» tiene que ser la carpeta de canone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="101"/>
+        <location filename="../services/canone.py" line="103"/>
         <source>No hay vite.config.ts en {0}: «Carpeta de canone» tiene que ser la carpeta de canone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="120"/>
+        <location filename="../services/canone.py" line="122"/>
         <source>origin no es un repo de GitHub: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="137"/>
+        <location filename="../services/canone.py" line="139"/>
         <source>{0} no declara su estado: falta una línea «Estado: en desarrollo» o «Estado: en producción».</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="150"/>
+        <location filename="../services/canone.py" line="152"/>
         <source>database.py no tiene el comando {0!r}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="210"/>
+        <location filename="../services/canone.py" line="212"/>
         <source>No hay packages.py en {0}: actualiza la copia de canone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="261"/>
+        <location filename="../services/canone.py" line="263"/>
         <source>/proc/meminfo del VPS no trae MemTotal.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="302"/>
+        <location filename="../services/canone.py" line="304"/>
         <source>No hay {0}: el servidor no trae las tareas de canone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="319"/>
+        <location filename="../services/canone.py" line="321"/>
         <source>{0} no declara el diccionario TASKS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="350"/>
+        <location filename="../services/canone.py" line="352"/>
         <source>{0}: {1} está en TIMERS y en BROWSER_TIMERS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="368"/>
+        <location filename="../services/canone.py" line="370"/>
         <source>{0}: cada tarea de {1} es un texto.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="374"/>
+        <location filename="../services/canone.py" line="376"/>
         <source>{0}: el calendario de {1} en {2} es un texto, como minutely.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="380"/>
+        <location filename="../services/canone.py" line="382"/>
         <source>{0}: {1} está en {2} y no en TASKS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="411"/>
+        <location filename="../services/canone.py" line="413"/>
         <source>{0} no tiene {1}: ningún host apunta al VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="267"/>
+        <location filename="../services/canone.py" line="269"/>
         <source>{0} tiene que ser un número, como 12.5: {1!r}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="85"/>
+        <location filename="../services/canone.py" line="87"/>
         <source>No hay {0}: «Carpeta de canone» tiene que ser la carpeta de canone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="273"/>
+        <location filename="../services/canone.py" line="275"/>
         <source>{0} va de 0 a 100: {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="428"/>
+        <location filename="../services/canone.py" line="430"/>
         <source>{0} van los tres juntos o ninguno.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="490"/>
+        <location filename="../services/canone.py" line="492"/>
         <source>{0} sin {1} en Settings: --turn-ip necesita --turn. Bórrala de config.env.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="509"/>
+        <location filename="../services/canone.py" line="511"/>
         <source>No se sube {0!r}: es una de {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="569"/>
+        <location filename="../services/canone.py" line="571"/>
         <source>No es una firma SSH.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="578"/>
+        <location filename="../services/canone.py" line="580"/>
         <source>ninguno</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="580"/>
+        <location filename="../services/canone.py" line="582"/>
         <source>último evento</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="581"/>
+        <location filename="../services/canone.py" line="583"/>
         <source>último crítico</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="582"/>
+        <location filename="../services/canone.py" line="584"/>
         <source>último respaldo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="583"/>
+        <location filename="../services/canone.py" line="585"/>
         <source>disco libre</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="583"/>
+        <location filename="../services/canone.py" line="585"/>
         <source>{0:.1f} GB de {1:.1f} GB</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="596"/>
+        <location filename="../services/canone.py" line="598"/>
         <source>{0!r} no es un tag como v1.4.0.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="617"/>
+        <location filename="../services/canone.py" line="619"/>
         <source>DATABASE_URL no nombra su rol: hace falta para entrar como el dueño.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="637"/>
-        <location filename="../services/canone.py" line="683"/>
+        <location filename="../services/canone.py" line="639"/>
+        <location filename="../services/canone.py" line="711"/>
         <source>Faltan en config.env: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="660"/>
+        <location filename="../services/canone.py" line="688"/>
         <source>No hay campos de Settings en {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="668"/>
+        <location filename="../services/canone.py" line="696"/>
         <source>Estas claves de config.env no son de Consola ni campos de Settings: {0}. Bórralas antes de cargar las credenciales.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="690"/>
+        <location filename="../services/canone.py" line="718"/>
         <source>{0} tiene un salto de linea: credentials.py lee una por linea.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2121,7 +2126,7 @@ aparece aquí</source>
     <name>catalog</name>
     <message>
         <location filename="../services/catalog.py" line="29"/>
-        <location filename="../services/catalog.py" line="1776"/>
+        <location filename="../services/catalog.py" line="1783"/>
         <source>Versión</source>
         <translation type="unfinished"></translation>
     </message>
@@ -2166,1414 +2171,1404 @@ aparece aquí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="199"/>
+        <location filename="../services/catalog.py" line="201"/>
         <source>Paquetes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="201"/>
+        <location filename="../services/catalog.py" line="203"/>
         <source>Lo deciden DB_EXTENSIONS y LOGS, y coturn si Settings declara turn_secret</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="225"/>
+        <location filename="../services/catalog.py" line="227"/>
         <source>Vista previa desconocida: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="275"/>
+        <location filename="../services/catalog.py" line="282"/>
         <source>Fuente desconocida: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="455"/>
+        <location filename="../services/catalog.py" line="462"/>
         <source>Componentes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="458"/>
+        <location filename="../services/catalog.py" line="465"/>
         <source>API level</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="464"/>
+        <location filename="../services/catalog.py" line="471"/>
         <source>Build-tools</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="473"/>
+        <location filename="../services/catalog.py" line="480"/>
         <source>Python</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="474"/>
+        <location filename="../services/catalog.py" line="481"/>
         <source>Gradle/Android</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="475"/>
+        <location filename="../services/catalog.py" line="482"/>
         <source>Flutter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="476"/>
+        <location filename="../services/catalog.py" line="483"/>
         <source>Volcados de crash</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="480"/>
+        <location filename="../services/catalog.py" line="487"/>
         <source>node_modules</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="481"/>
+        <location filename="../services/catalog.py" line="488"/>
         <source>.venv</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="482"/>
+        <location filename="../services/catalog.py" line="489"/>
         <source>build/dist</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="483"/>
+        <location filename="../services/catalog.py" line="490"/>
         <source>.dart_tool</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="496"/>
+        <location filename="../services/catalog.py" line="503"/>
         <source>Bump</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="511"/>
+        <location filename="../services/catalog.py" line="518"/>
         <source>Plataformas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="524"/>
-        <location filename="../services/catalog.py" line="1126"/>
+        <location filename="../services/catalog.py" line="531"/>
+        <location filename="../services/catalog.py" line="1133"/>
         <source>Subir número de versión</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="525"/>
+        <location filename="../services/catalog.py" line="532"/>
         <source>Compilar binario</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="526"/>
+        <location filename="../services/catalog.py" line="533"/>
         <source>Calcular checksum</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="529"/>
+        <location filename="../services/catalog.py" line="536"/>
         <source>Subir al VPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="554"/>
+        <location filename="../services/catalog.py" line="561"/>
         <source>Crear rol de la aplicación</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="555"/>
+        <location filename="../services/catalog.py" line="562"/>
         <source>Crear base de datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="556"/>
+        <location filename="../services/catalog.py" line="563"/>
         <source>Otorgar permisos al rol</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="557"/>
-        <location filename="../services/catalog.py" line="1483"/>
+        <location filename="../services/catalog.py" line="564"/>
+        <location filename="../services/catalog.py" line="1490"/>
         <source>Habilitar extensiones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="560"/>
-        <location filename="../services/catalog.py" line="591"/>
-        <location filename="../services/catalog.py" line="616"/>
+        <location filename="../services/catalog.py" line="567"/>
+        <location filename="../services/catalog.py" line="598"/>
+        <location filename="../services/catalog.py" line="623"/>
         <source>Ejecutar migraciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="563"/>
-        <location filename="../services/catalog.py" line="594"/>
+        <location filename="../services/catalog.py" line="570"/>
+        <location filename="../services/catalog.py" line="601"/>
         <source>Crear particiones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="564"/>
-        <location filename="../services/catalog.py" line="595"/>
+        <location filename="../services/catalog.py" line="571"/>
+        <location filename="../services/catalog.py" line="602"/>
         <source>Cargar seeders</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="565"/>
-        <location filename="../services/catalog.py" line="596"/>
+        <location filename="../services/catalog.py" line="572"/>
+        <location filename="../services/catalog.py" line="603"/>
         <source>Cargar datos mock</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="582"/>
-        <location filename="../services/catalog.py" line="605"/>
+        <location filename="../services/catalog.py" line="589"/>
+        <location filename="../services/catalog.py" line="612"/>
         <source>Borrar tablas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="586"/>
+        <location filename="../services/catalog.py" line="593"/>
         <source>Vaciar la base y los archivos subidos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="606"/>
+        <location filename="../services/catalog.py" line="613"/>
         <source>Borrar migraciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="607"/>
+        <location filename="../services/catalog.py" line="614"/>
         <source>Generar migración inicial</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="615"/>
+        <location filename="../services/catalog.py" line="622"/>
         <source>Generar migración</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="625"/>
-        <location filename="../services/catalog.py" line="1883"/>
+        <location filename="../services/catalog.py" line="632"/>
+        <location filename="../services/catalog.py" line="1890"/>
         <source>Refrescar known_hosts</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="626"/>
+        <location filename="../services/catalog.py" line="633"/>
         <source>Poner la llave</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="627"/>
+        <location filename="../services/catalog.py" line="634"/>
         <source>Instalar paquetes y uv</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="628"/>
+        <location filename="../services/catalog.py" line="635"/>
         <source>Crear swap</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="631"/>
+        <location filename="../services/catalog.py" line="638"/>
         <source>Instalar infraestructura</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="636"/>
-        <location filename="../services/catalog.py" line="1836"/>
+        <location filename="../services/catalog.py" line="643"/>
+        <location filename="../services/catalog.py" line="1843"/>
         <source>Cargar credenciales</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="639"/>
+        <location filename="../services/catalog.py" line="646"/>
         <source>Desplegar el último release</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="645"/>
+        <location filename="../services/catalog.py" line="652"/>
         <source>Crear tag</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="646"/>
+        <location filename="../services/catalog.py" line="653"/>
         <source>Firmar release</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="649"/>
+        <location filename="../services/catalog.py" line="656"/>
         <source>Desplegar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="668"/>
+        <location filename="../services/catalog.py" line="675"/>
         <source>Borrar clave del VPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="669"/>
+        <location filename="../services/catalog.py" line="676"/>
         <source>Borrar clave de esta máquina</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="675"/>
+        <location filename="../services/catalog.py" line="682"/>
         <source>Instalar herramientas de línea de comandos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="676"/>
-        <location filename="../services/catalog.py" line="2340"/>
+        <location filename="../services/catalog.py" line="683"/>
+        <location filename="../services/catalog.py" line="2347"/>
         <source>Instalar paquetes del SDK</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="677"/>
-        <location filename="../services/catalog.py" line="2355"/>
+        <location filename="../services/catalog.py" line="684"/>
+        <location filename="../services/catalog.py" line="2362"/>
         <source>Instalar aceleración del emulador</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="683"/>
+        <location filename="../services/catalog.py" line="690"/>
         <source>Borrar base de datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="684"/>
+        <location filename="../services/catalog.py" line="691"/>
         <source>Borrar rol de la aplicación</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="688"/>
+        <location filename="../services/catalog.py" line="695"/>
         <source>Landing</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="689"/>
+        <location filename="../services/catalog.py" line="696"/>
         <source>Google Play</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="690"/>
+        <location filename="../services/catalog.py" line="697"/>
         <source>App Store</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="691"/>
+        <location filename="../services/catalog.py" line="698"/>
         <source>Manual</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="692"/>
+        <location filename="../services/catalog.py" line="699"/>
         <source>Open Graph</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="693"/>
+        <location filename="../services/catalog.py" line="700"/>
         <source>Redes sociales</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="694"/>
+        <location filename="../services/catalog.py" line="701"/>
         <source>Press kit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="704"/>
+        <location filename="../services/catalog.py" line="711"/>
         <source>Destinos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="711"/>
+        <location filename="../services/catalog.py" line="718"/>
         <source>Claro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="712"/>
+        <location filename="../services/catalog.py" line="719"/>
         <source>Oscuro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="728"/>
-        <location filename="../services/catalog.py" line="870"/>
-        <location filename="../services/catalog.py" line="947"/>
-        <location filename="../services/catalog.py" line="1054"/>
-        <location filename="../services/catalog.py" line="1203"/>
+        <location filename="../services/catalog.py" line="735"/>
+        <location filename="../services/catalog.py" line="877"/>
+        <location filename="../services/catalog.py" line="954"/>
+        <location filename="../services/catalog.py" line="1061"/>
+        <location filename="../services/catalog.py" line="1210"/>
         <source>Apps</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="736"/>
+        <location filename="../services/catalog.py" line="743"/>
         <source>Temas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="744"/>
+        <location filename="../services/catalog.py" line="751"/>
         <source>Idiomas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="756"/>
-        <location filename="../services/catalog.py" line="918"/>
-        <location filename="../services/catalog.py" line="2218"/>
+        <location filename="../services/catalog.py" line="763"/>
+        <location filename="../services/catalog.py" line="925"/>
+        <location filename="../services/catalog.py" line="2225"/>
         <source>Emulador</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="759"/>
+        <location filename="../services/catalog.py" line="766"/>
         <source>Ninguno</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="765"/>
-        <location filename="../services/catalog.py" line="1221"/>
+        <location filename="../services/catalog.py" line="772"/>
+        <location filename="../services/catalog.py" line="1228"/>
         <source>Sacar capturas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="766"/>
-        <location filename="../services/catalog.py" line="1240"/>
+        <location filename="../services/catalog.py" line="773"/>
+        <location filename="../services/catalog.py" line="1247"/>
         <source>Revelar capturas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="770"/>
+        <location filename="../services/catalog.py" line="777"/>
         <source>Backend</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="771"/>
+        <location filename="../services/catalog.py" line="778"/>
         <source>SPA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="772"/>
+        <location filename="../services/catalog.py" line="779"/>
         <source>App de escritorio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="800"/>
+        <location filename="../services/catalog.py" line="807"/>
         <source>Levantar backend</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="801"/>
-        <location filename="../services/catalog.py" line="856"/>
-        <location filename="../services/catalog.py" line="894"/>
-        <location filename="../services/catalog.py" line="934"/>
-        <location filename="../services/catalog.py" line="972"/>
+        <location filename="../services/catalog.py" line="808"/>
+        <location filename="../services/catalog.py" line="863"/>
+        <location filename="../services/catalog.py" line="901"/>
+        <location filename="../services/catalog.py" line="941"/>
+        <location filename="../services/catalog.py" line="979"/>
         <source>Ejecutar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="805"/>
+        <location filename="../services/catalog.py" line="812"/>
         <source>Levanta el servidor FastAPI del repo, local o contra el VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="818"/>
+        <location filename="../services/catalog.py" line="825"/>
         <source>Servidor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="827"/>
-        <location filename="../services/catalog.py" line="879"/>
+        <location filename="../services/catalog.py" line="834"/>
+        <location filename="../services/catalog.py" line="886"/>
         <source>Puerto</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="837"/>
+        <location filename="../services/catalog.py" line="844"/>
         <source>Al cambiar el código</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="840"/>
+        <location filename="../services/catalog.py" line="847"/>
         <source>Con recarga</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="841"/>
+        <location filename="../services/catalog.py" line="848"/>
         <source>Sin recarga</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="855"/>
+        <location filename="../services/catalog.py" line="862"/>
         <source>Levantar SPA con Vite</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="861"/>
+        <location filename="../services/catalog.py" line="868"/>
         <source>Arranca el dev server de Vite para las apps elegidas.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="893"/>
+        <location filename="../services/catalog.py" line="900"/>
         <source>Levantar app móvil</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="897"/>
+        <location filename="../services/catalog.py" line="904"/>
         <source>Corre la app móvil en el emulador o dispositivo conectado.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="911"/>
+        <location filename="../services/catalog.py" line="918"/>
         <source>App móvil</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="921"/>
+        <location filename="../services/catalog.py" line="928"/>
         <source>El que esté corriendo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="933"/>
+        <location filename="../services/catalog.py" line="940"/>
         <source>Levantar app de escritorio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="938"/>
+        <location filename="../services/catalog.py" line="945"/>
         <source>Arranca las apps Python elegidas, con recarga al cambiar sus fuentes.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="955"/>
+        <location filename="../services/catalog.py" line="962"/>
         <source>Relanzar al detectar cambios</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="957"/>
+        <location filename="../services/catalog.py" line="964"/>
         <source>Auto-login de dev</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="970"/>
+        <location filename="../services/catalog.py" line="977"/>
         <source>Levantar todo el entorno</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="977"/>
+        <location filename="../services/catalog.py" line="984"/>
         <source>Levanta backend, SPA y apps Python a la vez, cada uno en su pestaña.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="998"/>
+        <location filename="../services/catalog.py" line="1005"/>
         <source>Crear SPA SvelteKit</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="999"/>
-        <location filename="../services/catalog.py" line="1017"/>
-        <location filename="../services/catalog.py" line="1042"/>
-        <location filename="../services/catalog.py" line="1072"/>
-        <location filename="../services/catalog.py" line="1127"/>
-        <location filename="../services/catalog.py" line="1139"/>
+        <location filename="../services/catalog.py" line="1006"/>
+        <location filename="../services/catalog.py" line="1024"/>
+        <location filename="../services/catalog.py" line="1049"/>
+        <location filename="../services/catalog.py" line="1079"/>
+        <location filename="../services/catalog.py" line="1134"/>
+        <location filename="../services/catalog.py" line="1146"/>
         <source>Compilar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1002"/>
+        <location filename="../services/catalog.py" line="1009"/>
         <source>Crea en el repo una SPA en blanco con SvelteKit, runes y UnoCSS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1016"/>
+        <location filename="../services/catalog.py" line="1023"/>
         <source>Compilar app Flutter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1020"/>
+        <location filename="../services/catalog.py" line="1027"/>
         <source>Compila la app Flutter o Flet para las plataformas marcadas: APK, web, escritorio o iOS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1030"/>
+        <location filename="../services/catalog.py" line="1037"/>
         <source>App</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1041"/>
+        <location filename="../services/catalog.py" line="1048"/>
         <source>Compilar SPA</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1045"/>
+        <location filename="../services/catalog.py" line="1052"/>
         <source>Deja compiladas las SPA del repo, listas para que el proxy las sirva.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1071"/>
+        <location filename="../services/catalog.py" line="1078"/>
         <source>Compilar ejecutable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1075"/>
+        <location filename="../services/catalog.py" line="1082"/>
         <source>Empaqueta una app Python del repo como ejecutable descargable.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1084"/>
+        <location filename="../services/catalog.py" line="1091"/>
         <source>Punto de entrada</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1090"/>
+        <location filename="../services/catalog.py" line="1097"/>
         <source>Nombre del ejecutable</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1099"/>
+        <location filename="../services/catalog.py" line="1106"/>
         <source>Empaquetado</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1102"/>
+        <location filename="../services/catalog.py" line="1109"/>
         <source>Un archivo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1103"/>
+        <location filename="../services/catalog.py" line="1110"/>
         <source>Carpeta</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1110"/>
+        <location filename="../services/catalog.py" line="1117"/>
         <source>Al ejecutarse</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1113"/>
+        <location filename="../services/catalog.py" line="1120"/>
         <source>Consola</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1114"/>
+        <location filename="../services/catalog.py" line="1121"/>
         <source>Ventana</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1130"/>
+        <location filename="../services/catalog.py" line="1137"/>
         <source>Sube el número de versión del repo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1138"/>
+        <location filename="../services/catalog.py" line="1145"/>
         <source>Borrar artefactos de build</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1142"/>
+        <location filename="../services/catalog.py" line="1149"/>
         <source>Borra cachés y basura de build del repo; en simulacro solo los lista.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1151"/>
+        <location filename="../services/catalog.py" line="1158"/>
         <source>Qué borrar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1159"/>
+        <location filename="../services/catalog.py" line="1166"/>
         <source>Pesados</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1168"/>
-        <location filename="../services/catalog.py" line="1360"/>
-        <location filename="../services/catalog.py" line="1401"/>
-        <location filename="../services/catalog.py" line="1721"/>
-        <location filename="../services/catalog.py" line="2028"/>
-        <location filename="../services/catalog.py" line="2266"/>
+        <location filename="../services/catalog.py" line="1175"/>
+        <location filename="../services/catalog.py" line="1367"/>
+        <location filename="../services/catalog.py" line="1408"/>
+        <location filename="../services/catalog.py" line="1728"/>
+        <location filename="../services/catalog.py" line="2035"/>
+        <location filename="../services/catalog.py" line="2273"/>
         <source>Modo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1171"/>
-        <location filename="../services/catalog.py" line="1363"/>
-        <location filename="../services/catalog.py" line="1404"/>
-        <location filename="../services/catalog.py" line="2031"/>
-        <location filename="../services/catalog.py" line="2269"/>
+        <location filename="../services/catalog.py" line="1178"/>
+        <location filename="../services/catalog.py" line="1370"/>
+        <location filename="../services/catalog.py" line="1411"/>
+        <location filename="../services/catalog.py" line="2038"/>
+        <location filename="../services/catalog.py" line="2276"/>
         <source>Simulacro</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1172"/>
-        <location filename="../services/catalog.py" line="2032"/>
-        <location filename="../services/catalog.py" line="2270"/>
+        <location filename="../services/catalog.py" line="1179"/>
+        <location filename="../services/catalog.py" line="2039"/>
+        <location filename="../services/catalog.py" line="2277"/>
         <source>Borrar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1190"/>
+        <location filename="../services/catalog.py" line="1197"/>
         <source>Generar íconos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1191"/>
-        <location filename="../services/catalog.py" line="1223"/>
-        <location filename="../services/catalog.py" line="1241"/>
-        <location filename="../services/catalog.py" line="1260"/>
+        <location filename="../services/catalog.py" line="1198"/>
+        <location filename="../services/catalog.py" line="1230"/>
+        <location filename="../services/catalog.py" line="1248"/>
+        <location filename="../services/catalog.py" line="1267"/>
         <source>Imágenes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1194"/>
+        <location filename="../services/catalog.py" line="1201"/>
         <source>Genera los íconos de las apps a partir del logo del repo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1226"/>
+        <location filename="../services/catalog.py" line="1233"/>
         <source>Corre la cámara del repo, que deja las capturas crudas de sus apps.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1244"/>
+        <location filename="../services/catalog.py" line="1251"/>
         <source>Convierte las capturas crudas a las medidas y formatos de cada destino.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1258"/>
+        <location filename="../services/catalog.py" line="1265"/>
         <source>Capturar y publicar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1264"/>
+        <location filename="../services/catalog.py" line="1271"/>
         <source>Saca las capturas de las apps del repo y las deja listas en cada destino.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1292"/>
+        <location filename="../services/catalog.py" line="1299"/>
         <source>Clonar repositorio de GitHub</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1293"/>
-        <location filename="../services/catalog.py" line="1321"/>
-        <location filename="../services/catalog.py" line="1334"/>
-        <location filename="../services/catalog.py" line="1375"/>
-        <location filename="../services/catalog.py" line="1420"/>
-        <location filename="../services/catalog.py" line="1434"/>
+        <location filename="../services/catalog.py" line="1300"/>
+        <location filename="../services/catalog.py" line="1328"/>
+        <location filename="../services/catalog.py" line="1341"/>
+        <location filename="../services/catalog.py" line="1382"/>
+        <location filename="../services/catalog.py" line="1427"/>
+        <location filename="../services/catalog.py" line="1441"/>
         <source>Repositorio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1298"/>
+        <location filename="../services/catalog.py" line="1305"/>
         <source>Clona un repositorio de GitHub y lo abre como pestaña.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1306"/>
+        <location filename="../services/catalog.py" line="1313"/>
         <source>URL del repositorio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1310"/>
+        <location filename="../services/catalog.py" line="1317"/>
         <source>Carpeta destino</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1312"/>
+        <location filename="../services/catalog.py" line="1319"/>
         <source>Rama</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1320"/>
+        <location filename="../services/catalog.py" line="1327"/>
         <source>Verificar con canone</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1324"/>
+        <location filename="../services/catalog.py" line="1331"/>
         <source>Dice en qué se aparta el repo de canone, sin cambiar nada.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1333"/>
+        <location filename="../services/catalog.py" line="1340"/>
         <source>Actualizar copias de canone</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1337"/>
+        <location filename="../services/catalog.py" line="1344"/>
         <source>Copia al repo los archivos de canone que se copian sin editar; en simulacro solo los nombra.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1349"/>
+        <location filename="../services/catalog.py" line="1356"/>
         <source>Archivos de las cuentas</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1352"/>
+        <location filename="../services/catalog.py" line="1359"/>
         <source>Si ya las tiene</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1353"/>
+        <location filename="../services/catalog.py" line="1360"/>
         <source>Agregar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1374"/>
+        <location filename="../services/catalog.py" line="1381"/>
         <source>Copiar archivos comunes a otros repos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1378"/>
+        <location filename="../services/catalog.py" line="1385"/>
         <source>Copia los archivos compartidos a los otros repos; en simulacro solo compara.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1387"/>
+        <location filename="../services/catalog.py" line="1394"/>
         <source>Repos destino</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1394"/>
+        <location filename="../services/catalog.py" line="1401"/>
         <source>Archivos a copiar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1364"/>
-        <location filename="../services/catalog.py" line="1405"/>
+        <location filename="../services/catalog.py" line="1858"/>
+        <source>Secretos a generar</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
+        <location filename="../services/catalog.py" line="1371"/>
+        <location filename="../services/catalog.py" line="1412"/>
         <source>Aplicar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1418"/>
+        <location filename="../services/catalog.py" line="1425"/>
         <source>Force push</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1423"/>
+        <location filename="../services/catalog.py" line="1430"/>
         <source>Empuja a origin con --force la rama de esta máquina, aunque haya divergido.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1433"/>
+        <location filename="../services/catalog.py" line="1440"/>
         <source>Force reset</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1437"/>
+        <location filename="../services/catalog.py" line="1444"/>
         <source>Descarta los commits y los cambios de esta máquina para dejarla igual a origin.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1446"/>
+        <location filename="../services/catalog.py" line="1453"/>
         <source>Si hay cambios sin commitear</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1450"/>
+        <location filename="../services/catalog.py" line="1457"/>
         <source>Preguntar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1451"/>
+        <location filename="../services/catalog.py" line="1458"/>
         <source>Descartar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1468"/>
+        <location filename="../services/catalog.py" line="1475"/>
         <source>Configurar base de datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1469"/>
-        <location filename="../services/catalog.py" line="1484"/>
-        <location filename="../services/catalog.py" line="1497"/>
-        <location filename="../services/catalog.py" line="1515"/>
-        <location filename="../services/catalog.py" line="1529"/>
-        <location filename="../services/catalog.py" line="1548"/>
-        <location filename="../services/catalog.py" line="1566"/>
-        <location filename="../services/catalog.py" line="1579"/>
-        <location filename="../services/catalog.py" line="1596"/>
-        <location filename="../services/catalog.py" line="1618"/>
-        <location filename="../services/catalog.py" line="1633"/>
-        <location filename="../services/catalog.py" line="1650"/>
+        <location filename="../services/catalog.py" line="1476"/>
+        <location filename="../services/catalog.py" line="1491"/>
+        <location filename="../services/catalog.py" line="1504"/>
+        <location filename="../services/catalog.py" line="1522"/>
+        <location filename="../services/catalog.py" line="1536"/>
+        <location filename="../services/catalog.py" line="1555"/>
+        <location filename="../services/catalog.py" line="1573"/>
+        <location filename="../services/catalog.py" line="1586"/>
+        <location filename="../services/catalog.py" line="1603"/>
+        <location filename="../services/catalog.py" line="1625"/>
+        <location filename="../services/catalog.py" line="1640"/>
+        <location filename="../services/catalog.py" line="1657"/>
         <source>Base de datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1472"/>
+        <location filename="../services/catalog.py" line="1479"/>
         <source>Deja la base local usable desde cero: creada, migrada y con sus datos mínimos.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1487"/>
+        <location filename="../services/catalog.py" line="1494"/>
         <source>Crea en la base local las extensiones de Postgres que declara el repo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1496"/>
+        <location filename="../services/catalog.py" line="1503"/>
         <source>Correr migraciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1501"/>
+        <location filename="../services/catalog.py" line="1508"/>
         <source>Genera la migración pendiente y la aplica en la base local.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1513"/>
+        <location filename="../services/catalog.py" line="1520"/>
         <source>Correr seeders</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1518"/>
+        <location filename="../services/catalog.py" line="1525"/>
         <source>Carga los datos mínimos que la app necesita para arrancar.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1528"/>
+        <location filename="../services/catalog.py" line="1535"/>
         <source>Correr mock seeders</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1532"/>
+        <location filename="../services/catalog.py" line="1539"/>
         <source>Carga datos de prueba encima de los datos base.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1546"/>
+        <location filename="../services/catalog.py" line="1553"/>
         <source>Explorar datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1552"/>
+        <location filename="../services/catalog.py" line="1559"/>
         <source>Navega esquemas, tablas y datos de la base, en solo lectura.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1565"/>
+        <location filename="../services/catalog.py" line="1572"/>
         <source>Abrir túnel a Postgres</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1569"/>
+        <location filename="../services/catalog.py" line="1576"/>
         <source>Abre un túnel SSH al Postgres del VPS para leerlo en local.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1578"/>
+        <location filename="../services/catalog.py" line="1585"/>
         <source>Respaldar base de datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1582"/>
+        <location filename="../services/catalog.py" line="1589"/>
         <source>Vuelca la base local a un archivo y rota los respaldos viejos.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1595"/>
+        <location filename="../services/catalog.py" line="1602"/>
         <source>Restaurar base de datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1599"/>
+        <location filename="../services/catalog.py" line="1606"/>
         <source>Carga un respaldo sobre la base local, reemplazando lo que haya.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1607"/>
+        <location filename="../services/catalog.py" line="1614"/>
         <source>Respaldo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1617"/>
+        <location filename="../services/catalog.py" line="1624"/>
         <source>Reconstruir base</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1621"/>
+        <location filename="../services/catalog.py" line="1628"/>
         <source>Vacía la base y vuelve a llenarla: migraciones y seeders.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1632"/>
+        <location filename="../services/catalog.py" line="1639"/>
         <source>Reiniciar historial de migraciones</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1637"/>
+        <location filename="../services/catalog.py" line="1644"/>
         <source>Reinicia el historial de migraciones: deja una sola inicial con los modelos de hoy.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1649"/>
+        <location filename="../services/catalog.py" line="1656"/>
         <source>Borrar base y rol</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1653"/>
+        <location filename="../services/catalog.py" line="1660"/>
         <source>Borra la base local de la aplicación y su rol.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1673"/>
+        <location filename="../services/catalog.py" line="1680"/>
         <source>Control del servicio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1674"/>
-        <location filename="../services/catalog.py" line="1709"/>
-        <location filename="../services/catalog.py" line="1738"/>
-        <location filename="../services/catalog.py" line="1767"/>
-        <location filename="../services/catalog.py" line="1787"/>
+        <location filename="../services/catalog.py" line="1681"/>
+        <location filename="../services/catalog.py" line="1716"/>
+        <location filename="../services/catalog.py" line="1745"/>
+        <location filename="../services/catalog.py" line="1774"/>
+        <location filename="../services/catalog.py" line="1794"/>
         <source>Despliegue</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1677"/>
+        <location filename="../services/catalog.py" line="1684"/>
         <source>Manda una acción al servicio systemd elegido en el VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1696"/>
+        <location filename="../services/catalog.py" line="1703"/>
         <source>Acción</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1708"/>
+        <location filename="../services/catalog.py" line="1715"/>
         <source>Ver logs del servicio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1712"/>
+        <location filename="../services/catalog.py" line="1719"/>
         <source>Muestra el journal del servicio elegido, de una o siguiéndolo en vivo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1724"/>
+        <location filename="../services/catalog.py" line="1731"/>
         <source>Seguir en vivo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1725"/>
+        <location filename="../services/catalog.py" line="1732"/>
         <source>De una</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1737"/>
+        <location filename="../services/catalog.py" line="1744"/>
         <source>Publicar versión</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1741"/>
+        <location filename="../services/catalog.py" line="1748"/>
         <source>Crea el tag siguiente, espera a release.yml, firma el release y lo despliega.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1750"/>
+        <location filename="../services/catalog.py" line="1757"/>
         <source>Sube</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1753"/>
+        <location filename="../services/catalog.py" line="1760"/>
         <source>Major</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1754"/>
+        <location filename="../services/catalog.py" line="1761"/>
         <source>Minor</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1755"/>
+        <location filename="../services/catalog.py" line="1762"/>
         <source>Patch</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1766"/>
+        <location filename="../services/catalog.py" line="1773"/>
         <source>Desplegar versión</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1770"/>
+        <location filename="../services/catalog.py" line="1777"/>
         <source>Instala en el VPS un release ya firmado.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1786"/>
+        <location filename="../services/catalog.py" line="1793"/>
         <source>Subir artefacto al VPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1790"/>
+        <location filename="../services/catalog.py" line="1797"/>
         <source>Copia el artefacto compilado al VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1803"/>
+        <location filename="../services/catalog.py" line="1810"/>
         <source>Configurar VPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1804"/>
-        <location filename="../services/catalog.py" line="1823"/>
-        <location filename="../services/catalog.py" line="1837"/>
-        <location filename="../services/catalog.py" line="1868"/>
-        <location filename="../services/catalog.py" line="1884"/>
-        <location filename="../services/catalog.py" line="1897"/>
-        <location filename="../services/catalog.py" line="1931"/>
-        <location filename="../services/catalog.py" line="1944"/>
-        <location filename="../services/catalog.py" line="1958"/>
-        <location filename="../services/catalog.py" line="1974"/>
-        <location filename="../services/catalog.py" line="1987"/>
-        <location filename="../services/catalog.py" line="2003"/>
+        <location filename="../services/catalog.py" line="1811"/>
+        <location filename="../services/catalog.py" line="1830"/>
+        <location filename="../services/catalog.py" line="1844"/>
+        <location filename="../services/catalog.py" line="1875"/>
+        <location filename="../services/catalog.py" line="1891"/>
+        <location filename="../services/catalog.py" line="1904"/>
+        <location filename="../services/catalog.py" line="1938"/>
+        <location filename="../services/catalog.py" line="1951"/>
+        <location filename="../services/catalog.py" line="1965"/>
+        <location filename="../services/catalog.py" line="1981"/>
+        <location filename="../services/catalog.py" line="1994"/>
+        <location filename="../services/catalog.py" line="2010"/>
         <source>VPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1807"/>
+        <location filename="../services/catalog.py" line="1814"/>
         <source>Deja el VPS listo con los programas de canone: paquetes, swap, install.py, credenciales y el último release.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1821"/>
+        <location filename="../services/catalog.py" line="1828"/>
         <source>Instalar paquetes base</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1826"/>
+        <location filename="../services/catalog.py" line="1833"/>
         <source>Instala en el VPS los paquetes que pide canone para este repo, y uv.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1840"/>
+        <location filename="../services/catalog.py" line="1847"/>
         <source>Pasa las credenciales de config.env a credentials.py de canone.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1850"/>
-        <source>Secretos vacíos</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../services/catalog.py" line="1853"/>
-        <source>Exigir</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../services/catalog.py" line="1854"/>
-        <source>Generar</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../services/catalog.py" line="1867"/>
+        <location filename="../services/catalog.py" line="1874"/>
         <source>Código de instalación</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1871"/>
+        <location filename="../services/catalog.py" line="1878"/>
         <source>Carga en el VPS el código con que se registra el superadministrador; si está vacío, genera uno y lo muestra.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1887"/>
+        <location filename="../services/catalog.py" line="1894"/>
         <source>Borra del known_hosts de esta máquina la huella vieja del VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1896"/>
+        <location filename="../services/catalog.py" line="1903"/>
         <source>Actualizar Cloudflare</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1900"/>
+        <location filename="../services/catalog.py" line="1907"/>
         <source>Apunta el host de cada pieza web de la app a la IP del VPS, a la pública de esta máquina o a otra escrita, sin el proxy de Cloudflare.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1910"/>
+        <location filename="../services/catalog.py" line="1917"/>
         <source>IP</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1913"/>
+        <location filename="../services/catalog.py" line="1920"/>
         <source>La del VPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1914"/>
+        <location filename="../services/catalog.py" line="1921"/>
         <source>La pública de esta máquina</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1915"/>
+        <location filename="../services/catalog.py" line="1922"/>
         <source>Otra</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1921"/>
+        <location filename="../services/catalog.py" line="1928"/>
         <source>Otra IP</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1929"/>
+        <location filename="../services/catalog.py" line="1936"/>
         <source>Health check</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1934"/>
+        <location filename="../services/catalog.py" line="1941"/>
         <source>Comprueba que el VPS responde y el servicio está arriba.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1943"/>
+        <location filename="../services/catalog.py" line="1950"/>
         <source>Ver eventos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1947"/>
+        <location filename="../services/catalog.py" line="1954"/>
         <source>Muestra los últimos eventos, el último respaldo y el disco del servidor.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1957"/>
+        <location filename="../services/catalog.py" line="1964"/>
         <source>Ejecutar comando</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1961"/>
+        <location filename="../services/catalog.py" line="1968"/>
         <source>Corre un comando suelto en el VPS y trae su salida.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1965"/>
+        <location filename="../services/catalog.py" line="1972"/>
         <source>Comando</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1973"/>
+        <location filename="../services/catalog.py" line="1980"/>
         <source>Abrir sesión SSH</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1977"/>
+        <location filename="../services/catalog.py" line="1984"/>
         <source>Abre una sesión SSH interactiva contra el VPS del repo.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1986"/>
+        <location filename="../services/catalog.py" line="1993"/>
         <source>Quitar acceso SSH</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1990"/>
+        <location filename="../services/catalog.py" line="1997"/>
         <source>Quita del VPS la clave pública con la que entra esta máquina.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2002"/>
+        <location filename="../services/catalog.py" line="2009"/>
         <source>Vaciar VPS</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2006"/>
+        <location filename="../services/catalog.py" line="2013"/>
         <source>Deshace en el VPS lo que instaló canone: la base, la app o la máquina, salvo los paquetes; en simulacro solo lo lista.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2016"/>
+        <location filename="../services/catalog.py" line="2023"/>
         <source>Nivel</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2019"/>
+        <location filename="../services/catalog.py" line="2026"/>
         <source>La base</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2020"/>
+        <location filename="../services/catalog.py" line="2027"/>
         <source>La app</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2021"/>
+        <location filename="../services/catalog.py" line="2028"/>
         <source>La máquina</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2050"/>
+        <location filename="../services/catalog.py" line="2057"/>
         <source>Instalar imagen de sistema</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2051"/>
-        <location filename="../services/catalog.py" line="2076"/>
-        <location filename="../services/catalog.py" line="2112"/>
-        <location filename="../services/catalog.py" line="2204"/>
-        <location filename="../services/catalog.py" line="2233"/>
+        <location filename="../services/catalog.py" line="2058"/>
+        <location filename="../services/catalog.py" line="2083"/>
+        <location filename="../services/catalog.py" line="2119"/>
+        <location filename="../services/catalog.py" line="2211"/>
+        <location filename="../services/catalog.py" line="2240"/>
         <source>Emuladores</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2055"/>
+        <location filename="../services/catalog.py" line="2062"/>
         <source>Descarga del SDK la máquina virtual (system image) que va a correr el AVD.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2064"/>
+        <location filename="../services/catalog.py" line="2071"/>
         <source>Máquina virtual</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2075"/>
+        <location filename="../services/catalog.py" line="2082"/>
         <source>Crear AVD</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2080"/>
+        <location filename="../services/catalog.py" line="2087"/>
         <source>Crea el dispositivo virtual eligiéndolo del catálogo del SDK.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2088"/>
+        <location filename="../services/catalog.py" line="2095"/>
         <source>Dispositivo</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2101"/>
+        <location filename="../services/catalog.py" line="2108"/>
         <source>Máquina virtual (instaladas)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2111"/>
+        <location filename="../services/catalog.py" line="2118"/>
         <source>Abrir emulador</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2116"/>
+        <location filename="../services/catalog.py" line="2123"/>
         <source>Arranca uno de los AVD ya creados y sigue su salida.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2124"/>
-        <location filename="../services/catalog.py" line="2247"/>
+        <location filename="../services/catalog.py" line="2131"/>
+        <location filename="../services/catalog.py" line="2254"/>
         <source>AVD</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2131"/>
+        <location filename="../services/catalog.py" line="2138"/>
         <source>Arranque</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2135"/>
+        <location filename="../services/catalog.py" line="2142"/>
         <source>Normal</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2136"/>
+        <location filename="../services/catalog.py" line="2143"/>
         <source>Borrar datos</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2150"/>
+        <location filename="../services/catalog.py" line="2157"/>
         <source>Opciones de arranque</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2152"/>
+        <location filename="../services/catalog.py" line="2159"/>
         <source>Arranque en frío (ignora el snapshot)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2155"/>
+        <location filename="../services/catalog.py" line="2162"/>
         <source>No guardar el snapshot al cerrar</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2158"/>
+        <location filename="../services/catalog.py" line="2165"/>
         <source>Sin ventana (headless, solo adb)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2169"/>
+        <location filename="../services/catalog.py" line="2176"/>
         <source>GPU</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2171"/>
+        <location filename="../services/catalog.py" line="2178"/>
         <source>Host (GPU real)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2172"/>
+        <location filename="../services/catalog.py" line="2179"/>
         <source>Software (swiftshader)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2186"/>
+        <location filename="../services/catalog.py" line="2193"/>
         <source>Flags extra del emulador</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2203"/>
+        <location filename="../services/catalog.py" line="2210"/>
         <source>Apagar emulador</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2208"/>
+        <location filename="../services/catalog.py" line="2215"/>
         <source>Apaga por adb el emulador indicado.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2232"/>
+        <location filename="../services/catalog.py" line="2239"/>
         <source>Borrar AVDs e imágenes</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2237"/>
+        <location filename="../services/catalog.py" line="2244"/>
         <source>Borra AVD y máquinas virtuales; en simulacro solo los lista con su tamaño.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2257"/>
+        <location filename="../services/catalog.py" line="2264"/>
         <source>Máquinas virtuales</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2282"/>
+        <location filename="../services/catalog.py" line="2289"/>
         <source>Instalar SDK de Android</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2283"/>
-        <location filename="../services/catalog.py" line="2318"/>
-        <location filename="../services/catalog.py" line="2341"/>
-        <location filename="../services/catalog.py" line="2356"/>
-        <location filename="../services/catalog.py" line="2373"/>
+        <location filename="../services/catalog.py" line="2290"/>
+        <location filename="../services/catalog.py" line="2325"/>
+        <location filename="../services/catalog.py" line="2348"/>
+        <location filename="../services/catalog.py" line="2363"/>
+        <location filename="../services/catalog.py" line="2380"/>
         <source>SDKs</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2287"/>
+        <location filename="../services/catalog.py" line="2294"/>
         <source>Deja esta máquina lista para compilar y emular Android.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2300"/>
-        <location filename="../services/catalog.py" line="2331"/>
-        <location filename="../services/catalog.py" line="2386"/>
+        <location filename="../services/catalog.py" line="2307"/>
+        <location filename="../services/catalog.py" line="2338"/>
+        <location filename="../services/catalog.py" line="2393"/>
         <source>Directorio</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2316"/>
+        <location filename="../services/catalog.py" line="2323"/>
         <source>Instalar command-line tools</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2322"/>
+        <location filename="../services/catalog.py" line="2329"/>
         <source>Descarga las command-line tools del SDK y las deja en el entorno del usuario.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2345"/>
+        <location filename="../services/catalog.py" line="2352"/>
         <source>Acepta las licencias e instala en el SDK los paquetes que falten.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2360"/>
+        <location filename="../services/catalog.py" line="2367"/>
         <source>Verifica la virtualización que el emulador necesita, y en Windows instala el driver.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2371"/>
+        <location filename="../services/catalog.py" line="2378"/>
         <source>Instalar SDK de Flutter</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2377"/>
+        <location filename="../services/catalog.py" line="2384"/>
         <source>Descarga el canal stable de Flutter y lo deja en el entorno del usuario.</source>
         <translation type="unfinished"></translation>
     </message>
@@ -4426,6 +4421,11 @@ aparece aquí</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
+        <location filename="../services/command_docs.py" line="955"/>
+        <source>Crea los secretos marcados y los guarda en config.env. Se ofrecen los vacíos de health_token, page_token_key, refresh_key y vapid_key que declara Settings. Si el VPS ya tenía otros, los reemplaza: con otra refresh_key las apps vuelven a entrar, y con otra vapid_key la web se vuelve a suscribir.</source>
+        <translation type="unfinished"></translation>
+    </message>
+    <message>
         <location filename="../services/command_docs.py" line="989"/>
         <source>Carga en el VPS el código con que se registra el superadministrador; si está vacío, genera uno y lo muestra.</source>
         <translation type="unfinished"></translation>
@@ -4624,11 +4624,6 @@ aparece aquí</source>
     <message>
         <location filename="../services/command_docs.py" line="950"/>
         <source>Si Settings declara setup_code y SETUP_CODE está vacío, genera uno de 6 dígitos, lo guarda en config.env y lo muestra.</source>
-        <translation type="unfinished"></translation>
-    </message>
-    <message>
-        <location filename="../services/command_docs.py" line="955"/>
-        <source>Con «Generar», crea los que estén vacíos de HEALTH_TOKEN, PAGE_TOKEN_KEY, REFRESH_KEY y VAPID_KEY, de los que declara Settings, y los guarda en config.env. Si el VPS ya tenía otros, los reemplaza: con otra REFRESH_KEY las apps vuelven a entrar, y con otra VAPID_KEY la web se vuelve a suscribir.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
@@ -7988,112 +7983,112 @@ Revisa que la virtualizacion (VT-x o AMD-V) este activa en la BIOS y que el modu
 <context>
     <name>vps_setup</name>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="110"/>
+        <location filename="../services/tasks/vps_setup.py" line="89"/>
         <source>Contraseña de {0} (la de sudo)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="115"/>
+        <location filename="../services/tasks/vps_setup.py" line="94"/>
         <source>Sin la contraseña de sudo no se puede administrar el VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="136"/>
+        <location filename="../services/tasks/vps_setup.py" line="115"/>
         <source>{0} todavía no entra: se usa {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="142"/>
+        <location filename="../services/tasks/vps_setup.py" line="121"/>
         <source>No se entra al VPS ni como {0} ni como {1} con la llave {2}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="157"/>
+        <location filename="../services/tasks/vps_setup.py" line="136"/>
         <source>La cuenta que administra todavía no existe: corre «Configurar VPS» con «Instalar infraestructura» primero.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="216"/>
+        <location filename="../services/tasks/vps_setup.py" line="195"/>
         <source>La llave ya entra al VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="219"/>
+        <location filename="../services/tasks/vps_setup.py" line="198"/>
         <source>Contraseña de {0} (la del proveedor)</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="226"/>
+        <location filename="../services/tasks/vps_setup.py" line="205"/>
         <source>Sin la contraseña de root no se puede poner la llave en el VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="242"/>
+        <location filename="../services/tasks/vps_setup.py" line="221"/>
         <source>La llave quedó en {0}, pero no entra con ella.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="247"/>
+        <location filename="../services/tasks/vps_setup.py" line="226"/>
         <source>La llave {0} entra como {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="266"/>
+        <location filename="../services/tasks/vps_setup.py" line="245"/>
         <source>Paquetes de canone para este repo: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="279"/>
+        <location filename="../services/tasks/vps_setup.py" line="258"/>
         <source>Paquetes y uv listos: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="314"/>
+        <location filename="../services/tasks/vps_setup.py" line="293"/>
         <source>Memoria de Valkey: {0}, el {1} % de la RAM del VPS.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="337"/>
+        <location filename="../services/tasks/vps_setup.py" line="316"/>
         <source>{0} es la misma llave que {1}: hace falta otra, guardada fuera de esta máquina.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="361"/>
+        <location filename="../services/tasks/vps_setup.py" line="340"/>
         <source>{0} instalado en {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="395"/>
+        <location filename="../services/tasks/vps_setup.py" line="374"/>
         <source>{0} credenciales cargadas.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="426"/>
+        <location filename="../services/tasks/vps_setup.py" line="401"/>
         <source>Secretos generados y guardados en config.env: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="444"/>
+        <location filename="../services/tasks/vps_setup.py" line="419"/>
         <source>Código de instalación: {0}</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="467"/>
+        <location filename="../services/tasks/vps_setup.py" line="442"/>
         <source>Código de instalación cargado en {0}: el servidor se reinició.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="491"/>
+        <location filename="../services/tasks/vps_setup.py" line="466"/>
         <source>VPS vaciado: {0}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="493"/>
+        <location filename="../services/tasks/vps_setup.py" line="468"/>
         <source>VPS {0} vaciado: {1}.</source>
         <translation type="unfinished"></translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="546"/>
+        <location filename="../services/tasks/vps_setup.py" line="521"/>
         <source>VPS {0} configurado.</source>
         <translation type="unfinished"></translation>
     </message>

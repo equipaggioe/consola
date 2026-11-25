@@ -954,10 +954,10 @@ DOCS: dict[str, CommandDoc] = {
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",
-                "Con «Generar», crea los que estén vacíos de HEALTH_TOKEN, PAGE_TOKEN_KEY, "
-                "REFRESH_KEY y VAPID_KEY, de los que declara Settings, y los guarda en "
-                "config.env. Si el VPS ya tenía otros, los reemplaza: con otra REFRESH_KEY las "
-                "apps vuelven a entrar, y con otra VAPID_KEY la web se vuelve a suscribir.",
+                "Crea los secretos marcados y los guarda en config.env. Se ofrecen los vacíos "
+                "de health_token, page_token_key, refresh_key y vapid_key que declara Settings. "
+                "Si el VPS ya tenía otros, los reemplaza: con otra refresh_key las apps vuelven "
+                "a entrar, y con otra vapid_key la web se vuelve a suscribir.",
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",

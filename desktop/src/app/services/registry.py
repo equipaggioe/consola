@@ -68,6 +68,10 @@ class AxisDef:
     # not chosen unless two are alive, and requiring it would leave the
     # button amber when there is none.
     allow_empty: bool = False
+    # what is checked saves for the next run. Not for what one wants
+    # once: the secrets to generate, checked again on a later run, would
+    # replace those in use.
+    remembered: bool = True
     # types of `services/targets.py` whose names are the values
     discover: tuple[str, ...] = ()
     # QUERIED catalog that fills this axis
@@ -282,6 +286,8 @@ class AxisDef:
         # app that is there.
         if self.source.startswith("icon"):
             return QCoreApplication.translate("AxisDef", "con ícono a cargo de Consola")
+        if self.source.startswith("empty"):
+            return QCoreApplication.translate("AxisDef", "vacío en config.env")
         if self.source.startswith("releases"):
             return QCoreApplication.translate("AxisDef", "firmado en GitHub")
         return QCoreApplication.translate("AxisDef", "en esta máquina")

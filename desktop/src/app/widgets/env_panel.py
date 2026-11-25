@@ -269,6 +269,24 @@ class EnvPanel(QWidget):
         self.values_changed.emit(self.values())
         self.reloaded.emit()
 
+    def take_generated(self) -> None:
+        """Fill the empty rows with what a task wrote in the file.
+
+        For a task that failed after writing: without this, Save would
+        write them empty. Unlike `reload`, unsaved edits stay.
+        """
+        text = self._read_file()
+        saved = envfile.parse_env(text or "")
+        for key, row in self.rows.items():
+            if saved.get(key) and not row.value():
+                row.blockSignals(True)
+                row.set_value(saved[key])
+                row.blockSignals(False)
+        self._sync_file_bar(text)
+        self._refresh_defaults()
+        self.values_changed.emit(self.values())
+        self.reloaded.emit()
+
     def reload_machine(self) -> None:
         """Pass on the machine keys the machine section saved.
 

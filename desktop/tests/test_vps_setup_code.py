@@ -113,7 +113,7 @@ def test_the_credentials_carry_the_domain_unmasked(
 def test_empty_secrets_are_required_or_generated(
     monkeypatch: pytest.MonkeyPatch, tmp_path: Path
 ) -> None:
-    """Empty ones stop; with `generate` each gets its format, once."""
+    """Empty ones stop; the chosen get a value of their format, once."""
     _repo(tmp_path)
     config_py = tmp_path / "server" / "src" / "app" / "config.py"
     extra = "".join(f"    {f}: str\n" for f in ("page_token_key", "refresh_key", "vapid_key"))
@@ -124,19 +124,27 @@ def test_empty_secrets_are_required_or_generated(
         vps_setup.load_credentials(_context(tmp_path, [], **values))
     assert sent == []
 
-    vps_setup.load_credentials(_context(tmp_path, [], **values), generate=True)
+    # One chosen: it is kept, and the others still stop.
+    with pytest.raises(TaskError, match="PAGE_TOKEN_KEY, VAPID_KEY"):
+        vps_setup.load_credentials(_context(tmp_path, [], **values), ["refresh_key"])
+    chosen = envfile.load_config(str(tmp_path))["REFRESH_KEY"]
+    values["REFRESH_KEY"] = chosen
+
+    every = list(canone.GENERATED)
+    vps_setup.load_credentials(_context(tmp_path, [], **values), every)
     kept = envfile.load_config(str(tmp_path))
     # 32 bytes each; Fernet reads its key with padding.
     assert len(base64.urlsafe_b64decode(kept["PAGE_TOKEN_KEY"])) == 32
     for key in ("REFRESH_KEY", "VAPID_KEY"):
         assert len(base64.urlsafe_b64decode(kept[key] + "=")) == 32
-    # The written one stays.
+    # What has a value stays.
     assert "health_token=mine\n" in sent[0]
+    assert kept["REFRESH_KEY"] == chosen
     for field in ("page_token_key", "refresh_key", "vapid_key"):
         assert f"{field}={kept[field.upper()]}\n" in sent[0]
 
     # A second load sends the same.
-    vps_setup.load_credentials(_context(tmp_path, [], **(kept | values)), generate=True)
+    vps_setup.load_credentials(_context(tmp_path, [], **(kept | values)), every)
     assert sent[1] == sent[0]
 
 

@@ -16,9 +16,8 @@ provider's panel set or `install_key` added with root's password. After
 
 from __future__ import annotations
 
-import base64
 import secrets
-from collections.abc import Callable
+from collections.abc import Sequence
 from dataclasses import dataclass
 from pathlib import Path
 
@@ -35,26 +34,6 @@ REMOTE_DIR = "/tmp/consola-canone"
 SUDO_KEY = "SUDO_PASSWORD"
 ROOT_PASSWORD_KEY = "ROOT_PASSWORD"
 AUTHORIZE = "authorize.py"
-
-
-def _fernet_key() -> str:
-    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
-
-
-def _token() -> str:
-    """Return 32 random bytes in base64url, without padding."""
-    return secrets.token_urlsafe(32)
-
-
-# The secrets of canone's `Settings` that are only random, and their
-# format (autenticacion.md and fastapi.md of canone). `equipaggio_key`
-# is not here: Equipaggio gives it.
-GENERATED: dict[str, Callable[[], str]] = {
-    "health_token": _token,
-    "page_token_key": _fernet_key,
-    "refresh_key": _token,
-    "vapid_key": _token,
-}
 # canone's programs run with it, and an image may come without it.
 PYTHON = (
     "command -v python3 >/dev/null || { apt-get update -qq && "
@@ -364,19 +343,19 @@ def install_infra(ctx: TaskContext) -> None:
     )
 
 
-def load_credentials(ctx: TaskContext, generate: bool = False) -> None:
+def load_credentials(ctx: TaskContext, generate: Sequence[str] = ()) -> None:
     """Pass the `config.env` credentials to `credentials.py`, by stdin.
 
     One `field=value` line per `Settings` field, plus `restic_password`
     and, in a private repo, `github_token` (ADR-0063). It stops before
     sending if one is missing or if `config.env` has a key in no source.
     `install.py` does not install `credentials.py`, so it uploads each
-    time. With `generate` the empty random secrets get a value first
+    time. The empty secrets named in `generate` get a value first
     (ADR-0097).
     """
     _, app = canone.origin(ctx.root)
     if generate:
-        generate_secrets(ctx)
+        generate_secrets(ctx, generate)
     if fields.SETUP_CODE in fields.settings_fields(ctx.root / ctx.config.get("SERVER_DIR")):
         setup_code(ctx)
     lines = canone.credential_lines(ctx.root, ctx.config)
@@ -406,18 +385,14 @@ def _keep(ctx: TaskContext, new: dict[str, str]) -> None:
     ctx.config.values.update(new)
 
 
-def generate_secrets(ctx: TaskContext) -> None:
-    """Give a value to each empty secret of `GENERATED` declared.
+def generate_secrets(ctx: TaskContext, chosen: Sequence[str]) -> None:
+    """Give a value to each chosen secret that is still empty.
 
     They go to `config.env`, so every load sends the same. The log has
     their names only.
     """
-    declared = fields.settings_fields(ctx.root / ctx.config.get("SERVER_DIR"))
-    new = {
-        field.upper(): create()
-        for field, create in GENERATED.items()
-        if field in declared and not ctx.config.get(field.upper())
-    }
+    empty = canone.empty_secrets(ctx.root, ctx.config)
+    new = {field.upper(): canone.GENERATED[field]() for field in empty if field in chosen}
     if not new:
         return
     ctx.guard(*new.values())

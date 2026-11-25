@@ -476,10 +476,12 @@ class ParamsPanel(QWidget):
         if note is not None:
             lay.removeWidget(note)
             note.deleteLater()
+        # What is not saved has only its boxes to keep what is checked.
+        kept: list[str] = [] if axis.remembered else self.selection(axis.name)
         self._checks[axis.name] = {}
         for value in axis.values:
             check = QCheckBox(axis.text_of(value))
-            check.setChecked(axis.starts_checked(value))
+            check.setChecked(axis.starts_checked(value) or value in kept)
             check.setCursor(Qt.CursorShape.PointingHandCursor)
             check.stateChanged.connect(self._refresh_summary)
             self._checks[axis.name][value] = check
@@ -1055,9 +1057,12 @@ class ParamsPanel(QWidget):
         return text.strip()
 
     def state(self) -> dict[str, Any]:
-        """Return what is checked right now, in serializable form."""
+        """Return what is saved of what is checked, serializable."""
+        remembered = {a.name for a in self.capability.axes if a.remembered}
         return {
-            "variants": {name: self.selection(name) for name in self._checks},
+            "variants": {
+                name: self.selection(name) for name in self._checks if name in remembered
+            },
             "steps": [s.id for s in self._checked_steps()],
             "options": {name: self._option_payload(name) for name in self._options},
             "fields": {name: self.field_value(name) for name in self._fields},

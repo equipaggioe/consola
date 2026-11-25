@@ -14,6 +14,8 @@ from __future__ import annotations
 import ast
 import base64
 import re
+import secrets
+from collections.abc import Callable
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -642,6 +644,32 @@ def credential_files(server: Path, config: Config, *, owner: bool = False) -> di
     if owner:
         files["app_database_url"] = owner_url(config.require("DATABASE_URL"))
     return files
+
+
+def _fernet_key() -> str:
+    return base64.urlsafe_b64encode(secrets.token_bytes(32)).decode("ascii")
+
+
+def _token() -> str:
+    """Return 32 random bytes in base64url, without padding."""
+    return secrets.token_urlsafe(32)
+
+
+# The secrets of canone's `Settings` that are only random, and their
+# format (autenticacion.md and fastapi.md of canone). `equipaggio_key`
+# is not here: Equipaggio gives it.
+GENERATED: dict[str, Callable[[], str]] = {
+    "health_token": _token,
+    "page_token_key": _fernet_key,
+    "refresh_key": _token,
+    "vapid_key": _token,
+}
+
+
+def empty_secrets(root: Path, config: Config) -> list[str]:
+    """Return the `GENERATED` fields the repo declares and has empty."""
+    declared = fields.settings_fields(root / config.get("SERVER_DIR"))
+    return [f for f in GENERATED if f in declared and not config.get(f.upper())]
 
 
 def credential_lines(root: Path, config: Config) -> str:
