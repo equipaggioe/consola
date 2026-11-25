@@ -149,8 +149,8 @@
     </message>
     <message>
         <location filename="../services/registry.py" line="290"/>
-        <source>vacío en config.env</source>
-        <translation>empty in config.env</translation>
+        <source>declarado en Settings</source>
+        <translation>declared in Settings</translation>
     </message>
     <message>
         <location filename="../services/registry.py" line="292"/>
@@ -655,130 +655,130 @@ Install «PySide6-Addons» to see the page in here.</translation>
 <context>
     <name>EnvPanel</name>
     <message>
-        <location filename="../widgets/env_panel.py" line="132"/>
+        <location filename="../widgets/env_panel.py" line="133"/>
         <source>Importar desde archivo…</source>
         <translation>Import from file…</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="137"/>
-        <location filename="../widgets/env_panel.py" line="366"/>
+        <location filename="../widgets/env_panel.py" line="138"/>
+        <location filename="../widgets/env_panel.py" line="373"/>
         <source>Crear archivo</source>
         <translation>Create file</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="141"/>
+        <location filename="../widgets/env_panel.py" line="142"/>
         <source>Recargar</source>
         <translation>Reload</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="144"/>
+        <location filename="../widgets/env_panel.py" line="145"/>
         <source>Descarta los cambios sin guardar, relee el archivo
 y vuelve a consultar los catálogos de los parámetros</source>
         <translation>Discards unsaved changes, rereads the file
 and queries the parameter catalogs again</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="152"/>
+        <location filename="../widgets/env_panel.py" line="153"/>
         <source>Guardar</source>
         <translation>Save</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="155"/>
+        <location filename="../widgets/env_panel.py" line="156"/>
         <source>Escribe .consola/config.env con los valores actuales</source>
         <translation>Writes .consola/config.env with the current values</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="342"/>
+        <location filename="../widgets/env_panel.py" line="349"/>
         <source>ilegible</source>
         <translation>unreadable</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="344"/>
+        <location filename="../widgets/env_panel.py" line="351"/>
         <source>no existe</source>
         <translation>does not exist</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="345"/>
+        <location filename="../widgets/env_panel.py" line="352"/>
         <source>No hay {0} todavía. Pulsa «Crear archivo» para generarlo con todas las claves.</source>
         <translation>There is no {0} yet. Press «Create file» to generate it with all the keys.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="350"/>
+        <location filename="../widgets/env_panel.py" line="357"/>
         <source>listo</source>
         <translation>ready</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="352"/>
+        <location filename="../widgets/env_panel.py" line="359"/>
         <source>desactualizado</source>
         <translation>outdated</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="355"/>
+        <location filename="../widgets/env_panel.py" line="362"/>
         <source>no se puede guardar</source>
         <translation>cannot be saved</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="356"/>
+        <location filename="../widgets/env_panel.py" line="363"/>
         <source>No se escribe {0} mientras config.py tenga el error de arriba.</source>
         <translation>{0} is not written while config.py has the error above.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="368"/>
+        <location filename="../widgets/env_panel.py" line="375"/>
         <source>Actualizar archivo</source>
         <translation>Update file</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="371"/>
+        <location filename="../widgets/env_panel.py" line="378"/>
         <source>Escribe el archivo con todas las claves del esquema, en su orden y con sus comentarios, conservando los valores</source>
         <translation>Writes the file with all the schema&apos;s keys, in their order and with their comments, keeping the values</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="384"/>
+        <location filename="../widgets/env_panel.py" line="391"/>
         <source>Importa claves conocidas desde otro archivo .env</source>
         <translation>Imports known keys from another .env file</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="391"/>
+        <location filename="../widgets/env_panel.py" line="398"/>
         <source>{0} no tiene la forma actual del esquema.</source>
         <translation>{0} does not have the current shape of the schema.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="396"/>
+        <location filename="../widgets/env_panel.py" line="403"/>
         <source> Al escribirlo se borran: {0}.</source>
         <translation> Writing it removes: {0}.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="411"/>
+        <location filename="../widgets/env_panel.py" line="418"/>
         <source>Importar variables desde…</source>
         <translation>Import variables from…</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="413"/>
+        <location filename="../widgets/env_panel.py" line="420"/>
         <source>Archivos .env (*.env);;Todos los archivos (*)</source>
         <translation>.env files (*.env);;All files (*)</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="428"/>
+        <location filename="../widgets/env_panel.py" line="435"/>
         <source>{0} no tiene claves reconocidas.</source>
         <translation>{0} has no recognized keys.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="439"/>
+        <location filename="../widgets/env_panel.py" line="446"/>
         <source>Se importaron {0} claves de {1}. Revisa y guarda para escribir el archivo.</source>
         <translation>{0} keys were imported from {1}. Review and save to write the file.</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="461"/>
+        <location filename="../widgets/env_panel.py" line="468"/>
         <source>No se guardó: {0}</source>
         <translation>Not saved: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="470"/>
+        <location filename="../widgets/env_panel.py" line="478"/>
         <source>Guardado {0}</source>
         <translation>Saved {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/env_panel.py" line="473"/>
+        <location filename="../widgets/env_panel.py" line="481"/>
         <source>Se borraron de config.env: {0}.</source>
         <translation>Removed from config.env: {0}.</translation>
     </message>
@@ -889,7 +889,7 @@ and queries the parameter catalogs again</translation>
         <location filename="../widgets/params_panel.py" line="426"/>
         <location filename="../widgets/params_panel.py" line="459"/>
         <location filename="../widgets/params_panel.py" line="804"/>
-        <location filename="../widgets/params_panel.py" line="1307"/>
+        <location filename="../widgets/params_panel.py" line="1309"/>
         <source>leyendo el catálogo…</source>
         <translation>reading the catalog…</translation>
     </message>
@@ -967,7 +967,7 @@ and queries the parameter catalogs again</translation>
     </message>
     <message>
         <location filename="../widgets/params_panel.py" line="952"/>
-        <location filename="../widgets/params_panel.py" line="1385"/>
+        <location filename="../widgets/params_panel.py" line="1387"/>
         <source>Corre sin tocar nada: solo muestra qué haría</source>
         <translation>Runs without touching anything: it only shows what it would do</translation>
     </message>
@@ -977,37 +977,37 @@ and queries the parameter catalogs again</translation>
         <translation>Run</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1321"/>
+        <location filename="../widgets/params_panel.py" line="1323"/>
         <source>en este repo</source>
         <translation>in this repo</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1329"/>
+        <location filename="../widgets/params_panel.py" line="1331"/>
         <source>no hay {0} {1}</source>
         <translation>there is no {0} {1}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1336"/>
+        <location filename="../widgets/params_panel.py" line="1338"/>
         <source>escribe {0}</source>
         <translation>type {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1343"/>
+        <location filename="../widgets/params_panel.py" line="1345"/>
         <source>elige {0}</source>
         <translation>choose {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1352"/>
+        <location filename="../widgets/params_panel.py" line="1354"/>
         <source>selecciona al menos un valor en {0}</source>
         <translation>select at least one value in {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1358"/>
+        <location filename="../widgets/params_panel.py" line="1360"/>
         <source>selecciona al menos un paso</source>
         <translation>select at least one step</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1363"/>
+        <location filename="../widgets/params_panel.py" line="1365"/>
         <source>faltan claves de configuración: {0}</source>
         <translation>configuration keys are missing: {0}</translation>
     </message>
@@ -1206,108 +1206,108 @@ shows here</translation>
         <translation>no locks</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1246"/>
+        <location filename="../widgets/tab_panel.py" line="1248"/>
         <source>Bloqueado: {0} toca {1} y este repo lo tiene protegido. El seguro se quita en Configuracion, seccion Seguridad.</source>
         <translation>Blocked: {0} touches {1} and this repo has it protected. The lock is removed in Settings, Security section.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1263"/>
+        <location filename="../widgets/tab_panel.py" line="1265"/>
         <source>Cancelado: {0} no llego a correr sobre {1}.</source>
         <translation>Canceled: {0} did not get to run on {1}.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1309"/>
+        <location filename="../widgets/tab_panel.py" line="1311"/>
         <source>{0} apps marcadas: una pestaña por cada una ({1}).</source>
         <translation>{0} apps checked: one tab for each ({1}).</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1342"/>
+        <location filename="../widgets/tab_panel.py" line="1344"/>
         <source>{0}: cada paso va a su propia pestaña.</source>
         <translation>{0}: each step goes to its own tab.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1352"/>
+        <location filename="../widgets/tab_panel.py" line="1354"/>
         <source>paso desconocido: {0}</source>
         <translation>unknown step: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1364"/>
+        <location filename="../widgets/tab_panel.py" line="1366"/>
         <source>Lanzados: {0}.</source>
         <translation>Launched: {0}.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1371"/>
+        <location filename="../widgets/tab_panel.py" line="1373"/>
         <source>Ningún paso marcado.</source>
         <translation>No step checked.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1394"/>
+        <location filename="../widgets/tab_panel.py" line="1396"/>
         <source>Ejecutando {0}</source>
         <translation>Running {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1428"/>
+        <location filename="../widgets/tab_panel.py" line="1430"/>
         <source>Hecho</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1430"/>
+        <location filename="../widgets/tab_panel.py" line="1432"/>
         <source>Terminó con errores</source>
         <translation>Finished with errors</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1434"/>
+        <location filename="../widgets/tab_panel.py" line="1436"/>
         <source>{0}: hecho</source>
         <translation>{0}: done</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1436"/>
+        <location filename="../widgets/tab_panel.py" line="1438"/>
         <source>{0}: terminó con errores</source>
         <translation>{0}: finished with errors</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1512"/>
-        <location filename="../widgets/tab_panel.py" line="1536"/>
+        <location filename="../widgets/tab_panel.py" line="1514"/>
+        <location filename="../widgets/tab_panel.py" line="1538"/>
         <source>Confirmar</source>
         <translation>Confirm</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1514"/>
+        <location filename="../widgets/tab_panel.py" line="1516"/>
         <source>Dato requerido</source>
         <translation>Required input</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1538"/>
+        <location filename="../widgets/tab_panel.py" line="1540"/>
         <source>Pregunta</source>
         <translation>Question</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1542"/>
+        <location filename="../widgets/tab_panel.py" line="1544"/>
         <source>Sí</source>
         <translation>Yes</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1545"/>
+        <location filename="../widgets/tab_panel.py" line="1547"/>
         <source>No</source>
         <translation>No</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1574"/>
+        <location filename="../widgets/tab_panel.py" line="1576"/>
         <source>{0} paso(s) × {1} variante(s)</source>
         <translation>{0} step(s) × {1} variant(s)</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1584"/>
+        <location filename="../widgets/tab_panel.py" line="1586"/>
         <source>paso «{0}» — no implementado (stub)</source>
         <translation>step «{0}» — not implemented (stub)</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1591"/>
+        <location filename="../widgets/tab_panel.py" line="1593"/>
         <source>faltan claves: {0}</source>
         <translation>missing keys: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1596"/>
+        <location filename="../widgets/tab_panel.py" line="1598"/>
         <source>Simulación completada</source>
         <translation>Simulation completed</translation>
     </message>
@@ -2108,22 +2108,22 @@ shows here</translation>
     </message>
     <message>
         <location filename="../services/canone.py" line="639"/>
-        <location filename="../services/canone.py" line="711"/>
+        <location filename="../services/canone.py" line="720"/>
         <source>Faltan en config.env: {0}.</source>
         <translation>Missing in config.env: {0}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="688"/>
+        <location filename="../services/canone.py" line="697"/>
         <source>No hay campos de Settings en {0}.</source>
         <translation>There are no Settings fields in {0}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="696"/>
+        <location filename="../services/canone.py" line="705"/>
         <source>Estas claves de config.env no son de Consola ni campos de Settings: {0}. Bórralas antes de cargar las credenciales.</source>
         <translation>These config.env keys are neither Consola&apos;s nor Settings fields: {0}. Delete them before loading the credentials.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="718"/>
+        <location filename="../services/canone.py" line="727"/>
         <source>{0} tiene un salto de linea: credentials.py lee una por linea.</source>
         <translation>{0} has a line break: credentials.py reads one per line.</translation>
     </message>
@@ -2132,7 +2132,7 @@ shows here</translation>
     <name>catalog</name>
     <message>
         <location filename="../services/catalog.py" line="29"/>
-        <location filename="../services/catalog.py" line="1783"/>
+        <location filename="../services/catalog.py" line="1795"/>
         <source>Versión</source>
         <translation>Version</translation>
     </message>
@@ -2192,1389 +2192,1409 @@ shows here</translation>
         <translation>Unknown preview: {0}</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="282"/>
+        <location filename="../services/catalog.py" line="279"/>
         <source>Fuente desconocida: {0}</source>
         <translation>Unknown source: {0}</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="462"/>
+        <location filename="../services/catalog.py" line="377"/>
+        <source>{0} · con valor</source>
+        <translation>{0} · has a value</translation>
+    </message>
+    <message>
+        <location filename="../services/catalog.py" line="378"/>
+        <source>{0} · vacío</source>
+        <translation>{0} · empty</translation>
+    </message>
+    <message>
+        <location filename="../services/catalog.py" line="474"/>
         <source>Componentes</source>
         <translation>Components</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="465"/>
+        <location filename="../services/catalog.py" line="477"/>
         <source>API level</source>
         <translation>API level</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="471"/>
+        <location filename="../services/catalog.py" line="483"/>
         <source>Build-tools</source>
         <translation>Build-tools</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="480"/>
+        <location filename="../services/catalog.py" line="492"/>
         <source>Python</source>
         <translation>Python</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="481"/>
+        <location filename="../services/catalog.py" line="493"/>
         <source>Gradle/Android</source>
         <translation>Gradle/Android</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="482"/>
+        <location filename="../services/catalog.py" line="494"/>
         <source>Flutter</source>
         <translation>Flutter</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="483"/>
+        <location filename="../services/catalog.py" line="495"/>
         <source>Volcados de crash</source>
         <translation>Crash dumps</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="487"/>
+        <location filename="../services/catalog.py" line="499"/>
         <source>node_modules</source>
         <translation>node_modules</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="488"/>
+        <location filename="../services/catalog.py" line="500"/>
         <source>.venv</source>
         <translation>.venv</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="489"/>
+        <location filename="../services/catalog.py" line="501"/>
         <source>build/dist</source>
         <translation>build/dist</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="490"/>
+        <location filename="../services/catalog.py" line="502"/>
         <source>.dart_tool</source>
         <translation>.dart_tool</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="503"/>
+        <location filename="../services/catalog.py" line="515"/>
         <source>Bump</source>
         <translation>Bump</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="518"/>
+        <location filename="../services/catalog.py" line="530"/>
         <source>Plataformas</source>
         <translation>Platforms</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="531"/>
-        <location filename="../services/catalog.py" line="1133"/>
+        <location filename="../services/catalog.py" line="543"/>
+        <location filename="../services/catalog.py" line="1145"/>
         <source>Subir número de versión</source>
         <translation>Bump version number</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="532"/>
+        <location filename="../services/catalog.py" line="544"/>
         <source>Compilar binario</source>
         <translation>Build binary</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="533"/>
+        <location filename="../services/catalog.py" line="545"/>
         <source>Calcular checksum</source>
         <translation>Compute checksum</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="536"/>
+        <location filename="../services/catalog.py" line="548"/>
         <source>Subir al VPS</source>
         <translation>Upload to the VPS</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="561"/>
+        <location filename="../services/catalog.py" line="573"/>
         <source>Crear rol de la aplicación</source>
         <translation>Create the application role</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="562"/>
+        <location filename="../services/catalog.py" line="574"/>
         <source>Crear base de datos</source>
         <translation>Create database</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="563"/>
+        <location filename="../services/catalog.py" line="575"/>
         <source>Otorgar permisos al rol</source>
         <translation>Grant permissions to the role</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="564"/>
-        <location filename="../services/catalog.py" line="1490"/>
+        <location filename="../services/catalog.py" line="576"/>
+        <location filename="../services/catalog.py" line="1502"/>
         <source>Habilitar extensiones</source>
         <translation>Enable extensions</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="567"/>
-        <location filename="../services/catalog.py" line="598"/>
-        <location filename="../services/catalog.py" line="623"/>
+        <location filename="../services/catalog.py" line="579"/>
+        <location filename="../services/catalog.py" line="610"/>
+        <location filename="../services/catalog.py" line="635"/>
         <source>Ejecutar migraciones</source>
         <translation>Run migrations</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="570"/>
-        <location filename="../services/catalog.py" line="601"/>
+        <location filename="../services/catalog.py" line="582"/>
+        <location filename="../services/catalog.py" line="613"/>
         <source>Crear particiones</source>
         <translation>Create partitions</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="571"/>
-        <location filename="../services/catalog.py" line="602"/>
+        <location filename="../services/catalog.py" line="583"/>
+        <location filename="../services/catalog.py" line="614"/>
         <source>Cargar seeders</source>
         <translation>Load seeders</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="572"/>
-        <location filename="../services/catalog.py" line="603"/>
+        <location filename="../services/catalog.py" line="584"/>
+        <location filename="../services/catalog.py" line="615"/>
         <source>Cargar datos mock</source>
         <translation>Load mock data</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="589"/>
-        <location filename="../services/catalog.py" line="612"/>
+        <location filename="../services/catalog.py" line="601"/>
+        <location filename="../services/catalog.py" line="624"/>
         <source>Borrar tablas</source>
         <translation>Drop tables</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="593"/>
+        <location filename="../services/catalog.py" line="605"/>
         <source>Vaciar la base y los archivos subidos</source>
         <translation>Empty the database and the uploaded files</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="613"/>
+        <location filename="../services/catalog.py" line="625"/>
         <source>Borrar migraciones</source>
         <translation>Delete migrations</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="614"/>
+        <location filename="../services/catalog.py" line="626"/>
         <source>Generar migración inicial</source>
         <translation>Generate initial migration</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="622"/>
+        <location filename="../services/catalog.py" line="634"/>
         <source>Generar migración</source>
         <translation>Generate migration</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="632"/>
-        <location filename="../services/catalog.py" line="1890"/>
+        <location filename="../services/catalog.py" line="644"/>
+        <location filename="../services/catalog.py" line="1913"/>
         <source>Refrescar known_hosts</source>
         <translation>Refresh known_hosts</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="633"/>
+        <location filename="../services/catalog.py" line="645"/>
         <source>Poner la llave</source>
         <translation>Install the key</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="634"/>
+        <location filename="../services/catalog.py" line="646"/>
         <source>Instalar paquetes y uv</source>
         <translation>Install packages and uv</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="635"/>
+        <location filename="../services/catalog.py" line="647"/>
         <source>Crear swap</source>
         <translation>Create swap</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="638"/>
+        <location filename="../services/catalog.py" line="650"/>
         <source>Instalar infraestructura</source>
         <translation>Install infrastructure</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="643"/>
-        <location filename="../services/catalog.py" line="1843"/>
+        <location filename="../services/catalog.py" line="655"/>
+        <location filename="../services/catalog.py" line="1855"/>
         <source>Cargar credenciales</source>
         <translation>Load credentials</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="646"/>
+        <location filename="../services/catalog.py" line="658"/>
         <source>Desplegar el último release</source>
         <translation>Deploy the latest release</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="652"/>
+        <location filename="../services/catalog.py" line="664"/>
         <source>Crear tag</source>
         <translation>Create tag</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="653"/>
+        <location filename="../services/catalog.py" line="665"/>
         <source>Firmar release</source>
         <translation>Sign release</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="656"/>
+        <location filename="../services/catalog.py" line="668"/>
         <source>Desplegar</source>
         <translation>Deploy</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="675"/>
+        <location filename="../services/catalog.py" line="687"/>
         <source>Borrar clave del VPS</source>
         <translation>Delete the VPS key</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="676"/>
+        <location filename="../services/catalog.py" line="688"/>
         <source>Borrar clave de esta máquina</source>
         <translation>Delete this machine&apos;s key</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="682"/>
+        <location filename="../services/catalog.py" line="694"/>
         <source>Instalar herramientas de línea de comandos</source>
         <translation>Install command-line tools</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="683"/>
-        <location filename="../services/catalog.py" line="2347"/>
+        <location filename="../services/catalog.py" line="695"/>
+        <location filename="../services/catalog.py" line="2370"/>
         <source>Instalar paquetes del SDK</source>
         <translation>Install SDK packages</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="684"/>
-        <location filename="../services/catalog.py" line="2362"/>
+        <location filename="../services/catalog.py" line="696"/>
+        <location filename="../services/catalog.py" line="2385"/>
         <source>Instalar aceleración del emulador</source>
         <translation>Install emulator acceleration</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="690"/>
+        <location filename="../services/catalog.py" line="702"/>
         <source>Borrar base de datos</source>
         <translation>Drop database</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="691"/>
+        <location filename="../services/catalog.py" line="703"/>
         <source>Borrar rol de la aplicación</source>
         <translation>Drop the application role</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="695"/>
+        <location filename="../services/catalog.py" line="707"/>
         <source>Landing</source>
         <translation>Landing</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="696"/>
+        <location filename="../services/catalog.py" line="708"/>
         <source>Google Play</source>
         <translation>Google Play</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="697"/>
+        <location filename="../services/catalog.py" line="709"/>
         <source>App Store</source>
         <translation>App Store</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="698"/>
+        <location filename="../services/catalog.py" line="710"/>
         <source>Manual</source>
         <translation>Manual</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="699"/>
+        <location filename="../services/catalog.py" line="711"/>
         <source>Open Graph</source>
         <translation>Open Graph</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="700"/>
+        <location filename="../services/catalog.py" line="712"/>
         <source>Redes sociales</source>
         <translation>Social networks</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="701"/>
+        <location filename="../services/catalog.py" line="713"/>
         <source>Press kit</source>
         <translation>Press kit</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="711"/>
+        <location filename="../services/catalog.py" line="723"/>
         <source>Destinos</source>
         <translation>Destinations</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="718"/>
+        <location filename="../services/catalog.py" line="730"/>
         <source>Claro</source>
         <translation>Light</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="719"/>
+        <location filename="../services/catalog.py" line="731"/>
         <source>Oscuro</source>
         <translation>Dark</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="735"/>
-        <location filename="../services/catalog.py" line="877"/>
-        <location filename="../services/catalog.py" line="954"/>
-        <location filename="../services/catalog.py" line="1061"/>
-        <location filename="../services/catalog.py" line="1210"/>
+        <location filename="../services/catalog.py" line="747"/>
+        <location filename="../services/catalog.py" line="889"/>
+        <location filename="../services/catalog.py" line="966"/>
+        <location filename="../services/catalog.py" line="1073"/>
+        <location filename="../services/catalog.py" line="1222"/>
         <source>Apps</source>
         <translation>Apps</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="743"/>
+        <location filename="../services/catalog.py" line="755"/>
         <source>Temas</source>
         <translation>Themes</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="751"/>
+        <location filename="../services/catalog.py" line="763"/>
         <source>Idiomas</source>
         <translation>Languages</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="763"/>
-        <location filename="../services/catalog.py" line="925"/>
-        <location filename="../services/catalog.py" line="2225"/>
+        <location filename="../services/catalog.py" line="775"/>
+        <location filename="../services/catalog.py" line="937"/>
+        <location filename="../services/catalog.py" line="2248"/>
         <source>Emulador</source>
         <translation>Emulator</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="766"/>
+        <location filename="../services/catalog.py" line="778"/>
         <source>Ninguno</source>
         <translation>None</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="772"/>
-        <location filename="../services/catalog.py" line="1228"/>
+        <location filename="../services/catalog.py" line="784"/>
+        <location filename="../services/catalog.py" line="1240"/>
         <source>Sacar capturas</source>
         <translation>Take screenshots</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="773"/>
-        <location filename="../services/catalog.py" line="1247"/>
+        <location filename="../services/catalog.py" line="785"/>
+        <location filename="../services/catalog.py" line="1259"/>
         <source>Revelar capturas</source>
         <translation>Develop screenshots</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="777"/>
+        <location filename="../services/catalog.py" line="789"/>
         <source>Backend</source>
         <translation>Backend</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="778"/>
+        <location filename="../services/catalog.py" line="790"/>
         <source>SPA</source>
         <translation>SPA</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="779"/>
+        <location filename="../services/catalog.py" line="791"/>
         <source>App de escritorio</source>
         <translation>Desktop app</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="807"/>
+        <location filename="../services/catalog.py" line="819"/>
         <source>Levantar backend</source>
         <translation>Start backend</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="808"/>
-        <location filename="../services/catalog.py" line="863"/>
-        <location filename="../services/catalog.py" line="901"/>
-        <location filename="../services/catalog.py" line="941"/>
-        <location filename="../services/catalog.py" line="979"/>
+        <location filename="../services/catalog.py" line="820"/>
+        <location filename="../services/catalog.py" line="875"/>
+        <location filename="../services/catalog.py" line="913"/>
+        <location filename="../services/catalog.py" line="953"/>
+        <location filename="../services/catalog.py" line="991"/>
         <source>Ejecutar</source>
         <translation>Run</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="812"/>
+        <location filename="../services/catalog.py" line="824"/>
         <source>Levanta el servidor FastAPI del repo, local o contra el VPS.</source>
         <translation>Starts the repo&apos;s FastAPI server, locally or against the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="825"/>
+        <location filename="../services/catalog.py" line="837"/>
         <source>Servidor</source>
         <translation>Server</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="834"/>
-        <location filename="../services/catalog.py" line="886"/>
+        <location filename="../services/catalog.py" line="846"/>
+        <location filename="../services/catalog.py" line="898"/>
         <source>Puerto</source>
         <translation>Port</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="844"/>
+        <location filename="../services/catalog.py" line="856"/>
         <source>Al cambiar el código</source>
         <translation>When the code changes</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="847"/>
+        <location filename="../services/catalog.py" line="859"/>
         <source>Con recarga</source>
         <translation>With reload</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="848"/>
+        <location filename="../services/catalog.py" line="860"/>
         <source>Sin recarga</source>
         <translation>Without reload</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="862"/>
+        <location filename="../services/catalog.py" line="874"/>
         <source>Levantar SPA con Vite</source>
         <translation>Start SPA with Vite</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="868"/>
+        <location filename="../services/catalog.py" line="880"/>
         <source>Arranca el dev server de Vite para las apps elegidas.</source>
         <translation>Starts the Vite dev server for the chosen apps.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="900"/>
+        <location filename="../services/catalog.py" line="912"/>
         <source>Levantar app móvil</source>
         <translation>Start mobile app</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="904"/>
+        <location filename="../services/catalog.py" line="916"/>
         <source>Corre la app móvil en el emulador o dispositivo conectado.</source>
         <translation>Runs the mobile app on the emulator or connected device.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="918"/>
+        <location filename="../services/catalog.py" line="930"/>
         <source>App móvil</source>
         <translation>Mobile app</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="928"/>
+        <location filename="../services/catalog.py" line="940"/>
         <source>El que esté corriendo</source>
         <translation>Whichever is running</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="940"/>
+        <location filename="../services/catalog.py" line="952"/>
         <source>Levantar app de escritorio</source>
         <translation>Start desktop app</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="945"/>
+        <location filename="../services/catalog.py" line="957"/>
         <source>Arranca las apps Python elegidas, con recarga al cambiar sus fuentes.</source>
         <translation>Starts the chosen Python apps, reloading when their sources change.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="962"/>
+        <location filename="../services/catalog.py" line="974"/>
         <source>Relanzar al detectar cambios</source>
         <translation>Relaunch on changes</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="964"/>
+        <location filename="../services/catalog.py" line="976"/>
         <source>Auto-login de dev</source>
         <translation>Dev auto-login</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="977"/>
+        <location filename="../services/catalog.py" line="989"/>
         <source>Levantar todo el entorno</source>
         <translation>Start the whole environment</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="984"/>
+        <location filename="../services/catalog.py" line="996"/>
         <source>Levanta backend, SPA y apps Python a la vez, cada uno en su pestaña.</source>
         <translation>Starts backend, SPA and Python apps at once, each in its own tab.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1005"/>
+        <location filename="../services/catalog.py" line="1017"/>
         <source>Crear SPA SvelteKit</source>
         <translation>Create SvelteKit SPA</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1006"/>
-        <location filename="../services/catalog.py" line="1024"/>
-        <location filename="../services/catalog.py" line="1049"/>
-        <location filename="../services/catalog.py" line="1079"/>
-        <location filename="../services/catalog.py" line="1134"/>
+        <location filename="../services/catalog.py" line="1018"/>
+        <location filename="../services/catalog.py" line="1036"/>
+        <location filename="../services/catalog.py" line="1061"/>
+        <location filename="../services/catalog.py" line="1091"/>
         <location filename="../services/catalog.py" line="1146"/>
+        <location filename="../services/catalog.py" line="1158"/>
         <source>Compilar</source>
         <translation>Build</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1009"/>
+        <location filename="../services/catalog.py" line="1021"/>
         <source>Crea en el repo una SPA en blanco con SvelteKit, runes y UnoCSS.</source>
         <translation>Creates a blank SPA in the repo with SvelteKit, runes and UnoCSS.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1023"/>
+        <location filename="../services/catalog.py" line="1035"/>
         <source>Compilar app Flutter</source>
         <translation>Build Flutter app</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1027"/>
+        <location filename="../services/catalog.py" line="1039"/>
         <source>Compila la app Flutter o Flet para las plataformas marcadas: APK, web, escritorio o iOS.</source>
         <translation>Builds the Flutter or Flet app for the checked platforms: APK, web, desktop or iOS.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1037"/>
+        <location filename="../services/catalog.py" line="1049"/>
         <source>App</source>
         <translation>App</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1048"/>
+        <location filename="../services/catalog.py" line="1060"/>
         <source>Compilar SPA</source>
         <translation>Build SPA</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1052"/>
+        <location filename="../services/catalog.py" line="1064"/>
         <source>Deja compiladas las SPA del repo, listas para que el proxy las sirva.</source>
         <translation>Leaves the repo&apos;s SPAs built, ready for the proxy to serve them.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1078"/>
+        <location filename="../services/catalog.py" line="1090"/>
         <source>Compilar ejecutable</source>
         <translation>Build executable</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1082"/>
+        <location filename="../services/catalog.py" line="1094"/>
         <source>Empaqueta una app Python del repo como ejecutable descargable.</source>
         <translation>Packages a Python app of the repo as a downloadable executable.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1091"/>
+        <location filename="../services/catalog.py" line="1103"/>
         <source>Punto de entrada</source>
         <translation>Entry point</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1097"/>
+        <location filename="../services/catalog.py" line="1109"/>
         <source>Nombre del ejecutable</source>
         <translation>Executable name</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1106"/>
+        <location filename="../services/catalog.py" line="1118"/>
         <source>Empaquetado</source>
         <translation>Packaging</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1109"/>
+        <location filename="../services/catalog.py" line="1121"/>
         <source>Un archivo</source>
         <translation>One file</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1110"/>
+        <location filename="../services/catalog.py" line="1122"/>
         <source>Carpeta</source>
         <translation>Folder</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1117"/>
+        <location filename="../services/catalog.py" line="1129"/>
         <source>Al ejecutarse</source>
         <translation>When run</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1120"/>
+        <location filename="../services/catalog.py" line="1132"/>
         <source>Consola</source>
         <translation>Console</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1121"/>
+        <location filename="../services/catalog.py" line="1133"/>
         <source>Ventana</source>
         <translation>Window</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1137"/>
+        <location filename="../services/catalog.py" line="1149"/>
         <source>Sube el número de versión del repo.</source>
         <translation>Bumps the repo&apos;s version number.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1145"/>
+        <location filename="../services/catalog.py" line="1157"/>
         <source>Borrar artefactos de build</source>
         <translation>Delete build artifacts</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1149"/>
+        <location filename="../services/catalog.py" line="1161"/>
         <source>Borra cachés y basura de build del repo; en simulacro solo los lista.</source>
         <translation>Deletes caches and build junk from the repo; in a dry run it only lists them.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1158"/>
+        <location filename="../services/catalog.py" line="1170"/>
         <source>Qué borrar</source>
         <translation>What to delete</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1166"/>
+        <location filename="../services/catalog.py" line="1178"/>
         <source>Pesados</source>
         <translation>Heavy</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1175"/>
-        <location filename="../services/catalog.py" line="1367"/>
-        <location filename="../services/catalog.py" line="1408"/>
-        <location filename="../services/catalog.py" line="1728"/>
-        <location filename="../services/catalog.py" line="2035"/>
-        <location filename="../services/catalog.py" line="2273"/>
+        <location filename="../services/catalog.py" line="1187"/>
+        <location filename="../services/catalog.py" line="1379"/>
+        <location filename="../services/catalog.py" line="1420"/>
+        <location filename="../services/catalog.py" line="1740"/>
+        <location filename="../services/catalog.py" line="2058"/>
+        <location filename="../services/catalog.py" line="2296"/>
         <source>Modo</source>
         <translation>Mode</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1178"/>
-        <location filename="../services/catalog.py" line="1370"/>
-        <location filename="../services/catalog.py" line="1411"/>
-        <location filename="../services/catalog.py" line="2038"/>
-        <location filename="../services/catalog.py" line="2276"/>
+        <location filename="../services/catalog.py" line="1190"/>
+        <location filename="../services/catalog.py" line="1382"/>
+        <location filename="../services/catalog.py" line="1423"/>
+        <location filename="../services/catalog.py" line="2061"/>
+        <location filename="../services/catalog.py" line="2299"/>
         <source>Simulacro</source>
         <translation>Dry run</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1179"/>
-        <location filename="../services/catalog.py" line="2039"/>
-        <location filename="../services/catalog.py" line="2277"/>
+        <location filename="../services/catalog.py" line="1191"/>
+        <location filename="../services/catalog.py" line="2062"/>
+        <location filename="../services/catalog.py" line="2300"/>
         <source>Borrar</source>
         <translation>Delete</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1197"/>
+        <location filename="../services/catalog.py" line="1209"/>
         <source>Generar íconos</source>
         <translation>Generate icons</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1198"/>
-        <location filename="../services/catalog.py" line="1230"/>
-        <location filename="../services/catalog.py" line="1248"/>
-        <location filename="../services/catalog.py" line="1267"/>
+        <location filename="../services/catalog.py" line="1210"/>
+        <location filename="../services/catalog.py" line="1242"/>
+        <location filename="../services/catalog.py" line="1260"/>
+        <location filename="../services/catalog.py" line="1279"/>
         <source>Imágenes</source>
         <translation>Images</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1201"/>
+        <location filename="../services/catalog.py" line="1213"/>
         <source>Genera los íconos de las apps a partir del logo del repo.</source>
         <translation>Generates the apps&apos; icons from the repo&apos;s logo.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1233"/>
+        <location filename="../services/catalog.py" line="1245"/>
         <source>Corre la cámara del repo, que deja las capturas crudas de sus apps.</source>
         <translation>Runs the repo&apos;s camera, which leaves the raw screenshots of its apps.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1251"/>
+        <location filename="../services/catalog.py" line="1263"/>
         <source>Convierte las capturas crudas a las medidas y formatos de cada destino.</source>
         <translation>Converts the raw screenshots to the sizes and formats of each destination.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1265"/>
+        <location filename="../services/catalog.py" line="1277"/>
         <source>Capturar y publicar</source>
         <translation>Capture and publish</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1271"/>
+        <location filename="../services/catalog.py" line="1283"/>
         <source>Saca las capturas de las apps del repo y las deja listas en cada destino.</source>
         <translation>Takes the screenshots of the repo&apos;s apps and leaves them ready in each destination.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1299"/>
+        <location filename="../services/catalog.py" line="1311"/>
         <source>Clonar repositorio de GitHub</source>
         <translation>Clone GitHub repository</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1300"/>
-        <location filename="../services/catalog.py" line="1328"/>
-        <location filename="../services/catalog.py" line="1341"/>
-        <location filename="../services/catalog.py" line="1382"/>
-        <location filename="../services/catalog.py" line="1427"/>
-        <location filename="../services/catalog.py" line="1441"/>
+        <location filename="../services/catalog.py" line="1312"/>
+        <location filename="../services/catalog.py" line="1340"/>
+        <location filename="../services/catalog.py" line="1353"/>
+        <location filename="../services/catalog.py" line="1394"/>
+        <location filename="../services/catalog.py" line="1439"/>
+        <location filename="../services/catalog.py" line="1453"/>
         <source>Repositorio</source>
         <translation>Repository</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1305"/>
+        <location filename="../services/catalog.py" line="1317"/>
         <source>Clona un repositorio de GitHub y lo abre como pestaña.</source>
         <translation>Clones a GitHub repository and opens it as a tab.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1313"/>
+        <location filename="../services/catalog.py" line="1325"/>
         <source>URL del repositorio</source>
         <translation>Repository URL</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1317"/>
+        <location filename="../services/catalog.py" line="1329"/>
         <source>Carpeta destino</source>
         <translation>Destination folder</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1319"/>
+        <location filename="../services/catalog.py" line="1331"/>
         <source>Rama</source>
         <translation>Branch</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1327"/>
+        <location filename="../services/catalog.py" line="1339"/>
         <source>Verificar con canone</source>
         <translation>Check against canone</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1331"/>
+        <location filename="../services/catalog.py" line="1343"/>
         <source>Dice en qué se aparta el repo de canone, sin cambiar nada.</source>
         <translation>Says where the repo departs from canone, changing nothing.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1340"/>
+        <location filename="../services/catalog.py" line="1352"/>
         <source>Actualizar copias de canone</source>
         <translation>Update canone copies</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1344"/>
+        <location filename="../services/catalog.py" line="1356"/>
         <source>Copia al repo los archivos de canone que se copian sin editar; en simulacro solo los nombra.</source>
         <translation>Copies to the repo the canone files that are copied unedited; a dry run only names them.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1356"/>
+        <location filename="../services/catalog.py" line="1368"/>
         <source>Archivos de las cuentas</source>
         <translation>Account files</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1359"/>
+        <location filename="../services/catalog.py" line="1371"/>
         <source>Si ya las tiene</source>
         <translation>If it already has them</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1360"/>
+        <location filename="../services/catalog.py" line="1372"/>
         <source>Agregar</source>
         <translation>Add</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1381"/>
+        <location filename="../services/catalog.py" line="1393"/>
         <source>Copiar archivos comunes a otros repos</source>
         <translation>Copy common files to other repos</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1385"/>
+        <location filename="../services/catalog.py" line="1397"/>
         <source>Copia los archivos compartidos a los otros repos; en simulacro solo compara.</source>
         <translation>Copies the shared files to the other repos; in a dry run it only compares.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1394"/>
+        <location filename="../services/catalog.py" line="1406"/>
         <source>Repos destino</source>
         <translation>Destination repos</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1401"/>
+        <location filename="../services/catalog.py" line="1413"/>
         <source>Archivos a copiar</source>
         <translation>Files to copy</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1858"/>
+        <location filename="../services/catalog.py" line="1870"/>
         <source>Secretos a generar</source>
         <translation>Secrets to generate</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1371"/>
-        <location filename="../services/catalog.py" line="1412"/>
+        <location filename="../services/catalog.py" line="1383"/>
+        <location filename="../services/catalog.py" line="1424"/>
         <source>Aplicar</source>
         <translation>Apply</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1425"/>
+        <location filename="../services/catalog.py" line="1437"/>
         <source>Force push</source>
         <translation>Force push</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1430"/>
+        <location filename="../services/catalog.py" line="1442"/>
         <source>Empuja a origin con --force la rama de esta máquina, aunque haya divergido.</source>
         <translation>Pushes this machine&apos;s branch to origin with --force, even if it has diverged.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1440"/>
+        <location filename="../services/catalog.py" line="1452"/>
         <source>Force reset</source>
         <translation>Force reset</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1444"/>
+        <location filename="../services/catalog.py" line="1456"/>
         <source>Descarta los commits y los cambios de esta máquina para dejarla igual a origin.</source>
         <translation>Discards this machine&apos;s commits and changes to leave it the same as origin.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1453"/>
+        <location filename="../services/catalog.py" line="1465"/>
         <source>Si hay cambios sin commitear</source>
         <translation>If there are uncommitted changes</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1457"/>
+        <location filename="../services/catalog.py" line="1469"/>
         <source>Preguntar</source>
         <translation>Ask</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1458"/>
+        <location filename="../services/catalog.py" line="1470"/>
         <source>Descartar</source>
         <translation>Discard</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1475"/>
+        <location filename="../services/catalog.py" line="1487"/>
         <source>Configurar base de datos</source>
         <translation>Set up database</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1476"/>
-        <location filename="../services/catalog.py" line="1491"/>
-        <location filename="../services/catalog.py" line="1504"/>
-        <location filename="../services/catalog.py" line="1522"/>
-        <location filename="../services/catalog.py" line="1536"/>
-        <location filename="../services/catalog.py" line="1555"/>
-        <location filename="../services/catalog.py" line="1573"/>
-        <location filename="../services/catalog.py" line="1586"/>
-        <location filename="../services/catalog.py" line="1603"/>
-        <location filename="../services/catalog.py" line="1625"/>
-        <location filename="../services/catalog.py" line="1640"/>
-        <location filename="../services/catalog.py" line="1657"/>
+        <location filename="../services/catalog.py" line="1488"/>
+        <location filename="../services/catalog.py" line="1503"/>
+        <location filename="../services/catalog.py" line="1516"/>
+        <location filename="../services/catalog.py" line="1534"/>
+        <location filename="../services/catalog.py" line="1548"/>
+        <location filename="../services/catalog.py" line="1567"/>
+        <location filename="../services/catalog.py" line="1585"/>
+        <location filename="../services/catalog.py" line="1598"/>
+        <location filename="../services/catalog.py" line="1615"/>
+        <location filename="../services/catalog.py" line="1637"/>
+        <location filename="../services/catalog.py" line="1652"/>
+        <location filename="../services/catalog.py" line="1669"/>
         <source>Base de datos</source>
         <translation>Database</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1479"/>
+        <location filename="../services/catalog.py" line="1491"/>
         <source>Deja la base local usable desde cero: creada, migrada y con sus datos mínimos.</source>
         <translation>Leaves the local database usable from scratch: created, migrated and with its minimum data.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1494"/>
+        <location filename="../services/catalog.py" line="1506"/>
         <source>Crea en la base local las extensiones de Postgres que declara el repo.</source>
         <translation>Creates in the local database the Postgres extensions the repo declares.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1503"/>
+        <location filename="../services/catalog.py" line="1515"/>
         <source>Correr migraciones</source>
         <translation>Run migrations</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1508"/>
+        <location filename="../services/catalog.py" line="1520"/>
         <source>Genera la migración pendiente y la aplica en la base local.</source>
         <translation>Generates the pending migration and applies it to the local database.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1520"/>
+        <location filename="../services/catalog.py" line="1532"/>
         <source>Correr seeders</source>
         <translation>Run seeders</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1525"/>
+        <location filename="../services/catalog.py" line="1537"/>
         <source>Carga los datos mínimos que la app necesita para arrancar.</source>
         <translation>Loads the minimum data the app needs to start.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1535"/>
+        <location filename="../services/catalog.py" line="1547"/>
         <source>Correr mock seeders</source>
         <translation>Run mock seeders</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1539"/>
+        <location filename="../services/catalog.py" line="1551"/>
         <source>Carga datos de prueba encima de los datos base.</source>
         <translation>Loads test data on top of the base data.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1553"/>
+        <location filename="../services/catalog.py" line="1565"/>
         <source>Explorar datos</source>
         <translation>Explore data</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1559"/>
+        <location filename="../services/catalog.py" line="1571"/>
         <source>Navega esquemas, tablas y datos de la base, en solo lectura.</source>
         <translation>Browses the database&apos;s schemas, tables and data, read-only.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1572"/>
+        <location filename="../services/catalog.py" line="1584"/>
         <source>Abrir túnel a Postgres</source>
         <translation>Open tunnel to Postgres</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1576"/>
+        <location filename="../services/catalog.py" line="1588"/>
         <source>Abre un túnel SSH al Postgres del VPS para leerlo en local.</source>
         <translation>Opens an SSH tunnel to the VPS&apos;s Postgres to read it locally.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1585"/>
+        <location filename="../services/catalog.py" line="1597"/>
         <source>Respaldar base de datos</source>
         <translation>Back up database</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1589"/>
+        <location filename="../services/catalog.py" line="1601"/>
         <source>Vuelca la base local a un archivo y rota los respaldos viejos.</source>
         <translation>Dumps the local database to a file and rotates old backups.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1602"/>
+        <location filename="../services/catalog.py" line="1614"/>
         <source>Restaurar base de datos</source>
         <translation>Restore database</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1606"/>
+        <location filename="../services/catalog.py" line="1618"/>
         <source>Carga un respaldo sobre la base local, reemplazando lo que haya.</source>
         <translation>Loads a backup over the local database, replacing whatever is there.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1614"/>
+        <location filename="../services/catalog.py" line="1626"/>
         <source>Respaldo</source>
         <translation>Backup</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1624"/>
+        <location filename="../services/catalog.py" line="1636"/>
         <source>Reconstruir base</source>
         <translation>Rebuild database</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1628"/>
+        <location filename="../services/catalog.py" line="1640"/>
         <source>Vacía la base y vuelve a llenarla: migraciones y seeders.</source>
         <translation>Empties the database and fills it again: migrations and seeders.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1639"/>
+        <location filename="../services/catalog.py" line="1651"/>
         <source>Reiniciar historial de migraciones</source>
         <translation>Reset migration history</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1644"/>
+        <location filename="../services/catalog.py" line="1656"/>
         <source>Reinicia el historial de migraciones: deja una sola inicial con los modelos de hoy.</source>
         <translation>Resets the migration history: leaves a single initial one with today&apos;s models.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1656"/>
+        <location filename="../services/catalog.py" line="1668"/>
         <source>Borrar base y rol</source>
         <translation>Drop database and role</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1660"/>
+        <location filename="../services/catalog.py" line="1672"/>
         <source>Borra la base local de la aplicación y su rol.</source>
         <translation>Drops the application&apos;s local database and its role.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1680"/>
+        <location filename="../services/catalog.py" line="1692"/>
         <source>Control del servicio</source>
         <translation>Service control</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1681"/>
-        <location filename="../services/catalog.py" line="1716"/>
-        <location filename="../services/catalog.py" line="1745"/>
-        <location filename="../services/catalog.py" line="1774"/>
-        <location filename="../services/catalog.py" line="1794"/>
+        <location filename="../services/catalog.py" line="1693"/>
+        <location filename="../services/catalog.py" line="1728"/>
+        <location filename="../services/catalog.py" line="1757"/>
+        <location filename="../services/catalog.py" line="1786"/>
+        <location filename="../services/catalog.py" line="1806"/>
         <source>Despliegue</source>
         <translation>Deployment</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1684"/>
+        <location filename="../services/catalog.py" line="1696"/>
         <source>Manda una acción al servicio systemd elegido en el VPS.</source>
         <translation>Sends an action to the chosen systemd service on the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1703"/>
+        <location filename="../services/catalog.py" line="1715"/>
         <source>Acción</source>
         <translation>Action</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1715"/>
+        <location filename="../services/catalog.py" line="1727"/>
         <source>Ver logs del servicio</source>
         <translation>View service logs</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1719"/>
+        <location filename="../services/catalog.py" line="1731"/>
         <source>Muestra el journal del servicio elegido, de una o siguiéndolo en vivo.</source>
         <translation>Shows the journal of the chosen service, all at once or following it live.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1731"/>
+        <location filename="../services/catalog.py" line="1743"/>
         <source>Seguir en vivo</source>
         <translation>Follow live</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1732"/>
+        <location filename="../services/catalog.py" line="1744"/>
         <source>De una</source>
         <translation>All at once</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1744"/>
+        <location filename="../services/catalog.py" line="1756"/>
         <source>Publicar versión</source>
         <translation>Publish version</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1748"/>
+        <location filename="../services/catalog.py" line="1760"/>
         <source>Crea el tag siguiente, espera a release.yml, firma el release y lo despliega.</source>
         <translation>Creates the next tag, waits for release.yml, signs the release and deploys it.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1757"/>
+        <location filename="../services/catalog.py" line="1769"/>
         <source>Sube</source>
         <translation>Bumps</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1760"/>
+        <location filename="../services/catalog.py" line="1772"/>
         <source>Major</source>
         <translation>Major</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1761"/>
+        <location filename="../services/catalog.py" line="1773"/>
         <source>Minor</source>
         <translation>Minor</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1762"/>
+        <location filename="../services/catalog.py" line="1774"/>
         <source>Patch</source>
         <translation>Patch</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1773"/>
+        <location filename="../services/catalog.py" line="1785"/>
         <source>Desplegar versión</source>
         <translation>Deploy version</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1777"/>
+        <location filename="../services/catalog.py" line="1789"/>
         <source>Instala en el VPS un release ya firmado.</source>
         <translation>Installs an already signed release on the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1793"/>
+        <location filename="../services/catalog.py" line="1805"/>
         <source>Subir artefacto al VPS</source>
         <translation>Upload artifact to the VPS</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1797"/>
+        <location filename="../services/catalog.py" line="1809"/>
         <source>Copia el artefacto compilado al VPS.</source>
         <translation>Copies the built artifact to the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1810"/>
+        <location filename="../services/catalog.py" line="1822"/>
         <source>Configurar VPS</source>
         <translation>Set up VPS</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1811"/>
-        <location filename="../services/catalog.py" line="1830"/>
-        <location filename="../services/catalog.py" line="1844"/>
-        <location filename="../services/catalog.py" line="1875"/>
-        <location filename="../services/catalog.py" line="1891"/>
-        <location filename="../services/catalog.py" line="1904"/>
-        <location filename="../services/catalog.py" line="1938"/>
-        <location filename="../services/catalog.py" line="1951"/>
-        <location filename="../services/catalog.py" line="1965"/>
-        <location filename="../services/catalog.py" line="1981"/>
-        <location filename="../services/catalog.py" line="1994"/>
-        <location filename="../services/catalog.py" line="2010"/>
+        <location filename="../services/catalog.py" line="1823"/>
+        <location filename="../services/catalog.py" line="1842"/>
+        <location filename="../services/catalog.py" line="1856"/>
+        <location filename="../services/catalog.py" line="1898"/>
+        <location filename="../services/catalog.py" line="1914"/>
+        <location filename="../services/catalog.py" line="1927"/>
+        <location filename="../services/catalog.py" line="1961"/>
+        <location filename="../services/catalog.py" line="1974"/>
+        <location filename="../services/catalog.py" line="1988"/>
+        <location filename="../services/catalog.py" line="2004"/>
+        <location filename="../services/catalog.py" line="2017"/>
+        <location filename="../services/catalog.py" line="2033"/>
         <source>VPS</source>
         <translation>VPS</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1814"/>
+        <location filename="../services/catalog.py" line="1826"/>
         <source>Deja el VPS listo con los programas de canone: paquetes, swap, install.py, credenciales y el último release.</source>
         <translation>Leaves the VPS ready with canone&apos;s programs: packages, swap, install.py, credentials and the latest release.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1828"/>
+        <location filename="../services/catalog.py" line="1840"/>
         <source>Instalar paquetes base</source>
         <translation>Install base packages</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1833"/>
+        <location filename="../services/catalog.py" line="1845"/>
         <source>Instala en el VPS los paquetes que pide canone para este repo, y uv.</source>
         <translation>Installs on the VPS the packages canone asks for this repo, and uv.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1847"/>
+        <location filename="../services/catalog.py" line="1859"/>
         <source>Pasa las credenciales de config.env a credentials.py de canone.</source>
         <translation>Passes the credentials from config.env to canone&apos;s credentials.py.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1874"/>
+        <location filename="../services/catalog.py" line="1880"/>
+        <source>Los que ya tienen valor</source>
+        <translation>Those that already have a value</translation>
+    </message>
+    <message>
+        <location filename="../services/catalog.py" line="1884"/>
+        <source>Reemplazar</source>
+        <translation>Replace</translation>
+    </message>
+    <message>
+        <location filename="../services/catalog.py" line="1897"/>
         <source>Código de instalación</source>
         <translation>Setup code</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1878"/>
+        <location filename="../services/catalog.py" line="1901"/>
         <source>Carga en el VPS el código con que se registra el superadministrador; si está vacío, genera uno y lo muestra.</source>
         <translation>Loads on the VPS the code the superadmin registers with; if it is empty, generates one and shows it.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1894"/>
+        <location filename="../services/catalog.py" line="1917"/>
         <source>Borra del known_hosts de esta máquina la huella vieja del VPS.</source>
         <translation>Deletes the VPS&apos;s old fingerprint from this machine&apos;s known_hosts.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1903"/>
+        <location filename="../services/catalog.py" line="1926"/>
         <source>Actualizar Cloudflare</source>
         <translation>Update Cloudflare</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1907"/>
+        <location filename="../services/catalog.py" line="1930"/>
         <source>Apunta el host de cada pieza web de la app a la IP del VPS, a la pública de esta máquina o a otra escrita, sin el proxy de Cloudflare.</source>
         <translation>Points the host of each web piece of the app to the VPS&apos;s IP, to this machine&apos;s public one or to another typed one, without Cloudflare&apos;s proxy.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1917"/>
+        <location filename="../services/catalog.py" line="1940"/>
         <source>IP</source>
         <translation>IP</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1920"/>
+        <location filename="../services/catalog.py" line="1943"/>
         <source>La del VPS</source>
         <translation>The VPS&apos;s</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1921"/>
+        <location filename="../services/catalog.py" line="1944"/>
         <source>La pública de esta máquina</source>
         <translation>This machine&apos;s public one</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1922"/>
+        <location filename="../services/catalog.py" line="1945"/>
         <source>Otra</source>
         <translation>Other</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1928"/>
+        <location filename="../services/catalog.py" line="1951"/>
         <source>Otra IP</source>
         <translation>Other IP</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1936"/>
+        <location filename="../services/catalog.py" line="1959"/>
         <source>Health check</source>
         <translation>Health check</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1941"/>
+        <location filename="../services/catalog.py" line="1964"/>
         <source>Comprueba que el VPS responde y el servicio está arriba.</source>
         <translation>Checks that the VPS answers and the service is up.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1950"/>
+        <location filename="../services/catalog.py" line="1973"/>
         <source>Ver eventos</source>
         <translation>View events</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1954"/>
+        <location filename="../services/catalog.py" line="1977"/>
         <source>Muestra los últimos eventos, el último respaldo y el disco del servidor.</source>
         <translation>Shows the latest events, the last backup and the server&apos;s disk.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1964"/>
+        <location filename="../services/catalog.py" line="1987"/>
         <source>Ejecutar comando</source>
         <translation>Run command</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1968"/>
+        <location filename="../services/catalog.py" line="1991"/>
         <source>Corre un comando suelto en el VPS y trae su salida.</source>
         <translation>Runs a one-off command on the VPS and brings back its output.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1972"/>
+        <location filename="../services/catalog.py" line="1995"/>
         <source>Comando</source>
         <translation>Command</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1980"/>
+        <location filename="../services/catalog.py" line="2003"/>
         <source>Abrir sesión SSH</source>
         <translation>Open SSH session</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1984"/>
+        <location filename="../services/catalog.py" line="2007"/>
         <source>Abre una sesión SSH interactiva contra el VPS del repo.</source>
         <translation>Opens an interactive SSH session to the repo&apos;s VPS.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1993"/>
+        <location filename="../services/catalog.py" line="2016"/>
         <source>Quitar acceso SSH</source>
         <translation>Remove SSH access</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="1997"/>
+        <location filename="../services/catalog.py" line="2020"/>
         <source>Quita del VPS la clave pública con la que entra esta máquina.</source>
         <translation>Removes from the VPS the public key this machine logs in with.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2009"/>
+        <location filename="../services/catalog.py" line="2032"/>
         <source>Vaciar VPS</source>
         <translation>Empty VPS</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2013"/>
+        <location filename="../services/catalog.py" line="2036"/>
         <source>Deshace en el VPS lo que instaló canone: la base, la app o la máquina, salvo los paquetes; en simulacro solo lo lista.</source>
         <translation>Undoes on the VPS what canone installed: the database, the app or the machine, except the packages; in a dry run it only lists it.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2023"/>
+        <location filename="../services/catalog.py" line="2046"/>
         <source>Nivel</source>
         <translation>Level</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2026"/>
+        <location filename="../services/catalog.py" line="2049"/>
         <source>La base</source>
         <translation>The database</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2027"/>
+        <location filename="../services/catalog.py" line="2050"/>
         <source>La app</source>
         <translation>The app</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2028"/>
+        <location filename="../services/catalog.py" line="2051"/>
         <source>La máquina</source>
         <translation>The machine</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2057"/>
+        <location filename="../services/catalog.py" line="2080"/>
         <source>Instalar imagen de sistema</source>
         <translation>Install system image</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2058"/>
-        <location filename="../services/catalog.py" line="2083"/>
-        <location filename="../services/catalog.py" line="2119"/>
-        <location filename="../services/catalog.py" line="2211"/>
-        <location filename="../services/catalog.py" line="2240"/>
+        <location filename="../services/catalog.py" line="2081"/>
+        <location filename="../services/catalog.py" line="2106"/>
+        <location filename="../services/catalog.py" line="2142"/>
+        <location filename="../services/catalog.py" line="2234"/>
+        <location filename="../services/catalog.py" line="2263"/>
         <source>Emuladores</source>
         <translation>Emulators</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2062"/>
+        <location filename="../services/catalog.py" line="2085"/>
         <source>Descarga del SDK la máquina virtual (system image) que va a correr el AVD.</source>
         <translation>Downloads from the SDK the virtual machine (system image) the AVD will run.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2071"/>
+        <location filename="../services/catalog.py" line="2094"/>
         <source>Máquina virtual</source>
         <translation>Virtual machine</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2082"/>
+        <location filename="../services/catalog.py" line="2105"/>
         <source>Crear AVD</source>
         <translation>Create AVD</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2087"/>
+        <location filename="../services/catalog.py" line="2110"/>
         <source>Crea el dispositivo virtual eligiéndolo del catálogo del SDK.</source>
         <translation>Creates the virtual device, choosing it from the SDK catalog.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2095"/>
+        <location filename="../services/catalog.py" line="2118"/>
         <source>Dispositivo</source>
         <translation>Device</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2108"/>
+        <location filename="../services/catalog.py" line="2131"/>
         <source>Máquina virtual (instaladas)</source>
         <translation>Virtual machine (installed)</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2118"/>
+        <location filename="../services/catalog.py" line="2141"/>
         <source>Abrir emulador</source>
         <translation>Open emulator</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2123"/>
+        <location filename="../services/catalog.py" line="2146"/>
         <source>Arranca uno de los AVD ya creados y sigue su salida.</source>
         <translation>Starts one of the AVDs already created and follows its output.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2131"/>
-        <location filename="../services/catalog.py" line="2254"/>
+        <location filename="../services/catalog.py" line="2154"/>
+        <location filename="../services/catalog.py" line="2277"/>
         <source>AVD</source>
         <translation>AVD</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2138"/>
+        <location filename="../services/catalog.py" line="2161"/>
         <source>Arranque</source>
         <translation>Boot</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2142"/>
+        <location filename="../services/catalog.py" line="2165"/>
         <source>Normal</source>
         <translation>Normal</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2143"/>
+        <location filename="../services/catalog.py" line="2166"/>
         <source>Borrar datos</source>
         <translation>Wipe data</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2157"/>
+        <location filename="../services/catalog.py" line="2180"/>
         <source>Opciones de arranque</source>
         <translation>Boot options</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2159"/>
+        <location filename="../services/catalog.py" line="2182"/>
         <source>Arranque en frío (ignora el snapshot)</source>
         <translation>Cold boot (ignores the snapshot)</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2162"/>
+        <location filename="../services/catalog.py" line="2185"/>
         <source>No guardar el snapshot al cerrar</source>
         <translation>Do not save the snapshot on close</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2165"/>
+        <location filename="../services/catalog.py" line="2188"/>
         <source>Sin ventana (headless, solo adb)</source>
         <translation>No window (headless, adb only)</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2176"/>
+        <location filename="../services/catalog.py" line="2199"/>
         <source>GPU</source>
         <translation>GPU</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2178"/>
+        <location filename="../services/catalog.py" line="2201"/>
         <source>Host (GPU real)</source>
         <translation>Host (real GPU)</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2179"/>
+        <location filename="../services/catalog.py" line="2202"/>
         <source>Software (swiftshader)</source>
         <translation>Software (swiftshader)</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2193"/>
+        <location filename="../services/catalog.py" line="2216"/>
         <source>Flags extra del emulador</source>
         <translation>Extra emulator flags</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2210"/>
+        <location filename="../services/catalog.py" line="2233"/>
         <source>Apagar emulador</source>
         <translation>Shut down emulator</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2215"/>
+        <location filename="../services/catalog.py" line="2238"/>
         <source>Apaga por adb el emulador indicado.</source>
         <translation>Shuts down the given emulator through adb.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2239"/>
+        <location filename="../services/catalog.py" line="2262"/>
         <source>Borrar AVDs e imágenes</source>
         <translation>Delete AVDs and images</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2244"/>
+        <location filename="../services/catalog.py" line="2267"/>
         <source>Borra AVD y máquinas virtuales; en simulacro solo los lista con su tamaño.</source>
         <translation>Deletes AVDs and virtual machines; in a dry run it only lists them with their size.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2264"/>
+        <location filename="../services/catalog.py" line="2287"/>
         <source>Máquinas virtuales</source>
         <translation>Virtual machines</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2289"/>
+        <location filename="../services/catalog.py" line="2312"/>
         <source>Instalar SDK de Android</source>
         <translation>Install Android SDK</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2290"/>
-        <location filename="../services/catalog.py" line="2325"/>
+        <location filename="../services/catalog.py" line="2313"/>
         <location filename="../services/catalog.py" line="2348"/>
-        <location filename="../services/catalog.py" line="2363"/>
-        <location filename="../services/catalog.py" line="2380"/>
+        <location filename="../services/catalog.py" line="2371"/>
+        <location filename="../services/catalog.py" line="2386"/>
+        <location filename="../services/catalog.py" line="2403"/>
         <source>SDKs</source>
         <translation>SDKs</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2294"/>
+        <location filename="../services/catalog.py" line="2317"/>
         <source>Deja esta máquina lista para compilar y emular Android.</source>
         <translation>Leaves this machine ready to build and emulate Android.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2307"/>
-        <location filename="../services/catalog.py" line="2338"/>
-        <location filename="../services/catalog.py" line="2393"/>
+        <location filename="../services/catalog.py" line="2330"/>
+        <location filename="../services/catalog.py" line="2361"/>
+        <location filename="../services/catalog.py" line="2416"/>
         <source>Directorio</source>
         <translation>Directory</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2323"/>
+        <location filename="../services/catalog.py" line="2346"/>
         <source>Instalar command-line tools</source>
         <translation>Install command-line tools</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2329"/>
+        <location filename="../services/catalog.py" line="2352"/>
         <source>Descarga las command-line tools del SDK y las deja en el entorno del usuario.</source>
         <translation>Downloads the SDK command-line tools and leaves them in the user&apos;s environment.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2352"/>
+        <location filename="../services/catalog.py" line="2375"/>
         <source>Acepta las licencias e instala en el SDK los paquetes que falten.</source>
         <translation>Accepts the licenses and installs the missing packages in the SDK.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2367"/>
+        <location filename="../services/catalog.py" line="2390"/>
         <source>Verifica la virtualización que el emulador necesita, y en Windows instala el driver.</source>
         <translation>Checks the virtualization the emulator needs, and on Windows installs the driver.</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2378"/>
+        <location filename="../services/catalog.py" line="2401"/>
         <source>Instalar SDK de Flutter</source>
         <translation>Install Flutter SDK</translation>
     </message>
     <message>
-        <location filename="../services/catalog.py" line="2384"/>
+        <location filename="../services/catalog.py" line="2407"/>
         <source>Descarga el canal stable de Flutter y lo deja en el entorno del usuario.</source>
         <translation>Downloads Flutter&apos;s stable channel and leaves it in the user&apos;s environment.</translation>
     </message>
@@ -4194,8 +4214,8 @@ shows here</translation>
     </message>
     <message>
         <location filename="../services/command_docs.py" line="582"/>
-        <location filename="../services/command_docs.py" line="1392"/>
-        <location filename="../services/command_docs.py" line="1642"/>
+        <location filename="../services/command_docs.py" line="1404"/>
+        <location filename="../services/command_docs.py" line="1654"/>
         <source>En modo simulacro, termina.</source>
         <translation>In dry-run mode, finishes.</translation>
     </message>
@@ -4307,7 +4327,7 @@ shows here</translation>
     </message>
     <message>
         <location filename="../services/command_docs.py" line="661"/>
-        <location filename="../services/command_docs.py" line="1318"/>
+        <location filename="../services/command_docs.py" line="1330"/>
         <source>Resuelve el destino SSH del repo.</source>
         <translation>Resolves the repo&apos;s SSH destination.</translation>
     </message>
@@ -4427,17 +4447,17 @@ shows here</translation>
         <translation>Takes the latest release published on GitHub and stops if it does not have its .sha256.sig. If /srv/&lt;app&gt;/current is already that release, it does nothing; if not, it stops if the VPS does not accept the key that signed it, and installs it with deploy.py.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="955"/>
-        <source>Crea los secretos marcados y los guarda en config.env. Se ofrecen los vacíos de health_token, page_token_key, refresh_key y vapid_key que declara Settings. Si el VPS ya tenía otros, los reemplaza: con otra refresh_key las apps vuelven a entrar, y con otra vapid_key la web se vuelve a suscribir.</source>
-        <translation>Creates the checked secrets and saves them in config.env. It offers the empty ones of health_token, page_token_key, refresh_key and vapid_key that Settings declares. If the VPS already had others, it replaces them: with another refresh_key the apps sign in again, and with another vapid_key the web subscribes again.</translation>
+        <location filename="../services/command_docs.py" line="961"/>
+        <source>Con «Reemplazar», crea todos los marcados, también los que ya tienen valor en config.env o en el VPS, y el anterior se pierde. Con otra refresh_key las apps vuelven a entrar; con otra vapid_key la web se vuelve a suscribir al push; con otro health_token hay que dárselo a quien vigila la salud, y con otra page_token_key una lista abierta se vuelve a pedir desde el principio.</source>
+        <translation>With «Replace», creates all the checked ones, also those that already have a value in config.env or on the VPS, and the previous one is lost. With another refresh_key the apps sign in again; with another vapid_key the web subscribes to push again; another health_token has to be given to whoever watches the health, and with another page_token_key an open list is asked again from the start.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="989"/>
+        <location filename="../services/command_docs.py" line="1001"/>
         <source>Carga en el VPS el código con que se registra el superadministrador; si está vacío, genera uno y lo muestra.</source>
         <translation>Loads on the VPS the code the superadmin registers with; if it is empty, generates one and shows it.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="995"/>
+        <location filename="../services/command_docs.py" line="1007"/>
         <source>Toma SETUP_CODE de la configuración del repo. Si está vacío, genera uno de 6 dígitos, lo guarda ahí y lo muestra en el log.</source>
         <translation>Takes SETUP_CODE from the repo settings. If it is empty, generates a 6-digit one, saves it there and shows it in the log.</translation>
     </message>
@@ -4569,7 +4589,7 @@ shows here</translation>
     </message>
     <message>
         <location filename="../services/command_docs.py" line="893"/>
-        <location filename="../services/command_docs.py" line="977"/>
+        <location filename="../services/command_docs.py" line="989"/>
         <source>Sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone.</source>
         <translation>Uploads plantilla/infra/ from CANONE_DIR to /tmp/consola-canone.</translation>
     </message>
@@ -4586,8 +4606,8 @@ shows here</translation>
     <message>
         <location filename="../services/command_docs.py" line="903"/>
         <location filename="../services/command_docs.py" line="939"/>
-        <location filename="../services/command_docs.py" line="985"/>
-        <location filename="../services/command_docs.py" line="1009"/>
+        <location filename="../services/command_docs.py" line="997"/>
+        <location filename="../services/command_docs.py" line="1021"/>
         <source>Borra /tmp/consola-canone.</source>
         <translation>Deletes /tmp/consola-canone.</translation>
     </message>
@@ -4598,7 +4618,7 @@ shows here</translation>
     </message>
     <message>
         <location filename="../services/command_docs.py" line="918"/>
-        <location filename="../services/command_docs.py" line="968"/>
+        <location filename="../services/command_docs.py" line="980"/>
         <source>Entra como VPS_USER si la llave ya lo deja entrar, con la contraseña de sudo de SUDO_PASSWORD o pedida una vez por sesión; si no, como root con la misma llave.</source>
         <translation>Logs in as VPS_USER if the key already lets it in, with the sudo password from SUDO_PASSWORD or asked once per session; otherwise, as root with the same key.</translation>
     </message>
@@ -4633,804 +4653,814 @@ shows here</translation>
         <translation>If Settings declares setup_code and SETUP_CODE is empty, generates a 6-digit one, saves it in config.env and shows it.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="962"/>
+        <location filename="../services/command_docs.py" line="955"/>
+        <source>Crea los secretos marcados que no tienen valor, de health_token, page_token_key, refresh_key y vapid_key que declara Settings. Corta si config.env tiene uno vacío y el VPS ya lo tiene.</source>
+        <translation>Creates the checked secrets that have no value, of health_token, page_token_key, refresh_key and vapid_key that Settings declares. Stops if config.env has one empty and the VPS already has it.</translation>
+    </message>
+    <message>
+        <location filename="../services/command_docs.py" line="969"/>
+        <source>Guarda los generados en config.env justo antes de cargarlos, cuando ya se comprobó todo lo demás.</source>
+        <translation>Saves the generated ones in config.env right before loading them, once everything else has been checked.</translation>
+    </message>
+    <message>
+        <location filename="../services/command_docs.py" line="974"/>
         <source>Corta si config.env tiene una clave que no es de Consola ni un campo, o si falta el valor de un campo o de RESTIC_PASSWORD (y de GITHUB_TOKEN con PRIVATE).</source>
         <translation>Stops if config.env has a key that is neither Consola&apos;s nor a field, or if the value of a field or of RESTIC_PASSWORD is missing (and of GITHUB_TOKEN with PRIVATE).</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="974"/>
+        <location filename="../services/command_docs.py" line="986"/>
         <source>Corta si todavía no existe la cuenta que administra.</source>
         <translation>Stops if the administering account does not exist yet.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="980"/>
+        <location filename="../services/command_docs.py" line="992"/>
         <source>Corre sudo python3 credentials.py &lt;app&gt; y le pasa por stdin una línea campo=valor por credencial; nada de eso va al log.</source>
         <translation>Runs sudo python3 credentials.py &lt;app&gt; and passes it on stdin one field=value line per credential; none of that goes to the log.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1000"/>
+        <location filename="../services/command_docs.py" line="1012"/>
         <source>Entra como VPS_USER y sube plantilla/infra/ de CANONE_DIR a /tmp/consola-canone.</source>
         <translation>Enters as VPS_USER and uploads plantilla/infra/ from CANONE_DIR to /tmp/consola-canone.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1004"/>
+        <location filename="../services/command_docs.py" line="1016"/>
         <source>Corre sudo python3 credentials.py &lt;app&gt; con la sola línea setup_code=…; credentials.py la cifra y reinicia el servidor.</source>
         <translation>Runs sudo python3 credentials.py &lt;app&gt; with the single line setup_code=…; credentials.py encrypts it and restarts the server.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1013"/>
+        <location filename="../services/command_docs.py" line="1025"/>
         <source>Borra del known_hosts de esta máquina la huella vieja del VPS.</source>
         <translation>Deletes the VPS&apos;s old fingerprint from this machine&apos;s known_hosts.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1017"/>
+        <location filename="../services/command_docs.py" line="1029"/>
         <source>Lee VPS_IP de la configuración del repo.</source>
         <translation>Reads VPS_IP from the repo&apos;s configuration.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1018"/>
+        <location filename="../services/command_docs.py" line="1030"/>
         <source>Corre ssh-keygen -R contra ese host.</source>
         <translation>Runs ssh-keygen -R against that host.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1023"/>
+        <location filename="../services/command_docs.py" line="1035"/>
         <source>Deja la base local usable desde cero: rol, base, permisos, extensiones, migraciones, particiones y datos. Lo que crea objetos va por psql como superusuario.</source>
         <translation>Leaves the local database usable from scratch: role, database, permissions, extensions, migrations, partitions and data. What creates objects goes through psql as superuser.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1030"/>
-        <location filename="../services/command_docs.py" line="1093"/>
-        <location filename="../services/command_docs.py" line="1132"/>
+        <location filename="../services/command_docs.py" line="1042"/>
+        <location filename="../services/command_docs.py" line="1105"/>
+        <location filename="../services/command_docs.py" line="1144"/>
         <source>Abre el canal de superusuario local.</source>
         <translation>Opens the local superuser channel.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1031"/>
+        <location filename="../services/command_docs.py" line="1043"/>
         <source>Crea el rol de la aplicación si no existe.</source>
         <translation>Creates the application role if it does not exist.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1032"/>
+        <location filename="../services/command_docs.py" line="1044"/>
         <source>Corre ALTER ROLE con la contraseña de la configuración.</source>
         <translation>Runs ALTER ROLE with the password from the configuration.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1035"/>
+        <location filename="../services/command_docs.py" line="1047"/>
         <source>Crea la base con ese rol como dueño, o le cambia el dueño si ya existe.</source>
         <translation>Creates the database with that role as owner, or changes its owner if it already exists.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1039"/>
+        <location filename="../services/command_docs.py" line="1051"/>
         <source>Corre GRANT ALL PRIVILEGES sobre la base y GRANT ALL sobre el esquema public.</source>
         <translation>Runs GRANT ALL PRIVILEGES on the database and GRANT ALL on the public schema.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1043"/>
+        <location filename="../services/command_docs.py" line="1055"/>
         <source>Por cada nombre de DB_EXTENSIONS consulta pg_available_extensions y corre CREATE EXTENSION IF NOT EXISTS; corta si el sistema no la tiene.</source>
         <translation>For each name in DB_EXTENSIONS queries pg_available_extensions and runs CREATE EXTENSION IF NOT EXISTS; stops if the system does not have it.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1048"/>
-        <location filename="../services/command_docs.py" line="1121"/>
-        <location filename="../services/command_docs.py" line="1139"/>
+        <location filename="../services/command_docs.py" line="1060"/>
+        <location filename="../services/command_docs.py" line="1133"/>
+        <location filename="../services/command_docs.py" line="1151"/>
         <source>Corre alembic upgrade head.</source>
         <translation>Runs alembic upgrade head.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1049"/>
+        <location filename="../services/command_docs.py" line="1061"/>
         <source>Corre el mantenimiento de particiones del proyecto con el python de su venv.</source>
         <translation>Runs the project&apos;s partition maintenance with its venv&apos;s python.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1053"/>
+        <location filename="../services/command_docs.py" line="1065"/>
         <source>Ejecuta en orden las funciones seed_ del paquete seeders/, con un solo commit al final.</source>
         <translation>Runs in order the seed_ functions of the seeders/ package, with a single commit at the end.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1058"/>
+        <location filename="../services/command_docs.py" line="1070"/>
         <source>Ejecuta las del paquete mock_data/, si está marcado.</source>
         <translation>Runs those of the mock_data/ package, if it is checked.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1064"/>
+        <location filename="../services/command_docs.py" line="1076"/>
         <source>Crea en la base local las extensiones de Postgres que declara DB_EXTENSIONS, por el canal de superusuario. En el VPS las crea install.py.</source>
         <translation>Creates in the local database the Postgres extensions DB_EXTENSIONS declares, through the superuser channel. On the VPS, install.py creates them.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1071"/>
+        <location filename="../services/command_docs.py" line="1083"/>
         <source>Lee DB_EXTENSIONS, descarta repetidos y termina si queda vacía.</source>
         <translation>Reads DB_EXTENSIONS, drops duplicates and finishes if it ends up empty.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1074"/>
+        <location filename="../services/command_docs.py" line="1086"/>
         <source>Abre el canal de superusuario local con psql.</source>
         <translation>Opens the local superuser channel with psql.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1075"/>
+        <location filename="../services/command_docs.py" line="1087"/>
         <source>Consulta pg_available_extensions por cada nombre y corta si el sistema no la tiene.</source>
         <translation>Queries pg_available_extensions for each name and stops if the system does not have it.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1080"/>
+        <location filename="../services/command_docs.py" line="1092"/>
         <source>Corre CREATE EXTENSION IF NOT EXISTS sobre la base de la aplicación.</source>
         <translation>Runs CREATE EXTENSION IF NOT EXISTS on the application&apos;s database.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1087"/>
+        <location filename="../services/command_docs.py" line="1099"/>
         <source>Borra la base local de la aplicación y su rol. En el VPS los roles son de install.py, y la base se vacía con «Reconstruir base».</source>
         <translation>Drops the application&apos;s local database and its role. On the VPS the roles belong to install.py, and the database is emptied with «Rebuild database».</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1094"/>
+        <location filename="../services/command_docs.py" line="1106"/>
         <source>Corre pg_terminate_backend sobre las conexiones vivas de esa base.</source>
         <translation>Runs pg_terminate_backend on that database&apos;s live connections.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1098"/>
+        <location filename="../services/command_docs.py" line="1110"/>
         <source>Corre DROP DATABASE IF EXISTS.</source>
         <translation>Runs DROP DATABASE IF EXISTS.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1099"/>
+        <location filename="../services/command_docs.py" line="1111"/>
         <source>Corre DROP ROLE IF EXISTS del rol de la aplicación.</source>
         <translation>Runs DROP ROLE IF EXISTS for the application role.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1105"/>
+        <location filename="../services/command_docs.py" line="1117"/>
         <source>Genera con Alembic la revisión pendiente y la aplica en la base local.</source>
         <translation>Generates the pending revision with Alembic and applies it to the local database.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1110"/>
+        <location filename="../services/command_docs.py" line="1122"/>
         <source>Anota qué archivos hay en alembic/versions.</source>
         <translation>Notes which files are in alembic/versions.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1111"/>
+        <location filename="../services/command_docs.py" line="1123"/>
         <source>Abre la base local.</source>
         <translation>Opens the local database.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1112"/>
+        <location filename="../services/command_docs.py" line="1124"/>
         <source>Corre alembic revision --autogenerate con el python del venv del servidor.</source>
         <translation>Runs alembic revision --autogenerate with the python of the server&apos;s venv.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1116"/>
+        <location filename="../services/command_docs.py" line="1128"/>
         <source>Compara los archivos de alembic/versions e informa la revisión generada, o que el modelo no cambió.</source>
         <translation>Compares the files of alembic/versions and reports the generated revision, or that the model did not change.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1125"/>
+        <location filename="../services/command_docs.py" line="1137"/>
         <source>Vacía la base y la vuelve a llenar: migraciones y seeders. En local borra las tablas; en el VPS corre database.py de canone, paso a paso.</source>
         <translation>Empties the database and fills it again: migrations and seeders. Locally it drops the tables; on the VPS it runs canone&apos;s database.py, step by step.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1131"/>
-        <location filename="../services/command_docs.py" line="1198"/>
-        <location filename="../services/command_docs.py" line="1234"/>
+        <location filename="../services/command_docs.py" line="1143"/>
+        <location filename="../services/command_docs.py" line="1210"/>
+        <location filename="../services/command_docs.py" line="1246"/>
         <source>En local:</source>
         <translation>Locally:</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1133"/>
+        <location filename="../services/command_docs.py" line="1145"/>
         <source>Lista las tablas del esquema public, salvo spatial_ref_sys, e informa cuántas son.</source>
         <translation>Lists the tables of the public schema, except spatial_ref_sys, and reports how many there are.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1138"/>
+        <location filename="../services/command_docs.py" line="1150"/>
         <source>Corre DROP TABLE IF EXISTS CASCADE sobre todas.</source>
         <translation>Runs DROP TABLE IF EXISTS CASCADE on all of them.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1140"/>
+        <location filename="../services/command_docs.py" line="1152"/>
         <source>Corre el mantenimiento de particiones del proyecto.</source>
         <translation>Runs the project&apos;s partition maintenance.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1143"/>
+        <location filename="../services/command_docs.py" line="1155"/>
         <source>Ejecuta las funciones seed_ del paquete seeders/.</source>
         <translation>Runs the seed_ functions of the seeders/ package.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1144"/>
+        <location filename="../services/command_docs.py" line="1156"/>
         <source>Ejecuta las del paquete mock_data/.</source>
         <translation>Runs those of the mock_data/ package.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1145"/>
-        <location filename="../services/command_docs.py" line="1213"/>
-        <location filename="../services/command_docs.py" line="1243"/>
+        <location filename="../services/command_docs.py" line="1157"/>
+        <location filename="../services/command_docs.py" line="1225"/>
+        <location filename="../services/command_docs.py" line="1255"/>
         <source>En el VPS:</source>
         <translation>On the VPS:</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1146"/>
-        <location filename="../services/command_docs.py" line="1244"/>
+        <location filename="../services/command_docs.py" line="1158"/>
+        <location filename="../services/command_docs.py" line="1256"/>
         <source>Corta si el README dice Estado: en producción.</source>
         <translation>Stops if the README says Estado: en producción.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1147"/>
-        <location filename="../services/command_docs.py" line="1214"/>
-        <location filename="../services/command_docs.py" line="1245"/>
+        <location filename="../services/command_docs.py" line="1159"/>
+        <location filename="../services/command_docs.py" line="1226"/>
+        <location filename="../services/command_docs.py" line="1257"/>
         <source>Entra como VPS_USER, con la contraseña de sudo de SUDO_PASSWORD o pedida una vez por sesión; corta si todavía no existe la cuenta que administra.</source>
         <translation>Logs in as VPS_USER, with the sudo password from SUDO_PASSWORD or asked once per session; stops if the administering account does not exist yet.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1153"/>
+        <location filename="../services/command_docs.py" line="1165"/>
         <source>Corre sudo /usr/local/sbin/&lt;app&gt;-database empty: detiene el servidor y borra la base y los archivos subidos; la crea otra vez vacía.</source>
         <translation>Runs sudo /usr/local/sbin/&lt;app&gt;-database empty: stops the server and deletes the database and the uploaded files; creates it again empty.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1158"/>
+        <location filename="../services/command_docs.py" line="1170"/>
         <source>Corre database.py migrate: las migraciones y los seeders de la versión activa, y arranca el servidor.</source>
         <translation>Runs database.py migrate: the migrations and seeders of the active version, and starts the server.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1163"/>
+        <location filename="../services/command_docs.py" line="1175"/>
         <source>Corre database.py seed: los seeders otra vez.</source>
         <translation>Runs database.py seed: the seeders again.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1164"/>
+        <location filename="../services/command_docs.py" line="1176"/>
         <source>Corre database.py seed --mock: el paquete mock_data/.</source>
         <translation>Runs database.py seed --mock: the mock_data/ package.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1170"/>
+        <location filename="../services/command_docs.py" line="1182"/>
         <source>Vacía la base local, borra el historial de alembic/versions y escribe una migración inicial nueva.</source>
         <translation>Empties the local database, deletes the alembic/versions history and writes a new initial migration.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1176"/>
+        <location filename="../services/command_docs.py" line="1188"/>
         <source>Lista las tablas del esquema public y las borra con DROP TABLE CASCADE.</source>
         <translation>Lists the tables of the public schema and drops them with DROP TABLE CASCADE.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1180"/>
+        <location filename="../services/command_docs.py" line="1192"/>
         <source>Borra uno por uno los .py de alembic/versions, nombrando cada uno.</source>
         <translation>Deletes the .py files of alembic/versions one by one, naming each.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1184"/>
+        <location filename="../services/command_docs.py" line="1196"/>
         <source>Corre alembic revision --autogenerate con el mensaje initial_migration, en esta máquina.</source>
         <translation>Runs alembic revision --autogenerate with the message initial_migration, on this machine.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1192"/>
+        <location filename="../services/command_docs.py" line="1204"/>
         <source>Ejecuta las funciones seed_ del paquete seeders/ del proyecto: en local con el python de su venv, en el VPS con database.py seed.</source>
         <translation>Runs the seed_ functions of the project&apos;s seeders/ package: locally with its venv&apos;s python, on the VPS with database.py seed.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1199"/>
+        <location filename="../services/command_docs.py" line="1211"/>
         <source>Lanza por -c el programa de seeders, sin escribir nada en disco.</source>
         <translation>Launches the seeders program through -c, without writing anything to disk.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1202"/>
+        <location filename="../services/command_docs.py" line="1214"/>
         <source>Recorre el paquete seeders/ y junta todas las funciones que empiezan con seed_.</source>
         <translation>Goes through the seeders/ package and gathers all the functions that start with seed_.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1206"/>
+        <location filename="../services/command_docs.py" line="1218"/>
         <source>Las ejecuta en orden dentro de una sesión, nombrando cada una.</source>
         <translation>Runs them in order inside a session, naming each.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1209"/>
+        <location filename="../services/command_docs.py" line="1221"/>
         <source>Hace rollback y corta si alguna falla, o un solo commit si todas pasan.</source>
         <translation>Rolls back and stops if one fails, or a single commit if all pass.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1220"/>
+        <location filename="../services/command_docs.py" line="1232"/>
         <source>Corre sudo /usr/local/sbin/&lt;app&gt;-database seed: los seeders de la versión activa.</source>
         <translation>Runs sudo /usr/local/sbin/&lt;app&gt;-database seed: the seeders of the active version.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1228"/>
+        <location filename="../services/command_docs.py" line="1240"/>
         <source>Ejecuta las funciones seed_ del paquete mock_data/ del proyecto: en local con el python de su venv, en el VPS con database.py seed --mock.</source>
         <translation>Runs the seed_ functions of the project&apos;s mock_data/ package: locally with its venv&apos;s python, on the VPS with database.py seed --mock.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1235"/>
+        <location filename="../services/command_docs.py" line="1247"/>
         <source>Lanza por -c el mismo programa de los seeders, apuntado al paquete mock_data/.</source>
         <translation>Launches through -c the same seeders program, pointed at the mock_data/ package.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1239"/>
+        <location filename="../services/command_docs.py" line="1251"/>
         <source>Recorre el paquete y junta sus funciones seed_.</source>
         <translation>Goes through the package and gathers its seed_ functions.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1240"/>
+        <location filename="../services/command_docs.py" line="1252"/>
         <source>Las ejecuta en orden y commitea una sola vez al final.</source>
         <translation>Runs them in order and commits only once at the end.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1251"/>
+        <location filename="../services/command_docs.py" line="1263"/>
         <source>Corre sudo /usr/local/sbin/&lt;app&gt;-database seed --mock, que falla en una máquina sin la marca de desarrollo.</source>
         <translation>Runs sudo /usr/local/sbin/&lt;app&gt;-database seed --mock, which fails on a machine without the development mark.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1259"/>
+        <location filename="../services/command_docs.py" line="1271"/>
         <source>Deja un volcado de la base local, en formato custom de pg_dump, y rota los respaldos viejos.</source>
         <translation>Leaves a dump of the local database, in pg_dump&apos;s custom format, and rotates old backups.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1265"/>
+        <location filename="../services/command_docs.py" line="1277"/>
         <source>Resuelve la carpeta de respaldos de BACKUP_DIR: relativa cuelga de la raíz del repo, absoluta se usa tal cual.</source>
         <translation>Resolves the backups folder from BACKUP_DIR: relative hangs from the repo root, absolute is used as is.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1270"/>
-        <location filename="../services/command_docs.py" line="1298"/>
+        <location filename="../services/command_docs.py" line="1282"/>
+        <location filename="../services/command_docs.py" line="1310"/>
         <source>Abre la conexión a la base local.</source>
         <translation>Opens the connection to the local database.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1271"/>
+        <location filename="../services/command_docs.py" line="1283"/>
         <source>Busca pg_dump en la instalación local de PostgreSQL y corta si su versión es más vieja que la del servidor, nombrando las dos.</source>
         <translation>Looks for pg_dump in the local PostgreSQL installation and stops if its version is older than the server&apos;s, naming both.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1276"/>
+        <location filename="../services/command_docs.py" line="1288"/>
         <source>Corre pg_dump -Fc como el rol de la aplicación, escribiendo directo en el archivo local, con la fecha y hora en el nombre.</source>
         <translation>Runs pg_dump -Fc as the application role, writing straight to the local file, with the date and time in the name.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1281"/>
+        <location filename="../services/command_docs.py" line="1293"/>
         <source>Ordena los respaldos de esta base por fecha, deja los BACKUP_KEEP más nuevos y borra los que sobran, nombrando cada uno.</source>
         <translation>Sorts this database&apos;s backups by date, keeps the BACKUP_KEEP newest and deletes the extra ones, naming each.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1289"/>
+        <location filename="../services/command_docs.py" line="1301"/>
         <source>Carga uno de los respaldos guardados sobre la base local, reemplazando lo que haya.</source>
         <translation>Loads one of the saved backups over the local database, replacing whatever is there.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1294"/>
+        <location filename="../services/command_docs.py" line="1306"/>
         <source>Comprueba que el respaldo elegido exista en la carpeta de respaldos.</source>
         <translation>Checks that the chosen backup exists in the backups folder.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1299"/>
+        <location filename="../services/command_docs.py" line="1311"/>
         <source>Busca pg_restore en la instalación local de PostgreSQL y corta si su versión es más vieja que la del servidor.</source>
         <translation>Looks for pg_restore in the local PostgreSQL installation and stops if its version is older than the server&apos;s.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1304"/>
+        <location filename="../services/command_docs.py" line="1316"/>
         <source>Corre pg_restore como el rol de la aplicación, borrando cada objeto antes de recrearlo y cortando en el primer error.</source>
         <translation>Runs pg_restore as the application role, dropping each object before recreating it and stopping at the first error.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1312"/>
+        <location filename="../services/command_docs.py" line="1324"/>
         <source>Abre un túnel SSH al Postgres del VPS y lo deja levantado como servicio de fondo. Entra como &lt;app&gt;_read: lee y no cambia nada.</source>
         <translation>Opens an SSH tunnel to the VPS&apos;s Postgres and leaves it up as a background service. Logs in as &lt;app&gt;_read: it reads and changes nothing.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1319"/>
+        <location filename="../services/command_docs.py" line="1331"/>
         <source>Toma el puerto 5432 de este lado, o el siguiente libre.</source>
         <translation>Takes port 5432 on this side, or the next free one.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1322"/>
+        <location filename="../services/command_docs.py" line="1334"/>
         <source>Levanta el reenvío por SSH al socket /run/postgresql/.s.PGSQL.5432 del VPS.</source>
         <translation>Brings up the SSH forwarding to the VPS&apos;s /run/postgresql/.s.PGSQL.5432 socket.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1326"/>
+        <location filename="../services/command_docs.py" line="1338"/>
         <source>Informa el extremo local, el rol &lt;app&gt;_read, sin contraseña, y la base &lt;app&gt;.</source>
         <translation>Reports the local end, the role &lt;app&gt;_read, without a password, and the database &lt;app&gt;.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1333"/>
+        <location filename="../services/command_docs.py" line="1345"/>
         <source>Abre la base del ámbito en solo lectura y la muestra en la pestaña: esquemas y tablas a la izquierda, datos y estructura a la derecha. Queda conectada hasta que cierras la pestaña.</source>
         <translation>Opens the scope&apos;s database read-only and shows it in the tab: schemas and tables on the left, data and structure on the right. It stays connected until you close the tab.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1340"/>
+        <location filename="../services/command_docs.py" line="1352"/>
         <source>Abre la base del ámbito: la local con el rol de la app contra 127.0.0.1; la del VPS como &lt;app&gt;_read, por un túnel SSH a su socket.</source>
         <translation>Opens the scope&apos;s database: the local one with the app&apos;s role against 127.0.0.1; the VPS&apos;s as &lt;app&gt;_read, through an SSH tunnel to its socket.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1345"/>
+        <location filename="../services/command_docs.py" line="1357"/>
         <source>Se conecta en solo lectura: el servidor rechaza cualquier escritura.</source>
         <translation>Connects read-only: the server rejects any write.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1349"/>
+        <location filename="../services/command_docs.py" line="1361"/>
         <source>Muestra en la consola el servidor, la base, su tamaño y las tablas con su estimado de filas.</source>
         <translation>Shows in the console the server, the database, its size and the tables with their row estimate.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1354"/>
+        <location filename="../services/command_docs.py" line="1366"/>
         <source>Publica la conexión y cambia a la vista del explorador.</source>
         <translation>Publishes the connection and switches to the explorer view.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1357"/>
+        <location filename="../services/command_docs.py" line="1369"/>
         <source>Espera hasta que cierres la pestaña; si el túnel se cae, termina con error.</source>
         <translation>Waits until you close the tab; if the tunnel drops, it ends with an error.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1365"/>
+        <location filename="../services/command_docs.py" line="1377"/>
         <source>Borra las cachés y la basura de build del repo abierto. En simulacro las lista con su tamaño.</source>
         <translation>Deletes the caches and build junk of the open repo. In a dry run it lists them with their size.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1371"/>
+        <location filename="../services/command_docs.py" line="1383"/>
         <source>Recorre el repo una sola vez, salteando .git, .consola y las carpetas pesadas que no se marcaron.</source>
         <translation>Goes through the repo only once, skipping .git, .consola and the heavy folders that were not checked.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1376"/>
+        <location filename="../services/command_docs.py" line="1388"/>
         <source>Anota como una unidad las carpetas pesadas marcadas: node_modules, .venv, build o dist, .dart_tool.</source>
         <translation>Notes as one unit the checked heavy folders: node_modules, .venv, build or dist, .dart_tool.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1381"/>
+        <location filename="../services/command_docs.py" line="1393"/>
         <source>Anota, según las familias marcadas, las carpetas __pycache__, .gradle, .kotlin y .cxx, los archivos .pyc y .pyo, los residuos de Flutter y los volcados de crash.</source>
         <translation>Notes, according to the checked families, the __pycache__, .gradle, .kotlin and .cxx folders, the .pyc and .pyo files, Flutter leftovers and crash dumps.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1387"/>
+        <location filename="../services/command_docs.py" line="1399"/>
         <source>Termina si no encontró nada.</source>
         <translation>Finishes if it found nothing.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1388"/>
+        <location filename="../services/command_docs.py" line="1400"/>
         <source>Muestra hasta cuarenta rutas y dice cuántas quedaron sin listar.</source>
         <translation>Shows up to forty paths and says how many were left unlisted.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1391"/>
+        <location filename="../services/command_docs.py" line="1403"/>
         <source>Suma el tamaño total en disco y lo informa.</source>
         <translation>Adds up the total size on disk and reports it.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1393"/>
+        <location filename="../services/command_docs.py" line="1405"/>
         <source>Borra todo lo listado e informa cuánto se liberó.</source>
         <translation>Deletes everything listed and reports how much was freed.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1397"/>
+        <location filename="../services/command_docs.py" line="1409"/>
         <source>Instala las command-line tools del SDK de Android y las deja en el entorno del usuario.</source>
         <translation>Installs the Android SDK command-line tools and leaves them in the user&apos;s environment.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1403"/>
+        <location filename="../services/command_docs.py" line="1415"/>
         <source>Comprueba que el sistema sea Windows o Linux y que haya Java en el PATH.</source>
         <translation>Checks that the system is Windows or Linux and that there is Java on the PATH.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1407"/>
+        <location filename="../services/command_docs.py" line="1419"/>
         <source>Salta la descarga si ya hay un sdkmanager en el directorio elegido.</source>
         <translation>Skips the download if there is already an sdkmanager in the chosen directory.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1411"/>
+        <location filename="../services/command_docs.py" line="1423"/>
         <source>Lee la página de Android Studio y saca el nombre del zip publicado y su SHA-256.</source>
         <translation>Reads the Android Studio page and gets the name of the published zip and its SHA-256.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1415"/>
+        <location filename="../services/command_docs.py" line="1427"/>
         <source>Descarga el zip informando el avance y atendiendo al botón de detener.</source>
         <translation>Downloads the zip reporting progress and honoring the stop button.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1419"/>
+        <location filename="../services/command_docs.py" line="1431"/>
         <source>Verifica el SHA-256 del archivo bajado.</source>
         <translation>Verifies the SHA-256 of the downloaded file.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1420"/>
+        <location filename="../services/command_docs.py" line="1432"/>
         <source>Descomprime y reacomoda el contenido para que quede en cmdline-tools/latest.</source>
         <translation>Unzips and rearranges the contents so they end up in cmdline-tools/latest.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1424"/>
+        <location filename="../services/command_docs.py" line="1436"/>
         <source>Crea la carpeta avd/ dentro del SDK.</source>
         <translation>Creates the avd/ folder inside the SDK.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1425"/>
+        <location filename="../services/command_docs.py" line="1437"/>
         <source>Escribe ANDROID_SDK_ROOT, ANDROID_HOME y ANDROID_AVD_HOME en el entorno del usuario.</source>
         <translation>Writes ANDROID_SDK_ROOT, ANDROID_HOME and ANDROID_AVD_HOME to the user&apos;s environment.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1430"/>
+        <location filename="../services/command_docs.py" line="1442"/>
         <source>Agrega al PATH platform-tools, emulator y el bin de las herramientas, sacando las entradas de instalaciones anteriores.</source>
         <translation>Adds platform-tools, emulator and the tools&apos; bin to the PATH, removing entries from previous installations.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1438"/>
+        <location filename="../services/command_docs.py" line="1450"/>
         <source>Acepta las licencias e instala en el SDK los paquetes marcados que falten.</source>
         <translation>Accepts the licenses and installs in the SDK the checked packages that are missing.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1443"/>
+        <location filename="../services/command_docs.py" line="1455"/>
         <source>Traduce los componentes marcados a ids de sdkmanager, armando build-tools y platform con la versión y el API level escritos.</source>
         <translation>Translates the checked components into sdkmanager ids, building build-tools and platform with the typed version and API level.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1448"/>
+        <location filename="../services/command_docs.py" line="1460"/>
         <source>Resuelve el sdkmanager instalado y la raíz de su SDK.</source>
         <translation>Resolves the installed sdkmanager and its SDK root.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1451"/>
+        <location filename="../services/command_docs.py" line="1463"/>
         <source>Corre sdkmanager --licenses respondiendo que sí a cada licencia.</source>
         <translation>Runs sdkmanager --licenses answering yes to each license.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1454"/>
+        <location filename="../services/command_docs.py" line="1466"/>
         <source>Consulta sdkmanager --list_installed y descarta lo que ya está.</source>
         <translation>Queries sdkmanager --list_installed and drops what is already there.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1457"/>
+        <location filename="../services/command_docs.py" line="1469"/>
         <source>Termina si no falta ninguno.</source>
         <translation>Finishes if none is missing.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1458"/>
+        <location filename="../services/command_docs.py" line="1470"/>
         <source>Enumera lo que falta y lo instala en una sola corrida de sdkmanager.</source>
         <translation>Lists what is missing and installs it in a single sdkmanager run.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1465"/>
+        <location filename="../services/command_docs.py" line="1477"/>
         <source>Deja lista la aceleración por hardware del emulador: instala el driver en Windows y verifica /dev/kvm en Linux.</source>
         <translation>Gets the emulator&apos;s hardware acceleration ready: installs the driver on Windows and checks /dev/kvm on Linux.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1471"/>
+        <location filename="../services/command_docs.py" line="1483"/>
         <source>En Windows, consulta el servicio gvm y termina si el driver ya está instalado.</source>
         <translation>On Windows, queries the gvm service and finishes if the driver is already installed.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1475"/>
+        <location filename="../services/command_docs.py" line="1487"/>
         <source>Descarga el driver con sdkmanager y comprueba que aparezca su silent_install.bat.</source>
         <translation>Downloads the driver with sdkmanager and checks that its silent_install.bat appears.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1480"/>
+        <location filename="../services/command_docs.py" line="1492"/>
         <source>Lanza ese instalador pidiendo elevación, en una ventana aparte.</source>
         <translation>Launches that installer asking for elevation, in a separate window.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1483"/>
+        <location filename="../services/command_docs.py" line="1495"/>
         <source>En Linux, comprueba que exista /dev/kvm y corta explicando la virtualización de la BIOS y el módulo del kernel si falta.</source>
         <translation>On Linux, checks that /dev/kvm exists and stops explaining BIOS virtualization and the kernel module if it is missing.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1488"/>
+        <location filename="../services/command_docs.py" line="1500"/>
         <source>Comprueba que este usuario tenga lectura y escritura sobre /dev/kvm, y escribe el usermod exacto si no las tiene.</source>
         <translation>Checks that this user has read and write access to /dev/kvm, and writes the exact usermod if not.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1496"/>
+        <location filename="../services/command_docs.py" line="1508"/>
         <source>Deja esta máquina lista para compilar y emular Android: herramientas, paquetes y aceleración.</source>
         <translation>Leaves this machine ready to build and emulate Android: tools, packages and acceleration.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1502"/>
+        <location filename="../services/command_docs.py" line="1514"/>
         <source>Descarga y verifica las command-line tools, las deja en cmdline-tools/latest y escribe las variables y el PATH del usuario.</source>
         <translation>Downloads and verifies the command-line tools, leaves them in cmdline-tools/latest and writes the user&apos;s variables and PATH.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1507"/>
+        <location filename="../services/command_docs.py" line="1519"/>
         <source>Acepta las licencias e instala los componentes marcados que falten, con el API level y el build-tools escritos.</source>
         <translation>Accepts the licenses and installs the checked components that are missing, with the typed API level and build-tools.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1512"/>
+        <location filename="../services/command_docs.py" line="1524"/>
         <source>Instala el driver del hipervisor en Windows, o verifica /dev/kvm en Linux.</source>
         <translation>Installs the hypervisor driver on Windows, or checks /dev/kvm on Linux.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1519"/>
+        <location filename="../services/command_docs.py" line="1531"/>
         <source>Instala el SDK de Flutter del canal stable y lo deja en el entorno del usuario.</source>
         <translation>Installs the Flutter SDK from the stable channel and leaves it in the user&apos;s environment.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1524"/>
+        <location filename="../services/command_docs.py" line="1536"/>
         <source>Comprueba que haya Git en el PATH.</source>
         <translation>Checks that there is Git on the PATH.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1525"/>
+        <location filename="../services/command_docs.py" line="1537"/>
         <source>Salta la descarga si ya hay un flutter en el directorio elegido.</source>
         <translation>Skips the download if there is already a flutter in the chosen directory.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1528"/>
+        <location filename="../services/command_docs.py" line="1540"/>
         <source>Consulta el índice oficial de releases y saca el archivo y el SHA-256 del canal stable.</source>
         <translation>Queries the official releases index and gets the file and the SHA-256 of the stable channel.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1533"/>
+        <location filename="../services/command_docs.py" line="1545"/>
         <source>Descarga el paquete informando el avance.</source>
         <translation>Downloads the package reporting progress.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1534"/>
+        <location filename="../services/command_docs.py" line="1546"/>
         <source>Verifica su SHA-256.</source>
         <translation>Verifies its SHA-256.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1535"/>
+        <location filename="../services/command_docs.py" line="1547"/>
         <source>Descomprime y renombra la carpeta que trae el zip si el destino tiene otro nombre.</source>
         <translation>Unzips and renames the folder the zip brings if the destination has another name.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1540"/>
+        <location filename="../services/command_docs.py" line="1552"/>
         <source>Escribe FLUTTER_HOME y agrega su bin al PATH del usuario, sacando las entradas de instalaciones anteriores.</source>
         <translation>Writes FLUTTER_HOME and adds its bin to the user&apos;s PATH, removing entries from previous installations.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1545"/>
+        <location filename="../services/command_docs.py" line="1557"/>
         <source>Corre flutter --version.</source>
         <translation>Runs flutter --version.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1546"/>
+        <location filename="../services/command_docs.py" line="1558"/>
         <source>Corre flutter doctor.</source>
         <translation>Runs flutter doctor.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1550"/>
+        <location filename="../services/command_docs.py" line="1562"/>
         <source>Apunta a la IP elegida, sin el proxy de Cloudflare, el registro A de cada host de la app: DOMAIN para landing/, app.DOMAIN para web/ y panel.DOMAIN para panel/.</source>
         <translation>Points the A record of each app host to the chosen IP, without Cloudflare&apos;s proxy: DOMAIN for landing/, app.DOMAIN for web/ and panel.DOMAIN for panel/.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1557"/>
+        <location filename="../services/command_docs.py" line="1569"/>
         <source>Resuelve la IP según el modo: VPS_IP, la detectada preguntándole a un servicio externo, o la escrita.</source>
         <translation>Resolves the IP according to the mode: VPS_IP, the one detected by asking an external service, or the typed one.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1562"/>
+        <location filename="../services/command_docs.py" line="1574"/>
         <source>Arma los hosts con las piezas web que el repo tiene en su raíz.</source>
         <translation>Builds the hosts from the web pieces the repo has at its root.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1565"/>
+        <location filename="../services/command_docs.py" line="1577"/>
         <source>Busca en Cloudflare la zona de CF_DOMAIN_NAME con el token de la API.</source>
         <translation>Looks up the zone of CF_DOMAIN_NAME on Cloudflare with the API token.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1569"/>
+        <location filename="../services/command_docs.py" line="1581"/>
         <source>Por cada host, crea su registro A si falta, lo deja como está si ya apunta a esa IP sin proxy, o lo cambia con un PUT.</source>
         <translation>For each host, creates its A record if it is missing, leaves it as is if it already points to that IP without proxy, or changes it with a PUT.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1574"/>
+        <location filename="../services/command_docs.py" line="1586"/>
         <source>Deja en el log cada cambio.</source>
         <translation>Logs each change.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1578"/>
+        <location filename="../services/command_docs.py" line="1590"/>
         <source>Corre verificar.py de canone sobre este repo y muestra cada incumplimiento. No cambia nada.</source>
         <translation>Runs canone&apos;s verificar.py on this repo and shows every breach. Changes nothing.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1584"/>
+        <location filename="../services/command_docs.py" line="1596"/>
         <source>Toma scripts/verificar.py de CANONE_DIR, y corta si no está.</source>
         <translation>Takes scripts/verificar.py from CANONE_DIR, and stops if it is missing.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1587"/>
+        <location filename="../services/command_docs.py" line="1599"/>
         <source>Lo corre con el Python de esta máquina y --repo con la carpeta del repo, sobre los archivos como están, también los que no tienen commit.</source>
         <translation>Runs it with this machine&apos;s Python and --repo with the repo&apos;s folder, on the files as they are, uncommitted ones included.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1592"/>
+        <location filename="../services/command_docs.py" line="1604"/>
         <source>Falla si verificar.py encuentra algo.</source>
         <translation>Fails if verificar.py finds anything.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1596"/>
+        <location filename="../services/command_docs.py" line="1608"/>
         <source>Corre copiar.py de canone sobre este repo: copia los archivos que se copian sin editar y que faltan o se separaron. No toca los que se completan.</source>
         <translation>Runs canone&apos;s copiar.py on this repo: copies the files that are copied unedited and that are missing or drifted. Leaves alone those each repo completes.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1602"/>
+        <location filename="../services/command_docs.py" line="1614"/>
         <source>Toma scripts/copiar.py de CANONE_DIR, y corta si no está.</source>
         <translation>Takes scripts/copiar.py from CANONE_DIR, and stops if it is missing.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1605"/>
+        <location filename="../services/command_docs.py" line="1617"/>
         <source>Nombra cada archivo que crea o reemplaza; en simulacro, termina.</source>
         <translation>Names each file it creates or replaces; in a dry run, ends.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1608"/>
+        <location filename="../services/command_docs.py" line="1620"/>
         <source>Con «Agregar», suma los archivos de un servidor con cuentas. Reemplaza los del repo que se llaman igual, como routers/auth.py.</source>
         <translation>With «Add», includes the files of a server with accounts. Replaces the repo&apos;s files of the same name, such as routers/auth.py.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1613"/>
+        <location filename="../services/command_docs.py" line="1625"/>
         <source>No copia nada si reemplazaría un archivo cuyo contenido no está en un commit.</source>
         <translation>Copies nothing if it would replace a file whose content is not in a commit.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1620"/>
+        <location filename="../services/command_docs.py" line="1632"/>
         <source>Copia los archivos compartidos de este repo a los otros repos indicados. En simulacro muestra las diferencias.</source>
         <translation>Copies this repo&apos;s shared files to the other given repos. In a dry run it shows the differences.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1626"/>
+        <location filename="../services/command_docs.py" line="1638"/>
         <source>Corta si no hay ningún repo destino.</source>
         <translation>Stops if there is no destination repo.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1627"/>
+        <location filename="../services/command_docs.py" line="1639"/>
         <source>Toma la lista de archivos escrita, o los archivos comunes del catálogo si está vacía.</source>
         <translation>Takes the typed list of files, or the catalog&apos;s common files if it is empty.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1632"/>
+        <location filename="../services/command_docs.py" line="1644"/>
         <source>Saltea con aviso los destinos que no existen como carpeta.</source>
         <translation>Skips with a warning the destinations that do not exist as a folder.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1635"/>
+        <location filename="../services/command_docs.py" line="1647"/>
         <source>Compara cada archivo contra su par en cada destino y se queda con los que faltan o difieren.</source>
         <translation>Compares each file against its counterpart in each destination and keeps those that are missing or differ.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1640"/>
+        <location filename="../services/command_docs.py" line="1652"/>
         <source>Termina si no hay diferencias.</source>
         <translation>Finishes if there are no differences.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1641"/>
+        <location filename="../services/command_docs.py" line="1653"/>
         <source>Lista cada diferencia con su estado y su repo.</source>
         <translation>Lists each difference with its status and its repo.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1643"/>
+        <location filename="../services/command_docs.py" line="1655"/>
         <source>Copia archivo por archivo, nombrando cada uno.</source>
         <translation>Copies file by file, naming each.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1647"/>
+        <location filename="../services/command_docs.py" line="1659"/>
         <source>Clona un repositorio de GitHub en una carpeta nueva y lo abre como pestaña de Consola.</source>
         <translation>Clones a GitHub repository into a new folder and opens it as a Consola tab.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1653"/>
+        <location filename="../services/command_docs.py" line="1665"/>
         <source>Corta si no hay URL o si no hay git en el PATH.</source>
         <translation>Stops if there is no URL or if there is no git on the PATH.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1654"/>
+        <location filename="../services/command_docs.py" line="1666"/>
         <source>Toma la carpeta destino escrita; vacía, usa la carpeta que contiene al repo abierto.</source>
         <translation>Takes the typed destination folder; if empty, uses the folder that contains the open repo.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1659"/>
+        <location filename="../services/command_docs.py" line="1671"/>
         <source>Deriva el nombre de la carpeta del último tramo de la URL, sin .git.</source>
         <translation>Derives the folder name from the last part of the URL, without .git.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1663"/>
+        <location filename="../services/command_docs.py" line="1675"/>
         <source>Corta si esa carpeta ya existe: clonar encima sería mezclar dos repos.</source>
         <translation>Stops if that folder already exists: cloning over it would mix two repos.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1667"/>
+        <location filename="../services/command_docs.py" line="1679"/>
         <source>Corre git clone, con --branch si se escribió una rama.</source>
         <translation>Runs git clone, with --branch if a branch was typed.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1670"/>
+        <location filename="../services/command_docs.py" line="1682"/>
         <source>Lee el commit corto del clon y lo deja en el log.</source>
         <translation>Reads the clone&apos;s short commit and logs it.</translation>
     </message>
     <message>
-        <location filename="../services/command_docs.py" line="1671"/>
+        <location filename="../services/command_docs.py" line="1683"/>
         <source>Devuelve la carpeta, que la ventana abre como pestaña nueva.</source>
         <translation>Returns the folder, which the window opens as a new tab.</translation>
     </message>
@@ -7996,112 +8026,122 @@ Check that virtualization (VT-x or AMD-V) is enabled in the BIOS and that the kv
 <context>
     <name>vps_setup</name>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="89"/>
+        <location filename="../services/tasks/vps_setup.py" line="93"/>
         <source>Contraseña de {0} (la de sudo)</source>
         <translation>Password of {0} (the sudo one)</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="94"/>
+        <location filename="../services/tasks/vps_setup.py" line="98"/>
         <source>Sin la contraseña de sudo no se puede administrar el VPS.</source>
         <translation>Without the sudo password the VPS cannot be administered.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="115"/>
+        <location filename="../services/tasks/vps_setup.py" line="119"/>
         <source>{0} todavía no entra: se usa {1}.</source>
         <translation>{0} cannot log in yet: {1} is used.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="121"/>
+        <location filename="../services/tasks/vps_setup.py" line="125"/>
         <source>No se entra al VPS ni como {0} ni como {1} con la llave {2}.</source>
         <translation>Cannot log in to the VPS as {0} or as {1} with the key {2}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="136"/>
+        <location filename="../services/tasks/vps_setup.py" line="140"/>
         <source>La cuenta que administra todavía no existe: corre «Configurar VPS» con «Instalar infraestructura» primero.</source>
         <translation>The administering account does not exist yet: run «Set up VPS» with «Install infrastructure» first.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="195"/>
+        <location filename="../services/tasks/vps_setup.py" line="199"/>
         <source>La llave ya entra al VPS.</source>
         <translation>The key already logs in to the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="198"/>
+        <location filename="../services/tasks/vps_setup.py" line="202"/>
         <source>Contraseña de {0} (la del proveedor)</source>
         <translation>Password of {0} (the provider&apos;s)</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="205"/>
+        <location filename="../services/tasks/vps_setup.py" line="209"/>
         <source>Sin la contraseña de root no se puede poner la llave en el VPS.</source>
         <translation>Without the root password the key cannot be installed on the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="221"/>
+        <location filename="../services/tasks/vps_setup.py" line="225"/>
         <source>La llave quedó en {0}, pero no entra con ella.</source>
         <translation>The key was left in {0}, but it does not log in with it.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="226"/>
+        <location filename="../services/tasks/vps_setup.py" line="230"/>
         <source>La llave {0} entra como {1}.</source>
         <translation>The key {0} logs in as {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="245"/>
+        <location filename="../services/tasks/vps_setup.py" line="249"/>
         <source>Paquetes de canone para este repo: {0}</source>
         <translation>canone packages for this repo: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="258"/>
+        <location filename="../services/tasks/vps_setup.py" line="262"/>
         <source>Paquetes y uv listos: {0}</source>
         <translation>Packages and uv ready: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="293"/>
+        <location filename="../services/tasks/vps_setup.py" line="297"/>
         <source>Memoria de Valkey: {0}, el {1} % de la RAM del VPS.</source>
         <translation>Valkey memory: {0}, {1} % of the VPS&apos;s RAM.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="316"/>
+        <location filename="../services/tasks/vps_setup.py" line="320"/>
         <source>{0} es la misma llave que {1}: hace falta otra, guardada fuera de esta máquina.</source>
         <translation>{0} is the same key as {1}: another one is needed, kept outside this machine.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="340"/>
+        <location filename="../services/tasks/vps_setup.py" line="344"/>
         <source>{0} instalado en {1}.</source>
         <translation>{0} installed on {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="374"/>
+        <location filename="../services/tasks/vps_setup.py" line="389"/>
         <source>{0} credenciales cargadas.</source>
         <translation>{0} credentials loaded.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="401"/>
+        <location filename="../services/tasks/vps_setup.py" line="425"/>
+        <source>El VPS ya tiene {0}, y config.env no: escribe su valor o marca «Reemplazar».</source>
+        <translation>The VPS already has {0}, and config.env does not: write its value or check «Replace».</translation>
+    </message>
+    <message>
+        <location filename="../services/tasks/vps_setup.py" line="381"/>
         <source>Secretos generados y guardados en config.env: {0}.</source>
         <translation>Secrets generated and saved in config.env: {0}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="419"/>
+        <location filename="../services/tasks/vps_setup.py" line="417"/>
+        <source>Ya tienen valor y se conservan: {0}.</source>
+        <translation>Already have a value and are kept: {0}.</translation>
+    </message>
+    <message>
+        <location filename="../services/tasks/vps_setup.py" line="447"/>
         <source>Código de instalación: {0}</source>
         <translation>Setup code: {0}</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="442"/>
+        <location filename="../services/tasks/vps_setup.py" line="470"/>
         <source>Código de instalación cargado en {0}: el servidor se reinició.</source>
         <translation>Setup code loaded on {0}: the server restarted.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="466"/>
+        <location filename="../services/tasks/vps_setup.py" line="494"/>
         <source>VPS vaciado: {0}.</source>
         <translation>VPS emptied: {0}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="468"/>
+        <location filename="../services/tasks/vps_setup.py" line="496"/>
         <source>VPS {0} vaciado: {1}.</source>
         <translation>VPS {0} emptied: {1}.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_setup.py" line="521"/>
+        <location filename="../services/tasks/vps_setup.py" line="549"/>
         <source>VPS {0} configurado.</source>
         <translation>VPS {0} configured.</translation>
     </message>

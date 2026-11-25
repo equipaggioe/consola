@@ -193,8 +193,8 @@ SHOTS_LANGUAGES = "shots_languages"
 _SHOTS_AXES = {SHOTS_APPS: "apps", SHOTS_THEMES: "themes", SHOTS_LANGUAGES: "languages"}
 # the repo's apps that take their icon from the logo
 ICON_APPS = "icon_apps"
-# the random secrets the repo declares and has empty in config.env
-EMPTY_SECRETS = "empty_secrets"
+# the random secrets the repo declares, and whether config.env has them
+RANDOM_SECRETS = "random_secrets"
 # the packages canone's `packages.py` installs for this repo
 PACKAGES = "packages"
 # the title each preview goes under in the panel, and what decides it
@@ -250,11 +250,8 @@ def queried_values(
         return _shots_axis(source, config, root, refresh=refresh)
     if source == ICON_APPS:
         return _icon_apps(root)
-    if source == EMPTY_SECRETS:
-        # Uncached: it is state, and a run changes it.
-        if config is None or not root:
-            return [], {}
-        return canone.empty_secrets(Path(root), config), {}
+    if source == RANDOM_SECRETS:
+        return _random_secrets(config, root)
     sdk = android.resolve_sdk()
     if source == ANDROID_DEVICES:
         catalog = android.device_catalog(sdk, refresh=refresh)
@@ -365,6 +362,21 @@ def _releases(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
         [r["tag_name"] for r in signed],
         {r["tag_name"]: f"{r['tag_name']}  ({r['published_at'][:10]})" for r in signed},
     )
+
+
+def _random_secrets(
+    config: Config | None, root: Path | str | None
+) -> tuple[list[str], dict[str, str]]:
+    """Return the random secrets, labeled by whether they have a value.
+
+    Uncached: it is state, and a run changes it.
+    """
+    if config is None or not root:
+        return [], {}
+    names = canone.random_secrets(Path(root), config)
+    filled = QCoreApplication.translate("catalog", "{0} · con valor")
+    empty = QCoreApplication.translate("catalog", "{0} · vacío")
+    return names, {n: (filled if config.get(n.upper()) else empty).format(n) for n in names}
 
 
 def _icon_apps(root: Path | str | None) -> tuple[list[str], dict[str, str]]:
@@ -1847,8 +1859,8 @@ def load_catalog() -> None:
             description=QT_TRANSLATE_NOOP(
                 "catalog", "Pasa las credenciales de config.env a credentials.py de canone."
             ),
-            # None starts checked: with config.env lost, generating
-            # replaces the secrets the VPS already uses (ADR-0097).
+            # None starts checked, and what has a value stays unless
+            # replacing is chosen (ADR-0098).
             axes=[
                 AxisDef(
                     "generate",
@@ -1856,9 +1868,20 @@ def load_catalog() -> None:
                     "checks",
                     select="many",
                     label=QT_TRANSLATE_NOOP("catalog", "Secretos a generar"),
-                    source=EMPTY_SECRETS,
+                    source=RANDOM_SECRETS,
                     checked_by_default=False,
                     allow_empty=True,
+                    remembered=False,
+                ),
+                AxisDef(
+                    "replace",
+                    ["replace"],
+                    "scope",
+                    label=QT_TRANSLATE_NOOP("catalog", "Los que ya tienen valor"),
+                    truthy="replace",
+                    combine={"replace"},
+                    danger={"replace"},
+                    labels={"replace": QT_TRANSLATE_NOOP("catalog", "Reemplazar")},
                     remembered=False,
                 ),
             ],

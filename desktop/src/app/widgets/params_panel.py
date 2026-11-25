@@ -1064,7 +1064,9 @@ class ParamsPanel(QWidget):
                 name: self.selection(name) for name in self._checks if name in remembered
             },
             "steps": [s.id for s in self._checked_steps()],
-            "options": {name: self._option_payload(name) for name in self._options},
+            "options": {
+                name: self._option_payload(name) for name in self._options if name in remembered
+            },
             "fields": {name: self.field_value(name) for name in self._fields},
             "picks": {name: self.pick_value(name) for name in self._pick_names()},
         }

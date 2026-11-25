@@ -105,3 +105,4 @@ La serie se escribió de una vez, al reconstruir la documentación desde el cód
 | [0095](0095-tab-sigue-el-orden-de-lectura-ver-detiene-lo-que-se-mueve-y-los-cambios-se-anuncian.md) | Tab sigue el orden de lectura, Ver detiene lo que se mueve y los cambios de estado se anuncian |
 | [0096](0096-el-ingles-es-el-segundo-idioma-y-ver-lo-elige.md) | El inglés es el segundo idioma, y Ver lo elige |
 | [0097](0097-los-secretos-vacios-se-generan-solo-si-se-elige.md) | Los secretos vacíos se generan solo si se elige al cargar las credenciales |
+| [0098](0098-cada-secreto-se-genera-si-se-elige-y-reemplazar-es-un-parametro.md) | Cada secreto se genera si se elige, y reemplazar los que tienen valor es un parámetro |

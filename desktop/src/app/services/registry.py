@@ -117,7 +117,7 @@ class AxisDef:
     # segment ('dry_run'/'delete') is a boolean with two readable
     # labels: without this, whoever reads the payload has to compare the
     # string by hand and the catalog loses control of how its own axis
-    # reads.
+    # reads. Alone and in `combine` it is one box, off at the start.
     truthy: str = ""
     # only with `combine`: how the exclusive value and the combined ones
     # join in the string the function expects
@@ -286,8 +286,8 @@ class AxisDef:
         # app that is there.
         if self.source.startswith("icon"):
             return QCoreApplication.translate("AxisDef", "con ícono a cargo de Consola")
-        if self.source.startswith("empty"):
-            return QCoreApplication.translate("AxisDef", "vacío en config.env")
+        if self.source.startswith("random"):
+            return QCoreApplication.translate("AxisDef", "declarado en Settings")
         if self.source.startswith("releases"):
             return QCoreApplication.translate("AxisDef", "firmado en GitHub")
         return QCoreApplication.translate("AxisDef", "en esta máquina")
@@ -537,6 +537,9 @@ class Capability:
             # order the panel returned them in: first the exclusive,
             # then the combined.
             checked = [raw] if isinstance(raw, str) else list(raw or ())
+            # A single combined value is a lone box: a boolean.
+            if axis.truthy:
+                return axis.truthy in checked
             base = next((v for v in checked if v not in axis.combine), axis.initial)
             extra = [v for v in axis.values if v in axis.combine and v in checked]
             return axis.join.join([base, *extra]) if axis.join else base

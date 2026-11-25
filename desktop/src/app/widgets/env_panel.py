@@ -78,6 +78,7 @@ class EnvPanel(QWidget):
         self.file_detail = ""
         self.file_warn = False
         self.read_error = ""
+        self._saved: dict[str, str] = {}
         self.declared: set[str] = set()  # `_read_fields` fills it
         self.fields, self.fields_error = self._read_fields()
         root = QVBoxLayout(self)
@@ -261,6 +262,7 @@ class EnvPanel(QWidget):
             row.blockSignals(True)
             row.set_value(saved.get(key, ""))
             row.blockSignals(False)
+        self._mark_saved()
 
         # A key with `needs` can appear or go with what was reread.
         self.filter_for(self._filter)
@@ -269,19 +271,24 @@ class EnvPanel(QWidget):
         self.values_changed.emit(self.values())
         self.reloaded.emit()
 
-    def take_generated(self) -> None:
-        """Fill the empty rows with what a task wrote in the file.
+    def _mark_saved(self) -> None:
+        """Remember what each row holds as what the file has."""
+        self._saved = {key: row.value() for key, row in self.rows.items()}
+
+    def take_written(self) -> None:
+        """Take what a task wrote in the file, keeping unsaved edits.
 
         For a task that failed after writing: without this, Save would
-        write them empty. Unlike `reload`, unsaved edits stay.
+        put the old values back.
         """
         text = self._read_file()
         saved = envfile.parse_env(text or "")
         for key, row in self.rows.items():
-            if saved.get(key) and not row.value():
+            if row.value() == self._saved.get(key, ""):
                 row.blockSignals(True)
-                row.set_value(saved[key])
+                row.set_value(saved.get(key, ""))
                 row.blockSignals(False)
+                self._saved[key] = row.value()
         self._sync_file_bar(text)
         self._refresh_defaults()
         self.values_changed.emit(self.values())
@@ -466,6 +473,7 @@ class EnvPanel(QWidget):
             return
         removed = envfile.removed_keys(envfile.parse_env(text or ""), self.fields)
         path = envfile.save_config(self.project.path, self.values(), self.fields)
+        self._mark_saved()
         self._sync_file_bar(self._read_file())
         self.notice.emit(QCoreApplication.translate("EnvPanel", "Guardado {0}").format(path), "ok")
         if removed:

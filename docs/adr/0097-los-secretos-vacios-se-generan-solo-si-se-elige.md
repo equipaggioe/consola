@@ -1,6 +1,6 @@
 # ADR-0097 · Los secretos vacíos se generan solo si se elige al cargar las credenciales
 
-- **Estado:** Aceptada. Los puntos marcados *(propuesta)* no están confirmados.
+- **Estado:** Reemplazada por [ADR-0098](0098-cada-secreto-se-genera-si-se-elige-y-reemplazar-es-un-parametro.md)
 - **Fecha:** 2026-11-25
 - **Alcance:** `services/tasks/vps_setup.py`, `services/catalog.py`
 

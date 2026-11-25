@@ -1,6 +1,6 @@
 """«Secretos a generar», with the real panel and form.
 
-One box per empty secret the repo declares (ADR-0097).
+One box per random secret the repo declares (ADR-0098).
 """
 
 from collections.abc import Iterator
@@ -59,39 +59,55 @@ def opened(project: Project, qtbot: QtBot) -> ParamsPanel:
     return panel
 
 
-def test_each_empty_secret_has_its_box_unchecked(project: Project, qtbot: QtBot) -> None:
-    """Those with a value, or that are not random, have none."""
+def test_each_random_secret_has_its_box_with_its_state(project: Project, qtbot: QtBot) -> None:
+    """All of them, unchecked; one that is not random has none."""
     panel = opened(project, qtbot)
-    assert list(panel._checks["generate"]) == ["refresh_key", "vapid_key"]
+    boxes = panel._checks["generate"]
+    assert list(boxes) == ["health_token", "refresh_key", "vapid_key"]
+    assert "con valor" in boxes["health_token"].text()
+    assert "vacío" in boxes["refresh_key"].text()
     assert panel.selection("generate") == []
+    assert [box.isChecked() for box in panel._options["replace"].values()] == [False]
+    chosen = panel.capability.kwargs_from(panel.payload())
+    assert chosen == {"generate": [], "replace": False}
 
 
-def test_what_is_checked_runs_and_is_not_remembered(project: Project, qtbot: QtBot) -> None:
+def test_what_is_chosen_runs_and_is_not_remembered(project: Project, qtbot: QtBot) -> None:
     """It reaches the function, survives a reread, and not a reopen."""
     panel = opened(project, qtbot)
     panel._checks["generate"]["vapid_key"].setChecked(True)
-    assert panel.capability.kwargs_from(panel.payload()) == {"generate": ["vapid_key"]}
+    panel._options["replace"]["replace"].setChecked(True)
+    chosen = {"generate": ["vapid_key"], "replace": True}
+    assert panel.capability.kwargs_from(panel.payload()) == chosen
+    panel._options["replace"]["replace"].setChecked(False)
+    assert panel.capability.kwargs_from(panel.payload())["replace"] is False
+    panel._options["replace"]["replace"].setChecked(True)
     panel.reload_catalogs()
     qtbot.waitUntil(lambda: not panel._loading, timeout=10000)
-    assert panel.selection("generate") == ["vapid_key"]
-    assert opened(project, qtbot).selection("generate") == []
+    assert panel.capability.kwargs_from(panel.payload()) == chosen
+    again = opened(project, qtbot)
+    assert again.capability.kwargs_from(again.payload()) == {"generate": [], "replace": False}
 
 
-def test_with_none_empty_it_does_not_block(project: Project, qtbot: QtBot) -> None:
+def test_a_repo_without_them_does_not_block(project: Project, qtbot: QtBot) -> None:
     """The axis says there is none, and asks for nothing."""
-    write(Path(project.path), HEALTH_TOKEN="a", REFRESH_KEY="b", VAPID_KEY="c")
+    config_py = Path(project.path) / "server" / "src" / "app" / "config.py"
+    config_py.write_text("class Settings(BaseSettings):\n    contact: str\n", encoding="utf-8")
     panel = opened(project, qtbot)
-    assert panel.selection("generate") == []
-    assert "config.env" in panel._empty_notes["generate"].text()
+    assert "Settings" in panel._empty_notes["generate"].text()
     assert not any("secretos" in reason for reason in panel.blockers())
 
 
-def test_the_form_takes_what_a_failed_task_generated(project: Project, qtbot: QtBot) -> None:
-    """The empty row fills, and an unsaved edit stays."""
+def test_the_form_takes_what_a_failed_task_wrote(project: Project, qtbot: QtBot) -> None:
+    """New and replaced values come, and an unsaved edit stays."""
+    repo = Path(project.path)
+    write(repo, HEALTH_TOKEN="mine", VAPID_KEY="old")
     form = EnvPanel(project)
     qtbot.addWidget(form)
     form.rows["HEALTH_TOKEN"].set_value("unsaved")
-    write(Path(project.path), HEALTH_TOKEN="mine", REFRESH_KEY="generated")
-    form.take_generated()
-    assert form.values()["REFRESH_KEY"] == "generated"
-    assert form.values()["HEALTH_TOKEN"] == "unsaved"
+    write(repo, HEALTH_TOKEN="mine", VAPID_KEY="new", REFRESH_KEY="generated")
+    form.take_written()
+    values = form.values()
+    assert values["REFRESH_KEY"] == "generated"
+    assert values["VAPID_KEY"] == "new"
+    assert values["HEALTH_TOKEN"] == "unsaved"

@@ -68,6 +68,10 @@ class Access:
             return text or None
         return f"{self.password}\n{text}"
 
+    def capture(self, command: str) -> str:
+        """Return what a command prints as root on the VPS."""
+        return ssh.capture(self.remote, self.command(command), stdin_text=self.stdin())
+
     def run(self, ctx: TaskContext, command: str, *, text: str = "", check: bool = True) -> int:
         """Run a command as root on the VPS."""
         return ssh.run(
@@ -343,19 +347,23 @@ def install_infra(ctx: TaskContext) -> None:
     )
 
 
-def load_credentials(ctx: TaskContext, generate: Sequence[str] = ()) -> None:
+def load_credentials(
+    ctx: TaskContext, generate: Sequence[str] = (), replace: bool = False
+) -> None:
     """Pass the `config.env` credentials to `credentials.py`, by stdin.
 
     One `field=value` line per `Settings` field, plus `restic_password`
     and, in a private repo, `github_token` (ADR-0063). It stops before
     sending if one is missing or if `config.env` has a key in no source.
     `install.py` does not install `credentials.py`, so it uploads each
-    time. The empty secrets named in `generate` get a value first
-    (ADR-0097).
+    time. The secrets named in `generate` get a value first: those with
+    none, or all with `replace` (ADR-0098). They are saved only once the
+    rest is known to be right.
     """
     _, app = canone.origin(ctx.root)
-    if generate:
-        generate_secrets(ctx, generate)
+    entry = admin(ctx) if generate else None
+    new = new_secrets(ctx, entry, app, generate, replace) if entry else {}
+    ctx.config.values.update(new)
     if fields.SETUP_CODE in fields.settings_fields(ctx.root / ctx.config.get("SERVER_DIR")):
         setup_code(ctx)
     lines = canone.credential_lines(ctx.root, ctx.config)
@@ -364,9 +372,16 @@ def load_credentials(ctx: TaskContext, generate: Sequence[str] = ()) -> None:
         # The domain is public, and the next steps name it in the log.
         if field != fields.DOMAIN:
             ctx.guard(value)
-    entry = admin(ctx)
+    entry = entry or admin(ctx)
     destination = _upload(ctx, entry)
     try:
+        if new:
+            _keep(ctx, new)
+            ctx.warn(
+                QCoreApplication.translate(
+                    "vps_setup", "Secretos generados y guardados en config.env: {0}."
+                ).format(names(list(new)))
+            )
         entry.run(ctx, f"python3 {destination}/credentials.py {ssh.quote(app)}", text=lines)
     finally:
         _cleanup(ctx, entry)
@@ -385,23 +400,36 @@ def _keep(ctx: TaskContext, new: dict[str, str]) -> None:
     ctx.config.values.update(new)
 
 
-def generate_secrets(ctx: TaskContext, chosen: Sequence[str]) -> None:
-    """Give a value to each chosen secret that is still empty.
+def new_secrets(
+    ctx: TaskContext, entry: Access, app: str, chosen: Sequence[str], replace: bool
+) -> dict[str, str]:
+    """Return a new value for the chosen secrets, by `config.env` key.
 
-    They go to `config.env`, so every load sends the same. The log has
-    their names only.
+    Without `replace`, only for those with no value. One that the VPS
+    has and `config.env` does not stops: its value is unknown here, and
+    a new one would replace it.
     """
-    empty = canone.empty_secrets(ctx.root, ctx.config)
-    new = {field.upper(): canone.GENERATED[field]() for field in empty if field in chosen}
-    if not new:
-        return
+    wanted = [f for f in canone.random_secrets(ctx.root, ctx.config) if f in chosen]
+    if not replace:
+        kept = [f for f in wanted if ctx.config.get(f.upper())]
+        if kept:
+            ctx.info(
+                QCoreApplication.translate(
+                    "vps_setup", "Ya tienen valor y se conservan: {0}."
+                ).format(", ".join(kept))
+            )
+        wanted = [f for f in wanted if f not in kept]
+        stored = entry.capture(canone.stored_command(app, wanted)).split() if wanted else []
+        if stored:
+            raise TaskError(
+                QCoreApplication.translate(
+                    "vps_setup",
+                    "El VPS ya tiene {0}, y config.env no: escribe su valor o marca «Reemplazar».",
+                ).format(", ".join(stored))
+            )
+    new = {field.upper(): canone.GENERATED[field]() for field in wanted}
     ctx.guard(*new.values())
-    _keep(ctx, new)
-    ctx.warn(
-        QCoreApplication.translate(
-            "vps_setup", "Secretos generados y guardados en config.env: {0}."
-        ).format(names(list(new)))
-    )
+    return new
 
 
 def setup_code(ctx: TaskContext) -> str:

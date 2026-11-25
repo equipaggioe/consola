@@ -7,6 +7,7 @@ VPS receives.
 import base64
 import re
 import types
+from collections.abc import Sequence
 from pathlib import Path
 from typing import cast
 
@@ -38,14 +39,20 @@ def _repo(tmp_path: Path) -> None:
     (folder / "config.py").write_text(CONFIG_PY, encoding="utf-8")
 
 
-def _vps(monkeypatch: pytest.MonkeyPatch) -> list[str]:
+def _vps(monkeypatch: pytest.MonkeyPatch, stored: Sequence[str] = ()) -> list[str]:
     """Return the input of each command the VPS receives."""
     sent: list[str] = []
 
     def run(ctx: TaskContext, command: str, *, text: str = "") -> None:
         sent.append(text)
 
-    entry = types.SimpleNamespace(run=run, remote=types.SimpleNamespace(host="vps"))
+    def capture(command: str) -> str:
+        asked = command.partition(" in ")[2].partition(";")[0].split()
+        return "\n".join(f for f in asked if f in stored)
+
+    entry = types.SimpleNamespace(
+        run=run, capture=capture, remote=types.SimpleNamespace(host="vps")
+    )
     monkeypatch.setattr(canone, "origin", lambda root: ("equipaggio", "demo"))
     monkeypatch.setattr(vps_setup, "admin", lambda ctx: entry)
     monkeypatch.setattr(vps_setup, "_upload", lambda ctx, entry: "/tmp/consola-canone/infra")
@@ -63,6 +70,7 @@ def _context(tmp_path: Path, notes: list[str], **values: str) -> TaskContext:
             guard=_ignore,
             note=notes.append,
             warn=_ignore,
+            info=_ignore,
         ),
     )
 
@@ -110,42 +118,80 @@ def test_the_credentials_carry_the_domain_unmasked(
     assert files["app_domain"] == "ejemplo.net"
 
 
-def test_empty_secrets_are_required_or_generated(
-    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
-) -> None:
-    """Empty ones stop; the chosen get a value of their format, once."""
+SECRETS = ("page_token_key", "refresh_key", "vapid_key")
+VALUES = {"HEALTH_TOKEN": "mine", "RESTIC_PASSWORD": "restic", "SETUP_CODE": "123456"}
+
+
+def _with_secrets(tmp_path: Path) -> None:
     _repo(tmp_path)
     config_py = tmp_path / "server" / "src" / "app" / "config.py"
-    extra = "".join(f"    {f}: str\n" for f in ("page_token_key", "refresh_key", "vapid_key"))
+    extra = "".join(f"    {f}: str\n" for f in SECRETS)
     config_py.write_text(CONFIG_PY + extra, encoding="utf-8")
+
+
+def test_the_chosen_secrets_get_a_value_of_their_format(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """They are kept for the next load, and what has a value stays."""
+    _with_secrets(tmp_path)
     sent = _vps(monkeypatch)
-    values = {"HEALTH_TOKEN": "mine", "RESTIC_PASSWORD": "restic", "SETUP_CODE": "123456"}
-    with pytest.raises(TaskError, match="Faltan"):
-        vps_setup.load_credentials(_context(tmp_path, [], **values))
-    assert sent == []
-
-    # One chosen: it is kept, and the others still stop.
-    with pytest.raises(TaskError, match="PAGE_TOKEN_KEY, VAPID_KEY"):
-        vps_setup.load_credentials(_context(tmp_path, [], **values), ["refresh_key"])
-    chosen = envfile.load_config(str(tmp_path))["REFRESH_KEY"]
-    values["REFRESH_KEY"] = chosen
-
     every = list(canone.GENERATED)
-    vps_setup.load_credentials(_context(tmp_path, [], **values), every)
+    vps_setup.load_credentials(_context(tmp_path, [], **VALUES), every)
     kept = envfile.load_config(str(tmp_path))
     # 32 bytes each; Fernet reads its key with padding.
     assert len(base64.urlsafe_b64decode(kept["PAGE_TOKEN_KEY"])) == 32
     for key in ("REFRESH_KEY", "VAPID_KEY"):
         assert len(base64.urlsafe_b64decode(kept[key] + "=")) == 32
-    # What has a value stays.
     assert "health_token=mine\n" in sent[0]
-    assert kept["REFRESH_KEY"] == chosen
-    for field in ("page_token_key", "refresh_key", "vapid_key"):
+    for field in SECRETS:
         assert f"{field}={kept[field.upper()]}\n" in sent[0]
 
-    # A second load sends the same.
-    vps_setup.load_credentials(_context(tmp_path, [], **(kept | values)), every)
-    assert sent[1] == sent[0]
+    # A second load sends the same, though the VPS has them all.
+    again = _vps(monkeypatch, stored=every)
+    vps_setup.load_credentials(_context(tmp_path, [], **(kept | VALUES)), every)
+    assert again == sent
+
+
+def test_replacing_changes_only_the_chosen(
+    monkeypatch: pytest.MonkeyPatch, tmp_path: Path
+) -> None:
+    """With `replace`, a value here or on the VPS does not keep it."""
+    _with_secrets(tmp_path)
+    sent = _vps(monkeypatch, stored=["refresh_key"])
+    old = {field.upper(): "old" for field in SECRETS}
+    ctx = _context(tmp_path, [], **VALUES, **old)
+    vps_setup.load_credentials(ctx, ["refresh_key"], replace=True)
+    new = envfile.load_config(str(tmp_path))["REFRESH_KEY"]
+    assert new != "old"
+    assert f"refresh_key={new}\n" in sent[0]
+    assert "vapid_key=old\n" in sent[0]
+
+
+@pytest.mark.parametrize(
+    ("stored", "chosen", "reason"),
+    [
+        # Nothing chosen: the empty ones are required.
+        ([], [], "PAGE_TOKEN_KEY, REFRESH_KEY, VAPID_KEY"),
+        # One chosen: the others are.
+        ([], ["refresh_key"], "PAGE_TOKEN_KEY, VAPID_KEY"),
+        # Its value is on the VPS and not here.
+        (["refresh_key"], list(SECRETS), "El VPS ya tiene refresh_key"),
+    ],
+)
+def test_what_stops_leaves_everything_as_it_was(
+    monkeypatch: pytest.MonkeyPatch,
+    tmp_path: Path,
+    stored: list[str],
+    chosen: list[str],
+    reason: str,
+) -> None:
+    """Neither config.env nor the VPS change."""
+    _with_secrets(tmp_path)
+    sent = _vps(monkeypatch, stored=stored)
+    with pytest.raises(TaskError, match=reason):
+        vps_setup.load_credentials(_context(tmp_path, [], **VALUES), chosen)
+    assert sent == []
+    assert not envfile.has_config(str(tmp_path))
 
 
 def test_a_written_setup_code_is_the_one_sent(

@@ -954,10 +954,22 @@ DOCS: dict[str, CommandDoc] = {
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",
-                "Crea los secretos marcados y los guarda en config.env. Se ofrecen los vacíos "
-                "de health_token, page_token_key, refresh_key y vapid_key que declara Settings. "
-                "Si el VPS ya tenía otros, los reemplaza: con otra refresh_key las apps vuelven "
-                "a entrar, y con otra vapid_key la web se vuelve a suscribir.",
+                "Crea los secretos marcados que no tienen valor, de health_token, "
+                "page_token_key, refresh_key y vapid_key que declara Settings. Corta si "
+                "config.env tiene uno vacío y el VPS ya lo tiene.",
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "Con «Reemplazar», crea todos los marcados, también los que ya tienen valor en "
+                "config.env o en el VPS, y el anterior se pierde. Con otra refresh_key las apps "
+                "vuelven a entrar; con otra vapid_key la web se vuelve a suscribir al push; con "
+                "otro health_token hay que dárselo a quien vigila la salud, y con otra "
+                "page_token_key una lista abierta se vuelve a pedir desde el principio.",
+            ),
+            QT_TRANSLATE_NOOP(
+                "command_docs",
+                "Guarda los generados en config.env justo antes de cargarlos, cuando ya se "
+                "comprobó todo lo demás.",
             ),
             QT_TRANSLATE_NOOP(
                 "command_docs",

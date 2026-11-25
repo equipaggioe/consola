@@ -49,10 +49,11 @@ Modificadores que resuelven casos concretos:
 | `labels` | El valor es un id feo (`system-images;android-36;google_apis;x86_64`) y lo que se elige es una frase |
 | `defaults` / `checked_by_default` | Cuáles arrancan marcadas. Declarar el default como dato evita partir un eje en dos secciones |
 | `allow_empty` | No elegir nada es una elección válida, no un olvido |
-| `remembered` | Con `False`, lo marcado no se guarda para la próxima corrida: los secretos a generar |
+| `remembered` | Con `False`, lo marcado no se guarda para la próxima corrida: los secretos a generar y si se reemplazan |
 | `required` | Solo en `field`: vacío **no** es una elección (la URL a clonar) |
 | `cast='int'` | El campo devuelve texto y la función hace aritmética |
 | `truthy` | Un segmentado de dos valores que en realidad es un booleano ([ADR-0003](../adr/0003-contrato-de-nombres.md)) |
+| `combine` + `truthy` | Con un solo valor, un booleano de una sola casilla, sin marcar: «Reemplazar» |
 | `combine` + `join` | Un valor que se suma al excluyente: `patch` + `build` → `patch+build` |
 | `requires_env` / `uses_env` | Claves que ese valor exige, o que solo hacen que aparezcan en el formulario filtrado |
 | `facets` + `facet_sep` | El valor se compone de partes que se eligen por separado ([ADR-0027](../adr/0027-emuladores-tres-actividades.md)) |
@@ -62,7 +63,7 @@ Modificadores que resuelven casos concretos:
 Dos familias se declaran vacías y se llenan más tarde, porque el catálogo se arma una sola vez al arrancar y lo que listan cambia ([ADR-0006](../adr/0006-ejes-descubiertos-y-consultados.md)):
 
 - **Descubiertos** (`discover=`): sus valores salen de mirar el repo abierto (`services/targets.py`). Los llena `catalog.for_project(cap, root)` justo antes de dibujar el panel, sobre una **copia** de la capacidad.
-- **Consultados** (`source=`): salen de preguntarle al SDK (dispositivos, imágenes publicadas, imágenes instaladas, AVD, emuladores vivos) o al VPS del repo (servicios systemd que existen), o de leer `config.env` (secretos vacíos). Los resuelve `catalog.queried_values()` en el hilo de `AxesLoader`, y casi todos se cachean.
+- **Consultados** (`source=`): salen de preguntarle al SDK (dispositivos, imágenes publicadas, imágenes instaladas, AVD, emuladores vivos) o al VPS del repo (servicios systemd que existen), o de leer el `Settings` del repo y `config.env` (secretos a generar). Los resuelve `catalog.queried_values()` en el hilo de `AxesLoader`, y casi todos se cachean.
 
 `ANDROID_RUNNING` es el único que nunca se cachea: es estado, no catálogo, y una respuesta vieja ofrecería apagar un emulador que ya no existe.
 

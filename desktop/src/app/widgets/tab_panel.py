@@ -56,7 +56,7 @@ from app.services import (
     settings,
 )
 from app.services.announce import announce
-from app.services.catalog import forget_machine_cache
+from app.services.catalog import RANDOM_SECRETS, forget_machine_cache
 from app.services.palettes import Palette
 from app.services.projects import Project
 from app.services.registry import Capability, registry
@@ -1156,10 +1156,12 @@ class TabPanel(ReorderableBar):
         """Ask again what each open action will do.
 
         A preview reads the saved `config.env`, so saving can change it:
-        `DB_EXTENSIONS` or `TURN` change the packages.
+        `DB_EXTENSIONS` or `TURN` change the packages. The secrets to
+        generate read it too.
         """
         for panel in self._params.values():
-            if panel.capability.preview:
+            reads = any(a.source == RANDOM_SECRETS for a in panel.capability.axes)
+            if panel.capability.preview or reads:
                 panel.reload_catalogs()
 
     @Slot()
@@ -1459,7 +1461,7 @@ class TabPanel(ReorderableBar):
                 if ok:
                     self.env_panel.reload()
                 else:
-                    self.env_panel.take_generated()
+                    self.env_panel.take_written()
             if capability.is_machine_wide:
                 # Installing an image, creating an AVD or stopping an
                 # emulator changes exactly what this group's panels

@@ -15,7 +15,7 @@ import ast
 import base64
 import re
 import secrets
-from collections.abc import Callable
+from collections.abc import Callable, Sequence
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlsplit, urlunsplit
@@ -666,10 +666,19 @@ GENERATED: dict[str, Callable[[], str]] = {
 }
 
 
-def empty_secrets(root: Path, config: Config) -> list[str]:
-    """Return the `GENERATED` fields the repo declares and has empty."""
+def random_secrets(root: Path, config: Config) -> list[str]:
+    """Return the `GENERATED` fields the repo declares."""
     declared = fields.settings_fields(root / config.get("SERVER_DIR"))
-    return [f for f in GENERATED if f in declared and not config.get(f.upper())]
+    return [f for f in GENERATED if f in declared]
+
+
+def stored_command(app: str, wanted: Sequence[str]) -> str:
+    """Return the command that prints which fields the VPS already has.
+
+    `credentials.py` writes each one there, and only root reads it.
+    """
+    folder = f"/etc/credstore.encrypted/{app}"
+    return f"for f in {' '.join(wanted)}; do if [ -e {folder}/$f ]; then echo $f; fi; done"
 
 
 def credential_lines(root: Path, config: Config) -> str:
