@@ -535,7 +535,7 @@ def dart(themes: Themes, initial: str) -> str:
     fields += [(f"{mode}Custom", "CustomColors") for mode in modes_of(themes) if extra]
     return (
         f"// {HEADER}\n\n"
-        "import 'package:flutter/material.dart';\n\n"
+        "import 'package:material_ui/material_ui.dart';\n\n"
         + (dart_customs(extra) if extra else "")
         + "/// The color themes of brand/tokens/, each with a scheme per mode.\n"
         "enum ColorTheme {\n"

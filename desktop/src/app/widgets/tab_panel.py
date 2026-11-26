@@ -273,7 +273,11 @@ class _CurrentPageStack(QStackedWidget):
     def __init__(self, parent: QWidget | None = None) -> None:
         """Build the stack; it resizes when the page changes."""
         super().__init__(parent)
-        self.currentChanged.connect(lambda _index: self.updateGeometry())
+        self.currentChanged.connect(self._on_page)
+
+    @Slot(int)
+    def _on_page(self, _index: int) -> None:
+        self.updateGeometry()
 
     @override
     def sizeHint(self) -> QSize:

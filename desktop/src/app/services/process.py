@@ -8,7 +8,7 @@ import subprocess
 import threading
 from collections.abc import Callable, Iterable, Sequence
 from pathlib import Path
-from typing import Any
+from typing import IO, Any, cast
 
 from PySide6.QtCore import QCoreApplication
 
@@ -186,6 +186,9 @@ def converse(
     try:
         assert proc.stdout is not None
         assert proc.stdin is not None
+        # Opened without `text`, so it takes bytes; the `spawn_options`
+        # mapping hides that from the checker.
+        stdin = cast("IO[bytes]", proc.stdin)
         fd = proc.stdout.fileno()
         while True:
             if cancel is not None and cancel.is_set():
@@ -202,8 +205,8 @@ def converse(
             if pending and pending[0][0] in rest:
                 on_line(rest)
                 rest = ""
-                proc.stdin.write((pending.pop(0)[1] + "\n").encode("utf-8"))
-                proc.stdin.flush()
+                stdin.write((pending.pop(0)[1] + "\n").encode("utf-8"))
+                stdin.flush()
         if rest:
             on_line(rest)
         return proc.wait()

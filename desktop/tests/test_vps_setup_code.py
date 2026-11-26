@@ -53,9 +53,19 @@ def _vps(monkeypatch: pytest.MonkeyPatch, stored: Sequence[str] = ()) -> list[st
     entry = types.SimpleNamespace(
         run=run, capture=capture, remote=types.SimpleNamespace(host="vps")
     )
-    monkeypatch.setattr(canone, "origin", lambda root: ("equipaggio", "demo"))
-    monkeypatch.setattr(vps_setup, "admin", lambda ctx: entry)
-    monkeypatch.setattr(vps_setup, "_upload", lambda ctx, entry: "/tmp/consola-canone/infra")
+
+    def origin(root: Path) -> tuple[str, str]:
+        return "equipaggio", "demo"
+
+    def admin(ctx: TaskContext) -> object:
+        return entry
+
+    def upload(ctx: TaskContext, entry: object) -> str:
+        return "/tmp/consola-canone/infra"
+
+    monkeypatch.setattr(canone, "origin", origin)
+    monkeypatch.setattr(vps_setup, "admin", admin)
+    monkeypatch.setattr(vps_setup, "_upload", upload)
     monkeypatch.setattr(vps_setup, "_cleanup", _ignore)
     return sent
 
