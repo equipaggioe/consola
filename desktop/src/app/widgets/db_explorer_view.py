@@ -53,6 +53,9 @@ from app.services.palettes import NEUTRAL, Palette
 from app.theme import Colors, Fonts, Metrics, Spacing
 from app.widgets.splitter import Splitter
 
+# Pixels between a cell's text and its edges.
+CELL_MARGIN = 12
+
 # --- view ---
 
 
@@ -261,6 +264,7 @@ class DbExplorerView(QWidget):
         self.table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
         self.table.verticalHeader().setDefaultSectionSize(26)
         self.table.setFrameShape(QFrame.Shape.NoFrame)
+        self._pad_cells(self.table)
         self.table.horizontalHeader().setFont(theme.font(Fonts.SIZE_XS))
         self.table.verticalHeader().setFont(theme.font(Fonts.SIZE_XS))
         self.table.horizontalHeader().setSectionsClickable(True)
@@ -282,6 +286,12 @@ class DbExplorerView(QWidget):
         splitter.setStretchFactor(0, 0)
         splitter.setStretchFactor(1, 1)
         splitter.setSizes([300, 900])
+
+    @staticmethod
+    def _pad_cells(table: QTableView) -> None:
+        """Keep values and titles off the edges of their cell."""
+        table.setProperty(theme.CELL_MARGIN, CELL_MARGIN)
+        table.horizontalHeader().setProperty(theme.CELL_MARGIN, CELL_MARGIN)
 
     def _add_pane(self, title: str) -> QVBoxLayout:
         body = QWidget()
@@ -988,6 +998,7 @@ class DbExplorerView(QWidget):
         pane.addWidget(label)
 
         table = QTableView()
+        self._pad_cells(table)
         table.setModel(StructureModel(headers, rows, table))
         table.horizontalHeader().setFont(theme.font(Fonts.SIZE_XS))
         table.verticalHeader().setVisible(False)

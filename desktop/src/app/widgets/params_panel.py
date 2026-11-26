@@ -39,6 +39,7 @@ from app.services.settings import names, relevant_keys_for, required_keys_for
 from app.theme import Colors, Fonts, Metrics
 from app.widgets.env_panel import EnvPanel
 from app.widgets.favorite_star import FavoriteStar
+from app.widgets.grow_field import GrowField
 
 
 class _SectionLabel(QLabel):
@@ -627,13 +628,12 @@ class ParamsPanel(QWidget):
             # left as a watermark: so one sees what will be used.
             default = axis.values[0] if axis.values else ""
             if axis.multiline:
-                field = QPlainTextEdit(default)
+                # It grows with what is written, one empty line over.
+                field = GrowField(default)
                 # Tab goes to the next field, as in a QLineEdit: a list
                 # has one value per line, and a tab inside one is never
                 # wanted.
                 field.setTabChangesFocus(True)
-                # about 4 lines: the typical list fits whole
-                field.setFixedHeight(88)
                 field.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
                 field.textChanged.connect(self._refresh_summary)
             else:
@@ -930,14 +930,15 @@ class ParamsPanel(QWidget):
         clear_btn.clicked.connect(self.clear_requested.emit)
         self.clear_btn = clear_btn
         lay.addWidget(clear_btn)
-        lay.addStretch()
 
-        # Next to Run: it marks the action being looked at, the other
-        # place being the search row's stripe.
+        # After Limpiar, at left, away from Run: it marks the action
+        # being looked at, the other place being the search row's
+        # stripe.
         self.fav_star = FavoriteStar(self.pal.accent)
         self.fav_star.set_favorite(favorites.is_favorite(self.capability.id))
         self.fav_star.marked.connect(self._on_star_marked)
         lay.addWidget(self.fav_star, 0, Qt.AlignmentFlag.AlignVCenter)
+        lay.addStretch()
 
         self.dry_btn: QPushButton | None = None
         if self._dry_run_axis is not None:

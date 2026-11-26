@@ -5,7 +5,7 @@ from __future__ import annotations
 from typing import override
 
 from PySide6.QtCore import Qt, Signal, Slot
-from PySide6.QtGui import QMouseEvent, QPalette, QResizeEvent
+from PySide6.QtGui import QMouseEvent, QPalette
 from PySide6.QtWidgets import (
     QHBoxLayout,
     QLabel,
@@ -19,18 +19,12 @@ from app.services import envfile
 from app.services.palettes import Palette
 from app.services.settings import Setting
 from app.theme import Fonts, Spacing
+from app.widgets.grow_field import GrowField
 
 
 def _to_lines(value: str) -> str:
     """Return what is saved (commas) as it edits (a line per entry)."""
     return "\n".join(envfile.split_list(value or ""))
-
-
-# Height of the multi-line field, in lines. It starts at three empty,
-# since a list of paths tends to have two or three, and grows with what
-# is written up to five; from there it scrolls.
-LIST_MIN_ROWS = 3
-LIST_MAX_ROWS = 5
 
 
 class _ClickToSelectLabel(QLabel):
@@ -82,7 +76,8 @@ class EnvRow(QWidget):
         # in a QLineEdit do not show where one ends and the next begins.
         # It saves separated by commas; see `Setting.kind`.
         if setting.kind == "list":
-            self.field = QPlainTextEdit(_to_lines(value))
+            # It grows with what is written, one empty line over.
+            self.field = GrowField(_to_lines(value))
             # Tab goes to the next field, as in a QLineEdit: a list has
             # one value per line, and a tab inside one is never wanted.
             self.field.setTabChangesFocus(True)
@@ -122,8 +117,6 @@ class EnvRow(QWidget):
         lay.addWidget(self.field, 1)
 
         self._restyle()
-        if self._is_list:
-            self._fit_list_height()
 
     def set_default_display(self, default_display: str) -> None:
         """Update the watermark with the recomputed default.
@@ -132,10 +125,6 @@ class EnvRow(QWidget):
         does not stay fixed since the row was built.
         """
         self.field.setPlaceholderText(default_display or self.setting.hint)
-
-    @property
-    def _is_list(self) -> bool:
-        return self.setting.kind == "list"
 
     def value(self) -> str:
         """Return what the field holds."""
@@ -147,7 +136,6 @@ class EnvRow(QWidget):
         """Set what the field holds."""
         if isinstance(self.field, QPlainTextEdit):
             self.field.setPlainText(_to_lines(value))
-            self._fit_list_height()
             return
         self.field.setText(value)
 
@@ -162,44 +150,7 @@ class EnvRow(QWidget):
     @Slot(str)
     def _on_text(self, _text: str = "") -> None:
         self._restyle()
-        if self._is_list:
-            self._fit_list_height()
         self.changed.emit()
-
-    @override
-    def resizeEvent(self, event: QResizeEvent) -> None:
-        # Narrowing the row changes where each long path breaks, and so
-        # how many lines the same text takes.
-        super().resizeEvent(event)
-        if self._is_list:
-            self._fit_list_height()
-
-    def _fit_list_height(self) -> None:
-        """Fit the field's height to its text, plus one empty line.
-
-        That extra line says «this is all»: a field ending exactly on
-        the last path cannot be told from one cutting off the rest, and
-        the list of files to copy is where an entry out of view becomes
-        a deploy without its secret.
-
-        A QPlainTextEdit's `documentSize()` counts LINES, not pixels,
-        and counts those visible: a long path broken in two takes two.
-        """
-        assert isinstance(self.field, QPlainTextEdit)
-        doc = self.field.document()
-        doc.setTextWidth(max(1, self.field.viewport().width()))
-        written = max(1, int(doc.size().height()))
-        rows = min(max(written + 1, LIST_MIN_ROWS), LIST_MAX_ROWS)
-        # A QPlainTextEdit's `frameWidth` with a style sheet already
-        # includes `padding` besides the border: adding it apart gave a
-        # field taller than the lines it claimed to show.
-        height = (
-            rows * self.field.fontMetrics().lineSpacing()
-            + 2 * int(doc.documentMargin())
-            + 2 * self.field.frameWidth()
-        )
-        if self.field.height() != height:
-            self.field.setFixedHeight(height)
 
     def _restyle(self) -> None:
         # Lighter border = key without a value.

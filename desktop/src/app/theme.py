@@ -54,6 +54,9 @@ CHIP_BUTTON = "chip"
 # A scroll area with no frame that shows the focus of the keyboard
 # (`focus_frame`).
 FOCUS_FRAME = "focusFrame"
+# A table whose cells and column titles keep that many pixels between
+# their text and their edges (the explorer's tables).
+CELL_MARGIN = "cellMargin"
 
 # The values of the property "variant" of a button.
 VARIANTS = ("primary", "danger")
@@ -445,6 +448,11 @@ class Style(QProxyStyle):
         }
         if metric in sizes:
             return sizes[metric]
+        if metric in (
+            QStyle.PixelMetric.PM_FocusFrameHMargin,
+            QStyle.PixelMetric.PM_HeaderMargin,
+        ) and (widget is not None and widget.property(CELL_MARGIN)):
+            return int(widget.property(CELL_MARGIN))
         if (
             metric == QStyle.PixelMetric.PM_DefaultFrameWidth
             and widget is not None
