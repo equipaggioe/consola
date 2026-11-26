@@ -1,6 +1,22 @@
 # Plan — desplegar con el mecanismo de canone
 
-> **Estado (verificado 2026-11-02).** Construidas las fases 0 a 2 (§6), salvo lo que espera otra
+> **Estado (verificado contra el código el 2026-11-25).** Construidas las fases 0 a 5 y la 7; **falta
+> solo la 6** (receptora y respaldo). Los botones `publish_release`, `deploy_version`,
+> `bootstrap_vps`, `install_software`, `load_credentials`, `load_setup_code`, `systemd_action`,
+> `view_logs`, `health_check`, `view_events` y `clean_vps` están en `services/catalog.py`;
+> `install_receiver` y `request_backup` no existen. Las pruebas de `desktop/tests/` del
+> despliegue pasan (83). Desde el 2026-11-02 se sumó: «Vaciar VPS» con `uninstall.py` (fase 7,
+> ADR-0083, probado contra el VPS de prueba el 2026-11-25), «Configurar VPS» que pone la llave con la contraseña de root
+> (ADR-0084), «Código de instalación», la generación de secretos al azar en «Cargar credenciales»
+> (ADR-0097 y 0098), «Verificar con canone» y «Actualizar copias de canone», y «Firmar release» que
+> vuelve a firmar si la firma no es de `VPS_KEY_NAME`. `equipaggio` va por `v0.1.4` (2026-11-24). El
+> 2026-11-25 se vació el VPS de prueba (nivel `machine`) y «Configurar VPS» lo rehízo hasta las
+> credenciales; el despliegue de `v0.1.4` falló porque fija `required-version = "==0.13.9"` y canone
+> pasó ese día a uv 0.13.10 (`c9eab64`), que es el que instala `uv.py`. **El VPS quedó sin versión
+> activa** hasta publicar una de `equipaggio` con las copias nuevas de canone.
+> Lo que sigue en este bloque es el estado del 2026-11-02, salvo donde se dice otra fecha.
+>
+> **Estado del 2026-11-02.** Construidas las fases 0 a 2 (§6), salvo lo que espera otra
 > fase o una pregunta. Fase 0: el despliegue propio salió (tag `despliegue-propio`,
 > [ADR-0059](../adr/0059-desplegar-con-los-programas-de-canone.md) a
 > [0061](../adr/0061-los-forzados-corren-en-esta-maquina.md)). Fase 1: la configuración del §4
@@ -23,7 +39,7 @@
 > corridos contra la base local de `equipaggio`; `sync_server_env` salió.
 >
 > **Para retomar en otro chat:** leer `canone/principios.md` y `canone/documentacion.md`, este
-> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0078. `equipaggio` ya sigue la plantilla de
+> plan (sobre todo el §6 y el §8) y los ADR 0059 a 0098. `equipaggio` ya sigue la plantilla de
 > canone y tiene `v0.1.0` firmado con `vps_xs1` (fases 1 a 5 de su `desplegar_con_canone.md`).
 > Lo que sigue es llevar los repos a la plantilla de canone (§6, «Lo que le falta a cada repo»).
 > «Publicar versión» desplegó `v0.1.1` encima de `v0.1.0` el 2026-11-02, y los casos de fallo de
@@ -60,7 +76,8 @@
 > en marcha no es el objetivo: es el repo con el que se prueba, y P3, P4 y su fase 7 esperan.
 >
 > **Decidido el 2026-11-02:** las fases 6 (receptora y respaldo) y 7 (`clean_vps`) quedan pendientes.
-> Hasta la 6, un VPS de canone no tiene respaldo.
+> Hasta la 6, un VPS de canone no tiene respaldo. La 7 se construyó el 2026-11-09 (ADR-0083); la 6
+> sigue pendiente.
 >
 > Lo que fija canone está decidido en sus ADR. Lo demás que este plan dice sobre Consola es
 > *propuesta* hasta que se responda su pregunta en el §8.
@@ -116,7 +133,7 @@ Decidido el 2026-10-31: los nombres de los botones y qué es casilla de una comp
 | **Instalar paquetes base** (`install_software`) | Se queda | `redis` pasa a `valkey-server`; se suman `restic`, `nftables`, `unattended-upgrades`, `systemd-timesyncd` y `ca-certificates`, y `coturn`, `postgresql-17-postgis-3` o `systemd-journal-remote` y `wireguard-tools` según el repo. Después de los paquetes, sube `canone/plantilla/infra/uv.py` y corre `sudo python3 uv.py`, que instala `uv` (ADR-0110). Se vuelve a correr cuando canone cambia la versión de uv |
 | **Control del servicio** (`systemd_action`), **Ver logs del servicio** (`view_logs`) | Se quedan | El eje lista los nombres de canone: `<app>`, `<app>-sweep`, `-purge`, `-dump`, `-backup`, `valkey-server@<app>`, `caddy`, `coturn` |
 | **Health check** (`health_check`) | Se queda | `GET /api/health` en el 8000, que responde 204 |
-| **Vaciar VPS** (`clean_vps`) | Volvió el 2026-11-09 con `uninstall.py` de canone, en tres niveles ([ADR-0083](../adr/0083-vaciar-vps-corre-uninstall-py-de-canone.md)), sin probar contra un VPS | Lo que borra cada nivel está en el [15](../arquitectura/15_vps_y_despliegue.md) §6 |
+| **Vaciar VPS** (`clean_vps`) | Volvió el 2026-11-09 con `uninstall.py` de canone, en tres niveles ([ADR-0083](../adr/0083-vaciar-vps-corre-uninstall-py-de-canone.md)). Probado contra el VPS de prueba el 2026-11-25 (15, §6) | Lo que borra cada nivel está en el [15](../arquitectura/15_vps_y_despliegue.md) §6 |
 | **Configurar Coturn** (`configure_coturn`) | Casilla de **Configurar VPS** | `install.py --turn [--turn-ip]`: sin TLS, y el secreto lo genera `install.py` (ADR-0096) |
 | **Configurar base de datos** (`bootstrap_db`) en el VPS | Sin reemplazo | `install.py` crea la base y los dos roles. En local sigue igual |
 | **Correr migraciones** (`migrate_db`) en el VPS | **Desplegar versión** | En el VPS migra `deploy.py`. En local sigue igual |
@@ -189,7 +206,9 @@ Construido en la fase 1 *(propuesta, sin confirmar en lo que no responde una pre
 | `VPS_PYTHON` | Salió: el ámbito remoto de la base corre `database.py` de canone ([ADR-0082](../adr/0082-contra-el-vps-los-botones-de-base-corren-database-py.md)) |
 | `SERVICES`, `UVICORN_APP` | Salieron en la fase 4 (ADR-0068) |
 | `GIT_REPO_URL` | Queda: la lee `vps.repo_name`, para la subida de «Compilar ejecutable» |
-| `BUILD_OUT_WEB` | Queda (pregunta 17) |
+| `BUILD_OUT_WEB` | Queda (pregunta 17): `settings.py` la arma con las demás `BUILD_OUT_<plataforma>` |
+| `OFFLINE_KEY` | Hoy es la ruta de un `.pub` (`~/.ssh/vps_offline.pub` por defecto), con la etiqueta «Llave externa» |
+| `PYINSTALLER_BIN` | Salió: PyInstaller se busca en el venv de la app y si no en el `PATH` |
 | `DOMAIN`, `VALKEY_MEMORY`, `PERMISSIONS_ALLOW`, `TURN`, `TURN_IP`, `LOGS_IP`, `PRIVATE`, `SUDO_PASSWORD` | Entraron, en el grupo VPS o GitHub. Las lee la fase 2 |
 | `RESTIC_PASSWORD`, `GITHUB_TOKEN` | En el grupo «Credenciales» |
 | Los campos de `Settings` | `core/fields.py` los lee con `ast` y el formulario los suma a «Credenciales» (ADR-0063) |
@@ -207,9 +226,9 @@ como la llave de una receptora.
 | Falta | Qué bloquea |
 |---|---|
 | Restaurar desde la receptora. `despliegue.md` describe el `restic restore`, el `pg_restore` y después `ANALYZE`, pero canone no trae un programa | Un reemplazo de `restore_db` |
-| Volver a una versión que sigue en `/srv/<app>/releases/`: `deploy.py` falla si la carpeta de la versión existe, y ahí quedan las cinco más nuevas. Comprobado el 2026-11-02: con `v0.1.1` activa, pedir `v0.1.0` responde `already exists` y `current` no cambia | Que «Desplegar versión» vuelva a la activa o a una de esas cinco |
+| ~~Volver a una versión que sigue en `/srv/<app>/releases/`~~. Comprobado el 2026-11-02: `deploy.py` respondía `already exists`. Resuelto en canone (visto el 2026-11-25): `deploy.py` vuelve a poner activa una versión que `releases/` guarda, si sus migraciones son las de la activa. Consola le pasa el tag igual. El 2026-11-25 el VPS de prueba tenía ese `deploy.py`, pero solo guardaba `v0.1.4` (`v0.1.3` no tiene release y `v0.1.2` tiene otra migración), así que la vuelta quedó **sin probar** | «Desplegar versión» ya debería volver a una de las cinco más nuevas |
 
-Hallazgo de lectura en canone *(sin confirmar)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
+Hallazgo de lectura en canone *(sin confirmar; visto otra vez el 2026-11-25)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
 `-i`, así que usan la llave por defecto de la receptora y no una con nombre como `VPS_KEY_NAME`.
 Con esta máquina como receptora (pregunta 9), **Instalar receptora** tiene que agregar la pública
 de esa llave por defecto, o canone tiene que sumar un `-i` a los dos scripts.
@@ -225,7 +244,7 @@ de esa llave por defecto, o canone tiene que sumar un `-i` a los dos scripts.
 | 4 | `systemd_action`, `view_logs`, `health_check`, ver eventos | Fase 2 |
 | 5 | `backend` con `credentials/` (C5) y salida de `sync_server_env` | Fase 1 |
 | 6 | Instalar receptora y pedir respaldo | Fase 2 |
-| 7 | `clean_vps` nuevo. Construido el 2026-11-09 (ADR-0083), sin probar contra un VPS | Fase 2 y el desinstalador del §5 |
+| 7 | `clean_vps` nuevo. Construido el 2026-11-09 (ADR-0083), probado contra el VPS de prueba el 2026-11-25 | Fase 2 y el desinstalador del §5 |
 
 Las fases 0 a 4 son las que despliegan los repos y van primero. Las 5 a 7 no hacen falta para
 desplegar. Las fases 6 y 7 quedan pendientes (decidido el 2026-11-02).
@@ -306,7 +325,13 @@ resuelven está en el 30, «Sin decidir».
 ### Lo que le falta a cada repo
 
 Verificado el 2026-10-31, salvo lo que se dice: ningún repo con `server/` fuera de `equipaggio` puede
-publicar una versión. Antes de apretar «Configurar VPS», cada uno necesita:
+publicar una versión. Visto el 2026-11-25 en las carpetas de `E:\Git`: tienen `release.yml` y `uv.lock`
+`banditore`, `bot`, `cadenza`, `concordia`, `equipaggio`, `posta`, `presenze` y `raccolta` (con tags `v*` en todos menos
+`bot`); `comande` tiene `ci.yml` y no `release.yml`; `navetta` tiene `uv.lock` y nada más;
+`consegne` y `vettore` siguen con `requirements.txt`, y `parametri` y `spazio` no tienen ninguna de las
+dos cosas. `SERVICES` o `UVICORN_APP` siguen en el `config.env` de `banditore`, `concordia`, `navetta` y
+`vettore`. Que tengan el archivo no dice que sigan la plantilla: eso lo mide «Verificar con canone».
+Antes de apretar «Configurar VPS», cada uno necesita:
 
 | Qué | Cómo se comprueba |
 |---|---|

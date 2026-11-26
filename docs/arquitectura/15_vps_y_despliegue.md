@@ -74,7 +74,7 @@ Un tag `vX.Y.Z` hace que el `release.yml` del repo publique el artefacto y su `.
 
 Sin «Crear tag», firma y despliega el último release publicado.
 
-«Desplegar versión» (`deploy_version`) corre `deploy_release` con un tag del eje `version`, que lista los releases publicados con su firma (`catalog.RELEASES`, `canone.signed`), sin cache. `deploy.py` no instala una versión que siga en `/srv/<app>/releases/`, donde quedan las cinco más nuevas.
+«Desplegar versión» (`deploy_version`) corre `deploy_release` con un tag del eje `version`, que lista los releases publicados con su firma (`catalog.RELEASES`, `canone.signed`), sin cache. Una versión que sigue en `/srv/<app>/releases/`, donde quedan las cinco más nuevas, `deploy.py` la vuelve a poner activa sin instalarla, si sus migraciones son las de la activa; si no, corta. Pedir la que ya está activa corta con `already live`. Leído en `plantilla/infra/deploy.py` de canone el 2026-11-25, **sin probar contra un VPS**.
 
 Lo que hace `deploy.py` en cada caso, comprobado el 2026-11-02 con versiones de prueba. En todos los que fallan, el botón termina con error:
 
@@ -86,6 +86,10 @@ Lo que hace `deploy.py` en cada caso, comprobado el 2026-11-02 con versiones de 
 | Migra y no arranca | Se queda en la nueva | **Caído hasta publicar otra versión.** `systemctl is-active` puede decir `active` mientras reinicia: «Health check» es lo que lo detecta |
 | Versión ya podada, con la base más nueva | No cambia, porque la migración falla | Arriba |
 | Release sin firma | No cambia | Arriba. «Desplegar versión» no lo lista |
+
+Desde entonces, `deploy.py` de canone cambió en un caso (leído el 2026-11-25, sin probar): cuando
+no migra y no arranca, borra la carpeta nueva de `releases/`, para que el tag entre otra vez cuando
+se arregle.
 
 ## 5. Los servicios del VPS
 
@@ -122,6 +126,13 @@ Actuar sobre una unidad y leer su journal piden root: van por `vps_setup.Access`
 | La máquina (`machine`) | El swap, uv, el túnel del journal y los archivos que `install.py` escribe para toda la máquina y ningún paquete trae. Los paquetes quedan, con lo que `install.py` sobrescribió en ellos, como el `Caddyfile`: dejar el VPS como lo entrega el proveedor es reinstalarlo desde su panel, y después «Configurar VPS» |
 
 Ningún nivel toca la cuenta que administra, sus llaves ni `00-<app>.conf`, y root sigue bloqueado: después se vuelve a entrar por la misma cuenta. El simulacro corre `uninstall.py --dry-run`, que lista lo que haría; lo demás pasa por el seguro de los objetivos `vps` y `db` ([14](14_seguro_de_destructivos.md)).
+
+Probado el 2026-11-25 contra el VPS de prueba de `equipaggio`, sin la UI: el simulacro en los tres
+niveles, y después el nivel `machine` de verdad. Dejó la máquina sin `/srv/<app>`, `/etc/<app>`,
+`<app>-deploy`, swap, uv ni la cuenta `<app>`, con la cuenta que administra entrando por su llave.
+Sin túnel de registros, `systemctl disable` avisa que `wg-quick@logs.service` no existe y
+`uninstall.py` termina bien igual. Después, «Configurar VPS» volvió a instalar todo hasta
+«Cargar credenciales» (18 credenciales).
 
 `revoke_ssh` muestra la huella exacta que va a sacar antes de tocar nada: revocar la llave equivocada deja el servidor inalcanzable. Sus dos lados son desmarcables por separado. Si no se puede sacar la llave del VPS —no entra, la línea no está o es la última—, corta y deja el par local.
 

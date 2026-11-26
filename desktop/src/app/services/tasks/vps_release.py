@@ -398,8 +398,9 @@ def publish_release(
 def deploy_version(ctx: TaskContext, version: str = "") -> None:
     """Install a signed release.
 
-    `deploy.py` does not install a version that remains in
-    `/srv/<app>/releases/`, where the newest five stay.
+    A version that remains in `/srv/<app>/releases/`, where the newest
+    five stay, `deploy.py` makes current again without installing it,
+    if its migrations are those of the active one.
     """
     if not version:
         raise TaskError(
