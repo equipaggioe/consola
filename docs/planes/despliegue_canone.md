@@ -12,8 +12,9 @@
 > vuelve a firmar si la firma no es de `VPS_KEY_NAME`. `equipaggio` va por `v0.1.4` (2026-11-24). El
 > 2026-11-25 se vació el VPS de prueba (nivel `machine`) y «Configurar VPS» lo rehízo hasta las
 > credenciales; el despliegue de `v0.1.4` falló porque fija `required-version = "==0.13.9"` y canone
-> pasó ese día a uv 0.13.10 (`c9eab64`), que es el que instala `uv.py`. **El VPS quedó sin versión
-> activa** hasta publicar una de `equipaggio` con las copias nuevas de canone.
+> pasó ese día a uv 0.13.10 (`c9eab64`), que es el que instala `uv.py`. El 2026-11-26, con
+> `equipaggio` en el canone de `2fc570a`, «Publicar versión» creó, firmó y desplegó `v0.1.5`: la
+> landing responde 200 y `/api/health` 204. `panel.equipaggio.net` no tiene registro DNS.
 > Lo que sigue en este bloque es el estado del 2026-11-02, salvo donde se dice otra fecha.
 >
 > **Estado del 2026-11-02.** Construidas las fases 0 a 2 (§6), salvo lo que espera otra
