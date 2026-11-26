@@ -74,7 +74,7 @@ Un tag `vX.Y.Z` hace que el `release.yml` del repo publique el artefacto y su `.
 
 Sin «Crear tag», firma y despliega el último release publicado.
 
-«Desplegar versión» (`deploy_version`) corre `deploy_release` con un tag del eje `version`, que lista los releases publicados con su firma (`catalog.RELEASES`, `canone.signed`), sin cache. Una versión que sigue en `/srv/<app>/releases/`, donde quedan las cinco más nuevas, `deploy.py` la vuelve a poner activa sin instalarla, si sus migraciones son las de la activa; si no, corta. Pedir la que ya está activa corta con `already live`. Leído en `plantilla/infra/deploy.py` de canone el 2026-11-25, **sin probar contra un VPS**.
+«Desplegar versión» (`deploy_version`) corre `deploy_release` con un tag del eje `version`, que lista los releases publicados con su firma (`catalog.RELEASES`, `canone.signed`), sin cache. Una versión que sigue en `/srv/<app>/releases/`, donde quedan las cinco más nuevas, `deploy.py` la vuelve a poner activa sin instalarla, si sus migraciones son las de la activa; si no, corta. Pedir la que ya está activa corta con `already live`, y el botón termina con error. Probado el 2026-11-26 en el VPS de prueba con `v0.1.5` y `v0.1.6`, sin migraciones entre las dos: de `v0.1.6` a `v0.1.5` y de vuelta, `current` cambia, el servidor sigue activo y `/api/health` responde 204. El corte por migraciones distintas está sin probar.
 
 Lo que hace `deploy.py` en cada caso, comprobado el 2026-11-02 con versiones de prueba. En todos los que fallan, el botón termina con error:
 

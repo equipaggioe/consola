@@ -14,7 +14,9 @@
 > credenciales; el despliegue de `v0.1.4` falló porque fija `required-version = "==0.13.9"` y canone
 > pasó ese día a uv 0.13.10 (`c9eab64`), que es el que instala `uv.py`. El 2026-11-26, con
 > `equipaggio` en el canone de `2fc570a`, «Publicar versión» creó, firmó y desplegó `v0.1.5`: la
-> landing responde 200 y `/api/health` 204. `panel.equipaggio.net` no tiene registro DNS.
+> landing responde 200 y `/api/health` 204. Con el registro de `panel.equipaggio.net` creado y
+> Caddy reiniciado, el panel responde 200. Después se publicó `v0.1.6`, y «Desplegar versión» volvió
+> a `v0.1.5` y subió otra vez a `v0.1.6` (15, §4). Queda activa `v0.1.6`.
 > Lo que sigue en este bloque es el estado del 2026-11-02, salvo donde se dice otra fecha.
 >
 > **Estado del 2026-11-02.** Construidas las fases 0 a 2 (§6), salvo lo que espera otra
@@ -227,7 +229,7 @@ como la llave de una receptora.
 | Falta | Qué bloquea |
 |---|---|
 | Restaurar desde la receptora. `despliegue.md` describe el `restic restore`, el `pg_restore` y después `ANALYZE`, pero canone no trae un programa | Un reemplazo de `restore_db` |
-| ~~Volver a una versión que sigue en `/srv/<app>/releases/`~~. Comprobado el 2026-11-02: `deploy.py` respondía `already exists`. Resuelto en canone (visto el 2026-11-25): `deploy.py` vuelve a poner activa una versión que `releases/` guarda, si sus migraciones son las de la activa. Consola le pasa el tag igual. El 2026-11-25 el VPS de prueba tenía ese `deploy.py`, pero solo guardaba `v0.1.4` (`v0.1.3` no tiene release y `v0.1.2` tiene otra migración), así que la vuelta quedó **sin probar** | «Desplegar versión» ya debería volver a una de las cinco más nuevas |
+| ~~Volver a una versión que sigue en `/srv/<app>/releases/`~~. Comprobado el 2026-11-02: `deploy.py` respondía `already exists`. Resuelto en canone (visto el 2026-11-25): `deploy.py` vuelve a poner activa una versión que `releases/` guarda, si sus migraciones son las de la activa. Consola le pasa el tag igual. Probado el 2026-11-26 con `v0.1.5` y `v0.1.6` (15, §4) | «Desplegar versión» vuelve a una de las cinco más nuevas con las mismas migraciones |
 
 Hallazgo de lectura en canone *(sin confirmar; visto otra vez el 2026-11-25)*: `backup.sh` y `backup.ps1` llaman a `ssh` sin
 `-i`, así que usan la llave por defecto de la receptora y no una con nombre como `VPS_KEY_NAME`.
