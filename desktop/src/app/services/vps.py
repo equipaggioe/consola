@@ -102,6 +102,11 @@ _TASK_UNITS = {
     TASK: ("task", QT_TRANSLATE_NOOP("vps", "Tarea")),
     BROWSER: ("browser", QT_TRANSLATE_NOOP("vps", "Tarea con navegador")),
 }
+# The axis value of a worker is `worker:<task>`, and its unit is its
+# instance of `<app>-worker@` (ADR-0251 of canone). It has no timer:
+# the VPS lists it like a piece in Java.
+WORKER = "worker:"
+_WORKER_LABEL = QT_TRANSLATE_NOOP("vps", "Worker")
 
 
 def _fixed_units(app: str) -> dict[str, str]:
@@ -119,8 +124,13 @@ def service_labels(values: Iterable[str]) -> dict[str, str]:
         for prefix, (_, label) in _TASK_UNITS.items()
         if v.startswith(prefix)
     }
+    workers = {
+        v: f"{QCoreApplication.translate('vps', _WORKER_LABEL)}: {v.removeprefix(WORKER)}"
+        for v in values
+        if v.startswith(WORKER)
+    }
     fixed = {v: QCoreApplication.translate("vps", label) for v, label in SERVICE_LABELS.items()}
-    return {**fixed, **pieces, **tasks}
+    return {**fixed, **pieces, **tasks, **workers}
 
 
 def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
@@ -132,6 +142,9 @@ def resolve_service(app: str, which: str = MAIN_SERVICE) -> str:
         task = which.removeprefix(prefix)
         if which.startswith(prefix) and _TASK.fullmatch(task):
             return f"{app}-{unit}@{task}"
+    task = which.removeprefix(WORKER)
+    if which.startswith(WORKER) and _TASK.fullmatch(task):
+        return f"{app}-worker@{task}"
     found = _fixed_units(app)
     if which not in found:
         raise TaskError(
@@ -149,10 +162,10 @@ def installed_services(remote: Remote, app: str) -> list[str]:
     ask: offering them all then would hide that the VPS does not answer
     (ADR-0076).
 
-    The pieces in Java and the tasks with their own timer are listed and
-    not asked one by one: `systemctl cat` answers for any instance once
-    the template is installed, and the VPS is what knows which ones
-    `install.py` enabled.
+    The pieces in Java, the tasks with their own timer and the workers
+    are listed and not asked one by one: `systemctl cat` answers for any
+    instance once the template is installed, and the VPS is what knows
+    which ones `install.py` enabled.
     """
     names = {unit: value for value, unit in _fixed_units(app).items()}
     if not reachable(remote):
@@ -163,13 +176,14 @@ def installed_services(remote: Remote, app: str) -> list[str]:
         )
     listing = " ".join(quote(n) for n in names)
     pieces = quote(f"{app}-java@*")
+    workers = quote(f"{app}-worker@*.service")
     tasks = " ".join(quote(f"{app}-{unit}@*.timer") for unit, _ in _TASK_UNITS.values())
     # `true`: the exit code of the loop is that of its last unit, and a
     # missing one is fine.
     output = capture(
         remote,
         f'for s in {listing}; do systemctl cat "$s" >/dev/null 2>&1 && echo "$s"; done; '
-        f"systemctl list-units --all --no-legend --plain {pieces} {tasks}"
+        f"systemctl list-units --all --no-legend --plain {pieces} {workers} {tasks}"
         " | awk '{print $1}'; true",
     )
     found = [value for line in output.split() if (value := _axis_value(app, line, names))]
@@ -187,6 +201,9 @@ def _axis_value(app: str, line: str, names: dict[str, str]) -> str:
         task = line.removeprefix(f"{app}-{unit}@").removesuffix(".timer")
         if line.startswith(f"{app}-{unit}@") and line.endswith(".timer") and _TASK.fullmatch(task):
             return f"{prefix}{task}"
+    task = line.removeprefix(f"{app}-worker@").removesuffix(".service")
+    if line.startswith(f"{app}-worker@") and line.endswith(".service") and _TASK.fullmatch(task):
+        return f"{WORKER}{task}"
     return ""
 
 

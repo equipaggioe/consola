@@ -205,6 +205,45 @@ def test_a_task_in_timers_and_in_browser_timers_stops(tmp_path: Path) -> None:
         canone.package_args(root, config)
 
 
+def test_each_worker_goes_to_install(tmp_path: Path) -> None:
+    """Each task of WORKERS goes as `--worker <task>`, without seconds.
+
+    Without WORKERS no `--worker` goes, and `packages.py` takes none.
+    """
+    root, config = repo(tmp_path)
+    assert "--worker" not in canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    (root / "server" / "src" / "app" / "tasks.py").write_text(
+        'TASKS = {"migrate": migrate, "mailer": mailer, "sweep": sweep}\n'
+        'WORKERS: dict[str, float] = {"mailer": 1}\n',
+        encoding="utf-8",
+    )
+    args = canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    assert [args[i + 1] for i, a in enumerate(args) if a == "--worker"] == ["mailer"]
+    assert "--worker" not in canone.package_args(root, config)
+
+
+def test_a_worker_without_its_task_or_with_a_timer_stops(tmp_path: Path) -> None:
+    """A task of WORKERS that TASKS lacks stops.
+
+    So does one that is also in TIMERS or in BROWSER_TIMERS.
+    """
+    root, config = repo(tmp_path)
+    tasks_py = root / "server" / "src" / "app" / "tasks.py"
+    tasks_py.write_text(
+        'TASKS = {"migrate": migrate}\nWORKERS = {"mailer": 1}\n', encoding="utf-8"
+    )
+    with pytest.raises(TaskError, match="en WORKERS y no en TASKS"):
+        canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+    for timers in ("TIMERS", "BROWSER_TIMERS"):
+        tasks_py.write_text(
+            f'TASKS = {{"mailer": mailer}}\n{timers} = {{"mailer": "minutely"}}\n'
+            'WORKERS = {"mailer": 1}\n',
+            encoding="utf-8",
+        )
+        with pytest.raises(TaskError, match="en WORKERS y en TIMERS o BROWSER_TIMERS"):
+            canone.install_args(root, config, "app", "duenio", KEYS, "256mb")
+
+
 def test_a_server_without_tasks_stops(tmp_path: Path) -> None:
     """A server without tasks.py stops: its units run them."""
     root, config = repo(tmp_path)

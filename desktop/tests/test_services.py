@@ -83,6 +83,15 @@ def test_a_browser_task_names_its_instance_and_has_its_label() -> None:
         vps.resolve_service("bot", "browser:x; reboot")
 
 
+def test_a_worker_names_its_instance_and_has_its_label() -> None:
+    """A worker names its instance of `<app>-worker@`."""
+    assert vps.resolve_service("equipaggio", "worker:mailer") == "equipaggio-worker@mailer"
+    labels = vps.service_labels(["worker:mailer"])
+    assert labels["worker:mailer"] == "Worker: mailer"
+    with pytest.raises(TaskError):
+        vps.resolve_service("equipaggio", "worker:x; reboot")
+
+
 @pytest.mark.parametrize(
     ("line", "value"),
     [
@@ -95,6 +104,9 @@ def test_a_browser_task_names_its_instance_and_has_its_label() -> None:
         ("otra-task@safety.timer", ""),
         ("presenze-browser@attempt.timer", "browser:attempt"),
         ("presenze-browser@attempt.service", ""),
+        ("presenze-worker@mailer.service", "worker:mailer"),
+        ("presenze-worker@mailer.timer", ""),
+        ("otra-worker@mailer.service", ""),
     ],
 )
 def test_each_unit_the_vps_answers(line: str, value: str) -> None:

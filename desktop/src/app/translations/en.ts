@@ -886,128 +886,128 @@ and queries the parameter catalogs again</translation>
 <context>
     <name>ParamsPanel</name>
     <message>
-        <location filename="../widgets/params_panel.py" line="426"/>
-        <location filename="../widgets/params_panel.py" line="459"/>
-        <location filename="../widgets/params_panel.py" line="805"/>
-        <location filename="../widgets/params_panel.py" line="1310"/>
+        <location filename="../widgets/params_panel.py" line="425"/>
+        <location filename="../widgets/params_panel.py" line="458"/>
+        <location filename="../widgets/params_panel.py" line="801"/>
+        <location filename="../widgets/params_panel.py" line="1306"/>
         <source>leyendo el catálogo…</source>
         <translation>reading the catalog…</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="428"/>
+        <location filename="../widgets/params_panel.py" line="427"/>
         <source>no hay ninguna {0}</source>
         <translation>there is no {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="451"/>
+        <location filename="../widgets/params_panel.py" line="450"/>
         <source>automático</source>
         <translation>automatic</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="461"/>
-        <location filename="../widgets/params_panel.py" line="491"/>
-        <location filename="../widgets/params_panel.py" line="807"/>
+        <location filename="../widgets/params_panel.py" line="460"/>
+        <location filename="../widgets/params_panel.py" line="490"/>
+        <location filename="../widgets/params_panel.py" line="803"/>
         <source>no hay ninguno {0}</source>
         <translation>there is no {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="514"/>
+        <location filename="../widgets/params_panel.py" line="513"/>
         <source>Corriendo ahora</source>
         <translation>Running now</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="542"/>
+        <location filename="../widgets/params_panel.py" line="541"/>
         <source>Apagar</source>
         <translation>Shut down</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="544"/>
+        <location filename="../widgets/params_panel.py" line="543"/>
         <source>Apagar {0}</source>
         <translation>Shut down {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="687"/>
+        <location filename="../widgets/params_panel.py" line="683"/>
         <source>Pasos</source>
         <translation>Steps</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="712"/>
+        <location filename="../widgets/params_panel.py" line="708"/>
         <source>Opciones</source>
         <translation>Options</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="795"/>
+        <location filename="../widgets/params_panel.py" line="791"/>
         <source>Única opción disponible</source>
         <translation>Only option available</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="834"/>
+        <location filename="../widgets/params_panel.py" line="830"/>
         <source>Fijas</source>
         <translation>Fixed</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="838"/>
+        <location filename="../widgets/params_panel.py" line="834"/>
         <source>Esta acción no usa nada deducido.</source>
         <translation>This action uses nothing deduced.</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="926"/>
+        <location filename="../widgets/params_panel.py" line="922"/>
         <source>Limpiar</source>
         <translation>Clear</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="930"/>
+        <location filename="../widgets/params_panel.py" line="926"/>
         <source>Vaciar el log de esta pestaña y cerrar sus túneles SSH</source>
         <translation>Empty this tab&apos;s log and close its SSH tunnels</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="949"/>
+        <location filename="../widgets/params_panel.py" line="945"/>
         <source>Simulacro</source>
         <translation>Dry run</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="953"/>
-        <location filename="../widgets/params_panel.py" line="1388"/>
+        <location filename="../widgets/params_panel.py" line="949"/>
+        <location filename="../widgets/params_panel.py" line="1384"/>
         <source>Corre sin tocar nada: solo muestra qué haría</source>
         <translation>Runs without touching anything: it only shows what it would do</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="960"/>
+        <location filename="../widgets/params_panel.py" line="956"/>
         <source>Ejecutar</source>
         <translation>Run</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1324"/>
+        <location filename="../widgets/params_panel.py" line="1320"/>
         <source>en este repo</source>
         <translation>in this repo</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1332"/>
+        <location filename="../widgets/params_panel.py" line="1328"/>
         <source>no hay {0} {1}</source>
         <translation>there is no {0} {1}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1339"/>
+        <location filename="../widgets/params_panel.py" line="1335"/>
         <source>escribe {0}</source>
         <translation>type {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1346"/>
+        <location filename="../widgets/params_panel.py" line="1342"/>
         <source>elige {0}</source>
         <translation>choose {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1355"/>
+        <location filename="../widgets/params_panel.py" line="1351"/>
         <source>selecciona al menos un valor en {0}</source>
         <translation>select at least one value in {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1361"/>
+        <location filename="../widgets/params_panel.py" line="1357"/>
         <source>selecciona al menos un paso</source>
         <translation>select at least one step</translation>
     </message>
     <message>
-        <location filename="../widgets/params_panel.py" line="1366"/>
+        <location filename="../widgets/params_panel.py" line="1362"/>
         <source>faltan claves de configuración: {0}</source>
         <translation>configuration keys are missing: {0}</translation>
     </message>
@@ -1152,162 +1152,162 @@ and queries the parameter catalogs again</translation>
 <context>
     <name>TabPanel</name>
     <message>
-        <location filename="../widgets/tab_panel.py" line="378"/>
+        <location filename="../widgets/tab_panel.py" line="382"/>
         <source>sin acciones abiertas — elige una del panel izquierdo</source>
         <translation>no open actions — choose one from the left panel</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="521"/>
+        <location filename="../widgets/tab_panel.py" line="525"/>
         <source>Ancho de la columna derecha</source>
         <translation>Width of the right column</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="670"/>
+        <location filename="../widgets/tab_panel.py" line="674"/>
         <source>Selecciona una accion del panel izquierdo</source>
         <translation>Select an action from the left panel</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="696"/>
+        <location filename="../widgets/tab_panel.py" line="700"/>
         <source>Los parámetros de la acción
 aparecen aquí</source>
         <translation>The action&apos;s parameters
 appear here</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="712"/>
+        <location filename="../widgets/tab_panel.py" line="716"/>
         <source>Lo que la acción deduce
 aparece aquí</source>
         <translation>What the action deduces
 shows here</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="731"/>
+        <location filename="../widgets/tab_panel.py" line="735"/>
         <source>Ejecutar</source>
         <translation>Run</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="761"/>
+        <location filename="../widgets/tab_panel.py" line="765"/>
         <source>no se puede correr: {0}</source>
         <translation>cannot run: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1101"/>
+        <location filename="../widgets/tab_panel.py" line="1105"/>
         <source>Secciones visibles</source>
         <translation>Visible sections</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1128"/>
+        <location filename="../widgets/tab_panel.py" line="1132"/>
         <source>{0} de {1} protegidos</source>
         <translation>{0} of {1} protected</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1132"/>
+        <location filename="../widgets/tab_panel.py" line="1136"/>
         <source>sin seguros</source>
         <translation>no locks</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1248"/>
+        <location filename="../widgets/tab_panel.py" line="1252"/>
         <source>Bloqueado: {0} toca {1} y este repo lo tiene protegido. El seguro se quita en Configuracion, seccion Seguridad.</source>
         <translation>Blocked: {0} touches {1} and this repo has it protected. The lock is removed in Settings, Security section.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1265"/>
+        <location filename="../widgets/tab_panel.py" line="1269"/>
         <source>Cancelado: {0} no llego a correr sobre {1}.</source>
         <translation>Canceled: {0} did not get to run on {1}.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1311"/>
+        <location filename="../widgets/tab_panel.py" line="1315"/>
         <source>{0} apps marcadas: una pestaña por cada una ({1}).</source>
         <translation>{0} apps checked: one tab for each ({1}).</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1344"/>
+        <location filename="../widgets/tab_panel.py" line="1348"/>
         <source>{0}: cada paso va a su propia pestaña.</source>
         <translation>{0}: each step goes to its own tab.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1354"/>
+        <location filename="../widgets/tab_panel.py" line="1358"/>
         <source>paso desconocido: {0}</source>
         <translation>unknown step: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1366"/>
+        <location filename="../widgets/tab_panel.py" line="1370"/>
         <source>Lanzados: {0}.</source>
         <translation>Launched: {0}.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1373"/>
+        <location filename="../widgets/tab_panel.py" line="1377"/>
         <source>Ningún paso marcado.</source>
         <translation>No step checked.</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1396"/>
+        <location filename="../widgets/tab_panel.py" line="1400"/>
         <source>Ejecutando {0}</source>
         <translation>Running {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1430"/>
+        <location filename="../widgets/tab_panel.py" line="1434"/>
         <source>Hecho</source>
         <translation>Done</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1432"/>
+        <location filename="../widgets/tab_panel.py" line="1436"/>
         <source>Terminó con errores</source>
         <translation>Finished with errors</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1436"/>
+        <location filename="../widgets/tab_panel.py" line="1440"/>
         <source>{0}: hecho</source>
         <translation>{0}: done</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1438"/>
+        <location filename="../widgets/tab_panel.py" line="1442"/>
         <source>{0}: terminó con errores</source>
         <translation>{0}: finished with errors</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1514"/>
-        <location filename="../widgets/tab_panel.py" line="1538"/>
+        <location filename="../widgets/tab_panel.py" line="1518"/>
+        <location filename="../widgets/tab_panel.py" line="1542"/>
         <source>Confirmar</source>
         <translation>Confirm</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1516"/>
+        <location filename="../widgets/tab_panel.py" line="1520"/>
         <source>Dato requerido</source>
         <translation>Required input</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1540"/>
+        <location filename="../widgets/tab_panel.py" line="1544"/>
         <source>Pregunta</source>
         <translation>Question</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1544"/>
+        <location filename="../widgets/tab_panel.py" line="1548"/>
         <source>Sí</source>
         <translation>Yes</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1547"/>
+        <location filename="../widgets/tab_panel.py" line="1551"/>
         <source>No</source>
         <translation>No</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1576"/>
+        <location filename="../widgets/tab_panel.py" line="1580"/>
         <source>{0} paso(s) × {1} variante(s)</source>
         <translation>{0} step(s) × {1} variant(s)</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1586"/>
+        <location filename="../widgets/tab_panel.py" line="1590"/>
         <source>paso «{0}» — no implementado (stub)</source>
         <translation>step «{0}» — not implemented (stub)</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1593"/>
+        <location filename="../widgets/tab_panel.py" line="1597"/>
         <source>faltan claves: {0}</source>
         <translation>missing keys: {0}</translation>
     </message>
     <message>
-        <location filename="../widgets/tab_panel.py" line="1598"/>
+        <location filename="../widgets/tab_panel.py" line="1602"/>
         <source>Simulación completada</source>
         <translation>Simulation completed</translation>
     </message>
@@ -1962,168 +1962,175 @@ shows here</translation>
 <context>
     <name>canone</name>
     <message>
-        <location filename="../services/canone.py" line="70"/>
+        <location filename="../services/canone.py" line="71"/>
         <source>No hay install.py en {0}: «Carpeta de canone» tiene que ser la carpeta de canone.</source>
         <translation>There is no install.py in {0}: «canone folder» must be the canone folder.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="103"/>
+        <location filename="../services/canone.py" line="104"/>
         <source>No hay vite.config.ts en {0}: «Carpeta de canone» tiene que ser la carpeta de canone.</source>
         <translation>There is no vite.config.ts in {0}: «canone folder» must be the canone folder.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="122"/>
+        <location filename="../services/canone.py" line="123"/>
         <source>origin no es un repo de GitHub: {0}</source>
         <translation>origin is not a GitHub repo: {0}</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="139"/>
+        <location filename="../services/canone.py" line="140"/>
         <source>{0} no declara su estado: falta una línea «Estado: en desarrollo» o «Estado: en producción».</source>
         <translation>{0} does not declare its status: a line «Estado: en desarrollo» or «Estado: en producción» is missing.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="152"/>
+        <location filename="../services/canone.py" line="153"/>
         <source>database.py no tiene el comando {0!r}.</source>
         <translation>database.py does not have the command {0!r}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="212"/>
+        <location filename="../services/canone.py" line="213"/>
         <source>No hay packages.py en {0}: actualiza la copia de canone.</source>
         <translation>There is no packages.py in {0}: update the canone copy.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="263"/>
+        <location filename="../services/canone.py" line="264"/>
         <source>/proc/meminfo del VPS no trae MemTotal.</source>
         <translation>The VPS&apos;s /proc/meminfo has no MemTotal.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="304"/>
+        <location filename="../services/canone.py" line="305"/>
         <source>No hay {0}: el servidor no trae las tareas de canone.</source>
         <translation>There is no {0}: the server does not include canone&apos;s tasks.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="321"/>
+        <location filename="../services/canone.py" line="322"/>
         <source>{0} no declara el diccionario TASKS.</source>
         <translation>{0} does not declare the TASKS dictionary.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="352"/>
+        <location filename="../services/canone.py" line="353"/>
         <source>{0}: {1} está en TIMERS y en BROWSER_TIMERS.</source>
         <translation>{0}: {1} is in TIMERS and in BROWSER_TIMERS.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="370"/>
+        <location filename="../services/canone.py" line="379"/>
+        <location filename="../services/canone.py" line="410"/>
         <source>{0}: cada tarea de {1} es un texto.</source>
         <translation>{0}: each task of {1} is a string.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="376"/>
+        <location filename="../services/canone.py" line="416"/>
         <source>{0}: el calendario de {1} en {2} es un texto, como minutely.</source>
         <translation>{0}: the schedule of {1} in {2} is a string, like minutely.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="382"/>
+        <location filename="../services/canone.py" line="385"/>
+        <location filename="../services/canone.py" line="422"/>
         <source>{0}: {1} está en {2} y no en TASKS.</source>
         <translation>{0}: {1} is in {2} and not in TASKS.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="413"/>
+        <location filename="../services/canone.py" line="453"/>
         <source>{0} no tiene {1}: ningún host apunta al VPS.</source>
         <translation>{0} has no {1}: no host points to the VPS.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="269"/>
+        <location filename="../services/canone.py" line="270"/>
         <source>{0} tiene que ser un número, como 12.5: {1!r}.</source>
         <translation>{0} must be a number, like 12.5: {1!r}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="87"/>
+        <location filename="../services/canone.py" line="88"/>
         <source>No hay {0}: «Carpeta de canone» tiene que ser la carpeta de canone.</source>
         <translation>There is no {0}: “canone folder” must be the canone folder.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="275"/>
+        <location filename="../services/canone.py" line="276"/>
         <source>{0} va de 0 a 100: {1}.</source>
         <translation>{0} goes from 0 to 100: {1}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="430"/>
+        <location filename="../services/canone.py" line="391"/>
+        <source>{0}: {1} está en WORKERS y en TIMERS o BROWSER_TIMERS.</source>
+        <translation>{0}: {1} is in WORKERS and in TIMERS or BROWSER_TIMERS.</translation>
+    </message>
+    <message>
+        <location filename="../services/canone.py" line="470"/>
         <source>{0} van los tres juntos o ninguno.</source>
         <translation>{0} go all three together or none.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="492"/>
+        <location filename="../services/canone.py" line="534"/>
         <source>{0} sin {1} en Settings: --turn-ip necesita --turn. Bórrala de config.env.</source>
         <translation>{0} without {1} in Settings: --turn-ip needs --turn. Delete it from config.env.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="511"/>
+        <location filename="../services/canone.py" line="553"/>
         <source>No se sube {0!r}: es una de {1}.</source>
         <translation>{0!r} is not uploaded: it is one of {1}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="571"/>
+        <location filename="../services/canone.py" line="613"/>
         <source>No es una firma SSH.</source>
         <translation>It is not an SSH signature.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="580"/>
+        <location filename="../services/canone.py" line="622"/>
         <source>ninguno</source>
         <translation>none</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="582"/>
+        <location filename="../services/canone.py" line="624"/>
         <source>último evento</source>
         <translation>last event</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="583"/>
+        <location filename="../services/canone.py" line="625"/>
         <source>último crítico</source>
         <translation>last critical</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="584"/>
+        <location filename="../services/canone.py" line="626"/>
         <source>último respaldo</source>
         <translation>last backup</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="585"/>
+        <location filename="../services/canone.py" line="627"/>
         <source>disco libre</source>
         <translation>free disk</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="585"/>
+        <location filename="../services/canone.py" line="627"/>
         <source>{0:.1f} GB de {1:.1f} GB</source>
         <translation>{0:.1f} GB of {1:.1f} GB</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="598"/>
+        <location filename="../services/canone.py" line="640"/>
         <source>{0!r} no es un tag como v1.4.0.</source>
         <translation>{0!r} is not a tag like v1.4.0.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="619"/>
+        <location filename="../services/canone.py" line="661"/>
         <source>DATABASE_URL no nombra su rol: hace falta para entrar como el dueño.</source>
         <translation>DATABASE_URL does not name its role: it is needed to log in as the owner.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="639"/>
-        <location filename="../services/canone.py" line="720"/>
+        <location filename="../services/canone.py" line="681"/>
+        <location filename="../services/canone.py" line="762"/>
         <source>Faltan en config.env: {0}.</source>
         <translation>Missing in config.env: {0}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="697"/>
+        <location filename="../services/canone.py" line="739"/>
         <source>No hay campos de Settings en {0}.</source>
         <translation>There are no Settings fields in {0}.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="705"/>
+        <location filename="../services/canone.py" line="747"/>
         <source>Estas claves de config.env no son de Consola ni campos de Settings: {0}. Bórralas antes de cargar las credenciales.</source>
         <translation>These config.env keys are neither Consola&apos;s nor Settings fields: {0}. Delete them before loading the credentials.</translation>
     </message>
     <message>
-        <location filename="../services/canone.py" line="727"/>
+        <location filename="../services/canone.py" line="769"/>
         <source>{0} tiene un salto de linea: credentials.py lee una por linea.</source>
         <translation>{0} has a line break: credentials.py reads one per line.</translation>
     </message>
@@ -4449,7 +4456,7 @@ shows here</translation>
     <message>
         <location filename="../services/command_docs.py" line="1620"/>
         <source>Con «Agregar los archivos de las cuentas», suma los de un servidor con cuentas. Reemplaza los del repo que se llaman igual, como routers/auth.py.</source>
-        <translation>With «Add the account files», includes those of a server with accounts. Replaces the repo's files of the same name, such as routers/auth.py.</translation>
+        <translation>With «Add the account files», includes those of a server with accounts. Replaces the repo&apos;s files of the same name, such as routers/auth.py.</translation>
     </message>
     <message>
         <location filename="../services/command_docs.py" line="765"/>
@@ -6401,24 +6408,24 @@ shows here</translation>
     </message>
     <message>
         <location filename="../services/process.py" line="143"/>
-        <location filename="../services/process.py" line="193"/>
+        <location filename="../services/process.py" line="196"/>
         <source>Detenido por el usuario.</source>
         <translation>Stopped by the user.</translation>
     </message>
     <message>
-        <location filename="../services/process.py" line="260"/>
-        <location filename="../services/process.py" line="302"/>
+        <location filename="../services/process.py" line="263"/>
+        <location filename="../services/process.py" line="305"/>
         <source>No se encontro el ejecutable: {0}</source>
         <translation>The executable was not found: {0}</translation>
     </message>
     <message>
-        <location filename="../services/process.py" line="266"/>
-        <location filename="../services/process.py" line="308"/>
+        <location filename="../services/process.py" line="269"/>
+        <location filename="../services/process.py" line="311"/>
         <source>El comando excedio {0}s: {1}</source>
         <translation>The command exceeded {0}s: {1}</translation>
     </message>
     <message>
-        <location filename="../services/process.py" line="274"/>
+        <location filename="../services/process.py" line="277"/>
         <source>Fallo ({0}): {1}
 {2}</source>
         <translation>Failed ({0}): {1}
@@ -7801,42 +7808,47 @@ Check that virtualization (VT-x or AMD-V) is enabled in the BIOS and that the kv
         <translation>Browser task</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="138"/>
+        <location filename="../services/vps.py" line="109"/>
+        <source>Worker</source>
+        <translation>Worker</translation>
+    </message>
+    <message>
+        <location filename="../services/vps.py" line="151"/>
         <source>Servicio desconocido: {0}</source>
         <translation>Unknown service: {0}</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="160"/>
+        <location filename="../services/vps.py" line="173"/>
         <source>No se entra al VPS como {0}: no se puede preguntar qué servicios tiene.</source>
         <translation>Cannot log in to the VPS as {0}: it is not possible to ask which services it has.</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="220"/>
+        <location filename="../services/vps.py" line="237"/>
         <source>Accion de systemd desconocida: {0}</source>
         <translation>Unknown systemd action: {0}</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="268"/>
+        <location filename="../services/vps.py" line="285"/>
         <source>Respuesta inesperada al pedir el puerto de Postgres: {0!r}</source>
         <translation>Unexpected answer when asking for the Postgres port: {0!r}</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="308"/>
+        <location filename="../services/vps.py" line="325"/>
         <source>acceso</source>
         <translation>access</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="312"/>
+        <location filename="../services/vps.py" line="329"/>
         <source>carga</source>
         <translation>load</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="315"/>
+        <location filename="../services/vps.py" line="332"/>
         <source>disco</source>
         <translation>disk</translation>
     </message>
     <message>
-        <location filename="../services/vps.py" line="318"/>
+        <location filename="../services/vps.py" line="335"/>
         <source>memoria</source>
         <translation>memory</translation>
     </message>
@@ -7990,7 +8002,7 @@ Check that virtualization (VT-x or AMD-V) is enabled in the BIOS and that the kv
         <translation>{0} is already deployed.</translation>
     </message>
     <message>
-        <location filename="../services/tasks/vps_release.py" line="406"/>
+        <location filename="../services/tasks/vps_release.py" line="407"/>
         <source>Elige la versión que se despliega.</source>
         <translation>Choose the version to deploy.</translation>
     </message>

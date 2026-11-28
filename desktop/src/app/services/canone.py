@@ -33,8 +33,9 @@ SURFACES = ("web", "panel", "landing")
 _HOST = {"web": "app.", "panel": "panel.", "landing": ""}
 # The tasks of the server, `python -m app.tasks <task>`. A server
 # without `sweep` keeps no files of its users, and installs without
-# its timer; `TIMERS` gives the others their calendar, and
+# its timer; `TIMERS` gives the others their calendar,
 # `BROWSER_TIMERS` that of those that drive Chromium (ADR-0172 of
+# canone), and `WORKERS` names those that run without end (ADR-0251 of
 # canone).
 TASKS = Path("src") / "app" / "tasks.py"
 RELEASE = Path(".github") / "workflows" / "release.yml"
@@ -356,6 +357,45 @@ def browsers(server: Path) -> list[tuple[str, str]]:
     return found
 
 
+def workers(server: Path) -> list[str]:
+    """Return each task of `WORKERS`.
+
+    `WORKERS` names the tasks that run without end, with the seconds
+    between their rounds, which `install.py --worker` runs in a unit of
+    their own (fastapi.md of canone, «Tareas»). The seconds stay in the
+    code: `install.py` does not take them. A task of `WORKERS` goes in
+    no other dictionary. Without it there are none.
+    """
+    path = _tasks_file(server)
+    found = _dictionary(path, "WORKERS")
+    if found is None:
+        return []
+    declared = tasks(server)
+    timed = {task for task, _ in timers(server)} | {task for task, _ in browsers(server)}
+    names = []
+    for key in found.keys:
+        if not (isinstance(key, ast.Constant) and isinstance(key.value, str)):
+            raise TaskError(
+                QCoreApplication.translate("canone", "{0}: cada tarea de {1} es un texto.").format(
+                    path, "WORKERS"
+                )
+            )
+        if key.value not in declared:
+            raise TaskError(
+                QCoreApplication.translate("canone", "{0}: {1} está en {2} y no en TASKS.").format(
+                    path, key.value, "WORKERS"
+                )
+            )
+        if key.value in timed:
+            raise TaskError(
+                QCoreApplication.translate(
+                    "canone", "{0}: {1} está en WORKERS y en TIMERS o BROWSER_TIMERS."
+                ).format(path, key.value)
+            )
+        names.append(key.value)
+    return names
+
+
 def _calendars(server: Path, name: str) -> list[tuple[str, str]]:
     """Return each task of the dictionary `name` with its calendar."""
     path = _tasks_file(server)
@@ -481,6 +521,8 @@ def install_args(
         args += ["--task", f"{task}={calendar}"]
     for task, calendar in browsers(root / config.get("SERVER_DIR")):
         args += ["--browser", f"{task}={calendar}"]
+    for task in workers(root / config.get("SERVER_DIR")):
+        args += ["--worker", task]
     for extension in envfile.split_list(config.get("DB_EXTENSIONS")):
         args += ["--extension", extension]
     if calls(root, config):
